@@ -17,6 +17,7 @@ class McpTool {
     this.description,
     Map<String, Object?>? inputSchema,
     this.outputSchema,
+    this.annotations,
   }) : inputSchema =
            inputSchema ??
            const <String, Object?>{
@@ -38,6 +39,7 @@ class McpTool {
   final String? description;
   final Map<String, Object?> inputSchema;
   final Map<String, Object?>? outputSchema;
+  final McpToolAnnotations? annotations;
   final McpToolHandler handler;
 
   Map<String, Object?> toJson() {
@@ -54,7 +56,44 @@ class McpTool {
     if (outputSchema != null) {
       json['outputSchema'] = outputSchema;
     }
+    final annotations = this.annotations;
+    if (annotations != null && !annotations.isEmpty) {
+      json['annotations'] = annotations.toJson();
+    }
     return json;
+  }
+}
+
+class McpToolAnnotations {
+  const McpToolAnnotations({
+    this.title,
+    this.readOnlyHint,
+    this.destructiveHint,
+    this.idempotentHint,
+    this.openWorldHint,
+  });
+
+  final String? title;
+  final bool? readOnlyHint;
+  final bool? destructiveHint;
+  final bool? idempotentHint;
+  final bool? openWorldHint;
+
+  bool get isEmpty =>
+      title == null &&
+      readOnlyHint == null &&
+      destructiveHint == null &&
+      idempotentHint == null &&
+      openWorldHint == null;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (title != null) 'title': title,
+      if (readOnlyHint != null) 'readOnlyHint': readOnlyHint,
+      if (destructiveHint != null) 'destructiveHint': destructiveHint,
+      if (idempotentHint != null) 'idempotentHint': idempotentHint,
+      if (openWorldHint != null) 'openWorldHint': openWorldHint,
+    };
   }
 }
 

@@ -173,9 +173,27 @@ protocol bridge.
   deployment-chain audit passed with clean CI logs, a relevant Dart package
   dry-run, and the existing native release dry-run still relevant because no
   native-release-sensitive inputs changed.
+- 2026-05-01: Reopened for a concrete router-hosted MCP application need:
+  the router endpoint should expose safety metadata, document APIs without
+  necessarily making every procedure callable, and prove RPC/pubsub/security
+  behavior through integration smoke coverage. The current slice adds MCP tool
+  annotations, `allow_call`/`allowCall` handling for configured and registered
+  WAMP procedures, danger/safety-hint extraction from `_ai_meta_data`, and a
+  native router smoke with safe RPC, unsafe RPC, documented-only API metadata,
+  declared pub/sub, an anonymous MCP route, and a ticket-protected MCP route.
+- 2026-05-01: Focused verification for the current MCP follow-up passed:
+  `dart analyze packages/connectanum_mcp packages/connectanum_router`,
+  `dart test packages/connectanum_mcp/test/wamp_api_test.dart -r expanded`,
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`,
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "hosts MCP over HTTP using the router internal session"`,
+  and `bin/test-fast`.
+- 2026-05-01: Full local `bin/verify` passed after the MCP safety/pubsub
+  follow-up, including formatting, Rust native/FFI tests, Python
+  package-artifact checks, MCP tests, client/native tests, auth-server tests,
+  bench integration tests, full router package tests, zero-copy publish tests,
+  and Chrome Dart2Wasm WebSocket transport tests.
 - First usable MCP bridge path is complete for local stdio and router-hosted
-  JSON-RPC `POST` request/response clients. Remaining MCP follow-up should be
-  driven by a concrete application need, such as resources/prompts, full
-  Streamable HTTP GET/SSE/session semantics, or more auth/deployment examples.
-- This plan is parked after the first usable bridge path; reopen it only for a
-  concrete downstream application need or MCP compatibility gap.
+  JSON-RPC `POST` request/response clients. This plan is parked again after
+  the router-hosted MCP safety/pubsub smoke follow-up; reopen it only when
+  resources/prompts, full Streamable HTTP GET/SSE/session semantics, or another
+  concrete MCP compatibility gap becomes the next application blocker.

@@ -95,6 +95,94 @@ void main() {
       expect(procedures.single['metadata'], containsPair('domain', 'demo'));
     });
 
+    test('maps WAMP safety metadata to MCP tool annotations', () async {
+      final api = McpWampApi(
+        procedures: [
+          McpWampProcedure(
+            procedure: 'app.safe.lookup',
+            metadata: const McpWampApiMetadata(
+              tags: ['safe'],
+              readOnlyHint: true,
+              destructiveHint: false,
+              idempotentHint: true,
+              openWorldHint: false,
+            ),
+          ),
+          McpWampProcedure(
+            procedure: 'app.unsafe.delete',
+            metadata: const McpWampApiMetadata(
+              tags: ['unsafe'],
+              danger: true,
+              openWorldHint: false,
+            ),
+          ),
+          McpWampProcedure(
+            procedure: 'app.documented.only',
+            allowCall: false,
+            metadata: const McpWampApiMetadata(tags: ['documented']),
+          ),
+        ],
+      );
+      final server = _server(
+        api.toTools(
+          call: (_) => (
+            callRequestId: 1,
+            progress: false,
+            pptScheme: null,
+            pptSerializer: null,
+            pptCipher: null,
+            pptKeyId: null,
+            customDetails: null,
+            arguments: null,
+            argumentsKeywords: const <String, dynamic>{},
+          ),
+          includePubSubTools: false,
+        ),
+      );
+      await _initializeAndStart(server);
+
+      final listResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 15,
+        'method': 'tools/list',
+        'params': {},
+      });
+      final tools = (listResponse?['result'] as Map)['tools'] as List;
+      final byName = {
+        for (final tool in tools.cast<Map>())
+          tool['name'] as String: tool.cast<String, Object?>(),
+      };
+      expect(byName, contains('app.safe.lookup'));
+      expect(byName, contains('app.unsafe.delete'));
+      expect(byName, isNot(contains('app.documented.only')));
+      expect(
+        byName['app.safe.lookup']?['annotations'],
+        containsPair('readOnlyHint', true),
+      );
+      expect(
+        byName['app.safe.lookup']?['annotations'],
+        containsPair('destructiveHint', false),
+      );
+      expect(
+        byName['app.unsafe.delete']?['annotations'],
+        containsPair('destructiveHint', true),
+      );
+
+      final metaResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 16,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.api.describe',
+          'arguments': {'uri': 'app.documented.only'},
+        },
+      });
+      final meta =
+          (metaResponse?['result'] as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      expect(meta['allowCall'], isFalse);
+    });
+
     test('exposes standard WAMP meta procedures when requested', () async {
       late McpWampToolCall capturedCall;
       final api = McpWampApi(includeStandardMetaApi: true);

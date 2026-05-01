@@ -58,6 +58,7 @@ class McpWampToolDelegate {
     String? description,
     Map<String, Object?>? inputSchema,
     Map<String, Object?>? outputSchema,
+    McpToolAnnotations? annotations,
   }) {
     return McpTool(
       name: name,
@@ -65,6 +66,7 @@ class McpWampToolDelegate {
       description: description,
       inputSchema: inputSchema,
       outputSchema: outputSchema,
+      annotations: annotations,
       handler: handle,
     );
   }

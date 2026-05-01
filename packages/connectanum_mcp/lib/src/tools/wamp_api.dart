@@ -52,7 +52,7 @@ class McpWampApi {
     bool includePubSubTools = true,
     Duration? timeout,
   }) {
-    if (procedures.isNotEmpty && call == null) {
+    if (procedures.any((procedure) => procedure.allowCall) && call == null) {
       throw ArgumentError(
         'A WAMP call invoker is required when procedures are declared.',
       );
@@ -65,6 +65,9 @@ class McpWampApi {
 
     final tools = <McpTool>[];
     for (final procedure in procedures) {
+      if (!procedure.allowCall) {
+        continue;
+      }
       tools.add(
         McpWampToolDelegate(
           procedure: procedure.procedure,
@@ -81,6 +84,9 @@ class McpWampApi {
           description: procedure.description,
           inputSchema: procedure.inputSchema,
           outputSchema: procedure.outputSchema,
+          annotations: procedure.metadata.toToolAnnotations(
+            title: procedure.title,
+          ),
         ),
       );
     }
@@ -155,6 +161,12 @@ class McpWampApi {
         description:
             'Lists the declared WAMP procedures and topics exposed through '
             'this MCP server.',
+        annotations: const McpToolAnnotations(
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        ),
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -174,6 +186,12 @@ class McpWampApi {
         description:
             'Returns metadata and JSON schemas for one declared WAMP '
             'procedure or topic.',
+        annotations: const McpToolAnnotations(
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        ),
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -202,6 +220,12 @@ class McpWampApi {
         name: 'connectanum.pubsub.publish',
         title: 'Publish WAMP Event',
         description: 'Publishes an event to a declared WAMP topic.',
+        annotations: const McpToolAnnotations(
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: false,
+        ),
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -225,6 +249,12 @@ class McpWampApi {
         description:
             'Subscribes to a declared WAMP topic and buffers events for '
             'polling through MCP.',
+        annotations: const McpToolAnnotations(
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: false,
+        ),
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -241,6 +271,12 @@ class McpWampApi {
         name: 'connectanum.pubsub.poll',
         title: 'Poll WAMP Events',
         description: 'Returns buffered WAMP events for an MCP subscription.',
+        annotations: const McpToolAnnotations(
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: false,
+        ),
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -256,6 +292,12 @@ class McpWampApi {
         name: 'connectanum.pubsub.unsubscribe',
         title: 'Unsubscribe WAMP Topic',
         description: 'Unsubscribes an MCP-created WAMP topic subscription.',
+        annotations: const McpToolAnnotations(
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        ),
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -343,6 +385,7 @@ class McpWampProcedure {
     this.argumentsBuilder,
     this.resultMapper,
     this.timeout,
+    this.allowCall = true,
   }) : toolName = toolName ?? procedure,
        inputSchema = inputSchema ?? _defaultObjectSchema,
        metadata = metadata ?? const McpWampApiMetadata();
@@ -357,6 +400,7 @@ class McpWampProcedure {
   final McpWampArgumentsBuilder? argumentsBuilder;
   final McpWampResultMapper? resultMapper;
   final Duration? timeout;
+  final bool allowCall;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -364,6 +408,7 @@ class McpWampProcedure {
       'uri': procedure,
       'procedure': procedure,
       'toolName': toolName,
+      'allowCall': allowCall,
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       'inputSchema': mcpWampJsonCompatible(inputSchema),
@@ -422,6 +467,10 @@ class McpWampApiMetadata {
     this.inputJsonSchema,
     this.outputJsonSchema,
     this.danger = false,
+    this.readOnlyHint,
+    this.destructiveHint,
+    this.idempotentHint,
+    this.openWorldHint,
   });
 
   final String? shortDescription;
@@ -435,6 +484,10 @@ class McpWampApiMetadata {
   final Map<String, Object?>? inputJsonSchema;
   final Map<String, Object?>? outputJsonSchema;
   final bool danger;
+  final bool? readOnlyHint;
+  final bool? destructiveHint;
+  final bool? idempotentHint;
+  final bool? openWorldHint;
 
   bool get isEmpty =>
       shortDescription == null &&
@@ -447,7 +500,11 @@ class McpWampApiMetadata {
       publishesEvents.isEmpty &&
       inputJsonSchema == null &&
       outputJsonSchema == null &&
-      !danger;
+      !danger &&
+      readOnlyHint == null &&
+      destructiveHint == null &&
+      idempotentHint == null &&
+      openWorldHint == null;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -465,7 +522,22 @@ class McpWampApiMetadata {
       if (outputJsonSchema != null)
         'output_json_schema': mcpWampJsonCompatible(outputJsonSchema),
       if (danger) 'danger': true,
+      if (readOnlyHint != null) 'read_only_hint': readOnlyHint,
+      if (destructiveHint != null) 'destructive_hint': destructiveHint,
+      if (idempotentHint != null) 'idempotent_hint': idempotentHint,
+      if (openWorldHint != null) 'open_world_hint': openWorldHint,
     };
+  }
+
+  McpToolAnnotations? toToolAnnotations({String? title}) {
+    final annotations = McpToolAnnotations(
+      title: title,
+      readOnlyHint: readOnlyHint ?? (danger ? false : null),
+      destructiveHint: destructiveHint ?? (danger ? true : null),
+      idempotentHint: idempotentHint,
+      openWorldHint: openWorldHint,
+    );
+    return annotations.isEmpty ? null : annotations;
   }
 }
 

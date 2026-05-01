@@ -2,20 +2,43 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed branch checkpoint: `1c4622c`
-(`mcp: add router-hosted HTTP endpoint`)
+Last reviewed branch checkpoint: `348502a`
+(`docs: record mcp router ci evidence`)
 Last reviewed implementation commit: `1c4622c`
 (`mcp: add router-hosted HTTP endpoint`)
 Active exec plan:
 No active multi-session implementation plan. The MCP
-application-integration plan is parked after the first usable local stdio and
-router-hosted JSON-RPC `POST` paths reached local and hosted evidence; use
-`ROADMAP_NEXT.md` for the next milestone unless CI or deployment-chain health
-regresses.
+application-integration plan is parked again after the router-hosted
+safety/pubsub smoke follow-up passed focused and full local verification; use
+`ROADMAP_NEXT.md` for the next milestone unless CI, deployment-chain health, or
+a concrete MCP compatibility gap regresses.
 
 ## Last Known Verification
 
 - Current autonomous focus:
+  - current MCP follow-up implements router-hosted safety metadata and
+    route-security coverage: WAMP `_ai_meta_data` now maps to MCP tool
+    annotations, declared procedures can disable MCP tool calls while remaining
+    visible through API metadata, and the router extracts safety hints from
+    both configured and dynamically registered APIs
+  - new native router MCP smoke coverage builds a real router fixture with
+    safe RPC, unsafe RPC, documented-only API metadata, declared pub/sub, an
+    anonymous MCP route, and a ticket-protected MCP route; it verifies public
+    calls, denied unsafe calls, hidden documented-only calls, API describe
+    metadata, MCP publish/subscribe/poll, bearer-token issuance, and protected
+    unsafe calls after authentication
+  - focused checks passed on 2026-05-01 for the current MCP follow-up:
+    `dart analyze packages/connectanum_mcp packages/connectanum_router`,
+    `dart test packages/connectanum_mcp/test/wamp_api_test.dart -r expanded`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "hosts MCP over HTTP using the router internal session"`,
+    and `bin/test-fast`
+  - full local `bin/verify` passed on 2026-05-01 after the current MCP
+    safety/pubsub follow-up; it included formatting, Rust native/FFI tests,
+    Python package-artifact checks, MCP tests, client/native tests,
+    auth-server tests, bench integration tests, full router package tests
+    including the new router-hosted MCP smoke, zero-copy publish tests, and
+    Chrome Dart2Wasm WebSocket transport tests
   - keep the CI chain clean first; latest hosted branch checkpoint `1c4622c`
     passed GitHub `CI` run `25205192927` with `Fast Checks` in 4m56s and
     `Full Verify` in 7m51s

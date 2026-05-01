@@ -275,6 +275,7 @@ class _RouterMcpEndpoint {
                   _schemaFromDetails(details, 'output') ??
                   metadata?.outputJsonSchema,
               metadata: metadata,
+              allowCall: _allowCallFrom(details),
             ),
           );
         }
@@ -586,6 +587,7 @@ mcp.McpWampProcedure _procedureFromConfig(Map<String, Object?> config) {
     outputSchema:
         _schemaFromDetails(config, 'output') ?? metadata?.outputJsonSchema,
     metadata: metadata,
+    allowCall: _allowCallFrom(config),
   );
 }
 
@@ -637,8 +639,75 @@ mcp.McpWampApiMetadata? _metadataFromDetails(Map<String, Object?> details) {
     outputJsonSchema:
         _jsonMapFrom(map['output_json_schema']) ??
         _jsonMapFrom(map['outputJsonSchema']),
-    danger: map['danger'] == true,
+    danger: _dangerFrom(map['danger']),
+    readOnlyHint: _annotationBool(map, 'read_only_hint', 'readOnlyHint'),
+    destructiveHint: _annotationBool(
+      map,
+      'destructive_hint',
+      'destructiveHint',
+    ),
+    idempotentHint: _annotationBool(map, 'idempotent_hint', 'idempotentHint'),
+    openWorldHint: _annotationBool(map, 'open_world_hint', 'openWorldHint'),
   );
+}
+
+bool _allowCallFrom(Map<String, Object?> config) {
+  final allowCall = config['allow_call'] ?? config['allowCall'];
+  if (allowCall is bool) {
+    return allowCall;
+  }
+  final callable = config['callable'];
+  if (callable is bool) {
+    return callable;
+  }
+  return true;
+}
+
+bool _dangerFrom(Object? value) {
+  if (value == null || value == false) {
+    return false;
+  }
+  if (value == true) {
+    return true;
+  }
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty || trimmed == 'false') {
+      return false;
+    }
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded == null || decoded == false) {
+        return false;
+      }
+    } on FormatException {
+      // Non-empty danger strings are treated as a safety warning.
+    }
+    return true;
+  }
+  if (value is Map) {
+    return value.isNotEmpty;
+  }
+  return false;
+}
+
+bool? _annotationBool(
+  Map<String, Object?> map,
+  String snakeKey,
+  String camelKey,
+) {
+  final direct = map[snakeKey] ?? map[camelKey];
+  if (direct is bool) {
+    return direct;
+  }
+  final annotations = map['annotations'];
+  if (annotations is Map) {
+    final value = annotations[camelKey] ?? annotations[snakeKey];
+    if (value is bool) {
+      return value;
+    }
+  }
+  return null;
 }
 
 Map<String, Object?>? _schemaFromDetails(

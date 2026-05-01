@@ -11,6 +11,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
 
+import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_router/src/native/ffi_bindings.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
@@ -990,6 +991,239 @@ void main() {
           (metaResult['argumentsKeywords'] as Map<String, Object?>)['exact']
               as List;
       expect(exact, isNotEmpty);
+    }, skip: skipReason);
+
+    test('smoke tests MCP router RPC pubsub and route security', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9112,
+        nativeLib: nativeLib,
+        settings: _buildMcpSmokeSettings(),
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      final serviceSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'mcp-smoke-service',
+        authRole: 'internal',
+      );
+      addTearDown(serviceSession.close);
+
+      final safeRegistration = await serviceSession.register(
+        'app.safe.lookup',
+        options: core.RegisterOptions(
+          custom: const {
+            '_ai_meta_data': {
+              'short_description': 'Look up task state',
+              'description': 'Reads task state without modifying data.',
+              'domain': 'app',
+              'entity': 'task',
+              'verbs': ['lookup'],
+              'tags': ['safe'],
+              'publishes_events': ['app.events.audit'],
+              'input_json_schema': {
+                'type': 'object',
+                'properties': {
+                  'taskId': {'type': 'string'},
+                },
+                'required': ['taskId'],
+              },
+              'output_json_schema': {
+                'type': 'object',
+                'properties': {
+                  'status': {'type': 'string'},
+                },
+              },
+              'read_only_hint': true,
+              'destructive_hint': false,
+              'idempotent_hint': true,
+              'open_world_hint': false,
+            },
+          },
+        ),
+      );
+      safeRegistration.onInvoke((invocation) {
+        invocation.respondWith(
+          argumentsKeywords: {
+            'status': 'open',
+            'request': invocation.argumentsKeywords,
+          },
+        );
+      });
+
+      final unsafeRegistration = await serviceSession.register(
+        'app.unsafe.delete',
+        options: core.RegisterOptions(
+          custom: const {
+            '_ai_meta_data': {
+              'short_description': 'Delete a task',
+              'description': 'Deletes task data and requires approval.',
+              'domain': 'app',
+              'entity': 'task',
+              'verbs': ['delete'],
+              'tags': ['unsafe'],
+              'danger': {'level': 'WRITE', 'requiresApproval': true},
+              'read_only_hint': false,
+              'destructive_hint': true,
+              'idempotent_hint': false,
+              'open_world_hint': false,
+            },
+          },
+        ),
+      );
+      unsafeRegistration.onInvoke((invocation) {
+        invocation.respondWith(
+          argumentsKeywords: {
+            'deleted': invocation.argumentsKeywords?['taskId'],
+          },
+        );
+      });
+
+      final listener = binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+
+      await _initializeMcp(client, listener.port, '/mcp/public');
+      final tools = await _listMcpTools(client, listener.port, '/mcp/public');
+      final toolByName = {
+        for (final tool in tools) tool['name'] as String: tool,
+      };
+      expect(toolByName, contains('app.safe.lookup'));
+      expect(toolByName, contains('app.unsafe.delete'));
+      expect(toolByName, isNot(contains('app.documented.only')));
+      expect(
+        toolByName['app.safe.lookup']?['annotations'],
+        containsPair('readOnlyHint', true),
+      );
+      expect(
+        toolByName['app.unsafe.delete']?['annotations'],
+        containsPair('destructiveHint', true),
+      );
+
+      final safeResult = await _callMcpTool(
+        client,
+        listener.port,
+        '/mcp/public',
+        'app.safe.lookup',
+        {'taskId': 'T-1'},
+      );
+      expect(safeResult['isError'], isFalse);
+      final safeContent =
+          safeResult['structuredContent'] as Map<String, Object?>;
+      expect(
+        (safeContent['argumentsKeywords'] as Map)['status'],
+        equals('open'),
+      );
+
+      final publicUnsafeResult = await _callMcpTool(
+        client,
+        listener.port,
+        '/mcp/public',
+        'app.unsafe.delete',
+        {'taskId': 'T-1'},
+      );
+      expect(publicUnsafeResult['isError'], isTrue);
+
+      final hiddenCall = await _postJson(client, listener.port, '/mcp/public', {
+        'jsonrpc': '2.0',
+        'id': 50,
+        'method': 'tools/call',
+        'params': {
+          'name': 'app.documented.only',
+          'arguments': {'taskId': 'T-1'},
+        },
+      });
+      expect(hiddenCall.statusCode, equals(HttpStatus.ok));
+      expect(hiddenCall.json?['error'], isA<Map<String, Object?>>());
+      expect(jsonEncode(hiddenCall.json?['error']), contains('Unknown MCP'));
+
+      final describeHidden = await _callMcpTool(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.api.describe',
+        {'uri': 'app.documented.only'},
+      );
+      final hiddenApi =
+          describeHidden['structuredContent'] as Map<String, Object?>;
+      expect(hiddenApi['allowCall'], isFalse);
+
+      final subscribeResult = await _callMcpTool(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.pubsub.subscribe',
+        {'topic': 'app.events.audit', 'queueLimit': 5},
+      );
+      final subscription =
+          subscribeResult['structuredContent'] as Map<String, Object?>;
+      final handle = subscription['handle'] as String;
+
+      final publishResult = await _callMcpTool(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.pubsub.publish',
+        {
+          'topic': 'app.events.audit',
+          'argumentsKeywords': {'via': 'mcp'},
+          'acknowledge': true,
+        },
+      );
+      expect(
+        publishResult['structuredContent'],
+        containsPair('acknowledged', true),
+      );
+
+      await serviceSession.publish(
+        'app.events.audit',
+        argumentsKeywords: {'via': 'service'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final pollResult = await _pollMcpUntilEvents(
+        client,
+        listener.port,
+        '/mcp/public',
+        handle,
+      );
+      expect(jsonEncode(pollResult['events']), contains('service'));
+
+      final unauthorized = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure',
+        {
+          'jsonrpc': '2.0',
+          'id': 60,
+          'method': 'initialize',
+          'params': {'protocolVersion': '2025-11-25'},
+        },
+      );
+      expect(unauthorized.statusCode, equals(HttpStatus.unauthorized));
+
+      final token = await _issueTicketHttpToken(client, listener.port);
+      final authHeaders = {'authorization': 'Bearer $token'};
+      await _initializeMcp(
+        client,
+        listener.port,
+        '/mcp/secure',
+        headers: authHeaders,
+      );
+      final secureUnsafeResult = await _callMcpTool(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'app.unsafe.delete',
+        {'taskId': 'T-2'},
+        headers: authHeaders,
+      );
+      expect(secureUnsafeResult['isError'], isFalse);
+      final secureContent =
+          secureUnsafeResult['structuredContent'] as Map<String, Object?>;
+      expect(
+        (secureContent['argumentsKeywords'] as Map)['deleted'],
+        equals('T-2'),
+      );
     }, skip: skipReason);
 
     test('serves OpenMetrics payload over HTTP metrics route', () async {
@@ -2051,6 +2285,184 @@ RouterSettings _buildRouterSettings({
   return builder.build();
 }
 
+RouterSettings _buildMcpSmokeSettings() {
+  const mcpOptions = <String, Object?>{
+    'tool_list_page_size': 100,
+    'procedures': [
+      {
+        'procedure': 'app.documented.only',
+        'title': 'Documented but not callable',
+        'description': 'Visible in API metadata without becoming an MCP tool.',
+        'allow_call': false,
+        '_ai_meta_data': {
+          'short_description': 'Documented API entry',
+          'description': 'Documents a WAMP procedure without exposing calls.',
+          'domain': 'app',
+          'entity': 'task',
+          'verbs': ['document'],
+          'tags': ['safe', 'metadata'],
+          'read_only_hint': true,
+          'destructive_hint': false,
+          'idempotent_hint': true,
+          'open_world_hint': false,
+        },
+      },
+    ],
+    'topics': [
+      {
+        'topic': 'app.events.audit',
+        'title': 'Audit events',
+        'description': 'Task audit events exposed through MCP pub/sub.',
+        '_ai_meta_data': {
+          'short_description': 'Task audit stream',
+          'description': 'Events emitted when task state changes.',
+          'domain': 'app',
+          'entity': 'task',
+          'tags': ['safe', 'events'],
+          'output_json_schema': {
+            'type': 'object',
+            'properties': {
+              'via': {'type': 'string'},
+            },
+          },
+        },
+      },
+    ],
+  };
+
+  final realmBuilder = RealmSettingsBuilder('realm1')
+    ..addAuthMethod('anonymous')
+    ..addAuthMethod('ticket', options: const {'authenticator': 'ticket-basic'})
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('anonymous')
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('app.safe.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['call']),
+        )
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('app.events.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['publish', 'subscribe', 'unsubscribe']),
+        ),
+    )
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('member')
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('app.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['call']),
+        )
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('app.events.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['publish', 'subscribe', 'unsubscribe']),
+        ),
+    )
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('app.')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+          ]),
+      ),
+    );
+
+  final listener = ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+    ..setSessionProfile('public-wamp')
+    ..addProtocol(ListenerProtocol.rawsocket)
+    ..addProtocol(ListenerProtocol.http)
+    ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
+    ..setHttpOptions(
+      const HttpListenerSettings(
+        sessionProfile: 'public-http',
+        routes: [
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: '/auth'),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.auth,
+              sessionProfile: 'mcp-ticket',
+              options: <String, Object?>{
+                'allow_insecure_transport': true,
+                'token_ttl_ms': 60000,
+                'refresh_token_ttl_ms': 300000,
+              },
+            ),
+          ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: '/mcp/public'),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: 'realm1',
+              sessionProfile: 'mcp-public',
+              options: mcpOptions,
+            ),
+          ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: '/mcp/secure'),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: 'realm1',
+              sessionProfile: 'mcp-ticket',
+              options: <String, Object?>{
+                ...mcpOptions,
+                'allow_insecure_transport': true,
+              },
+            ),
+          ),
+        ],
+      ),
+    )
+    ..setOptions(const {'max_rawsocket_size_exponent': 16});
+
+  return (RouterSettingsBuilder()
+        ..addRealmFromBuilder(realmBuilder)
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('public-wamp')
+            ..addAuthMethod('anonymous'),
+        )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('public-http'),
+        )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('mcp-public')
+            ..setRealm('realm1')
+            ..addAuthMethod('anonymous'),
+        )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('mcp-ticket')
+            ..setRealm('realm1')
+            ..setAuthMethods(const ['ticket']),
+        )
+        ..addListenerFromBuilder(listener)
+        ..addAuthenticator(
+          'anonymous',
+          const AuthenticatorDefinition(type: 'anonymous'),
+        )
+        ..addAuthenticator(
+          'ticket-basic',
+          const AuthenticatorDefinition(
+            type: 'ticket',
+            options: <String, Object?>{
+              'secrets': <String, Object?>{
+                'user-1': <String, Object?>{
+                  'ticket': 'signed-token',
+                  'role': 'member',
+                  'provider': 'ticket-db',
+                },
+              },
+            },
+          ),
+        ))
+      .build();
+}
+
 Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
   String nativeLibPath, {
   required String host,
@@ -2294,21 +2706,153 @@ Future<({int statusCode, Map<String, Object?>? json, String body})> _postJson(
   HttpClient client,
   int port,
   String path,
-  Map<String, Object?> payload,
-) async {
+  Map<String, Object?> payload, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
   final request = await client.post('127.0.0.1', port, path);
   request.headers.contentType = ContentType.json;
+  headers.forEach(request.headers.set);
   final bodyBytes = utf8.encode(jsonEncode(payload));
   request.contentLength = bodyBytes.length;
   request.add(bodyBytes);
   final response = await request.close();
   final body = await utf8.decoder.bind(response).join();
-  final decoded = body.isEmpty ? null : jsonDecode(body);
+  Object? decoded;
+  if (body.isNotEmpty) {
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException {
+      decoded = null;
+    }
+  }
   return (
     statusCode: response.statusCode,
     json: decoded is Map ? decoded.cast<String, Object?>() : null,
     body: body,
   );
+}
+
+Future<void> _initializeMcp(
+  HttpClient client,
+  int port,
+  String path, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final initialize = await _postJson(client, port, path, {
+    'jsonrpc': '2.0',
+    'id': 'initialize',
+    'method': 'initialize',
+    'params': {'protocolVersion': '2025-11-25'},
+  }, headers: headers);
+  expect(initialize.statusCode, equals(HttpStatus.ok));
+  expect(initialize.json?['result'], isA<Map<String, Object?>>());
+
+  final initialized = await _postJson(client, port, path, {
+    'jsonrpc': '2.0',
+    'method': 'notifications/initialized',
+    'params': const <String, Object?>{},
+  }, headers: headers);
+  expect(initialized.statusCode, equals(HttpStatus.accepted));
+}
+
+Future<List<Map<String, Object?>>> _listMcpTools(
+  HttpClient client,
+  int port,
+  String path, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final response = await _postJson(client, port, path, {
+    'jsonrpc': '2.0',
+    'id': 'tools-list',
+    'method': 'tools/list',
+    'params': const <String, Object?>{},
+  }, headers: headers);
+  expect(response.statusCode, equals(HttpStatus.ok));
+  final result = response.json?['result'] as Map<String, Object?>;
+  final tools = result['tools'] as List;
+  return [
+    for (final tool in tools)
+      if (tool is Map) tool.cast<String, Object?>(),
+  ];
+}
+
+Future<Map<String, Object?>> _callMcpTool(
+  HttpClient client,
+  int port,
+  String path,
+  String name,
+  Map<String, Object?> arguments, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final response = await _postJson(client, port, path, {
+    'jsonrpc': '2.0',
+    'id': 'call-$name',
+    'method': 'tools/call',
+    'params': {'name': name, 'arguments': arguments},
+  }, headers: headers);
+  expect(response.statusCode, equals(HttpStatus.ok));
+  final error = response.json?['error'];
+  if (error != null) {
+    fail('MCP tool call $name returned JSON-RPC error: ${jsonEncode(error)}');
+  }
+  return (response.json?['result'] as Map).cast<String, Object?>();
+}
+
+Future<Map<String, Object?>> _pollMcpUntilEvents(
+  HttpClient client,
+  int port,
+  String path,
+  String handle, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  for (var attempt = 0; attempt < 30; attempt += 1) {
+    final result = await _callMcpTool(
+      client,
+      port,
+      path,
+      'connectanum.pubsub.poll',
+      {'handle': handle, 'limit': 10},
+      headers: headers,
+    );
+    final structured = result['structuredContent'] as Map<String, Object?>;
+    final events = structured['events'] as List? ?? const [];
+    if (events.isNotEmpty) {
+      return structured;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  fail('Timed out waiting for MCP subscription events for $handle');
+}
+
+Future<String> _issueTicketHttpToken(
+  HttpClient client,
+  int port, {
+  String realm = 'realm1',
+  String authId = 'user-1',
+  String ticket = 'signed-token',
+}) async {
+  final start = await _postJson(client, port, '/auth', {
+    'realm': realm,
+    'authmethod': 'ticket',
+    'authid': authId,
+  });
+  expect(start.statusCode, equals(HttpStatus.unauthorized), reason: start.body);
+  final startJson = start.json;
+  expect(startJson, isNotNull);
+  final state = startJson!['state'] as String;
+
+  final authenticate = await core.TicketAuthentication(
+    ticket,
+  ).challenge(core.Extra());
+  final success = await _postJson(client, port, '/auth', {
+    'state': state,
+    'signature': authenticate.signature,
+    'extra': authenticate.extra,
+  });
+  expect(success.statusCode, equals(HttpStatus.ok), reason: success.body);
+  final successJson = success.json;
+  expect(successJson, isNotNull);
+  return successJson!['access_token'] as String;
 }
 
 int _parseContentLength(String headers) {
