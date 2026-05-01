@@ -66,10 +66,10 @@ As of 2026-05-01:
   `connectanum_client` publish should not be attempted until either
   `connectanum_core` is intentionally published first or the client package is
   restructured to avoid an unpublished public dependency.
-- GitHub `Dart Package Publish Dry Run` run `25192039083` passed on
-  `4267e7a` after the workflow path filters were broadened to all
-  `packages/**` archive inputs. It remains relevant for current branch head
-  `7cae4ef` because no package-publish-sensitive paths changed after that run.
+- GitHub `Dart Package Publish Dry Run` run `25195627219` passed on
+  `425385d` after the native WAMP worker readiness test change under
+  `packages/**`. It covers the current package-publishing inputs and confirms
+  the broadened package path filters are exercising package/test changes.
 
 ## Release Sequence
 

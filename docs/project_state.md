@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed commit: `7cae4ef`
-(`docs: record clean deployment evidence`)
+Last reviewed implementation commit: `425385d`
+(`ci: stabilize native wamp worker readiness`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -12,11 +12,13 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest pushed branch head `7cae4ef`
-    (`docs: record clean deployment evidence`) has clean hosted GitHub
-    deployment-chain evidence: `CI` run `25192999135` passed with `Fast Checks`
-    in 4m59s and `Full Verify` in 8m31s
-  - hosted CI log scan for `25192999135` found no warning, deprecation,
+  - latest reviewed implementation commit `425385d`
+    (`ci: stabilize native wamp worker readiness`) has clean hosted GitHub
+    deployment-chain evidence: `CI` run `25195627202` passed with `Fast Checks`
+    in 5m40s and `Full Verify` in 6m50s; `Dart Package Publish Dry Run` run
+    `25195627219` passed and covers the package/test change; `WAMP Profile
+    Benchmarks` run `25195627213` passed in 8m00s
+  - hosted CI log scan for `25195627202` found no warning, deprecation,
     skipped-test, reset, connection-noise, panic, or failure patterns
   - local verification follow-up on 2026-05-01 found the direct native WAMP
     worker lifecycle test could time out waiting for the spawned worker's
@@ -36,13 +38,12 @@ GitHub deployment-chain evidence
     package-artifact checks, MCP tests, client/native tests, auth-server tests,
     bench integration tests, router tests, zero-copy publish tests, and Chrome
     Dart2Wasm WebSocket transport tests
-  - GitHub `Dart Package Publish Dry Run` run `25192039083` passed on
-    `4267e7a` and remains relevant for `7cae4ef` because no
-    package-publish-sensitive paths changed after it
+  - GitHub `Dart Package Publish Dry Run` run `25195627219` passed on
+    `425385d` and covers the native WAMP worker test change under `packages/**`
   - native dry-run `25192553399` accepted
     `ct-ffi-v2026.04.30-dry-run.4267e7a`, uploaded `native-release-preview`,
     did not create or update a GitHub Release, and remains relevant for
-    `7cae4ef` because no native-release-sensitive paths changed after it
+    `425385d` because no native-release-sensitive paths changed after it
   - branch-head deployment-chain audit passed on 2026-05-01 with
     `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
