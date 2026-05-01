@@ -12,6 +12,15 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
+  - current public-surface hygiene slice removes the tracked root `chat.txt`
+    conversation transcript from the repository and ignores future local
+    `chat.txt` exports so the public source tree only exposes intentional
+    project artifacts
+  - pre-change local `bin/test-fast` passed on 2026-05-01 before the
+    `chat.txt` cleanup
+  - local `bin/verify` passed on 2026-05-01 after the `chat.txt` cleanup,
+    including formatting, Rust native/FFI tests, Dart package tests, router
+    zero-copy publish coverage, and Chrome Dart2Wasm WebSocket coverage
   - latest reviewed implementation commit `77e34de`
     (`mcp: paginate tool listings`) has clean hosted GitHub evidence: `CI` run
     `25198143182` passed with `Fast Checks` in 5m25s and `Full Verify` in
