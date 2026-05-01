@@ -238,6 +238,17 @@ For the latest branch-head status, run the clean-CI audit command above. The
 items below are pinned deployment-chain checkpoints, not a replacement for the
 live audit:
 
+- `add-router` public CI surface cleanup checkpoint `0b765fd` passed GitHub
+  `CI` run `25200862348`: `Fast Checks` completed in 5m33s and `Full Verify`
+  completed in 8m01s.
+- Hosted log scanning for `25200862348` found no warning, deprecation,
+  skipped-test, reset, connection-noise, panic, or failure patterns.
+- The clean deployment-chain audit passed for `0b765fd` on 2026-05-01 with
+  `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+  `--require-clean-dart-package-publish-dry-run`, and
+  `--require-clean-native-release-dry-run`. The latest Dart package publish
+  dry-run and native release dry-run remain relevant because the Travis cleanup
+  changed no package-publish-sensitive or native-release-sensitive inputs.
 - `add-router` deployment-audit checkpoint `425385d` passed GitHub `CI` run
   `25195627202`: `Fast Checks` completed in 5m40s and `Full Verify` completed
   in 6m50s.

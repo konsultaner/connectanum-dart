@@ -1233,6 +1233,9 @@ operator evidence over speculative feature or benchmark work.
   CI/deployment chain, and the historical changelog entry about old Travis
   builds stays untouched as release history rather than active configuration.
   Pre-change `bin/test-fast` and post-change `bin/verify` passed locally.
+  Commit `0b765fd` passed GitHub `CI` run `25200862348` (`Fast Checks` 5m33s,
+  `Full Verify` 8m01s), and the strict deployment-chain audit passed with clean
+  hosted logs plus relevant Dart package and native release dry-run evidence.
 
 ## Handoff
 

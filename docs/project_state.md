@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed implementation commit: `fbcf4de`
-(`chore: remove tracked chat transcript`)
+Last reviewed implementation commit: `0b765fd`
+(`chore: remove stale travis config`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -12,7 +12,7 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - current public/deployment-surface cleanup removes the obsolete root
+  - completed public/deployment-surface cleanup removes the obsolete root
     `.travis.yml` file so users see GitHub Actions as the only maintained
     hosted CI/deployment chain; the only remaining Travis reference is
     historical changelog text
@@ -23,10 +23,18 @@ GitHub deployment-chain evidence
     package-artifact checks, MCP tests, client/native tests, auth-server tests,
     bench integration tests, router tests, zero-copy publish tests, and Chrome
     Dart2Wasm WebSocket transport tests
-  - branch-head deployment-chain audit passed on 2026-05-01 before this cleanup
+  - hosted GitHub evidence for `0b765fd`
+    (`chore: remove stale travis config`) is clean: `CI` run `25200862348`
+    passed with `Fast Checks` in 5m33s and `Full Verify` in 8m01s; hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-01 after this cleanup
     with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
-    `--require-clean-native-release-dry-run`; remaining findings are still the
+    `--require-clean-native-release-dry-run`; latest Dart package dry-run
+    `25198143194` and native release dry-run `25192553399` remain clean and
+    relevant because the cleanup changed no publish-sensitive or
+    native-release-sensitive inputs; remaining findings are still the
     operator-owned branch protection, hidden `router-image.yml`, and missing
     visible GHCR router package evidence
   - completed public-surface hygiene slice removes the tracked root `chat.txt`
