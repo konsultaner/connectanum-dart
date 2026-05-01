@@ -131,7 +131,12 @@ protocol bridge.
   passed after it. Full local `bin/verify` also passed after the README slice,
   including formatting, Rust native/FFI tests, MCP tests, client/native tests,
   bench integration tests, router tests, zero-copy publish tests, and Chrome
-  Dart2Wasm WebSocket transport tests.
+  Dart2Wasm WebSocket transport tests. Hosted GitHub evidence for `6c403ee`
+  is clean: `CI` run `25202524041` passed (`Fast Checks` 5m22s,
+  `Full Verify` 8m02s), `Dart Package Publish Dry Run` run `25202524047`
+  passed in 22s and covers the package README change, and the strict
+  deployment-chain audit/log scan found no warning, deprecation, skipped-test,
+  reset, connection-noise, panic, or failure patterns.
 - First usable stdio MCP bridge path is complete. Streamable HTTP/router
   integration remains conditional on whether `groli/app` needs a network MCP
   endpoint, so autonomous continuation should move to the WAMP-profile

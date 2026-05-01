@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed implementation commit: `0b765fd`
-(`chore: remove stale travis config`)
+Last reviewed implementation commit: `6c403ee`
+(`docs: clarify mcp package usage`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -27,6 +27,19 @@ GitHub deployment-chain evidence
     package-artifact checks, MCP tests, client/native tests, auth-server
     tests, bench integration tests, router tests, zero-copy publish tests, and
     Chrome Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `6c403ee`
+    (`docs: clarify mcp package usage`) is clean: `CI` run `25202524041`
+    passed with `Fast Checks` in 5m22s and `Full Verify` in 8m02s; hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns; `Dart Package Publish Dry
+    Run` run `25202524047` passed in 22s and covers the checked-out head
+  - branch-head deployment-chain audit passed on 2026-05-01 after the MCP
+    README readability slice with `--require-clean-latest-ci`,
+    `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; native release dry-run
+    `25192553399` remains clean and relevant because the README/doc changes
+    changed no native-release-sensitive inputs
   - completed public/deployment-surface cleanup removes the obsolete root
     `.travis.yml` file so users see GitHub Actions as the only maintained
     hosted CI/deployment chain; the only remaining Travis reference is
