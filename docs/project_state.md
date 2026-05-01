@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed implementation commit: `77e34de`
-(`mcp: paginate tool listings`)
+Last reviewed implementation commit: `fbcf4de`
+(`chore: remove tracked chat transcript`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -12,7 +12,7 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - current public-surface hygiene slice removes the tracked root `chat.txt`
+  - completed public-surface hygiene slice removes the tracked root `chat.txt`
     conversation transcript from the repository and ignores future local
     `chat.txt` exports so the public source tree only exposes intentional
     project artifacts
@@ -21,7 +21,19 @@ GitHub deployment-chain evidence
   - local `bin/verify` passed on 2026-05-01 after the `chat.txt` cleanup,
     including formatting, Rust native/FFI tests, Dart package tests, router
     zero-copy publish coverage, and Chrome Dart2Wasm WebSocket coverage
-  - latest reviewed implementation commit `77e34de`
+  - hosted GitHub evidence for `fbcf4de`
+    (`chore: remove tracked chat transcript`) is clean: `CI` run
+    `25199248416` passed with `Fast Checks` in 5m30s and `Full Verify` in
+    7m53s; hosted CI log scan found no warning, deprecation, skipped-test,
+    reset, connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-01 with
+    `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; latest Dart package dry-run
+    `25198143194` and native release dry-run `25192553399` remain clean and
+    relevant because the cleanup changed no publish-sensitive or
+    native-release-sensitive inputs
+  - previous MCP implementation commit `77e34de`
     (`mcp: paginate tool listings`) has clean hosted GitHub evidence: `CI` run
     `25198143182` passed with `Fast Checks` in 5m25s and `Full Verify` in
     8m23s; `Dart Package Publish Dry Run` run `25198143194` passed in 19s
