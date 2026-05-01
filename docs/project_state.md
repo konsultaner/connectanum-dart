@@ -1,9 +1,9 @@
 # Project State
 
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed commit: `4267e7a`
-(`ci: run package dry-run for package changes`)
+Last reviewed commit: `7cae4ef`
+(`docs: record clean deployment evidence`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -12,22 +12,43 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest pushed branch head `4267e7a`
-    (`ci: run package dry-run for package changes`) has clean hosted GitHub
-    deployment-chain evidence: `CI` run `25192039375` passed with `Fast Checks`
-    in 5m39s and `Full Verify` in 7m50s, `Dart Package Publish Dry Run` run
-    `25192039083` passed, and manual `Native Artifacts` dry-run `25192553399`
-    passed for Linux x64, Linux arm64, macOS Apple Silicon, macOS Intel,
-    Windows x64, and `Publish GitHub Release`
-  - hosted CI log scan for `25192039375` found no warning, deprecation,
+  - latest pushed branch head `7cae4ef`
+    (`docs: record clean deployment evidence`) has clean hosted GitHub
+    deployment-chain evidence: `CI` run `25192999135` passed with `Fast Checks`
+    in 4m59s and `Full Verify` in 8m31s
+  - hosted CI log scan for `25192999135` found no warning, deprecation,
     skipped-test, reset, connection-noise, panic, or failure patterns
+  - local verification follow-up on 2026-05-01 found the direct native WAMP
+    worker lifecycle test could time out waiting for the spawned worker's
+    initial `READY` line after 10 seconds under repeated native integration
+    runs; the test now uses the same 20-second worker readiness budget as the
+    production `NativeWampWorker` helper, preserves stderr diagnostics on
+    startup/exit timeouts, and has a 75-second overall timeout matching its
+    step budgets
+  - focused native WAMP worker lifecycle stress passed locally on 2026-05-01:
+    12 consecutive runs of
+    `dart test packages/connectanum_bench/test/wamp_transport_integration_test.dart --plain-name "native WAMP worker process exits cleanly after STOP following a native cancel workload" --chain-stack-traces`
+    with `CONNECTANUM_NATIVE_LIB` pointing at the ffi-test release library
+  - local `bin/test-fast` passed on 2026-05-01 after the native worker
+    readiness timeout fix, including the bench integration suite
+  - local `bin/verify` passed on 2026-05-01 after the native worker readiness
+    timeout fix; it included formatting, Rust `ct_core`/`ct_ffi`, Python
+    package-artifact checks, MCP tests, client/native tests, auth-server tests,
+    bench integration tests, router tests, zero-copy publish tests, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - GitHub `Dart Package Publish Dry Run` run `25192039083` passed on
+    `4267e7a` and remains relevant for `7cae4ef` because no
+    package-publish-sensitive paths changed after it
   - native dry-run `25192553399` accepted
     `ct-ffi-v2026.04.30-dry-run.4267e7a`, uploaded `native-release-preview`,
-    and did not create or update a GitHub Release
-  - branch-head deployment-chain audit passed on 2026-04-30 with
+    did not create or update a GitHub Release, and remains relevant for
+    `7cae4ef` because no native-release-sensitive paths changed after it
+  - branch-head deployment-chain audit passed on 2026-05-01 with
     `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
     `--require-clean-native-release-dry-run`
+  - local `bin/test-fast` passed on 2026-05-01 before refreshing the release
+    evidence docs/state
   - completed Dart package dry-run path-filter follow-up broadens
     `.github/workflows/dart-package-publish.yml` push/PR filters from
     metadata-only package paths to `packages/**`, and aligns

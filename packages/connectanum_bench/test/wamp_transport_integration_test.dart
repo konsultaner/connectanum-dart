@@ -410,7 +410,13 @@ void main() {
             .listen(stderrLines.add);
         try {
           final ready = await stdoutLines.first.timeout(
-            const Duration(seconds: 10),
+            const Duration(seconds: 20),
+            onTimeout: () {
+              fail(
+                'native WAMP worker did not become ready; stderr:\n'
+                '${stderrLines.join('\n')}',
+              );
+            },
           );
           expect(ready, 'READY');
 
@@ -443,6 +449,9 @@ void main() {
 
           final exitCode = await process.exitCode.timeout(
             const Duration(seconds: 10),
+            onTimeout: () {
+              fail('worker did not exit; stderr:\n${stderrLines.join('\n')}');
+            },
           );
           expect(exitCode, 0, reason: stderrLines.join('\n'));
         } finally {
@@ -456,7 +465,7 @@ void main() {
         }
       },
       skip: skipReason,
-      timeout: const Timeout(Duration(seconds: 45)),
+      timeout: const Timeout(Duration(seconds: 75)),
     );
 
     test(

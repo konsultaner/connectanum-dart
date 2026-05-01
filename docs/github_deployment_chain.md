@@ -233,8 +233,27 @@ explicitly. Current known benign strings include passing test names such as
 ## Current Evidence
 
 For the latest branch-head status, run the clean-CI audit command above. The
-items below are pinned deployment-chain checkpoints from 2026-04-30, not a
-replacement for the live audit:
+items below are pinned deployment-chain checkpoints, not a replacement for the
+live audit:
+
+- `add-router` deployment-audit checkpoint `7cae4ef` passed GitHub `CI` run
+  `25192999135`: `Fast Checks` completed in 4m59s and `Full Verify` completed
+  in 8m31s.
+- The clean deployment-chain audit passed for `7cae4ef` on 2026-05-01 with
+  `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+  `--require-clean-dart-package-publish-dry-run`, and
+  `--require-clean-native-release-dry-run`.
+- Hosted log scanning for `25192999135` found no warning, deprecation,
+  skipped-test, reset, connection-noise, panic, or failure patterns.
+- GitHub `Dart Package Publish Dry Run` run `25192039083` passed on
+  `4267e7a` and remains relevant for `7cae4ef` because no
+  package-publish-sensitive inputs changed after that run.
+- Manual `Native Artifacts` dry-run `25192553399` passed on `4267e7a`, covered
+  Linux x64, Linux arm64, macOS Apple Silicon, macOS Intel, Windows x64, and
+  the dry-run `Publish GitHub Release` job, uploaded `native-release-preview`,
+  accepted `ct-ffi-v2026.04.30-dry-run.4267e7a`, and did not create or update a
+  GitHub Release. It remains relevant for `7cae4ef` because no
+  native-release-sensitive inputs changed after that run.
 
 - `add-router` deployment-audit checkpoint `1b5686f` passed GitHub `CI` run
   `25187265086`: `Fast Checks` completed in 5m36s and `Full Verify`
