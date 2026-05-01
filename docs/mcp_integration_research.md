@@ -1,7 +1,7 @@
 # MCP Integration Research
 
 Last checked: 2026-05-01
-Driving downstream: `groli/app`
+Driving use case: downstream application integrations
 
 ## Sources
 
@@ -47,7 +47,7 @@ Driving downstream: `groli/app`
   context objects by URI. Resource subscriptions and list-change notifications
   are optional.
 - `prompts/list` and `prompts/get` expose user-selectable prompt templates.
-  This is useful later, but not required for the first `groli/app`-driven tool
+  This is useful later, but not required for the first application-driven tool
   path.
 
 ## Connectanum Fit
@@ -65,16 +65,18 @@ Driving downstream: `groli/app`
   request cancellation/timeouts, and MCP error mapping.
 - Add a `stdio` transport adapter early because most local agent/IDE MCP clients
   support it and it keeps the first smoke tests simple.
-- Add a Streamable HTTP adapter as the app/server path. This can later sit on
-  top of `connectanum_router` HTTP routes so `groli/app` can embed or expose an
-  MCP endpoint without a separate server stack.
+- Add router-hosted HTTP support as the application/server path. The first
+  router slice can support JSON-RPC request/response over HTTP `POST` by
+  reusing the router's internal WAMP session, then grow into the full
+  Streamable HTTP GET/SSE/session-header surface when server-push and explicit
+  MCP HTTP session management are needed.
 - Map Connectanum WAMP procedures to MCP tools. A tool registration should be
   able to call a Dart callback directly or delegate to a WAMP procedure through
   `connectanum_client`.
 - Map read-only application context to MCP resources only after the tool path is
   stable. Resource URIs need explicit access control, especially for filesystem
   or project data.
-- Treat prompts as a second-phase feature unless `groli/app` needs prompt
+- Treat prompts as a second-phase feature unless a downstream application needs prompt
   templates immediately.
 
 ## Recommended First Package Shape
@@ -88,12 +90,14 @@ Driving downstream: `groli/app`
   small barrel library, narrowly named protocol model files, serializer/codec
   boundaries hidden behind typed methods, and tests that prove one protocol
   behavior per file instead of a single large integration-only suite.
-- Keep `connectanum_router` integration optional. A router-backed HTTP adapter
-  can be added once the standalone MCP core is tested.
+- Keep the standalone `connectanum_mcp` server core transport-independent, and
+  let `connectanum_router` consume it for hosted HTTP endpoints. Applications
+  that already run a router should not have to start a second MCP server
+  process.
 - Provide a tiny public API around these concepts:
   `McpServer`, `McpServerInfo`, `McpTool`, `McpToolRegistry`,
   `McpToolRequest`, `McpToolResult`, `McpResourceProvider`, and transport
-  adapters for `stdio` and Streamable HTTP.
+  adapters for `stdio` plus router-hosted HTTP.
 
 ## First Implementation Slices
 
@@ -117,20 +121,26 @@ Driving downstream: `groli/app`
 7. Add cursor-safe `tools/list` pagination for larger tool catalogs. Done in
    `packages/connectanum_mcp` with `McpServer.toolListPageSize`, opaque
    `nextCursor` responses, and `invalidParams` for malformed or stale cursors.
-8. Add a Streamable HTTP adapter and then wire it into router HTTP routes if
-   `groli/app` needs a network endpoint instead of stdio.
-9. Add resource support only after tool calls are stable and access-control
+8. Add a router-hosted MCP HTTP route that reuses the router internal session
+   and auto-exposes exact WAMP registrations, WAMP meta API procedures, and
+   declared pub/sub topics. Done for the JSON-RPC `POST` request/response
+   subset in `connectanum_router` with `HttpRouteActionType.mcp`.
+9. Add full Streamable HTTP compatibility on top of the router endpoint when
+   needed: GET/SSE server push, explicit `MCP-Session-Id` handling, strict
+   `Accept`/`MCP-Protocol-Version` validation, Origin validation policy, and
+   DELETE session termination semantics.
+10. Add resource support only after tool calls are stable and access-control
    rules are documented.
 
-## Open Decisions for groli/app
+## Open Decisions for Application Integrations
 
-- Whether `groli/app` needs to run as an MCP server over stdio, expose an HTTP
-  MCP endpoint, or support both.
+- Whether an application needs stdio only, the router-hosted HTTP endpoint, or
+  both.
 - Which application actions should become tools, and which should remain
   private WAMP procedures.
 - Whether the initial MCP endpoint is local-only or network-accessible.
 - What authentication is expected for network-accessible MCP over HTTP.
-- Whether `groli/app` needs resources/prompts in the first launch, or only
+- Whether downstream applications need resources/prompts in the first launch, or only
   tools.
 
 ## Verification Expectations

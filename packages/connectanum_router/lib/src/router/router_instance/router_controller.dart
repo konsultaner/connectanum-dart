@@ -223,6 +223,18 @@ class Router {
           'namespace': namespace,
           'append_method_suffix': appendSuffix,
         };
+      case HttpRouteActionType.mcp:
+        final realm = _resolveRouteRealm(action, listener, settings);
+        if (realm == null || realm.isEmpty) {
+          throw StateError(
+            'HTTP MCP routes require a realm; specify action.realm, action.options.realm, or configure a listener/default realm.',
+          );
+        }
+        return <String, Object?>{
+          'type': 'translation',
+          'realm': realm,
+          'procedure': 'connectanum.mcp.handle',
+        };
       default:
         throw StateError(
           'HTTP route action ${action.type} is not yet supported for native wiring.',

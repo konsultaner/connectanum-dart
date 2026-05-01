@@ -142,7 +142,7 @@ Status: completed
 ## Next Step
 
 Completed. Return to the normal autonomous priority order with a clean branch:
-production readiness first, MCP follow-up only if the downstream `groli/app`
+production readiness first, MCP follow-up only if a downstream application
 integration needs more than the current stdio bridge, then the next unblocked
 kTLS/HTTP/2 diagnosis lane documented in
 `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`.

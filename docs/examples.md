@@ -112,7 +112,7 @@ you want to separate “stop accepting traffic” from final teardown.
 When the OpenMetrics HTTP server is enabled, `/healthz` returns `503 draining`
 while the router is draining so a load balancer can stop sending new traffic.
 
-## MCP stdio bridge
+## MCP bridge
 
 Use `packages/connectanum_mcp` when a local agent or app needs a narrow MCP
 server surface on top of Connectanum procedures. The first supported transport
@@ -134,5 +134,18 @@ final tool = McpWampToolDelegate.session(
 );
 ```
 
-Streamable HTTP/router-backed MCP transport is intentionally not claimed yet;
-add it only if the downstream app needs a network MCP endpoint.
+For a network endpoint, configure a `connectanum_router` HTTP route with
+`type: mcp`. The router-hosted endpoint accepts MCP JSON-RPC over HTTP POST,
+uses a router internal WAMP session for calls and pub/sub, and should be
+deployed behind the same TLS/auth controls as other protected HTTP routes.
+
+```dart
+const HttpRouteSettings(
+  match: HttpRouteMatch(path: '/mcp'),
+  action: HttpRouteAction(type: HttpRouteActionType.mcp, realm: 'realm1'),
+);
+```
+
+Exact WAMP registrations become MCP tools automatically. WAMP meta API tools
+and `connectanum.pubsub.*` helpers are enabled by default. Full Streamable HTTP
+GET/SSE server push remains future work.

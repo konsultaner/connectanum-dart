@@ -1,9 +1,9 @@
-# Exec Plan: MCP Support for groli/app
+# Exec Plan: MCP Support for Application Integration
 
 ## Goal
 
-Make MCP support the next product-readiness milestone so `groli/app` can use
-Connectanum as an agent/tool integration layer without carrying a private
+Make MCP support the next product-readiness milestone so downstream applications
+can use Connectanum as an agent/tool integration layer without carrying a private
 protocol bridge.
 
 ## Priority
@@ -21,8 +21,8 @@ protocol bridge.
 - Define the first supported Connectanum mapping for MCP server sessions,
   request/response handling, tool discovery, tool calls, and optional resource
   or prompt exposure.
-- Provide a Dart package-level API that is practical to embed from
-  `groli/app`.
+- Provide a Dart package-level API that is practical to embed from downstream
+  applications.
 - Use `packages/connectanum_core` as the local design reference for API shape:
   typed protocol models, serializer-independent payload boundaries, explicit
   errors, a small barrel export, and focused tests. MCP should not inherit WAMP
@@ -31,7 +31,7 @@ protocol bridge.
   initialization, capability negotiation, tool listing, tool invocation, and
   clean shutdown/error behavior.
 - Decide whether the first transport should be stdio, HTTP/streaming HTTP, or a
-  Connectanum-router-backed adapter after the spec and `groli/app` usage shape
+  Connectanum-router-backed adapter after the spec and application usage shape
   are documented.
 - Preserve the existing auth/deployment story: no hidden secrets, explicit local
   development mode, and clear guidance for networked/server deployments.
@@ -40,8 +40,8 @@ protocol bridge.
 
 - Full MCP ecosystem parity in the first slice.
 - Replacing WAMP as Connectanum's internal protocol.
-- Adding deployment secrets or `groli/app`-specific private configuration to
-  this repo.
+- Adding deployment secrets or downstream-application-specific private
+  configuration to this repo.
 - Speculative benchmark expansion unless it protects the MCP path or a release
   decision.
 
@@ -69,7 +69,7 @@ protocol bridge.
 ## Status
 
 - 2026-04-23: Plan opened and promoted above exploratory transport/benchmark
-  work because `groli/app` needs MCP support.
+  work because downstream application integration needs MCP support.
 - 2026-04-23: Initial MCP research/design captured in
   `docs/mcp_integration_research.md`. Recommended first shape is a new
   `packages/connectanum_mcp` package with a transport-independent Dart server
@@ -102,7 +102,7 @@ protocol bridge.
   `dart test packages/connectanum_mcp -r expanded`, and `bin/verify` passed on
   Darwin arm64 after the WAMP delegate slice.
 - 2026-05-01: Rechecked the official MCP 2025-11-25 tools/pagination
-  requirements and added cursor-safe `tools/list` pagination for larger Groli
+  requirements and added cursor-safe `tools/list` pagination for larger application
   tool catalogs. `McpServer(toolListPageSize: ...)` now emits stable opaque
   `nextCursor` values and rejects malformed or stale cursors with
   `invalidParams` instead of silently replaying the full tool list.
@@ -120,11 +120,11 @@ protocol bridge.
   scan found no warning, deprecation, skipped-test, reset, connection-noise,
   panic, or failure patterns.
 - 2026-05-01: Public MCP package readability follow-up improved
-  `packages/connectanum_mcp/README.md` for downstream app embedders. The README
-  now distinguishes the supported stdio/WAMP-backed tool path from deferred
-  Streamable HTTP/router-backed MCP support, shows a copy-paste JSON-RPC
+  `packages/connectanum_mcp/README.md` for downstream application embedders.
+  The README now distinguishes the package-local stdio/WAMP-backed tool path
+  from router-hosted HTTP MCP routes, shows a copy-paste JSON-RPC
   initialize/list/call sequence, documents `toolListPageSize` cursor behavior,
-  and explains the default WAMP tool delegation mapping for Groli-style apps.
+  and explains the default WAMP tool delegation mapping for applications.
   Pre-change `bin/test-fast` passed before the edit; focused
   `dart analyze packages/connectanum_mcp`,
   `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
@@ -137,7 +137,35 @@ protocol bridge.
   passed in 22s and covers the package README change, and the strict
   deployment-chain audit/log scan found no warning, deprecation, skipped-test,
   reset, connection-noise, panic, or failure patterns.
-- First usable stdio MCP bridge path is complete. Streamable HTTP/router
-  integration remains conditional on whether `groli/app` needs a network MCP
-  endpoint, so autonomous continuation should move to the WAMP-profile
-  transport performance readiness plan unless that product decision changes.
+- 2026-05-01: Added a declared WAMP API helper for application embedders.
+  `McpWampApi` can turn declared procedures into WAMP-backed MCP tools, expose
+  API list/describe metadata tools, and optionally expose bounded
+  publish/subscribe/poll/unsubscribe tools for declared WAMP topics.
+  `McpWampApiMetadata.publishesEvents` now derives MCP-visible topics
+  automatically, so an API/procedure registration can advertise the event
+  surface agents may publish, subscribe to, and poll. Focused tests pin
+  procedure metadata exposure, metadata-derived topics, publish option
+  forwarding, buffered topic polling, queue drops, unsubscribe behavior, and
+  the early-event subscription buffer path.
+- 2026-05-01: Added the first router-hosted HTTP MCP endpoint. Router
+  `HttpRouteActionType.mcp` now handles MCP JSON-RPC over HTTP POST. The route
+  is translated into the native HTTP route table and intercepted by Dart, so the
+  router itself acts as the MCP endpoint instead of requiring a separate MCP
+  server process. When no bearer-auth session is required, tools are backed by
+  the router internal WAMP session; otherwise the existing protected HTTP
+  session path is reused. The endpoint exposes configured and currently
+  registered exact procedures/topics, metadata-derived event topics, and
+  standard WAMP meta tools from router snapshots. Focused verification:
+  `dart analyze packages/connectanum_router`,
+  `dart test packages/connectanum_router/test/router_json_test.dart -r expanded`,
+  `cd packages/connectanum_router && dart test test/router_integration_native_test.dart -r expanded --exclude-tags zero_copy_publish`,
+  and `cd packages/connectanum_router && CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 dart test test/router_integration_native_test.dart -r expanded --tags zero_copy_publish --chain-stack-traces`.
+- 2026-05-01: Full local `bin/verify` passed after the declared WAMP API helper
+  and router-hosted HTTP MCP slice, including formatting, Rust native/FFI tests,
+  MCP tests, client/native tests, auth-server tests, bench integration tests,
+  full router package tests, zero-copy publish tests, and Chrome Dart2Wasm
+  WebSocket transport tests.
+- First usable MCP bridge path is complete for local stdio and router-hosted
+  JSON-RPC `POST` request/response clients. Remaining MCP follow-up should be
+  driven by a concrete application need, such as resources/prompts, full
+  Streamable HTTP GET/SSE/session semantics, or more auth/deployment examples.

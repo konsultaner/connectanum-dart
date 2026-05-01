@@ -2,38 +2,59 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed branch checkpoint: `bcb1881`
-(`docs: record mcp readme ci evidence`)
+Last reviewed branch checkpoint: `6ed7ae4`
+(`docs: align continuation state`)
 Last reviewed implementation commit: `6c403ee`
 (`docs: clarify mcp package usage`)
-Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
-GitHub deployment-chain evidence
+Active exec plan:
+`docs/exec-plans/2026-04-23-mcp-support-application-integration.md` until the
+router-hosted MCP HTTP slice has full local and hosted CI evidence
 
 ## Last Known Verification
 
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - continuation metadata is intentionally aligned on no active exec plan; the
-    previous H2 isolated-regression diagnosis is historical, not the default
-    autonomous continuation path
-  - current branch checkpoint `bcb1881` passed hosted GitHub `CI` run
-    `25202885417` with `Fast Checks` in 5m38s and `Full Verify` in 8m19s;
+  - continuation metadata is temporarily back on the MCP application-integration
+    plan while the router-hosted MCP HTTP slice is verified; the previous H2
+    isolated-regression diagnosis is historical, not the default autonomous
+    continuation path
+  - current branch checkpoint `6ed7ae4` passed hosted GitHub `CI` run
+    `25204110260` with `Fast Checks` in 6m05s and `Full Verify` in 8m03s;
     hosted CI log scan found no warning, deprecation, skipped-test, reset, or
     connection-noise patterns
-  - branch-head deployment-chain audit passed on 2026-05-01 against `bcb1881`
+  - branch-head deployment-chain audit passed on 2026-05-01 against `6ed7ae4`
     with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
     `--require-clean-native-release-dry-run`; `Dart Package Publish Dry Run`
     run `25202524047` and native release dry-run `25192553399` remain clean
     and relevant because no publish-sensitive or native-release-sensitive
     inputs changed after their covered commits
+  - current MCP WAMP API helper slice adds `McpWampApi` for declared
+    procedure/topic catalogs, API list/describe metadata tools, and optional
+    buffered publish/subscribe/poll/unsubscribe MCP tools backed by WAMP
+    sessions; focused `dart analyze packages/connectanum_mcp` and
+    `dart test packages/connectanum_mcp -r expanded` passed after pinning the
+    subscription buffer behavior for early and later events plus dynamic tool
+    registry cursor invalidation
+  - current router-hosted MCP HTTP slice adds `HttpRouteActionType.mcp`, native
+    route wiring to `connectanum.mcp.handle`, a router-hosted MCP endpoint that
+    uses an internal WAMP session, and native integration coverage for MCP
+    initialize/list/call over HTTP POST; focused router analysis, JSON config
+    tests, native integration tests, and env-enabled zero-copy publish tests
+    passed before the full local verification rerun
+  - local `bin/verify` passed on 2026-05-01 after the declared WAMP API helper
+    and router-hosted MCP HTTP slice; it included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP tests, client/native tests,
+    auth-server tests, bench integration tests, full router package tests,
+    zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
   - current MCP public-surface readability slice improves
-    `packages/connectanum_mcp/README.md` for downstream app embedders: it now
+    `packages/connectanum_mcp/README.md` for downstream application embedders:
+    it now
     states the supported `2025-11-25` MCP subset, provides a copy-paste stdio
     initialize/list/call sequence, documents cursor paging, and explains the
-    default WAMP tool delegation mapping without implying Streamable HTTP or
-    router-backed MCP support is already shipped
+    default WAMP tool delegation mapping while pointing network use at
+    router-hosted HTTP MCP routes
   - pre-change local `bin/test-fast` passed on 2026-05-01 before the MCP
     README readability edit; focused `dart analyze packages/connectanum_mcp`,
     `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
@@ -118,8 +139,8 @@ GitHub deployment-chain evidence
     tools/pagination requirements on 2026-05-01 and adds optional
     `McpServer.toolListPageSize`, stable opaque `nextCursor` pages for
     `tools/list`, and `invalidParams` errors for malformed or stale cursors;
-    this keeps larger `groli/app` tool catalogs usable without deciding on a
-    Streamable HTTP/router MCP endpoint yet
+    this kept larger downstream application tool catalogs usable before the
+    router-hosted HTTP MCP endpoint slice
   - pre-change local `bin/test-fast` passed on 2026-05-01 before the MCP
     pagination edits; focused `dart analyze packages/connectanum_mcp` and
     `dart test packages/connectanum_mcp -r expanded` passed after the edits
@@ -249,7 +270,7 @@ GitHub deployment-chain evidence
     shipped-path production-readiness, MCP, and WAMP-profile priorities
   - next unblocked autonomous work should stay on public release readiness:
     GitHub deployment-chain evidence, human-readable release/public package
-    surfaces, MCP usability for downstream `groli/app`, and WAMP-profile
+    surfaces, MCP usability for downstream applications, and WAMP-profile
     benchmark maintenance when a concrete shipped-path regression appears
   - hosted GitHub `Dart Package Publish Dry Run` run `25170846455` passed on
     `a4818c8`; the audit confirms it remains relevant for `9dcab42` because
@@ -2142,7 +2163,7 @@ GitHub deployment-chain evidence
    human-readable releases/artifacts, public package metadata, and branch
    protection/deployment evidence before speculative implementation work.
 3. Prioritize production readiness of current functionality before exploratory expansion. That includes correctness, release/deployment behavior, observability, packaging, operational docs, and coverage for shipped paths.
-4. Treat MCP support for downstream `groli/app` as the next product-readiness milestone once CI, GitHub deployment-chain blockers, and shipped-path blockers are clean. It outranks speculative H3, kTLS, E2EE, and benchmark exploration until the first usable MCP server/bridge path is designed, implemented, tested, and documented.
+4. Treat MCP support for downstream application integration as the next product-readiness milestone once CI, GitHub deployment-chain blockers, and shipped-path blockers are clean. It outranks speculative H3, kTLS, E2EE, and benchmark exploration until the first usable MCP server/bridge path is designed, implemented, tested, and documented.
 5. After the first usable MCP path is complete, make WAMP profile-related transport performance production-ready in the benchmark suite before returning to speculative transport work. That means canonical RawSocket/WebSocket WAMP scenarios, secure and cleartext coverage, serializer/profile coverage, explicit budgets/gates, and hosted CI evidence for release decisions.
 6. With the first MCP path, the WAMP benchmark-readiness milestone, the
    host-supported WAMP transport-interop slice, and the worker-safe realm
@@ -2169,20 +2190,22 @@ GitHub deployment-chain evidence
   this branch. Keep workflow warnings, skipped jobs, release artifacts, and
   public release metadata readable and intentional before returning to
   speculative transport diagnosis.
-- The first usable MCP path for the downstream `groli/app` integration is now
-  complete for local stdio usage: `packages/connectanum_mcp` has the
-  transport-independent server core, stdio framing, and WAMP-backed tool
-  delegation through existing `connectanum_client` sessions. Streamable
-  HTTP/router MCP remains conditional on whether `groli/app` needs a network
-  endpoint.
+- The first usable MCP path for downstream application integration now covers
+  local stdio usage and the first router-hosted HTTP POST endpoint:
+  `packages/connectanum_mcp` has the transport-independent server core, stdio
+  framing, WAMP-backed tool delegation, declared WAMP API helpers,
+  metadata-derived event topics, and pub/sub polling tools. `connectanum_router` can
+  expose MCP over HTTP through `type: mcp` routes backed by internal WAMP
+  sessions, exact procedure registrations, WAMP meta API tools, and pub/sub
+  helpers. Full Streamable HTTP GET/SSE/session semantics, resources, and
+  prompts remain downstream-demand driven.
 - Initial MCP research is captured in `docs/mcp_integration_research.md`.
   The first implementation slice now lives in `packages/connectanum_mcp` with
   a transport-independent Dart server core, typed protocol errors/capabilities,
   callback-backed tools, focused lifecycle/tool tests, a stdio transport
-  adapter, a tiny stdio echo CLI example, and WAMP-backed tool delegation
-  through existing `connectanum_client` sessions. The first usable local MCP
-  bridge path is now in place. Streamable HTTP/router integration is still
-  conditional on whether `groli/app` needs a network MCP endpoint.
+  adapter, a tiny stdio echo CLI example, WAMP-backed tool delegation through
+  existing `connectanum_client` sessions, declared API helpers, and the first
+  router-hosted HTTP POST endpoint through `connectanum_router` routes.
 - The root verification scripts now include the MCP package tests:
   `bin/test-fast` and `bin/test-all` both run
   `dart test packages/connectanum_mcp/test`.
@@ -3657,7 +3680,7 @@ GitHub deployment-chain evidence
   profile-related transport benchmark production readiness immediately after
   the active MCP milestone.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after promoting MCP support
-  for downstream `groli/app` in `AGENTS.md`, `ROADMAP.md`,
+  for downstream application integration in `AGENTS.md`, `ROADMAP.md`,
   `ROADMAP_NEXT.md`, project state, and the new active MCP exec plan.
 - 2026-04-23: `bin/verify` passed on Darwin arm64 after adding opt-in
   throughput/p95 performance budgets to the bench artifact gate, keeping the
@@ -3905,8 +3928,10 @@ GitHub deployment-chain evidence
 
 ## Active Plan
 
-- Active plan: none. Re-check CI/deployment-chain evidence, then use
-  `ROADMAP_NEXT.md` to select the next production-readiness slice.
+- Active plan:
+  `docs/exec-plans/2026-04-23-mcp-support-application-integration.md` until
+  the router-hosted MCP HTTP slice has clean local `bin/verify`, hosted CI, and
+  deployment-chain audit evidence.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub
@@ -3915,7 +3940,7 @@ GitHub deployment-chain evidence
 - Most recent deployment-chain checkpoint plan:
   `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 - Most recent completed product-readiness plan:
-  `docs/exec-plans/2026-04-23-mcp-support-groli-app.md`
+  `docs/exec-plans/2026-04-23-mcp-support-application-integration.md`
 - Supporting research notes:
   - `docs/mcp_integration_research.md`
   - `docs/dart_package_publishing.md`

@@ -18,6 +18,7 @@ import 'dart:io'
         Platform;
 
 import 'package:cbor/cbor.dart';
+import 'package:collection/collection.dart';
 import 'package:connectanum_core/connectanum_core.dart'
     show
         AbstractMessage,
@@ -33,6 +34,7 @@ import 'package:connectanum_core/connectanum_core.dart'
         MessageTypes,
         PayloadListDecoder,
         PayloadMapDecoder,
+        ResultPayload,
         UnknownMessage,
         Welcome;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
@@ -71,6 +73,7 @@ import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
     as msgpack_serializer;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
+import 'package:connectanum_mcp/connectanum_mcp.dart' as mcp;
 import 'package:meta/meta.dart';
 
 import 'config/authenticator.dart';
@@ -118,4 +121,5 @@ part 'router_instance/router_worker_handshake.dart';
 part 'router_instance/router_worker_session.dart';
 part 'router_instance/router_worker.dart';
 part 'router_instance/router_controller.dart';
+part 'router_instance/router_mcp.dart';
 part 'router_instance/router_internal_session.dart';

@@ -899,6 +899,99 @@ void main() {
       skip: skipReason ?? _nativePublishSkipReason,
     );
 
+    test('hosts MCP over HTTP using the router internal session', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9111,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(enableHttp3: false, enableMcp: true),
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      final serviceSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'mcp-test-service',
+        authRole: 'internal',
+      );
+      addTearDown(serviceSession.close);
+
+      final registration = await serviceSession.register('app.echo');
+      registration.onInvoke((invocation) {
+        invocation.respondWith(
+          argumentsKeywords: {'received': invocation.argumentsKeywords},
+        );
+      });
+
+      final listener = binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+
+      final initialize = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': 'initialize',
+        'params': {'protocolVersion': '2025-11-25'},
+      });
+      expect(initialize.statusCode, equals(HttpStatus.ok));
+      expect(initialize.json?['result'], isA<Map<String, Object?>>());
+
+      final initialized = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': {},
+      });
+      expect(initialized.statusCode, equals(HttpStatus.accepted));
+
+      final tools = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 2,
+        'method': 'tools/list',
+        'params': {},
+      });
+      final toolList =
+          ((tools.json?['result'] as Map<String, Object?>)['tools'] as List)
+              .cast<Map>();
+      expect(toolList.map((tool) => tool['name']), contains('app.echo'));
+      expect(
+        toolList.map((tool) => tool['name']),
+        contains('wamp.registration.list'),
+      );
+      expect(
+        toolList.map((tool) => tool['name']),
+        contains('connectanum.pubsub.publish'),
+      );
+
+      final echo = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 3,
+        'method': 'tools/call',
+        'params': {
+          'name': 'app.echo',
+          'arguments': {'message': 'hello'},
+        },
+      });
+      final echoResult =
+          (echo.json?['result'] as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      expect(echoResult['argumentsKeywords'], {
+        'received': {'message': 'hello'},
+      });
+
+      final meta = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 4,
+        'method': 'tools/call',
+        'params': {'name': 'wamp.registration.list', 'arguments': {}},
+      });
+      final metaResult =
+          (meta.json?['result'] as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      final exact =
+          (metaResult['argumentsKeywords'] as Map<String, Object?>)['exact']
+              as List;
+      expect(exact, isNotEmpty);
+    }, skip: skipReason);
+
     test('serves OpenMetrics payload over HTTP metrics route', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9110,
@@ -1778,6 +1871,7 @@ RouterSettings _buildTlsSettings({bool enableMetrics = false}) =>
 RouterSettings _buildRouterSettings({
   required bool enableHttp3,
   bool enableMetrics = false,
+  bool enableMcp = false,
 }) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
@@ -1879,6 +1973,18 @@ RouterSettings _buildRouterSettings({
           type: HttpRouteActionType.rpc,
           procedure: 'connectanum.metrics.openmetrics',
           realm: 'connectanum.metrics',
+        ),
+      ),
+    );
+  }
+  if (enableMcp) {
+    routes.add(
+      const HttpRouteSettings(
+        match: HttpRouteMatch(path: '/mcp'),
+        action: HttpRouteAction(
+          type: HttpRouteActionType.mcp,
+          realm: 'realm1',
+          options: {'tool_list_page_size': 100},
         ),
       ),
     );
@@ -2182,6 +2288,27 @@ Future<String> _readHttpResponse(Socket socket) async {
   }
   await iterator.cancel();
   return utf8.decode(collected);
+}
+
+Future<({int statusCode, Map<String, Object?>? json, String body})> _postJson(
+  HttpClient client,
+  int port,
+  String path,
+  Map<String, Object?> payload,
+) async {
+  final request = await client.post('127.0.0.1', port, path);
+  request.headers.contentType = ContentType.json;
+  final bodyBytes = utf8.encode(jsonEncode(payload));
+  request.contentLength = bodyBytes.length;
+  request.add(bodyBytes);
+  final response = await request.close();
+  final body = await utf8.decoder.bind(response).join();
+  final decoded = body.isEmpty ? null : jsonDecode(body);
+  return (
+    statusCode: response.statusCode,
+    json: decoded is Map ? decoded.cast<String, Object?>() : null,
+    body: body,
+  );
 }
 
 int _parseContentLength(String headers) {

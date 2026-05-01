@@ -14,8 +14,9 @@ release decisions for real RawSocket/WebSocket WAMP users.
 ## Priority
 
 - Keep the CI chain green first.
-- The first usable MCP stdio bridge path is complete; Streamable HTTP MCP
-  remains conditional on a `groli/app` network-endpoint decision.
+- The first usable MCP stdio bridge path and router-hosted JSON-RPC `POST`
+  endpoint are complete; full Streamable HTTP GET/SSE/session semantics remain
+  a future compatibility hardening item.
 - Treat this as production-readiness work, not speculative performance
   exploration.
 - Defer unrelated HTTP/3, kTLS, E2EE, and broad benchmark exploration until the

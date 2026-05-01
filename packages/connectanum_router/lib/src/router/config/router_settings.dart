@@ -777,6 +777,7 @@ enum HttpRouteActionType {
   auth,
   reservedRealm,
   namespace,
+  mcp,
   file,
   sessionProxy,
   publish,
@@ -794,6 +795,8 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
       return HttpRouteActionType.reservedRealm;
     case 'namespace':
       return HttpRouteActionType.namespace;
+    case 'mcp':
+      return HttpRouteActionType.mcp;
     case 'file':
       return HttpRouteActionType.file;
     case 'session_proxy':
@@ -811,6 +814,7 @@ String httpRouteActionTypeToString(HttpRouteActionType type) => switch (type) {
   HttpRouteActionType.auth => 'auth',
   HttpRouteActionType.reservedRealm => 'reserved_realm',
   HttpRouteActionType.namespace => 'namespace',
+  HttpRouteActionType.mcp => 'mcp',
   HttpRouteActionType.file => 'file',
   HttpRouteActionType.sessionProxy => 'session_proxy',
   HttpRouteActionType.publish => 'publish',

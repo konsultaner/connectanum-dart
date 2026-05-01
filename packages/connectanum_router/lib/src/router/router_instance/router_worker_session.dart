@@ -2024,6 +2024,9 @@ Map<String, Object?> _subscriptionDetailsFromOptions(
   if (options.getRetained != null) {
     details['get_retained'] = options.getRetained;
   }
+  if (options.custom.isNotEmpty) {
+    details.addAll(options.custom);
+  }
   return details;
 }
 
@@ -2042,6 +2045,9 @@ Map<String, Object?> _registrationDetailsFromOptions(
   }
   if (options.invoke != null) {
     details['invoke'] = options.invoke;
+  }
+  if (options.custom.isNotEmpty) {
+    details.addAll(options.custom);
   }
   return details;
 }

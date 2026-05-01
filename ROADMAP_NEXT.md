@@ -23,9 +23,11 @@ Fresh state:
 - GOAWAY detail assertions now cover HTTP/2 and HTTP/3 in both native `listen_flow` and Dart runtime suites.
 - Negotiated WebSocket subprotocol/serializer surfaces over FFI (`ct_connection_websocket_protocol`) and flows into boss/worker metadata, so listeners and workers can trace/route WebSocket WAMP sessions consistently.
 - Boss-side metrics now track listener backpressure and transport lifecycle spikes with configurable thresholds (`metrics.backpressure` / `metrics.transport_alerts`), throttling accepts and emitting alerts when GOAWAY/timeout deltas jump.
-- MCP support for downstream `groli/app` now has a first usable local bridge
-  path in `packages/connectanum_mcp` (transport-independent core, stdio
-  framing, and WAMP-backed tool delegation).
+- MCP support for downstream applications now has both a first usable local
+  bridge path in `packages/connectanum_mcp` and a router-hosted MCP endpoint:
+  `HttpRouteActionType.mcp` reuses the router internal WAMP session, exposes
+  exact registrations and WAMP meta API tools, and provides pub/sub helpers
+  over JSON-RPC `POST`.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.
@@ -59,7 +61,7 @@ Priority override:
 - **Do not resume speculative kTLS/H2 transport work by default.** The current
   kTLS evidence is measurement-bound, not runtime-tuning-ready. After CI
   health, keep autonomous work on GitHub deployment-chain reliability,
-  public/release readability, MCP usability for downstream `groli/app`, and
+  public/release readability, MCP usability for downstream applications, and
   concrete WAMP-profile shipped-path regressions.
 
 Focus for the next session:

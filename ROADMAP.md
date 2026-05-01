@@ -341,7 +341,7 @@
   - [x] Ship Prometheus exporters and Grafana dashboards for benchmark metrics visualization.
   - [x] Provide docs/scripts to bootstrap a local Grafana/Prometheus stack alongside benchmarks.
 - [ ] MCP (Model Context Protocol) server implementation for agentic AI integrations
-  - [x] First usable local bridge path for downstream `groli/app` is complete:
+  - [x] First usable local bridge path for downstream applications is complete:
     server core, stdio transport, and WAMP-backed tool delegation.
   - [x] Research the current official MCP lifecycle, transport, tools, prompts,
     and resources contracts, then record implementation decisions in checked-in
@@ -351,8 +351,13 @@
     calls, and clean shutdown/error behavior with focused tests.
   - [x] Add a stdio transport adapter and small CLI example.
   - [x] Add the WAMP-backed tool delegate for Connectanum procedure calls.
-  - [ ] Add Streamable HTTP/router integration if `groli/app` needs a network
-    MCP endpoint.
+  - [x] Add router-hosted HTTP MCP integration for applications that need a
+    network endpoint: `HttpRouteActionType.mcp` reuses the router internal
+    session, auto-exposes exact WAMP registrations, WAMP meta API tools, and
+    pub/sub helpers over JSON-RPC `POST`.
+  - [ ] Add full Streamable HTTP compatibility on top of the router endpoint
+    when needed: GET/SSE server push, explicit MCP session IDs, strict HTTP
+    header validation, Origin policy, and DELETE session termination.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

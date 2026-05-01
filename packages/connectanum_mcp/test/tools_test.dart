@@ -121,6 +121,32 @@ void main() {
       expect(error['code'], McpErrorCodes.invalidParams);
     });
 
+    test('tool registry replaceAll swaps tools and invalidates cursors', () {
+      final registry = McpToolRegistry([_tool('alpha'), _tool('beta')], 1);
+      final firstPage = registry.listPage();
+      expect(
+        _toolNames({
+          'tools': firstPage.tools.map((tool) => tool.toJson()).toList(),
+        }),
+        ['alpha'],
+      );
+      expect(firstPage.nextCursor, isA<String>());
+
+      registry.replaceAll([_tool('gamma')]);
+
+      expect(registry.list().map((tool) => tool.name), ['gamma']);
+      expect(
+        () => registry.listPage(cursor: firstPage.nextCursor),
+        throwsA(
+          isA<McpException>().having(
+            (error) => error.code,
+            'code',
+            McpErrorCodes.invalidParams,
+          ),
+        ),
+      );
+    });
+
     test('tools/call passes arguments to the registered tool', () async {
       final server = _server();
       await _initializeAndStart(server);

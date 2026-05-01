@@ -2,8 +2,9 @@
 
 `connectanum_mcp` lets a Dart or Flutter application expose a small MCP server
 without taking a dependency on a private bridge protocol. It is designed for the
-first production shape needed by Connectanum apps: local stdio MCP servers and
-MCP tools backed by normal Connectanum WAMP procedures.
+first production shapes needed by Connectanum apps: local stdio MCP servers,
+router-hosted HTTP JSON-RPC endpoints, and MCP tools backed by normal
+Connectanum WAMP procedures.
 
 The supported MCP protocol revision is `2025-11-25`. The package intentionally
 implements a narrow, stable subset first:
@@ -13,11 +14,17 @@ implements a narrow, stable subset first:
 - `tools/call`, including structured tool results
 - newline-delimited stdio transport for local MCP clients
 - WAMP-backed tool delegation through an existing `connectanum_client` session
+- declared WAMP API helpers for procedures, metadata, and pub/sub topics
+- router-hosted MCP endpoints through `connectanum_router` `mcp` HTTP routes
 
-It does not yet ship Streamable HTTP, router-hosted MCP sessions, prompts,
-resources, sampling, or tasks. Tool execution failures are returned as MCP tool
-results with `isError: true`; malformed JSON-RPC messages, unknown methods, and
-invalid parameters remain protocol errors.
+The package itself does not ship a standalone full Streamable HTTP transport,
+prompts, resources, sampling, or tasks. Router-hosted HTTP MCP endpoints are
+provided by `connectanum_router` routes with `type: mcp`; they support the
+request/response JSON-RPC subset over HTTP `POST` and return `405` for `GET`
+because server-push SSE streams are not implemented yet. Tool execution
+failures are returned as MCP tool results with `isError: true`; malformed
+JSON-RPC messages, unknown methods, and invalid parameters remain protocol
+errors.
 
 ## Quick Start
 
@@ -107,18 +114,137 @@ results are returned as a lossless JSON-shaped MCP tool result containing
 builders and result mappers can override that mapping for application-specific
 tool contracts.
 
-That default mapping is useful for app integrations because the MCP surface can
-stay stable while the application keeps its existing WAMP procedure names and
-authorization model. A Groli-style app can expose a curated set of tools by
-connecting a normal `Session`, wrapping selected procedures with
+That default mapping is useful for application integrations because the MCP
+surface can stay stable while the application keeps its existing WAMP procedure
+names and authorization model. An application can expose a curated set of tools
+by connecting a normal `Session`, wrapping selected procedures with
 `McpWampToolDelegate`, and serving them over stdio to the local MCP client.
+
+## Declared WAMP APIs
+
+Use `McpWampApi` when an application wants to expose a larger, human-readable
+WAMP surface instead of hand-registering each MCP tool:
+
+```dart
+final api = McpWampApi(
+  name: 'app',
+  procedures: [
+    McpWampProcedure(
+      procedure: 'app.task.create',
+      toolName: 'app.task.create',
+      title: 'Create Task',
+      description: 'Creates an application task.',
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'title': {'type': 'string'},
+        },
+        'required': ['title'],
+      },
+      metadata: const McpWampApiMetadata(
+        domain: 'app',
+        entity: 'task',
+        verbs: ['create'],
+        tags: ['task'],
+      ),
+    ),
+  ],
+  topics: [
+    McpWampTopic(
+      topic: 'app.task.changed',
+      title: 'Task Changed',
+      description: 'Emitted when a task changes.',
+    ),
+  ],
+);
+
+final tools = api.toSessionTools(session: session);
+```
+
+Declared procedures become normal MCP tools backed by WAMP `CALL`. The helper
+also adds `connectanum.api.list` and `connectanum.api.describe` so MCP clients
+can inspect procedure/topic metadata, schemas, tags, and descriptions before
+calling application-specific tools.
+
+Procedure metadata can also declare topics through
+`McpWampApiMetadata.publishesEvents`. Those topics are added to the declared
+topic catalog automatically, which lets an API registration advertise the
+events an agent can publish, subscribe to, and poll.
+
+Declared topics can optionally expose `connectanum.pubsub.publish`,
+`connectanum.pubsub.subscribe`, `connectanum.pubsub.poll`, and
+`connectanum.pubsub.unsubscribe`. MCP does not provide a server-push event
+channel in this package yet, so topic events are buffered per subscription and
+read through `connectanum.pubsub.poll`. Use `queueLimit` on subscribe requests
+to bound memory for local agents.
+
+## Router-Hosted MCP Endpoint
+
+`connectanum_router` can host an MCP endpoint directly. Add an HTTP route with
+`HttpRouteActionType.mcp`; the router creates or reuses its internal WAMP
+session for that route, exposes exact procedure registrations as MCP tools,
+adds the standard WAMP meta API tools, and enables the declared pub/sub helper
+tools:
+
+```dart
+const HttpRouteSettings(
+  match: HttpRouteMatch(path: '/mcp'),
+  action: HttpRouteAction(
+    type: HttpRouteActionType.mcp,
+    realm: 'realm1',
+    options: {
+      'include_registered_procedures': true,
+      'include_subscribed_topics': true,
+      'include_standard_meta_api': true,
+      'include_pubsub_tools': true,
+    },
+  ),
+);
+```
+
+Registered procedures can provide human-readable MCP metadata by passing custom
+WAMP registration details:
+
+```dart
+await session.register(
+  'app.task.create',
+  options: RegisterOptions(
+    custom: {
+      '_ai_meta_data': {
+        'short_description': 'Create a task.',
+        'domain': 'app',
+        'entity': 'task',
+        'verbs': ['create'],
+        'tags': ['task'],
+        'publishes_events': ['app.task.changed'],
+        'input_json_schema': {
+          'type': 'object',
+          'properties': {
+            'title': {'type': 'string'},
+          },
+          'required': ['title'],
+        },
+      },
+    },
+  ),
+);
+```
+
+The router-hosted endpoint means applications do not need to start a second MCP
+server process when the router is already running. Network hardening still
+belongs in the route/session profile configuration: bind local-only endpoints to
+localhost, require bearer or stronger auth for network-visible routes, and
+expose only procedures/topics whose realm permissions are intended for agents.
 
 ## Compatibility Notes
 
 The package follows MCP JSON-RPC semantics instead of WAMP semantics at the
 public MCP boundary. WAMP is only an optional backend used by
-`McpWampToolDelegate`.
+`McpWampToolDelegate` and `McpWampApi`.
 
-Networked MCP deployments should wait for an explicit Streamable HTTP or
-router-backed adapter. Until then, stdio is the supported transport for local
-agent integrations.
+Use stdio for local agent integrations. Use `connectanum_router` HTTP routes
+with `type: mcp` when an application needs a router-hosted network MCP endpoint.
+That route shape is intentionally narrower than full Streamable HTTP: it is
+ready for normal JSON-RPC `POST` request/response clients, while GET/SSE server
+push, explicit MCP session IDs, and resource/prompt surfaces remain future
+work.

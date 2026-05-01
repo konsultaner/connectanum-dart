@@ -124,15 +124,17 @@ McpToolResult mcpWampLosslessJsonResultMapper(
   final structuredContent = <String, Object?>{};
   final arguments = result.arguments;
   if (arguments != null) {
-    structuredContent['arguments'] = _jsonCompatible(arguments);
+    structuredContent['arguments'] = mcpWampJsonCompatible(arguments);
   }
   final argumentsKeywords = result.argumentsKeywords;
   if (argumentsKeywords != null) {
-    structuredContent['argumentsKeywords'] = _jsonCompatible(argumentsKeywords);
+    structuredContent['argumentsKeywords'] = mcpWampJsonCompatible(
+      argumentsKeywords,
+    );
   }
   final customDetails = result.customDetails;
   if (customDetails != null) {
-    structuredContent['details'] = _jsonCompatible(customDetails);
+    structuredContent['details'] = mcpWampJsonCompatible(customDetails);
   }
   if (structuredContent.isEmpty) {
     return McpToolResult.text('');
@@ -149,7 +151,7 @@ Map<String, dynamic> _copyStringDynamicMap(JsonMap source) {
   };
 }
 
-Object? _jsonCompatible(Object? value) {
+Object? mcpWampJsonCompatible(Object? value) {
   if (value == null || value is String || value is bool || value is int) {
     return value;
   }
@@ -162,11 +164,11 @@ Object? _jsonCompatible(Object? value) {
   if (value is Map) {
     return <String, Object?>{
       for (final entry in value.entries)
-        entry.key.toString(): _jsonCompatible(entry.value),
+        entry.key.toString(): mcpWampJsonCompatible(entry.value),
     };
   }
   if (value is Iterable) {
-    return [for (final item in value) _jsonCompatible(item)];
+    return [for (final item in value) mcpWampJsonCompatible(item)];
   }
   return value.toString();
 }

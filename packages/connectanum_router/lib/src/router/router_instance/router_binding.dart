@@ -95,6 +95,7 @@ class RouterBinding {
   final Map<String, RouterSession> _internalSessionsByRealm = {};
   final Map<String, RouterSession> _internalSessionsByCacheKey = {};
   final Map<int, _PendingHttpCall> _pendingHttpCalls = {};
+  final Map<String, _RouterMcpEndpoint> _mcpEndpoints = {};
   final Map<String, _PendingHttpAuthTransaction> _pendingHttpAuthTransactions =
       {};
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
@@ -912,6 +913,10 @@ class RouterBinding {
     } catch (_) {}
     await _metricsService?.dispose();
     _metricsService = null;
+    for (final endpoint in _mcpEndpoints.values.toList()) {
+      endpoint.dispose();
+    }
+    _mcpEndpoints.clear();
     for (final session in _internalSessions.toList()) {
       await session.close();
     }
@@ -952,6 +957,7 @@ class RouterBinding {
     if (_metricsService?.ownsSession(session) == true) {
       _metricsService = null;
     }
+    _mcpEndpoints.removeWhere((_, endpoint) => endpoint.ownsSession(session));
   }
 
   @visibleForTesting
@@ -1078,6 +1084,21 @@ class RouterBinding {
     if (matchedRoute?.action.type == HttpRouteActionType.auth) {
       try {
         await _handleHttpAuthRequest(
+          request: request,
+          handshake: retainedHandshake,
+          listenerSettings: listenerSettings,
+          route: matchedRoute!,
+          sessionProfile: sessionProfile,
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.mcp) {
+      try {
+        await _handleMcpHttpRequestForBinding(
+          this,
           request: request,
           handshake: retainedHandshake,
           listenerSettings: listenerSettings,

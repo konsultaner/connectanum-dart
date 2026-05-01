@@ -153,6 +153,12 @@ class McpToolRegistry {
     }
   }
 
+  void replaceAll(Iterable<McpTool> tools) {
+    _tools.clear();
+    _revision += 1;
+    registerAll(tools);
+  }
+
   List<McpTool> list({String? cursor}) => listPage(cursor: cursor).tools;
 
   McpToolListPage listPage({String? cursor}) {
