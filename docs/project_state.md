@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed implementation commit: `0482ebe`
-(`docs: record worker readiness ci evidence`)
+Last reviewed implementation commit: `77e34de`
+(`mcp: paginate tool listings`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
 GitHub deployment-chain evidence
 
@@ -12,10 +12,18 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
-  - latest branch-head commit `0482ebe`
-    (`docs: record worker readiness ci evidence`) has clean hosted GitHub
-    evidence: `CI` run `25196057428` passed in 14m13s and `Dart Package
-    Publish Dry Run` run `25196057420` passed in 28s
+  - latest reviewed implementation commit `77e34de`
+    (`mcp: paginate tool listings`) has clean hosted GitHub evidence: `CI` run
+    `25198143182` passed with `Fast Checks` in 5m25s and `Full Verify` in
+    8m23s; `Dart Package Publish Dry Run` run `25198143194` passed in 19s
+  - hosted CI log scan for `25198143182` found no warning, deprecation,
+    skipped-test, reset, connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-01 with
+    `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; remaining findings are still the
+    operator-owned branch protection, hidden `router-image.yml`, and missing
+    visible GHCR router package evidence
   - current MCP usability slice rechecked the official MCP 2025-11-25
     tools/pagination requirements on 2026-05-01 and adds optional
     `McpServer.toolListPageSize`, stable opaque `nextCursor` pages for
