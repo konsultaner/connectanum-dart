@@ -2,6 +2,8 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
+Last reviewed branch checkpoint: `bcb1881`
+(`docs: record mcp readme ci evidence`)
 Last reviewed implementation commit: `6c403ee`
 (`docs: clarify mcp package usage`)
 Active exec plan: none; use `ROADMAP_NEXT.md` after re-checking CI and
@@ -12,6 +14,20 @@ GitHub deployment-chain evidence
 - Current autonomous focus:
   - keep the CI chain clean first; the deployment-chain plan is paused because
     the remaining RC blockers are operator/release decisions
+  - continuation metadata is intentionally aligned on no active exec plan; the
+    previous H2 isolated-regression diagnosis is historical, not the default
+    autonomous continuation path
+  - current branch checkpoint `bcb1881` passed hosted GitHub `CI` run
+    `25202885417` with `Fast Checks` in 5m38s and `Full Verify` in 8m19s;
+    hosted CI log scan found no warning, deprecation, skipped-test, reset, or
+    connection-noise patterns
+  - branch-head deployment-chain audit passed on 2026-05-01 against `bcb1881`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; `Dart Package Publish Dry Run`
+    run `25202524047` and native release dry-run `25192553399` remain clean
+    and relevant because no publish-sensitive or native-release-sensitive
+    inputs changed after their covered commits
   - current MCP public-surface readability slice improves
     `packages/connectanum_mcp/README.md` for downstream app embedders: it now
     states the supported `2025-11-25` MCP subset, provides a copy-paste stdio
@@ -3889,8 +3905,13 @@ GitHub deployment-chain evidence
 
 ## Active Plan
 
-- Active plan:
-  `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`
+- Active plan: none. Re-check CI/deployment-chain evidence, then use
+  `ROADMAP_NEXT.md` to select the next production-readiness slice.
+- Historical paused plan:
+  `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
+  resume it by default because the current continuation priority is GitHub
+  deployment-chain reliability, public/release readability, MCP usability for
+  downstream apps, and concrete shipped-path regressions.
 - Most recent deployment-chain checkpoint plan:
   `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 - Most recent completed product-readiness plan:
@@ -3919,11 +3940,9 @@ GitHub deployment-chain evidence
   counters and opt-in performance budgets. It still needs scenario-specific
   throughput/p95 thresholds before CI should fail on performance drift for a
   given benchmark family.
-- HTTP/3 transport/backpressure follow-up work is paused behind WAMP-profile
-  transport benchmark readiness unless CI or a release blocker requires
-  revisiting it first.
-  It should define the canonical WAMP release gate set before any new broad
-  benchmark expansion.
+- HTTP/3 transport/backpressure follow-up work remains paused unless CI, a
+  release blocker, or an explicit performance-budget need requires revisiting
+  it; the canonical WAMP release gate set is already defined.
 - The current E2EE lane now covers negotiated fallback plus reusable
   peer/trust adapters. Further E2EE work should be driven by a concrete app
   integration need, or the next session should choose the next unfinished
