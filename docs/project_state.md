@@ -2,42 +2,53 @@
 
 Last updated: 2026-05-01
 Current branch: `add-router`
-Last reviewed branch checkpoint: `6ed7ae4`
-(`docs: align continuation state`)
-Last reviewed implementation commit: `6c403ee`
-(`docs: clarify mcp package usage`)
+Last reviewed branch checkpoint: `1c4622c`
+(`mcp: add router-hosted HTTP endpoint`)
+Last reviewed implementation commit: `1c4622c`
+(`mcp: add router-hosted HTTP endpoint`)
 Active exec plan:
-`docs/exec-plans/2026-04-23-mcp-support-application-integration.md` until the
-router-hosted MCP HTTP slice has full local and hosted CI evidence
+No active multi-session implementation plan. The MCP
+application-integration plan is parked after the first usable local stdio and
+router-hosted JSON-RPC `POST` paths reached local and hosted evidence; use
+`ROADMAP_NEXT.md` for the next milestone unless CI or deployment-chain health
+regresses.
 
 ## Last Known Verification
 
 - Current autonomous focus:
-  - keep the CI chain clean first; the deployment-chain plan is paused because
-    the remaining RC blockers are operator/release decisions
-  - continuation metadata is temporarily back on the MCP application-integration
-    plan while the router-hosted MCP HTTP slice is verified; the previous H2
-    isolated-regression diagnosis is historical, not the default autonomous
-    continuation path
-  - current branch checkpoint `6ed7ae4` passed hosted GitHub `CI` run
-    `25204110260` with `Fast Checks` in 6m05s and `Full Verify` in 8m03s;
-    hosted CI log scan found no warning, deprecation, skipped-test, reset, or
-    connection-noise patterns
-  - branch-head deployment-chain audit passed on 2026-05-01 against `6ed7ae4`
+  - keep the CI chain clean first; latest hosted branch checkpoint `1c4622c`
+    passed GitHub `CI` run `25205192927` with `Fast Checks` in 4m56s and
+    `Full Verify` in 7m51s
+  - hosted GitHub evidence for `1c4622c` is clean: CI log scan found no
+    warning, deprecation, skipped-test, reset, connection-noise, panic, or
+    failure patterns; `Dart Package Publish Dry Run` run `25205192926` passed
+    in 17s and covers the checked-out head; `WAMP Profile Benchmarks` run
+    `25205192933` passed in 6m22s
+  - branch-head deployment-chain audit passed on 2026-05-01 against `1c4622c`
     with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
-    `--require-clean-native-release-dry-run`; `Dart Package Publish Dry Run`
-    run `25202524047` and native release dry-run `25192553399` remain clean
-    and relevant because no publish-sensitive or native-release-sensitive
-    inputs changed after their covered commits
-  - current MCP WAMP API helper slice adds `McpWampApi` for declared
+    `--require-clean-native-release-dry-run`; native release dry-run
+    `25192553399` remains clean and relevant because no
+    native-release-sensitive inputs changed after its covered commit
+  - first usable MCP bridge path is complete for local stdio and
+    router-hosted JSON-RPC `POST` clients; remaining MCP work should be driven
+    by concrete application needs such as resources/prompts, full Streamable
+    HTTP GET/SSE/session semantics, or more auth/deployment examples
+  - no active code blocker is known after the MCP slice; default continuation
+    should stay on GitHub deployment-chain reliability, public/release
+    readability, MCP usability for downstream applications, and concrete
+    WAMP-profile shipped-path regressions from `ROADMAP_NEXT.md`
+  - remaining RC/deployment blockers are still operator/release decisions:
+    branch protection, default-branch router workflow/GHCR package evidence,
+    RC tag/prerelease selection, and the Dart package release-order decision
+  - completed MCP WAMP API helper slice adds `McpWampApi` for declared
     procedure/topic catalogs, API list/describe metadata tools, and optional
     buffered publish/subscribe/poll/unsubscribe MCP tools backed by WAMP
     sessions; focused `dart analyze packages/connectanum_mcp` and
     `dart test packages/connectanum_mcp -r expanded` passed after pinning the
     subscription buffer behavior for early and later events plus dynamic tool
     registry cursor invalidation
-  - current router-hosted MCP HTTP slice adds `HttpRouteActionType.mcp`, native
+  - completed router-hosted MCP HTTP slice adds `HttpRouteActionType.mcp`, native
     route wiring to `connectanum.mcp.handle`, a router-hosted MCP endpoint that
     uses an internal WAMP session, and native integration coverage for MCP
     initialize/list/call over HTTP POST; focused router analysis, JSON config

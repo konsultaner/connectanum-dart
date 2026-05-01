@@ -165,7 +165,17 @@ protocol bridge.
   MCP tests, client/native tests, auth-server tests, bench integration tests,
   full router package tests, zero-copy publish tests, and Chrome Dart2Wasm
   WebSocket transport tests.
+- 2026-05-01: Hosted GitHub evidence for commit `1c4622c`
+  (`mcp: add router-hosted HTTP endpoint`) is clean. `CI` run `25205192927`
+  passed with `Fast Checks` in 4m56s and `Full Verify` in 7m51s,
+  `Dart Package Publish Dry Run` run `25205192926` passed in 17s, and
+  `WAMP Profile Benchmarks` run `25205192933` passed in 6m22s. The strict
+  deployment-chain audit passed with clean CI logs, a relevant Dart package
+  dry-run, and the existing native release dry-run still relevant because no
+  native-release-sensitive inputs changed.
 - First usable MCP bridge path is complete for local stdio and router-hosted
   JSON-RPC `POST` request/response clients. Remaining MCP follow-up should be
   driven by a concrete application need, such as resources/prompts, full
   Streamable HTTP GET/SSE/session semantics, or more auth/deployment examples.
+- This plan is parked after the first usable bridge path; reopen it only for a
+  concrete downstream application need or MCP compatibility gap.
