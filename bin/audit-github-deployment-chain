@@ -60,9 +60,10 @@ Options:
                              has release-candidate evidence: clean hosted CI
                              and logs, hosted Dart package publish dry-run
                              evidence, hosted native release dry-run evidence,
-                             baseline branch protection, visible workflows,
-                             visible router package, an RC GitHub prerelease,
-                             and strict Dart package dry-run readiness.
+                             baseline default-branch protection, visible
+                             workflows, visible router package, an RC GitHub
+                             prerelease, and strict Dart package dry-run
+                             readiness.
   --strict                  Exit non-zero when the branch lacks the baseline
                              required checks expected for protected releases.
   -h, --help                Show this help text.
@@ -807,10 +808,16 @@ print_rc_readiness() {
     rc_ready_failed=1
   fi
 
-  if [[ "$missing_required_checks" -eq 0 ]]; then
-    printf 'Branch protection baseline: ready\n'
+  if [[ "$release_missing_required_checks" -eq 0 ]]; then
+    printf 'Default branch protection baseline: ready (%s requires %s)\n' "$release_protection_branch" "${release_required_contexts:-none}"
   else
-    printf 'Branch protection baseline: not ready; the audited branch must protect release-critical CI checks.\n'
+    if [[ -z "$release_branch_protected" ]]; then
+      printf 'Default branch protection baseline: not ready; could not inspect %s.\n' "$release_protection_branch"
+    elif [[ "$release_branch_protected" != "true" ]]; then
+      printf 'Default branch protection baseline: not ready; %s is not protected.\n' "$release_protection_branch"
+    else
+      printf 'Default branch protection baseline: not ready; %s must require release-critical CI checks (current: %s).\n' "$release_protection_branch" "${release_required_contexts:-none}"
+    fi
     rc_ready_failed=1
   fi
 
@@ -909,6 +916,7 @@ default_branch="$(api_jq "" '.default_branch')"
 allow_auto_merge="$(api_jq "" '.allow_auto_merge')"
 delete_branch_on_merge="$(api_jq "" '.delete_branch_on_merge')"
 branch_protected="$(api_jq_optional "branches/${branch}" '.protected')"
+release_protection_branch="$default_branch"
 ruleset_count="$(api_jq_optional "rulesets" 'length')"
 package_owner="${repository%%/*}"
 
@@ -932,6 +940,9 @@ fi
 printf 'Protected: %s\n' "$branch_protected"
 
 missing_required_checks=0
+release_missing_required_checks=0
+release_branch_protected=""
+release_required_contexts=""
 missing_visible_workflow=0
 missing_router_package=0
 latest_ci_failed=0
@@ -988,6 +999,28 @@ else
   printf 'Required status checks: none\n'
   printf 'Finding: branch is not protected.\n'
   missing_required_checks=1
+fi
+
+if [[ "$release_protection_branch" == "$branch" ]]; then
+  release_branch_protected="$branch_protected"
+  release_required_contexts="$required_contexts"
+  release_missing_required_checks="$missing_required_checks"
+else
+  release_branch_protected="$(api_jq_optional "branches/${release_protection_branch}" '.protected')"
+  if [[ "$release_branch_protected" == "true" ]]; then
+    release_required_contexts="$(
+      api_jq_optional \
+        "branches/${release_protection_branch}/protection" \
+        '((.required_status_checks.contexts // []) + ((.required_status_checks.checks // []) | map(.context))) | unique | join(", ")'
+    )"
+    for expected_check in "${expected_ci_jobs[@]}"; do
+      if [[ "$release_required_contexts" != *"$expected_check"* ]]; then
+        release_missing_required_checks=1
+      fi
+    done
+  else
+    release_missing_required_checks=1
+  fi
 fi
 
 if [[ "$show_required_checks_plan" -eq 1 ]]; then

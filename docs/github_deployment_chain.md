@@ -91,13 +91,13 @@ expected to be resolved:
 bin/audit-github-deployment-chain --branch add-router --require-rc-ready
 ```
 
-The RC view is read-only. It combines clean CI, clean hosted logs, branch
-protection, workflow visibility, router package visibility, hosted Dart package
-publish dry-run evidence, hosted native release dry-run evidence, RC
-tag/prerelease evidence, and strict Dart package readiness. When Dart package
-readiness is the blocker, the audit prints the package release-order plan so
-the current `connectanum_core` -> `connectanum_client` dependency decision is
-visible in the same output.
+The RC view is read-only. It combines candidate-branch clean CI, clean hosted
+logs, workflow visibility, router package visibility, hosted Dart package
+publish dry-run evidence, hosted native release dry-run evidence, default-branch
+protection readiness, RC tag/prerelease evidence, and strict Dart package
+readiness. When Dart package readiness is the blocker, the audit prints the
+package release-order plan so the current `connectanum_core` ->
+`connectanum_client` dependency decision is visible in the same output.
 
 Use the router package gate before treating the router image release path as
 ready:

@@ -2,20 +2,54 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `379775a`
-(`test: declare root zero-copy tag`)
+Last reviewed branch checkpoint: `09a1cc6`
+(`ci: clarify workflow visibility audit`)
 Last reviewed implementation commit: `fd4bf0b`
 (`mcp: add router safety smoke`)
 Active exec plan:
-No active multi-session implementation plan. The MCP
-application-integration plan is parked again after the router-hosted
-safety/pubsub smoke follow-up passed focused and full local verification; use
+No active multi-session implementation plan. The public README cleanup and RC
+branch-protection baseline audit readability slice completed locally; use
 `ROADMAP_NEXT.md` for the next milestone unless CI, deployment-chain health, or
 a concrete MCP compatibility gap regresses.
 
 ## Last Known Verification
 
 - Current autonomous focus:
+  - current public README cleanup removes machine-local Codex/launchd
+    continuation instructions from the public root README; keep long-running
+    automation details in local/operator state rather than user-facing package
+    docs
+  - pre-change `bin/test-fast` passed on 2026-05-02 before the public README
+    cleanup
+  - hosted GitHub evidence for `09a1cc6`
+    (`ci: clarify workflow visibility audit`) is clean: `CI` run
+    `25250197996` passed with `Fast Checks` in 5m53s and `Full Verify` in
+    6m54s, and the hosted CI log scan found no warning, deprecation,
+    skipped-test, reset, connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `09a1cc6`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25206934146` remains clean/relevant because no package-sensitive paths
+    changed after `379775a`, and native release dry-run `25192553399` remains
+    clean/relevant because no native-release-sensitive inputs changed after its
+    covered commit
+  - current RC readiness audit slice keeps candidate-branch run evidence
+    anchored to `add-router` but evaluates the branch-protection baseline
+    against default branch `master`, so the `--show-rc-readiness` output no
+    longer implies the active development branch must be protected before RC
+    promotion
+  - focused checks passed on 2026-05-02 after the RC readiness audit update:
+    `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`,
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 4 --show-rc-readiness`,
+    the clean branch-head deployment-chain audit, and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-02 after the public README
+    cleanup and RC readiness audit slice; it included formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP tests,
+    client/native tests, auth-server tests, bench integration tests, full
+    router package tests including MCP smoke and remote-auth integration paths,
+    zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
   - current deployment-chain readability slice keeps the audit read-only but
     makes hidden workflow findings actionable: if a checked-in workflow is not
     discoverable through the GitHub Actions API, the audit now checks whether
