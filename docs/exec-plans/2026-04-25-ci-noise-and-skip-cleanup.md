@@ -120,9 +120,9 @@ Status: completed
   from `packages/connectanum_router`
 - `CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 dart test test/router_worker_session_test.dart test/router_integration_native_test.dart --tags zero_copy_publish --chain-stack-traces -r expanded`
   from `packages/connectanum_router`
-- `CONNECTANUM_NATIVE_LIB=/Users/konsultaner/Projects/connectanum-dart/native/transport/target/ffi-test/release/libct_ffi.dylib dart test test/router_integration_native_test.dart --plain-name 'streams HTTP/3 request and response payloads end-to-end' -r expanded`
+- `CONNECTANUM_NATIVE_LIB=$PWD/native/transport/target/ffi-test/release/libct_ffi.dylib dart test test/router_integration_native_test.dart --plain-name 'streams HTTP/3 request and response payloads end-to-end' -r expanded`
   from `packages/connectanum_router`
-- `CONNECTANUM_NATIVE_LIB=/Users/konsultaner/Projects/connectanum-dart/native/transport/target/ffi-test/release/libct_ffi.dylib dart test test/router_integration_native_test.dart --plain-name 'streams multi-MB HTTP/3 payloads and exports metrics' -r expanded`
+- `CONNECTANUM_NATIVE_LIB=$PWD/native/transport/target/ffi-test/release/libct_ffi.dylib dart test test/router_integration_native_test.dart --plain-name 'streams multi-MB HTTP/3 payloads and exports metrics' -r expanded`
   from `packages/connectanum_router`
 - `env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test/wamp_transport_integration_test.dart --plain-name 'Dart RawSocket RPC workload runs against a real router' -r expanded`
   from `packages/connectanum_bench`

@@ -155,7 +155,7 @@ benchmark measurement rather than transport code.
 
 ## Verification
 
-- `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-latest-ci --require-clean-latest-ci-logs`
+- `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-latest-ci --require-clean-latest-ci-logs`
 - GitHub `kTLS HTTP/2 Benchmarks` run `25176887533`
 - Hosted kTLS run log scan for warning/skipped/reset/panic/timeout/connection
   noise

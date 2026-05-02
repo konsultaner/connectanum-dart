@@ -2,13 +2,13 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `06e5883`
-(`docs: record rc readiness ci evidence`)
+Last reviewed branch checkpoint: `f04227e`
+(`chore: ignore local serena state`)
 Last reviewed implementation commit: `fd4bf0b`
 (`mcp: add router safety smoke`)
 Active exec plan:
 No active multi-session implementation plan. The latest clean hosted checkpoint
-is `06e5883`; the current local tool-state ignore cleanup is a small
+is `f04227e`; the current docs-only portable-path cleanup is a small
 public-surface hygiene follow-up. Use `ROADMAP_NEXT.md` for the next milestone
 unless CI, deployment-chain health, or a concrete MCP compatibility gap
 regresses.
@@ -16,6 +16,32 @@ regresses.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - current public-surface hygiene slice removes machine-specific absolute
+    paths from tracked state/exec-plan docs, using `$HOME` / `$PWD` examples
+    instead of a local username and checkout path
+  - tracked-file scan on 2026-05-02 found no downstream-app, sibling-project,
+    or local absolute home-path references after the portable path cleanup
+  - pre-change `bin/test-fast` passed on 2026-05-02 before the portable path
+    cleanup
+  - full local `bin/verify` passed on 2026-05-02 after the portable path
+    cleanup; it included formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP tests, client/native tests, auth-server tests,
+    bench integration tests, full router package tests including MCP smoke and
+    remote-auth integration paths, zero-copy publish tests, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `f04227e` (`chore: ignore local serena state`)
+    is clean: `CI` run `25251472428` passed with `Fast Checks` in 5m37s and
+    `Full Verify` in 8m5s, and the hosted CI log scan found no warning,
+    deprecation, skipped-test, reset, connection-noise, panic, or failure
+    patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `f04227e`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25206934146` remains clean/relevant because no package-sensitive paths
+    changed after `379775a`, and native release dry-run `25192553399` remains
+    clean/relevant because no native-release-sensitive inputs changed after its
+    covered commit
   - current public-surface hygiene slice ignores local Serena tool state
     (`.serena/`) so generated MCP/tool metadata does not appear as an
     untracked public repo artifact during autonomous runs
@@ -1318,15 +1344,15 @@ regresses.
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-native-release-dry-run`,
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-native-release-dry-run`,
     the expected failing
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-native-release-dry-run`,
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-native-release-dry-run`,
     and
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
   - post-hosted audit checks passed:
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-native-release-dry-run`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-native-release-dry-run`
     and
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
   - full local `bin/verify` passed after the audit and documentation updates
     on 2026-04-29
 - Current router image dry-run preview hardening:
@@ -1420,10 +1446,10 @@ regresses.
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --show-dart-package-publish-dry-run`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-dart-package-publish-dry-run`,
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --show-dart-package-publish-dry-run`,
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-dart-package-publish-dry-run`,
     and
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --show-rc-readiness`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --show-rc-readiness`
   - `git diff --check` and full local `bin/verify` passed after the audit and
     documentation updates on 2026-04-29
 - Current Dart package release-order plan surfacing:
@@ -1453,7 +1479,7 @@ regresses.
     the expected failing
     `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`,
     and
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
   - remaining Dart package RC blockers are still operator/product decisions:
     pub.dev package ownership, canonical public versions, and whether
     `connectanum_core` is approved public API
@@ -1476,8 +1502,8 @@ regresses.
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`, and
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-rc-ready`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`, and
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-rc-ready`
     failed as expected on the current RC blockers while confirming clean CI
     and clean hosted CI logs
   - current RC blockers remain: unprotected `add-router`, undiscoverable
@@ -1497,7 +1523,7 @@ regresses.
     `1131e7e`; its log shows `Package has 0 warnings`, the known private
     `connectanum_core` release-order blocker, and
     `All Dart package publish dry-runs reported zero warnings`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs`
     passed against `1131e7e`, confirming no skipped, pending, failed, missing,
     or unexpected main `CI` jobs and no high-signal warning, deprecation,
     skipped-test, rawsocket reset, or connection-noise log matches
@@ -1525,9 +1551,9 @@ regresses.
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --scan-latest-ci-logs`,
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --scan-latest-ci-logs`,
     and
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci --require-clean-latest-ci-logs`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci --require-clean-latest-ci-logs`
   - the new log-scan gate passed against latest hosted GitHub `CI` run
     `25096910826` on `869bb7f`, confirming no high-signal warning,
     deprecation, skipped-test, rawsocket reset, or connection-noise matches
@@ -1538,7 +1564,7 @@ regresses.
   - commit `bd99fcc` (`ci: audit hosted ci logs`) passed hosted GitHub `CI`
     run `25099086900`; `Fast Checks` completed successfully in 5m48s and
     `Full Verify` completed successfully in 8m9s
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci --require-clean-latest-ci-logs`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci --require-clean-latest-ci-logs`
     passed against `bd99fcc`, confirming no skipped, pending, failed, missing,
     or unexpected main `CI` jobs and no high-signal warning, deprecation,
     skipped-test, rawsocket reset, or connection-noise log matches
@@ -1570,7 +1596,7 @@ regresses.
     `CI` run `25096329599` passed with `Fast Checks` in 5m28s and
     `Full Verify` in 7m53s, `kTLS Validation` run `25096329602` passed, and
     `WAMP Profile Benchmarks` run `25096329606` passed
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
     passed against `cf77754`, confirming the latest main `CI` jobs are present
     and successful with no skipped, pending, failed, missing, or unexpected
     jobs
@@ -1583,7 +1609,7 @@ regresses.
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`, `git diff --check`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
   - final local `bin/verify` passed, including Rust/FFI tests, Dart package
     tests, bench WAMP transport coverage, full router tests,
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
@@ -1591,7 +1617,7 @@ regresses.
   - hosted GitHub `CI` run `25094700697` passed on `55e9dc0`:
     `Fast Checks` completed successfully in 5m33s and `Full Verify` completed
     successfully in 8m10s
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
     passed against `55e9dc0`, confirming no skipped, pending, failed, missing,
     or unexpected main `CI` jobs
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
@@ -1610,7 +1636,7 @@ regresses.
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`, `git diff --check`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
   - final local `bin/verify` passed, including Rust/FFI tests, Dart package
     tests, bench WAMP transport coverage, full router tests,
     `remote_auth_integration_test`, and the Chrome Dart2Wasm browser websocket
@@ -1618,7 +1644,7 @@ regresses.
   - hosted GitHub `CI` run `25092705443` passed on `c061ae3`:
     `Fast Checks` completed successfully in 5m38s and `Full Verify` completed
     successfully in 7m55s
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 4 --require-clean-latest-ci`
     passed against `c061ae3`, confirming no skipped, pending, failed, missing,
     or unexpected main `CI` jobs
   - hosted log scanning found no real warnings, deprecations, rawsocket reset
@@ -3969,13 +3995,13 @@ regresses.
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core apply_server_tls_runtime_settings -- --nocapture` passed on Darwin arm64 after making the kTLS server prototype suppress TLS 1.3 session tickets whenever secret extraction is enabled.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after making the kTLS server prototype suppress TLS 1.3 session tickets on the dummy-session handoff path and updating the kTLS benchmark plan/research/state docs.
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` and `cargo test --manifest-path native/transport/Cargo.toml -p ct_core tls::tests -- --nocapture` passed on Darwin arm64 after replacing the Linux kTLS accept path with an unbuffered rustls server handshake and real kernel-connection handoff.
-- 2026-04-22: `docker run --rm --platform linux/amd64 -v /Users/konsultaner/Projects/connectanum-dart:/work -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed, confirming the Linux-only unbuffered kTLS handoff path typechecks in a real Linux toolchain.
+- 2026-04-22: `docker run --rm --platform linux/amd64 -v "$PWD:/work" -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed, confirming the Linux-only unbuffered kTLS handoff path typechecks in a real Linux toolchain.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after replacing the Linux kTLS accept path with rustls's unbuffered server handshake plus `dangerous_into_kernel_connection()` and updating the kTLS benchmark plan/research/state docs.
 - 2026-04-22: GitHub Actions run `24772627167` (`kTLS HTTP/2 Benchmarks`) failed on `add-router` after the first unbuffered-handshake landing because the required-kTLS `/bench/healthz` handshake returned server-side `received fatal alert: UnexpectedMessage` while the client reported `got ApplicationData when expecting Handshake`.
 - 2026-04-22: GitHub Actions run `24772627180` (`kTLS Validation`) failed on `add-router` with the same `UnexpectedMessage` / `got ApplicationData when expecting Handshake` signature before the stricter Linux smoke path could complete.
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core ktls::tests -- --nocapture` passed on Darwin arm64 after buffering every unbuffered `EncodeTlsData` fragment until `TransmitTlsData` and adding a regression that proves `WriteTraffic` can still leave partial TLS bytes buffered in userspace.
 - 2026-04-22: `cargo test --manifest-path native/transport/Cargo.toml -p ct_core tls::tests -- --nocapture` passed on Darwin arm64 after the same unbuffered-handshake byte-accounting fix.
-- 2026-04-22: `docker run --rm --platform linux/amd64 -v /Users/konsultaner/Projects/connectanum-dart:/work -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed again, confirming the corrected Linux-only handoff path still typechecks in a real Linux toolchain.
+- 2026-04-22: `docker run --rm --platform linux/amd64 -v "$PWD:/work" -w /work/native/transport rust:1 bash -lc 'TOOLCHAIN=$(ls /usr/local/rustup/toolchains | head -n1); export PATH=\"/usr/local/rustup/toolchains/$TOOLCHAIN/bin:$PATH\"; cargo check -p ct_core'` passed again, confirming the corrected Linux-only handoff path still typechecks in a real Linux toolchain.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after landing provider-level E2EE key-selection policies on the Dart and native lanes, updating the E2EE docs/roadmap/state files, and stabilizing the `ct_ffi` surfaced HTTP/2 handshake test with a real h2 client handshake.
 - 2026-04-22: GitHub Actions runs `24773860109` (`CI`), `24773860116` (`kTLS Validation`), and `24773860158` (`kTLS HTTP/2 Benchmarks`) all passed on `add-router` for commit `6d18344`, closing the HTTP/2 kTLS correctness milestone on hosted Linux.
 - 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing provider-level E2EE key-selection policies on the shared Dart/native provider lane.
@@ -4002,9 +4028,9 @@ regresses.
 - 2026-04-22: GitHub Actions run `24785214332` (`kTLS Validation`, `workflow_dispatch`) passed on `add-router` for commit `0b4f1e7`, confirming secure RawSocket + secure WebSocket WAMP smoke workloads on hosted Linux after the Dart secure-WebSocket certificate fix.
 - 2026-04-22: GitHub Actions run `24785189137` (`CI`) passed on `add-router` for commit `0b4f1e7`.
 - 2026-04-22: `python3` `tomllib` parsing confirmed `native/bench/scenarios/wamp_secure_throughput.toml` loads cleanly with 12 workloads.
-- 2026-04-22: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib /Users/konsultaner/Projects/connectanum-dart/native/transport/target/release/libct_ffi.dylib --control-base https://127.0.0.1:8080/bench --scenario native/bench/scenarios/wamp_secure_throughput.toml` passed on Darwin arm64 and produced the first local secure-WAMP 64 KiB baseline: secure RawSocket RPC roughly `151/163/109 Mbps` (JSON/MsgPack/CBOR) and pubsub roughly `44/56/38 Mbps`; secure WebSocket RPC roughly `146/156/141 Mbps` and pubsub roughly `42/71/52 Mbps`.
+- 2026-04-22: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib $PWD/native/transport/target/release/libct_ffi.dylib --control-base https://127.0.0.1:8080/bench --scenario native/bench/scenarios/wamp_secure_throughput.toml` passed on Darwin arm64 and produced the first local secure-WAMP 64 KiB baseline: secure RawSocket RPC roughly `151/163/109 Mbps` (JSON/MsgPack/CBOR) and pubsub roughly `44/56/38 Mbps`; secure WebSocket RPC roughly `146/156/141 Mbps` and pubsub roughly `42/71/52 Mbps`.
 - 2026-04-22: `cargo test --manifest-path native/bench/Cargo.toml http_endpoint_accepts_https_control_base -- --nocapture`, `cargo test --manifest-path native/bench/Cargo.toml build_http1_request_uses_origin_form_and_host_header -- --nocapture`, and `cargo test --manifest-path native/bench/Cargo.toml bench_http_client_builds_https_client -- --nocapture` all passed after changing the direct orchestrator default control base to `https://127.0.0.1:8080/bench`.
-- 2026-04-22: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib /Users/konsultaner/Projects/connectanum-dart/native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/wamp_secure_smoke.toml` passed on Darwin arm64 after the same control-base default change, confirming the direct local CLI path works again without a hidden override.
+- 2026-04-22: `cargo run --manifest-path native/bench/Cargo.toml --bin http_stream -- --native-lib $PWD/native/transport/target/release/libct_ffi.dylib --scenario native/bench/scenarios/wamp_secure_smoke.toml` passed on Darwin arm64 after the same control-base default change, confirming the direct local CLI path works again without a hidden override.
 - 2026-04-22: `bin/verify` passed on Darwin arm64 after adding `native/bench/scenarios/wamp_secure_throughput.toml`, updating the direct bench CLI control-base default to `https://127.0.0.1:8080/bench`, and refreshing the secure-WAMP throughput plan/state docs.
 - 2026-04-22: GitHub Actions run `24786956501` (`kTLS Validation`, `workflow_dispatch`) passed on `add-router` for commit `c040ef9` with scenario `native/bench/scenarios/wamp_secure_throughput.toml`, recording the hosted Ubuntu response-throughput baseline as RawSocket pubsub `56.77/65.08/57.15 Mbps`, RawSocket RPC `176.60/215.09/164.48 Mbps`, WebSocket pubsub `62.04/78.81/64.83 Mbps`, and WebSocket RPC `191.13/231.59/168.71 Mbps` for JSON/MsgPack/CBOR.
 - 2026-04-22: `bin/test-fast` passed on Darwin arm64 before landing the phase-2 E2EE design checkpoint in `docs/e2ee_ppt_research.md`, `ROADMAP_NEXT.md`, and `docs/project_state.md`.

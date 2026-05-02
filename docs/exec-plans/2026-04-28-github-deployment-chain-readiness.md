@@ -180,8 +180,8 @@ operator evidence over speculative feature or benchmark work.
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-latest-ci --require-clean-latest-ci-logs`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`,
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-latest-ci --require-clean-latest-ci-logs`,
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 10 --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`,
     and `git diff --check`
   - implementation commit `c8b6a13`
     (`ci: harden workflow run audit lookup`) passed local `bin/verify`,
@@ -563,8 +563,8 @@ operator evidence over speculative feature or benchmark work.
     settings
   - focused local checks passed: `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`, `git diff --check`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-router-package`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-router-package`
     failed as expected because the GHCR router package is not published or
     visible yet
   - final local `bin/verify` passed, including full router coverage,
@@ -590,8 +590,8 @@ operator evidence over speculative feature or benchmark work.
   - pre-change `bin/test-fast` passed locally on 2026-04-29
   - focused local checks passed: `bash -n bin/audit-github-deployment-chain`,
     `bin/audit-github-deployment-chain --help`, `git diff --check`,
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-workflows-visible`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-clean-latest-ci`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --require-workflows-visible`
     failed as expected because `.github/workflows/router-image.yml` is not
     discoverable through the GitHub Actions API yet
   - final local `bin/verify` passed, including full router coverage,
@@ -667,10 +667,10 @@ operator evidence over speculative feature or benchmark work.
   - focused local checks passed:
     `bash -n bin/audit-github-deployment-chain` and
     `bin/audit-github-deployment-chain --help`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
     completed successfully and reported the current branch as not RC-ready
     without failing the command
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-rc-ready`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-rc-ready`
     failed as expected: hosted CI/log gates are clean, while the actual RC
     blockers remain branch protection, router workflow/package publication,
     missing RC tag/prerelease evidence, and the strict Dart package
@@ -1000,20 +1000,20 @@ operator evidence over speculative feature or benchmark work.
   - `bin/dart-package-publish-dry-run --show-release-plan`
   - expected failing
     `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
   - `git diff --check`
   - `bin/verify`
 - Current Dart package hosted dry-run audit checks:
   - `bin/test-fast`
   - `bash -n bin/audit-github-deployment-chain`
   - `bin/audit-github-deployment-chain --help`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --show-dart-package-publish-dry-run`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-dart-package-publish-dry-run`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 2 --show-rc-readiness`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --show-dart-package-publish-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-dart-package-publish-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 2 --show-rc-readiness`
   - `git diff --check`
   - `bin/verify`
   - GitHub `CI` run `25109971104`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
 - Current router image attestation checks:
   - `bin/test-fast`
   - `python3 -m py_compile tool/render_router_image_metadata.py tool/test_render_router_image_metadata.py`
@@ -1026,7 +1026,7 @@ operator evidence over speculative feature or benchmark work.
   - `git diff --check`
   - `bin/verify`
   - GitHub `CI` run `25112417559`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
 - Current router image dry-run preview checks:
   - `bin/test-fast`
   - `python3 -m py_compile tool/render_router_image_metadata.py tool/test_render_router_image_metadata.py`
@@ -1040,26 +1040,26 @@ operator evidence over speculative feature or benchmark work.
   - `git diff --check`
   - `bin/verify`
   - GitHub `CI` run `25116155461`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
 - Current native release dry-run audit checks:
   - `bin/test-fast`
   - `bash -n bin/audit-github-deployment-chain`
   - `bin/audit-github-deployment-chain --help`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-native-release-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-native-release-dry-run`
   - expected failing stale-evidence check:
-    `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-native-release-dry-run`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
+    `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-native-release-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`
   - `git diff --check`
   - `bin/verify`
   - GitHub `CI` run `25119596673`
   - GitHub `Native Artifacts` dry-run `25119602651`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-native-release-dry-run`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-native-release-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
 - Current deployment-chain evidence refresh checks:
   - GitHub `CI` run `25120747925`
   - GitHub `CI` run `25123037462`
   - GitHub `Dart Package Publish Dry Run` run `25122605506`
-  - `GH_BIN=/Users/konsultaner/bin/gh bin/audit-github-deployment-chain --branch add-router --run-limit 8 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
+  - `GH_BIN="$HOME/bin/gh" bin/audit-github-deployment-chain --branch add-router --run-limit 8 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run`
 - Current main-CI skipped-gate cleanup checks:
   - GitHub `CI` run `25085322707`
   - hosted log scan for warnings, deprecations, rawsocket reset noise, timeout,
