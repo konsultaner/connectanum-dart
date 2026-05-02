@@ -56,6 +56,12 @@ read-only context.
   - `git diff --check`
 - 2026-05-02: Full local `bin/verify` passed after the stdio resource example
   implementation and docs updates.
+- 2026-05-02: Pushed commit `b22eee1` (`mcp: add stdio resource example`) to
+  both remotes. Hosted GitHub `CI` run `25256013125` passed with `Fast Checks`
+  in 5m37s and `Full Verify` in 8m13s. Hosted `Dart Package Publish Dry Run`
+  run `25256013131` passed in 19s and covers the checked-out head. The clean
+  deployment-chain audit then passed against `b22eee1`, including hosted CI log
+  scan, fresh package dry-run relevance, and native release dry-run relevance.
 
 ## Decision Log
 
@@ -65,6 +71,7 @@ read-only context.
 
 ## Handoff
 
-- Completed locally. The stdio example now demonstrates a package-local MCP
-  resource, and stdio transport coverage exercises resource capability
-  advertisement plus `resources/list` and `resources/read`.
+- Completed locally and verified on hosted GitHub CI/package dry-run. The stdio
+  example now demonstrates a package-local MCP resource, and stdio transport
+  coverage exercises resource capability advertisement plus `resources/list`
+  and `resources/read`.

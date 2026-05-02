@@ -135,6 +135,10 @@ Driving use case: downstream application integrations
    access-control rules are documented. Done for transport-independent
    `resources/list`, `resources/read`, and `resources/templates/list`; resource
    subscriptions and router-hosted resource projection remain future slices.
+11. Add full package-local `CallToolResult.content` block helpers. Done for
+   text annotations, image, audio, resource links, and embedded resources;
+   `_meta`, prompt content, tasks, and router-hosted resource projection remain
+   future slices.
 
 ## Open Decisions for Application Integrations
 

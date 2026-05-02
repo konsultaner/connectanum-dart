@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
@@ -167,6 +169,125 @@ void main() {
       expect(result['content'], [
         {'type': 'text', 'text': 'hello'},
       ]);
+    });
+
+    test('tools/call serializes mixed content blocks', () async {
+      final server = McpServer(
+        serverInfo: const McpServerInfo(
+          name: 'connectanum-test',
+          version: '0.1.0',
+        ),
+        tools: [
+          McpTool(
+            name: 'context',
+            handler: (_) => McpToolResult(
+              content: [
+                McpTextContent(
+                  'read this',
+                  annotations: McpContentAnnotations(
+                    audience: const ['assistant'],
+                    priority: 0.6,
+                    lastModified: DateTime.utc(2026, 5, 2, 12),
+                  ),
+                ),
+                McpImageContent.bytes(
+                  bytes: Uint8List.fromList([1, 2, 3]),
+                  mimeType: 'image/png',
+                ),
+                McpAudioContent.bytes(
+                  bytes: Uint8List.fromList([4, 5]),
+                  mimeType: 'audio/wav',
+                ),
+                McpResourceLinkContent(
+                  uri: 'app://example/context',
+                  name: 'example-context',
+                  title: 'Example Context',
+                  description: 'Read-only context.',
+                  mimeType: 'application/json',
+                  size: 23,
+                ),
+                const McpEmbeddedResourceContent(
+                  resource: McpTextResourceContent(
+                    uri: 'app://example/context',
+                    mimeType: 'application/json',
+                    text: '{"ok":true}',
+                  ),
+                ),
+              ],
+              structuredContent: {'uri': 'app://example/context'},
+            ),
+          ),
+        ],
+      );
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 19,
+        'method': 'tools/call',
+        'params': {'name': 'context'},
+      });
+
+      final result = response?['result'] as Map<String, Object?>;
+      expect(result['isError'], isFalse);
+      expect(result['structuredContent'], {'uri': 'app://example/context'});
+      expect(result['content'], [
+        {
+          'type': 'text',
+          'text': 'read this',
+          'annotations': {
+            'audience': ['assistant'],
+            'priority': 0.6,
+            'lastModified': '2026-05-02T12:00:00.000Z',
+          },
+        },
+        {'type': 'image', 'data': 'AQID', 'mimeType': 'image/png'},
+        {'type': 'audio', 'data': 'BAU=', 'mimeType': 'audio/wav'},
+        {
+          'type': 'resource_link',
+          'uri': 'app://example/context',
+          'name': 'example-context',
+          'title': 'Example Context',
+          'description': 'Read-only context.',
+          'mimeType': 'application/json',
+          'size': 23,
+        },
+        {
+          'type': 'resource',
+          'resource': {
+            'uri': 'app://example/context',
+            'mimeType': 'application/json',
+            'text': '{"ok":true}',
+          },
+        },
+      ]);
+    });
+
+    test('tool content validates required content fields', () {
+      expect(
+        () => McpImageContent(data: 'AQID', mimeType: ''),
+        throwsArgumentError,
+      );
+      expect(
+        () => McpAudioContent(data: 'BAU=', mimeType: ''),
+        throwsArgumentError,
+      );
+      expect(
+        () => McpResourceLinkContent(uri: 'relative/context', name: 'context'),
+        throwsArgumentError,
+      );
+      expect(
+        () => McpResourceLinkContent(uri: 'app://example/context', name: ''),
+        throwsArgumentError,
+      );
+      expect(
+        () => McpResourceLinkContent(
+          uri: 'app://example/context',
+          name: 'context',
+          size: -1,
+        ),
+        throwsArgumentError,
+      );
     });
 
     test(

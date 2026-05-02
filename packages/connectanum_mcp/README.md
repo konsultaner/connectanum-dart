@@ -73,6 +73,43 @@ final server = McpServer(
 Clients should pass `nextCursor` back unchanged. Malformed or stale cursors are
 rejected with MCP `invalidParams` errors.
 
+## Tool Results
+
+Use `McpToolResult.text(...)` for the common text-plus-structured-data case.
+When a tool needs richer unstructured output, return typed MCP content blocks
+from `McpToolResult.content`:
+
+```dart
+McpToolResult(
+  content: [
+    McpTextContent(
+      'Open task context is available.',
+      annotations: McpContentAnnotations(audience: ['assistant']),
+    ),
+    McpResourceLinkContent(
+      uri: 'app://tasks/open',
+      name: 'open-tasks',
+      title: 'Open Tasks',
+      mimeType: 'application/json',
+    ),
+    const McpEmbeddedResourceContent(
+      resource: McpTextResourceContent(
+        uri: 'app://tasks/open',
+        mimeType: 'application/json',
+        text: '{"tasks":[]}',
+      ),
+    ),
+  ],
+  structuredContent: {'count': 0},
+);
+```
+
+The package serializes MCP text, image, audio, resource-link, and embedded
+resource content blocks. `McpImageContent.bytes(...)`,
+`McpAudioContent.bytes(...)`, and `McpBlobResourceContent.bytes(...)` encode
+binary payloads as base64. Use `structuredContent` for JSON-shaped output that
+should be validated against a tool `outputSchema`.
+
 ## Resources
 
 Use resources for explicit, read-only context that a host or MCP client can

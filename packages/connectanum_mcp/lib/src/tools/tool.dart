@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import '../protocol/errors.dart';
 import '../protocol/json_rpc.dart';
 import '../protocol/pagination.dart';
+import '../resources/resource.dart';
 
 typedef McpToolHandler = FutureOr<McpToolResult> Function(McpToolRequest);
 
@@ -104,22 +107,156 @@ class McpToolRequest {
   final JsonMap arguments;
 }
 
+typedef McpContentAnnotations = McpResourceAnnotations;
+
 sealed class McpContent {
-  const McpContent();
+  const McpContent({this.annotations});
+
+  final McpContentAnnotations? annotations;
 
   Map<String, Object?> toJson();
 }
 
 class McpTextContent extends McpContent {
-  const McpTextContent(this.text);
+  const McpTextContent(this.text, {super.annotations});
 
   final String text;
 
   @override
-  Map<String, Object?> toJson() => <String, Object?>{
-    'type': 'text',
-    'text': text,
-  };
+  Map<String, Object?> toJson() {
+    final json = <String, Object?>{'type': 'text', 'text': text};
+    _addContentAnnotations(json, annotations);
+    return json;
+  }
+}
+
+class McpImageContent extends McpContent {
+  McpImageContent({
+    required this.data,
+    required this.mimeType,
+    super.annotations,
+  }) {
+    _validateRequiredString(mimeType, 'mimeType', 'MCP image MIME type');
+  }
+
+  McpImageContent.bytes({
+    required Uint8List bytes,
+    required String mimeType,
+    McpContentAnnotations? annotations,
+  }) : this(
+         data: base64Encode(bytes),
+         mimeType: mimeType,
+         annotations: annotations,
+       );
+
+  final String data;
+  final String mimeType;
+
+  @override
+  Map<String, Object?> toJson() {
+    final json = <String, Object?>{
+      'type': 'image',
+      'data': data,
+      'mimeType': mimeType,
+    };
+    _addContentAnnotations(json, annotations);
+    return json;
+  }
+}
+
+class McpAudioContent extends McpContent {
+  McpAudioContent({
+    required this.data,
+    required this.mimeType,
+    super.annotations,
+  }) {
+    _validateRequiredString(mimeType, 'mimeType', 'MCP audio MIME type');
+  }
+
+  McpAudioContent.bytes({
+    required Uint8List bytes,
+    required String mimeType,
+    McpContentAnnotations? annotations,
+  }) : this(
+         data: base64Encode(bytes),
+         mimeType: mimeType,
+         annotations: annotations,
+       );
+
+  final String data;
+  final String mimeType;
+
+  @override
+  Map<String, Object?> toJson() {
+    final json = <String, Object?>{
+      'type': 'audio',
+      'data': data,
+      'mimeType': mimeType,
+    };
+    _addContentAnnotations(json, annotations);
+    return json;
+  }
+}
+
+class McpResourceLinkContent extends McpContent {
+  McpResourceLinkContent({
+    required this.uri,
+    required this.name,
+    this.title,
+    this.description,
+    this.mimeType,
+    this.size,
+    super.annotations,
+  }) {
+    _validateResourceUri(uri, 'uri');
+    _validateRequiredString(name, 'name', 'MCP resource link name');
+    final size = this.size;
+    if (size != null && size < 0) {
+      throw ArgumentError.value(
+        size,
+        'size',
+        'MCP resource link size must be non-negative.',
+      );
+    }
+  }
+
+  final String uri;
+  final String name;
+  final String? title;
+  final String? description;
+  final String? mimeType;
+  final int? size;
+
+  @override
+  Map<String, Object?> toJson() {
+    final json = <String, Object?>{
+      'type': 'resource_link',
+      'uri': uri,
+      'name': name,
+      if (title != null) 'title': title,
+      if (description != null) 'description': description,
+      if (mimeType != null) 'mimeType': mimeType,
+      if (size != null) 'size': size,
+    };
+    _addContentAnnotations(json, annotations);
+    return json;
+  }
+}
+
+class McpEmbeddedResourceContent extends McpContent {
+  const McpEmbeddedResourceContent({required this.resource, super.annotations});
+
+  final McpResourceContent resource;
+
+  @override
+  Map<String, Object?> toJson() {
+    final json = <String, Object?>{
+      'type': 'resource',
+      'resource': resource.toJson(),
+    };
+    _addContentAnnotations(json, annotations);
+    return json;
+  }
 }
 
 class McpToolResult {
@@ -133,8 +270,9 @@ class McpToolResult {
     String text, {
     Map<String, Object?>? structuredContent,
     bool isError = false,
+    McpContentAnnotations? annotations,
   }) : this(
-         content: [McpTextContent(text)],
+         content: [McpTextContent(text, annotations: annotations)],
          structuredContent: structuredContent,
          isError: isError,
        );
@@ -244,3 +382,29 @@ class McpToolListPage {
 }
 
 const String _toolCursorPrefix = 'tools:';
+
+void _addContentAnnotations(
+  Map<String, Object?> json,
+  McpContentAnnotations? annotations,
+) {
+  if (annotations != null && !annotations.isEmpty) {
+    json['annotations'] = annotations.toJson();
+  }
+}
+
+void _validateRequiredString(String value, String name, String label) {
+  if (value.isEmpty) {
+    throw ArgumentError.value(value, name, '$label is required.');
+  }
+}
+
+void _validateResourceUri(String uri, String name) {
+  final parsed = Uri.tryParse(uri);
+  if (uri.isEmpty || parsed == null || !parsed.hasScheme) {
+    throw ArgumentError.value(
+      uri,
+      name,
+      'MCP resource URI must be an absolute URI with a scheme.',
+    );
+  }
+}

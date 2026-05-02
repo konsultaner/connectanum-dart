@@ -2,13 +2,14 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `da6bb32`
-(`mcp: add resource read support`)
-Last reviewed implementation commit: `da6bb32`
-(`mcp: add resource read support`)
+Last reviewed branch checkpoint: `b22eee1`
+(`mcp: add stdio resource example`)
+Last reviewed implementation commit: `b22eee1`
+(`mcp: add stdio resource example`)
 Active exec plan:
-No active multi-session implementation plan. The latest clean hosted checkpoint
-is `da6bb32`; the latest completed MCP usability slice is
+`docs/exec-plans/2026-05-02-mcp-tool-result-content.md` is active for the
+current MCP tool-result content-block compatibility slice. The latest clean
+hosted checkpoint is `b22eee1`; the latest completed MCP usability slice is
 `docs/exec-plans/2026-05-02-mcp-stdio-resource-example.md`, the previous MCP
 resource support slice is
 `docs/exec-plans/2026-05-02-mcp-resource-read-support.md`, and the latest
@@ -22,6 +23,24 @@ health, or a concrete MCP compatibility gap regresses.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - active MCP tool-result content-block slice adds typed
+    `CallToolResult.content` support for text annotations, image/audio content,
+    resource links, and embedded resources in `packages/connectanum_mcp`;
+    prompt content, task-augmented calls, `_meta` passthrough, router-hosted
+    resource projection, and resource subscriptions remain out of scope
+  - pre-change `bin/test-fast` passed on 2026-05-02 before the MCP tool-result
+    content-block edits
+  - focused MCP checks passed on 2026-05-02 after the tool-result
+    content-block edits: `dart format --output=none --set-exit-if-changed
+    packages/connectanum_mcp`, `dart analyze packages/connectanum_mcp`, `dart
+    test packages/connectanum_mcp/test/tools_test.dart -r expanded`, `dart test
+    packages/connectanum_mcp -r expanded`, and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-02 after the MCP tool-result
+    content-block implementation and docs updates; it included formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP tool/resource tests,
+    client/native tests, auth-server tests, bench integration tests, full
+    router package tests including MCP smoke and remote-auth integration paths,
+    zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
   - completed MCP stdio resource example slice adds a static
     `app://example/context` resource to
     `packages/connectanum_mcp/example/stdio_echo_server.dart`, extends stdio
@@ -41,6 +60,20 @@ health, or a concrete MCP compatibility gap regresses.
     client/native tests, auth-server tests, bench integration tests, full
     router package tests including MCP smoke and remote-auth integration paths,
     zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
+  - pushed commit `b22eee1` (`mcp: add stdio resource example`) to both
+    remotes on 2026-05-02
+  - hosted GitHub evidence for `b22eee1` is clean: `CI` run `25256013125`
+    passed with `Fast Checks` in 5m37s and `Full Verify` in 8m13s, `Dart
+    Package Publish Dry Run` run `25256013131` passed in 19s, and the hosted
+    CI log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `b22eee1`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25256013131` covers the checked-out head, and native release dry-run
+    `25192553399` remains clean/relevant because no native-release-sensitive
+    inputs changed after its covered commit
   - completed MCP resource read support slice adds package-local
     `resources/list`, `resources/read`, and `resources/templates/list` support
     to `packages/connectanum_mcp` so downstream applications can expose
