@@ -46,10 +46,14 @@ branch itself must be protected.
   `bin/audit-github-deployment-chain --branch add-router --run-limit 4 --show-rc-readiness`,
   the clean branch-head deployment-chain audit, and `git diff --check`.
 - 2026-05-02: Full local `bin/verify` passed after the audit and docs update.
+- 2026-05-02: Pushed commit `e33e6a0`; hosted GitHub `CI` run
+  `25250658376` passed with `Fast Checks` in 4m52s and `Full Verify` in 8m7s.
+  The clean deployment-chain audit then passed against `e33e6a0`, including the
+  hosted CI log scan and package/native dry-run relevance gates.
 
 ## Handoff
 
-- Completed locally. The remaining RC/deployment blockers are unchanged and
-  operator-owned: required checks on `master`, default-branch promotion and
-  GHCR validation for the router image, RC tag/prerelease selection, and Dart
-  package release ownership/order.
+- Completed locally and verified on hosted GitHub CI. The remaining
+  RC/deployment blockers are unchanged and operator-owned: required checks on
+  `master`, default-branch promotion and GHCR validation for the router image,
+  RC tag/prerelease selection, and Dart package release ownership/order.

@@ -2,15 +2,15 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `09a1cc6`
-(`ci: clarify workflow visibility audit`)
+Last reviewed branch checkpoint: `e33e6a0`
+(`ci: clarify rc readiness baseline`)
 Last reviewed implementation commit: `fd4bf0b`
 (`mcp: add router safety smoke`)
 Active exec plan:
 No active multi-session implementation plan. The public README cleanup and RC
-branch-protection baseline audit readability slice completed locally; use
-`ROADMAP_NEXT.md` for the next milestone unless CI, deployment-chain health, or
-a concrete MCP compatibility gap regresses.
+branch-protection baseline audit readability slice completed with local and
+hosted verification; use `ROADMAP_NEXT.md` for the next milestone unless CI,
+deployment-chain health, or a concrete MCP compatibility gap regresses.
 
 ## Last Known Verification
 
@@ -21,12 +21,26 @@ a concrete MCP compatibility gap regresses.
     docs
   - pre-change `bin/test-fast` passed on 2026-05-02 before the public README
     cleanup
-  - hosted GitHub evidence for `09a1cc6`
-    (`ci: clarify workflow visibility audit`) is clean: `CI` run
+  - hosted GitHub evidence for `e33e6a0`
+    (`ci: clarify rc readiness baseline`) is clean: `CI` run `25250658376`
+    passed with `Fast Checks` in 4m52s and `Full Verify` in 8m7s, and the
+    hosted CI log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `e33e6a0`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25206934146` remains clean/relevant because no package-sensitive paths
+    changed after `379775a`, and native release dry-run `25192553399` remains
+    clean/relevant because no native-release-sensitive inputs changed after its
+    covered commit
+  - previous hosted GitHub evidence for `09a1cc6`
+    (`ci: clarify workflow visibility audit`) was clean: `CI` run
     `25250197996` passed with `Fast Checks` in 5m53s and `Full Verify` in
-    6m54s, and the hosted CI log scan found no warning, deprecation,
+    6m54s, and its hosted CI log scan found no warning, deprecation,
     skipped-test, reset, connection-noise, panic, or failure patterns
-  - branch-head deployment-chain audit passed on 2026-05-02 against `09a1cc6`
+  - previous branch-head deployment-chain audit passed on 2026-05-02 against
+    `09a1cc6`
     with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
     `--require-clean-native-release-dry-run`; Dart package dry-run
