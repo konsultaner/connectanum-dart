@@ -3,7 +3,7 @@
 Status: paused
 Owner: Codex
 Created: 2026-04-28
-Last updated: 2026-04-30
+Last updated: 2026-05-02
 
 ## Goal
 
@@ -1236,6 +1236,11 @@ operator evidence over speculative feature or benchmark work.
   Commit `0b765fd` passed GitHub `CI` run `25200862348` (`Fast Checks` 5m33s,
   `Full Verify` 8m01s), and the strict deployment-chain audit passed with clean
   hosted logs plus relevant Dart package and native release dry-run evidence.
+- 2026-05-02: Kept the remaining RC blockers operator-owned, but made the
+  read-only RC audit more actionable. Each not-ready gate now prints a concrete
+  next action for branch-protection required checks, default-branch workflow
+  visibility, GHCR router package validation, RC tag/prerelease setup, and Dart
+  package release-order/ownership decisions.
 
 ## Handoff
 

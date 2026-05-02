@@ -2,20 +2,53 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `f04227e`
-(`chore: ignore local serena state`)
+Last reviewed branch checkpoint: `cb62658`
+(`docs: scrub local path references`)
 Last reviewed implementation commit: `fd4bf0b`
 (`mcp: add router safety smoke`)
 Active exec plan:
 No active multi-session implementation plan. The latest clean hosted checkpoint
-is `f04227e`; the current docs-only portable-path cleanup is a small
-public-surface hygiene follow-up. Use `ROADMAP_NEXT.md` for the next milestone
-unless CI, deployment-chain health, or a concrete MCP compatibility gap
-regresses.
+is `cb62658`; the current deployment-chain audit next-action readability slice
+is a small non-mutating RC-readiness follow-up. Use `ROADMAP_NEXT.md` for the
+next milestone unless CI, deployment-chain health, or a concrete MCP
+compatibility gap regresses.
 
 ## Last Known Verification
 
 - Current autonomous focus:
+  - current deployment-chain readability slice makes
+    `bin/audit-github-deployment-chain --show-rc-readiness` print concrete
+    next actions for the remaining operator/release blockers without mutating
+    GitHub settings
+  - pre-change `bin/test-fast` passed on 2026-05-02 before the RC-readiness
+    next-action audit patch
+  - focused checks passed on 2026-05-02 for the RC-readiness next-action
+    audit patch: `bash -n bin/audit-github-deployment-chain`,
+    `bin/audit-github-deployment-chain --help`, `git diff --check`,
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --show-rc-readiness`,
+    the expected-failing
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-rc-ready`
+    with next-action guidance present, and the clean branch-head
+    deployment-chain audit
+  - full local `bin/verify` passed on 2026-05-02 after the RC-readiness
+    next-action audit patch; it included formatting, Rust native/FFI tests,
+    Python package-artifact checks, MCP tests, client/native tests,
+    auth-server tests, bench integration tests, full router package tests
+    including MCP smoke and remote-auth integration paths, zero-copy publish
+    tests, and Chrome Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `cb62658`
+    (`docs: scrub local path references`) is clean: `CI` run `25252051838`
+    passed with `Fast Checks` in 5m25s and `Full Verify` in 7m55s, and the
+    hosted CI log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `cb62658`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25206934146` remains clean/relevant because no package-sensitive paths
+    changed after `379775a`, and native release dry-run `25192553399` remains
+    clean/relevant because no native-release-sensitive inputs changed after its
+    covered commit
   - current public-surface hygiene slice removes machine-specific absolute
     paths from tracked state/exec-plan docs, using `$HOME` / `$PWD` examples
     instead of a local username and checkout path

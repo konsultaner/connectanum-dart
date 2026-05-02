@@ -818,6 +818,7 @@ print_rc_readiness() {
     else
       printf 'Default branch protection baseline: not ready; %s must require release-critical CI checks (current: %s).\n' "$release_protection_branch" "${release_required_contexts:-none}"
     fi
+    printf '  Next action: run bin/audit-github-deployment-chain --branch %s --show-required-checks-plan and apply the reviewed GitHub branch-protection change only after operator approval.\n' "$release_protection_branch"
     rc_ready_failed=1
   fi
 
@@ -825,6 +826,7 @@ print_rc_readiness() {
     printf 'Workflow visibility: ready\n'
   else
     printf 'Workflow visibility: not ready; every checked-in workflow must be visible to GitHub Actions.\n'
+    printf '  Next action: promote the missing workflow file(s) through %s, then rerun bin/audit-github-deployment-chain --branch %s --require-workflows-visible.\n' "$default_branch" "$branch"
     rc_ready_failed=1
   fi
 
@@ -832,6 +834,7 @@ print_rc_readiness() {
     printf 'Router image package visibility: ready\n'
   else
     printf 'Router image package visibility: not ready; ghcr.io/%s/connectanum-router is not visible.\n' "$package_owner"
+    printf '  Next action: after the router image workflow is visible on %s, run a manual dry-run/publish validation and rerun bin/audit-github-deployment-chain --branch %s --require-router-package.\n' "$default_branch" "$branch"
     rc_ready_failed=1
   fi
 
@@ -846,6 +849,7 @@ print_rc_readiness() {
 
   if [[ -z "$rc_tags" ]]; then
     printf 'RC tag on checked-out head: not ready; no local tag with an rc segment points at %s.\n' "$short_head_sha"
+    printf '  Next action: choose the RC version, create a tag such as v<version>-rc.1 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
     rc_ready_failed=1
   else
     printf 'RC tag on checked-out head: ready\n'
@@ -875,10 +879,12 @@ print_rc_readiness() {
       fi
     else
       printf 'GitHub RC prerelease: not ready; no GitHub Release exists for %s.\n' "$selected_rc_tag"
+      printf '  Next action: create a non-draft GitHub prerelease for %s after the tag and release notes are approved.\n' "$selected_rc_tag"
       rc_ready_failed=1
     fi
   else
     printf 'GitHub RC prerelease: not ready; no RC tag selected.\n'
+    printf '  Next action: select and push an RC tag before creating the GitHub prerelease.\n'
     rc_ready_failed=1
   fi
 
@@ -889,6 +895,7 @@ print_rc_readiness() {
     else
       printf 'Dart package strict publish dry-run: not ready\n'
       grep -E '^(Dart package release-readiness blockers:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
+      printf '  Next action: resolve the package ownership/version/release-order decisions in docs/dart_package_publishing.md, then rerun bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan.\n'
       rc_ready_failed=1
     fi
     rm -f "$strict_dart_output"

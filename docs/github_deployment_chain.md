@@ -97,7 +97,10 @@ publish dry-run evidence, hosted native release dry-run evidence, default-branch
 protection readiness, RC tag/prerelease evidence, and strict Dart package
 readiness. When Dart package readiness is the blocker, the audit prints the
 package release-order plan so the current `connectanum_core` ->
-`connectanum_client` dependency decision is visible in the same output.
+`connectanum_client` dependency decision is visible in the same output. For
+each not-ready gate, the RC view also prints a concrete next action so the
+remaining operator/release choices can be followed without re-reading the full
+deployment plan.
 
 Use the router package gate before treating the router image release path as
 ready:
