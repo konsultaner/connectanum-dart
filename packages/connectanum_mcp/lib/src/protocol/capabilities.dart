@@ -26,15 +26,23 @@ class McpServerInfo {
 }
 
 class McpServerCapabilities {
-  const McpServerCapabilities({this.tools = const McpToolCapabilities()});
+  const McpServerCapabilities({
+    this.tools = const McpToolCapabilities(),
+    this.resources,
+  });
 
   final McpToolCapabilities? tools;
+  final McpResourceCapabilities? resources;
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{};
     final tools = this.tools;
     if (tools != null) {
       json['tools'] = tools.toJson();
+    }
+    final resources = this.resources;
+    if (resources != null) {
+      json['resources'] = resources.toJson();
     }
     return json;
   }
@@ -50,5 +58,22 @@ class McpToolCapabilities {
       return <String, Object?>{};
     }
     return <String, Object?>{'listChanged': true};
+  }
+}
+
+class McpResourceCapabilities {
+  const McpResourceCapabilities({
+    this.subscribe = false,
+    this.listChanged = false,
+  });
+
+  final bool subscribe;
+  final bool listChanged;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (subscribe) 'subscribe': true,
+      if (listChanged) 'listChanged': true,
+    };
   }
 }

@@ -4,6 +4,7 @@ import '../protocol/capabilities.dart';
 import '../protocol/constants.dart';
 import '../protocol/errors.dart';
 import '../protocol/json_rpc.dart';
+import '../resources/resource.dart';
 import '../tools/tool.dart';
 
 enum McpServerState { created, initialized, closed }
@@ -12,15 +13,32 @@ class McpServer {
   McpServer({
     required this.serverInfo,
     Iterable<McpTool> tools = const [],
+    Iterable<McpResource> resources = const [],
+    Iterable<McpResourceTemplate> resourceTemplates = const [],
     this.instructions,
     McpServerCapabilities? capabilities,
     int? toolListPageSize,
+    int? resourceListPageSize,
+    int? resourceTemplateListPageSize,
   }) : tools = McpToolRegistry(tools, toolListPageSize),
-       capabilities = capabilities ?? const McpServerCapabilities();
+       resources = McpResourceRegistry(
+         resources: resources,
+         templates: resourceTemplates,
+         pageSize: resourceListPageSize,
+         templatePageSize: resourceTemplateListPageSize,
+       ),
+       capabilities =
+           capabilities ??
+           McpServerCapabilities(
+             resources: resources.isNotEmpty || resourceTemplates.isNotEmpty
+                 ? const McpResourceCapabilities()
+                 : null,
+           );
 
   final McpServerInfo serverInfo;
   final String? instructions;
   final McpToolRegistry tools;
+  final McpResourceRegistry resources;
   final McpServerCapabilities capabilities;
 
   McpServerState _state = McpServerState.created;
@@ -79,6 +97,15 @@ class McpServer {
       case 'tools/call':
         _requireInitialized(method);
         return _callTool(params);
+      case 'resources/list':
+        _requireInitialized(method);
+        return _listResources(params);
+      case 'resources/read':
+        _requireInitialized(method);
+        return _readResource(params);
+      case 'resources/templates/list':
+        _requireInitialized(method);
+        return _listResourceTemplates(params);
       default:
         throw McpException(
           McpErrorCodes.methodNotFound,
@@ -157,6 +184,68 @@ class McpServer {
     } catch (error) {
       return McpToolResult.error(error.toString()).toJson();
     }
+  }
+
+  JsonMap _listResources(JsonMap params) {
+    final cursor = params['cursor'];
+    if (cursor != null && cursor is! String) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'resources/list.params.cursor must be a string',
+      );
+    }
+    final page = resources.listPage(cursor: cursor as String?);
+    final result = <String, Object?>{
+      'resources': [for (final resource in page.resources) resource.toJson()],
+    };
+    final nextCursor = page.nextCursor;
+    if (nextCursor != null) {
+      result['nextCursor'] = nextCursor;
+    }
+    return result;
+  }
+
+  Future<JsonMap> _readResource(JsonMap params) async {
+    final uri = params['uri'];
+    if (uri is! String) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'resources/read.params.uri must be a string',
+      );
+    }
+    final resource = resources[uri];
+    if (resource == null) {
+      throw McpException(
+        McpErrorCodes.resourceNotFound,
+        'Resource not found',
+        data: <String, Object?>{'uri': uri},
+      );
+    }
+    final contents = await resource.read(McpResourceRequest(uri: uri));
+    return <String, Object?>{
+      'contents': [for (final content in contents) content.toJson()],
+    };
+  }
+
+  JsonMap _listResourceTemplates(JsonMap params) {
+    final cursor = params['cursor'];
+    if (cursor != null && cursor is! String) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'resources/templates/list.params.cursor must be a string',
+      );
+    }
+    final page = resources.listTemplatePage(cursor: cursor as String?);
+    final result = <String, Object?>{
+      'resourceTemplates': [
+        for (final template in page.templates) template.toJson(),
+      ],
+    };
+    final nextCursor = page.nextCursor;
+    if (nextCursor != null) {
+      result['nextCursor'] = nextCursor;
+    }
+    return result;
   }
 
   void _requireInitialized(String method) {

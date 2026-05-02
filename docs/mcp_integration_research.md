@@ -1,6 +1,6 @@
 # MCP Integration Research
 
-Last checked: 2026-05-01
+Last checked: 2026-05-02
 Driving use case: downstream application integrations
 
 ## Sources
@@ -73,9 +73,11 @@ Driving use case: downstream application integrations
 - Map Connectanum WAMP procedures to MCP tools. A tool registration should be
   able to call a Dart callback directly or delegate to a WAMP procedure through
   `connectanum_client`.
-- Map read-only application context to MCP resources only after the tool path is
+- Map read-only application context to MCP resources now that the tool path is
   stable. Resource URIs need explicit access control, especially for filesystem
-  or project data.
+  or project data. The first package-local slice should stay transport-neutral:
+  list/read/template-list only, no resource subscriptions or router-hosted
+  resource projection until an application needs those semantics.
 - Treat prompts as a second-phase feature unless a downstream application needs prompt
   templates immediately.
 
@@ -129,8 +131,10 @@ Driving use case: downstream application integrations
    needed: GET/SSE server push, explicit `MCP-Session-Id` handling, strict
    `Accept`/`MCP-Protocol-Version` validation, Origin validation policy, and
    DELETE session termination semantics.
-10. Add resource support only after tool calls are stable and access-control
-   rules are documented.
+10. Add package-local resource support only after tool calls are stable and
+   access-control rules are documented. Done for transport-independent
+   `resources/list`, `resources/read`, and `resources/templates/list`; resource
+   subscriptions and router-hosted resource projection remain future slices.
 
 ## Open Decisions for Application Integrations
 

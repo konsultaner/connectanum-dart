@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 
 import '../protocol/errors.dart';
 import '../protocol/json_rpc.dart';
+import '../protocol/pagination.dart';
 
 typedef McpToolHandler = FutureOr<McpToolResult> Function(McpToolRequest);
 
@@ -213,15 +213,23 @@ class McpToolRegistry {
       return McpToolListPage(tools: tools);
     }
 
-    final start = _decodeCursor(
+    final start = decodeMcpCursor(
       cursor,
+      prefix: _toolCursorPrefix,
       expectedRevision: _revision,
       maxOffset: tools.length,
+      errorMessage: 'tools/list.params.cursor is invalid or stale',
     );
     final end = math.min(start + pageSize, tools.length);
     return McpToolListPage(
       tools: List<McpTool>.unmodifiable(tools.sublist(start, end)),
-      nextCursor: end < tools.length ? _encodeCursor(_revision, end) : null,
+      nextCursor: end < tools.length
+          ? encodeMcpCursor(
+              prefix: _toolCursorPrefix,
+              revision: _revision,
+              offset: end,
+            )
+          : null,
     );
   }
 
@@ -236,46 +244,3 @@ class McpToolListPage {
 }
 
 const String _toolCursorPrefix = 'tools:';
-
-String _encodeCursor(int revision, int offset) {
-  final encoded = base64Url.encode(
-    utf8.encode('$_toolCursorPrefix$revision:$offset'),
-  );
-  return encoded.replaceAll('=', '');
-}
-
-int _decodeCursor(
-  String? cursor, {
-  required int expectedRevision,
-  required int maxOffset,
-}) {
-  if (cursor == null) {
-    return 0;
-  }
-  try {
-    final padding = (4 - cursor.length % 4) % 4;
-    final normalized = cursor.padRight(cursor.length + padding, '=');
-    final decoded = utf8.decode(base64Url.decode(normalized));
-    if (!decoded.startsWith(_toolCursorPrefix)) {
-      throw const FormatException('wrong prefix');
-    }
-    final cursorParts = decoded.substring(_toolCursorPrefix.length).split(':');
-    if (cursorParts.length != 2) {
-      throw const FormatException('wrong cursor shape');
-    }
-    final revision = int.parse(cursorParts[0]);
-    final offset = int.parse(cursorParts[1]);
-    if (revision != expectedRevision) {
-      throw const FormatException('cursor revision is stale');
-    }
-    if (offset < 0 || offset > maxOffset) {
-      throw const FormatException('cursor offset out of range');
-    }
-    return offset;
-  } on FormatException {
-    throw McpException(
-      McpErrorCodes.invalidParams,
-      'tools/list.params.cursor is invalid or stale',
-    );
-  }
-}

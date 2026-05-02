@@ -7,6 +7,7 @@ abstract final class McpErrorCodes {
 
   static const int serverClosed = -32000;
   static const int serverNotInitialized = -32002;
+  static const int resourceNotFound = -32002;
 }
 
 class McpException implements Exception {

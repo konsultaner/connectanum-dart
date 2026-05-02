@@ -12,19 +12,20 @@ implements a narrow, stable subset first:
 - lifecycle negotiation with `initialize` and `notifications/initialized`
 - `tools/list`, including optional cursor pagination for large tool catalogs
 - `tools/call`, including structured tool results
+- `resources/list`, `resources/read`, and `resources/templates/list` for
+  read-only application context
 - newline-delimited stdio transport for local MCP clients
 - WAMP-backed tool delegation through an existing `connectanum_client` session
 - declared WAMP API helpers for procedures, metadata, and pub/sub topics
 - router-hosted MCP endpoints through `connectanum_router` `mcp` HTTP routes
 
 The package itself does not ship a standalone full Streamable HTTP transport,
-prompts, resources, sampling, or tasks. Router-hosted HTTP MCP endpoints are
-provided by `connectanum_router` routes with `type: mcp`; they support the
-request/response JSON-RPC subset over HTTP `POST` and return `405` for `GET`
-because server-push SSE streams are not implemented yet. Tool execution
-failures are returned as MCP tool results with `isError: true`; malformed
-JSON-RPC messages, unknown methods, and invalid parameters remain protocol
-errors.
+prompts, sampling, or tasks. Router-hosted HTTP MCP endpoints are provided by
+`connectanum_router` routes with `type: mcp`; they support the request/response
+JSON-RPC subset over HTTP `POST` and return `405` for `GET` because server-push
+SSE streams are not implemented yet. Tool execution failures are returned as
+MCP tool results with `isError: true`; malformed JSON-RPC messages, unknown
+methods, and invalid parameters remain protocol errors.
 
 ## Quick Start
 
@@ -71,6 +72,46 @@ final server = McpServer(
 
 Clients should pass `nextCursor` back unchanged. Malformed or stale cursors are
 rejected with MCP `invalidParams` errors.
+
+## Resources
+
+Use resources for explicit, read-only context that a host or MCP client can
+choose to load:
+
+```dart
+final server = McpServer(
+  serverInfo: const McpServerInfo(name: 'context', version: '1.0.0'),
+  resources: [
+    McpResource(
+      uri: 'app://tasks/open',
+      name: 'open-tasks',
+      title: 'Open Tasks',
+      mimeType: 'application/json',
+      read: (request) => [
+        McpTextResourceContent(
+          uri: request.uri,
+          mimeType: 'application/json',
+          text: '{"tasks":[]}',
+        ),
+      ],
+    ),
+  ],
+  resourceTemplates: [
+    McpResourceTemplate(
+      uriTemplate: 'app://tasks/{id}',
+      name: 'task',
+      mimeType: 'application/json',
+    ),
+  ],
+);
+```
+
+When resources or templates are configured, the server advertises the MCP
+`resources` capability during `initialize`. `resources/list` and
+`resources/templates/list` support optional cursor pagination through
+`resourceListPageSize` and `resourceTemplateListPageSize`. `resources/read`
+returns text or base64-encoded binary content and reports unknown URIs with the
+MCP resource-not-found error code.
 
 ## Stdio Example
 
@@ -246,5 +287,5 @@ Use stdio for local agent integrations. Use `connectanum_router` HTTP routes
 with `type: mcp` when an application needs a router-hosted network MCP endpoint.
 That route shape is intentionally narrower than full Streamable HTTP: it is
 ready for normal JSON-RPC `POST` request/response clients, while GET/SSE server
-push, explicit MCP session IDs, and resource/prompt surfaces remain future
-work.
+push, explicit MCP session IDs, and router-hosted resource/prompt surfaces
+remain future work.
