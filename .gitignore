@@ -1,4 +1,5 @@
 .dart_tool
+.serena/
 .idea
 .vscode
 connectanum-dart.iml

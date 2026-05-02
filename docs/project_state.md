@@ -2,19 +2,44 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `e33e6a0`
-(`ci: clarify rc readiness baseline`)
+Last reviewed branch checkpoint: `06e5883`
+(`docs: record rc readiness ci evidence`)
 Last reviewed implementation commit: `fd4bf0b`
 (`mcp: add router safety smoke`)
 Active exec plan:
-No active multi-session implementation plan. The public README cleanup and RC
-branch-protection baseline audit readability slice completed with local and
-hosted verification; use `ROADMAP_NEXT.md` for the next milestone unless CI,
-deployment-chain health, or a concrete MCP compatibility gap regresses.
+No active multi-session implementation plan. The latest clean hosted checkpoint
+is `06e5883`; the current local tool-state ignore cleanup is a small
+public-surface hygiene follow-up. Use `ROADMAP_NEXT.md` for the next milestone
+unless CI, deployment-chain health, or a concrete MCP compatibility gap
+regresses.
 
 ## Last Known Verification
 
 - Current autonomous focus:
+  - current public-surface hygiene slice ignores local Serena tool state
+    (`.serena/`) so generated MCP/tool metadata does not appear as an
+    untracked public repo artifact during autonomous runs
+  - pre-change `bin/test-fast` passed on 2026-05-02 before the local
+    tool-state ignore cleanup
+  - full local `bin/verify` passed on 2026-05-02 after the local tool-state
+    ignore cleanup; it included formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP tests, client/native tests, auth-server tests,
+    bench integration tests, full router package tests including MCP smoke and
+    remote-auth integration paths, zero-copy publish tests, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `06e5883`
+    (`docs: record rc readiness ci evidence`) is clean: `CI` run
+    `25250913362` passed with `Fast Checks` in 5m44s and `Full Verify` in
+    8m9s, and the hosted CI log scan found no warning, deprecation,
+    skipped-test, reset, connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `06e5883`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25206934146` remains clean/relevant because no package-sensitive paths
+    changed after `379775a`, and native release dry-run `25192553399` remains
+    clean/relevant because no native-release-sensitive inputs changed after its
+    covered commit
   - current public README cleanup removes machine-local Codex/launchd
     continuation instructions from the public root README; keep long-running
     automation details in local/operator state rather than user-facing package
