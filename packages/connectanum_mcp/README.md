@@ -21,15 +21,17 @@ implements a narrow, stable subset first:
 - WAMP-backed tool delegation through an existing `connectanum_client` session
 - declared WAMP API helpers for procedures, metadata, and pub/sub topics
 - router-hosted MCP endpoints through `connectanum_router` `mcp` HTTP routes
+- direct router-hosted JSON-RPC calls for the same tool/meta API catalog
 
 The package itself does not ship a standalone full Streamable HTTP transport,
 prompt argument completions, sampling, or tasks. Router-hosted HTTP MCP
 endpoints are provided by `connectanum_router` routes with `type: mcp`; they
 support the request/response JSON-RPC subset over HTTP `POST` and return `405`
-for `GET` because server-push SSE streams are not implemented yet. Tool
-execution failures are returned as MCP tool results with `isError: true`;
-malformed JSON-RPC messages, unknown methods, and invalid parameters remain
-protocol errors.
+for `GET` because server-push SSE streams are not implemented yet. The same
+route can also serve direct JSON-RPC tool calls for frontend clients without
+requiring the MCP `initialize` lifecycle first. Tool execution failures are
+returned as MCP tool results with `isError: true`; malformed JSON-RPC messages,
+unknown methods, and invalid parameters remain protocol errors.
 
 ## Quick Start
 
@@ -331,10 +333,10 @@ to bound memory for local agents.
 ## Router-Hosted MCP Endpoint
 
 `connectanum_router` can host an MCP endpoint directly. Add an HTTP route with
-`HttpRouteActionType.mcp`; the router creates or reuses its internal WAMP
-session for that route, exposes exact procedure registrations as MCP tools,
-adds the standard WAMP meta API tools, and enables the declared pub/sub helper
-tools:
+`HttpRouteActionType.mcp`; the router executes calls through the
+route-authenticated WAMP principal or session, exposes exact procedure
+registrations as MCP tools, adds the standard WAMP meta API tools, and enables
+the declared pub/sub helper tools:
 
 ```dart
 const HttpRouteSettings(
@@ -381,10 +383,30 @@ await session.register(
 ```
 
 The router-hosted endpoint means applications do not need to start a second MCP
-server process when the router is already running. Network hardening still
-belongs in the route/session profile configuration: bind local-only endpoints to
-localhost, require bearer or stronger auth for network-visible routes, and
-expose only procedures/topics whose realm permissions are intended for agents.
+server process when the router is already running. Anonymous routes use a
+route-scoped anonymous principal; bearer-protected routes execute as the token
+principal. Network hardening still belongs in the route/session profile
+configuration: bind local-only endpoints to localhost, require bearer or
+stronger auth for network-visible routes, and expose only procedures/topics
+whose realm permissions are intended for agents.
+
+The same HTTP `POST` endpoint also accepts direct JSON-RPC tool calls for
+frontend clients. These calls use the same catalog and authorization path as MCP
+`tools/list` and `tools/call`, but they do not require `initialize` first:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"connectanum.api.list","params":{"kind":"procedure"}}
+{"jsonrpc":"2.0","id":2,"method":"app.task.create","params":{"title":"Ship docs"}}
+{"jsonrpc":"2.0","id":3,"method":"connectanum.tool.call","params":{"name":"app.task.create","arguments":{"title":"Ship docs"}}}
+{"jsonrpc":"2.0","id":4,"method":"connectanum.pubsub.publish","params":{"topic":"app.task.changed","argumentsKeywords":{"id":"T-1"},"acknowledge":true}}
+```
+
+`connectanum.tools.list` returns the current tool definitions. Dotted tool
+names such as `app.task.create`, `connectanum.api.describe`, and
+`connectanum.pubsub.publish` can be used directly as JSON-RPC methods with the
+method `params` becoming the tool arguments. `connectanum.tool.call` is the
+generic by-name form. Direct calls return the same MCP tool result JSON shape as
+`tools/call`, including `structuredContent` and `isError`.
 
 ## Compatibility Notes
 
@@ -395,6 +417,6 @@ public MCP boundary. WAMP is only an optional backend used by
 Use stdio for local agent integrations. Use `connectanum_router` HTTP routes
 with `type: mcp` when an application needs a router-hosted network MCP endpoint.
 That route shape is intentionally narrower than full Streamable HTTP: it is
-ready for normal JSON-RPC `POST` request/response clients, while GET/SSE server
-push, explicit MCP session IDs, and router-hosted resource/prompt surfaces
-remain future work.
+ready for normal MCP JSON-RPC `POST` clients and direct JSON-RPC frontend
+clients, while GET/SSE server push, explicit MCP session IDs, and
+router-hosted resource/prompt surfaces remain future work.

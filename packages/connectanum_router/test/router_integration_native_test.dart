@@ -1151,6 +1151,47 @@ void main() {
       final client = HttpClient();
       addTearDown(() => client.close(force: true));
 
+      final directCatalog = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.api.list',
+        {'kind': 'procedure'},
+      );
+      final directCatalogContent =
+          directCatalog['structuredContent'] as Map<String, Object?>;
+      final directCatalogMetadata =
+          directCatalogContent['metadata'] as Map<String, Object?>;
+      expect(directCatalogMetadata, containsPair('authid', 'anonymous'));
+      expect(jsonEncode(directCatalogContent), contains('app.safe.lookup'));
+      expect(jsonEncode(directCatalogContent), contains('app.documented.only'));
+
+      final directSafeResult = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'app.safe.lookup',
+        {'taskId': 'T-json'},
+      );
+      expect(directSafeResult['isError'], isFalse);
+      expect(
+        ((directSafeResult['structuredContent'] as Map)['argumentsKeywords']
+            as Map)['status'],
+        equals('open'),
+      );
+
+      final directUnsafeResult = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.tool.call',
+        {
+          'name': 'app.unsafe.delete',
+          'arguments': {'taskId': 'T-json'},
+        },
+      );
+      expect(directUnsafeResult['isError'], isTrue);
+
       await _initializeMcp(client, listener.port, '/mcp/public');
       final tools = await _listMcpTools(client, listener.port, '/mcp/public');
       final toolByName = {
@@ -1271,6 +1312,25 @@ void main() {
 
       final token = await _issueTicketHttpToken(client, listener.port);
       final authHeaders = {'authorization': 'Bearer $token'};
+      final directSecureUnsafeResult = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'connectanum.tool.call',
+        {
+          'name': 'app.unsafe.delete',
+          'arguments': {'taskId': 'T-3'},
+        },
+        headers: authHeaders,
+      );
+      expect(directSecureUnsafeResult['isError'], isFalse);
+      expect(
+        ((directSecureUnsafeResult['structuredContent']
+                as Map)['argumentsKeywords']
+            as Map)['deleted'],
+        equals('T-3'),
+      );
+
       await _initializeMcp(
         client,
         listener.port,
@@ -2922,6 +2982,28 @@ Future<Map<String, Object?>> _callMcpTool(
   final error = response.json?['error'];
   if (error != null) {
     fail('MCP tool call $name returned JSON-RPC error: ${jsonEncode(error)}');
+  }
+  return (response.json?['result'] as Map).cast<String, Object?>();
+}
+
+Future<Map<String, Object?>> _callRouterJsonMethod(
+  HttpClient client,
+  int port,
+  String path,
+  String method,
+  Map<String, Object?> params, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final response = await _postJson(client, port, path, {
+    'jsonrpc': '2.0',
+    'id': 'direct-$method',
+    'method': method,
+    'params': params,
+  }, headers: headers);
+  expect(response.statusCode, equals(HttpStatus.ok));
+  final error = response.json?['error'];
+  if (error != null) {
+    fail('Router JSON method $method returned error: ${jsonEncode(error)}');
   }
   return (response.json?['result'] as Map).cast<String, Object?>();
 }

@@ -137,8 +137,8 @@ final tool = McpWampToolDelegate.session(
 
 For a network endpoint, configure a `connectanum_router` HTTP route with
 `type: mcp`. The router-hosted endpoint accepts MCP JSON-RPC over HTTP POST,
-uses a router internal WAMP session for calls and pub/sub, and should be
-deployed behind the same TLS/auth controls as other protected HTTP routes.
+uses the route-authenticated WAMP principal for calls and pub/sub, and should
+be deployed behind the same TLS/auth controls as other protected HTTP routes.
 
 ```dart
 const HttpRouteSettings(
@@ -148,5 +148,16 @@ const HttpRouteSettings(
 ```
 
 Exact WAMP registrations become MCP tools automatically. WAMP meta API tools
-and `connectanum.pubsub.*` helpers are enabled by default. Full Streamable HTTP
-GET/SSE server push remains future work.
+and `connectanum.pubsub.*` helpers are enabled by default. The same endpoint
+also accepts direct JSON-RPC calls for frontend clients without the MCP
+`initialize` lifecycle:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"connectanum.api.list","params":{"kind":"procedure"}}
+{"jsonrpc":"2.0","id":2,"method":"app.echo","params":{"text":"hello"}}
+{"jsonrpc":"2.0","id":3,"method":"connectanum.tool.call","params":{"name":"app.echo","arguments":{"text":"hello"}}}
+```
+
+Direct calls use the same route authentication, catalog, and authorization path
+as MCP `tools/call`. Full Streamable HTTP GET/SSE server push remains future
+work.

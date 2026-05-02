@@ -74,9 +74,9 @@ Driving use case: downstream application integrations
   support it and it keeps the first smoke tests simple.
 - Add router-hosted HTTP support as the application/server path. The first
   router slice can support JSON-RPC request/response over HTTP `POST` by
-  reusing the router's internal WAMP session, then grow into the full
-  Streamable HTTP GET/SSE/session-header surface when server-push and explicit
-  MCP HTTP session management are needed.
+  dispatching through the route-authenticated WAMP principal or session, then
+  grow into the full Streamable HTTP GET/SSE/session-header surface when
+  server-push and explicit MCP HTTP session management are needed.
 - Map Connectanum WAMP procedures to MCP tools. A tool registration should be
   able to call a Dart callback directly or delegate to a WAMP procedure through
   `connectanum_client`.
@@ -133,10 +133,14 @@ Driving use case: downstream application integrations
 7. Add cursor-safe `tools/list` pagination for larger tool catalogs. Done in
    `packages/connectanum_mcp` with `McpServer.toolListPageSize`, opaque
    `nextCursor` responses, and `invalidParams` for malformed or stale cursors.
-8. Add a router-hosted MCP HTTP route that reuses the router internal session
-   and auto-exposes exact WAMP registrations, WAMP meta API procedures, and
-   declared pub/sub topics. Done for the JSON-RPC `POST` request/response
-   subset in `connectanum_router` with `HttpRouteActionType.mcp`.
+8. Add a router-hosted MCP HTTP route that executes as the route-authenticated
+   WAMP principal or session and auto-exposes exact WAMP registrations, WAMP
+   meta API procedures, and declared pub/sub topics. Done for the MCP
+   JSON-RPC `POST` request/response subset in `connectanum_router` with
+   `HttpRouteActionType.mcp`; the same route also accepts direct JSON-RPC tool
+   and meta API calls for frontend clients through `connectanum.tools.list`,
+   `connectanum.tool.call`, and dotted tool names such as
+   `connectanum.api.list` or `app.task.create`.
 9. Add full Streamable HTTP compatibility on top of the router endpoint when
    needed: GET/SSE server push, explicit `MCP-Session-Id` handling, strict
    `Accept`/`MCP-Protocol-Version` validation, Origin validation policy, and

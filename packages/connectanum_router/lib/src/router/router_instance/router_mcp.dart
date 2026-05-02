@@ -214,7 +214,132 @@ class _RouterMcpEndpoint {
 
   Future<mcp.JsonMap?> handleMessage(Object? rawMessage) async {
     await _refreshTools();
+    final directResponse = await _handleDirectJsonMessage(rawMessage);
+    if (directResponse != null) {
+      return directResponse.response;
+    }
     return server.handleMessage(rawMessage);
+  }
+
+  Future<_DirectJsonMessageResponse?> _handleDirectJsonMessage(
+    Object? rawMessage,
+  ) async {
+    if (rawMessage is! Map) {
+      return null;
+    }
+    final rawMethod = rawMessage['method'];
+    if (rawMethod is! String || !_isDirectJsonMethod(rawMethod)) {
+      return null;
+    }
+
+    final recoveredId = _recoverDirectJsonRequestId(rawMessage);
+    try {
+      final request = _directJsonRequestFrom(rawMessage);
+      final result = await _handleDirectJsonRequest(
+        request.method,
+        request.params,
+      );
+      return _DirectJsonMessageResponse(
+        request.isNotification
+            ? null
+            : mcp.JsonRpcResponse.result(request.id, result).toJson(),
+      );
+    } on mcp.McpException catch (error) {
+      return _DirectJsonMessageResponse(
+        mcp.JsonRpcResponse.error(recoveredId, error).toJson(),
+      );
+    } catch (error) {
+      return _DirectJsonMessageResponse(
+        mcp.JsonRpcResponse.error(
+          recoveredId,
+          mcp.McpException(mcp.McpErrorCodes.internalError, error.toString()),
+        ).toJson(),
+      );
+    }
+  }
+
+  bool _isDirectJsonMethod(String method) {
+    return method == 'connectanum.tools.list' ||
+        method == 'connectanum.tool.call' ||
+        method == 'connectanum.tools.call' ||
+        (method.contains('.') && server.tools[method] != null);
+  }
+
+  Future<mcp.JsonMap> _handleDirectJsonRequest(
+    String method,
+    mcp.JsonMap params,
+  ) async {
+    switch (method) {
+      case 'connectanum.tools.list':
+        return _listDirectJsonTools(params);
+      case 'connectanum.tool.call':
+      case 'connectanum.tools.call':
+        return _callDirectJsonTool(params);
+      default:
+        final tool = server.tools[method];
+        if (tool != null && method.contains('.')) {
+          return _callDirectJsonToolByName(method, params);
+        }
+        throw mcp.McpException(
+          mcp.McpErrorCodes.methodNotFound,
+          'Unknown router JSON method: $method',
+        );
+    }
+  }
+
+  mcp.JsonMap _listDirectJsonTools(mcp.JsonMap params) {
+    final cursor = params['cursor'];
+    if (cursor != null && cursor is! String) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'connectanum.tools.list.params.cursor must be a string',
+      );
+    }
+    final page = server.tools.listPage(cursor: cursor as String?);
+    final result = <String, Object?>{
+      'tools': [for (final tool in page.tools) tool.toJson()],
+    };
+    final nextCursor = page.nextCursor;
+    if (nextCursor != null) {
+      result['nextCursor'] = nextCursor;
+    }
+    return result;
+  }
+
+  Future<mcp.JsonMap> _callDirectJsonTool(mcp.JsonMap params) async {
+    final name = params['name'];
+    if (name is! String) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'connectanum.tool.call.params.name must be a string',
+      );
+    }
+    final arguments = mcp.jsonMapFrom(
+      params['arguments'],
+      label: 'connectanum.tool.call.params.arguments',
+    );
+    return _callDirectJsonToolByName(name, arguments);
+  }
+
+  Future<mcp.JsonMap> _callDirectJsonToolByName(
+    String name,
+    mcp.JsonMap arguments,
+  ) async {
+    final tool = server.tools[name];
+    if (tool == null) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'Unknown MCP tool: $name',
+      );
+    }
+    try {
+      final result = await tool.handler(
+        mcp.McpToolRequest(name: name, arguments: arguments),
+      );
+      return result.toJson();
+    } catch (error) {
+      return mcp.McpToolResult.error(error.toString()).toJson();
+    }
   }
 
   Future<void> _refreshTools() async {
@@ -541,6 +666,71 @@ class _RouterMcpEndpoint {
         return null;
     }
   }
+}
+
+_DirectJsonRequest _directJsonRequestFrom(Object? rawMessage) {
+  if (rawMessage is! Map) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidRequest,
+      'JSON-RPC message must be an object',
+    );
+  }
+  final message = mcp.jsonMapFrom(rawMessage, label: 'message');
+  if (message['jsonrpc'] != '2.0') {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidRequest,
+      'JSON-RPC version must be 2.0',
+    );
+  }
+  final method = message['method'];
+  if (method is! String || method.isEmpty) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidRequest,
+      'JSON-RPC method must be a non-empty string',
+    );
+  }
+  final hasId = message.containsKey('id');
+  final id = hasId ? message['id'] : null;
+  if (hasId && !mcp.isJsonRpcId(id)) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidRequest,
+      'JSON-RPC id must be a string, number, or null',
+    );
+  }
+  return _DirectJsonRequest(
+    id: id,
+    isNotification: !hasId,
+    method: method,
+    params: mcp.jsonMapFrom(message['params']),
+  );
+}
+
+Object? _recoverDirectJsonRequestId(Object? rawMessage) {
+  if (rawMessage is! Map || !rawMessage.containsKey('id')) {
+    return null;
+  }
+  final id = rawMessage['id'];
+  return mcp.isJsonRpcId(id) ? id : null;
+}
+
+class _DirectJsonRequest {
+  const _DirectJsonRequest({
+    required this.id,
+    required this.isNotification,
+    required this.method,
+    required this.params,
+  });
+
+  final Object? id;
+  final bool isNotification;
+  final String method;
+  final mcp.JsonMap params;
+}
+
+class _DirectJsonMessageResponse {
+  const _DirectJsonMessageResponse(this.response);
+
+  final mcp.JsonMap? response;
 }
 
 String _mcpAnonymousRouteSessionCacheKey({

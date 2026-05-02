@@ -2,18 +2,16 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `8df2224`
-(`mcp: add icon metadata`)
-Last reviewed implementation commit: `8df2224`
-(`mcp: add icon metadata`)
+Last reviewed branch checkpoint: `834e05f`
+(`mcp: isolate router route sessions`)
+Last reviewed implementation commit: `834e05f`
+(`mcp: isolate router route sessions`)
 Active exec plan:
 `docs/exec-plans/2026-05-03-router-hosted-mcp-auth-meta-api.md` is active. It
 corrects the MCP product direction: MCP must be a router-hosted endpoint and a
 protocol view over authenticated WAMP/meta API calls, not a standalone
-MCP-only server or an internal-session shortcut. The latest completed MCP
-downstream-application compatibility slice is
-`docs/exec-plans/2026-05-02-mcp-icon-metadata.md`, and the latest clean hosted
-checkpoint is `8df2224`. Deployment-chain audit on 2026-05-02 remains clean for
+MCP-only server or an internal-session shortcut. The latest clean hosted
+checkpoint is `834e05f`. Deployment-chain audit on 2026-05-02 remains clean for
 autonomous CI/log, Dart package dry-run, and native release dry-run gates, with
 only operator/deployment RC blockers left. Do not return to speculative MCP
 protocol polish, WAMP transport benchmarks, or roadmap work until the active
@@ -29,6 +27,29 @@ MCP auth/session/meta-API correction is implemented, verified, and documented.
     MCP-only server; prior router implementation research confirmed the useful
     pattern is WAMP registration/subscription meta API metadata plus
     authorize-then-dispatch-as-caller bridge semantics
+  - latest clean hosted GitHub evidence for branch checkpoint `834e05f`:
+    `CI` run `25263841704`, `WAMP Profile Benchmarks` run `25263841706`, and
+    `Dart Package Publish Dry Run` run `25263841714` all completed
+    successfully on 2026-05-03
+  - current local MCP direct-JSON slice adds a router-hosted JSON-RPC facade on
+    the same `type: mcp` route: `connectanum.tools.list` lists the active tool
+    catalog, `connectanum.tool.call` calls by tool name, and dotted tool names
+    such as `connectanum.api.list`, `connectanum.pubsub.publish`, and
+    application procedure tools can be invoked directly without first running
+    MCP `initialize`; all paths reuse the same route-authenticated session and
+    MCP tool registry
+  - focused checks passed on 2026-05-03 after the direct-JSON slice:
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security"`
+    and `dart analyze packages/connectanum_router`
+  - full local `bin/verify` passed on 2026-05-03 after the MCP direct-JSON
+    route endpoint, smoke coverage, and docs updates; it included formatting,
+    Rust native/FFI tests, Python package-artifact checks, MCP package tests,
+    client/native tests, auth-server tests, bench integration tests, full
+    router package tests including the updated MCP direct-JSON smoke and MCP
+    anonymous isolation regression, zero-copy publish tests, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the MCP direct-JSON
+    route endpoint edits
   - first MCP auth/session isolation slice is implemented locally: a new
     router integration regression proves an anonymous MCP route must not run as
     a privileged realm internal session, unauthenticated MCP routes now use
@@ -49,9 +70,9 @@ MCP auth/session/meta-API correction is implemented, verified, and documented.
     tests, auth-server tests, bench integration tests, full router package
     tests including the new MCP isolation regression and existing MCP smoke,
     zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
-  - remaining active MCP plan work is the shared JSON-callable frontend/meta API
-    surface, principal-filtered catalog behavior, and public docs cleanup after
-    behavior is complete
+  - remaining active MCP plan work is stronger catalog filtering by effective
+    principal, hosted CI evidence for the direct-JSON slice after push, and any
+    follow-up public docs cleanup after behavior is complete
   - completed MCP icon metadata slice adds package-local `icons` serialization
     for `McpServerInfo`, tools, prompts, resources, and resource templates so
     downstream clients can show display identifiers without changing transport

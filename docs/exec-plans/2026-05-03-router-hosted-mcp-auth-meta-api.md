@@ -121,9 +121,23 @@ Out of scope:
   session for later anonymous route calls.
 - 2026-05-03: Full local `bin/verify` passed after the MCP route session
   isolation fix and docs updates.
-- 2026-05-03: Remaining work in this plan is the shared JSON-callable
-  frontend/meta API surface, stronger catalog filtering by effective principal,
-  and public docs cleanup once behavior is complete.
+- 2026-05-03: Added the shared router-hosted direct JSON-RPC facade on the
+  existing `type: mcp` route. Frontend clients can call
+  `connectanum.tools.list`, `connectanum.tool.call`, and dotted MCP tool names
+  such as `connectanum.api.list`, `connectanum.pubsub.publish`, or an
+  application procedure directly without creating a separate MCP server or
+  running the MCP lifecycle first. These direct calls use the same refreshed
+  tool registry and route-authenticated session as MCP `tools/list` and
+  `tools/call`.
+- 2026-05-03: Extended the router MCP smoke test to cover anonymous direct API
+  metadata, anonymous safe direct calls, anonymous unsafe denial, and
+  bearer-authenticated unsafe direct calls. Focused
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security"`
+  and `dart analyze packages/connectanum_router` passed.
+- 2026-05-03: Full local `bin/verify` passed after the MCP direct-JSON route
+  endpoint, smoke coverage, and docs updates.
+- 2026-05-03: Remaining work in this plan is stronger catalog filtering by
+  effective principal and final public docs cleanup once behavior is complete.
 
 ## Verification
 
@@ -155,6 +169,6 @@ Out of scope:
 
 ## Handoff
 
-Next automation run should continue with the shared JSON-callable meta/tool API
-surface and principal-filtered catalog. Keep the new MCP anonymous isolation
-test in the focused verification set.
+Next automation run should continue with stronger principal-filtered catalog
+behavior. Keep the MCP anonymous isolation test and the MCP direct-JSON smoke
+path in the focused verification set.
