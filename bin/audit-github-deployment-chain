@@ -744,6 +744,30 @@ print_required_checks_plan() {
   printf '```\n'
 }
 
+print_latest_ci_next_action() {
+  if [[ -z "${latest_ci_id:-}" ]]; then
+    printf '  Next action: trigger or wait for a CI run on %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$branch" "$branch"
+  elif [[ "${latest_ci_status:-}" != "completed" ]]; then
+    printf '  Next action: wait for CI run #%s to complete, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$latest_ci_id" "$branch"
+  elif [[ "${latest_ci_conclusion:-}" != "success" ]]; then
+    printf '  Next action: inspect CI run #%s, fix the failed/skipped/missing job signal, push a new candidate, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$latest_ci_id" "$branch"
+  else
+    printf '  Next action: inspect CI run #%s for unexpected or missing jobs, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci after the job set matches release policy.\n' "$latest_ci_id" "$branch"
+  fi
+}
+
+print_latest_ci_log_next_action() {
+  if [[ -z "${latest_ci_id:-}" ]]; then
+    printf '  Next action: trigger or wait for a CI run on %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$branch" "$branch"
+  elif [[ "${latest_ci_log_status:-}" != "completed" ]]; then
+    printf '  Next action: wait for CI run #%s to complete so logs are downloadable, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$latest_ci_id" "$branch"
+  elif [[ "${latest_ci_log_conclusion:-}" != "success" ]]; then
+    printf '  Next action: resolve CI run #%s before treating hosted logs as release evidence, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$latest_ci_id" "$branch"
+  else
+    printf '  Next action: inspect the hosted log findings above, fix any real warning/noise source or retry if GitHub log download failed, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$branch"
+  fi
+}
+
 print_rc_readiness() {
   local rc_ready_failed=0
   local head_sha
@@ -765,6 +789,7 @@ print_rc_readiness() {
       printf 'Latest CI job gate: ready\n'
     else
       printf 'Latest CI job gate: not ready\n'
+      print_latest_ci_next_action
       rc_ready_failed=1
     fi
   else
@@ -777,6 +802,7 @@ print_rc_readiness() {
       printf 'Latest CI log gate: ready\n'
     else
       printf 'Latest CI log gate: not ready\n'
+      print_latest_ci_log_next_action
       rc_ready_failed=1
     fi
   else
@@ -957,6 +983,10 @@ latest_ci_log_failed=0
 dart_package_publish_dry_run_failed=0
 native_release_dry_run_failed=0
 latest_ci_id=""
+latest_ci_status=""
+latest_ci_conclusion=""
+latest_ci_log_status=""
+latest_ci_log_conclusion=""
 required_contexts=""
 
 if [[ "$branch_protected" == "true" ]]; then
