@@ -160,7 +160,7 @@ Before calling a branch head RC-ready, keep the order boring and observable:
 
 ## Current GitHub Controls
 
-Snapshot date: 2026-04-30.
+Snapshot date: 2026-05-02.
 
 - Repository: `konsultaner/connectanum-dart`
 - Visibility: public
@@ -238,6 +238,24 @@ For the latest branch-head status, run the clean-CI audit command above. The
 items below are pinned deployment-chain checkpoints, not a replacement for the
 live audit:
 
+- `add-router` deployment-diagnostic checkpoint `379775a` passed GitHub `CI`
+  run `25206934156`; `Fast Checks` and `Full Verify` completed successfully.
+- Hosted log scanning for `25206934156` found no warning, deprecation,
+  skipped-test, reset, connection-noise, panic, or failure patterns.
+- GitHub `Dart Package Publish Dry Run` run `25206934146` passed on
+  `379775a`, and `WAMP Profile Benchmarks` run `25206934162` passed on the
+  same head.
+- The clean deployment-chain audit passed for `379775a` on 2026-05-02 with
+  `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+  `--require-clean-dart-package-publish-dry-run`, and
+  `--require-clean-native-release-dry-run`. Manual `Native Artifacts` dry-run
+  `25192553399` remains relevant because no native-release-sensitive inputs
+  changed after its covered commit.
+- The workflow-visibility gate still intentionally fails until
+  `.github/workflows/router-image.yml` is visible through GitHub Actions; the
+  audit now reports whether each hidden checked-in workflow is missing from the
+  default branch, needs deeper workflow-state/settings triage, or needs a retry
+  because GitHub content lookup was inconclusive.
 - `add-router` public CI surface cleanup checkpoint `0b765fd` passed GitHub
   `CI` run `25200862348`: `Fast Checks` completed in 5m33s and `Full Verify`
   completed in 8m01s.

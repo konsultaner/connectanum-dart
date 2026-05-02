@@ -1017,6 +1017,24 @@ while IFS= read -r workflow_path; do
     printf -- '- %s: discoverable\n' "$workflow_path"
   else
     printf -- '- %s: not discoverable through GitHub Actions API\n' "$workflow_path"
+    default_branch_workflow_error="$(mktemp "${TMPDIR:-/tmp}/connectanum-workflow-visibility.XXXXXX")"
+    if "$gh_bin" api \
+      --method GET \
+      "repos/${repository}/contents/${workflow_path}" \
+      -F "ref=${default_branch}" \
+      --jq '.path' >/dev/null 2>"$default_branch_workflow_error"; then
+      printf '  Default branch check: present on %s; inspect workflow state or repository Actions settings.\n' "$default_branch"
+    elif grep -q 'HTTP 404' "$default_branch_workflow_error"; then
+      printf '  Default branch check: missing from %s; promote the workflow through the default branch before expecting Actions API visibility.\n' "$default_branch"
+    else
+      default_branch_workflow_error_message="$(head -n 1 "$default_branch_workflow_error")"
+      printf '  Default branch check: inconclusive; GitHub content lookup failed'
+      if [[ -n "$default_branch_workflow_error_message" ]]; then
+        printf ' (%s)' "$default_branch_workflow_error_message"
+      fi
+      printf '.\n'
+    fi
+    rm -f "$default_branch_workflow_error"
     printf 'Finding: checked-in workflow is not discoverable by GitHub: %s\n' "$workflow_path"
     missing_visible_workflow=1
   fi

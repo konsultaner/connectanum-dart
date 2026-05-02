@@ -1,11 +1,11 @@
 # Project State
 
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `348502a`
-(`docs: record mcp router ci evidence`)
-Last reviewed implementation commit: `1c4622c`
-(`mcp: add router-hosted HTTP endpoint`)
+Last reviewed branch checkpoint: `379775a`
+(`test: declare root zero-copy tag`)
+Last reviewed implementation commit: `fd4bf0b`
+(`mcp: add router safety smoke`)
 Active exec plan:
 No active multi-session implementation plan. The MCP
 application-integration plan is parked again after the router-hosted
@@ -16,6 +16,35 @@ a concrete MCP compatibility gap regresses.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - current deployment-chain readability slice keeps the audit read-only but
+    makes hidden workflow findings actionable: if a checked-in workflow is not
+    discoverable through the GitHub Actions API, the audit now checks whether
+    the workflow file is present on the default branch and says whether the
+    next step is default-branch promotion, deeper Actions settings triage, or
+    retrying an inconclusive GitHub content lookup
+  - focused checks passed on 2026-05-02 for the audit diagnostic slice:
+    pre-change `bin/test-fast`, `bash -n bin/audit-github-deployment-chain`,
+    the clean branch-head deployment-chain audit, and the expected-failing
+    `--require-workflows-visible` gate, which now reports
+    `.github/workflows/router-image.yml` is missing from `master`
+  - full local `bin/verify` passed on 2026-05-02 after the audit diagnostic
+    slice; it included formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP tests, client/native tests, auth-server tests,
+    bench integration tests, full router package tests including MCP smoke and
+    remote-auth integration paths, zero-copy publish tests, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `379775a`
+    (`test: declare root zero-copy tag`) is clean: `CI` run `25206934156`
+    passed with `Fast Checks` and `Full Verify`, hosted CI log scan found no
+    warning, deprecation, skipped-test, reset, connection-noise, panic, or
+    failure patterns, `Dart Package Publish Dry Run` run `25206934146` passed,
+    and `WAMP Profile Benchmarks` run `25206934162` passed
+  - branch-head deployment-chain audit passed on 2026-05-02 against `379775a`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; native release dry-run
+    `25192553399` remains clean and relevant because no
+    native-release-sensitive inputs changed after its covered commit
   - current MCP follow-up implements router-hosted safety metadata and
     route-security coverage: WAMP `_ai_meta_data` now maps to MCP tool
     annotations, declared procedures can disable MCP tool calls while remaining
