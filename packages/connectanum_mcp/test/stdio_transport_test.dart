@@ -29,6 +29,16 @@ void main() {
             'method': 'resources/read',
             'params': {'uri': 'app://example/context'},
           },
+          {'jsonrpc': '2.0', 'id': 5, 'method': 'prompts/list'},
+          {
+            'jsonrpc': '2.0',
+            'id': 6,
+            'method': 'prompts/get',
+            'params': {
+              'name': 'echo.summary',
+              'arguments': {'text': 'hello'},
+            },
+          },
         ]),
         output: output,
       );
@@ -36,15 +46,18 @@ void main() {
       await transport.run();
 
       final responses = _responses(output);
-      expect(responses, hasLength(4));
+      expect(responses, hasLength(6));
       expect(responses[0]['id'], 1);
       expect(responses[1]['id'], 2);
       expect(responses[2]['id'], 3);
       expect(responses[3]['id'], 4);
+      expect(responses[4]['id'], 5);
+      expect(responses[5]['id'], 6);
 
       final initializeResult = responses[0]['result'] as Map<String, Object?>;
       expect(initializeResult['capabilities'], {
         'tools': <String, Object?>{},
+        'prompts': <String, Object?>{},
         'resources': <String, Object?>{},
       });
 
@@ -74,6 +87,30 @@ void main() {
           'uri': 'app://example/context',
           'mimeType': 'application/json',
           'text': '{"server":"connectanum-stdio","tools":["echo"]}',
+        },
+      ]);
+
+      final promptsResult = responses[4]['result'] as Map<String, Object?>;
+      expect(promptsResult['prompts'], [
+        {
+          'name': 'echo.summary',
+          'title': 'Echo Summary',
+          'description': 'Builds a prompt around an echo request.',
+          'arguments': [
+            {'name': 'text', 'description': 'Text to summarize.'},
+          ],
+        },
+      ]);
+
+      final promptResult = responses[5]['result'] as Map<String, Object?>;
+      expect(promptResult['description'], 'Echo prompt for hello.');
+      expect(promptResult['messages'], [
+        {
+          'role': 'user',
+          'content': {
+            'type': 'text',
+            'text': 'Summarize this echo request: hello',
+          },
         },
       ]);
       expect(transport.server.state, McpServerState.closed);
@@ -141,6 +178,23 @@ McpServer _server() => McpServer(
       handler: (request) {
         final text = request.arguments['text'] as String? ?? '';
         return McpToolResult.text(text, structuredContent: {'echo': text});
+      },
+    ),
+  ],
+  prompts: [
+    McpPrompt(
+      name: 'echo.summary',
+      title: 'Echo Summary',
+      description: 'Builds a prompt around an echo request.',
+      arguments: [
+        McpPromptArgument(name: 'text', description: 'Text to summarize.'),
+      ],
+      handler: (request) {
+        final text = request.arguments['text'] ?? '';
+        return McpPromptResult.text(
+          'Summarize this echo request: $text',
+          description: 'Echo prompt for $text.',
+        );
       },
     ),
   ],

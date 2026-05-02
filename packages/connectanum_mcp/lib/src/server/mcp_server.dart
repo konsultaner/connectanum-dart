@@ -4,6 +4,7 @@ import '../protocol/capabilities.dart';
 import '../protocol/constants.dart';
 import '../protocol/errors.dart';
 import '../protocol/json_rpc.dart';
+import '../prompts/prompt.dart';
 import '../resources/resource.dart';
 import '../tools/tool.dart';
 
@@ -13,14 +14,17 @@ class McpServer {
   McpServer({
     required this.serverInfo,
     Iterable<McpTool> tools = const [],
+    Iterable<McpPrompt> prompts = const [],
     Iterable<McpResource> resources = const [],
     Iterable<McpResourceTemplate> resourceTemplates = const [],
     this.instructions,
     McpServerCapabilities? capabilities,
     int? toolListPageSize,
+    int? promptListPageSize,
     int? resourceListPageSize,
     int? resourceTemplateListPageSize,
   }) : tools = McpToolRegistry(tools, toolListPageSize),
+       prompts = McpPromptRegistry(prompts, promptListPageSize),
        resources = McpResourceRegistry(
          resources: resources,
          templates: resourceTemplates,
@@ -30,6 +34,7 @@ class McpServer {
        capabilities =
            capabilities ??
            McpServerCapabilities(
+             prompts: prompts.isNotEmpty ? const McpPromptCapabilities() : null,
              resources: resources.isNotEmpty || resourceTemplates.isNotEmpty
                  ? const McpResourceCapabilities()
                  : null,
@@ -38,6 +43,7 @@ class McpServer {
   final McpServerInfo serverInfo;
   final String? instructions;
   final McpToolRegistry tools;
+  final McpPromptRegistry prompts;
   final McpResourceRegistry resources;
   final McpServerCapabilities capabilities;
 
@@ -97,6 +103,12 @@ class McpServer {
       case 'tools/call':
         _requireInitialized(method);
         return _callTool(params);
+      case 'prompts/list':
+        _requireInitialized(method);
+        return _listPrompts(params);
+      case 'prompts/get':
+        _requireInitialized(method);
+        return _getPrompt(params);
       case 'resources/list':
         _requireInitialized(method);
         return _listResources(params);
@@ -186,6 +198,48 @@ class McpServer {
     }
   }
 
+  JsonMap _listPrompts(JsonMap params) {
+    final cursor = params['cursor'];
+    if (cursor != null && cursor is! String) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'prompts/list.params.cursor must be a string',
+      );
+    }
+    final page = prompts.listPage(cursor: cursor as String?);
+    final result = <String, Object?>{
+      'prompts': [for (final prompt in page.prompts) prompt.toJson()],
+    };
+    final nextCursor = page.nextCursor;
+    if (nextCursor != null) {
+      result['nextCursor'] = nextCursor;
+    }
+    return result;
+  }
+
+  Future<JsonMap> _getPrompt(JsonMap params) async {
+    final name = params['name'];
+    if (name is! String) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'prompts/get.params.name must be a string',
+      );
+    }
+    final arguments = _promptArgumentsFrom(params['arguments']);
+    final prompt = prompts[name];
+    if (prompt == null) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'Unknown MCP prompt: $name',
+      );
+    }
+    prompt.validateArguments(arguments);
+    final result = await prompt.handler(
+      McpPromptRequest(name: name, arguments: arguments),
+    );
+    return result.toJson();
+  }
+
   JsonMap _listResources(JsonMap params) {
     final cursor = params['cursor'];
     if (cursor != null && cursor is! String) {
@@ -255,6 +309,31 @@ class McpServer {
         '$method requires notifications/initialized first',
       );
     }
+  }
+
+  Map<String, String> _promptArgumentsFrom(Object? value) {
+    if (value == null) {
+      return const <String, String>{};
+    }
+    if (value is! Map) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'prompts/get.params.arguments must be an object',
+      );
+    }
+    final arguments = <String, String>{};
+    for (final entry in value.entries) {
+      final key = entry.key;
+      final argumentValue = entry.value;
+      if (key is! String || argumentValue is! String) {
+        throw McpException(
+          McpErrorCodes.invalidParams,
+          'prompts/get.params.arguments must contain only string values',
+        );
+      }
+      arguments[key] = argumentValue;
+    }
+    return arguments;
   }
 }
 

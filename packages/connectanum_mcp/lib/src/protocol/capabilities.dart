@@ -28,10 +28,12 @@ class McpServerInfo {
 class McpServerCapabilities {
   const McpServerCapabilities({
     this.tools = const McpToolCapabilities(),
+    this.prompts,
     this.resources,
   });
 
   final McpToolCapabilities? tools;
+  final McpPromptCapabilities? prompts;
   final McpResourceCapabilities? resources;
 
   Map<String, Object?> toJson() {
@@ -39,6 +41,10 @@ class McpServerCapabilities {
     final tools = this.tools;
     if (tools != null) {
       json['tools'] = tools.toJson();
+    }
+    final prompts = this.prompts;
+    if (prompts != null) {
+      json['prompts'] = prompts.toJson();
     }
     final resources = this.resources;
     if (resources != null) {
@@ -50,6 +56,19 @@ class McpServerCapabilities {
 
 class McpToolCapabilities {
   const McpToolCapabilities({this.listChanged = false});
+
+  final bool listChanged;
+
+  Map<String, Object?> toJson() {
+    if (!listChanged) {
+      return <String, Object?>{};
+    }
+    return <String, Object?>{'listChanged': true};
+  }
+}
+
+class McpPromptCapabilities {
+  const McpPromptCapabilities({this.listChanged = false});
 
   final bool listChanged;
 

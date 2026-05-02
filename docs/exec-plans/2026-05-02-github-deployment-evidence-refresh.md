@@ -1,6 +1,6 @@
 # Exec Plan: GitHub Deployment Evidence Refresh
 
-Status: local_verify_passed
+Status: completed
 Owner: Codex
 Created: 2026-05-02
 Last updated: 2026-05-02
@@ -55,6 +55,12 @@ deployment checkpoints.
   `docs/github_deployment_chain.md` and this exec plan found no local checkout
   paths, TODOs, or FIXMEs
 - Passed on 2026-05-02 after the docs refresh: `bin/verify`
+- 2026-05-02: Pushed commit `19d554b`
+  (`docs: refresh github deployment evidence`) to both remotes. Hosted GitHub
+  `CI` run `25259373928` passed with `Fast Checks` in 5m36s and `Full Verify`
+  in 8m15s. The clean deployment-chain audit then passed against `19d554b`,
+  including hosted CI log scan, relevant Dart package dry-run evidence from
+  `25258282651`, and native release dry-run relevance from `25192553399`.
 
 ## Decision Log
 
@@ -64,5 +70,5 @@ deployment checkpoints.
 
 ## Handoff
 
-- Local verification passed. No GitHub repository settings or release artifacts
-  have been changed.
+- Completed locally and verified on hosted GitHub CI/deployment-chain audit. No
+  GitHub repository settings or release artifacts have been changed.

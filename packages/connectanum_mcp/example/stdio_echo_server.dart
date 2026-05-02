@@ -28,6 +28,23 @@ Future<void> main() {
         },
       ),
     ],
+    prompts: [
+      McpPrompt(
+        name: 'echo.summary',
+        title: 'Echo Summary',
+        description: 'Builds a prompt around an echo request.',
+        arguments: [
+          McpPromptArgument(name: 'text', description: 'Text to summarize.'),
+        ],
+        handler: (request) {
+          final text = request.arguments['text'] ?? '';
+          return McpPromptResult.text(
+            'Summarize this echo request: $text',
+            description: 'Echo prompt for $text.',
+          );
+        },
+      ),
+    ],
     resources: [
       McpResource(
         uri: 'app://example/context',

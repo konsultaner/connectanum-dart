@@ -16,7 +16,7 @@ Driving use case: downstream application integrations
 - MCP resources:
   https://modelcontextprotocol.io/specification/2025-11-25/server/resources
 - MCP prompts:
-  https://modelcontextprotocol.io/specification/2025-06-18/server/prompts
+  https://modelcontextprotocol.io/specification/2025-11-25/server/prompts
 - MCP 2026 roadmap:
   https://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/
 
@@ -47,8 +47,10 @@ Driving use case: downstream application integrations
   context objects by URI. Resource subscriptions and list-change notifications
   are optional.
 - `prompts/list` and `prompts/get` expose user-selectable prompt templates.
-  This is useful later, but not required for the first application-driven tool
-  path.
+  `prompts/list` supports cursor pagination, `prompts/get` accepts
+  string-valued arguments, and prompt messages use `user` or `assistant` roles
+  with typed MCP content blocks. Prompt list-change notifications and argument
+  completion are optional.
 
 ## Connectanum Fit
 
@@ -78,8 +80,10 @@ Driving use case: downstream application integrations
   or project data. The first package-local slice should stay transport-neutral:
   list/read/template-list only, no resource subscriptions or router-hosted
   resource projection until an application needs those semantics.
-- Treat prompts as a second-phase feature unless a downstream application needs prompt
-  templates immediately.
+- Treat prompts as a transport-neutral MCP server primitive now that the
+  package-local tools/resources path is stable. Prompt templates are
+  user-selected surface area, so automatic projection from WAMP APIs should
+  remain a separate product decision.
 
 ## Recommended First Package Shape
 
@@ -98,8 +102,9 @@ Driving use case: downstream application integrations
   process.
 - Provide a tiny public API around these concepts:
   `McpServer`, `McpServerInfo`, `McpTool`, `McpToolRegistry`,
-  `McpToolRequest`, `McpToolResult`, `McpResourceProvider`, and transport
-  adapters for `stdio` plus router-hosted HTTP.
+  `McpToolRequest`, `McpToolResult`, `McpPrompt`, `McpPromptRegistry`,
+  `McpResourceProvider`, and transport adapters for `stdio` plus
+  router-hosted HTTP.
 
 ## First Implementation Slices
 
@@ -137,8 +142,13 @@ Driving use case: downstream application integrations
    subscriptions and router-hosted resource projection remain future slices.
 11. Add full package-local `CallToolResult.content` block helpers. Done for
    text annotations, image, audio, resource links, and embedded resources;
-   `_meta`, prompt content, tasks, and router-hosted resource projection remain
-   future slices.
+   `_meta`, tasks, and router-hosted resource projection remain future slices.
+12. Add package-local prompt support after resources/tool result content blocks
+    are stable. Done for transport-independent `prompts/list` and
+    `prompts/get`, required string-argument validation, prompt messages using
+    existing typed content blocks, and stdio example coverage; prompt
+    list-change notifications, completions, sampling, tasks, and router-hosted
+    prompt projection remain future slices.
 
 ## Open Decisions for Application Integrations
 
@@ -148,8 +158,9 @@ Driving use case: downstream application integrations
   private WAMP procedures.
 - Whether the initial MCP endpoint is local-only or network-accessible.
 - What authentication is expected for network-accessible MCP over HTTP.
-- Whether downstream applications need resources/prompts in the first launch, or only
-  tools.
+- Which prompt templates should be exposed by each downstream application, and
+  whether they should remain explicit registrations or be derived from WAMP API
+  metadata later.
 
 ## Verification Expectations
 

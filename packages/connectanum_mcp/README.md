@@ -12,6 +12,7 @@ implements a narrow, stable subset first:
 - lifecycle negotiation with `initialize` and `notifications/initialized`
 - `tools/list`, including optional cursor pagination for large tool catalogs
 - `tools/call`, including structured tool results
+- `prompts/list` and `prompts/get` for user-selected prompt templates
 - `resources/list`, `resources/read`, and `resources/templates/list` for
   read-only application context
 - newline-delimited stdio transport for local MCP clients
@@ -20,12 +21,13 @@ implements a narrow, stable subset first:
 - router-hosted MCP endpoints through `connectanum_router` `mcp` HTTP routes
 
 The package itself does not ship a standalone full Streamable HTTP transport,
-prompts, sampling, or tasks. Router-hosted HTTP MCP endpoints are provided by
-`connectanum_router` routes with `type: mcp`; they support the request/response
-JSON-RPC subset over HTTP `POST` and return `405` for `GET` because server-push
-SSE streams are not implemented yet. Tool execution failures are returned as
-MCP tool results with `isError: true`; malformed JSON-RPC messages, unknown
-methods, and invalid parameters remain protocol errors.
+prompt argument completions, sampling, or tasks. Router-hosted HTTP MCP
+endpoints are provided by `connectanum_router` routes with `type: mcp`; they
+support the request/response JSON-RPC subset over HTTP `POST` and return `405`
+for `GET` because server-push SSE streams are not implemented yet. Tool
+execution failures are returned as MCP tool results with `isError: true`;
+malformed JSON-RPC messages, unknown methods, and invalid parameters remain
+protocol errors.
 
 ## Quick Start
 
@@ -150,6 +152,45 @@ When resources or templates are configured, the server advertises the MCP
 returns text or base64-encoded binary content and reports unknown URIs with the
 MCP resource-not-found error code.
 
+## Prompts
+
+Use prompts for user-selected templates that a host or MCP client can present
+as commands:
+
+```dart
+final server = McpServer(
+  serverInfo: const McpServerInfo(name: 'prompts', version: '1.0.0'),
+  promptListPageSize: 50,
+  prompts: [
+    McpPrompt(
+      name: 'task.summary',
+      title: 'Task Summary',
+      description: 'Summarizes an application task.',
+      arguments: [
+        McpPromptArgument(
+          name: 'task_id',
+          description: 'Application task identifier.',
+          required: true,
+        ),
+      ],
+      handler: (request) {
+        final taskId = request.arguments['task_id']!;
+        return McpPromptResult.text(
+          'Summarize task $taskId for the current user.',
+          description: 'Task summary prompt for $taskId.',
+        );
+      },
+    ),
+  ],
+);
+```
+
+When prompts are configured, the server advertises the MCP `prompts`
+capability during `initialize`. `prompts/list` supports optional cursor
+pagination through `promptListPageSize`. `prompts/get` accepts string-valued
+arguments, validates required prompt arguments before calling the handler, and
+returns prompt messages with typed MCP content blocks.
+
 ## Stdio Example
 
 Run the example server with:
@@ -171,6 +212,8 @@ Minimal manual request sequence:
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"text":"hello"}}}
 {"jsonrpc":"2.0","id":4,"method":"resources/list","params":{}}
 {"jsonrpc":"2.0","id":5,"method":"resources/read","params":{"uri":"app://example/context"}}
+{"jsonrpc":"2.0","id":6,"method":"prompts/list","params":{}}
+{"jsonrpc":"2.0","id":7,"method":"prompts/get","params":{"name":"echo.summary","arguments":{"text":"hello"}}}
 ```
 
 ## WAMP Tool Delegation

@@ -2,16 +2,19 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `a523dab`
-(`docs: refresh dart package evidence`)
+Last reviewed branch checkpoint: `19d554b`
+(`docs: refresh github deployment evidence`)
 Last reviewed implementation commit: `f31b025`
 (`mcp: add tool result content blocks`)
 Active exec plan:
-`docs/exec-plans/2026-05-02-github-deployment-evidence-refresh.md` is active
-for the current release-readiness documentation refresh. The latest clean
-hosted checkpoint is `a523dab`; the latest completed Dart package evidence
-refresh is `docs/exec-plans/2026-05-02-dart-package-evidence-refresh.md`, the
-latest completed MCP compatibility slice is
+`docs/exec-plans/2026-05-02-mcp-prompt-support.md` is active for the current
+MCP downstream-application usability slice. The latest completed
+release-readiness documentation refresh is
+`docs/exec-plans/2026-05-02-github-deployment-evidence-refresh.md`. The latest
+clean hosted checkpoint is `19d554b`; the latest completed Dart package
+evidence refresh is
+`docs/exec-plans/2026-05-02-dart-package-evidence-refresh.md`, the latest
+completed MCP compatibility slice is
 `docs/exec-plans/2026-05-02-mcp-tool-result-content.md`, the previous MCP stdio
 usability slice is `docs/exec-plans/2026-05-02-mcp-stdio-resource-example.md`,
 the previous MCP resource support slice is
@@ -26,7 +29,26 @@ health, or a concrete MCP compatibility gap regresses.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - active GitHub deployment-chain evidence refresh will update
+  - active MCP prompt-support slice adds package-local `prompts/list` and
+    `prompts/get` support in `packages/connectanum_mcp` so downstream
+    applications can expose user-selected prompt templates alongside the
+    existing tools/resources path; prompt list-change notifications, prompt
+    argument completions, sampling, tasks, and router-hosted prompt projection
+    remain out of scope
+  - pre-change `bin/test-fast` passed on 2026-05-02 before the MCP
+    prompt-support edits
+  - focused MCP checks passed on 2026-05-02 after the prompt-support edits:
+    `dart format --output=none --set-exit-if-changed packages/connectanum_mcp`,
+    `dart analyze packages/connectanum_mcp`, the focused prompt and stdio
+    transport tests, `dart test packages/connectanum_mcp -r expanded`, and
+    `git diff --check`
+  - full local `bin/verify` passed on 2026-05-02 after the MCP prompt-support
+    implementation and docs updates; it included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP prompt/tool/resource tests,
+    client/native tests, auth-server tests, bench integration tests, full
+    router package tests including MCP smoke and remote-auth integration paths,
+    zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
+  - completed GitHub deployment-chain evidence refresh updated
     `docs/github_deployment_chain.md` to reference the latest clean
     branch-head hosted CI, package dry-run, and deployment-chain audit evidence
     at `a523dab`; branch protection changes, router image workflow promotion or
@@ -49,6 +71,20 @@ health, or a concrete MCP compatibility gap regresses.
     auth-server tests, bench integration tests, full router package tests
     including MCP smoke and remote-auth integration paths, zero-copy publish
     tests, and Chrome Dart2Wasm WebSocket transport tests
+  - pushed commit `19d554b` (`docs: refresh github deployment evidence`) to
+    both remotes on 2026-05-02
+  - hosted GitHub evidence for `19d554b` is clean: `CI` run `25259373928`
+    passed with `Fast Checks` in 5m36s and `Full Verify` in 8m15s, and the
+    hosted CI log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `19d554b`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25258282651` remains clean/relevant because no package-publish-sensitive
+    inputs changed after `a523dab`, and native release dry-run `25192553399`
+    remains clean/relevant because no native-release-sensitive inputs changed
+    after its covered commit
   - completed Dart package publishing evidence refresh updated
     `docs/dart_package_publishing.md` to reference the latest clean hosted
     package dry-run available before the docs commit (`f31b025`) and current
@@ -92,8 +128,8 @@ health, or a concrete MCP compatibility gap regresses.
   - completed MCP tool-result content-block slice adds typed
     `CallToolResult.content` support for text annotations, image/audio content,
     resource links, and embedded resources in `packages/connectanum_mcp`;
-    prompt content, task-augmented calls, `_meta` passthrough, router-hosted
-    resource projection, and resource subscriptions remain out of scope
+    task-augmented calls, `_meta` passthrough, router-hosted resource
+    projection, and resource subscriptions remain out of scope
   - pre-change `bin/test-fast` passed on 2026-05-02 before the MCP tool-result
     content-block edits
   - focused MCP checks passed on 2026-05-02 after the tool-result
