@@ -1,6 +1,6 @@
 # Exec Plan: MCP Prompt Support
 
-Status: local_verify_passed
+Status: completed
 Owner: Codex
 Created: 2026-05-02
 Last updated: 2026-05-02
@@ -62,6 +62,13 @@ prompt templates alongside existing tools and resources.
   focused stdio transport test, full MCP package test, and `git diff --check`
 - Passed on 2026-05-02 after the MCP prompt-support implementation and docs
   updates: `bin/verify`
+- 2026-05-02: Pushed commit `46295d5` (`mcp: add prompt support`) to both
+  remotes. Hosted GitHub `CI` run `25260951060` passed with `Fast Checks` in
+  5m49s and `Full Verify` in 8m14s. Hosted `Dart Package Publish Dry Run` run
+  `25260951057` passed in 23s and covers the checked-out head. The clean
+  deployment-chain audit then passed against `46295d5`, including hosted CI
+  log scan, fresh package dry-run relevance, and native release dry-run
+  relevance.
 
 ## Decision Log
 
@@ -71,5 +78,6 @@ prompt templates alongside existing tools and resources.
 
 ## Handoff
 
-- Local verification passed. Hosted GitHub CI/package dry-run evidence is still
-  pending.
+- Completed locally and verified on hosted GitHub CI/package dry-run. No
+  router-hosted prompt projection or MCP prompt completion support has been
+  added.

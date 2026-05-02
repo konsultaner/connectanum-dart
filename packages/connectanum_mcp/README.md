@@ -15,6 +15,8 @@ implements a narrow, stable subset first:
 - `prompts/list` and `prompts/get` for user-selected prompt templates
 - `resources/list`, `resources/read`, and `resources/templates/list` for
   read-only application context
+- icon metadata for implementations, tools, prompts, resources, and resource
+  templates
 - newline-delimited stdio transport for local MCP clients
 - WAMP-backed tool delegation through an existing `connectanum_client` session
 - declared WAMP API helpers for procedures, metadata, and pub/sub topics
@@ -74,6 +76,31 @@ final server = McpServer(
 
 Clients should pass `nextCursor` back unchanged. Malformed or stale cursors are
 rejected with MCP `invalidParams` errors.
+
+## Icons and Display Metadata
+
+Tools, prompts, resources, resource templates, and `McpServerInfo` can carry
+MCP icon metadata:
+
+```dart
+McpTool(
+  name: 'task.create',
+  icons: const [
+    McpIcon(
+      src: 'https://example.com/icons/task.png',
+      mimeType: 'image/png',
+      sizes: ['48x48'],
+      theme: McpIconTheme.light,
+    ),
+  ],
+  handler: (_) => McpToolResult.text('created'),
+);
+```
+
+`McpIcon.src` accepts `http`, `https`, and `data` URI schemes and serializes the
+optional `mimeType`, `sizes`, and `theme` fields. The package does not fetch,
+cache, or render icons; consumers should treat icon metadata and bytes as
+untrusted display hints.
 
 ## Tool Results
 

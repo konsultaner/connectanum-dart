@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../protocol/errors.dart';
+import '../protocol/icons.dart';
 import '../protocol/pagination.dart';
 
 typedef McpResourceReader =
@@ -19,7 +20,8 @@ class McpResource {
     this.mimeType,
     this.size,
     this.annotations,
-  }) {
+    Iterable<McpIcon> icons = const [],
+  }) : icons = List<McpIcon>.unmodifiable(icons) {
     _validateResourceUri(uri, 'uri');
     if (name.isEmpty) {
       throw ArgumentError.value(name, 'name', 'MCP resource name is required.');
@@ -41,6 +43,7 @@ class McpResource {
   final String? mimeType;
   final int? size;
   final McpResourceAnnotations? annotations;
+  final List<McpIcon> icons;
   final McpResourceReader read;
 
   Map<String, Object?> toJson() {
@@ -57,6 +60,7 @@ class McpResource {
     if (mimeType != null) {
       json['mimeType'] = mimeType;
     }
+    addMcpIconsToJson(json, icons);
     final size = this.size;
     if (size != null) {
       json['size'] = size;
@@ -77,7 +81,8 @@ class McpResourceTemplate {
     this.description,
     this.mimeType,
     this.annotations,
-  }) {
+    Iterable<McpIcon> icons = const [],
+  }) : icons = List<McpIcon>.unmodifiable(icons) {
     if (uriTemplate.isEmpty) {
       throw ArgumentError.value(
         uriTemplate,
@@ -100,6 +105,7 @@ class McpResourceTemplate {
   final String? description;
   final String? mimeType;
   final McpResourceAnnotations? annotations;
+  final List<McpIcon> icons;
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{'uriTemplate': uriTemplate, 'name': name};
@@ -115,6 +121,7 @@ class McpResourceTemplate {
     if (mimeType != null) {
       json['mimeType'] = mimeType;
     }
+    addMcpIconsToJson(json, icons);
     final annotations = this.annotations;
     if (annotations != null && !annotations.isEmpty) {
       json['annotations'] = annotations.toJson();

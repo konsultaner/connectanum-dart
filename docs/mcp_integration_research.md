@@ -51,6 +51,11 @@ Driving use case: downstream application integrations
   string-valued arguments, and prompt messages use `user` or `assistant` roles
   with typed MCP content blocks. Prompt list-change notifications and argument
   completion are optional.
+- MCP `icons` metadata can be attached to server/client implementations, tools,
+  prompts, resources, and resource templates. Icon entries carry a required
+  source URI plus optional MIME type, size strings, and a light/dark theme hint.
+  Connectanum should serialize icon metadata for clients but should not fetch
+  or trust icon bytes inside the MCP package.
 
 ## Connectanum Fit
 
@@ -103,7 +108,7 @@ Driving use case: downstream application integrations
 - Provide a tiny public API around these concepts:
   `McpServer`, `McpServerInfo`, `McpTool`, `McpToolRegistry`,
   `McpToolRequest`, `McpToolResult`, `McpPrompt`, `McpPromptRegistry`,
-  `McpResourceProvider`, and transport adapters for `stdio` plus
+  `McpResourceProvider`, `McpIcon`, and transport adapters for `stdio` plus
   router-hosted HTTP.
 
 ## First Implementation Slices
@@ -149,6 +154,11 @@ Driving use case: downstream application integrations
     existing typed content blocks, and stdio example coverage; prompt
     list-change notifications, completions, sampling, tasks, and router-hosted
     prompt projection remain future slices.
+13. Add package-local icon metadata after tools/resources/prompts are stable.
+    Done for transport-independent `icons` serialization on `McpServerInfo`,
+    tools, prompts, resources, and resource templates; icon fetching/rendering,
+    WAMP metadata projection, `_meta`, tasks, sampling, and completions remain
+    future slices.
 
 ## Open Decisions for Application Integrations
 

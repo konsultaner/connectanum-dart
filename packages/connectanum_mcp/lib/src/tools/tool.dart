@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../protocol/errors.dart';
+import '../protocol/icons.dart';
 import '../protocol/json_rpc.dart';
 import '../protocol/pagination.dart';
 import '../resources/resource.dart';
@@ -21,12 +22,14 @@ class McpTool {
     Map<String, Object?>? inputSchema,
     this.outputSchema,
     this.annotations,
+    Iterable<McpIcon> icons = const [],
   }) : inputSchema =
            inputSchema ??
            const <String, Object?>{
              'type': 'object',
              'additionalProperties': false,
-           } {
+           },
+       icons = List<McpIcon>.unmodifiable(icons) {
     if (!_toolNamePattern.hasMatch(name)) {
       throw ArgumentError.value(
         name,
@@ -43,6 +46,7 @@ class McpTool {
   final Map<String, Object?> inputSchema;
   final Map<String, Object?>? outputSchema;
   final McpToolAnnotations? annotations;
+  final List<McpIcon> icons;
   final McpToolHandler handler;
 
   Map<String, Object?> toJson() {
@@ -55,6 +59,7 @@ class McpTool {
     if (description != null) {
       json['description'] = description;
     }
+    addMcpIconsToJson(json, icons);
     final outputSchema = this.outputSchema;
     if (outputSchema != null) {
       json['outputSchema'] = outputSchema;

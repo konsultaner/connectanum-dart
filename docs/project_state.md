@@ -2,16 +2,18 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `19d554b`
-(`docs: refresh github deployment evidence`)
-Last reviewed implementation commit: `f31b025`
-(`mcp: add tool result content blocks`)
+Last reviewed branch checkpoint: `46295d5`
+(`mcp: add prompt support`)
+Last reviewed implementation commit: `46295d5`
+(`mcp: add prompt support`)
 Active exec plan:
-`docs/exec-plans/2026-05-02-mcp-prompt-support.md` is active for the current
-MCP downstream-application usability slice. The latest completed
-release-readiness documentation refresh is
+`docs/exec-plans/2026-05-02-mcp-icon-metadata.md` is active for the current
+MCP downstream-application compatibility slice. The latest completed MCP
+downstream-application usability slice is
+`docs/exec-plans/2026-05-02-mcp-prompt-support.md`. The latest
+completed release-readiness documentation refresh is
 `docs/exec-plans/2026-05-02-github-deployment-evidence-refresh.md`. The latest
-clean hosted checkpoint is `19d554b`; the latest completed Dart package
+clean hosted checkpoint is `46295d5`; the latest completed Dart package
 evidence refresh is
 `docs/exec-plans/2026-05-02-dart-package-evidence-refresh.md`, the latest
 completed MCP compatibility slice is
@@ -29,7 +31,25 @@ health, or a concrete MCP compatibility gap regresses.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - active MCP prompt-support slice adds package-local `prompts/list` and
+  - active MCP icon metadata slice adds package-local `icons` serialization for
+    `McpServerInfo`, tools, prompts, resources, and resource templates so
+    downstream clients can show display identifiers without changing transport
+    behavior; icon fetching/rendering, WAMP metadata projection, `_meta`,
+    sampling, completions, and tasks remain out of scope
+  - pre-change `bin/test-fast` passed on 2026-05-02 before the MCP
+    icon-metadata edits
+  - focused MCP checks passed on 2026-05-02 after the icon-metadata edits:
+    `dart format --output=none --set-exit-if-changed packages/connectanum_mcp`,
+    `dart analyze packages/connectanum_mcp`,
+    `dart test packages/connectanum_mcp/test/icons_test.dart -r expanded`,
+    `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-02 after the MCP icon-metadata
+    implementation and docs updates; it included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP icon/tool/resource/prompt tests,
+    client/native tests, auth-server tests, bench integration tests, full
+    router package tests including MCP smoke and remote-auth integration paths,
+    zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
+  - completed MCP prompt-support slice adds package-local `prompts/list` and
     `prompts/get` support in `packages/connectanum_mcp` so downstream
     applications can expose user-selected prompt templates alongside the
     existing tools/resources path; prompt list-change notifications, prompt
@@ -48,6 +68,20 @@ health, or a concrete MCP compatibility gap regresses.
     client/native tests, auth-server tests, bench integration tests, full
     router package tests including MCP smoke and remote-auth integration paths,
     zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
+  - pushed commit `46295d5` (`mcp: add prompt support`) to both remotes on
+    2026-05-02
+  - hosted GitHub evidence for `46295d5` is clean: `CI` run `25260951060`
+    passed with `Fast Checks` in 5m49s and `Full Verify` in 8m14s, `Dart
+    Package Publish Dry Run` run `25260951057` passed in 23s, and the hosted
+    CI log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `46295d5`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25260951057` covers the checked-out head, and native release dry-run
+    `25192553399` remains clean/relevant because no native-release-sensitive
+    inputs changed after its covered commit
   - completed GitHub deployment-chain evidence refresh updated
     `docs/github_deployment_chain.md` to reference the latest clean
     branch-head hosted CI, package dry-run, and deployment-chain audit evidence

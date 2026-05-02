@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import '../protocol/errors.dart';
+import '../protocol/icons.dart';
 import '../protocol/pagination.dart';
 import '../tools/tool.dart';
 
@@ -14,7 +15,9 @@ class McpPrompt {
     this.title,
     this.description,
     Iterable<McpPromptArgument> arguments = const [],
-  }) : arguments = List<McpPromptArgument>.unmodifiable(arguments) {
+    Iterable<McpIcon> icons = const [],
+  }) : arguments = List<McpPromptArgument>.unmodifiable(arguments),
+       icons = List<McpIcon>.unmodifiable(icons) {
     _validateRequiredString(name, 'name', 'MCP prompt name');
     final names = <String>{};
     for (final argument in this.arguments) {
@@ -32,6 +35,7 @@ class McpPrompt {
   final String? title;
   final String? description;
   final List<McpPromptArgument> arguments;
+  final List<McpIcon> icons;
   final McpPromptHandler handler;
 
   Map<String, Object?> toJson() {
@@ -44,6 +48,7 @@ class McpPrompt {
     if (description != null) {
       json['description'] = description;
     }
+    addMcpIconsToJson(json, icons);
     if (arguments.isNotEmpty) {
       json['arguments'] = [for (final argument in arguments) argument.toJson()];
     }

@@ -1,15 +1,19 @@
+import 'icons.dart';
+
 class McpServerInfo {
   const McpServerInfo({
     required this.name,
     required this.version,
     this.title,
     this.description,
+    this.icons = const <McpIcon>[],
   });
 
   final String name;
   final String version;
   final String? title;
   final String? description;
+  final List<McpIcon> icons;
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{'name': name, 'version': version};
@@ -21,6 +25,7 @@ class McpServerInfo {
     if (description != null) {
       json['description'] = description;
     }
+    addMcpIconsToJson(json, icons);
     return json;
   }
 }
