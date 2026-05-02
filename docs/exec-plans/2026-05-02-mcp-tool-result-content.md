@@ -1,6 +1,6 @@
 # Exec Plan: MCP Tool Result Content Blocks
 
-Status: in_progress
+Status: completed
 Owner: Codex
 Created: 2026-05-02
 Last updated: 2026-05-02
@@ -56,6 +56,13 @@ image, audio, resource links, and embedded resources.
   `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
 - Passed on 2026-05-02 after the MCP tool-result content-block implementation
   and docs updates: `bin/verify`
+- 2026-05-02: Pushed commit `f31b025`
+  (`mcp: add tool result content blocks`) to both remotes. Hosted GitHub `CI`
+  run `25257170704` passed with `Fast Checks` in 5m43s and `Full Verify` in
+  8m8s. Hosted `Dart Package Publish Dry Run` run `25257170706` passed in 18s
+  and covers the checked-out head. The clean deployment-chain audit then passed
+  against `f31b025`, including hosted CI log scan, fresh package dry-run
+  relevance, and native release dry-run relevance.
 
 ## Decision Log
 
@@ -64,5 +71,6 @@ image, audio, resource links, and embedded resources.
 
 ## Handoff
 
-- Local implementation and full repository verification are complete. Hosted
-  CI/package dry-run evidence is pending a commit and push.
+- Completed locally and verified on hosted GitHub CI/package dry-run.
+  `connectanum_mcp` now exposes typed tool result content blocks for text
+  annotations, image/audio payloads, resource links, and embedded resources.

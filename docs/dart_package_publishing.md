@@ -38,7 +38,7 @@ and version-sequencing decisions.
 
 ## Latest Evidence
 
-As of 2026-05-01:
+As of 2026-05-02:
 
 - `bin/dart-package-publish-dry-run --show-release-plan` skips the private
   workspace packages and validates `packages/connectanum_client`.
@@ -59,17 +59,17 @@ As of 2026-05-01:
   `connectanum_mcp`, `connectanum_router`, `connectanum_auth_server`, and
   `connectanum_bench` stay visible in release-readiness evidence without being
   treated as approved public packages.
-- The same dry-run is only local package validation. The pub.dev API currently
-  returns `404` for both `connectanum_client` and `connectanum_core`, so a real
-  publish still needs package ownership and publish-order decisions.
+- The same dry-run is only local package validation. The pub.dev API returned
+  `404` for both `connectanum_client` and `connectanum_core` on 2026-05-02, so
+  a real publish still needs package ownership and publish-order decisions.
 - `connectanum_client` depends on `connectanum_core: ^0.1.0`. A real
   `connectanum_client` publish should not be attempted until either
   `connectanum_core` is intentionally published first or the client package is
   restructured to avoid an unpublished public dependency.
-- GitHub `Dart Package Publish Dry Run` run `25195627219` passed on
-  `425385d` after the native WAMP worker readiness test change under
-  `packages/**`. It covers the current package-publishing inputs and confirms
-  the broadened package path filters are exercising package/test changes.
+- GitHub `Dart Package Publish Dry Run` run `25257170706` passed on
+  `f31b025` after the MCP tool-result content block change under `packages/**`.
+  It covers the current package-publishing inputs and confirms the broadened
+  package path filters are exercising package/test changes.
 
 ## Release Sequence
 
