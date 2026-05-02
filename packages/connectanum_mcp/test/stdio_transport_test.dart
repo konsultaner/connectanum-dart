@@ -22,6 +22,13 @@ void main() {
           },
           {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
           {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list'},
+          {'jsonrpc': '2.0', 'id': 3, 'method': 'resources/list'},
+          {
+            'jsonrpc': '2.0',
+            'id': 4,
+            'method': 'resources/read',
+            'params': {'uri': 'app://example/context'},
+          },
         ]),
         output: output,
       );
@@ -29,15 +36,44 @@ void main() {
       await transport.run();
 
       final responses = _responses(output);
-      expect(responses, hasLength(2));
+      expect(responses, hasLength(4));
       expect(responses[0]['id'], 1);
       expect(responses[1]['id'], 2);
-      final result = responses[1]['result'] as Map<String, Object?>;
-      expect(result['tools'], [
+      expect(responses[2]['id'], 3);
+      expect(responses[3]['id'], 4);
+
+      final initializeResult = responses[0]['result'] as Map<String, Object?>;
+      expect(initializeResult['capabilities'], {
+        'tools': <String, Object?>{},
+        'resources': <String, Object?>{},
+      });
+
+      final toolsResult = responses[1]['result'] as Map<String, Object?>;
+      expect(toolsResult['tools'], [
         {
           'name': 'echo',
           'description': 'Echoes text arguments.',
           'inputSchema': {'type': 'object', 'additionalProperties': false},
+        },
+      ]);
+
+      final resourcesResult = responses[2]['result'] as Map<String, Object?>;
+      expect(resourcesResult['resources'], [
+        {
+          'uri': 'app://example/context',
+          'name': 'example-context',
+          'title': 'Example Context',
+          'description': 'Static context from the stdio test server.',
+          'mimeType': 'application/json',
+        },
+      ]);
+
+      final readResult = responses[3]['result'] as Map<String, Object?>;
+      expect(readResult['contents'], [
+        {
+          'uri': 'app://example/context',
+          'mimeType': 'application/json',
+          'text': '{"server":"connectanum-stdio","tools":["echo"]}',
         },
       ]);
       expect(transport.server.state, McpServerState.closed);
@@ -106,6 +142,22 @@ McpServer _server() => McpServer(
         final text = request.arguments['text'] as String? ?? '';
         return McpToolResult.text(text, structuredContent: {'echo': text});
       },
+    ),
+  ],
+  resources: [
+    McpResource(
+      uri: 'app://example/context',
+      name: 'example-context',
+      title: 'Example Context',
+      description: 'Static context from the stdio test server.',
+      mimeType: 'application/json',
+      read: (request) => [
+        McpTextResourceContent(
+          uri: request.uri,
+          mimeType: 'application/json',
+          text: '{"server":"connectanum-stdio","tools":["echo"]}',
+        ),
+      ],
     ),
   ],
 );

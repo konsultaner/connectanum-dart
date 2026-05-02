@@ -116,7 +116,8 @@ while the router is draining so a load balancer can stop sending new traffic.
 
 Use `packages/connectanum_mcp` when a local agent or app needs a narrow MCP
 server surface on top of Connectanum procedures. The first supported transport
-is newline-delimited stdio:
+is newline-delimited stdio; the bundled example exposes both an `echo` tool and
+a small read-only `app://example/context` resource:
 
 ```bash
 dart run packages/connectanum_mcp/example/stdio_echo_server.dart

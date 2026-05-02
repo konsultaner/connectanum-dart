@@ -61,10 +61,17 @@ projection.
   `dart test packages/connectanum_mcp -r expanded`.
 - 2026-05-02: Full local `bin/verify` passed after the MCP resource support
   implementation and docs updates.
+- 2026-05-02: Pushed commit `da6bb32` (`mcp: add resource read support`) to
+  both remotes. Hosted GitHub `CI` run `25254927687` passed with `Fast Checks`
+  in 5m37s and `Full Verify` in 7m53s. Hosted `Dart Package Publish Dry Run`
+  run `25254927695` passed in 19s and covers the checked-out head. The clean
+  deployment-chain audit then passed against `da6bb32`, including hosted CI log
+  scan, fresh package dry-run relevance, and native release dry-run relevance.
 
 ## Handoff
 
-- Completed locally. Remaining MCP compatibility work is intentionally deferred
-  until a downstream application needs it: resource subscriptions/list-change
-  notifications, router-hosted resource projection, prompts, and full
-  Streamable HTTP GET/SSE/session semantics.
+- Completed locally and verified on hosted GitHub CI/package dry-run.
+  Remaining MCP compatibility work is intentionally deferred until a downstream
+  application needs it: resource subscriptions/list-change notifications,
+  router-hosted resource projection, prompts, and full Streamable HTTP
+  GET/SSE/session semantics.
