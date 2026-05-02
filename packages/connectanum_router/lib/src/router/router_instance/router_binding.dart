@@ -326,6 +326,7 @@ class RouterBinding {
     Map<String, Object?> roles = const {},
     String? sessionProfile,
     String? cacheKey,
+    bool indexByRealm = true,
   }) async {
     if (!_ready) {
       activateListeners();
@@ -439,7 +440,9 @@ class RouterBinding {
       SessionOpenCommand(realmUri: resolvedRealmUri, session: record),
     );
     _internalSessions.add(session);
-    _internalSessionsByRealm[resolvedRealmUri] = session;
+    if (indexByRealm) {
+      _internalSessionsByRealm[resolvedRealmUri] = session;
+    }
     if (cacheKey != null && cacheKey.isNotEmpty) {
       _internalSessionsByCacheKey[cacheKey] = session;
     }
@@ -1442,6 +1445,7 @@ class RouterBinding {
       roles: roles,
       sessionProfile: sessionProfile,
       cacheKey: resolvedCacheKey,
+      indexByRealm: resolvedCacheKey == null,
     );
   }
 

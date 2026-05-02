@@ -1,6 +1,6 @@
 # Exec Plan: MCP Icon Metadata
 
-Status: local_verify_passed
+Status: completed
 Owner: Codex
 Created: 2026-05-02
 Last updated: 2026-05-02
@@ -65,6 +65,13 @@ changing transport behavior.
   `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
 - Passed on 2026-05-02 after the MCP icon-metadata implementation and docs
   updates: `bin/verify`
+- 2026-05-02: Pushed commit `8df2224` (`mcp: add icon metadata`) to both
+  remotes. Hosted GitHub `CI` run `25262576057` passed with `Fast Checks` in
+  4m50s and `Full Verify` in 8m11s. Hosted `Dart Package Publish Dry Run` run
+  `25262576056` passed in 22s and covers the checked-out head. The clean
+  deployment-chain audit then passed against `8df2224`, including hosted CI
+  log scan, fresh package dry-run coverage, and native release dry-run
+  relevance.
 
 ## Decision Log
 
@@ -74,5 +81,6 @@ changing transport behavior.
 
 ## Handoff
 
-- Local verification passed. Hosted GitHub CI/package dry-run evidence is still
-  pending.
+- Completed locally and verified on hosted GitHub CI/package dry-run. No icon
+  fetching/rendering, WAMP metadata projection, `_meta`, sampling, completions,
+  or tasks have been added.

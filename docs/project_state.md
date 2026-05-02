@@ -1,38 +1,59 @@
 # Project State
 
-Last updated: 2026-05-02
+Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `46295d5`
-(`mcp: add prompt support`)
-Last reviewed implementation commit: `46295d5`
-(`mcp: add prompt support`)
+Last reviewed branch checkpoint: `8df2224`
+(`mcp: add icon metadata`)
+Last reviewed implementation commit: `8df2224`
+(`mcp: add icon metadata`)
 Active exec plan:
-`docs/exec-plans/2026-05-02-mcp-icon-metadata.md` is active for the current
-MCP downstream-application compatibility slice. The latest completed MCP
-downstream-application usability slice is
-`docs/exec-plans/2026-05-02-mcp-prompt-support.md`. The latest
-completed release-readiness documentation refresh is
-`docs/exec-plans/2026-05-02-github-deployment-evidence-refresh.md`. The latest
-clean hosted checkpoint is `46295d5`; the latest completed Dart package
-evidence refresh is
-`docs/exec-plans/2026-05-02-dart-package-evidence-refresh.md`, the latest
-completed MCP compatibility slice is
-`docs/exec-plans/2026-05-02-mcp-tool-result-content.md`, the previous MCP stdio
-usability slice is `docs/exec-plans/2026-05-02-mcp-stdio-resource-example.md`,
-the previous MCP resource support slice is
-`docs/exec-plans/2026-05-02-mcp-resource-read-support.md`, and the latest
-deployment-chain audit readability slice is completed in
-`docs/exec-plans/2026-05-02-rc-ci-gate-next-actions.md`. Deployment-chain audit
-on 2026-05-02 remains clean for autonomous CI/log, Dart package dry-run, and
-native release dry-run gates, with only operator/deployment RC blockers left.
-Use `ROADMAP_NEXT.md` for the next milestone unless CI, deployment-chain
-health, or a concrete MCP compatibility gap regresses.
+`docs/exec-plans/2026-05-03-router-hosted-mcp-auth-meta-api.md` is active. It
+corrects the MCP product direction: MCP must be a router-hosted endpoint and a
+protocol view over authenticated WAMP/meta API calls, not a standalone
+MCP-only server or an internal-session shortcut. The latest completed MCP
+downstream-application compatibility slice is
+`docs/exec-plans/2026-05-02-mcp-icon-metadata.md`, and the latest clean hosted
+checkpoint is `8df2224`. Deployment-chain audit on 2026-05-02 remains clean for
+autonomous CI/log, Dart package dry-run, and native release dry-run gates, with
+only operator/deployment RC blockers left. Do not return to speculative MCP
+protocol polish, WAMP transport benchmarks, or roadmap work until the active
+MCP auth/session/meta-API correction is implemented, verified, and documented.
 
 ## Last Known Verification
 
 - Current autonomous focus:
-  - active MCP icon metadata slice adds package-local `icons` serialization for
-    `McpServerInfo`, tools, prompts, resources, and resource templates so
+  - active MCP auth/session/meta-API correction responds to product feedback
+    that tool calls must run as the authenticated route principal or session,
+    frontend clients need a JSON-callable meta/tool API using the same catalog,
+    and router configuration should expose MCP endpoints without a separate
+    MCP-only server; prior router implementation research confirmed the useful
+    pattern is WAMP registration/subscription meta API metadata plus
+    authorize-then-dispatch-as-caller bridge semantics
+  - first MCP auth/session isolation slice is implemented locally: a new
+    router integration regression proves an anonymous MCP route must not run as
+    a privileged realm internal session, unauthenticated MCP routes now use
+    route-scoped anonymous session cache keys, and keyed internal sessions
+    created through `_ensureInternalSession` no longer replace the realm-global
+    internal session index
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the MCP route
+    session isolation edits
+  - focused checks passed on 2026-05-03 after the MCP route session isolation
+    edits: the new fail-first test first reproduced the privilege reuse bug,
+    then `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "does not run anonymous MCP calls as a privileged realm session"`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
+    `dart analyze packages/connectanum_router packages/connectanum_mcp`, and
+    `dart test packages/connectanum_mcp -r expanded` passed
+  - full local `bin/verify` passed on 2026-05-03 after the MCP route session
+    isolation fix and docs updates; it included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP package tests, client/native
+    tests, auth-server tests, bench integration tests, full router package
+    tests including the new MCP isolation regression and existing MCP smoke,
+    zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
+  - remaining active MCP plan work is the shared JSON-callable frontend/meta API
+    surface, principal-filtered catalog behavior, and public docs cleanup after
+    behavior is complete
+  - completed MCP icon metadata slice adds package-local `icons` serialization
+    for `McpServerInfo`, tools, prompts, resources, and resource templates so
     downstream clients can show display identifiers without changing transport
     behavior; icon fetching/rendering, WAMP metadata projection, `_meta`,
     sampling, completions, and tasks remain out of scope
@@ -49,6 +70,20 @@ health, or a concrete MCP compatibility gap regresses.
     client/native tests, auth-server tests, bench integration tests, full
     router package tests including MCP smoke and remote-auth integration paths,
     zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
+  - pushed commit `8df2224` (`mcp: add icon metadata`) to both remotes on
+    2026-05-02
+  - hosted GitHub evidence for `8df2224` is clean: `CI` run `25262576057`
+    passed with `Fast Checks` in 4m50s and `Full Verify` in 8m11s, `Dart
+    Package Publish Dry Run` run `25262576056` passed in 22s, and the hosted
+    CI log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `8df2224`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25262576056` covers the checked-out head, and native release dry-run
+    `25192553399` remains clean/relevant because no native-release-sensitive
+    inputs changed after its covered commit
   - completed MCP prompt-support slice adds package-local `prompts/list` and
     `prompts/get` support in `packages/connectanum_mcp` so downstream
     applications can expose user-selected prompt templates alongside the

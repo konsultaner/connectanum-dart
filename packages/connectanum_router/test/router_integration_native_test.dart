@@ -993,6 +993,74 @@ void main() {
       expect(exact, isNotEmpty);
     }, skip: skipReason);
 
+    test(
+      'does not run anonymous MCP calls as a privileged realm session',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9113,
+          nativeLib: nativeLib,
+          settings: _buildMcpAnonymousIsolationSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final binding = harness.binding;
+        final serviceSession = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-admin-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final publicRegistration = await serviceSession.register(
+          'app.public.lookup',
+        );
+        publicRegistration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: {'value': invocation.argumentsKeywords?['id']},
+          );
+        });
+
+        final adminRegistration = await serviceSession.register(
+          'app.admin.reset',
+        );
+        adminRegistration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: {'reset': invocation.argumentsKeywords?['id']},
+          );
+        });
+
+        final listener = binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+
+        await _initializeMcp(client, listener.port, '/mcp');
+
+        final publicResult = await _callMcpTool(
+          client,
+          listener.port,
+          '/mcp',
+          'app.public.lookup',
+          {'id': 'T-1'},
+        );
+        expect(publicResult['isError'], isFalse);
+        expect(
+          (publicResult['structuredContent'] as Map)['argumentsKeywords'],
+          containsPair('value', 'T-1'),
+        );
+
+        final adminResult = await _callMcpTool(
+          client,
+          listener.port,
+          '/mcp',
+          'app.admin.reset',
+          {'id': 'T-1'},
+        );
+        expect(adminResult['isError'], isTrue);
+        expect(jsonEncode(adminResult), contains('Not authorized'));
+      },
+      skip: skipReason,
+    );
+
     test('smoke tests MCP router RPC pubsub and route security', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9112,
@@ -2283,6 +2351,66 @@ RouterSettings _buildRouterSettings({
   }
 
   return builder.build();
+}
+
+RouterSettings _buildMcpAnonymousIsolationSettings() {
+  final realmBuilder = RealmSettingsBuilder('realm1')
+    ..addAuthMethod('anonymous')
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('app.public.')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const ['call']),
+      ),
+    )
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('app.')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'subscribe',
+            'unsubscribe',
+            'publish',
+            'call',
+          ]),
+      ),
+    );
+
+  final listener = ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+    ..setSessionProfile('public-wamp')
+    ..addProtocol(ListenerProtocol.rawsocket)
+    ..addProtocol(ListenerProtocol.http)
+    ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
+    ..setHttpOptions(
+      const HttpListenerSettings(
+        routes: [
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: '/mcp'),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: 'realm1',
+              options: {'tool_list_page_size': 100},
+            ),
+          ),
+        ],
+      ),
+    )
+    ..setOptions(const {'max_rawsocket_size_exponent': 16});
+
+  return (RouterSettingsBuilder()
+        ..addRealmFromBuilder(realmBuilder)
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('public-wamp')
+            ..addAuthMethod('anonymous'),
+        )
+        ..addListenerFromBuilder(listener)
+        ..addAuthenticator(
+          'anonymous',
+          const AuthenticatorDefinition(type: 'anonymous'),
+        ))
+      .build();
 }
 
 RouterSettings _buildMcpSmokeSettings() {

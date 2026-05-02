@@ -109,6 +109,15 @@ Future<void> _handleMcpHttpRequestForBinding(
       session = await binding._ensureInternalSession(
         realmUri: resolvedRealmUri,
         sessionProfile: sessionProfile?.name,
+        authId: sessionProfile?.auth.authId ?? 'anonymous',
+        authMethod: 'anonymous',
+        authProvider: 'router-http',
+        cacheKey: _mcpAnonymousRouteSessionCacheKey(
+          request: request,
+          route: route,
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile,
+        ),
       );
     }
   } on _HttpUnauthorized catch (error) {
@@ -184,7 +193,7 @@ class _RouterMcpEndpoint {
          ),
          instructions:
              'This MCP endpoint is hosted by the Connectanum router and uses '
-             'the router internal WAMP session for calls and pub/sub.',
+             'the route-authenticated WAMP principal for calls and pub/sub.',
          toolListPageSize: _intOption(
            route.action.options,
            'tool_list_page_size',
@@ -314,6 +323,9 @@ class _RouterMcpEndpoint {
       metadata: <String, Object?>{
         'realm': session.realmUri,
         'routerHosted': true,
+        if (session.authId != null) 'authid': session.authId,
+        if (session.authRole != null) 'authrole': session.authRole,
+        if (session.authMethod != null) 'authmethod': session.authMethod,
       },
     );
   }
@@ -529,6 +541,23 @@ class _RouterMcpEndpoint {
         return null;
     }
   }
+}
+
+String _mcpAnonymousRouteSessionCacheKey({
+  required RouterHttpRequest request,
+  required HttpRouteSettings route,
+  required String realmUri,
+  required SessionProfileSettings? sessionProfile,
+}) {
+  final routeKey = route.match.path ?? route.match.prefix ?? request.path;
+  final profileKey = sessionProfile?.name ?? 'anonymous';
+  return [
+    'http-mcp-anonymous',
+    request.listenerId,
+    routeKey,
+    realmUri,
+    profileKey,
+  ].join(':');
 }
 
 ResultPayload _resultPayload({
