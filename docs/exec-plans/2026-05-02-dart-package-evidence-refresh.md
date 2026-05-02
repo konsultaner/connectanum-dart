@@ -1,6 +1,6 @@
 # Exec Plan: Dart Package Evidence Refresh
 
-Status: local_verify_passed
+Status: completed
 Owner: Codex
 Created: 2026-05-02
 Last updated: 2026-05-02
@@ -54,6 +54,13 @@ of the older package workflow run.
   `docs/dart_package_publishing.md` and this exec plan found no old run IDs,
   old evidence date, or local checkout path references
 - Passed on 2026-05-02 after the docs refresh: `bin/verify`
+- 2026-05-02: Pushed commit `a523dab`
+  (`docs: refresh dart package evidence`) to both remotes. Hosted GitHub `CI`
+  run `25258282648` passed with `Fast Checks` in 5m51s and `Full Verify` in
+  8m03s. Hosted `Dart Package Publish Dry Run` run `25258282651` passed in 22s
+  and covers the checked-out head. The clean deployment-chain audit then passed
+  against `a523dab`, including hosted CI log scan, fresh package dry-run
+  relevance, and native release dry-run relevance.
 
 ## Decision Log
 
@@ -63,4 +70,5 @@ of the older package workflow run.
 
 ## Handoff
 
-- Local verification passed. No package publishing state has been changed.
+- Completed locally and verified on hosted GitHub CI/package dry-run. No
+  package publishing state has been changed.

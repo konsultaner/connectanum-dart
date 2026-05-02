@@ -2,14 +2,16 @@
 
 Last updated: 2026-05-02
 Current branch: `add-router`
-Last reviewed branch checkpoint: `f31b025`
-(`mcp: add tool result content blocks`)
+Last reviewed branch checkpoint: `a523dab`
+(`docs: refresh dart package evidence`)
 Last reviewed implementation commit: `f31b025`
 (`mcp: add tool result content blocks`)
 Active exec plan:
-`docs/exec-plans/2026-05-02-dart-package-evidence-refresh.md` is active for the
-current release-readiness evidence refresh. The latest clean hosted checkpoint
-is `f31b025`; the latest completed MCP compatibility slice is
+`docs/exec-plans/2026-05-02-github-deployment-evidence-refresh.md` is active
+for the current release-readiness documentation refresh. The latest clean
+hosted checkpoint is `a523dab`; the latest completed Dart package evidence
+refresh is `docs/exec-plans/2026-05-02-dart-package-evidence-refresh.md`, the
+latest completed MCP compatibility slice is
 `docs/exec-plans/2026-05-02-mcp-tool-result-content.md`, the previous MCP stdio
 usability slice is `docs/exec-plans/2026-05-02-mcp-stdio-resource-example.md`,
 the previous MCP resource support slice is
@@ -24,11 +26,35 @@ health, or a concrete MCP compatibility gap regresses.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - active Dart package publishing evidence refresh will update
+  - active GitHub deployment-chain evidence refresh will update
+    `docs/github_deployment_chain.md` to reference the latest clean
+    branch-head hosted CI, package dry-run, and deployment-chain audit evidence
+    at `a523dab`; branch protection changes, router image workflow promotion or
+    publishing, RC tags/releases, and Dart package publishing remain out of
+    scope
+  - pre-change `bin/test-fast` passed on 2026-05-02 before the GitHub
+    deployment-chain evidence refresh edits
+  - read-only RC readiness audit on 2026-05-02 for `a523dab` reported hosted
+    CI, hosted CI logs, Dart package dry-run, and native release dry-run ready;
+    remaining not-ready gates are operator/deployment decisions for `master`
+    required checks, router image workflow promotion and GHCR validation, RC
+    tag/prerelease creation, and Dart package ownership/release order
+  - focused docs checks passed on 2026-05-02 after the GitHub deployment-chain
+    evidence refresh: `git diff --check`, and a scan of
+    `docs/github_deployment_chain.md` plus the active exec plan found no local
+    checkout path references, TODOs, or FIXMEs
+  - full local `bin/verify` passed on 2026-05-02 after the GitHub
+    deployment-chain evidence refresh; it included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP tests, client/native tests,
+    auth-server tests, bench integration tests, full router package tests
+    including MCP smoke and remote-auth integration paths, zero-copy publish
+    tests, and Chrome Dart2Wasm WebSocket transport tests
+  - completed Dart package publishing evidence refresh updated
     `docs/dart_package_publishing.md` to reference the latest clean hosted
-    package dry-run at `f31b025` and current local non-mutating release-plan
-    output; package publishing, package naming/versioning, package ownership,
-    and `publish_to` policy changes remain out of scope
+    package dry-run available before the docs commit (`f31b025`) and current
+    local non-mutating release-plan output; package publishing, package
+    naming/versioning, package ownership, and `publish_to` policy changes
+    remain out of scope
   - pre-change `bin/test-fast` passed on 2026-05-02 before the Dart package
     publishing evidence refresh edits
   - local Dart package release-plan evidence passed on 2026-05-02 before the
@@ -49,6 +75,20 @@ health, or a concrete MCP compatibility gap regresses.
     auth-server tests, bench integration tests, full router package tests
     including MCP smoke and remote-auth integration paths, zero-copy publish
     tests, and Chrome Dart2Wasm WebSocket transport tests
+  - pushed commit `a523dab` (`docs: refresh dart package evidence`) to both
+    remotes on 2026-05-02
+  - hosted GitHub evidence for `a523dab` is clean: `CI` run `25258282648`
+    passed with `Fast Checks` in 5m51s and `Full Verify` in 8m03s, `Dart
+    Package Publish Dry Run` run `25258282651` passed in 22s, and the hosted
+    CI log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns
+  - branch-head deployment-chain audit passed on 2026-05-02 against `a523dab`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; Dart package dry-run
+    `25258282651` covers the checked-out head, and native release dry-run
+    `25192553399` remains clean/relevant because no native-release-sensitive
+    inputs changed after its covered commit
   - completed MCP tool-result content-block slice adds typed
     `CallToolResult.content` support for text annotations, image/audio content,
     resource links, and embedded resources in `packages/connectanum_mcp`;

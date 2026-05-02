@@ -241,6 +241,30 @@ For the latest branch-head status, run the clean-CI audit command above. The
 items below are pinned deployment-chain checkpoints, not a replacement for the
 live audit:
 
+- `add-router` release-readiness checkpoint `a523dab` passed GitHub `CI` run
+  `25258282648`: `Fast Checks` completed in 5m51s and `Full Verify` completed
+  in 8m03s.
+- Hosted log scanning for `25258282648` found no warning, deprecation,
+  skipped-test, reset, connection-noise, panic, or failure patterns.
+- GitHub `Dart Package Publish Dry Run` run `25258282651` passed on
+  `a523dab` in 22s and covers the checked-out package-publishing inputs. The
+  strict package-release gate still intentionally blocks on
+  `connectanum_client` depending on private workspace package
+  `connectanum_core`, so a real publish still needs package ownership, public
+  version, and release-order decisions.
+- The clean deployment-chain audit passed for `a523dab` on 2026-05-02 with
+  `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+  `--require-clean-dart-package-publish-dry-run`, and
+  `--require-clean-native-release-dry-run`. Manual `Native Artifacts` dry-run
+  `25192553399` remains relevant because no native-release-sensitive inputs
+  changed after its covered commit.
+- The release-candidate readiness view for `a523dab` reports the hosted CI,
+  hosted CI log, Dart package dry-run, and native release dry-run gates as
+  ready. Remaining not-ready gates are operator/deployment decisions: configure
+  required status checks on `master`, promote `.github/workflows/router-image.yml`
+  through `master`, validate/publish the GHCR router package, choose and push
+  an RC tag, create the GitHub prerelease, and approve the Dart package release
+  order.
 - `add-router` deployment-diagnostic checkpoint `379775a` passed GitHub `CI`
   run `25206934156`; `Fast Checks` and `Full Verify` completed successfully.
 - Hosted log scanning for `25206934156` found no warning, deprecation,
