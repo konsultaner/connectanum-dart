@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `8362a53`
-(`router: align metrics auth flag`)
+Last reviewed branch checkpoint: `16db917`
+(`docs: record metrics auth flag verification`)
 Last reviewed implementation commit: `8362a53`
 (`router: align metrics auth flag`)
 Active exec plan:
@@ -34,21 +34,20 @@ starting another feature or benchmark slice.
     local `bin/verify` all passed on 2026-05-03
   - pre-change `bin/test-fast` passed on 2026-05-03 before the metrics
     auth-required consistency slice
-  - latest hosted GitHub `CI` evidence before `8362a53` is docs checkpoint
-    `e57c141`: run `25275562139` completed successfully on 2026-05-03 with
-    `Fast Checks` and `Full Verify` both green
-  - latest hosted `WAMP Profile Benchmarks` evidence before `8362a53` is run
-    `25274832544`, completed successfully on 2026-05-03 for `b6dcfb1`
-  - latest hosted `Dart Package Publish Dry Run` evidence before `8362a53` is
-    run `25274832546`, completed successfully on 2026-05-03 for `b6dcfb1`
-  - latest hosted deployment-chain audit before `8362a53` passed on 2026-05-03
-    against `e57c141`
+  - latest hosted GitHub `CI` evidence is docs checkpoint `16db917`: run
+    `25276260827` completed successfully on 2026-05-03 with `Fast Checks` in
+    5m31s and `Full Verify` in 7m55s
+  - latest hosted `WAMP Profile Benchmarks` evidence is run `25276260819`,
+    completed successfully on 2026-05-03 for `16db917`
+  - latest hosted `Dart Package Publish Dry Run` evidence is run
+    `25276260948`, completed successfully on 2026-05-03 for `16db917`
+  - branch-head deployment-chain audit passed on 2026-05-03 against `16db917`
     with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
     `--require-clean-native-release-dry-run`; the hosted CI log scan found no
     warning, deprecation, skipped-test, reset, connection-noise, panic, or
-    failure patterns, Dart package dry-run `25274832546` remains
-    clean/relevant for the checked-out package-publish-sensitive inputs, and
+    failure patterns, Dart package dry-run `25276260948` covers the branch
+    head, WAMP Profile Benchmarks run `25276260819` covers the branch head, and
     native release dry-run `25192553399` remains clean/relevant because no
     native-release-sensitive inputs changed
   - metrics secret-redaction hardening is complete and pushed as `b6dcfb1`: the
