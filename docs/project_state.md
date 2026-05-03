@@ -2,15 +2,17 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP direct JSON meta API smoke
-after `2bc49ce` (`mcp: smoke streamable protected pubsub`)
-Last reviewed implementation commit: working tree MCP direct JSON meta API
-smoke after `2bc49ce` (`mcp: smoke streamable protected pubsub`)
+Last reviewed branch checkpoint: working tree MCP direct JSON subscription
+meta API smoke after `8bb74f8` (`mcp: expose direct json meta api`)
+Last reviewed implementation commit: working tree MCP direct JSON subscription
+meta API smoke after `8bb74f8` (`mcp: expose direct json meta api`)
 Active exec plan:
-`docs/exec-plans/2026-05-03-mcp-direct-json-meta-api-smoke.md`
+`docs/exec-plans/2026-05-03-mcp-direct-json-subscription-meta-smoke.md`
 (locally complete; hosted evidence pending). Latest completed exec plan:
-`docs/exec-plans/2026-05-03-mcp-streamable-protected-pubsub-smoke.md`
+`docs/exec-plans/2026-05-03-mcp-direct-json-meta-api-smoke.md`
 (complete; hosted evidence clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-03-mcp-streamable-protected-pubsub-smoke.md`
+(complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-protected-pubsub-smoke.md`
 (complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-pubsub-smoke.md`
@@ -60,7 +62,11 @@ order.
     without MCP lifecycle setup or `connectanum.tool.call` wrapping. The
     current working tree extends that path to standard WAMP meta API methods
     (`wamp.registration.list` and `wamp.registration.match`) with route
-    authorization filtering for safe versus protected registrations
+    authorization filtering for safe versus protected registrations, and now
+    adds direct JSON `wamp.subscription.list`, `wamp.subscription.lookup`, and
+    `wamp.subscription.match` smoke coverage for public-topic visibility plus
+    protected-topic denial/success across anonymous and bearer-authenticated
+    routes
   - branch-head GitHub deployment-chain audit was re-run on 2026-05-03 before
     the current Streamable protected pub/sub smoke work; latest branch CI,
     hosted CI log scan, Dart package publish dry-run, and native release
@@ -109,6 +115,32 @@ order.
     client/native tests, auth-server tests, bench integration tests, the full
     router package tests including the updated direct JSON WAMP meta API smoke,
     zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `8bb74f8` is clean: `CI` run `25287625031`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `WAMP Profile Benchmarks` run
+    `25287625046` completed successfully, `Dart Package Publish Dry Run` run
+    `25287625035` completed successfully and covers the checked-out head, and
+    Native Artifacts dry-run `25192553399` remains clean and relevant because
+    no native-release-sensitive paths changed
+  - current working tree extends the direct JSON WAMP meta API smoke with
+    subscription meta coverage: anonymous `/mcp/public` can list and look up
+    `app.events.audit` subscriptions, anonymous `/mcp/public` cannot discover
+    `app.secure.audit` subscriptions, and bearer-authenticated `/mcp/secure`
+    can discover the same protected subscription.
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the direct JSON
+    subscription meta API smoke edits
+  - focused checks passed for the direct JSON subscription meta API smoke
+    slice: `dart analyze packages/connectanum_mcp packages/connectanum_router`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
+    and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-03 after the direct JSON
+    subscription meta API smoke coverage and project-state updates; it
+    included formatting, Rust native/FFI tests, Python package-artifact checks,
+    MCP package tests, client/native tests, auth-server tests, bench
+    integration tests, the full router package tests including the updated
+    direct JSON subscription meta smoke, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests
   - pre-change `bin/test-fast` passed on 2026-05-03 before the protected
     pub/sub smoke edits
   - focused checks passed for the protected pub/sub smoke slice:

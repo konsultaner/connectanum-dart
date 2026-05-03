@@ -1644,6 +1644,32 @@ void main() {
       final directPubSubHandle = directPubSubSubscription['handle'] as String;
       expect(directPubSubSubscription['topic'], equals('app.events.audit'));
 
+      final directPublicSubscriptionList = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.list',
+        const {},
+      );
+      final directPublicSubscriptionListKwargs =
+          (directPublicSubscriptionList['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(directPublicSubscriptionListKwargs['exact'], isNotEmpty);
+
+      final directPublicSubscriptionLookup = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.lookup',
+        {'topic': 'app.events.audit'},
+      );
+      final directPublicSubscriptionLookupIds =
+          (directPublicSubscriptionLookup['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directPublicSubscriptionLookupIds, isNotEmpty);
+
       final directPubSubPublish = await _callRouterJsonMethod(
         client,
         listener.port,
@@ -1934,6 +1960,33 @@ void main() {
         directSecureSubscriptionContent['topic'],
         equals('app.secure.audit'),
       );
+
+      final directPublicSecureSubscriptionMeta = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.match',
+        {'topic': 'app.secure.audit'},
+      );
+      final directPublicSecureSubscriptionMetaIds =
+          (directPublicSecureSubscriptionMeta['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directPublicSecureSubscriptionMetaIds, isEmpty);
+
+      final directSecureSubscriptionMeta = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.subscription.match',
+        {'topic': 'app.secure.audit'},
+        headers: authHeaders,
+      );
+      final directSecureSubscriptionMetaIds =
+          (directSecureSubscriptionMeta['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directSecureSubscriptionMetaIds, isNotEmpty);
 
       final directSecurePublish = await _callRouterJsonMethod(
         client,

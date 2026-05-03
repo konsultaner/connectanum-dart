@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct JSON Meta API Smoke
 
-Status: locally complete; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -51,6 +51,15 @@ facade while preserving the route session's authorization boundaries.
   expanded --name "MCP"`, and `git diff --check`.
 - 2026-05-03: Full local `bin/verify` passed after the direct JSON meta API
   implementation and project-state updates.
+- 2026-05-03: Pushed as `8bb74f8` (`mcp: expose direct json meta api`).
+  Hosted GitHub evidence is clean: `CI` run `25287625031` completed
+  successfully with `Fast Checks` and `Full Verify`, the hosted CI log scan
+  found no warning, deprecation, skipped-test, reset, connection-noise, panic,
+  or failure patterns, `WAMP Profile Benchmarks` run `25287625046` completed
+  successfully, and `Dart Package Publish Dry Run` run `25287625035`
+  completed successfully and covers the checked-out head. Native Artifacts
+  dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -61,5 +70,4 @@ facade while preserving the route session's authorization boundaries.
 
 ## Handoff
 
-Pending full local verification, commit, push, and hosted deployment-chain
-evidence.
+Complete. Continue with the next roadmap-selected production-readiness slice.
