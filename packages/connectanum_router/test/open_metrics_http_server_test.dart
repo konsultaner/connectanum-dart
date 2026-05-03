@@ -230,7 +230,10 @@ class _NoopHandleRuntime extends _FakeRuntime
   }) {}
 }
 
-RouterSettings _buildSettings({String? authToken}) {
+RouterSettings _buildSettings({
+  String? authToken,
+  Duration collectionTimeout = const Duration(seconds: 5),
+}) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
@@ -285,6 +288,7 @@ RouterSettings _buildSettings({String? authToken}) {
         path: '/metrics',
         authToken: authToken,
         realm: 'connectanum.metrics',
+        collectionTimeout: collectionTimeout,
       ),
     ),
     authenticators: const {
@@ -395,4 +399,38 @@ void main() {
     expect(ok.$1, equals(200));
     expect(ok.$2, contains('connectanum_router_realms'));
   });
+
+  test(
+    'OpenMetrics HTTP server returns unavailable when collection times out',
+    () async {
+      final runtime = _NoopHandleRuntime();
+      final settings = _buildSettings(collectionTimeout: Duration.zero);
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: settings,
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      final server = await binding.startOpenMetricsHttpServer();
+      expect(server, isNotNull);
+
+      final listenHost = server!.address.address;
+      final base = Uri.parse('http://$listenHost:${server.port}/metrics');
+
+      final response = await _get(base);
+      expect(response.$1, equals(503));
+      expect(response.$2, isEmpty);
+    },
+  );
 }

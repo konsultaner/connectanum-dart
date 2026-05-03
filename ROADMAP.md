@@ -375,6 +375,7 @@
   - [x] Prometheus/Grafana wiring documented; HTTP scrape regression added (metrics route bridged to `connectanum.metrics.openmetrics`) and CI now captures `CONNECTANUM_ARTIFACT_DIR` OpenMetrics/JSON snapshots from long-payload regressions.
   - [x] Bench stack ships Prometheus alert rules plus Grafana dashboards for transport alerts/throttle state, and the snapshot JSON now exposes current alert state for non-Prometheus consumers.
   - [x] Bench artifact outputs (`bench_results.jsonl`) now rewrite into Prometheus textfile metrics plus a summary JSON bundle, with alert rules over the transformed per-workload transport deltas so completed runs surface automatically in dashboards/alerts.
+  - [x] Bound OpenMetrics scrape collection with `open_metrics.collection_timeout_ms` so stalled boss/worker metrics collection returns an explicit scrape failure instead of holding Prometheus connections indefinitely.
   - [ ] Configurable metrics exporter isolates (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
   - [ ] Sampling windows for high-cost histograms (latency, zero-copy reuse) triggered only during benchmarks.
   - [ ] Metrics realm configuration: expose internal realms via config (enable/disable, rename) and spin up embedded sessions automatically to serve metrics RPCs.

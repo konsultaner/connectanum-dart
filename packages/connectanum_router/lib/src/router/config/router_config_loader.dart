@@ -693,6 +693,17 @@ class RouterConfigLoader {
       openMetricsNode['realm'],
       defaultValue: 'connectanum.metrics',
     );
+    final collectionTimeoutMs = _asInt(
+      openMetricsNode['collection_timeout_ms'],
+      defaultValue: const OpenMetricsSettings(
+        enabled: true,
+      ).collectionTimeout.inMilliseconds,
+    );
+    if (collectionTimeoutMs < 0) {
+      throw FormatException(
+        'metrics.open_metrics.collection_timeout_ms must be >= 0',
+      );
+    }
     final backpressureSettings = _parseBackpressureSettings(
       node['backpressure'],
     );
@@ -706,6 +717,7 @@ class RouterConfigLoader {
         path: path,
         authToken: authToken,
         realm: realm,
+        collectionTimeout: Duration(milliseconds: collectionTimeoutMs),
       ),
       backpressure: backpressureSettings,
       transportAlerts: transportAlertSettings,

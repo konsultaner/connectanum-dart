@@ -223,6 +223,7 @@ void main() {
               'path': '/open-metrics',
               'auth_token': 'secret-token',
               'realm': 'connectanum.metrics',
+              'collection_timeout_ms': 1500,
             },
           },
         },
@@ -248,6 +249,7 @@ void main() {
       expect(openMetrics.path, '/open-metrics');
       expect(openMetrics.authToken, 'secret-token');
       expect(openMetrics.realm, 'connectanum.metrics');
+      expect(openMetrics.collectionTimeout, const Duration(milliseconds: 1500));
     });
 
     test('parses transport/backpressure alert settings', () {
@@ -358,6 +360,7 @@ void main() {
               enabled: false,
               path: '/custom',
               realm: 'custom.realm',
+              collectionTimeout: Duration(milliseconds: 2500),
             ),
           ),
         );
@@ -378,6 +381,7 @@ void main() {
       expect(openMetrics!.enabled, isFalse);
       expect(openMetrics.path, '/custom');
       expect(openMetrics.realm, 'custom.realm');
+      expect(openMetrics.collectionTimeout, const Duration(milliseconds: 2500));
     });
 
     test('codec round-trips shared session profiles and references', () {

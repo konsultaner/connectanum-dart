@@ -51,6 +51,7 @@ router:
       listen: 127.0.0.1:9100
       path: /metrics
       realm: connectanum.metrics
+      collection_timeout_ms: 5000
     backpressure:
       depth_threshold: 16
       new_events_threshold: 1
@@ -84,6 +85,12 @@ from embedding code), the exporter is also served over HTTP:
 
 If `open_metrics.auth_token` is set, `GET /metrics` requires
 `Authorization: Bearer <token>`.
+
+`open_metrics.collection_timeout_ms` bounds the full scrape collection path
+(router snapshot plus per-realm details). The default is `5000`; if collection
+does not complete before the timeout, the HTTP endpoint returns `503` and the
+internal `connectanum.metrics.openmetrics` RPC responds with a WAMP runtime
+error instead of leaving the scrape pending indefinitely.
 
 The OpenMetrics payload also exports drain/readiness counters:
 
@@ -221,7 +228,8 @@ per-realm details:
   "exporter": {
     "realm": "connectanum.metrics",
     "path": "/metrics",
-    "listen": "127.0.0.1:9100"
+    "listen": "127.0.0.1:9100",
+    "collection_timeout_ms": 5000
   }
 }
 ```

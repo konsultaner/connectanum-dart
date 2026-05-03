@@ -3333,6 +3333,8 @@ class _MetricsService {
         'realm': metricsSettings.realm,
         'path': metricsSettings.path,
         if (metricsSettings.listen != null) 'listen': metricsSettings.listen,
+        'collection_timeout_ms':
+            metricsSettings.collectionTimeout.inMilliseconds,
         if (metricsSettings.authToken != null)
           'auth_token': metricsSettings.authToken,
       },
@@ -3416,7 +3418,13 @@ class _MetricsService {
     return reports;
   }
 
-  Future<String> buildOpenMetricsPayload({
+  Future<String> buildOpenMetricsPayload({RouterMetricsSnapshot? snapshot}) {
+    return _buildOpenMetricsPayload(
+      snapshot: snapshot,
+    ).timeout(metricsSettings.collectionTimeout);
+  }
+
+  Future<String> _buildOpenMetricsPayload({
     RouterMetricsSnapshot? snapshot,
   }) async {
     final routerSnapshot = snapshot ?? await binding.collectMetrics();

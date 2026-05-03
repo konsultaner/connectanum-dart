@@ -445,6 +445,7 @@ class OpenMetricsSettings {
     this.path = '/metrics',
     this.authToken,
     this.realm = 'connectanum.metrics',
+    this.collectionTimeout = const Duration(seconds: 5),
   });
 
   final bool enabled;
@@ -452,6 +453,7 @@ class OpenMetricsSettings {
   final String path;
   final String? authToken;
   final String realm;
+  final Duration collectionTimeout;
 
   @override
   bool operator ==(Object other) {
@@ -463,11 +465,13 @@ class OpenMetricsSettings {
         other.listen == listen &&
         other.path == path &&
         other.authToken == authToken &&
-        other.realm == realm;
+        other.realm == realm &&
+        other.collectionTimeout == collectionTimeout;
   }
 
   @override
-  int get hashCode => Object.hash(enabled, listen, path, authToken, realm);
+  int get hashCode =>
+      Object.hash(enabled, listen, path, authToken, realm, collectionTimeout);
 }
 
 /// Boss-side throttling thresholds derived from backpressure alerts.

@@ -294,6 +294,7 @@ abstract final class RouterSettingsCodec {
     const defaultBackpressure = BackpressureThrottleSettings();
     final transportAlerts = metrics.transportAlerts;
     const defaultTransportAlerts = TransportAlertSettings();
+    const defaultOpenMetrics = OpenMetricsSettings(enabled: true);
     return <String, Object?>{
       'open_metrics': <String, Object?>{
         'enabled': openMetrics.enabled,
@@ -302,6 +303,9 @@ abstract final class RouterSettingsCodec {
         if (openMetrics.authToken != null) 'auth_token': openMetrics.authToken,
         if (openMetrics.realm != 'connectanum.metrics')
           'realm': openMetrics.realm,
+        if (openMetrics.collectionTimeout !=
+            defaultOpenMetrics.collectionTimeout)
+          'collection_timeout_ms': openMetrics.collectionTimeout.inMilliseconds,
       },
       if (backpressure != defaultBackpressure)
         'backpressure': <String, Object?>{

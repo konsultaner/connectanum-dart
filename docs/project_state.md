@@ -2,17 +2,19 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `6a3e4dd`
-(`docs: record process metrics checkpoint`)
+Last reviewed branch checkpoint: `4d633d6`
+(`docs: close process metrics plan`)
 Last reviewed implementation commit: `02748b2`
 (`router: expose process metrics`)
 Active exec plan:
-No active exec plan. Use `ROADMAP_NEXT.md` to choose the next milestone.
+None. The OpenMetrics scrape timeout plan is complete:
+`docs/exec-plans/2026-05-03-openmetrics-scrape-timeout.md`.
 The GitHub deployment-chain readiness plan is paused because the latest
 branch-head audit is clean and remaining RC blockers are operator/deployment
 decisions: branch-protection required checks, default-branch router image/GHCR
 visibility, RC tag/prerelease selection, and Dart package ownership/release
-order. The router process metrics plan is complete.
+order. The next continuation should re-audit the current branch head before
+starting another feature or benchmark slice.
 
 ## Last Known Verification
 
@@ -21,6 +23,30 @@ order. The router process metrics plan is complete.
     because the remaining RC blockers require operator/release decisions; every
     continuation should still re-audit the branch head before starting another
     feature or benchmark slice.
+  - OpenMetrics scrape timeout hardening is complete locally:
+    `open_metrics.collection_timeout_ms` now bounds `/metrics` collection and
+    the internal `connectanum.metrics.openmetrics` RPC path; timed-out HTTP
+    scrapes return `503`, and timed-out internal RPCs use the existing WAMP
+    runtime-error path
+  - full local `bin/verify` passed on 2026-05-03 after the OpenMetrics timeout
+    implementation and docs updates; it included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP package tests, client/native
+    tests, auth-server tests, bench integration tests, full router package
+    tests including the new OpenMetrics timeout regression and existing MCP
+    router-hosted smoke coverage, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - latest branch-head GitHub `CI` evidence is docs checkpoint `4d633d6`: run
+    `25272965289` completed successfully on 2026-05-03 with `Fast Checks` in
+    5m44s and `Full Verify` in 8m07s
+  - branch-head deployment-chain audit passed on 2026-05-03 against `4d633d6`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; the hosted CI log scan found no
+    warning, deprecation, skipped-test, reset, connection-noise, panic, or
+    failure patterns, Dart package dry-run `25272457412` remains clean/relevant
+    because no package-publish-sensitive inputs changed after `6a3e4dd`, and
+    native release dry-run `25192553399` remains clean/relevant because no
+    native-release-sensitive inputs changed
   - latest branch-head GitHub `CI` evidence is docs checkpoint `6a3e4dd`: run
     `25272457415` completed successfully on 2026-05-03 with `Fast Checks` in
     5m38s and `Full Verify` in 8m06s
