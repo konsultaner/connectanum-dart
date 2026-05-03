@@ -53,6 +53,14 @@ anonymous protocol state.
   tests, bench integration tests, full router package tests including the new
   MCP Streamable HTTP ingress/session regression, zero-copy router checks, and
   Chrome Dart2Wasm WebSocket transport tests.
+- 2026-05-03: Pushed commit `041236e`
+  (`mcp: harden router streamable http sessions`) to GitLab and GitHub.
+  Hosted GitHub evidence is clean: `CI` run `25278062808`, `WAMP Profile
+  Benchmarks` run `25278062809`, and `Dart Package Publish Dry Run` run
+  `25278062807` all completed successfully. The strict add-router
+  deployment-chain audit passed with a clean CI log scan and the existing
+  Native Artifacts dry-run `25192553399` still relevant because no
+  native-release-sensitive inputs changed.
 
 ## Handoff
 

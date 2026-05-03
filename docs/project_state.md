@@ -2,12 +2,14 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `16db917`
-(`docs: record metrics auth flag verification`)
-Last reviewed implementation commit: `8362a53`
-(`router: align metrics auth flag`)
+Last reviewed branch checkpoint: `041236e`
+(`mcp: harden router streamable http sessions`)
+Last reviewed implementation commit: `041236e`
+(`mcp: harden router streamable http sessions`)
 Active exec plan:
-None. The router MCP Streamable HTTP readiness plan is complete:
+None. The router MCP SSE polling plan is complete locally:
+`docs/exec-plans/2026-05-03-router-mcp-sse-polling.md`.
+The router MCP Streamable HTTP readiness plan is complete:
 `docs/exec-plans/2026-05-03-router-mcp-streamable-http-readiness.md`.
 The metrics secret-redaction plan is complete:
 `docs/exec-plans/2026-05-03-metrics-secret-redaction.md`.
@@ -23,12 +25,42 @@ starting another feature or benchmark slice.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - router-hosted MCP Streamable HTTP readiness is complete locally after MCP
-    fix-up was prioritized for downstream application readiness. The router
-    now supports per-client `MCP-Session-Id` keys for Streamable-HTTP-style
-    initialize requests, explicit `DELETE` cleanup, Origin/protocol/header/
-    content negotiation guards, and unknown session rejection while preserving
-    legacy no-session JSON-RPC POST/direct JSON behavior
+  - router-hosted MCP GET/SSE polling is complete locally after the
+    Streamable HTTP session-hardening checkpoint. GET now requires
+    `Accept: text/event-stream` and a known `MCP-Session-Id`, opens a native
+    HTTP response stream, emits a priming SSE event ID plus retry hint, and
+    keeps the request keyed to the same route-authenticated MCP endpoint state
+    used by POST and DELETE
+  - stateful Streamable HTTP follow-up POST requests that opt into
+    `application/json, text/event-stream` now fail with `400` when they omit
+    `MCP-Session-Id`, while legacy no-session direct JSON-RPC POST remains
+    supported for frontend/direct API clients
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the MCP SSE polling
+    slice, and the branch-head deployment-chain audit against `041236e` was
+    clean for CI/logs, Dart package dry-run, and native release dry-run; the
+    known remaining deployment-chain findings are still operator-owned branch
+    protection, default-branch router-image visibility, and GHCR package
+    visibility
+  - focused MCP checks passed after the SSE polling implementation:
+    `dart analyze packages/connectanum_router packages/connectanum_mcp`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
+    `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-03 after the MCP SSE polling
+    implementation and docs updates; it included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP package tests, client/native
+    tests, auth-server tests, bench integration tests, full router package
+    tests including the new MCP GET/SSE polling regression, zero-copy router
+    checks, and Chrome Dart2Wasm WebSocket transport tests
+  - remaining MCP transport gap: durable server-to-client notifications with a
+    resumable outbox and `Last-Event-ID` replay are not implemented yet; the
+    current slice provides session-scoped polling/priming SSE compatibility
+  - router-hosted MCP Streamable HTTP readiness is complete and pushed as
+    `041236e` after MCP fix-up was prioritized for downstream application
+    readiness. The router now supports per-client `MCP-Session-Id` keys for
+    Streamable-HTTP-style initialize requests, explicit `DELETE` cleanup,
+    Origin/protocol/header/content negotiation guards, and unknown session
+    rejection while preserving legacy no-session JSON-RPC POST/direct JSON
+    behavior
   - pre-change `bin/test-fast` passed on 2026-05-03 before the MCP Streamable
     HTTP readiness edits; focused post-change checks also passed:
     `dart analyze packages/connectanum_router packages/connectanum_mcp`,
@@ -41,6 +73,14 @@ starting another feature or benchmark slice.
     router package tests including the new MCP Streamable HTTP ingress/session
     regression, zero-copy router checks, and Chrome Dart2Wasm WebSocket
     transport tests
+  - hosted GitHub evidence for `041236e` is clean: `CI` run `25278062808`
+    completed successfully with `Fast Checks` in 5m30s and `Full Verify` in
+    8m20s, the hosted CI log scan found no warning, deprecation, skipped-test,
+    reset, connection-noise, panic, or failure patterns, `WAMP Profile
+    Benchmarks` run `25278062809` completed successfully, `Dart Package
+    Publish Dry Run` run `25278062807` completed successfully and covers the
+    checked-out head, and Native Artifacts dry-run `25192553399` remains clean
+    and relevant because no native-release-sensitive paths changed
   - GitHub deployment-chain readiness is paused after a clean branch-head audit
     because the remaining RC blockers require operator/release decisions; every
     continuation should still re-audit the branch head before starting another

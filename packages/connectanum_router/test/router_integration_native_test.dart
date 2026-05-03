@@ -1011,8 +1011,8 @@ void main() {
         '/mcp',
         headers: {HttpHeaders.acceptHeader: 'text/event-stream'},
       );
-      expect(get.statusCode, equals(HttpStatus.methodNotAllowed));
-      expect(get.headers[HttpHeaders.allowHeader], contains('POST'));
+      expect(get.statusCode, equals(HttpStatus.badRequest));
+      expect(jsonEncode(get.json?['error']), contains('MCP-Session-Id'));
 
       final payload = <String, Object?>{
         'jsonrpc': '2.0',
@@ -1082,6 +1082,48 @@ void main() {
         'params': {},
       }, headers: sessionHeaders);
       expect(initialized.statusCode, equals(HttpStatus.accepted));
+
+      final missingSession = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'id': 'tools', 'method': 'tools/list', 'params': {}},
+        headers: {
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        },
+      );
+      expect(missingSession.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        jsonEncode(missingSession.json?['error']),
+        contains('MCP-Session-Id'),
+      );
+
+      final sse = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream',
+        },
+      );
+      expect(sse.statusCode, equals(HttpStatus.ok));
+      expect(
+        sse.headers[HttpHeaders.contentTypeHeader],
+        contains('text/event-stream'),
+      );
+      expect(sse.headers['mcp-session-id'], equals(mcpSessionId));
+      expect(sse.body, contains('id: $mcpSessionId:'));
+      expect(sse.body, contains('retry: 1000'));
+      expect(sse.body, contains('data:'));
+
+      final tools = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'tools',
+        'method': 'tools/list',
+        'params': {},
+      }, headers: sessionHeaders);
+      expect(tools.statusCode, equals(HttpStatus.ok));
 
       final unknownSession = await _postJson(
         client,

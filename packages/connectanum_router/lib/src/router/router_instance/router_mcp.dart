@@ -94,6 +94,14 @@ bool _mcpAcceptAllowsJsonResponse(
       accepted.contains('*/*');
 }
 
+bool _mcpAcceptAllowsSseResponse(
+  RouterBinding binding,
+  RouterHttpRequest request,
+) {
+  final accepted = _mcpAcceptTypes(binding, request);
+  return accepted.contains(_mcpSseContentType) || accepted.contains('*/*');
+}
+
 bool _mcpAcceptRequestsStreamableHttpSession(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -186,6 +194,94 @@ String _mcpGenerateHttpSessionId() {
   return buffer.toString();
 }
 
+Uint8List _mcpSseEventBytes({
+  required String id,
+  String data = '',
+  int? retryMs,
+}) {
+  final buffer = StringBuffer()..writeln('id: $id');
+  if (retryMs != null) {
+    buffer.writeln('retry: $retryMs');
+  }
+  for (final line in data.split('\n')) {
+    buffer.writeln('data: $line');
+  }
+  buffer.writeln();
+  return Uint8List.fromList(utf8.encode(buffer.toString()));
+}
+
+Future<bool> _mcpSendSsePollResponse(
+  RouterBinding binding, {
+  required RouterHttpRequest request,
+  required NativeHttpHandshake? handshake,
+  required String sessionId,
+}) async {
+  final handle = handshake?.handle ?? request.handshakeHandle;
+  if (handle <= 0) {
+    binding.onEvent?.call({
+      'source': 'binding',
+      'type': 'mcp_sse_stream_missing_handshake',
+      'connectionId': request.connectionId,
+      'listenerId': request.listenerId,
+    });
+    return false;
+  }
+  final NativeHttpResponseStream stream;
+  try {
+    stream = binding.runtime.openHttpResponseStream(
+      handshakeHandle: handle,
+      status: HttpStatus.ok,
+      headers: _mcpHttpResponseHeaders(
+        json: false,
+        sessionId: sessionId,
+        extra: const <String, String>{
+          HttpHeaders.contentTypeHeader: 'text/event-stream; charset=utf-8',
+          HttpHeaders.cacheControlHeader: 'no-cache',
+          'X-Accel-Buffering': 'no',
+        },
+      ),
+    );
+  } on UnsupportedError catch (error, stackTrace) {
+    binding.onEvent?.call({
+      'source': 'binding',
+      'type': 'mcp_sse_stream_open_unsupported',
+      'connectionId': request.connectionId,
+      'listenerId': request.listenerId,
+      'error': error.toString(),
+      'stackTrace': stackTrace.toString(),
+    });
+    return false;
+  } on NativeTransportException catch (error, stackTrace) {
+    binding.onEvent?.call({
+      'source': 'binding',
+      'type': 'mcp_sse_stream_open_error',
+      'connectionId': request.connectionId,
+      'listenerId': request.listenerId,
+      'error': error.toString(),
+      'stackTrace': stackTrace.toString(),
+    });
+    return false;
+  }
+  try {
+    stream.close(
+      _mcpSseEventBytes(
+        id: '$sessionId:${_mcpGenerateHttpSessionId()}',
+        retryMs: 1000,
+      ),
+    );
+  } catch (error, stackTrace) {
+    binding.onEvent?.call({
+      'source': 'binding',
+      'type': 'mcp_sse_stream_write_error',
+      'connectionId': request.connectionId,
+      'listenerId': request.listenerId,
+      'error': error.toString(),
+      'stackTrace': stackTrace.toString(),
+    });
+  }
+  return true;
+}
+
 Future<void> _handleMcpHttpRequestForBinding(
   RouterBinding binding, {
   required RouterHttpRequest request,
@@ -226,33 +322,32 @@ Future<void> _handleMcpHttpRequestForBinding(
   }
 
   if (httpMethod == 'GET') {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.methodNotAllowed,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message: 'MCP SSE streams are not supported by this endpoint yet',
-        sessionId: mcpSessionId,
-        extraHeaders: const <String, String>{
-          HttpHeaders.allowHeader: 'POST, DELETE',
-        },
-      ),
-    );
-    return;
+    if (!_mcpAcceptAllowsSseResponse(binding, request)) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.notAcceptable,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'MCP GET responses require an Accept header allowing SSE',
+          sessionId: mcpSessionId,
+        ),
+      );
+      return;
+    }
   }
 
-  if (httpMethod != 'POST' && httpMethod != 'DELETE') {
+  if (httpMethod != 'GET' && httpMethod != 'POST' && httpMethod != 'DELETE') {
     await binding._sendImmediateHttpResponse(
       request: request,
       handshake: handshake,
       response: _mcpJsonRpcHttpError(
         status: HttpStatus.methodNotAllowed,
         code: mcp.McpErrorCodes.invalidRequest,
-        message: 'MCP HTTP endpoint supports POST and DELETE',
+        message: 'MCP HTTP endpoint supports GET, POST and DELETE',
         sessionId: mcpSessionId,
         extraHeaders: const <String, String>{
-          HttpHeaders.allowHeader: 'POST, DELETE',
+          HttpHeaders.allowHeader: 'GET, POST, DELETE',
         },
       ),
     );
@@ -381,6 +476,60 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  if (httpMethod == 'GET') {
+    if (mcpSessionId == null) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.badRequest,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'MCP GET requests require an MCP-Session-Id header',
+        ),
+      );
+      return;
+    }
+    final endpoint = binding._mcpEndpointForRoute(
+      request: request,
+      route: route,
+      session: session,
+      mcpSessionId: mcpSessionId,
+      create: false,
+    );
+    if (endpoint == null) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.notFound,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'Unknown MCP HTTP session',
+          sessionId: mcpSessionId,
+        ),
+      );
+      return;
+    }
+    final sent = await _mcpSendSsePollResponse(
+      binding,
+      request: request,
+      handshake: handshake,
+      sessionId: mcpSessionId,
+    );
+    if (!sent) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.internalServerError,
+          code: mcp.McpErrorCodes.internalError,
+          message: 'MCP SSE stream could not be opened',
+          sessionId: mcpSessionId,
+        ),
+      );
+    }
+    return;
+  }
+
   if (httpMethod == 'DELETE') {
     if (mcpSessionId == null) {
       await binding._sendImmediateHttpResponse(
@@ -448,10 +597,25 @@ Future<void> _handleMcpHttpRequestForBinding(
 
   final requestMethod = _mcpRequestMethod(rawMessage);
   final isInitialize = requestMethod == 'initialize';
+  final streamableHttpRequest = _mcpAcceptRequestsStreamableHttpSession(
+    binding,
+    request,
+  );
+  if (mcpSessionId == null && !isInitialize && streamableHttpRequest) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message:
+            'MCP Streamable HTTP requests require MCP-Session-Id after initialize',
+      ),
+    );
+    return;
+  }
   final issuedSessionId =
-      mcpSessionId == null &&
-          isInitialize &&
-          _mcpAcceptRequestsStreamableHttpSession(binding, request)
+      mcpSessionId == null && isInitialize && streamableHttpRequest
       ? _mcpGenerateHttpSessionId()
       : null;
   final effectiveMcpSessionId = mcpSessionId ?? issuedSessionId;
