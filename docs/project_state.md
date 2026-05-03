@@ -2,10 +2,10 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP direct JSON session meta
-scope after `4a0a877` (`mcp: smoke direct json subscription meta`)
-Last reviewed implementation commit: working tree MCP direct JSON session meta
-scope after `4a0a877` (`mcp: smoke direct json subscription meta`)
+Last reviewed branch checkpoint: working tree MCP Streamable HTTP client layout
+move after `0847a54` (`mcp: scope direct json session meta`)
+Last reviewed implementation commit: working tree MCP Streamable HTTP client
+layout move after `0847a54` (`mcp: scope direct json session meta`)
 Active exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-session-meta-scope.md`
 (locally complete; hosted evidence pending). Latest completed exec plan:
