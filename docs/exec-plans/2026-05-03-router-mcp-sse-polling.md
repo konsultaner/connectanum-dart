@@ -57,6 +57,14 @@ polling without weakening route auth or direct JSON compatibility.
   tests, bench integration tests, full router package tests including the new
   MCP GET/SSE polling regression, zero-copy router checks, and Chrome
   Dart2Wasm WebSocket transport tests.
+- 2026-05-03: Pushed commit `c153075`
+  (`mcp: add router sse polling`) to GitLab and GitHub. Hosted GitHub evidence
+  is clean: `CI` run `25279091440`, `WAMP Profile Benchmarks` run
+  `25279091434`, and `Dart Package Publish Dry Run` run `25279091444` all
+  completed successfully. The strict add-router deployment-chain audit passed
+  with a clean CI job set, clean CI log scan, clean relevant Dart package
+  dry-run, and the existing Native Artifacts dry-run `25192553399` still
+  relevant because no native-release-sensitive paths changed.
 
 ## Handoff
 

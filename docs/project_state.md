@@ -2,12 +2,14 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `041236e`
-(`mcp: harden router streamable http sessions`)
-Last reviewed implementation commit: `041236e`
-(`mcp: harden router streamable http sessions`)
+Last reviewed branch checkpoint: `c153075`
+(`mcp: add router sse polling`)
+Last reviewed implementation commit: `c153075`
+(`mcp: add router sse polling`)
 Active exec plan:
-None. The router MCP SSE polling plan is complete locally:
+`docs/exec-plans/2026-05-03-router-mcp-sse-resumability.md`
+(completed locally; pending commit/push and hosted evidence). The router MCP
+SSE polling plan is complete:
 `docs/exec-plans/2026-05-03-router-mcp-sse-polling.md`.
 The router MCP Streamable HTTP readiness plan is complete:
 `docs/exec-plans/2026-05-03-router-mcp-streamable-http-readiness.md`.
@@ -25,8 +27,25 @@ starting another feature or benchmark slice.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - router-hosted MCP GET/SSE polling is complete locally after the
-    Streamable HTTP session-hardening checkpoint. GET now requires
+  - router-hosted MCP SSE resumability is complete locally after a clean
+    branch-head deployment-chain audit at `c153075` and a passing pre-change
+    `bin/test-fast`. The implementation adds bounded per-endpoint SSE event
+    history, route-scoped `notifications/tools/list_changed` delivery, and
+    `Last-Event-ID` resume handling on the existing router `type: mcp`
+    endpoint without introducing a standalone MCP server path
+  - focused MCP checks passed for the SSE resumability slice:
+    `dart analyze packages/connectanum_router packages/connectanum_mcp`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
+    and `dart test packages/connectanum_mcp -r expanded`
+  - full local `bin/verify` passed on 2026-05-03 after the MCP SSE
+    resumability implementation and docs updates; it included formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP package tests,
+    client/native tests, auth-server tests, bench integration tests, full
+    router package tests including the updated MCP Streamable HTTP
+    resumability regression, zero-copy router checks, and Chrome Dart2Wasm
+    WebSocket transport tests
+  - router-hosted MCP GET/SSE polling is complete and pushed as `c153075`
+    after the Streamable HTTP session-hardening checkpoint. GET now requires
     `Accept: text/event-stream` and a known `MCP-Session-Id`, opens a native
     HTTP response stream, emits a priming SSE event ID plus retry hint, and
     keeps the request keyed to the same route-authenticated MCP endpoint state
@@ -51,9 +70,18 @@ starting another feature or benchmark slice.
     tests, auth-server tests, bench integration tests, full router package
     tests including the new MCP GET/SSE polling regression, zero-copy router
     checks, and Chrome Dart2Wasm WebSocket transport tests
-  - remaining MCP transport gap: durable server-to-client notifications with a
-    resumable outbox and `Last-Event-ID` replay are not implemented yet; the
-    current slice provides session-scoped polling/priming SSE compatibility
+  - hosted GitHub evidence for `c153075` is clean: `CI` run `25279091440`
+    completed successfully with `Fast Checks` in 5m47s and `Full Verify` in
+    7m53s, the hosted CI log scan found no warning, deprecation, skipped-test,
+    reset, connection-noise, panic, or failure patterns, `WAMP Profile
+    Benchmarks` run `25279091434` completed successfully, `Dart Package
+    Publish Dry Run` run `25279091444` completed successfully and covers the
+    checked-out head, and Native Artifacts dry-run `25192553399` remains clean
+    and relevant because no native-release-sensitive paths changed
+  - remaining MCP transport gap after the local resumability slice:
+    POST-initiated SSE response streams are not implemented; request/response
+    calls still use the JSON POST response path, while GET/SSE is used for
+    server-to-client notifications and polling
   - router-hosted MCP Streamable HTTP readiness is complete and pushed as
     `041236e` after MCP fix-up was prioritized for downstream application
     readiness. The router now supports per-client `MCP-Session-Id` keys for

@@ -355,9 +355,13 @@
     network endpoint: `HttpRouteActionType.mcp` reuses the router internal
     session, auto-exposes exact WAMP registrations, WAMP meta API tools, and
     pub/sub helpers over JSON-RPC `POST`.
-  - [ ] Add full Streamable HTTP compatibility on top of the router endpoint
-    when needed: GET/SSE server push, explicit MCP session IDs, strict HTTP
-    header validation, Origin policy, and DELETE session termination.
+  - [x] Add the router-hosted Streamable HTTP foundation: explicit MCP session
+    IDs, strict HTTP header validation, Origin policy, DELETE session
+    termination, GET/SSE polling, server-to-client tool-list notifications, and
+    bounded `Last-Event-ID` resume handling.
+  - [ ] Add POST-initiated SSE response streams if a client integration needs
+    request-scoped streamed results or server requests during a long-running
+    MCP tool call.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

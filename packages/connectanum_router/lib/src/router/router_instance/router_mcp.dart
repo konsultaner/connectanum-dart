@@ -2,8 +2,10 @@ part of '../router_instance.dart';
 
 const String _mcpSessionIdHeader = 'MCP-Session-Id';
 const String _mcpProtocolVersionHeader = 'MCP-Protocol-Version';
+const String _mcpLastEventIdHeader = 'Last-Event-ID';
 const String _mcpSseContentType = 'text/event-stream';
 const String _mcpJsonContentType = 'application/json';
+const int _mcpSseEventHistoryLimit = 128;
 const Set<String> _mcpSupportedHttpProtocolVersions = <String>{
   '2025-03-26',
   '2025-06-18',
@@ -210,11 +212,22 @@ Uint8List _mcpSseEventBytes({
   return Uint8List.fromList(utf8.encode(buffer.toString()));
 }
 
+Uint8List _mcpSseEventsBytes(Iterable<_RouterMcpSseEvent> events) {
+  final buffer = BytesBuilder(copy: false);
+  for (final event in events) {
+    buffer.add(
+      _mcpSseEventBytes(id: event.id, data: event.data, retryMs: event.retryMs),
+    );
+  }
+  return buffer.takeBytes();
+}
+
 Future<bool> _mcpSendSsePollResponse(
   RouterBinding binding, {
   required RouterHttpRequest request,
   required NativeHttpHandshake? handshake,
   required String sessionId,
+  required List<_RouterMcpSseEvent> events,
 }) async {
   final handle = handshake?.handle ?? request.handshakeHandle;
   if (handle <= 0) {
@@ -263,12 +276,7 @@ Future<bool> _mcpSendSsePollResponse(
     return false;
   }
   try {
-    stream.close(
-      _mcpSseEventBytes(
-        id: '$sessionId:${_mcpGenerateHttpSessionId()}',
-        retryMs: 1000,
-      ),
-    );
+    stream.close(_mcpSseEventsBytes(events));
   } catch (error, stackTrace) {
     binding.onEvent?.call({
       'source': 'binding',
@@ -278,6 +286,7 @@ Future<bool> _mcpSendSsePollResponse(
       'error': error.toString(),
       'stackTrace': stackTrace.toString(),
     });
+    return false;
   }
   return true;
 }
@@ -509,13 +518,40 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
+    await endpoint._refreshTools();
+    final lastEventId = _mcpHeaderValue(
+      binding,
+      request,
+      _mcpLastEventIdHeader,
+    );
+    final _RouterMcpSsePollBatch pollBatch;
+    try {
+      pollBatch = endpoint.ssePollEvents(
+        sessionId: mcpSessionId,
+        lastEventId: lastEventId,
+      );
+    } on _UnknownMcpSseEventId {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.badRequest,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'Unknown MCP SSE Last-Event-ID',
+          sessionId: mcpSessionId,
+        ),
+      );
+      return;
+    }
     final sent = await _mcpSendSsePollResponse(
       binding,
       request: request,
       handshake: handshake,
       sessionId: mcpSessionId,
+      events: pollBatch.events,
     );
     if (!sent) {
+      endpoint.restoreSsePollBatch(pollBatch);
       await binding._sendImmediateHttpResponse(
         request: request,
         handshake: handshake,
@@ -526,6 +562,8 @@ Future<void> _handleMcpHttpRequestForBinding(
           sessionId: mcpSessionId,
         ),
       );
+    } else {
+      endpoint.commitSsePollBatch(pollBatch);
     }
     return;
   }
@@ -719,6 +757,40 @@ extension _RouterBindingMcp on RouterBinding {
   }
 }
 
+final class _RouterMcpSseEvent {
+  const _RouterMcpSseEvent({
+    required this.id,
+    required this.streamId,
+    required this.sequence,
+    required this.data,
+    this.retryMs,
+  });
+
+  final String id;
+  final String streamId;
+  final int sequence;
+  final String data;
+  final int? retryMs;
+}
+
+final class _RouterMcpSsePollBatch {
+  const _RouterMcpSsePollBatch({
+    required this.events,
+    required this.newEvents,
+    required this.pendingMessages,
+  });
+
+  final List<_RouterMcpSseEvent> events;
+  final List<_RouterMcpSseEvent> newEvents;
+  final List<mcp.JsonMap> pendingMessages;
+}
+
+final class _UnknownMcpSseEventId implements Exception {
+  const _UnknownMcpSseEventId(this.eventId);
+
+  final String eventId;
+}
+
 class _RouterMcpEndpoint {
   _RouterMcpEndpoint({
     required this.binding,
@@ -736,6 +808,9 @@ class _RouterMcpEndpoint {
            route.action.options,
            'tool_list_page_size',
          ),
+         capabilities: const mcp.McpServerCapabilities(
+           tools: mcp.McpToolCapabilities(listChanged: true),
+         ),
        );
 
   final RouterBinding binding;
@@ -745,6 +820,10 @@ class _RouterMcpEndpoint {
   late final RealmAuthorizationProviderCache _authorizationProviderCache =
       RealmAuthorizationProviderCache(binding.settings);
   String? _toolSignature;
+  final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
+  final List<mcp.JsonMap> _pendingSseMessages = <mcp.JsonMap>[];
+  final Map<String, int> _sseStreamSequences = <String, int>{};
+  int _nextSseStream = 0;
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
 
@@ -759,6 +838,121 @@ class _RouterMcpEndpoint {
       return directResponse.response;
     }
     return server.handleMessage(rawMessage);
+  }
+
+  _RouterMcpSsePollBatch ssePollEvents({
+    required String sessionId,
+    String? lastEventId,
+  }) {
+    var streamId = 's${++_nextSseStream}';
+    final replay = <_RouterMcpSseEvent>[];
+    if (lastEventId != null) {
+      final lastEvent = _sseHistory
+          .where((event) => event.id == lastEventId)
+          .firstOrNull;
+      if (lastEvent == null) {
+        throw _UnknownMcpSseEventId(lastEventId);
+      }
+      streamId = lastEvent.streamId;
+      replay.addAll(
+        _sseHistory.where(
+          (event) =>
+              event.streamId == streamId && event.sequence > lastEvent.sequence,
+        ),
+      );
+    }
+
+    final events = <_RouterMcpSseEvent>[...replay];
+    final newEvents = <_RouterMcpSseEvent>[];
+    final pendingMessages = List<mcp.JsonMap>.of(_pendingSseMessages);
+    _pendingSseMessages.clear();
+    for (final message in pendingMessages) {
+      final event = _nextSseEvent(
+        sessionId: sessionId,
+        streamId: streamId,
+        data: jsonEncode(message),
+      );
+      events.add(event);
+      newEvents.add(event);
+    }
+
+    if (events.isEmpty) {
+      final event = _nextSseEvent(
+        sessionId: sessionId,
+        streamId: streamId,
+        retryMs: 1000,
+      );
+      events.add(event);
+      newEvents.add(event);
+    } else if (newEvents.isNotEmpty &&
+        !events.any((event) => event.retryMs != null)) {
+      final last = newEvents.removeLast();
+      final replacement = _RouterMcpSseEvent(
+        id: last.id,
+        streamId: last.streamId,
+        sequence: last.sequence,
+        data: last.data,
+        retryMs: 1000,
+      );
+      final index = events.lastIndexWhere((event) => event.id == last.id);
+      if (index >= 0) {
+        events[index] = replacement;
+      }
+      newEvents.add(replacement);
+    }
+
+    return _RouterMcpSsePollBatch(
+      events: events,
+      newEvents: newEvents,
+      pendingMessages: pendingMessages,
+    );
+  }
+
+  void commitSsePollBatch(_RouterMcpSsePollBatch batch) {
+    for (final event in batch.newEvents) {
+      _rememberSseEvent(event);
+    }
+  }
+
+  void restoreSsePollBatch(_RouterMcpSsePollBatch batch) {
+    if (batch.pendingMessages.isNotEmpty) {
+      _pendingSseMessages.insertAll(0, batch.pendingMessages);
+    }
+  }
+
+  _RouterMcpSseEvent _nextSseEvent({
+    required String sessionId,
+    required String streamId,
+    String data = '',
+    int? retryMs,
+  }) {
+    final sequence = (_sseStreamSequences[streamId] ?? 0) + 1;
+    _sseStreamSequences[streamId] = sequence;
+    return _RouterMcpSseEvent(
+      id: '$sessionId:$streamId:$sequence',
+      streamId: streamId,
+      sequence: sequence,
+      data: data,
+      retryMs: retryMs,
+    );
+  }
+
+  void _rememberSseEvent(_RouterMcpSseEvent event) {
+    _sseHistory.add(event);
+    while (_sseHistory.length > _mcpSseEventHistoryLimit) {
+      final removed = _sseHistory.removeAt(0);
+      if (!_sseHistory.any((event) => event.streamId == removed.streamId)) {
+        _sseStreamSequences.remove(removed.streamId);
+      }
+    }
+  }
+
+  void _enqueueServerNotification(String method, {mcp.JsonMap? params}) {
+    _pendingSseMessages.add(<String, Object?>{
+      'jsonrpc': '2.0',
+      'method': method,
+      if (params != null && params.isNotEmpty) 'params': params,
+    });
   }
 
   Future<_DirectJsonMessageResponse?> _handleDirectJsonMessage(
@@ -900,6 +1094,10 @@ class _RouterMcpEndpoint {
       return;
     }
     server.tools.replaceAll(tools);
+    if (_toolSignature != null &&
+        server.state == mcp.McpServerState.initialized) {
+      _enqueueServerNotification('notifications/tools/list_changed');
+    }
     _toolSignature = signature;
   }
 

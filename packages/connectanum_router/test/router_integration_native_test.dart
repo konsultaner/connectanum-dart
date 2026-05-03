@@ -1004,6 +1004,12 @@ void main() {
       final listener = harness.binding.listeners.single;
       final client = HttpClient();
       addTearDown(() => client.close(force: true));
+      final serviceSession = await harness.binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'mcp-sse-service',
+        authRole: 'internal',
+      );
+      addTearDown(serviceSession.close);
 
       final get = await _getHttp(
         client,
@@ -1083,6 +1089,18 @@ void main() {
       }, headers: sessionHeaders);
       expect(initialized.statusCode, equals(HttpStatus.accepted));
 
+      await serviceSession.register(
+        'app.sse.dynamic',
+        options: core.RegisterOptions(
+          custom: const {
+            '_ai_meta_data': {
+              'short_description': 'Dynamic SSE tool',
+              'description': 'Tool registered after MCP initialization.',
+            },
+          },
+        ),
+      );
+
       final missingSession = await _postJson(
         client,
         listener.port,
@@ -1116,6 +1134,42 @@ void main() {
       expect(sse.body, contains('id: $mcpSessionId:'));
       expect(sse.body, contains('retry: 1000'));
       expect(sse.body, contains('data:'));
+      expect(sse.body, contains('notifications/tools/list_changed'));
+      final sseEventId = _firstSseEventId(sse.body);
+
+      final resumedSse = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'Last-Event-ID': sseEventId,
+        },
+      );
+      expect(resumedSse.statusCode, equals(HttpStatus.ok));
+      expect(resumedSse.body, isNot(contains(sseEventId)));
+      expect(
+        resumedSse.body,
+        isNot(contains('notifications/tools/list_changed')),
+      );
+      expect(_firstSseEventId(resumedSse.body), startsWith('$mcpSessionId:'));
+
+      final unknownEvent = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'Last-Event-ID': '$mcpSessionId:missing:1',
+        },
+      );
+      expect(unknownEvent.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        jsonEncode(unknownEvent.json?['error']),
+        contains('Last-Event-ID'),
+      );
 
       final tools = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
@@ -3128,6 +3182,15 @@ _postJson(
   request.contentLength = bodyBytes.length;
   request.add(bodyBytes);
   return _readJsonHttpResponse(await request.close());
+}
+
+String _firstSseEventId(String body) {
+  for (final line in const LineSplitter().convert(body)) {
+    if (line.startsWith('id: ')) {
+      return line.substring(4);
+    }
+  }
+  fail('SSE body did not contain an event id: $body');
 }
 
 Future<
