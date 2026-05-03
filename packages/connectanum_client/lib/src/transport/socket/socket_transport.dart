@@ -188,14 +188,20 @@ class SocketTransport extends AbstractTransport {
   Stream<AbstractMessage> receive() {
     _socket!.done.then(
       (done) {
-        if (!_goodbyeSent && !_goodbyeReceived && !_onDisconnect!.isCompleted) {
+        if (!_goodbyeSent &&
+            !_goodbyeReceived &&
+            !_onDisconnect!.isCompleted &&
+            !_onConnectionLost!.isCompleted) {
           _onConnectionLost!.complete();
         } else if (!_onDisconnect!.isCompleted) {
           _onDisconnect!.complete();
         }
       },
       onError: (error) {
-        if (!_goodbyeSent && !_goodbyeReceived && !_onDisconnect!.isCompleted) {
+        if (!_goodbyeSent &&
+            !_goodbyeReceived &&
+            !_onDisconnect!.isCompleted &&
+            !_onConnectionLost!.isCompleted) {
           _onConnectionLost!.complete(error);
         }
       },
@@ -364,7 +370,13 @@ class SocketTransport extends AbstractTransport {
           message.length,
         );
         if (messageType == SocketHelper.messageWamp) {
-          var deserializedMessage = _serializer.deserialize(payload)!;
+          var deserializedMessage = _serializer.deserialize(payload);
+          if (deserializedMessage == null) {
+            throw FormatException(
+              'Could not deserialize inbound WAMP message '
+              '(serializer: $_serializerType, payloadLength: ${payload.length})',
+            );
+          }
           if (deserializedMessage is Goodbye) {
             _goodbyeReceived = true;
           }
@@ -395,11 +407,19 @@ class SocketTransport extends AbstractTransport {
           break;
         }
       }
-    } on Exception catch (error) {
-      // TODO handle serialization error
-      _logger.fine('Error while handling incoming message $error');
+    } on Object catch (error, stackTrace) {
+      _handleInboundMessageError(error, stackTrace);
     }
     return messages;
+  }
+
+  void _handleInboundMessageError(Object error, StackTrace stackTrace) {
+    _logger.fine('Error while handling incoming message', error, stackTrace);
+    final closeFuture = close(error: error);
+    if (!_onConnectionLost!.isCompleted) {
+      _onConnectionLost!.complete(error);
+    }
+    unawaited(closeFuture);
   }
 
   List<Uint8List> _splitMessages(Uint8List inboundData) {

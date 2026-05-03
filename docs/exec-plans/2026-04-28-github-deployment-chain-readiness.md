@@ -1283,13 +1283,33 @@ operator evidence over speculative feature or benchmark work.
   message type instead of an empty generic `Exception`. Pre-change
   `bin/test-fast` passed; focused checks passed for the JSON serializer suite,
   `dart analyze packages/connectanum_core`, and `git diff --check`.
+- 2026-05-03: Pushed JSON serializer cleanup commit `06e2918`
+  (`core: report unsupported json messages`) to both remotes. Hosted GitHub
+  `CI` run `25268374660` passed with `Fast Checks` and `Full Verify` green,
+  `Dart Package Publish Dry Run` run `25268374682` passed, and the strict
+  deployment-chain audit passed against `06e2918` with clean hosted CI logs,
+  package dry-run evidence covering the checked-out head, and relevant native
+  release dry-run evidence.
+- 2026-05-03: Started a second small shipped-path production-readiness cleanup
+  in the client rawsocket transport after refreshing the clean branch-head
+  audit. Malformed inbound WAMP frames that deserialize to `null` now fail
+  closed as a `FormatException`, complete `onConnectionLost`, and close the
+  transport instead of being logged and swallowed; socket-done callbacks now
+  guard against double-completing connection loss. Pre-change `bin/test-fast`
+  passed; focused checks passed for
+  `dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart -r expanded`,
+  `dart analyze packages/connectanum_client`, and `git diff --check`; full
+  local `bin/verify` passed before commit.
 
 ## Handoff
 
 - Next continuation should keep hosted GitHub CI clean and refresh the
-  deployment-chain audit after any new branch-head change. Remaining RC
-  blockers are still operator-owned: branch-protection required checks,
-  default-branch router image promotion/GHCR publication, RC tag/prerelease,
-  and Dart package ownership/release order. Do not publish a stable
-  non-validation release tag, router image, or Dart package without an
+  deployment-chain audit after any new branch-head change. Current local work
+  is the client rawsocket malformed-inbound-WAMP fail-closed slice; full local
+  `bin/verify` has passed. Before handoff, commit, push, wait for hosted GitHub
+  `CI` and package dry-run evidence, then rerun the strict deployment-chain
+  audit. Remaining RC blockers are still operator-owned: branch-protection
+  required checks, default-branch router image promotion/GHCR publication, RC
+  tag/prerelease, and Dart package ownership/release order. Do not publish a
+  stable non-validation release tag, router image, or Dart package without an
   explicit product/version/ownership decision.

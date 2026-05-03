@@ -484,6 +484,70 @@ void main() {
       await transport.close();
       await server.close();
     });
+
+    test('closes connection when inbound WAMP frame is malformed', () async {
+      final serializer = json_serializer.Serializer();
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final acceptedSockets = <Socket>[];
+      addTearDown(() async {
+        for (final socket in acceptedSockets) {
+          socket.destroy();
+        }
+        await server.close();
+      });
+
+      server.listen((socket) {
+        acceptedSockets.add(socket);
+        var handshakeDone = false;
+        socket.listen((message) {
+          if (handshakeDone) {
+            return;
+          }
+          handshakeDone = true;
+          socket.add(
+            SocketHelper.getInitialHandshake(
+              SocketHelper.maxMessageLengthExponent,
+              SocketHelper.serializationJson,
+            ),
+          );
+          final encoded = utf8.encoder.convert('[999]');
+          final frame = Uint8List.fromList(
+            SocketHelper.buildMessageHeader(
+                  SocketHelper.messageWamp,
+                  encoded.length,
+                  false,
+                ) +
+                encoded,
+          );
+          socket.add(frame);
+        });
+      });
+
+      final transport = SocketTransport(
+        InternetAddress.loopbackIPv4.address,
+        server.port,
+        serializer,
+        SocketHelper.serializationJson,
+        messageLengthExponent: SocketHelper.maxMessageLengthExponent,
+      );
+      addTearDown(() => transport.close());
+
+      await transport.open();
+      final subscription = transport.receive().listen((_) {});
+      addTearDown(subscription.cancel);
+      await transport.onReady;
+
+      final error = await transport.onConnectionLost!.future.timeout(
+        const Duration(seconds: 1),
+      );
+
+      expect(error, isA<FormatException>());
+      expect(
+        error.toString(),
+        contains('Could not deserialize inbound WAMP message'),
+      );
+      expect(transport.isOpen, isFalse);
+    });
   });
 
   group('Socket helper validation', () {
