@@ -2,29 +2,44 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `e58c7f0`
-(`client: fail closed on malformed websocket frames`)
+Last reviewed branch checkpoint: `847f0e4`
+(`docs: record websocket transport ci evidence`)
 Last reviewed implementation commit: `e58c7f0`
 (`client: fail closed on malformed websocket frames`)
 Active exec plan:
-`docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md` is active.
-The router-hosted MCP auth/catalog correction plan is complete; the next
-autonomous priority returns to the GitHub deployment chain. The latest clean
-implementation checkpoint is `e58c7f0`, with clean hosted `CI`, WAMP profile
-benchmark, Dart package publish dry-run, and deployment-chain audit evidence.
-Remaining RC blockers are still operator/deployment decisions:
-branch-protection required checks,
-default-branch router image/GHCR visibility, RC tag/prerelease selection, and
-Dart package ownership/release order.
+`docs/exec-plans/2026-05-03-router-process-metrics.md` is active.
+The GitHub deployment-chain readiness plan is paused because the latest
+branch-head audit is clean and remaining RC blockers are operator/deployment
+decisions: branch-protection required checks, default-branch router image/GHCR
+visibility, RC tag/prerelease selection, and Dart package ownership/release
+order. The current autonomous priority is production observability: expose
+low-cost process health metrics through the router JSON snapshot and
+OpenMetrics exporter.
 
 ## Last Known Verification
 
 - Current autonomous focus:
-  - GitHub deployment-chain readiness is the active plan again after the MCP
-    auth/catalog correction completed. Current work has returned to keeping
-    shipped paths and the GitHub deployment chain clean; next autonomous work
-    should re-audit the latest branch head before starting another feature or
-    benchmark slice.
+  - GitHub deployment-chain readiness is paused after a clean branch-head audit
+    because the remaining RC blockers require operator/release decisions; every
+    continuation should still re-audit the branch head before starting another
+    feature or benchmark slice.
+  - latest branch-head GitHub `CI` evidence is docs checkpoint `847f0e4`: run
+    `25271361032` completed successfully on 2026-05-03 with `Fast Checks` in
+    5m28s and `Full Verify` in 8m09s
+  - branch-head deployment-chain audit passed on 2026-05-03 against `847f0e4`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; the hosted CI log scan found no
+    warning, deprecation, skipped-test, reset, connection-noise, panic, or
+    failure patterns, Dart package dry-run `25270840163` remains clean/relevant
+    because no package-publish-sensitive inputs changed after `e58c7f0`, and
+    native release dry-run `25192553399` remains clean/relevant because no
+    native-release-sensitive inputs changed
+  - active autonomous code work has moved to router process metrics:
+    `bin/test-fast` passed before the process metrics implementation slice,
+    which adds PID/current RSS/max RSS to the router snapshot and OpenMetrics
+    payload; focused router metrics/analyzer checks and full local
+    `bin/verify` passed after the implementation
   - pushed production-readiness cleanup `e58c7f0` makes the pure Dart
     WebSocket transports fail closed when an inbound WAMP frame cannot be
     deserialized: null serializer results now become a `FormatException`, the

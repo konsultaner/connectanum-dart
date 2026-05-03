@@ -328,6 +328,11 @@ void main() {
       greaterThanOrEqualTo(0),
     );
     expect(routerMetrics['transport'], isNotNull);
+    final processMetrics =
+        routerMetrics['process'] as Map<String, Object?>? ?? const {};
+    expect(processMetrics['pid'], isA<int>());
+    expect(processMetrics['current_rss_bytes'], greaterThan(0));
+    expect(processMetrics['max_rss_bytes'], greaterThan(0));
     final transportMetrics =
         routerMetrics['transport'] as Map<String, Object?>? ?? const {};
     expect(transportMetrics['active_throttles'], equals(1));
@@ -348,6 +353,15 @@ void main() {
         .first;
     final openMetricsText = openMetricsResult.arguments?.first as String;
     expect(openMetricsText, contains('connectanum_router_realms'));
+    expect(openMetricsText, contains('connectanum_router_process_info'));
+    expect(
+      openMetricsText,
+      contains('connectanum_router_process_resident_memory_bytes'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_process_max_resident_memory_bytes'),
+    );
     expect(openMetricsText, contains('realm="realm1"'));
     expect(openMetricsText, contains('connectanum_router_http_events_total'));
     expect(

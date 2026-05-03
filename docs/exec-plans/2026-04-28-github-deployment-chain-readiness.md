@@ -1,6 +1,7 @@
 # GitHub Deployment Chain Readiness
 
-Status: active
+Status: paused; code-owned gates are clean and remaining RC blockers are
+operator-owned
 Owner: Codex
 Created: 2026-04-28
 Last updated: 2026-05-03

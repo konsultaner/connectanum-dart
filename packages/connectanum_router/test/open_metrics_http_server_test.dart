@@ -353,6 +353,11 @@ void main() {
     final metrics = await _get(base.replace(path: '/metrics'));
     expect(metrics.$1, equals(200));
     expect(metrics.$2, contains('connectanum_router_realms'));
+    expect(metrics.$2, contains('connectanum_router_process_info'));
+    expect(
+      metrics.$2,
+      contains('connectanum_router_process_resident_memory_bytes'),
+    );
     expect(metrics.$3['content-type'], contains('text/plain'));
   });
 

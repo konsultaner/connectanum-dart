@@ -380,7 +380,9 @@
   - [ ] Metrics realm configuration: expose internal realms via config (enable/disable, rename) and spin up embedded sessions automatically to serve metrics RPCs.
   - [ ] Metrics exporter produces OpenMetrics-compatible output over a dedicated HTTP listener; bridge requests snapshot RPCs on demand (no background polling). (Current exporter returns OpenMetrics via WAMP; needs HTTP ingress + auth.)
   - [ ] Bind the metrics realm to a configurable HTTP endpoint so Prometheus scrapers can poll without a WAMP client (per-router session auth + optional tokens).
-  - [ ] Include process/VM stats (RSS, heap, CPU deltas) and native runtime counters in the snapshot so scraped data reflects full router health.
+  - [ ] Include process/VM stats and native runtime counters in the snapshot so scraped data reflects full router health.
+    - [x] Export router process PID plus current/max RSS in the JSON snapshot and OpenMetrics payload without background polling.
+    - [ ] Add heap and CPU-delta gauges once there is a low-overhead sampling strategy.
   - [ ] Support zero-copy payload handling in all bridge interactions (lazy decode, file proxying, file-backed responses).
 
 - [ ] HTTP/1.1, HTTP/2, HTTP/3 transport layer (long-polling, streaming WAMP)

@@ -93,6 +93,15 @@ The OpenMetrics payload also exports drain/readiness counters:
 - `connectanum_router_listeners_closed_total`
 - `connectanum_router_pending_connections_closed_total`
 
+Process health gauges are included on the same scrape:
+
+- `connectanum_router_process_info{pid}` – static process identity for the
+  router VM process.
+- `connectanum_router_process_resident_memory_bytes` – current resident set
+  size reported by the Dart VM.
+- `connectanum_router_process_max_resident_memory_bytes` – maximum resident set
+  size observed by the process.
+
 ## Snapshot Payload
 
 The snapshot response mirrors the `RouterMetricsSnapshot` structure and includes
@@ -111,6 +120,11 @@ per-realm details:
     "total_publications_routed": 28,
     "active_connections": 1,
     "worker_count": 2,
+    "process": {
+      "pid": 12345,
+      "current_rss_bytes": 98566144,
+      "max_rss_bytes": 98566144
+    },
     "shutdown": {
       "drain_in_progress": false,
       "drain_total": 0,
@@ -314,6 +328,9 @@ explicitly accepted counters plus opt-in `throughput_mbps_min` and
   invocation consistently reflects the latest snapshot.
 - The exporter performs work only when invoked; there is no background polling,
   keeping overhead negligible until Prometheus scrapes the endpoint.
+- Process memory gauges use the Dart VM's `ProcessInfo.currentRss` and
+  `ProcessInfo.maxRss` values, so they reflect the current router process and
+  do not require VM-service access or background sampling.
 - Alert knobs:
   - `metrics.backpressure` controls when the boss emits `listener_backpressure_alert`
     events (queue depth and new-event thresholds) and how long it throttles new

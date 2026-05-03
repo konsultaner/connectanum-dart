@@ -535,7 +535,10 @@ class RouterBinding {
     final response = await reply.first;
     reply.close();
     if (response is RouterMetricsSnapshot) {
-      return response.copyWith(shutdown: _buildShutdownMetrics());
+      return response.copyWith(
+        shutdown: _buildShutdownMetrics(),
+        process: _collectProcessMetrics(),
+      );
     }
     if (response is StoreErrorResponse) {
       throw StateError('Failed to collect metrics: ${response.message}');
@@ -555,6 +558,12 @@ class RouterBinding {
       drainDeadlineAtUtc: _drainDeadlineAtUtc,
     );
   }
+
+  RouterProcessMetrics _collectProcessMetrics() => RouterProcessMetrics(
+    processId: pid,
+    currentRssBytes: ProcessInfo.currentRss,
+    maxRssBytes: ProcessInfo.maxRss,
+  );
 
   Future<String?> collectOpenMetricsText([
     RouterMetricsSnapshot? snapshot,
@@ -3535,6 +3544,36 @@ class _MetricsService {
       ..writeln(
         'connectanum_router_worker_isolates ${routerSnapshot.workerCount}',
       );
+
+    final process = routerSnapshot.process;
+    if (process != null) {
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_process_info Static information about the router VM process',
+        )
+        ..writeln('# TYPE connectanum_router_process_info gauge')
+        ..writeln(
+          'connectanum_router_process_info{pid="${process.processId}"} 1',
+        )
+        ..writeln(
+          '# HELP connectanum_router_process_resident_memory_bytes Current resident set size of the router VM process',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_process_resident_memory_bytes gauge',
+        )
+        ..writeln(
+          'connectanum_router_process_resident_memory_bytes ${process.currentRssBytes}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_process_max_resident_memory_bytes Maximum resident set size observed for the router VM process',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_process_max_resident_memory_bytes gauge',
+        )
+        ..writeln(
+          'connectanum_router_process_max_resident_memory_bytes ${process.maxRssBytes}',
+        );
+    }
 
     final shutdown = routerSnapshot.shutdown;
     buffer

@@ -16,6 +16,7 @@ class RouterMetricsSnapshot {
     required this.workerCount,
     this.shutdown = const RouterShutdownMetrics(),
     this.alerts = const RouterAlertMetrics(),
+    this.process,
     this.transport,
   });
 
@@ -55,6 +56,9 @@ class RouterMetricsSnapshot {
   /// Aggregated alert counters emitted by the boss loop (backpressure, etc.).
   final RouterAlertMetrics alerts;
 
+  /// Process-level runtime metrics collected by the binding isolate.
+  final RouterProcessMetrics? process;
+
   /// Aggregated transport-level metrics emitted by the native runtime.
   final RouterTransportMetrics? transport;
 
@@ -71,6 +75,7 @@ class RouterMetricsSnapshot {
     int? workerCount,
     RouterShutdownMetrics? shutdown,
     RouterAlertMetrics? alerts,
+    RouterProcessMetrics? process,
     RouterTransportMetrics? transport,
   }) {
     return RouterMetricsSnapshot(
@@ -89,6 +94,7 @@ class RouterMetricsSnapshot {
       workerCount: workerCount ?? this.workerCount,
       shutdown: shutdown ?? this.shutdown,
       alerts: alerts ?? this.alerts,
+      process: process ?? this.process,
       transport: transport ?? this.transport,
     );
   }
@@ -106,7 +112,33 @@ class RouterMetricsSnapshot {
     'worker_count': workerCount,
     'shutdown': shutdown.toJson(),
     'alerts': alerts.toJson(),
+    if (process != null) 'process': process!.toJson(),
     if (transport != null) 'transport': transport!.toJson(),
+  };
+}
+
+/// Process-level metrics for the router VM process.
+@immutable
+class RouterProcessMetrics {
+  const RouterProcessMetrics({
+    required this.processId,
+    required this.currentRssBytes,
+    required this.maxRssBytes,
+  });
+
+  /// Operating-system process identifier.
+  final int processId;
+
+  /// Current resident set size in bytes.
+  final int currentRssBytes;
+
+  /// Maximum resident set size observed by the process in bytes.
+  final int maxRssBytes;
+
+  Map<String, Object?> toJson() => {
+    'pid': processId,
+    'current_rss_bytes': currentRssBytes,
+    'max_rss_bytes': maxRssBytes,
   };
 }
 
