@@ -1,0 +1,305 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:connectanum_mcp/connectanum_mcp_io.dart';
+import 'package:test/test.dart';
+
+void main() {
+  group('McpStreamableHttpClient', () {
+    test(
+      'tracks Streamable HTTP sessions, SSE responses, polling, and auth headers',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(
+          endpoint.uri,
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer test-token',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '1.0.0',
+          },
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.protocolVersion, mcpLatestProtocolVersion);
+        expect(initialize['id'], 'initialize');
+
+        await client.notifyInitialized();
+
+        final tools = await client.request('tools/list', id: 'tools-sse');
+        expect(tools['id'], 'tools-sse');
+        expect(client.lastEventId, 'session-1:post:2');
+
+        final pollEvents = await client.poll();
+        expect(pollEvents, hasLength(1));
+        expect(pollEvents.single.id, 'session-1:get:1');
+        expect(
+          pollEvents.single.jsonData?['method'],
+          'notifications/tools/list_changed',
+        );
+        expect(client.lastEventId, 'session-1:get:1');
+
+        final jsonTools = await client.request(
+          'tools/list',
+          id: 'tools-json',
+          streamable: false,
+        );
+        expect(jsonTools['id'], 'tools-json');
+
+        await client.deleteSession();
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        expect(endpoint.requests, hasLength(6));
+        expect(endpoint.requests[0].authorization, 'Bearer test-token');
+        expect(endpoint.requests[0].accept, contains('text/event-stream'));
+        expect(endpoint.requests[0].contentLength, greaterThan(0));
+        expect(endpoint.requests[0].transferEncoding, isNull);
+        expect(endpoint.requests[1].sessionId, 'session-1');
+        expect(endpoint.requests[2].sessionId, 'session-1');
+        expect(endpoint.requests[3].lastEventId, 'session-1:post:2');
+        expect(endpoint.requests[4].accept, 'application/json');
+        expect(endpoint.requests[5].method, 'DELETE');
+      },
+    );
+
+    test(
+      'parses SSE event ids, retry hints, event names, and multi-line data',
+      () {
+        final events = parseMcpSseEvents(
+          ': ignored comment\n'
+          'id: one\n'
+          'retry: 2500\n'
+          'event: message\n'
+          'data: {"jsonrpc":"2.0",\n'
+          'data: "id":"a"}\n\n'
+          'id: two\n'
+          'data:\n\n',
+        );
+
+        expect(events, hasLength(2));
+        expect(events.first.id, 'one');
+        expect(events.first.retryMs, 2500);
+        expect(events.first.event, 'message');
+        expect(events.first.jsonData?['id'], 'a');
+        expect(events.last.id, 'two');
+        expect(events.last.jsonData, isNull);
+      },
+    );
+
+    test('throws typed HTTP exceptions for non-success responses', () async {
+      final endpoint = await _FakeMcpEndpoint.bind(failInitialize: true);
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      final call = client.initialize();
+      await expectLater(
+        call,
+        throwsA(
+          isA<McpStreamableHttpException>()
+              .having(
+                (error) => error.statusCode,
+                'statusCode',
+                HttpStatus.unauthorized,
+              )
+              .having(
+                (error) => error.error?['error'],
+                'error',
+                'missing token',
+              ),
+        ),
+      );
+    });
+  });
+}
+
+final class _FakeMcpEndpoint {
+  _FakeMcpEndpoint._(this._server, this._failInitialize) {
+    _subscription = _server.listen(_handle);
+  }
+
+  final HttpServer _server;
+  final bool _failInitialize;
+  final requests = <_SeenRequest>[];
+  late final StreamSubscription<HttpRequest> _subscription;
+
+  Uri get uri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/mcp',
+  );
+
+  static Future<_FakeMcpEndpoint> bind({bool failInitialize = false}) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    return _FakeMcpEndpoint._(server, failInitialize);
+  }
+
+  Future<void> close() async {
+    await _subscription.cancel();
+    await _server.close(force: true);
+  }
+
+  Future<void> _handle(HttpRequest request) async {
+    final body = await utf8.decoder.bind(request).join();
+    final jsonBody = body.isEmpty
+        ? null
+        : jsonMapFrom(jsonDecode(body), label: 'request');
+    requests.add(_SeenRequest.from(request, jsonBody));
+
+    switch (request.method) {
+      case 'POST':
+        await _handlePost(request, jsonBody);
+        return;
+      case 'GET':
+        _writeSse(
+          request,
+          'id: session-1:get:1\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/tools/list_changed","params":{}}\n\n',
+        );
+        return;
+      case 'DELETE':
+        request.response.statusCode = HttpStatus.accepted;
+        await request.response.close();
+        return;
+      default:
+        request.response.statusCode = HttpStatus.methodNotAllowed;
+        await request.response.close();
+        return;
+    }
+  }
+
+  Future<void> _handlePost(HttpRequest request, JsonMap? jsonBody) async {
+    final method = jsonBody?['method'];
+    if (method == 'initialize') {
+      if (_failInitialize) {
+        request.response.statusCode = HttpStatus.unauthorized;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode(<String, Object?>{'error': 'missing token'}),
+        );
+        await request.response.close();
+        return;
+      }
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': jsonBody?['id'],
+        'result': <String, Object?>{
+          'protocolVersion': mcpLatestProtocolVersion,
+          'capabilities': <String, Object?>{},
+          'serverInfo': <String, Object?>{
+            'name': 'fake-router',
+            'version': '1.0.0',
+          },
+        },
+      }, sessionId: 'session-1');
+      return;
+    }
+
+    if (method == 'notifications/initialized') {
+      request.response.statusCode = HttpStatus.accepted;
+      await request.response.close();
+      return;
+    }
+
+    if (method == 'tools/list' &&
+        (request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
+          'text/event-stream',
+        )) {
+      _writeSse(
+        request,
+        'id: session-1:post:1\n'
+        'retry: 1000\n'
+        'data:\n\n'
+        'id: session-1:post:2\n'
+        'data: {"jsonrpc":"2.0","id":"${jsonBody?['id']}","result":{"tools":[]}}\n\n',
+      );
+      return;
+    }
+
+    _writeJson(request, <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': jsonBody?['id'],
+      'result': <String, Object?>{'tools': <Object?>[]},
+    });
+  }
+
+  void _writeJson(HttpRequest request, JsonMap body, {String? sessionId}) {
+    request.response.statusCode = HttpStatus.ok;
+    request.response.headers.contentType = ContentType.json;
+    request.response.headers.set(
+      _headerProtocolVersion,
+      mcpLatestProtocolVersion,
+    );
+    if (sessionId != null) {
+      request.response.headers.set(_headerSessionId, sessionId);
+    }
+    request.response.write(jsonEncode(body));
+    unawaited(request.response.close());
+  }
+
+  void _writeSse(HttpRequest request, String body) {
+    request.response.statusCode = HttpStatus.ok;
+    request.response.headers.set(
+      HttpHeaders.contentTypeHeader,
+      'text/event-stream; charset=utf-8',
+    );
+    request.response.headers.set(
+      _headerProtocolVersion,
+      mcpLatestProtocolVersion,
+    );
+    request.response.headers.set(_headerSessionId, 'session-1');
+    request.response.write(body);
+    unawaited(request.response.close());
+  }
+}
+
+const _headerProtocolVersion = 'MCP-Protocol-Version';
+const _headerSessionId = 'MCP-Session-Id';
+
+final class _SeenRequest {
+  const _SeenRequest({
+    required this.method,
+    required this.accept,
+    required this.authorization,
+    required this.sessionId,
+    required this.lastEventId,
+    required this.contentLength,
+    required this.transferEncoding,
+    required this.body,
+  });
+
+  final String method;
+  final String? accept;
+  final String? authorization;
+  final String? sessionId;
+  final String? lastEventId;
+  final int contentLength;
+  final String? transferEncoding;
+  final JsonMap? body;
+
+  factory _SeenRequest.from(HttpRequest request, JsonMap? body) {
+    return _SeenRequest(
+      method: request.method,
+      accept: request.headers.value(HttpHeaders.acceptHeader),
+      authorization: request.headers.value(HttpHeaders.authorizationHeader),
+      sessionId: request.headers.value(_headerSessionId),
+      lastEventId: request.headers.value('Last-Event-ID'),
+      contentLength: request.headers.contentLength,
+      transferEncoding: request.headers.value(
+        HttpHeaders.transferEncodingHeader,
+      ),
+      body: body,
+    );
+  }
+}

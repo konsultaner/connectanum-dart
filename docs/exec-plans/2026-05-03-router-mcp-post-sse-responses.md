@@ -1,6 +1,6 @@
 # Exec Plan: Router MCP POST SSE Responses
 
-Status: complete locally
+Status: completed
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -60,6 +60,15 @@ session model.
   tests, auth-server tests, bench integration tests, full router package tests
   including the updated MCP Streamable HTTP regression, zero-copy router
   checks, and Chrome Dart2Wasm WebSocket transport tests.
+- 2026-05-03: Pushed commit `a84dcea`
+  (`mcp: stream stateful post responses over sse`) to GitLab and GitHub.
+  Hosted GitHub evidence is clean: `CI` run `25281129199`, `WAMP Profile
+  Benchmarks` run `25281129184`, and `Dart Package Publish Dry Run` run
+  `25281129192` all completed successfully. The strict add-router
+  deployment-chain audit passed with a clean CI job set, clean CI log scan,
+  clean relevant Dart package dry-run, and the existing Native Artifacts
+  dry-run `25192553399` still relevant because no native-release-sensitive
+  paths changed.
 
 ## Decision Log
 
@@ -74,5 +83,6 @@ session model.
 
 ## Handoff
 
-Local implementation and full `bin/verify` are complete. Remaining handoff work
-is commit/push and hosted GitHub deployment-chain evidence.
+Complete. Remaining MCP work should be driven by concrete consumer integration
+gaps after this Streamable HTTP session, GET/SSE, resume, and POST/SSE response
+path.

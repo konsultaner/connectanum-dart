@@ -12,6 +12,7 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:connectanum_core/connectanum_core.dart' as core;
+import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_router/src/native/ffi_bindings.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
@@ -1422,6 +1423,54 @@ void main() {
       expect(
         jsonEncode(directCatalogContent),
         isNot(contains('app.unsafe.delete')),
+      );
+
+      final streamableClient = McpStreamableHttpClient(
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        ),
+      );
+      addTearDown(() => streamableClient.close(force: true));
+
+      final streamableInitialize = await streamableClient.initialize();
+      expect(streamableInitialize['id'], equals('initialize'));
+      expect(streamableClient.sessionId, isNotNull);
+      await streamableClient.notifyInitialized();
+
+      final streamableTools = await streamableClient.request(
+        'tools/list',
+        id: 'streamable-tools',
+      );
+      final streamableToolsResult = (streamableTools['result'] as Map)
+          .cast<String, Object?>();
+      final streamableToolNames = {
+        for (final tool in streamableToolsResult['tools'] as List)
+          (tool as Map)['name'] as String,
+      };
+      expect(streamableToolNames, contains('app.safe.lookup'));
+      expect(streamableToolNames, isNot(contains('app.unsafe.delete')));
+      expect(streamableClient.lastEventId, isNotNull);
+
+      final streamableSafe = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-safe',
+        params: {
+          'name': 'app.safe.lookup',
+          'arguments': {'taskId': 'T-streamable'},
+        },
+      );
+      final streamableSafeResult = (streamableSafe['result'] as Map)
+          .cast<String, Object?>();
+      expect(streamableSafeResult['isError'], isFalse);
+      expect(
+        (((streamableSafeResult['structuredContent']
+                    as Map)['argumentsKeywords']
+                as Map)['request']
+            as Map)['taskId'],
+        equals('T-streamable'),
       );
 
       final directSafeResult = await _callRouterJsonMethod(

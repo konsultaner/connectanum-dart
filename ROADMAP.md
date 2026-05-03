@@ -362,6 +362,11 @@
   - [x] Add POST-initiated SSE response streams for stateful operation
     requests that opt into Streamable HTTP, while preserving JSON responses for
     `initialize` and direct JSON-only clients.
+  - [x] Add an IO-only Streamable HTTP client entrypoint in
+    `packages/connectanum_mcp` so consumer applications can initialize
+    router-hosted MCP sessions, send authenticated JSON-RPC requests, consume
+    POST/SSE responses, poll GET/SSE events with resume cursors, and delete
+    sessions without reimplementing the transport.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready
