@@ -46,3 +46,5 @@ counters.
   `dart test packages/connectanum_router/test/router_metrics_test.dart packages/connectanum_router/test/router_runtime_test.dart --name metrics -r expanded`,
   and `git diff --check`.
 - 2026-05-03: Full local `bin/verify` passed after the process metrics slice.
+- 2026-05-03: Committed the process metrics implementation as `02748b2`
+  (`router: expose process metrics`).

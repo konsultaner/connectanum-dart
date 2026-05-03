@@ -2,10 +2,10 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `847f0e4`
-(`docs: record websocket transport ci evidence`)
-Last reviewed implementation commit: `e58c7f0`
-(`client: fail closed on malformed websocket frames`)
+Last reviewed branch checkpoint: `02748b2`
+(`router: expose process metrics`)
+Last reviewed implementation commit: `02748b2`
+(`router: expose process metrics`)
 Active exec plan:
 `docs/exec-plans/2026-05-03-router-process-metrics.md` is active.
 The GitHub deployment-chain readiness plan is paused because the latest
@@ -36,10 +36,10 @@ OpenMetrics exporter.
     native release dry-run `25192553399` remains clean/relevant because no
     native-release-sensitive inputs changed
   - active autonomous code work has moved to router process metrics:
-    `bin/test-fast` passed before the process metrics implementation slice,
-    which adds PID/current RSS/max RSS to the router snapshot and OpenMetrics
-    payload; focused router metrics/analyzer checks and full local
-    `bin/verify` passed after the implementation
+    commit `02748b2` adds PID/current RSS/max RSS to the router snapshot and
+    OpenMetrics payload; `bin/test-fast` passed before the process metrics
+    implementation slice, then focused router metrics/analyzer checks and full
+    local `bin/verify` passed after the implementation
   - pushed production-readiness cleanup `e58c7f0` makes the pure Dart
     WebSocket transports fail closed when an inbound WAMP frame cannot be
     deserialized: null serializer results now become a `FormatException`, the
