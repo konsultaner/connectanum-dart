@@ -1308,6 +1308,31 @@ operator evidence over speculative feature or benchmark work.
   deployment-chain audit passed against `ed2822f` with clean hosted CI logs,
   package dry-run evidence covering the checked-out head, and relevant native
   release dry-run evidence.
+- 2026-05-03: Pushed WebSocket malformed-frame cleanup commit `e58c7f0`
+  (`client: fail closed on malformed websocket frames`) to both remotes. The
+  pure Dart IO and browser WebSocket transports now match the rawsocket
+  fail-closed behavior for inbound WAMP frames that deserialize to `null`:
+  transport code raises a `FormatException`, completes `onConnectionLost`, and
+  initiates close without changing the existing reconnect/is-open contract.
+  Pre-change `bin/test-fast` passed; focused checks passed for the WebSocket
+  transport regression, existing WebSocket reconnect/event suite,
+  `dart analyze packages/connectanum_client`, Chrome/Dart2Wasm WebSocket
+  transport coverage, and `git diff --check`; full local `bin/verify` passed.
+  Hosted GitHub `CI` run `25270840158` passed with `Fast Checks` in 5m41s and
+  `Full Verify` in 8m22s, `WAMP Profile Benchmarks` run `25270840164` passed,
+  and `Dart Package Publish Dry Run` run `25270840163` passed. The strict
+  deployment-chain audit passed against `e58c7f0` with clean hosted CI logs,
+  package dry-run evidence covering the checked-out head, and relevant native
+  release dry-run evidence.
+- 2026-05-03: Refreshed the read-only RC readiness audit at `e58c7f0`. Hosted
+  CI job cleanliness, hosted CI log cleanliness, hosted Dart package dry-run,
+  and hosted native release dry-run gates are ready. RC readiness remains
+  blocked only by operator/release gates: branch-protection required checks on
+  `master`, default-branch visibility for `router-image.yml`, GHCR router
+  package visibility, RC tag/prerelease selection, and Dart package
+  ownership/version/release-order approval. The strict Dart publish-readiness
+  gate specifically still requires approving/publishing `connectanum_core`
+  before `connectanum_client`.
 
 ## Handoff
 
