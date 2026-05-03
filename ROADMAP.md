@@ -377,11 +377,11 @@
   - [x] Bench artifact outputs (`bench_results.jsonl`) now rewrite into Prometheus textfile metrics plus a summary JSON bundle, with alert rules over the transformed per-workload transport deltas so completed runs surface automatically in dashboards/alerts.
   - [x] Bound OpenMetrics scrape collection with `open_metrics.collection_timeout_ms` so stalled boss/worker metrics collection returns an explicit scrape failure instead of holding Prometheus connections indefinitely.
   - [x] Redact configured OpenMetrics bearer tokens from metrics snapshot exporter metadata; snapshots expose only a non-secret `auth_required` flag.
+  - [x] Metrics exporter produces OpenMetrics-compatible output over a dedicated HTTP listener and bridges requests to snapshot RPCs on demand without background polling.
+  - [x] Bind the metrics realm to a configurable HTTP endpoint so Prometheus scrapers can poll without a WAMP client, with optional non-empty bearer-token auth.
   - [ ] Configurable metrics exporter isolates (Prometheus) gated by crossbar-compatible config flags to avoid production overhead.
   - [ ] Sampling windows for high-cost histograms (latency, zero-copy reuse) triggered only during benchmarks.
   - [ ] Metrics realm configuration: expose internal realms via config (enable/disable, rename) and spin up embedded sessions automatically to serve metrics RPCs.
-  - [ ] Metrics exporter produces OpenMetrics-compatible output over a dedicated HTTP listener; bridge requests snapshot RPCs on demand (no background polling). (Current exporter returns OpenMetrics via WAMP; needs HTTP ingress + auth.)
-  - [ ] Bind the metrics realm to a configurable HTTP endpoint so Prometheus scrapers can poll without a WAMP client (per-router session auth + optional tokens).
   - [ ] Include process/VM stats and native runtime counters in the snapshot so scraped data reflects full router health.
     - [x] Export router process PID plus current/max RSS in the JSON snapshot and OpenMetrics payload without background polling.
     - [ ] Add heap and CPU-delta gauges once there is a low-overhead sampling strategy.

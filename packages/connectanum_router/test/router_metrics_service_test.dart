@@ -522,6 +522,47 @@ void main() {
   });
 
   test(
+    'metrics snapshot treats empty OpenMetrics bearer token as disabled',
+    () async {
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildSettings(openMetricsAuthToken: ''),
+      );
+
+      final binding = router.start(_NoopHandleRuntime());
+      addTearDown(binding.dispose);
+
+      await binding.ensureInternalServicesReady();
+      final metricsClient = await binding.createInternalSession(
+        realmUri: 'connectanum.metrics',
+        authId: 'observer',
+        authRole: 'metrics',
+      );
+      addTearDown(metricsClient.close);
+
+      final snapshotResult = await metricsClient
+          .call('connectanum.metrics.snapshot')
+          .first;
+      final snapshotPayload =
+          snapshotResult.arguments?.first as Map<String, Object?>;
+      final exporterInfo = snapshotPayload['exporter'] as Map<String, Object?>?;
+
+      expect(exporterInfo, isNotNull);
+      expect(exporterInfo!.containsKey('auth_token'), isFalse);
+      expect(exporterInfo['auth_required'], isFalse);
+    },
+  );
+
+  test(
     'metrics exporter exposes timeout and error transport alerts across payloads and OpenMetrics',
     () async {
       final events = <Object>[];

@@ -3335,7 +3335,7 @@ class _MetricsService {
         if (metricsSettings.listen != null) 'listen': metricsSettings.listen,
         'collection_timeout_ms':
             metricsSettings.collectionTimeout.inMilliseconds,
-        'auth_required': metricsSettings.authToken != null,
+        'auth_required': metricsSettings.authToken?.isNotEmpty == true,
       },
       if (transportAlerts != null)
         'alerts': _buildTransportAlertsPayload(transportAlerts),
