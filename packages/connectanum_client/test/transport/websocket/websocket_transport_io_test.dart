@@ -18,6 +18,7 @@ void main() {
       'Opening a server connection and simple send receive scenario using a serializer',
       () async {
         var server = await HttpServer.bind('localhost', 9911);
+        addTearDown(() => server.close(force: true));
         server.listen((HttpRequest req) async {
           if (req.uri.path == '/wamp') {
             var socket = await WebSocketTransformer.upgrade(req);
@@ -101,5 +102,42 @@ void main() {
         expect(welcome.sessionId, equals(5555));
       },
     );
+
+    test('closes connection when inbound WAMP frame is malformed', () async {
+      final server = await HttpServer.bind('localhost', 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((HttpRequest req) async {
+        if (req.uri.path == '/wamp') {
+          final socket = await WebSocketTransformer.upgrade(req);
+          socket.listen((message) {
+            if (message is String &&
+                message.contains('[${MessageTypes.codeHello}')) {
+              socket.add('[999]');
+            }
+          });
+        }
+      });
+
+      final transport = WebSocketTransport.withJsonSerializer(
+        'ws://localhost:${server.port}/wamp',
+      );
+      addTearDown(transport.close);
+
+      await transport.open();
+      final subscription = transport.receive().listen((_) {});
+      addTearDown(subscription.cancel);
+      transport.send(Hello('my.realm', Details.forHello()));
+
+      final error = await transport.onConnectionLost!.future.timeout(
+        const Duration(seconds: 1),
+      );
+
+      expect(error, isA<FormatException>());
+      expect(
+        error.toString(),
+        contains('Could not deserialize inbound WebSocket WAMP message'),
+      );
+      await transport.onDisconnect!.future.timeout(const Duration(seconds: 1));
+    });
   });
 }

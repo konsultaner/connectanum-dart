@@ -168,21 +168,45 @@ class WebSocketTransport extends AbstractTransport {
       _logger.info('The connection has been closed with ${closeEvent.code}');
     });
     return _socket.onMessage.asyncMap((messageEvent) async {
-      AbstractMessage? message;
-      if (_serializerType == WebSocketSerialization.serializationJson) {
-        message = _serializer.deserialize(
-          utf8.encode(messageEvent.data.toString()) as Uint8List?,
-        );
-      } else {
-        var arraybuffer = await (messageEvent.data as Blob)
-            .arrayBuffer()
-            .toDart;
-        message = _serializer.deserialize(arraybuffer.toDart.asUint8List(0));
+      try {
+        final message = await _decodeInboundMessage(messageEvent);
+        if (message is Goodbye) {
+          _goodbyeReceived = true;
+        }
+        return message;
+      } on Object catch (error) {
+        _handleInboundMessageError(error);
+        return null;
       }
-      if (message is Goodbye) {
-        _goodbyeReceived = true;
-      }
-      return message;
     });
+  }
+
+  Future<AbstractMessage> _decodeInboundMessage(
+    MessageEvent messageEvent,
+  ) async {
+    final Uint8List payload;
+    if (_serializerType == WebSocketSerialization.serializationJson) {
+      payload = Uint8List.fromList(utf8.encode(messageEvent.data.toString()));
+    } else {
+      var arraybuffer = await (messageEvent.data as Blob).arrayBuffer().toDart;
+      payload = arraybuffer.toDart.asUint8List(0);
+    }
+
+    final message = _serializer.deserialize(payload);
+    if (message == null) {
+      throw FormatException(
+        'Could not deserialize inbound WebSocket WAMP message '
+        '(serializer: $_serializerType, payloadLength: ${payload.length})',
+      );
+    }
+    return message;
+  }
+
+  void _handleInboundMessageError(Object error) {
+    final closeFuture = close(error: error);
+    if (!_onConnectionLost!.isCompleted) {
+      _onConnectionLost!.complete(error);
+    }
+    unawaited(closeFuture);
   }
 }

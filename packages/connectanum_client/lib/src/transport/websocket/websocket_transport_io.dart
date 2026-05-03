@@ -196,18 +196,44 @@ class WebSocketTransport extends AbstractTransport {
       },
     );
     return _socket!.map((messageEvent) {
-      AbstractMessage? message;
-      if (_serializerType == WebSocketSerialization.serializationJson) {
-        message = _serializer.deserialize(
-          utf8.encode(messageEvent) as Uint8List?,
-        );
-      } else {
-        message = _serializer.deserialize(messageEvent);
+      try {
+        final message = _decodeInboundMessage(messageEvent);
+        if (message is Goodbye) {
+          _goodbyeReceived = true;
+        }
+        return message;
+      } on Object catch (error) {
+        _handleInboundMessageError(error);
+        return null;
       }
-      if (message is Goodbye) {
-        _goodbyeReceived = true;
-      }
-      return message;
     });
+  }
+
+  AbstractMessage _decodeInboundMessage(Object messageEvent) {
+    final Uint8List payload;
+    if (_serializerType == WebSocketSerialization.serializationJson) {
+      payload = Uint8List.fromList(utf8.encode(messageEvent as String));
+    } else if (messageEvent is Uint8List) {
+      payload = messageEvent;
+    } else {
+      payload = Uint8List.fromList(messageEvent as List<int>);
+    }
+
+    final message = _serializer.deserialize(payload);
+    if (message == null) {
+      throw FormatException(
+        'Could not deserialize inbound WebSocket WAMP message '
+        '(serializer: $_serializerType, payloadLength: ${payload.length})',
+      );
+    }
+    return message;
+  }
+
+  void _handleInboundMessageError(Object error) {
+    final closeFuture = close(error: error);
+    if (!_onConnectionLost!.isCompleted) {
+      _onConnectionLost!.complete(error);
+    }
+    unawaited(closeFuture);
   }
 }
