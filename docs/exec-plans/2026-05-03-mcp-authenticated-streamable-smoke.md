@@ -20,6 +20,8 @@ unsafe tool metadata, and protected tool calls.
   router-backed tools.
 - Verify a protected unsafe tool call succeeds through the Streamable HTTP
   client and records an SSE event id.
+- Verify the Streamable HTTP client can use router-backed MCP pub/sub tools for
+  subscribe, publish, poll, and unsubscribe on a real router-hosted route.
 
 ## Verification
 
@@ -45,6 +47,25 @@ unsafe tool metadata, and protected tool calls.
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`.
 - 2026-05-03: Full local `bin/verify` passed after the authenticated
   Streamable HTTP router smoke addition and project-state updates.
+- 2026-05-03: Pushed commit `b7b0348`
+  (`mcp: smoke authenticated streamable route`) to GitLab and GitHub. Hosted
+  GitHub evidence is clean: `CI` run `25283148543` completed successfully with
+  `Fast Checks` in 5m38s and `Full Verify` in 8m06s, hosted CI log scan found
+  no warning, deprecation, skipped-test, reset, connection-noise, panic, or
+  failure patterns, `WAMP Profile Benchmarks` run `25283148557` completed
+  successfully in 7m41s, `Dart Package Publish Dry Run` run `25283148560`
+  completed successfully and covers the checked-out head, and Native Artifacts
+  dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
+- 2026-05-03: Added public-route Streamable HTTP client coverage for
+  `connectanum.pubsub.subscribe`, `connectanum.pubsub.publish`,
+  `connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe` against a
+  real router-hosted MCP route. Focused checks passed:
+  `dart analyze packages/connectanum_mcp packages/connectanum_router`,
+  `dart test packages/connectanum_mcp -r expanded`, and
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`.
+- 2026-05-03: Full local `bin/verify` passed after the Streamable HTTP pub/sub
+  router smoke addition and project-state updates.
 
 ## Decision Log
 
@@ -54,6 +75,6 @@ unsafe tool metadata, and protected tool calls.
 
 ## Handoff
 
-Complete locally. Commit and push the test/readiness checkpoint, then inspect
-hosted GitHub deployment-chain evidence because this is router integration test
-coverage on a shipped MCP path.
+Complete locally for the added Streamable HTTP pub/sub smoke coverage. Commit,
+push, and inspect hosted deployment-chain evidence because this is router
+integration coverage on a shipped MCP path.

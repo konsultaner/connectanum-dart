@@ -2,10 +2,10 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP authenticated Streamable HTTP
-router smoke after `9906d69` (`mcp: add streamable http client`)
-Last reviewed implementation commit: working tree MCP authenticated Streamable
-HTTP router smoke after `9906d69` (`mcp: add streamable http client`)
+Last reviewed branch checkpoint: working tree MCP Streamable HTTP pub/sub smoke
+after `b7b0348` (`mcp: smoke authenticated streamable route`)
+Last reviewed implementation commit: working tree MCP Streamable HTTP pub/sub
+smoke after `b7b0348` (`mcp: smoke authenticated streamable route`)
 Active exec plan:
 `docs/exec-plans/2026-05-03-mcp-authenticated-streamable-smoke.md`
 (complete locally; hosted evidence pending). The MCP Streamable HTTP client
@@ -45,20 +45,31 @@ starting another feature or benchmark slice.
     client against both public and protected router-hosted MCP routes to
     initialize Streamable HTTP sessions, receive POST/SSE tool responses,
     list safe and unsafe protected tools with bearer auth, call protected
-    unsafe router-backed tools, and track session/event ids
+    unsafe router-backed tools, exercise router-backed pub/sub subscribe,
+    publish, poll, and unsubscribe through the client, and track
+    session/event ids
   - focused checks passed for the MCP Streamable HTTP client slice:
     `dart analyze packages/connectanum_mcp packages/connectanum_router`,
     `dart test packages/connectanum_mcp -r expanded`,
     `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
     and `git diff --check`
   - full local `bin/verify` passed on 2026-05-03 after the authenticated
-    Streamable HTTP router smoke addition and project-state updates; it
+    Streamable HTTP router smoke additions and project-state updates; it
     included formatting, Rust native/FFI tests, Python package-artifact checks,
     MCP package tests including the Streamable HTTP client tests,
     client/native tests, auth-server tests, bench integration tests, the full
     router package tests including the updated protected MCP router-hosted
-    smoke, zero-copy router checks, and Chrome Dart2Wasm WebSocket transport
-    tests
+    smoke and Streamable HTTP pub/sub smoke, zero-copy router checks, and
+    Chrome Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `b7b0348` is clean: `CI` run `25283148543`
+    completed successfully with `Fast Checks` in 5m38s and `Full Verify` in
+    8m06s, the hosted CI log scan found no warning, deprecation, skipped-test,
+    reset, connection-noise, panic, or failure patterns, `WAMP Profile
+    Benchmarks` run `25283148557` completed successfully in 7m41s, `Dart
+    Package Publish Dry Run` run `25283148560` completed successfully and
+    covers the checked-out head, and Native Artifacts dry-run `25192553399`
+    remains clean and relevant because no native-release-sensitive paths
+    changed
   - hosted GitHub evidence for `9906d69` is clean: `CI` run `25282247750`
     completed successfully with `Fast Checks` in 5m40s and `Full Verify` in
     8m30s, the hosted CI log scan found no warning, deprecation, skipped-test,

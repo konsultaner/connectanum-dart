@@ -1473,6 +1473,64 @@ void main() {
         equals('T-streamable'),
       );
 
+      final streamableSubscribe = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-pubsub-subscribe',
+        params: {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'app.events.audit', 'queueLimit': 5},
+        },
+      );
+      final streamableSubscription =
+          ((streamableSubscribe['result'] as Map)['structuredContent'] as Map)
+              .cast<String, Object?>();
+      final streamableHandle = streamableSubscription['handle'] as String;
+      expect(streamableSubscription['topic'], equals('app.events.audit'));
+
+      final streamablePublish = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-pubsub-publish',
+        params: {
+          'name': 'connectanum.pubsub.publish',
+          'arguments': {
+            'topic': 'app.events.audit',
+            'argumentsKeywords': {'via': 'streamable-publish'},
+            'acknowledge': true,
+          },
+        },
+      );
+      final streamablePublishResult =
+          ((streamablePublish['result'] as Map)['structuredContent'] as Map)
+              .cast<String, Object?>();
+      expect(streamablePublishResult['acknowledged'], isTrue);
+
+      await serviceSession.publish(
+        'app.events.audit',
+        argumentsKeywords: {'via': 'streamable-service'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final streamablePoll = await _pollStreamableMcpUntilEvents(
+        streamableClient,
+        streamableHandle,
+      );
+      expect(
+        jsonEncode(streamablePoll['events']),
+        contains('streamable-service'),
+      );
+
+      final streamableUnsubscribe = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-pubsub-unsubscribe',
+        params: {
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': {'handle': streamableHandle},
+        },
+      );
+      final streamableUnsubscribeResult =
+          ((streamableUnsubscribe['result'] as Map)['structuredContent'] as Map)
+              .cast<String, Object?>();
+      expect(streamableUnsubscribeResult['unsubscribed'], isTrue);
+
       final directSafeResult = await _callRouterJsonMethod(
         client,
         listener.port,
@@ -3520,6 +3578,31 @@ Future<Map<String, Object?>> _pollMcpUntilEvents(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   fail('Timed out waiting for MCP subscription events for $handle');
+}
+
+Future<Map<String, Object?>> _pollStreamableMcpUntilEvents(
+  McpStreamableHttpClient client,
+  String handle,
+) async {
+  for (var attempt = 0; attempt < 30; attempt += 1) {
+    final response = await client.request(
+      'tools/call',
+      id: 'streamable-pubsub-poll-$attempt',
+      params: {
+        'name': 'connectanum.pubsub.poll',
+        'arguments': {'handle': handle, 'limit': 10},
+      },
+    );
+    final result = (response['result'] as Map).cast<String, Object?>();
+    final structured = (result['structuredContent'] as Map)
+        .cast<String, Object?>();
+    final events = structured['events'] as List? ?? const [];
+    if (events.isNotEmpty) {
+      return structured;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  fail('Timed out waiting for Streamable MCP subscription events for $handle');
 }
 
 Future<String> _issueTicketHttpToken(
