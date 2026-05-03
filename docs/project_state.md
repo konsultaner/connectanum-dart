@@ -7,7 +7,9 @@ Last reviewed branch checkpoint: `16db917`
 Last reviewed implementation commit: `8362a53`
 (`router: align metrics auth flag`)
 Active exec plan:
-None. The metrics secret-redaction plan is complete:
+None. The router MCP Streamable HTTP readiness plan is complete:
+`docs/exec-plans/2026-05-03-router-mcp-streamable-http-readiness.md`.
+The metrics secret-redaction plan is complete:
 `docs/exec-plans/2026-05-03-metrics-secret-redaction.md`.
 The OpenMetrics scrape timeout plan is complete:
 `docs/exec-plans/2026-05-03-openmetrics-scrape-timeout.md`.
@@ -21,6 +23,24 @@ starting another feature or benchmark slice.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - router-hosted MCP Streamable HTTP readiness is complete locally after MCP
+    fix-up was prioritized for downstream application readiness. The router
+    now supports per-client `MCP-Session-Id` keys for Streamable-HTTP-style
+    initialize requests, explicit `DELETE` cleanup, Origin/protocol/header/
+    content negotiation guards, and unknown session rejection while preserving
+    legacy no-session JSON-RPC POST/direct JSON behavior
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the MCP Streamable
+    HTTP readiness edits; focused post-change checks also passed:
+    `dart analyze packages/connectanum_router packages/connectanum_mcp`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
+    `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-03 after the MCP Streamable HTTP
+    readiness implementation and docs updates; it included formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP package tests,
+    client/native tests, auth-server tests, bench integration tests, full
+    router package tests including the new MCP Streamable HTTP ingress/session
+    regression, zero-copy router checks, and Chrome Dart2Wasm WebSocket
+    transport tests
   - GitHub deployment-chain readiness is paused after a clean branch-head audit
     because the remaining RC blockers require operator/release decisions; every
     continuation should still re-audit the branch head before starting another
@@ -147,9 +167,10 @@ starting another feature or benchmark slice.
     selection, and Dart package ownership/version/release-order approval; the
     strict Dart publish-readiness gate also remains blocked until
     `connectanum_core` is approved/published before `connectanum_client`
-  - public-surface scan on 2026-05-03 found no remaining `Groli`, local
-    checkout path, sibling-project, internal-project, or GitLab host references
-    in public docs/package surfaces
+  - public-surface scan on 2026-05-03 found no remaining private downstream
+    application names, local checkout paths, sibling-project references,
+    internal-project references, or GitLab host references in public
+    docs/package surfaces
   - pushed production-readiness cleanup `06e2918` makes the JSON serializer
     match MsgPack/CBOR by reporting unsupported outbound message objects as a
     typed `UnsupportedError` with the message type instead of an empty generic

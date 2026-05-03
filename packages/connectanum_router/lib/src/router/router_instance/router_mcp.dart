@@ -1,5 +1,191 @@
 part of '../router_instance.dart';
 
+const String _mcpSessionIdHeader = 'MCP-Session-Id';
+const String _mcpProtocolVersionHeader = 'MCP-Protocol-Version';
+const String _mcpSseContentType = 'text/event-stream';
+const String _mcpJsonContentType = 'application/json';
+const Set<String> _mcpSupportedHttpProtocolVersions = <String>{
+  '2025-03-26',
+  '2025-06-18',
+  mcp.mcpLatestProtocolVersion,
+};
+
+Map<String, String> _mcpHttpResponseHeaders({
+  bool json = true,
+  String? sessionId,
+  Map<String, String> extra = const <String, String>{},
+}) {
+  return <String, String>{
+    if (json) HttpHeaders.contentTypeHeader: _mcpJsonContentType,
+    _mcpProtocolVersionHeader: mcp.mcpLatestProtocolVersion,
+    if (sessionId != null && sessionId.isNotEmpty)
+      _mcpSessionIdHeader: sessionId,
+    ...extra,
+  };
+}
+
+Map<String, Object?> _mcpJsonRpcErrorPayload({
+  required int code,
+  required String message,
+  Object? id,
+}) {
+  return <String, Object?>{
+    'jsonrpc': '2.0',
+    'id': id,
+    'error': <String, Object?>{'code': code, 'message': message},
+  };
+}
+
+NativeHttpResponse _mcpJsonRpcHttpError({
+  required int status,
+  required int code,
+  required String message,
+  Object? id,
+  String? sessionId,
+  Map<String, String> extraHeaders = const <String, String>{},
+}) {
+  return NativeHttpResponse(
+    status: status,
+    headers: _mcpHttpResponseHeaders(sessionId: sessionId, extra: extraHeaders),
+    body: NativeHttpResponseJson(
+      _mcpJsonRpcErrorPayload(code: code, message: message, id: id),
+    ),
+  );
+}
+
+String? _mcpHeaderValue(
+  RouterBinding binding,
+  RouterHttpRequest request,
+  String name,
+) {
+  final value = binding._headerValue(request.headers, name)?.trim();
+  return value == null || value.isEmpty ? null : value;
+}
+
+bool _mcpProtocolVersionHeaderSupported(
+  RouterBinding binding,
+  RouterHttpRequest request,
+) {
+  final value = _mcpHeaderValue(binding, request, _mcpProtocolVersionHeader);
+  return value == null || _mcpSupportedHttpProtocolVersions.contains(value);
+}
+
+Set<String> _mcpAcceptTypes(RouterBinding binding, RouterHttpRequest request) {
+  final accept = _mcpHeaderValue(binding, request, HttpHeaders.acceptHeader);
+  if (accept == null) {
+    return const <String>{};
+  }
+  return {
+    for (final part in accept.split(','))
+      part.split(';').first.trim().toLowerCase(),
+  }..remove('');
+}
+
+bool _mcpAcceptAllowsJsonResponse(
+  RouterBinding binding,
+  RouterHttpRequest request,
+) {
+  final accepted = _mcpAcceptTypes(binding, request);
+  if (accepted.isEmpty) {
+    return true;
+  }
+  return accepted.contains(_mcpJsonContentType) ||
+      accepted.contains('application/*') ||
+      accepted.contains('*/*');
+}
+
+bool _mcpAcceptRequestsStreamableHttpSession(
+  RouterBinding binding,
+  RouterHttpRequest request,
+) {
+  final accepted = _mcpAcceptTypes(binding, request);
+  return accepted.contains(_mcpJsonContentType) &&
+      accepted.contains(_mcpSseContentType);
+}
+
+bool _mcpContentTypeAllowsJsonBody(
+  RouterBinding binding,
+  RouterHttpRequest request,
+) {
+  final contentType = _mcpHeaderValue(
+    binding,
+    request,
+    HttpHeaders.contentTypeHeader,
+  );
+  if (contentType == null) {
+    return true;
+  }
+  final mimeType = contentType.split(';').first.trim().toLowerCase();
+  return mimeType == _mcpJsonContentType || mimeType.endsWith('+json');
+}
+
+bool _mcpOriginAllowed(
+  RouterBinding binding,
+  RouterHttpRequest request,
+  HttpRouteSettings route,
+) {
+  final origin = _mcpHeaderValue(binding, request, 'origin');
+  if (origin == null) {
+    return true;
+  }
+  final allowedOrigins = _mcpAllowedOrigins(route.action.options);
+  if (allowedOrigins.contains('*') || allowedOrigins.contains(origin)) {
+    return true;
+  }
+  if (allowedOrigins.isNotEmpty) {
+    return false;
+  }
+
+  final host = _mcpHeaderValue(binding, request, HttpHeaders.hostHeader);
+  final originUri = Uri.tryParse(origin);
+  if (host == null || originUri == null || originUri.host.isEmpty) {
+    return false;
+  }
+  final originHost = originUri.hasPort
+      ? '${originUri.host}:${originUri.port}'
+      : originUri.host;
+  return host.toLowerCase() == originHost.toLowerCase();
+}
+
+Set<String> _mcpAllowedOrigins(Map<String, Object?> options) {
+  final raw =
+      options['allowedOrigins'] ??
+      options['allowed_origins'] ??
+      options['allowedOrigin'] ??
+      options['allowed_origin'] ??
+      options['origins'];
+  if (raw is String) {
+    final trimmed = raw.trim();
+    return trimmed.isEmpty ? const <String>{} : <String>{trimmed};
+  }
+  if (raw is Iterable) {
+    return {
+      for (final value in raw)
+        if (value is String && value.trim().isNotEmpty) value.trim(),
+    };
+  }
+  return const <String>{};
+}
+
+String? _mcpRequestMethod(Object? rawMessage) {
+  if (rawMessage is Map) {
+    final method = rawMessage['method'];
+    if (method is String) {
+      return method;
+    }
+  }
+  return null;
+}
+
+String _mcpGenerateHttpSessionId() {
+  final random = Random.secure();
+  final buffer = StringBuffer();
+  for (var i = 0; i < 16; i++) {
+    buffer.write(random.nextInt(256).toRadixString(16).padLeft(2, '0'));
+  }
+  return buffer.toString();
+}
+
 Future<void> _handleMcpHttpRequestForBinding(
   RouterBinding binding, {
   required RouterHttpRequest request,
@@ -8,18 +194,95 @@ Future<void> _handleMcpHttpRequestForBinding(
   required HttpRouteSettings route,
   required SessionProfileSettings? sessionProfile,
 }) async {
-  if (request.method.trim().toUpperCase() != 'POST') {
+  final httpMethod = request.method.trim().toUpperCase();
+  final mcpSessionId = _mcpHeaderValue(binding, request, _mcpSessionIdHeader);
+
+  if (!_mcpOriginAllowed(binding, request, route)) {
     await binding._sendImmediateHttpResponse(
       request: request,
       handshake: handshake,
-      response: NativeHttpResponse(
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.forbidden,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'Invalid Origin for MCP endpoint',
+        sessionId: mcpSessionId,
+      ),
+    );
+    return;
+  }
+
+  if (!_mcpProtocolVersionHeaderSupported(binding, request)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'Unsupported MCP protocol version header',
+        sessionId: mcpSessionId,
+      ),
+    );
+    return;
+  }
+
+  if (httpMethod == 'GET') {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
         status: HttpStatus.methodNotAllowed,
-        headers: const {HttpHeaders.allowHeader: 'POST'},
-        body: NativeHttpResponseJson(const <String, Object?>{
-          'status': 'error',
-          'reason': 'method_not_allowed',
-          'message': 'MCP HTTP endpoint only supports POST',
-        }),
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP SSE streams are not supported by this endpoint yet',
+        sessionId: mcpSessionId,
+        extraHeaders: const <String, String>{
+          HttpHeaders.allowHeader: 'POST, DELETE',
+        },
+      ),
+    );
+    return;
+  }
+
+  if (httpMethod != 'POST' && httpMethod != 'DELETE') {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.methodNotAllowed,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP HTTP endpoint supports POST and DELETE',
+        sessionId: mcpSessionId,
+        extraHeaders: const <String, String>{
+          HttpHeaders.allowHeader: 'POST, DELETE',
+        },
+      ),
+    );
+    return;
+  }
+
+  if (httpMethod == 'POST' && !_mcpAcceptAllowsJsonResponse(binding, request)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.notAcceptable,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP POST responses require an Accept header allowing JSON',
+        sessionId: mcpSessionId,
+      ),
+    );
+    return;
+  }
+
+  if (httpMethod == 'POST' &&
+      !_mcpContentTypeAllowsJsonBody(binding, request)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.unsupportedMediaType,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP POST requests must use a JSON content type',
+        sessionId: mcpSessionId,
       ),
     );
     return;
@@ -33,39 +296,11 @@ Future<void> _handleMcpHttpRequestForBinding(
     await binding._sendImmediateHttpResponse(
       request: request,
       handshake: handshake,
-      response: NativeHttpResponse(
+      response: _mcpJsonRpcHttpError(
         status: HttpStatus.internalServerError,
-        body: NativeHttpResponseJson(const <String, Object?>{
-          'jsonrpc': '2.0',
-          'id': null,
-          'error': {
-            'code': mcp.McpErrorCodes.internalError,
-            'message': 'MCP route has no resolved WAMP realm',
-          },
-        }),
-      ),
-    );
-    return;
-  }
-
-  final Object? rawMessage;
-  try {
-    rawMessage = jsonDecode(utf8.decode(request.body));
-  } on FormatException {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: NativeHttpResponse(
-        status: HttpStatus.badRequest,
-        body: NativeHttpResponseJson(
-          mcp.JsonRpcResponse.error(
-            null,
-            mcp.McpException(
-              mcp.McpErrorCodes.parseError,
-              'Invalid JSON-RPC message',
-            ),
-          ).toJson(),
-        ),
+        code: mcp.McpErrorCodes.internalError,
+        message: 'MCP route has no resolved WAMP realm',
+        sessionId: mcpSessionId,
       ),
     );
     return;
@@ -93,9 +328,12 @@ Future<void> _handleMcpHttpRequestForBinding(
           handshake: handshake,
           response: NativeHttpResponse(
             status: HttpStatus.unauthorized,
-            headers: binding._httpUnauthorizedHeaders(
-              realm: resolvedRealmUri,
-              authPath: binding._httpAuthPathFor(listenerSettings?.http),
+            headers: _mcpHttpResponseHeaders(
+              sessionId: mcpSessionId,
+              extra: binding._httpUnauthorizedHeaders(
+                realm: resolvedRealmUri,
+                authPath: binding._httpAuthPathFor(listenerSettings?.http),
+              ),
             ),
             body: NativeHttpResponseJson(<String, Object?>{
               'status': 'error',
@@ -126,9 +364,12 @@ Future<void> _handleMcpHttpRequestForBinding(
       handshake: handshake,
       response: NativeHttpResponse(
         status: HttpStatus.unauthorized,
-        headers: binding._httpUnauthorizedHeaders(
-          realm: resolvedRealmUri,
-          authPath: binding._httpAuthPathFor(listenerSettings?.http),
+        headers: _mcpHttpResponseHeaders(
+          sessionId: mcpSessionId,
+          extra: binding._httpUnauthorizedHeaders(
+            realm: resolvedRealmUri,
+            authPath: binding._httpAuthPathFor(listenerSettings?.http),
+          ),
         ),
         body: NativeHttpResponseJson(<String, Object?>{
           'status': 'error',
@@ -140,11 +381,101 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  if (httpMethod == 'DELETE') {
+    if (mcpSessionId == null) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.badRequest,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'MCP DELETE requests require an MCP-Session-Id header',
+        ),
+      );
+      return;
+    }
+    final removed = binding._removeMcpEndpointForRoute(
+      request: request,
+      route: route,
+      session: session,
+      mcpSessionId: mcpSessionId,
+    );
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: removed == null
+          ? _mcpJsonRpcHttpError(
+              status: HttpStatus.notFound,
+              code: mcp.McpErrorCodes.invalidRequest,
+              message: 'Unknown MCP HTTP session',
+              sessionId: mcpSessionId,
+            )
+          : NativeHttpResponse(
+              status: HttpStatus.accepted,
+              headers: _mcpHttpResponseHeaders(
+                json: false,
+                sessionId: mcpSessionId,
+              ),
+              body: NativeHttpResponseText(''),
+            ),
+    );
+    return;
+  }
+
+  final Object? rawMessage;
+  try {
+    rawMessage = jsonDecode(utf8.decode(request.body));
+  } on FormatException {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.badRequest,
+        headers: _mcpHttpResponseHeaders(sessionId: mcpSessionId),
+        body: NativeHttpResponseJson(
+          mcp.JsonRpcResponse.error(
+            null,
+            mcp.McpException(
+              mcp.McpErrorCodes.parseError,
+              'Invalid JSON-RPC message',
+            ),
+          ).toJson(),
+        ),
+      ),
+    );
+    return;
+  }
+
+  final requestMethod = _mcpRequestMethod(rawMessage);
+  final isInitialize = requestMethod == 'initialize';
+  final issuedSessionId =
+      mcpSessionId == null &&
+          isInitialize &&
+          _mcpAcceptRequestsStreamableHttpSession(binding, request)
+      ? _mcpGenerateHttpSessionId()
+      : null;
+  final effectiveMcpSessionId = mcpSessionId ?? issuedSessionId;
   final endpoint = binding._mcpEndpointForRoute(
     request: request,
     route: route,
     session: session,
+    mcpSessionId: effectiveMcpSessionId,
+    create: isInitialize || mcpSessionId == null,
   );
+  if (endpoint == null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.notFound,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'Unknown MCP HTTP session',
+        sessionId: mcpSessionId,
+      ),
+    );
+    return;
+  }
+
   final response = await endpoint.handleMessage(rawMessage);
   await binding._sendImmediateHttpResponse(
     request: request,
@@ -152,32 +483,75 @@ Future<void> _handleMcpHttpRequestForBinding(
     response: response == null
         ? NativeHttpResponse(
             status: HttpStatus.accepted,
+            headers: _mcpHttpResponseHeaders(
+              json: false,
+              sessionId: effectiveMcpSessionId,
+            ),
             body: NativeHttpResponseText(''),
           )
         : NativeHttpResponse(
             status: HttpStatus.ok,
+            headers: _mcpHttpResponseHeaders(sessionId: effectiveMcpSessionId),
             body: NativeHttpResponseJson(response),
           ),
   );
 }
 
 extension _RouterBindingMcp on RouterBinding {
-  _RouterMcpEndpoint _mcpEndpointForRoute({
+  String _mcpEndpointKeyForRoute({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
     required RouterSession session,
+    String? mcpSessionId,
   }) {
     final routeKey = route.match.path ?? route.match.prefix ?? request.path;
-    final key = [
+    return [
       request.listenerId,
       routeKey,
       session.cacheKey ?? session.realmUri,
       session.sessionId,
+      mcpSessionId ?? 'legacy',
     ].join(':');
+  }
+
+  _RouterMcpEndpoint? _mcpEndpointForRoute({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required RouterSession session,
+    String? mcpSessionId,
+    bool create = true,
+  }) {
+    final key = _mcpEndpointKeyForRoute(
+      request: request,
+      route: route,
+      session: session,
+      mcpSessionId: mcpSessionId,
+    );
+    if (!create) {
+      return _mcpEndpoints[key];
+    }
     return _mcpEndpoints.putIfAbsent(
       key,
       () => _RouterMcpEndpoint(binding: this, route: route, session: session),
     );
+  }
+
+  _RouterMcpEndpoint? _removeMcpEndpointForRoute({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required RouterSession session,
+    required String mcpSessionId,
+  }) {
+    final endpoint = _mcpEndpoints.remove(
+      _mcpEndpointKeyForRoute(
+        request: request,
+        route: route,
+        session: session,
+        mcpSessionId: mcpSessionId,
+      ),
+    );
+    endpoint?.dispose();
+    return endpoint;
   }
 }
 

@@ -993,6 +993,122 @@ void main() {
       expect(exact, isNotEmpty);
     }, skip: skipReason);
 
+    test('guards MCP Streamable HTTP ingress and sessions', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9114,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(enableHttp3: false, enableMcp: true),
+      );
+      addTearDown(harness.dispose);
+
+      final listener = harness.binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+
+      final get = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {HttpHeaders.acceptHeader: 'text/event-stream'},
+      );
+      expect(get.statusCode, equals(HttpStatus.methodNotAllowed));
+      expect(get.headers[HttpHeaders.allowHeader], contains('POST'));
+
+      final payload = <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'init',
+        'method': 'initialize',
+        'params': {'protocolVersion': '2025-11-25'},
+      };
+
+      final invalidOrigin = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        payload,
+        headers: {
+          'origin': 'https://attacker.example',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        },
+      );
+      expect(invalidOrigin.statusCode, equals(HttpStatus.forbidden));
+      expect(
+        jsonEncode(invalidOrigin.json?['error']),
+        contains('Invalid Origin'),
+      );
+
+      final invalidAccept = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        payload,
+        headers: {HttpHeaders.acceptHeader: 'text/plain'},
+      );
+      expect(invalidAccept.statusCode, equals(HttpStatus.notAcceptable));
+
+      final invalidVersion = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        payload,
+        headers: {'MCP-Protocol-Version': '2099-01-01'},
+      );
+      expect(invalidVersion.statusCode, equals(HttpStatus.badRequest));
+
+      final initialize = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        payload,
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        },
+      );
+      expect(initialize.statusCode, equals(HttpStatus.ok));
+      final mcpSessionId = initialize.headers['mcp-session-id'];
+      expect(mcpSessionId, isNotNull);
+      expect(mcpSessionId, isNotEmpty);
+      expect(initialize.headers['mcp-protocol-version'], equals('2025-11-25'));
+
+      final sessionHeaders = <String, String>{
+        'MCP-Session-Id': mcpSessionId!,
+        'MCP-Protocol-Version': '2025-11-25',
+        HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+      };
+      final initialized = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': {},
+      }, headers: sessionHeaders);
+      expect(initialized.statusCode, equals(HttpStatus.accepted));
+
+      final unknownSession = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'id': 'tools', 'method': 'tools/list', 'params': {}},
+        headers: {...sessionHeaders, 'MCP-Session-Id': 'unknown-session'},
+      );
+      expect(unknownSession.statusCode, equals(HttpStatus.notFound));
+
+      final delete = await _deleteHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: sessionHeaders,
+      );
+      expect(delete.statusCode, equals(HttpStatus.accepted));
+
+      final afterDelete = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'tools-after-delete',
+        'method': 'tools/list',
+        'params': {},
+      }, headers: sessionHeaders);
+      expect(afterDelete.statusCode, equals(HttpStatus.notFound));
+    }, skip: skipReason);
+
     test(
       'does not run anonymous MCP calls as a privileged realm session',
       () async {
@@ -2948,7 +3064,15 @@ Future<String> _readHttpResponse(Socket socket) async {
   return utf8.decode(collected);
 }
 
-Future<({int statusCode, Map<String, Object?>? json, String body})> _postJson(
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
+_postJson(
   HttpClient client,
   int port,
   String path,
@@ -2961,7 +3085,56 @@ Future<({int statusCode, Map<String, Object?>? json, String body})> _postJson(
   final bodyBytes = utf8.encode(jsonEncode(payload));
   request.contentLength = bodyBytes.length;
   request.add(bodyBytes);
-  final response = await request.close();
+  return _readJsonHttpResponse(await request.close());
+}
+
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
+_getHttp(
+  HttpClient client,
+  int port,
+  String path, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final request = await client.get('127.0.0.1', port, path);
+  headers.forEach(request.headers.set);
+  return _readJsonHttpResponse(await request.close());
+}
+
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
+_deleteHttp(
+  HttpClient client,
+  int port,
+  String path, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final request = await client.delete('127.0.0.1', port, path);
+  headers.forEach(request.headers.set);
+  return _readJsonHttpResponse(await request.close());
+}
+
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
+_readJsonHttpResponse(HttpClientResponse response) async {
   final body = await utf8.decoder.bind(response).join();
   Object? decoded;
   if (body.isNotEmpty) {
@@ -2975,7 +3148,16 @@ Future<({int statusCode, Map<String, Object?>? json, String body})> _postJson(
     statusCode: response.statusCode,
     json: decoded is Map ? decoded.cast<String, Object?>() : null,
     body: body,
+    headers: _httpResponseHeaders(response),
   );
+}
+
+Map<String, String> _httpResponseHeaders(HttpClientResponse response) {
+  final headers = <String, String>{};
+  response.headers.forEach((name, values) {
+    headers[name.toLowerCase()] = values.join(', ');
+  });
+  return headers;
 }
 
 Future<void> _initializeMcp(
