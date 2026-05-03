@@ -50,6 +50,16 @@ resume cursors, and session deletion.
   and `git diff --check`.
 - 2026-05-03: Full local `bin/verify` passed after the Streamable HTTP client
   implementation, router smoke coverage, and roadmap/project-state updates.
+- 2026-05-03: Pushed commit `9906d69`
+  (`mcp: add streamable http client`) to GitLab and GitHub. Hosted GitHub
+  evidence is clean: `CI` run `25282247750` completed successfully with
+  `Fast Checks` in 5m40s and `Full Verify` in 8m30s, hosted CI log scan found
+  no warning, deprecation, skipped-test, reset, connection-noise, panic, or
+  failure patterns, `WAMP Profile Benchmarks` run `25282247769` completed
+  successfully in 8m01s, `Dart Package Publish Dry Run` run `25282247767`
+  completed successfully and covers the checked-out head, and Native Artifacts
+  dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -62,5 +72,5 @@ resume cursors, and session deletion.
 
 ## Handoff
 
-Complete locally. Push the implementation checkpoint and inspect GitHub Actions
-because this is a code/API and router-test change.
+Complete. Remaining MCP work should be driven by concrete consumer integration
+gaps after this router-hosted endpoint and Dart IO Streamable HTTP client path.

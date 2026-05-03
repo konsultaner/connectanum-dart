@@ -1689,6 +1689,55 @@ void main() {
         equals('T-3'),
       );
 
+      final secureStreamableClient = McpStreamableHttpClient(
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/secure',
+        ),
+        headers: authHeaders,
+      );
+      addTearDown(() => secureStreamableClient.close(force: true));
+
+      final secureStreamableInitialize = await secureStreamableClient
+          .initialize();
+      expect(secureStreamableInitialize['id'], equals('initialize'));
+      expect(secureStreamableClient.sessionId, isNotNull);
+      await secureStreamableClient.notifyInitialized();
+
+      final secureStreamableTools = await secureStreamableClient.request(
+        'tools/list',
+        id: 'secure-streamable-tools',
+      );
+      final secureStreamableToolsResult =
+          (secureStreamableTools['result'] as Map).cast<String, Object?>();
+      final secureStreamableToolNames = {
+        for (final tool in secureStreamableToolsResult['tools'] as List)
+          (tool as Map)['name'] as String,
+      };
+      expect(secureStreamableToolNames, contains('app.safe.lookup'));
+      expect(secureStreamableToolNames, contains('app.unsafe.delete'));
+
+      final secureStreamableUnsafe = await secureStreamableClient.request(
+        'tools/call',
+        id: 'secure-streamable-unsafe',
+        params: {
+          'name': 'app.unsafe.delete',
+          'arguments': {'taskId': 'T-secure-streamable'},
+        },
+      );
+      final secureStreamableUnsafeResult =
+          (secureStreamableUnsafe['result'] as Map).cast<String, Object?>();
+      expect(secureStreamableUnsafeResult['isError'], isFalse);
+      expect(
+        ((secureStreamableUnsafeResult['structuredContent']
+                as Map)['argumentsKeywords']
+            as Map)['deleted'],
+        equals('T-secure-streamable'),
+      );
+      expect(secureStreamableClient.lastEventId, isNotNull);
+
       await _initializeMcp(
         client,
         listener.port,

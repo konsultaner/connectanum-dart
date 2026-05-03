@@ -2,13 +2,16 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable HTTP client implementation
-checkpoint (`mcp: add streamable http client`)
-Last reviewed implementation commit: MCP Streamable HTTP client implementation
-checkpoint (`mcp: add streamable http client`)
+Last reviewed branch checkpoint: working tree MCP authenticated Streamable HTTP
+router smoke after `9906d69` (`mcp: add streamable http client`)
+Last reviewed implementation commit: working tree MCP authenticated Streamable
+HTTP router smoke after `9906d69` (`mcp: add streamable http client`)
 Active exec plan:
+`docs/exec-plans/2026-05-03-mcp-authenticated-streamable-smoke.md`
+(complete locally; hosted evidence pending). The MCP Streamable HTTP client
+plan is complete:
 `docs/exec-plans/2026-05-03-mcp-streamable-http-client.md`
-(complete locally; pending hosted evidence). The router MCP POST/SSE response
+(complete; hosted evidence clean). The router MCP POST/SSE response
 plan is complete:
 `docs/exec-plans/2026-05-03-router-mcp-post-sse-responses.md`
 (complete; hosted evidence clean). The router MCP SSE resumability plan is complete:
@@ -31,30 +34,40 @@ starting another feature or benchmark slice.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP Streamable HTTP consumer readiness is complete locally after the
-    router-hosted MCP POST/SSE response work. `packages/connectanum_mcp` now
+  - MCP Streamable HTTP consumer readiness is being tightened with
+    authenticated router-hosted smoke coverage. `packages/connectanum_mcp` now
     provides an IO-only `connectanum_mcp_io.dart` entrypoint with
     `McpStreamableHttpClient`, SSE event parsing, explicit MCP session/header
     tracking, JSON-only request compatibility, GET/SSE polling with resume
     cursors, session deletion, custom HTTP headers for authenticated routes,
     typed HTTP failures, and explicit `Content-Length` JSON request bodies for
     native router compatibility. The router-native MCP smoke test now uses the
-    new client against a real router-hosted MCP route to initialize a
-    Streamable HTTP session, receive POST/SSE tool responses, and call a
-    router-backed tool
+    client against both public and protected router-hosted MCP routes to
+    initialize Streamable HTTP sessions, receive POST/SSE tool responses,
+    list safe and unsafe protected tools with bearer auth, call protected
+    unsafe router-backed tools, and track session/event ids
   - focused checks passed for the MCP Streamable HTTP client slice:
     `dart analyze packages/connectanum_mcp packages/connectanum_router`,
     `dart test packages/connectanum_mcp -r expanded`,
     `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
     and `git diff --check`
-  - full local `bin/verify` passed on 2026-05-03 after the MCP Streamable HTTP
-    client implementation, router smoke coverage, and roadmap/project-state
-    updates; it included formatting, Rust native/FFI tests, Python
-    package-artifact checks, MCP package tests including the new Streamable
-    HTTP client tests, client/native tests, auth-server tests, bench
-    integration tests, the full router package tests including the updated MCP
-    router-hosted smoke, zero-copy router checks, and Chrome Dart2Wasm
-    WebSocket transport tests
+  - full local `bin/verify` passed on 2026-05-03 after the authenticated
+    Streamable HTTP router smoke addition and project-state updates; it
+    included formatting, Rust native/FFI tests, Python package-artifact checks,
+    MCP package tests including the Streamable HTTP client tests,
+    client/native tests, auth-server tests, bench integration tests, the full
+    router package tests including the updated protected MCP router-hosted
+    smoke, zero-copy router checks, and Chrome Dart2Wasm WebSocket transport
+    tests
+  - hosted GitHub evidence for `9906d69` is clean: `CI` run `25282247750`
+    completed successfully with `Fast Checks` in 5m40s and `Full Verify` in
+    8m30s, the hosted CI log scan found no warning, deprecation, skipped-test,
+    reset, connection-noise, panic, or failure patterns, `WAMP Profile
+    Benchmarks` run `25282247769` completed successfully in 8m01s, `Dart
+    Package Publish Dry Run` run `25282247767` completed successfully and
+    covers the checked-out head, and Native Artifacts dry-run `25192553399`
+    remains clean and relevant because no native-release-sensitive paths
+    changed
   - router-hosted MCP POST/SSE response streams are complete and pushed as
     `a84dcea` after the hosted deployment-chain evidence for the previous MCP
     SSE resumability commit was clean and a fresh pre-change `bin/test-fast`
