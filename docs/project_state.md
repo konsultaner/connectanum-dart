@@ -2,10 +2,10 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `4d633d6`
-(`docs: close process metrics plan`)
-Last reviewed implementation commit: `02748b2`
-(`router: expose process metrics`)
+Last reviewed branch checkpoint: `b6dcfb1`
+(`router: redact metrics auth token`)
+Last reviewed implementation commit: `b6dcfb1`
+(`router: redact metrics auth token`)
 Active exec plan:
 None. The metrics secret-redaction plan is complete:
 `docs/exec-plans/2026-05-03-metrics-secret-redaction.md`.
@@ -25,13 +25,28 @@ starting another feature or benchmark slice.
     because the remaining RC blockers require operator/release decisions; every
     continuation should still re-audit the branch head before starting another
     feature or benchmark slice.
-  - metrics secret-redaction hardening is complete locally: the router metrics
-    snapshot now redacts configured OpenMetrics bearer tokens from exporter
-    metadata and exposes only a non-secret `auth_required` flag; a fail-first
-    regression reproduced the leak, focused metrics/analyzer checks passed
-    locally, and full local `bin/verify` passed after the implementation and
-    docs updates
-  - OpenMetrics scrape timeout hardening is complete locally:
+  - latest branch-head GitHub `CI` evidence is implementation checkpoint
+    `b6dcfb1`: run `25274832528` completed successfully on 2026-05-03 with
+    `Fast Checks` and `Full Verify` both green
+  - latest branch-head `WAMP Profile Benchmarks` evidence is run
+    `25274832544`, completed successfully on 2026-05-03 for `b6dcfb1`
+  - latest branch-head `Dart Package Publish Dry Run` evidence is run
+    `25274832546`, completed successfully on 2026-05-03 for `b6dcfb1`
+  - branch-head deployment-chain audit passed on 2026-05-03 against `b6dcfb1`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; the hosted CI log scan found no
+    warning, deprecation, skipped-test, reset, connection-noise, panic, or
+    failure patterns, Dart package dry-run `25274832546` covers the checked-out
+    head, and native release dry-run `25192553399` remains clean/relevant
+    because no native-release-sensitive inputs changed
+  - metrics secret-redaction hardening is complete and pushed as `b6dcfb1`: the
+    router metrics snapshot now redacts configured OpenMetrics bearer tokens
+    from exporter metadata and exposes only a non-secret `auth_required` flag;
+    a fail-first regression reproduced the leak, focused metrics/analyzer checks
+    passed locally, and full local `bin/verify` passed after the implementation
+    and docs updates
+  - OpenMetrics scrape timeout hardening is complete and pushed as `2942a22`:
     `open_metrics.collection_timeout_ms` now bounds `/metrics` collection and
     the internal `connectanum.metrics.openmetrics` RPC path; timed-out HTTP
     scrapes return `503`, and timed-out internal RPCs use the existing WAMP
