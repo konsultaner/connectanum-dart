@@ -1473,6 +1473,9 @@ class _RouterMcpEndpoint {
     }
     final snapshot = await _snapshot();
     final visibleSessions = _visibleMetaSessions(snapshot.sessions);
+    final visibleSessionIds = {
+      for (final session in visibleSessions) session.id,
+    };
     final visibleRegistrations = await _visibleMetaRegistrations(
       snapshot.registrations,
     );
@@ -1545,19 +1548,25 @@ class _RouterMcpEndpoint {
           visibleRegistrations,
           _firstIntArgument(call),
         );
+        final visibleCallees = [
+          for (final callee
+              in registration?.callees ?? const <RegistrationRecord>[])
+            if (visibleSessionIds.contains(callee.sessionId)) callee,
+        ];
         return _resultPayload(
-          arguments: [
-            for (final callee
-                in registration?.callees ?? const <RegistrationRecord>[])
-              callee.sessionId,
-          ],
+          arguments: [for (final callee in visibleCallees) callee.sessionId],
         );
       case 'wamp.registration.count_callees':
         final registration = _registrationById(
           visibleRegistrations,
           _firstIntArgument(call),
         );
-        return _resultPayload(arguments: [registration?.callees.length ?? 0]);
+        final visibleCallees = [
+          for (final callee
+              in registration?.callees ?? const <RegistrationRecord>[])
+            if (visibleSessionIds.contains(callee.sessionId)) callee,
+        ];
+        return _resultPayload(arguments: [visibleCallees.length]);
       case 'wamp.subscription.list':
         return _resultPayload(
           argumentsKeywords: _idsBySubscriptionMatchPolicy(
@@ -1603,11 +1612,14 @@ class _RouterMcpEndpoint {
           visibleSubscriptions,
           _firstIntArgument(call),
         );
+        final visibleSubscribers = [
+          for (final subscriber
+              in subscription?.subscribers ?? const <SubscriberRecord>[])
+            if (visibleSessionIds.contains(subscriber.sessionId)) subscriber,
+        ];
         return _resultPayload(
           arguments: [
-            for (final subscriber
-                in subscription?.subscribers ?? const <SubscriberRecord>[])
-              subscriber.sessionId,
+            for (final subscriber in visibleSubscribers) subscriber.sessionId,
           ],
         );
       case 'wamp.subscription.count_subscribers':
@@ -1615,9 +1627,12 @@ class _RouterMcpEndpoint {
           visibleSubscriptions,
           _firstIntArgument(call),
         );
-        return _resultPayload(
-          arguments: [subscription?.subscribers.length ?? 0],
-        );
+        final visibleSubscribers = [
+          for (final subscriber
+              in subscription?.subscribers ?? const <SubscriberRecord>[])
+            if (visibleSessionIds.contains(subscriber.sessionId)) subscriber,
+        ];
+        return _resultPayload(arguments: [visibleSubscribers.length]);
       default:
         return null;
     }

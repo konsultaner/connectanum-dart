@@ -15,7 +15,7 @@ resume cursors, and session deletion.
 ## Scope
 
 - Keep the existing universal `connectanum_mcp.dart` export free of `dart:io`.
-- Add an IO-only `connectanum_mcp_io.dart` entrypoint for Streamable HTTP.
+- Add an IO-only WAMP-client-owned entrypoint for Streamable HTTP consumers.
 - Support custom request headers so authenticated router MCP routes can be used
   with bearer tokens or other deployment-specific HTTP auth.
 - Parse SSE event IDs, event names, retry hints, empty primer events, and JSON
@@ -38,11 +38,14 @@ resume cursors, and session deletion.
 
 - 2026-05-03: Started after branch-head hosted deployment evidence for
   `a84dcea` was clean and a fresh pre-change `bin/test-fast` passed locally.
-- 2026-05-03: Added `connectanum_mcp_io.dart`,
-  `McpStreamableHttpClient`, SSE parsing, typed HTTP exceptions, package-level
-  fake-endpoint coverage, and a real router-hosted MCP smoke assertion that
-  initializes a Streamable HTTP session, receives POST/SSE tool responses, and
-  calls a router-backed tool through the new client.
+- 2026-05-03: Added `McpStreamableHttpClient`, SSE parsing, typed HTTP
+  exceptions, package-level fake-endpoint coverage, and a real router-hosted
+  MCP smoke assertion that initializes a Streamable HTTP session, receives
+  POST/SSE tool responses, and calls a router-backed tool through the new
+  client.
+- 2026-05-03: Follow-up package-boundary review moved the implementation and
+  package-level fake-endpoint coverage to `packages/connectanum_client`, with
+  the public consumer entrypoint at `package:connectanum_client/mcp.dart`.
 - 2026-05-03: Focused checks passed:
   `dart analyze packages/connectanum_mcp packages/connectanum_router`,
   `dart test packages/connectanum_mcp -r expanded`,
@@ -63,9 +66,13 @@ resume cursors, and session deletion.
 
 ## Decision Log
 
-- 2026-05-03: Use a separate `connectanum_mcp_io.dart` entrypoint so adding
-  `dart:io` transport support does not make the main MCP primitives library
-  unusable for non-IO targets.
+- 2026-05-03: Keep `dart:io` Streamable HTTP support out of the universal
+  `connectanum_mcp.dart` primitives export so the main MCP library remains
+  usable for non-IO targets.
+- 2026-05-03: Own the Streamable HTTP client helper from
+  `packages/connectanum_client` because it is a consumer/client session helper
+  for router-hosted MCP endpoints, while `packages/connectanum_mcp` remains the
+  MCP protocol/server primitives package.
 - 2026-05-03: Send explicit `Content-Length` JSON request bodies instead of
   chunked transfer encoding because the native router-hosted HTTP ingress
   rejects chunked MCP request bodies.

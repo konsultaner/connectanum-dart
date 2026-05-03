@@ -2,15 +2,20 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP Streamable HTTP client layout
-move after `0847a54` (`mcp: scope direct json session meta`)
-Last reviewed implementation commit: working tree MCP Streamable HTTP client
-layout move after `0847a54` (`mcp: scope direct json session meta`)
+Last reviewed branch checkpoint: working tree MCP participant meta scope and
+Streamable HTTP client package ownership move after `8cefc81`
+(`mcp: move streamable http client out of transport`)
+Last reviewed implementation commit: working tree MCP participant meta scope
+and Streamable HTTP client package ownership move after `8cefc81`
+(`mcp: move streamable http client out of transport`)
 Active exec plan:
+`docs/exec-plans/2026-05-03-mcp-participant-meta-scope.md`
+(locally complete; hosted evidence pending). Latest completed
+exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-session-meta-scope.md`
-(locally complete; hosted evidence pending). Latest completed exec plan:
-`docs/exec-plans/2026-05-03-mcp-direct-json-subscription-meta-smoke.md`
 (complete; hosted evidence clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-03-mcp-direct-json-subscription-meta-smoke.md`
+(complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-meta-api-smoke.md`
 (complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-streamable-protected-pubsub-smoke.md`
@@ -46,13 +51,15 @@ order.
 
 - Current autonomous focus:
   - MCP Streamable HTTP consumer readiness is being tightened with
-    authenticated router-hosted smoke coverage. `packages/connectanum_mcp` now
-    provides an IO-only `connectanum_mcp_io.dart` entrypoint with
+    authenticated router-hosted smoke coverage. `packages/connectanum_client`
+    now owns the IO-only `package:connectanum_client/mcp.dart` entrypoint with
     `McpStreamableHttpClient`, SSE event parsing, explicit MCP session/header
     tracking, JSON-only request compatibility, GET/SSE polling with resume
     cursors, session deletion, custom HTTP headers for authenticated routes,
     typed HTTP failures, and explicit `Content-Length` JSON request bodies for
-    native router compatibility. The router-native MCP smoke test now uses the
+    native router compatibility; `connectanum_mcp_io.dart` re-exports the
+    client entrypoint only as a compatibility bridge. The router-native MCP
+    smoke test now uses the
     client against both public and protected router-hosted MCP routes to
     initialize Streamable HTTP sessions, receive POST/SSE tool responses,
     list safe and unsafe protected tools with bearer auth, call protected
@@ -151,24 +158,45 @@ order.
     `25288536165` completed successfully and covers the checked-out head, and
     Native Artifacts dry-run `25192553399` remains clean and relevant because
     no native-release-sensitive paths changed
-  - current working tree scopes router-hosted MCP direct JSON session meta
+  - branch head `8cefc81` scopes router-hosted MCP direct JSON session meta
     (`wamp.session.count`, `wamp.session.list`, and `wamp.session.get`) to the
     MCP route's own internal session, so anonymous and bearer-authenticated
     routes can inspect their own route-principal details but cannot read the
     service/internal session used by the fixture
-  - current working tree also moves the IO-only `McpStreamableHttpClient`
-    implementation from `packages/connectanum_mcp/lib/src/transport/` to
-    `packages/connectanum_mcp/lib/src/client/`; `connectanum_mcp_io.dart`
-    remains the public export, while `src/transport/` stays reserved for real
-    transport adapters rather than high-level MCP client/session helpers
+  - branch head `8cefc81` moved the IO-only `McpStreamableHttpClient`
+    implementation out of `packages/connectanum_mcp/lib/src/transport/` so
+    `src/transport/` stays reserved for real transport adapters rather than
+    high-level MCP client/session helpers
+  - current package-boundary move relocates that implementation and its
+    package-level tests to `packages/connectanum_client`, exports it from
+    `package:connectanum_client/mcp.dart`, and updates router MCP smoke tests
+    to import the WAMP-client-owned entrypoint directly. `bin/test-fast` and
+    `bin/test-all` now run `packages/connectanum_client/test/mcp` so the moved
+    Streamable HTTP client coverage remains in the canonical gates.
+  - current working tree also scopes route-hosted MCP participant meta:
+    `wamp.registration.list_callees`,
+    `wamp.registration.count_callees`,
+    `wamp.subscription.list_subscribers`, and
+    `wamp.subscription.count_subscribers` now filter attached participant ids
+    through the route's visible session set. The native MCP smoke fixture
+    registers service-side callees/subscribers and verifies public plus bearer
+    routes do not expose the service/internal session id through those meta
+    calls.
+  - full local `bin/verify` passed on 2026-05-03 after the participant meta
+    scope and `connectanum_client` MCP entrypoint move; it included formatting,
+    Rust native/FFI tests, Python package-artifact checks, MCP package tests,
+    client tests including `packages/connectanum_client/test/mcp`, auth-server
+    tests, bench integration tests, the full router package tests including the
+    updated participant meta smoke, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests
   - pre-change `bin/test-fast` passed on 2026-05-03 before the direct JSON
     session meta scoping edits
   - focused checks passed for the direct JSON session meta scope slice:
     targeted native MCP smoke,
-    `dart analyze packages/connectanum_mcp packages/connectanum_router`,
-    `dart test packages/connectanum_mcp/test/streamable_http_client_test.dart -r expanded`,
+    `dart analyze packages/connectanum_client packages/connectanum_mcp packages/connectanum_router`,
+    `dart test packages/connectanum_client/test/mcp -r expanded`,
     `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
-    and `git diff --check`
+    `bash -n bin/test-fast bin/test-all`, and `git diff --check`
   - full local `bin/verify` passed on 2026-05-03 after the direct JSON session
     meta scope implementation and project-state updates; it included
     formatting, Rust native/FFI tests, Python package-artifact checks, MCP
@@ -176,6 +204,15 @@ order.
     tests, the full router package tests including the updated session meta
     scope smoke and `remote_auth_integration_test`, zero-copy router checks,
     and Chrome Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `8cefc81` is clean: `CI` run `25289506131`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `Dart Package Publish Dry
+    Run` run `25289506140` completed successfully and covers the checked-out
+    head, `WAMP Profile Benchmarks` run `25289422163` completed successfully
+    for the preceding MCP session-meta commit that triggered the WAMP gate, and
+    Native Artifacts dry-run `25192553399` remains clean and relevant because
+    no native-release-sensitive paths changed
   - pre-change `bin/test-fast` passed on 2026-05-03 before the protected
     pub/sub smoke edits
   - focused checks passed for the protected pub/sub smoke slice:

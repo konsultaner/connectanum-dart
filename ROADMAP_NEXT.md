@@ -28,7 +28,7 @@ Fresh state:
   `HttpRouteActionType.mcp` reuses the router internal WAMP session, exposes
   exact registrations and WAMP meta API tools, and provides pub/sub helpers
   over JSON-RPC `POST`. Dart IO consumers can also use
-  `package:connectanum_mcp/connectanum_mcp_io.dart` to negotiate Streamable
+  `package:connectanum_client/mcp.dart` to negotiate Streamable
   HTTP sessions, send authenticated JSON-RPC requests, consume POST/SSE
   responses, poll GET/SSE events with resume cursors, and delete sessions.
 - WAMP-profile transport performance readiness is also complete: the canonical

@@ -11,8 +11,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
 
+import 'package:connectanum_client/mcp.dart';
 import 'package:connectanum_core/connectanum_core.dart' as core;
-import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_router/src/native/ffi_bindings.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
@@ -1401,6 +1401,8 @@ void main() {
           },
         );
       });
+      await serviceSession.subscribe('app.events.audit');
+      await serviceSession.subscribe('app.secure.audit');
 
       final listener = binding.listeners.single;
       final client = HttpClient();
@@ -1464,6 +1466,54 @@ void main() {
                   as Map<String, Object?>)['arguments']
               as List;
       expect(directPublicSafeRegistrationIds, isNotEmpty);
+      final directPublicSafeRegistrationId =
+          directPublicSafeRegistrationIds.single as int;
+
+      final directPublicSafeRegistrationGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.get',
+        {'id': directPublicSafeRegistrationId},
+      );
+      final directPublicSafeRegistrationDetails =
+          (directPublicSafeRegistrationGet['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(
+        directPublicSafeRegistrationDetails,
+        containsPair('uri', 'app.safe.lookup'),
+      );
+
+      final directPublicSafeRegistrationCallees = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.list_callees',
+        {'id': directPublicSafeRegistrationId},
+      );
+      final directPublicSafeCalleeIds =
+          (directPublicSafeRegistrationCallees['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directPublicSafeCalleeIds, isEmpty);
+      expect(
+        directPublicSafeCalleeIds,
+        isNot(contains(serviceSession.sessionId)),
+      );
+
+      final directPublicSafeCalleeCount = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.count_callees',
+        {'id': directPublicSafeRegistrationId},
+      );
+      expect(
+        (directPublicSafeCalleeCount['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        equals([0]),
+      );
 
       final directPublicUnsafeRegistration = await _callRouterJsonMethod(
         client,
@@ -1729,6 +1779,56 @@ void main() {
                   as Map<String, Object?>)['arguments']
               as List;
       expect(directPublicSubscriptionLookupIds, isNotEmpty);
+      final directPublicSubscriptionId =
+          directPublicSubscriptionLookupIds.single as int;
+
+      final directPublicSubscriptionGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.get',
+        {'id': directPublicSubscriptionId},
+      );
+      final directPublicSubscriptionDetails =
+          (directPublicSubscriptionGet['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(
+        directPublicSubscriptionDetails,
+        containsPair('uri', 'app.events.audit'),
+      );
+
+      final directPublicSubscriptionSubscribers = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.list_subscribers',
+        {'id': directPublicSubscriptionId},
+      );
+      final directPublicSubscriberIds =
+          (directPublicSubscriptionSubscribers['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directPublicSubscriberIds, contains(directPublicSessionId));
+      expect(
+        directPublicSubscriberIds,
+        isNot(contains(serviceSession.sessionId)),
+      );
+      expect(directPublicSubscriberIds, hasLength(1));
+
+      final directPublicSubscriptionSubscriberCount =
+          await _callRouterJsonMethod(
+            client,
+            listener.port,
+            '/mcp/public',
+            'wamp.subscription.count_subscribers',
+            {'id': directPublicSubscriptionId},
+          );
+      expect(
+        (directPublicSubscriptionSubscriberCount['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        equals([1]),
+      );
 
       final directPubSubPublish = await _callRouterJsonMethod(
         client,
@@ -1990,6 +2090,57 @@ void main() {
                   as Map<String, Object?>)['arguments']
               as List;
       expect(directSecureUnsafeRegistrationIds, isNotEmpty);
+      final directSecureUnsafeRegistrationId =
+          directSecureUnsafeRegistrationIds.single as int;
+
+      final directSecureUnsafeRegistrationGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.registration.get',
+        {'id': directSecureUnsafeRegistrationId},
+        headers: authHeaders,
+      );
+      final directSecureUnsafeRegistrationDetails =
+          (directSecureUnsafeRegistrationGet['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(
+        directSecureUnsafeRegistrationDetails,
+        containsPair('uri', 'app.unsafe.delete'),
+      );
+
+      final directSecureUnsafeRegistrationCallees = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.registration.list_callees',
+        {'id': directSecureUnsafeRegistrationId},
+        headers: authHeaders,
+      );
+      final directSecureUnsafeCalleeIds =
+          (directSecureUnsafeRegistrationCallees['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directSecureUnsafeCalleeIds, isEmpty);
+      expect(
+        directSecureUnsafeCalleeIds,
+        isNot(contains(serviceSession.sessionId)),
+      );
+
+      final directSecureUnsafeCalleeCount = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.registration.count_callees',
+        {'id': directSecureUnsafeRegistrationId},
+        headers: authHeaders,
+      );
+      expect(
+        (directSecureUnsafeCalleeCount['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        equals([0]),
+      );
 
       final directSecureSessionList = await _callRouterJsonMethod(
         client,
@@ -2097,6 +2248,59 @@ void main() {
                   as Map<String, Object?>)['arguments']
               as List;
       expect(directSecureSubscriptionMetaIds, isNotEmpty);
+      final directSecureSubscriptionId =
+          directSecureSubscriptionMetaIds.single as int;
+
+      final directSecureSubscriptionGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.subscription.get',
+        {'id': directSecureSubscriptionId},
+        headers: authHeaders,
+      );
+      final directSecureSubscriptionDetails =
+          (directSecureSubscriptionGet['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(
+        directSecureSubscriptionDetails,
+        containsPair('uri', 'app.secure.audit'),
+      );
+
+      final directSecureSubscriptionSubscribers = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.subscription.list_subscribers',
+        {'id': directSecureSubscriptionId},
+        headers: authHeaders,
+      );
+      final directSecureSubscriberIds =
+          (directSecureSubscriptionSubscribers['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directSecureSubscriberIds, contains(directSecureSessionId));
+      expect(
+        directSecureSubscriberIds,
+        isNot(contains(serviceSession.sessionId)),
+      );
+      expect(directSecureSubscriberIds, hasLength(1));
+
+      final directSecureSubscriptionSubscriberCount =
+          await _callRouterJsonMethod(
+            client,
+            listener.port,
+            '/mcp/secure',
+            'wamp.subscription.count_subscribers',
+            {'id': directSecureSubscriptionId},
+            headers: authHeaders,
+          );
+      expect(
+        (directSecureSubscriptionSubscriberCount['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        equals([1]),
+      );
 
       final directSecurePublish = await _callRouterJsonMethod(
         client,

@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import '../protocol/constants.dart';
-import '../protocol/json_rpc.dart';
+typedef McpJsonMap = Map<String, Object?>;
 
 const _acceptJson = 'application/json';
 const _acceptSse = 'text/event-stream';
@@ -17,11 +16,13 @@ const _headerSessionId = 'MCP-Session-Id';
 /// consumer applications can use router-hosted MCP endpoints without
 /// reimplementing the transport/session details.
 final class McpStreamableHttpClient {
+  static const latestProtocolVersion = '2025-11-25';
+
   McpStreamableHttpClient(
     this.endpoint, {
     HttpClient? httpClient,
     this.headers = const <String, String>{},
-    this.defaultProtocolVersion = mcpLatestProtocolVersion,
+    this.defaultProtocolVersion = latestProtocolVersion,
     bool closeHttpClient = false,
   }) : _httpClient = httpClient ?? HttpClient(),
        _ownsHttpClient = httpClient == null || closeHttpClient,
@@ -39,12 +40,12 @@ final class McpStreamableHttpClient {
   String? sessionId;
   String? lastEventId;
 
-  Future<JsonMap> initialize({
+  Future<McpJsonMap> initialize({
     Object? id = 'initialize',
-    JsonMap capabilities = const <String, Object?>{},
-    JsonMap clientInfo = const <String, Object?>{
-      'name': 'connectanum_mcp',
-      'version': '0.1.0',
+    McpJsonMap capabilities = const <String, Object?>{},
+    McpJsonMap clientInfo = const <String, Object?>{
+      'name': 'connectanum_client',
+      'version': '2.2.6',
     },
     String? protocolVersion,
   }) async {
@@ -68,10 +69,10 @@ final class McpStreamableHttpClient {
     await notification('notifications/initialized');
   }
 
-  Future<JsonMap> request(
+  Future<McpJsonMap> request(
     String method, {
     Object? id,
-    JsonMap? params,
+    McpJsonMap? params,
     bool streamable = true,
   }) async {
     final response = await post(<String, Object?>{
@@ -86,7 +87,7 @@ final class McpStreamableHttpClient {
     return response;
   }
 
-  Future<void> notification(String method, {JsonMap? params}) async {
+  Future<void> notification(String method, {McpJsonMap? params}) async {
     await post(<String, Object?>{
       'jsonrpc': '2.0',
       'method': method,
@@ -94,7 +95,7 @@ final class McpStreamableHttpClient {
     });
   }
 
-  Future<JsonMap?> post(JsonMap message, {bool streamable = true}) async {
+  Future<McpJsonMap?> post(McpJsonMap message, {bool streamable = true}) async {
     final request = await _httpClient.postUrl(endpoint);
     _applyHeaders(
       request,
@@ -196,7 +197,7 @@ final class McpStreamableHttpClient {
     }
   }
 
-  JsonMap? _firstJsonEvent(List<McpSseEvent> events) {
+  McpJsonMap? _firstJsonEvent(List<McpSseEvent> events) {
     _captureLastEventId(events);
     for (final event in events) {
       final data = event.jsonData;
@@ -225,7 +226,7 @@ final class McpSseEvent {
   final String data;
   final int? retryMs;
 
-  JsonMap? get jsonData {
+  McpJsonMap? get jsonData {
     if (data.trim().isEmpty) {
       return null;
     }
@@ -244,7 +245,7 @@ final class McpStreamableHttpException implements Exception {
   final int statusCode;
   final String reasonPhrase;
   final String body;
-  final JsonMap? error;
+  final McpJsonMap? error;
 
   @override
   String toString() {
@@ -323,9 +324,9 @@ bool _isSse(HttpClientResponse response) {
   return response.headers.contentType?.mimeType == _acceptSse;
 }
 
-JsonMap _jsonMapFromBody(String body, String label) {
+McpJsonMap _jsonMapFromBody(String body, String label) {
   final decoded = jsonDecode(body);
-  return jsonMapFrom(decoded, label: label);
+  return _jsonMapFrom(decoded, label: label);
 }
 
 void _throwIfHttpError(HttpClientResponse response, String body) {
@@ -333,7 +334,7 @@ void _throwIfHttpError(HttpClientResponse response, String body) {
     return;
   }
 
-  JsonMap? error;
+  McpJsonMap? error;
   if (body.isNotEmpty) {
     try {
       error = _jsonMapFromBody(body, 'HTTP error response');
@@ -347,4 +348,19 @@ void _throwIfHttpError(HttpClientResponse response, String body) {
     body: body,
     error: error,
   );
+}
+
+McpJsonMap _jsonMapFrom(Object? value, {required String label}) {
+  if (value is! Map) {
+    throw FormatException('$label must be a JSON object');
+  }
+  final result = <String, Object?>{};
+  for (final entry in value.entries) {
+    final key = entry.key;
+    if (key is! String) {
+      throw FormatException('$label must contain only string keys');
+    }
+    result[key] = entry.value;
+  }
+  return result;
 }

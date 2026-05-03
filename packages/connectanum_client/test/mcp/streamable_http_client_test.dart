@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:connectanum_mcp/connectanum_mcp_io.dart';
+import 'package:connectanum_client/mcp.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -29,7 +29,10 @@ void main() {
         );
 
         expect(client.sessionId, 'session-1');
-        expect(client.protocolVersion, mcpLatestProtocolVersion);
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
         expect(initialize['id'], 'initialize');
 
         await client.notifyInitialized();
@@ -154,7 +157,7 @@ final class _FakeMcpEndpoint {
     final body = await utf8.decoder.bind(request).join();
     final jsonBody = body.isEmpty
         ? null
-        : jsonMapFrom(jsonDecode(body), label: 'request');
+        : _jsonMapFrom(jsonDecode(body), label: 'request');
     requests.add(_SeenRequest.from(request, jsonBody));
 
     switch (request.method) {
@@ -179,7 +182,7 @@ final class _FakeMcpEndpoint {
     }
   }
 
-  Future<void> _handlePost(HttpRequest request, JsonMap? jsonBody) async {
+  Future<void> _handlePost(HttpRequest request, McpJsonMap? jsonBody) async {
     final method = jsonBody?['method'];
     if (method == 'initialize') {
       if (_failInitialize) {
@@ -195,7 +198,7 @@ final class _FakeMcpEndpoint {
         'jsonrpc': '2.0',
         'id': jsonBody?['id'],
         'result': <String, Object?>{
-          'protocolVersion': mcpLatestProtocolVersion,
+          'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
           'capabilities': <String, Object?>{},
           'serverInfo': <String, Object?>{
             'name': 'fake-router',
@@ -234,12 +237,12 @@ final class _FakeMcpEndpoint {
     });
   }
 
-  void _writeJson(HttpRequest request, JsonMap body, {String? sessionId}) {
+  void _writeJson(HttpRequest request, McpJsonMap body, {String? sessionId}) {
     request.response.statusCode = HttpStatus.ok;
     request.response.headers.contentType = ContentType.json;
     request.response.headers.set(
       _headerProtocolVersion,
-      mcpLatestProtocolVersion,
+      McpStreamableHttpClient.latestProtocolVersion,
     );
     if (sessionId != null) {
       request.response.headers.set(_headerSessionId, sessionId);
@@ -256,7 +259,7 @@ final class _FakeMcpEndpoint {
     );
     request.response.headers.set(
       _headerProtocolVersion,
-      mcpLatestProtocolVersion,
+      McpStreamableHttpClient.latestProtocolVersion,
     );
     request.response.headers.set(_headerSessionId, 'session-1');
     request.response.write(body);
@@ -286,9 +289,9 @@ final class _SeenRequest {
   final String? lastEventId;
   final int contentLength;
   final String? transferEncoding;
-  final JsonMap? body;
+  final McpJsonMap? body;
 
-  factory _SeenRequest.from(HttpRequest request, JsonMap? body) {
+  factory _SeenRequest.from(HttpRequest request, McpJsonMap? body) {
     return _SeenRequest(
       method: request.method,
       accept: request.headers.value(HttpHeaders.acceptHeader),
@@ -302,4 +305,19 @@ final class _SeenRequest {
       body: body,
     );
   }
+}
+
+McpJsonMap _jsonMapFrom(Object? value, {required String label}) {
+  if (value is! Map) {
+    throw FormatException('$label must be a JSON object');
+  }
+  final result = <String, Object?>{};
+  for (final entry in value.entries) {
+    final key = entry.key;
+    if (key is! String) {
+      throw FormatException('$label must contain only string keys');
+    }
+    result[key] = entry.value;
+  }
+  return result;
 }
