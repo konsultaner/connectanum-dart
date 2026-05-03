@@ -89,7 +89,53 @@ final class McpStreamableHttpClient {
 
   Future<McpJsonMap> ping({Object? id, bool streamable = true}) async {
     final response = await request('ping', id: id, streamable: streamable);
-    return _jsonMapFrom(response['result'], label: 'ping result');
+    return _jsonRpcResultFrom(response, method: 'ping');
+  }
+
+  Future<McpStreamableToolListPage> listTools({
+    Object? id,
+    String? cursor,
+    bool streamable = true,
+  }) async {
+    final response = await request(
+      'tools/list',
+      id: id,
+      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      streamable: streamable,
+    );
+    final result = _jsonRpcResultFrom(response, method: 'tools/list');
+    final toolsValue = result['tools'];
+    if (toolsValue is! List) {
+      throw const FormatException('tools/list result.tools must be an array');
+    }
+    final nextCursor = result['nextCursor'];
+    if (nextCursor != null && nextCursor is! String) {
+      throw const FormatException(
+        'tools/list result.nextCursor must be a string',
+      );
+    }
+    return McpStreamableToolListPage(
+      tools: [
+        for (final tool in toolsValue)
+          _jsonMapFrom(tool, label: 'tools/list result tool'),
+      ],
+      nextCursor: nextCursor as String?,
+    );
+  }
+
+  Future<McpJsonMap> callTool(
+    String name, {
+    Object? id,
+    McpJsonMap arguments = const <String, Object?>{},
+    bool streamable = true,
+  }) async {
+    final response = await request(
+      'tools/call',
+      id: id,
+      params: <String, Object?>{'name': name, 'arguments': arguments},
+      streamable: streamable,
+    );
+    return _jsonRpcResultFrom(response, method: 'tools/call');
   }
 
   Future<void> notification(String method, {McpJsonMap? params}) async {
@@ -251,6 +297,31 @@ final class McpStreamableHttpClient {
   }
 }
 
+final class McpStreamableToolListPage {
+  const McpStreamableToolListPage({required this.tools, this.nextCursor});
+
+  final List<McpJsonMap> tools;
+  final String? nextCursor;
+}
+
+final class McpJsonRpcException implements Exception {
+  const McpJsonRpcException({
+    required this.id,
+    required this.method,
+    required this.error,
+  });
+
+  final Object? id;
+  final String method;
+  final McpJsonMap error;
+
+  @override
+  String toString() {
+    final message = error['message'];
+    return 'McpJsonRpcException($method, id: $id): $message';
+  }
+}
+
 final class McpSseEvent {
   const McpSseEvent({this.id, this.event, required this.data, this.retryMs});
 
@@ -392,6 +463,18 @@ void _throwIfHttpError(HttpClientResponse response, String body) {
     body: body,
     error: error,
   );
+}
+
+McpJsonMap _jsonRpcResultFrom(McpJsonMap response, {required String method}) {
+  final error = response['error'];
+  if (error != null) {
+    throw McpJsonRpcException(
+      id: response['id'],
+      method: method,
+      error: _jsonMapFrom(error, label: '$method error'),
+    );
+  }
+  return _jsonMapFrom(response['result'], label: '$method result');
 }
 
 McpJsonMap _jsonMapFrom(Object? value, {required String label}) {

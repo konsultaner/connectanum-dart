@@ -96,6 +96,50 @@ void main() {
       },
     );
 
+    test('lists and calls tools through typed helpers', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+
+      final page = await client.listTools(
+        id: 'tools-helper',
+        streamable: false,
+      );
+      expect(page.nextCursor, isNull);
+      expect(page.tools, hasLength(1));
+      expect(page.tools.single['name'], 'app.echo');
+
+      final result = await client.callTool(
+        'app.echo',
+        id: 'call-helper',
+        arguments: {'message': 'hello'},
+        streamable: false,
+      );
+      expect(result['isError'], isFalse);
+      expect(result['structuredContent'], {
+        'echo': {'message': 'hello'},
+      });
+
+      await expectLater(
+        client.callTool('app.fail', id: 'call-failure', streamable: false),
+        throwsA(
+          isA<McpJsonRpcException>()
+              .having((error) => error.id, 'id', 'call-failure')
+              .having((error) => error.method, 'method', 'tools/call')
+              .having(
+                (error) => error.error['message'],
+                'message',
+                'tool failed',
+              ),
+        ),
+      );
+    });
+
     test(
       'parses SSE event ids, retry hints, event names, and multi-line data',
       () {
@@ -269,6 +313,32 @@ final class _FakeMcpEndpoint {
       return;
     }
 
+    if (method == 'tools/call') {
+      final params = _jsonMapFrom(requestBody['params'], label: 'tools/call');
+      if (params['name'] == 'app.fail') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'error': <String, Object?>{'code': -32000, 'message': 'tool failed'},
+        });
+        return;
+      }
+      final arguments = _jsonMapFrom(
+        params['arguments'],
+        label: 'tools/call arguments',
+      );
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'content': <Object?>[],
+          'structuredContent': <String, Object?>{'echo': arguments},
+          'isError': false,
+        },
+      });
+      return;
+    }
+
     if (method == 'tools/list' &&
         (request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
           'text/event-stream',
@@ -287,7 +357,15 @@ final class _FakeMcpEndpoint {
     _writeJson(request, <String, Object?>{
       'jsonrpc': '2.0',
       'id': requestBody['id'],
-      'result': <String, Object?>{'tools': <Object?>[]},
+      'result': <String, Object?>{
+        'tools': <Object?>[
+          <String, Object?>{
+            'name': 'app.echo',
+            'description': 'Echoes arguments.',
+            'inputSchema': <String, Object?>{'type': 'object'},
+          },
+        ],
+      },
     });
   }
 

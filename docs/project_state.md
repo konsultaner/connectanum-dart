@@ -2,16 +2,17 @@
 
 Last updated: 2026-05-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: `f42d06d`
-(`mcp: support json rpc batches`)
-Last reviewed implementation commit: `f42d06d`
-(`mcp: support json rpc batches`)
-Current/recent exec plan:
+Last reviewed branch checkpoint: `7e738de`
+(`mcp: support ping requests`)
+Last reviewed implementation commit: `7e738de`
+(`mcp: support ping requests`)
+Active exec plan:
+`docs/exec-plans/2026-05-04-mcp-streamable-tool-helpers.md`
+(complete locally; hosted evidence pending). Latest completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-ping-readiness.md`
-(local verification clean; hosted evidence pending). Latest completed exec
-plan:
-`docs/exec-plans/2026-05-03-mcp-json-rpc-batch.md`
 (complete; hosted evidence clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-03-mcp-json-rpc-batch.md`
+(complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-participant-meta-scope.md`
 (complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-session-meta-scope.md`
@@ -52,9 +53,32 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP ping readiness is locally complete and ready for hosted evidence. The
-    MCP server now handles standard `ping` requests after initialization with
-    the required empty result object, `McpStreamableHttpClient` exposes a
+  - MCP Streamable tool helper readiness is in progress with local fast checks
+    clean. `McpStreamableHttpClient` now exposes typed `listTools(...)` and
+    `callTool(...)` helpers over the existing session-aware request path,
+    surfaces JSON-RPC error responses through `McpJsonRpcException`, and keeps
+    raw `request(...)`/`post(...)` escape hatches for direct router meta API and
+    future MCP methods. Client tests cover tool listing, tool invocation, and
+    JSON-RPC tool errors; the router-native MCP smoke now uses the helpers
+    against public and protected router-hosted MCP routes while preserving the
+    existing pub/sub and route-security coverage.
+  - Initial fail-first `bin/test-fast` reproduced the missing helper API and
+    the in-progress duplicate router smoke patch. Focused checks passed after
+    implementation: `dart analyze packages/connectanum_client packages/connectanum_router`,
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`,
+    and `git diff --check`. `bin/test-fast` passed on 2026-05-04 after the
+    helper implementation and router smoke cleanup. Full local `bin/verify`
+    passed on 2026-05-04 after the helper implementation and project-state
+    updates; it included formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP package tests, client tests including the
+    updated `packages/connectanum_client/test/mcp` suite, auth-server tests,
+    bench integration tests, the full router package tests including the
+    updated router-hosted MCP helper smoke, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests. Hosted GitHub evidence is pending.
+  - MCP ping readiness is complete and hosted evidence is clean for `7e738de`.
+    The MCP server now handles standard `ping` requests after initialization
+    with the required empty result object, `McpStreamableHttpClient` exposes a
     session-aware `ping(...)` helper, and router-native MCP integration covers
     direct HTTP plus Streamable HTTP client ping behavior on router-hosted MCP
     routes.
@@ -77,6 +101,14 @@ order.
     tests, bench integration tests, the full router package tests including the
     updated MCP ping coverage and `remote_auth_integration_test`, zero-copy
     router checks, and Chrome Dart2Wasm WebSocket transport tests.
+  - hosted GitHub evidence for `7e738de` is clean: `CI` run `25292725722`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `Dart Package Publish Dry
+    Run` run `25292725729` completed successfully and covers the checked-out
+    head, `WAMP Profile Benchmarks` run `25292725720` completed successfully,
+    and Native Artifacts dry-run `25192553399` remains clean and relevant
+    because no native-release-sensitive paths changed.
   - MCP Streamable HTTP consumer readiness is being tightened with
     authenticated router-hosted smoke coverage. `packages/connectanum_client`
     now owns the IO-only `package:connectanum_client/mcp.dart` entrypoint with

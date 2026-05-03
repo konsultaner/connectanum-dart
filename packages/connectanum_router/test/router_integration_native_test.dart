@@ -1615,30 +1615,21 @@ void main() {
       final streamablePing = await streamableClient.ping(id: 'streamable-ping');
       expect(streamablePing, isEmpty);
 
-      final streamableTools = await streamableClient.request(
-        'tools/list',
+      final streamableTools = await streamableClient.listTools(
         id: 'streamable-tools',
       );
-      final streamableToolsResult = (streamableTools['result'] as Map)
-          .cast<String, Object?>();
       final streamableToolNames = {
-        for (final tool in streamableToolsResult['tools'] as List)
-          (tool as Map)['name'] as String,
+        for (final tool in streamableTools.tools) tool['name'] as String,
       };
       expect(streamableToolNames, contains('app.safe.lookup'));
       expect(streamableToolNames, isNot(contains('app.unsafe.delete')));
       expect(streamableClient.lastEventId, isNotNull);
 
-      final streamableTopicCatalog = await streamableClient.request(
-        'tools/call',
+      final streamableTopicCatalogResult = await streamableClient.callTool(
+        'connectanum.api.list',
         id: 'streamable-topic-catalog',
-        params: {
-          'name': 'connectanum.api.list',
-          'arguments': {'kind': 'topic'},
-        },
+        arguments: {'kind': 'topic'},
       );
-      final streamableTopicCatalogResult =
-          (streamableTopicCatalog['result'] as Map).cast<String, Object?>();
       expect(streamableTopicCatalogResult['isError'], isFalse);
       final streamableTopicCatalogJson = jsonEncode(
         streamableTopicCatalogResult['structuredContent'],
@@ -1646,16 +1637,11 @@ void main() {
       expect(streamableTopicCatalogJson, contains('app.events.audit'));
       expect(streamableTopicCatalogJson, isNot(contains('app.secure.audit')));
 
-      final streamableSafe = await streamableClient.request(
-        'tools/call',
+      final streamableSafeResult = await streamableClient.callTool(
+        'app.safe.lookup',
         id: 'streamable-safe',
-        params: {
-          'name': 'app.safe.lookup',
-          'arguments': {'taskId': 'T-streamable'},
-        },
+        arguments: {'taskId': 'T-streamable'},
       );
-      final streamableSafeResult = (streamableSafe['result'] as Map)
-          .cast<String, Object?>();
       expect(streamableSafeResult['isError'], isFalse);
       expect(
         (((streamableSafeResult['structuredContent']
@@ -2467,46 +2453,33 @@ void main() {
       expect(secureStreamableClient.sessionId, isNotNull);
       await secureStreamableClient.notifyInitialized();
 
-      final secureStreamableTools = await secureStreamableClient.request(
-        'tools/list',
+      final secureStreamableTools = await secureStreamableClient.listTools(
         id: 'secure-streamable-tools',
       );
-      final secureStreamableToolsResult =
-          (secureStreamableTools['result'] as Map).cast<String, Object?>();
       final secureStreamableToolNames = {
-        for (final tool in secureStreamableToolsResult['tools'] as List)
-          (tool as Map)['name'] as String,
+        for (final tool in secureStreamableTools.tools) tool['name'] as String,
       };
       expect(secureStreamableToolNames, contains('app.safe.lookup'));
       expect(secureStreamableToolNames, contains('app.unsafe.delete'));
 
-      final secureStreamableTopicCatalog = await secureStreamableClient.request(
-        'tools/call',
-        id: 'secure-streamable-topic-catalog',
-        params: {
-          'name': 'connectanum.api.list',
-          'arguments': {'kind': 'topic'},
-        },
-      );
-      final secureStreamableTopicCatalogResult =
-          (secureStreamableTopicCatalog['result'] as Map)
-              .cast<String, Object?>();
+      final secureStreamableTopicCatalogResult = await secureStreamableClient
+          .callTool(
+            'connectanum.api.list',
+            id: 'secure-streamable-topic-catalog',
+            arguments: {'kind': 'topic'},
+          );
       expect(secureStreamableTopicCatalogResult['isError'], isFalse);
       expect(
         jsonEncode(secureStreamableTopicCatalogResult['structuredContent']),
         contains('app.secure.audit'),
       );
 
-      final secureStreamableUnsafe = await secureStreamableClient.request(
-        'tools/call',
-        id: 'secure-streamable-unsafe',
-        params: {
-          'name': 'app.unsafe.delete',
-          'arguments': {'taskId': 'T-secure-streamable'},
-        },
-      );
-      final secureStreamableUnsafeResult =
-          (secureStreamableUnsafe['result'] as Map).cast<String, Object?>();
+      final secureStreamableUnsafeResult = await secureStreamableClient
+          .callTool(
+            'app.unsafe.delete',
+            id: 'secure-streamable-unsafe',
+            arguments: {'taskId': 'T-secure-streamable'},
+          );
       expect(secureStreamableUnsafeResult['isError'], isFalse);
       expect(
         ((secureStreamableUnsafeResult['structuredContent']
@@ -2514,6 +2487,7 @@ void main() {
             as Map)['deleted'],
         equals('T-secure-streamable'),
       );
+
       expect(secureStreamableClient.lastEventId, isNotNull);
 
       final secureStreamableSubscribe = await secureStreamableClient.request(

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Ping Readiness
 
-Status: completed locally; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -54,6 +54,14 @@ Out of scope:
   `dart analyze packages/connectanum_client packages/connectanum_mcp packages/connectanum_router`.
 - Full local `bin/verify` passed on 2026-05-04 after the MCP ping
   implementation and project-state updates.
+- Hosted GitHub evidence for `7e738de` is clean: `CI` run `25292725722`
+  completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+  log scan found no warning, deprecation, skipped-test, reset,
+  connection-noise, panic, or failure patterns, `Dart Package Publish Dry Run`
+  run `25292725729` completed successfully and covers the checked-out head,
+  `WAMP Profile Benchmarks` run `25292725720` completed successfully, and
+  Native Artifacts dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -67,6 +75,7 @@ Out of scope:
 
 ## Handoff
 
-Local implementation and full verification are complete. Commit, push, and
-watch hosted GitHub deployment-chain evidence before treating this as the next
-reviewed branch checkpoint.
+Complete. Remaining audit findings are unchanged deployment/operator items:
+branch protection is not enabled, `.github/workflows/router-image.yml` is not
+discoverable until promoted through the default branch, and the router GHCR
+package is not visible yet.
