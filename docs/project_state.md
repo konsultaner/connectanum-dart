@@ -2,19 +2,17 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `02748b2`
-(`router: expose process metrics`)
+Last reviewed branch checkpoint: `6a3e4dd`
+(`docs: record process metrics checkpoint`)
 Last reviewed implementation commit: `02748b2`
 (`router: expose process metrics`)
 Active exec plan:
-`docs/exec-plans/2026-05-03-router-process-metrics.md` is active.
+No active exec plan. Use `ROADMAP_NEXT.md` to choose the next milestone.
 The GitHub deployment-chain readiness plan is paused because the latest
 branch-head audit is clean and remaining RC blockers are operator/deployment
 decisions: branch-protection required checks, default-branch router image/GHCR
 visibility, RC tag/prerelease selection, and Dart package ownership/release
-order. The current autonomous priority is production observability: expose
-low-cost process health metrics through the router JSON snapshot and
-OpenMetrics exporter.
+order. The router process metrics plan is complete.
 
 ## Last Known Verification
 
@@ -23,23 +21,26 @@ OpenMetrics exporter.
     because the remaining RC blockers require operator/release decisions; every
     continuation should still re-audit the branch head before starting another
     feature or benchmark slice.
-  - latest branch-head GitHub `CI` evidence is docs checkpoint `847f0e4`: run
-    `25271361032` completed successfully on 2026-05-03 with `Fast Checks` in
-    5m28s and `Full Verify` in 8m09s
-  - branch-head deployment-chain audit passed on 2026-05-03 against `847f0e4`
+  - latest branch-head GitHub `CI` evidence is docs checkpoint `6a3e4dd`: run
+    `25272457415` completed successfully on 2026-05-03 with `Fast Checks` in
+    5m38s and `Full Verify` in 8m06s
+  - latest clean branch-head `WAMP Profile Benchmarks` evidence is run
+    `25272457403`, completed successfully on 2026-05-03 for `6a3e4dd`
+  - latest clean branch-head `Dart Package Publish Dry Run` evidence is run
+    `25272457412`, completed successfully on 2026-05-03 for `6a3e4dd`
+  - branch-head deployment-chain audit passed on 2026-05-03 against `6a3e4dd`
     with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
     `--require-clean-native-release-dry-run`; the hosted CI log scan found no
     warning, deprecation, skipped-test, reset, connection-noise, panic, or
-    failure patterns, Dart package dry-run `25270840163` remains clean/relevant
-    because no package-publish-sensitive inputs changed after `e58c7f0`, and
-    native release dry-run `25192553399` remains clean/relevant because no
+    failure patterns, Dart package dry-run `25272457412` covers the branch head,
+    and native release dry-run `25192553399` remains clean/relevant because no
     native-release-sensitive inputs changed
-  - active autonomous code work has moved to router process metrics:
-    commit `02748b2` adds PID/current RSS/max RSS to the router snapshot and
-    OpenMetrics payload; `bin/test-fast` passed before the process metrics
-    implementation slice, then focused router metrics/analyzer checks and full
-    local `bin/verify` passed after the implementation
+  - router process metrics are complete: commit `02748b2` adds PID/current
+    RSS/max RSS to the router snapshot and OpenMetrics payload; `bin/test-fast`
+    passed before the process metrics implementation slice, then focused router
+    metrics/analyzer checks and full local `bin/verify` passed after the
+    implementation
   - pushed production-readiness cleanup `e58c7f0` makes the pure Dart
     WebSocket transports fail closed when an inbound WAMP frame cannot be
     deserialized: null serializer results now become a `FormatException`, the

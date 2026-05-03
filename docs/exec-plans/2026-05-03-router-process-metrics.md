@@ -1,6 +1,6 @@
 # Router Process Metrics
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -48,3 +48,8 @@ counters.
 - 2026-05-03: Full local `bin/verify` passed after the process metrics slice.
 - 2026-05-03: Committed the process metrics implementation as `02748b2`
   (`router: expose process metrics`).
+- 2026-05-03: Pushed docs checkpoint `6a3e4dd`; GitHub `CI` run
+  `25272457415`, `WAMP Profile Benchmarks` run `25272457403`, and
+  `Dart Package Publish Dry Run` run `25272457412` all completed successfully.
+  The strict deployment-chain audit also passed against `6a3e4dd` with clean CI
+  logs and relevant native release dry-run evidence.
