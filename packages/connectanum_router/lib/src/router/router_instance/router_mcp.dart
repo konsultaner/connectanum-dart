@@ -897,8 +897,48 @@ class _RouterMcpEndpoint {
     server.shutdown();
   }
 
-  Future<mcp.JsonMap?> handleMessage(Object? rawMessage) async {
+  Future<Object?> handleMessage(Object? rawMessage) async {
     await _refreshTools();
+    if (rawMessage is List) {
+      return _handleBatchMessage(rawMessage);
+    }
+    return _handleSingleMessage(rawMessage);
+  }
+
+  Future<Object?> _handleBatchMessage(List<Object?> rawMessages) async {
+    if (rawMessages.isEmpty) {
+      return mcp.JsonRpcResponse.error(
+        null,
+        mcp.McpException(
+          mcp.McpErrorCodes.invalidRequest,
+          'JSON-RPC batch must not be empty',
+        ),
+      ).toJson();
+    }
+    final responses = <Object?>[];
+    for (final rawMessage in rawMessages) {
+      final response = await _handleSingleMessage(rawMessage);
+      if (response != null) {
+        if (response is List) {
+          responses.addAll(response);
+        } else {
+          responses.add(response);
+        }
+      }
+    }
+    return responses.isEmpty ? null : responses;
+  }
+
+  Future<Object?> _handleSingleMessage(Object? rawMessage) async {
+    if (rawMessage is List) {
+      return mcp.JsonRpcResponse.error(
+        null,
+        mcp.McpException(
+          mcp.McpErrorCodes.invalidRequest,
+          'JSON-RPC batch entries must be request objects',
+        ),
+      ).toJson();
+    }
     final directResponse = await _handleDirectJsonMessage(rawMessage);
     if (directResponse != null) {
       return directResponse.response;
@@ -976,7 +1016,7 @@ class _RouterMcpEndpoint {
 
   _RouterMcpSsePollBatch ssePostResponseEvents({
     required String sessionId,
-    required mcp.JsonMap response,
+    required Object? response,
   }) {
     final streamId = 's${++_nextSseStream}';
     final primer = _nextSseEvent(

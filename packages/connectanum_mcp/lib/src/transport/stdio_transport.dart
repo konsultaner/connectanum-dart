@@ -52,7 +52,7 @@ class McpStdioTransport {
     }
   }
 
-  void _writeResponse(JsonMap response) {
+  void _writeResponse(Object? response) {
     output.writeln(jsonEncode(response));
   }
 }

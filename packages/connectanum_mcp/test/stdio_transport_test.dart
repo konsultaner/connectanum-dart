@@ -166,6 +166,38 @@ void main() {
       expect(responses.single['id'], 'init');
       expect(server.state, McpServerState.created);
     });
+
+    test('writes JSON-RPC batch responses as one line', () async {
+      final output = StringBuffer();
+      final transport = McpStdioTransport(
+        server: _server(),
+        input: Stream.value(
+          utf8.encode(
+            '${jsonEncode({
+              'jsonrpc': '2.0',
+              'id': 'init',
+              'method': 'initialize',
+              'params': {'protocolVersion': mcpLatestProtocolVersion},
+            })}\n'
+            '${jsonEncode({'jsonrpc': '2.0', 'method': 'notifications/initialized'})}\n'
+            '${jsonEncode([
+              {'jsonrpc': '2.0', 'id': 'batch', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+            ])}\n',
+          ),
+        ),
+        output: output,
+        shutdownServerOnDone: false,
+      );
+
+      await transport.run();
+
+      final lines = const LineSplitter().convert(output.toString());
+      expect(lines, hasLength(2));
+      final batchResponse = jsonDecode(lines.last) as List;
+      expect(batchResponse, hasLength(1));
+      expect((batchResponse.single as Map)['id'], 'batch');
+    });
   });
 }
 

@@ -89,6 +89,38 @@ void main() {
       expect(error['code'], McpErrorCodes.invalidRequest);
     });
 
+    test('handles JSON-RPC batches and omits notification responses', () async {
+      final server = _server();
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage([
+        {'jsonrpc': '2.0', 'id': 'tools', 'method': 'tools/list'},
+        {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+        {'jsonrpc': '2.0', 'id': 'bad-method', 'method': 'tools/unknown'},
+      ]);
+
+      expect(response, isA<List<Object?>>());
+      final responses = (response as List).cast<Map<String, Object?>>();
+      expect(responses, hasLength(2));
+      expect(responses[0]['id'], 'tools');
+      expect(responses[0]['result'], isA<Map<String, Object?>>());
+      expect(responses[1]['id'], 'bad-method');
+      final error = responses[1]['error'] as Map<String, Object?>;
+      expect(error['code'], McpErrorCodes.methodNotFound);
+    });
+
+    test('empty JSON-RPC batches return invalid-request errors', () async {
+      final server = _server();
+
+      final response = await server.handleMessage(const []);
+
+      expect(response, isA<Map<String, Object?>>());
+      final error =
+          (response as Map<String, Object?>)['error'] as Map<String, Object?>;
+      expect(response['id'], isNull);
+      expect(error['code'], McpErrorCodes.invalidRequest);
+    });
+
     test('closed servers reject further requests', () async {
       final server = _server();
       await _initializeAndStart(server);

@@ -51,7 +51,34 @@ class McpServer {
 
   McpServerState get state => _state;
 
-  Future<JsonMap?> handleMessage(Object? rawMessage) async {
+  Future<dynamic> handleMessage(Object? rawMessage) async {
+    if (rawMessage is List) {
+      return _handleBatch(rawMessage);
+    }
+    return _handleSingleMessage(rawMessage);
+  }
+
+  Future<dynamic> _handleBatch(List<Object?> rawMessages) async {
+    if (rawMessages.isEmpty) {
+      return JsonRpcResponse.error(
+        null,
+        McpException(
+          McpErrorCodes.invalidRequest,
+          'JSON-RPC batch must not be empty',
+        ),
+      ).toJson();
+    }
+    final responses = <JsonMap>[];
+    for (final rawMessage in rawMessages) {
+      final response = await _handleSingleMessage(rawMessage);
+      if (response != null) {
+        responses.add(response);
+      }
+    }
+    return responses.isEmpty ? null : responses;
+  }
+
+  Future<JsonMap?> _handleSingleMessage(Object? rawMessage) async {
     final _ParsedJsonRpcRequest request;
     try {
       request = _requestFrom(rawMessage);

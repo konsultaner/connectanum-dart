@@ -57,11 +57,26 @@ void main() {
         );
         expect(jsonTools['id'], 'tools-json');
 
+        final streamableBatch = await client.postBatch([
+          {'jsonrpc': '2.0', 'id': 'batch-sse', 'method': 'tools/list'},
+          {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+        ]);
+        expect(streamableBatch, hasLength(1));
+        expect(streamableBatch?.single['id'], 'batch-sse');
+        expect(client.lastEventId, 'session-1:post-batch:1');
+
+        final jsonBatch = await client.postBatch([
+          {'jsonrpc': '2.0', 'id': 'batch-json', 'method': 'tools/list'},
+          {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+        ], streamable: false);
+        expect(jsonBatch, hasLength(1));
+        expect(jsonBatch?.single['id'], 'batch-json');
+
         await client.deleteSession();
         expect(client.sessionId, isNull);
         expect(client.lastEventId, isNull);
 
-        expect(endpoint.requests, hasLength(6));
+        expect(endpoint.requests, hasLength(8));
         expect(endpoint.requests[0].authorization, 'Bearer test-token');
         expect(endpoint.requests[0].accept, contains('text/event-stream'));
         expect(endpoint.requests[0].contentLength, greaterThan(0));
@@ -70,7 +85,9 @@ void main() {
         expect(endpoint.requests[2].sessionId, 'session-1');
         expect(endpoint.requests[3].lastEventId, 'session-1:post:2');
         expect(endpoint.requests[4].accept, 'application/json');
-        expect(endpoint.requests[5].method, 'DELETE');
+        expect(endpoint.requests[5].accept, contains('text/event-stream'));
+        expect(endpoint.requests[6].accept, 'application/json');
+        expect(endpoint.requests[7].method, 'DELETE');
       },
     );
 
@@ -155,9 +172,7 @@ final class _FakeMcpEndpoint {
 
   Future<void> _handle(HttpRequest request) async {
     final body = await utf8.decoder.bind(request).join();
-    final jsonBody = body.isEmpty
-        ? null
-        : _jsonMapFrom(jsonDecode(body), label: 'request');
+    final jsonBody = body.isEmpty ? null : jsonDecode(body);
     requests.add(_SeenRequest.from(request, jsonBody));
 
     switch (request.method) {
@@ -182,8 +197,33 @@ final class _FakeMcpEndpoint {
     }
   }
 
-  Future<void> _handlePost(HttpRequest request, McpJsonMap? jsonBody) async {
-    final method = jsonBody?['method'];
+  Future<void> _handlePost(HttpRequest request, Object? jsonBody) async {
+    if (jsonBody is List) {
+      final responses = <McpJsonMap>[
+        for (final item in jsonBody)
+          if (_jsonMapFrom(item, label: 'batch request').containsKey('id'))
+            {
+              'jsonrpc': '2.0',
+              'id': _jsonMapFrom(item, label: 'batch request')['id'],
+              'result': <String, Object?>{'tools': <Object?>[]},
+            },
+      ];
+      if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
+        'text/event-stream',
+      )) {
+        _writeSse(
+          request,
+          'id: session-1:post-batch:1\n'
+          'data: ${jsonEncode(responses)}\n\n',
+        );
+        return;
+      }
+      _writeJsonValue(request, responses);
+      return;
+    }
+
+    final requestBody = _jsonMapFrom(jsonBody, label: 'request');
+    final method = requestBody['method'];
     if (method == 'initialize') {
       if (_failInitialize) {
         request.response.statusCode = HttpStatus.unauthorized;
@@ -196,7 +236,7 @@ final class _FakeMcpEndpoint {
       }
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
-        'id': jsonBody?['id'],
+        'id': requestBody['id'],
         'result': <String, Object?>{
           'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
           'capabilities': <String, Object?>{},
@@ -225,19 +265,23 @@ final class _FakeMcpEndpoint {
         'retry: 1000\n'
         'data:\n\n'
         'id: session-1:post:2\n'
-        'data: {"jsonrpc":"2.0","id":"${jsonBody?['id']}","result":{"tools":[]}}\n\n',
+        'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
       );
       return;
     }
 
     _writeJson(request, <String, Object?>{
       'jsonrpc': '2.0',
-      'id': jsonBody?['id'],
+      'id': requestBody['id'],
       'result': <String, Object?>{'tools': <Object?>[]},
     });
   }
 
   void _writeJson(HttpRequest request, McpJsonMap body, {String? sessionId}) {
+    _writeJsonValue(request, body, sessionId: sessionId);
+  }
+
+  void _writeJsonValue(HttpRequest request, Object? body, {String? sessionId}) {
     request.response.statusCode = HttpStatus.ok;
     request.response.headers.contentType = ContentType.json;
     request.response.headers.set(
@@ -289,9 +333,9 @@ final class _SeenRequest {
   final String? lastEventId;
   final int contentLength;
   final String? transferEncoding;
-  final McpJsonMap? body;
+  final Object? body;
 
-  factory _SeenRequest.from(HttpRequest request, McpJsonMap? body) {
+  factory _SeenRequest.from(HttpRequest request, Object? body) {
     return _SeenRequest(
       method: request.method,
       accept: request.headers.value(HttpHeaders.acceptHeader),

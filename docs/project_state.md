@@ -2,18 +2,17 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP participant meta scope and
-Streamable HTTP client package ownership move after `8cefc81`
-(`mcp: move streamable http client out of transport`)
-Last reviewed implementation commit: working tree MCP participant meta scope
-and Streamable HTTP client package ownership move after `8cefc81`
-(`mcp: move streamable http client out of transport`)
+Last reviewed branch checkpoint: `b0edb03`
+(`mcp: move streamable client to wamp package`)
+Last reviewed implementation commit: `b0edb03`
+(`mcp: move streamable client to wamp package`)
 Active exec plan:
+`docs/exec-plans/2026-05-03-mcp-json-rpc-batch.md`
+(in progress). Latest completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-participant-meta-scope.md`
-(locally complete; hosted evidence pending). Latest completed
-exec plan:
-`docs/exec-plans/2026-05-03-mcp-direct-json-session-meta-scope.md`
 (complete; hosted evidence clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-03-mcp-direct-json-session-meta-scope.md`
+(complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-subscription-meta-smoke.md`
 (complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-meta-api-smoke.md`
@@ -167,13 +166,13 @@ order.
     implementation out of `packages/connectanum_mcp/lib/src/transport/` so
     `src/transport/` stays reserved for real transport adapters rather than
     high-level MCP client/session helpers
-  - current package-boundary move relocates that implementation and its
+  - branch head `b0edb03` relocates that implementation and its
     package-level tests to `packages/connectanum_client`, exports it from
     `package:connectanum_client/mcp.dart`, and updates router MCP smoke tests
     to import the WAMP-client-owned entrypoint directly. `bin/test-fast` and
     `bin/test-all` now run `packages/connectanum_client/test/mcp` so the moved
     Streamable HTTP client coverage remains in the canonical gates.
-  - current working tree also scopes route-hosted MCP participant meta:
+  - branch head `b0edb03` also scopes route-hosted MCP participant meta:
     `wamp.registration.list_callees`,
     `wamp.registration.count_callees`,
     `wamp.subscription.list_subscribers`, and
@@ -188,6 +187,35 @@ order.
     client tests including `packages/connectanum_client/test/mcp`, auth-server
     tests, bench integration tests, the full router package tests including the
     updated participant meta smoke, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `b0edb03` is clean: `CI` run `25290429879`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `WAMP Profile Benchmarks` run
+    `25290429876` completed successfully, `Dart Package Publish Dry Run` run
+    `25290429877` completed successfully and covers the checked-out head, and
+    Native Artifacts dry-run `25192553399` remains clean and relevant because
+    no native-release-sensitive paths changed
+  - current working tree adds JSON-RPC batch support to the MCP readiness path:
+    `McpServer.handleMessage` accepts non-empty JSON-RPC arrays, stdio writes
+    batch responses as one JSON line, `McpStreamableHttpClient.postBatch(...)`
+    parses JSON and SSE batch responses, and router-hosted MCP batches can mix
+    direct JSON tool/meta entries with normal MCP JSON-RPC entries while
+    preserving each route-owned session/auth context. Nested batch entries are
+    rejected as invalid request objects.
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the JSON-RPC batch
+    implementation
+  - focused checks passed for the JSON-RPC batch slice:
+    `dart analyze packages/connectanum_client packages/connectanum_mcp packages/connectanum_router`,
+    `dart test packages/connectanum_mcp/test/lifecycle_test.dart packages/connectanum_mcp/test/stdio_transport_test.dart -r expanded`,
+    `dart test packages/connectanum_client/test/mcp -r expanded`, and
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`
+  - full local `bin/verify` passed on 2026-05-03 after the JSON-RPC batch
+    implementation; it included formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP package tests including batch/stdout coverage,
+    client tests including `packages/connectanum_client/test/mcp`, auth-server
+    tests, bench integration tests, the full router package tests including the
+    updated MCP direct JSON batch smoke, zero-copy router checks, and Chrome
     Dart2Wasm WebSocket transport tests
   - pre-change `bin/test-fast` passed on 2026-05-03 before the direct JSON
     session meta scoping edits

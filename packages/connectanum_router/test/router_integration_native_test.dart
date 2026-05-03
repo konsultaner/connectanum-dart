@@ -1742,6 +1742,76 @@ void main() {
         equals('open'),
       );
 
+      final directBatch = await _postJsonValue(
+        client,
+        listener.port,
+        '/mcp/public',
+        [
+          {
+            'jsonrpc': '2.0',
+            'id': 'batch-catalog',
+            'method': 'connectanum.api.list',
+            'params': {'kind': 'procedure'},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'batch-safe',
+            'method': 'app.safe.lookup',
+            'params': {'taskId': 'T-batch'},
+          },
+          {
+            'jsonrpc': '2.0',
+            'method': 'connectanum.tool.call',
+            'params': {
+              'name': 'app.safe.lookup',
+              'arguments': {'taskId': 'T-batch-notification'},
+            },
+          },
+        ],
+      );
+      expect(directBatch.statusCode, equals(HttpStatus.ok));
+      expect(directBatch.json, isA<List<Object?>>());
+      final directBatchResponses = (directBatch.json as List)
+          .cast<Map<String, Object?>>();
+      expect(directBatchResponses, hasLength(2));
+      expect(directBatchResponses[0]['id'], equals('batch-catalog'));
+      expect(
+        jsonEncode(directBatchResponses[0]['result']),
+        contains('app.safe.lookup'),
+      );
+      expect(directBatchResponses[1]['id'], equals('batch-safe'));
+      expect(
+        (((directBatchResponses[1]['result'] as Map)['structuredContent']
+                as Map)['argumentsKeywords']
+            as Map)['status'],
+        equals('open'),
+      );
+
+      final nestedBatch = await _postJsonValue(
+        client,
+        listener.port,
+        '/mcp/public',
+        [
+          [
+            {
+              'jsonrpc': '2.0',
+              'id': 'nested-batch',
+              'method': 'connectanum.api.list',
+            },
+          ],
+        ],
+      );
+      expect(nestedBatch.statusCode, equals(HttpStatus.ok));
+      expect(nestedBatch.json, isA<List<Object?>>());
+      final nestedBatchResponses = (nestedBatch.json as List)
+          .cast<Map<String, Object?>>();
+      expect(nestedBatchResponses, hasLength(1));
+      expect(nestedBatchResponses.single['id'], isNull);
+      expect(
+        (nestedBatchResponses.single['error'] as Map)['code'],
+        equals(-32600),
+      );
+
       final directPubSubSubscribe = await _callRouterJsonMethod(
         client,
         listener.port,
@@ -4102,6 +4172,25 @@ _postJson(
   return _readJsonHttpResponse(await request.close());
 }
 
+Future<
+  ({int statusCode, Object? json, String body, Map<String, String> headers})
+>
+_postJsonValue(
+  HttpClient client,
+  int port,
+  String path,
+  Object? payload, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final request = await client.post('127.0.0.1', port, path);
+  request.headers.contentType = ContentType.json;
+  headers.forEach(request.headers.set);
+  final bodyBytes = utf8.encode(jsonEncode(payload));
+  request.contentLength = bodyBytes.length;
+  request.add(bodyBytes);
+  return _readJsonHttpResponseValue(await request.close());
+}
+
 String _firstSseEventId(String body) {
   final ids = _sseEventIds(body);
   if (ids.isNotEmpty) {
@@ -4176,6 +4265,27 @@ _readJsonHttpResponse(HttpClientResponse response) async {
   return (
     statusCode: response.statusCode,
     json: decoded is Map ? decoded.cast<String, Object?>() : null,
+    body: body,
+    headers: _httpResponseHeaders(response),
+  );
+}
+
+Future<
+  ({int statusCode, Object? json, String body, Map<String, String> headers})
+>
+_readJsonHttpResponseValue(HttpClientResponse response) async {
+  final body = await utf8.decoder.bind(response).join();
+  Object? decoded;
+  if (body.isNotEmpty) {
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException {
+      decoded = null;
+    }
+  }
+  return (
+    statusCode: response.statusCode,
+    json: decoded,
     body: body,
     headers: _httpResponseHeaders(response),
   );

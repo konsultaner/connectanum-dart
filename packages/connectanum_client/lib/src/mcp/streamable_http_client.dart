@@ -96,6 +96,34 @@ final class McpStreamableHttpClient {
   }
 
   Future<McpJsonMap?> post(McpJsonMap message, {bool streamable = true}) async {
+    final response = await _postPayload(message, streamable: streamable);
+    if (response == null) {
+      return null;
+    }
+    return _jsonMapFrom(response, label: 'JSON-RPC response');
+  }
+
+  Future<List<McpJsonMap>?> postBatch(
+    List<McpJsonMap> messages, {
+    bool streamable = true,
+  }) async {
+    final response = await _postPayload(messages, streamable: streamable);
+    if (response == null) {
+      return null;
+    }
+    if (response is! List) {
+      throw FormatException('JSON-RPC batch response must be an array');
+    }
+    return [
+      for (final item in response)
+        _jsonMapFrom(item, label: 'JSON-RPC batch response item'),
+    ];
+  }
+
+  Future<Object?> _postPayload(
+    Object? message, {
+    bool streamable = true,
+  }) async {
     final request = await _httpClient.postUrl(endpoint);
     _applyHeaders(
       request,
@@ -118,9 +146,9 @@ final class McpStreamableHttpClient {
     }
 
     if (_isSse(response)) {
-      return _firstJsonEvent(parseMcpSseEvents(body));
+      return _firstJsonValue(parseMcpSseEvents(body));
     }
-    return _jsonMapFromBody(body, 'JSON-RPC response');
+    return _jsonValueFromBody(body);
   }
 
   Future<List<McpSseEvent>> poll({String? lastEventId}) async {
@@ -197,12 +225,12 @@ final class McpStreamableHttpClient {
     }
   }
 
-  McpJsonMap? _firstJsonEvent(List<McpSseEvent> events) {
+  Object? _firstJsonValue(List<McpSseEvent> events) {
     _captureLastEventId(events);
     for (final event in events) {
-      final data = event.jsonData;
-      if (data != null) {
-        return data;
+      final value = event.jsonValue;
+      if (value != null) {
+        return value;
       }
     }
     return null;
@@ -226,11 +254,19 @@ final class McpSseEvent {
   final String data;
   final int? retryMs;
 
-  McpJsonMap? get jsonData {
+  Object? get jsonValue {
     if (data.trim().isEmpty) {
       return null;
     }
-    return _jsonMapFromBody(data, 'SSE event data');
+    return _jsonValueFromBody(data);
+  }
+
+  McpJsonMap? get jsonData {
+    final value = jsonValue;
+    if (value == null) {
+      return null;
+    }
+    return _jsonMapFrom(value, label: 'SSE event data');
   }
 }
 
@@ -325,8 +361,11 @@ bool _isSse(HttpClientResponse response) {
 }
 
 McpJsonMap _jsonMapFromBody(String body, String label) {
-  final decoded = jsonDecode(body);
-  return _jsonMapFrom(decoded, label: label);
+  return _jsonMapFrom(_jsonValueFromBody(body), label: label);
+}
+
+Object? _jsonValueFromBody(String body) {
+  return jsonDecode(body);
 }
 
 void _throwIfHttpError(HttpClientResponse response, String body) {
