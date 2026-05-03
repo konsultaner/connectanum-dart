@@ -1425,6 +1425,19 @@ void main() {
         isNot(contains('app.unsafe.delete')),
       );
 
+      final directPublicTopicCatalog = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.api.list',
+        {'kind': 'topic'},
+      );
+      final directPublicTopicCatalogJson = jsonEncode(
+        directPublicTopicCatalog['structuredContent'],
+      );
+      expect(directPublicTopicCatalogJson, contains('app.events.audit'));
+      expect(directPublicTopicCatalogJson, isNot(contains('app.secure.audit')));
+
       final streamableClient = McpStreamableHttpClient(
         Uri(
           scheme: 'http',
@@ -1599,6 +1612,27 @@ void main() {
       expect(
         directPubSubUnsubscribe['structuredContent'],
         containsPair('unsubscribed', true),
+      );
+
+      final directSecureTopicDenied = await _postJson(
+        client,
+        listener.port,
+        '/mcp/public',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-secure-topic-denied',
+          'method': 'connectanum.pubsub.subscribe',
+          'params': {'topic': 'app.secure.audit', 'queueLimit': 5},
+        },
+      );
+      expect(directSecureTopicDenied.statusCode, equals(HttpStatus.ok));
+      final directSecureTopicDeniedResult =
+          (directSecureTopicDenied.json?['result'] as Map)
+              .cast<String, Object?>();
+      expect(directSecureTopicDeniedResult['isError'], isTrue);
+      expect(
+        jsonEncode(directSecureTopicDeniedResult),
+        contains('Unknown declared WAMP topic: app.secure.audit'),
       );
 
       final directUnsafeResult = await _postJson(
@@ -1782,6 +1816,82 @@ void main() {
       expect(
         jsonEncode(directSecureCatalog['structuredContent']),
         contains('app.unsafe.delete'),
+      );
+      final directSecureTopicCatalog = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'connectanum.api.list',
+        {'kind': 'topic'},
+        headers: authHeaders,
+      );
+      expect(
+        jsonEncode(directSecureTopicCatalog['structuredContent']),
+        contains('app.secure.audit'),
+      );
+
+      final directSecureSubscription = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'connectanum.pubsub.subscribe',
+        {'topic': 'app.secure.audit', 'queueLimit': 5},
+        headers: authHeaders,
+      );
+      final directSecureSubscriptionContent =
+          directSecureSubscription['structuredContent'] as Map<String, Object?>;
+      final directSecureSubscriptionHandle =
+          directSecureSubscriptionContent['handle'] as String;
+      expect(
+        directSecureSubscriptionContent['topic'],
+        equals('app.secure.audit'),
+      );
+
+      final directSecurePublish = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'connectanum.pubsub.publish',
+        {
+          'topic': 'app.secure.audit',
+          'argumentsKeywords': {'via': 'secure-direct-json-publish'},
+          'acknowledge': true,
+        },
+        headers: authHeaders,
+      );
+      expect(
+        directSecurePublish['structuredContent'],
+        containsPair('acknowledged', true),
+      );
+
+      await serviceSession.publish(
+        'app.secure.audit',
+        argumentsKeywords: {'via': 'secure-direct-json-service'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final directSecurePoll = await _pollDirectRouterJsonUntilEvents(
+        client,
+        listener.port,
+        '/mcp/secure',
+        directSecureSubscriptionHandle,
+        headers: authHeaders,
+      );
+      expect(
+        jsonEncode(directSecurePoll['events']),
+        contains('secure-direct-json-service'),
+      );
+
+      final directSecureUnsubscribe = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'connectanum.pubsub.unsubscribe',
+        {'handle': directSecureSubscriptionHandle},
+        headers: authHeaders,
+      );
+      expect(
+        directSecureUnsubscribe['structuredContent'],
+        containsPair('unsubscribed', true),
       );
 
       final directSecureUnsafeResult = await _callRouterJsonMethod(
@@ -3036,6 +3146,24 @@ RouterSettings _buildMcpSmokeSettings() {
           },
         },
       },
+      {
+        'topic': 'app.secure.audit',
+        'title': 'Protected audit events',
+        'description': 'Member-only audit events exposed through MCP pub/sub.',
+        '_ai_meta_data': {
+          'short_description': 'Protected task audit stream',
+          'description': 'Member-only events emitted when task state changes.',
+          'domain': 'app',
+          'entity': 'task',
+          'tags': ['protected', 'events'],
+          'output_json_schema': {
+            'type': 'object',
+            'properties': {
+              'via': {'type': 'string'},
+            },
+          },
+        },
+      },
     ],
   };
 
@@ -3064,6 +3192,11 @@ RouterSettings _buildMcpSmokeSettings() {
         )
         ..addPermissionFromBuilder(
           PermissionSettingsBuilder('app.events.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['publish', 'subscribe', 'unsubscribe']),
+        )
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('app.secure.')
             ..setMatchPolicy(PermissionMatchPolicy.prefix)
             ..allowOperations(const ['publish', 'subscribe', 'unsubscribe']),
         ),

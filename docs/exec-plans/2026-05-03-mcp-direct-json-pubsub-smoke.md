@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct JSON Pub/Sub Smoke
 
-Status: locally complete; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -43,6 +43,15 @@ wrapping calls in `connectanum.tool.call`.
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`.
 - 2026-05-03: Full local `bin/verify` passed after the direct JSON pub/sub
   smoke addition and project-state updates.
+- 2026-05-03: Pushed as `ac9125e` (`mcp: smoke direct json pubsub tools`).
+  Hosted GitHub evidence is clean: `CI` run `25284718134` completed
+  successfully with `Fast Checks` and `Full Verify`, the hosted CI log scan
+  found no warning, deprecation, skipped-test, reset, connection-noise, panic,
+  or failure patterns, `WAMP Profile Benchmarks` run `25284718125` completed
+  successfully, and `Dart Package Publish Dry Run` run `25284718124`
+  completed successfully and covers the checked-out head. Native Artifacts
+  dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -52,4 +61,5 @@ wrapping calls in `connectanum.tool.call`.
 
 ## Handoff
 
-Pending commit, push, and hosted deployment-chain evidence.
+Complete. Continue with the next MCP consumer-readiness gap or the next
+roadmap-selected production-readiness slice after a fresh branch-head audit.
