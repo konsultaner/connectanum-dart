@@ -85,6 +85,8 @@ from embedding code), the exporter is also served over HTTP:
 
 If `open_metrics.auth_token` is set, `GET /metrics` requires
 `Authorization: Bearer <token>`.
+Metrics snapshot metadata reports this as `auth_required: true`; it never
+returns the configured bearer token.
 
 `open_metrics.collection_timeout_ms` bounds the full scrape collection path
 (router snapshot plus per-realm details). The default is `5000`; if collection
@@ -229,7 +231,8 @@ per-realm details:
     "realm": "connectanum.metrics",
     "path": "/metrics",
     "listen": "127.0.0.1:9100",
-    "collection_timeout_ms": 5000
+    "collection_timeout_ms": 5000,
+    "auth_required": false
   }
 }
 ```

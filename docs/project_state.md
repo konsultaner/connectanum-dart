@@ -7,7 +7,9 @@ Last reviewed branch checkpoint: `4d633d6`
 Last reviewed implementation commit: `02748b2`
 (`router: expose process metrics`)
 Active exec plan:
-None. The OpenMetrics scrape timeout plan is complete:
+None. The metrics secret-redaction plan is complete:
+`docs/exec-plans/2026-05-03-metrics-secret-redaction.md`.
+The OpenMetrics scrape timeout plan is complete:
 `docs/exec-plans/2026-05-03-openmetrics-scrape-timeout.md`.
 The GitHub deployment-chain readiness plan is paused because the latest
 branch-head audit is clean and remaining RC blockers are operator/deployment
@@ -23,6 +25,12 @@ starting another feature or benchmark slice.
     because the remaining RC blockers require operator/release decisions; every
     continuation should still re-audit the branch head before starting another
     feature or benchmark slice.
+  - metrics secret-redaction hardening is complete locally: the router metrics
+    snapshot now redacts configured OpenMetrics bearer tokens from exporter
+    metadata and exposes only a non-secret `auth_required` flag; a fail-first
+    regression reproduced the leak, focused metrics/analyzer checks passed
+    locally, and full local `bin/verify` passed after the implementation and
+    docs updates
   - OpenMetrics scrape timeout hardening is complete locally:
     `open_metrics.collection_timeout_ms` now bounds `/metrics` collection and
     the internal `connectanum.metrics.openmetrics` RPC path; timed-out HTTP

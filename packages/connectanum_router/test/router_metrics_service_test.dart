@@ -483,6 +483,44 @@ void main() {
     expect(alert['throttled'], isTrue);
   });
 
+  test('metrics snapshot redacts OpenMetrics bearer token', () async {
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.disabled,
+            maxRawSocketSizeExponent: 16,
+          ),
+        ],
+      ),
+      settings: _buildSettings(openMetricsAuthToken: 'secret-token'),
+    );
+
+    final binding = router.start(_NoopHandleRuntime());
+    addTearDown(binding.dispose);
+
+    await binding.ensureInternalServicesReady();
+    final metricsClient = await binding.createInternalSession(
+      realmUri: 'connectanum.metrics',
+      authId: 'observer',
+      authRole: 'metrics',
+    );
+    addTearDown(metricsClient.close);
+
+    final snapshotResult = await metricsClient
+        .call('connectanum.metrics.snapshot')
+        .first;
+    final snapshotPayload =
+        snapshotResult.arguments?.first as Map<String, Object?>;
+    final exporterInfo = snapshotPayload['exporter'] as Map<String, Object?>?;
+
+    expect(exporterInfo, isNotNull);
+    expect(exporterInfo!.containsKey('auth_token'), isFalse);
+    expect(exporterInfo['auth_required'], isTrue);
+  });
+
   test(
     'metrics exporter exposes timeout and error transport alerts across payloads and OpenMetrics',
     () async {
@@ -747,7 +785,7 @@ NativeRouterMetrics _buildMetricsBreakdown({
   ],
 );
 
-RouterSettings _buildSettings() {
+RouterSettings _buildSettings({String? openMetricsAuthToken}) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
@@ -795,12 +833,13 @@ RouterSettings _buildSettings() {
     realms: [realmBuilder.build(), metricsRealmBuilder.build()],
     listeners: [listenerBuilder.build()],
     internalRealms: [internalMetricsRealm],
-    metrics: const MetricsSettings(
+    metrics: MetricsSettings(
       openMetrics: OpenMetricsSettings(
         enabled: true,
         listen: '127.0.0.1:0',
         path: '/metrics',
         realm: 'connectanum.metrics',
+        authToken: openMetricsAuthToken,
       ),
       backpressure: BackpressureThrottleSettings(
         cooldown: Duration(seconds: 5),

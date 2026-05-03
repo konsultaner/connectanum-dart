@@ -73,6 +73,7 @@ Focus for the next session:
    - ✅ Bench assets now include `native/bench/connectanum_router_alerts.yml` plus a provisioned Grafana dashboard for transport alerts/throttle state.
    - ✅ Native/Dart telemetry coverage now stays aligned as the alert metrics evolve: `ct_ffi` has a focused router-metrics snapshot regression, `router_metrics_service_test.dart` asserts idle/body/protocol/internal alert export paths, and the root Linux verify flow runs the feature-gated native snapshot test explicitly alongside the default `ct_ffi` suite.
    - ✅ OpenMetrics collection is bounded by `open_metrics.collection_timeout_ms` so stalled router metrics collection returns an explicit scrape failure instead of leaving Prometheus connections pending indefinitely.
+   - ✅ Metrics snapshot exporter metadata redacts configured OpenMetrics bearer tokens and exposes only a non-secret `auth_required` flag.
 
 2. **HTTP/2 + HTTP/3 Deadline Enforcement**
    - ✅ Enforced idle/body deadlines for HTTP/2 + HTTP/3 request-body readers; HTTP/3 timeouts now close the QUIC connection to avoid `h3-quinn` stop-sending races while still emitting lifecycle events with explicit details.
