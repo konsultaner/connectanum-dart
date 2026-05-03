@@ -25,6 +25,7 @@ class McpWampApi {
     Iterable<McpWampProcedure> procedures = const [],
     Iterable<McpWampTopic> topics = const [],
     bool includeStandardMetaApi = false,
+    bool includePublishedEventTopics = true,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) : procedures = List<McpWampProcedure>.unmodifiable([
          ...procedures,
@@ -32,8 +33,9 @@ class McpWampApi {
        ]),
        topics = _deduplicateTopics([
          ...topics,
-         for (final procedure in procedures)
-           ..._publishedEventTopicsFor(procedure),
+         if (includePublishedEventTopics)
+           for (final procedure in procedures)
+             ..._publishedEventTopicsFor(procedure),
          if (includeStandardMetaApi) ...McpWampStandardMetaApi.topics,
        ]),
        metadata = Map<String, Object?>.unmodifiable(metadata);

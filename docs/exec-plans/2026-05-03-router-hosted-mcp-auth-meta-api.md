@@ -136,8 +136,25 @@ Out of scope:
   and `dart analyze packages/connectanum_router` passed.
 - 2026-05-03: Full local `bin/verify` passed after the MCP direct-JSON route
   endpoint, smoke coverage, and docs updates.
-- 2026-05-03: Remaining work in this plan is stronger catalog filtering by
-  effective principal and final public docs cleanup once behavior is complete.
+- 2026-05-03: Implemented stronger principal-filtered catalog behavior for the
+  router-hosted MCP endpoint. The router now filters callable procedures,
+  standard WAMP meta API tools, configured topics, subscribed topics, and
+  derived event topics through the same realm authorizer used by route session
+  dispatch before exposing MCP `tools/list`, direct `connectanum.tools.list`,
+  direct dotted methods, or `connectanum.api.list` metadata. Documentation-only
+  procedures remain discoverable metadata but are not callable tools.
+- 2026-05-03: Extended MCP/router coverage so anonymous public routes no longer
+  advertise or dispatch protected unsafe tools, while bearer-authenticated
+  routes still see and call them. Focused
+  `dart test packages/connectanum_mcp/test/wamp_api_test.dart -r expanded`,
+  `dart analyze packages/connectanum_router packages/connectanum_mcp`, and
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`
+  passed after the catalog-filtering edits.
+- 2026-05-03: Full local `bin/verify` passed after the MCP
+  principal-filtered catalog implementation and docs updates.
+- 2026-05-03: Remaining work in this plan is commit and hosted CI evidence for
+  the principal-filtered catalog slice, then closing any documentation gaps
+  found by downstream use.
 
 ## Verification
 
@@ -169,6 +186,7 @@ Out of scope:
 
 ## Handoff
 
-Next automation run should continue with stronger principal-filtered catalog
-behavior. Keep the MCP anonymous isolation test and the MCP direct-JSON smoke
-path in the focused verification set.
+Next automation run should commit and push the principal-filtered catalog
+slice if it has not already been published, then monitor GitHub Actions for a
+clean branch-head CI chain. Keep the MCP anonymous isolation test and the MCP
+direct-JSON smoke path in the focused verification set.

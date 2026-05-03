@@ -1048,15 +1048,18 @@ void main() {
           containsPair('value', 'T-1'),
         );
 
-        final adminResult = await _callMcpTool(
-          client,
-          listener.port,
-          '/mcp',
-          'app.admin.reset',
-          {'id': 'T-1'},
-        );
-        expect(adminResult['isError'], isTrue);
-        expect(jsonEncode(adminResult), contains('Not authorized'));
+        final adminResult = await _postJson(client, listener.port, '/mcp', {
+          'jsonrpc': '2.0',
+          'id': 'admin-reset-denied',
+          'method': 'tools/call',
+          'params': {
+            'name': 'app.admin.reset',
+            'arguments': {'id': 'T-1'},
+          },
+        });
+        expect(adminResult.statusCode, equals(HttpStatus.ok));
+        expect(adminResult.json?['error'], isA<Map<String, Object?>>());
+        expect(jsonEncode(adminResult.json?['error']), contains('Unknown MCP'));
       },
       skip: skipReason,
     );
@@ -1165,6 +1168,10 @@ void main() {
       expect(directCatalogMetadata, containsPair('authid', 'anonymous'));
       expect(jsonEncode(directCatalogContent), contains('app.safe.lookup'));
       expect(jsonEncode(directCatalogContent), contains('app.documented.only'));
+      expect(
+        jsonEncode(directCatalogContent),
+        isNot(contains('app.unsafe.delete')),
+      );
 
       final directSafeResult = await _callRouterJsonMethod(
         client,
@@ -1180,17 +1187,47 @@ void main() {
         equals('open'),
       );
 
-      final directUnsafeResult = await _callRouterJsonMethod(
+      final directUnsafeResult = await _postJson(
         client,
         listener.port,
         '/mcp/public',
-        'connectanum.tool.call',
         {
-          'name': 'app.unsafe.delete',
-          'arguments': {'taskId': 'T-json'},
+          'jsonrpc': '2.0',
+          'id': 'direct-unsafe-denied',
+          'method': 'connectanum.tool.call',
+          'params': {
+            'name': 'app.unsafe.delete',
+            'arguments': {'taskId': 'T-json'},
+          },
         },
       );
-      expect(directUnsafeResult['isError'], isTrue);
+      expect(directUnsafeResult.statusCode, equals(HttpStatus.ok));
+      expect(directUnsafeResult.json?['error'], isA<Map<String, Object?>>());
+      expect(
+        jsonEncode(directUnsafeResult.json?['error']),
+        contains('Unknown MCP'),
+      );
+
+      final directUnsafeMethodResult = await _postJson(
+        client,
+        listener.port,
+        '/mcp/public',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-unsafe-method-denied',
+          'method': 'app.unsafe.delete',
+          'params': {'taskId': 'T-json'},
+        },
+      );
+      expect(directUnsafeMethodResult.statusCode, equals(HttpStatus.ok));
+      expect(
+        directUnsafeMethodResult.json?['error'],
+        isA<Map<String, Object?>>(),
+      );
+      expect(
+        jsonEncode(directUnsafeMethodResult.json?['error']),
+        contains('Unknown MCP'),
+      );
 
       await _initializeMcp(client, listener.port, '/mcp/public');
       final tools = await _listMcpTools(client, listener.port, '/mcp/public');
@@ -1198,15 +1235,11 @@ void main() {
         for (final tool in tools) tool['name'] as String: tool,
       };
       expect(toolByName, contains('app.safe.lookup'));
-      expect(toolByName, contains('app.unsafe.delete'));
+      expect(toolByName, isNot(contains('app.unsafe.delete')));
       expect(toolByName, isNot(contains('app.documented.only')));
       expect(
         toolByName['app.safe.lookup']?['annotations'],
         containsPair('readOnlyHint', true),
-      );
-      expect(
-        toolByName['app.unsafe.delete']?['annotations'],
-        containsPair('destructiveHint', true),
       );
 
       final safeResult = await _callMcpTool(
@@ -1224,14 +1257,26 @@ void main() {
         equals('open'),
       );
 
-      final publicUnsafeResult = await _callMcpTool(
+      final publicUnsafeResult = await _postJson(
         client,
         listener.port,
         '/mcp/public',
-        'app.unsafe.delete',
-        {'taskId': 'T-1'},
+        {
+          'jsonrpc': '2.0',
+          'id': 'public-unsafe-denied',
+          'method': 'tools/call',
+          'params': {
+            'name': 'app.unsafe.delete',
+            'arguments': {'taskId': 'T-1'},
+          },
+        },
       );
-      expect(publicUnsafeResult['isError'], isTrue);
+      expect(publicUnsafeResult.statusCode, equals(HttpStatus.ok));
+      expect(publicUnsafeResult.json?['error'], isA<Map<String, Object?>>());
+      expect(
+        jsonEncode(publicUnsafeResult.json?['error']),
+        contains('Unknown MCP'),
+      );
 
       final hiddenCall = await _postJson(client, listener.port, '/mcp/public', {
         'jsonrpc': '2.0',
@@ -1312,6 +1357,19 @@ void main() {
 
       final token = await _issueTicketHttpToken(client, listener.port);
       final authHeaders = {'authorization': 'Bearer $token'};
+      final directSecureCatalog = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'connectanum.api.list',
+        {'kind': 'procedure'},
+        headers: authHeaders,
+      );
+      expect(
+        jsonEncode(directSecureCatalog['structuredContent']),
+        contains('app.unsafe.delete'),
+      );
+
       final directSecureUnsafeResult = await _callRouterJsonMethod(
         client,
         listener.port,

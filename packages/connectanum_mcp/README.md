@@ -335,8 +335,8 @@ to bound memory for local agents.
 `connectanum_router` can host an MCP endpoint directly. Add an HTTP route with
 `HttpRouteActionType.mcp`; the router executes calls through the
 route-authenticated WAMP principal or session, exposes exact procedure
-registrations as MCP tools, adds the standard WAMP meta API tools, and enables
-the declared pub/sub helper tools:
+registrations as MCP tools, adds permitted WAMP meta API tools, and enables the
+declared pub/sub helper tools:
 
 ```dart
 const HttpRouteSettings(
@@ -389,6 +389,14 @@ principal. Network hardening still belongs in the route/session profile
 configuration: bind local-only endpoints to localhost, require bearer or
 stronger auth for network-visible routes, and expose only procedures/topics
 whose realm permissions are intended for agents.
+
+Tool and topic catalogs are filtered for the effective route principal before
+they are exposed through MCP or direct JSON-RPC. Callable procedures are listed
+only when the principal may `call` them; topics are listed only for the allowed
+`publish` and/or `subscribe` operations. Procedures declared with
+`allowCall: false` can still appear in `connectanum.api.list` and
+`connectanum.api.describe` as documentation-only metadata, but they are not
+registered as callable MCP tools.
 
 The same HTTP `POST` endpoint also accepts direct JSON-RPC tool calls for
 frontend clients. These calls use the same catalog and authorization path as MCP

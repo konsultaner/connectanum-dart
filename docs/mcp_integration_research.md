@@ -137,10 +137,12 @@ Driving use case: downstream application integrations
    WAMP principal or session and auto-exposes exact WAMP registrations, WAMP
    meta API procedures, and declared pub/sub topics. Done for the MCP
    JSON-RPC `POST` request/response subset in `connectanum_router` with
-   `HttpRouteActionType.mcp`; the same route also accepts direct JSON-RPC tool
-   and meta API calls for frontend clients through `connectanum.tools.list`,
-   `connectanum.tool.call`, and dotted tool names such as
-   `connectanum.api.list` or `app.task.create`.
+   `HttpRouteActionType.mcp`; catalogs are filtered by the effective route
+   principal's realm permissions before MCP or direct JSON-RPC clients see
+   callable tools or pub/sub operations. The same route also accepts direct
+   JSON-RPC tool and meta API calls for frontend clients through
+   `connectanum.tools.list`, `connectanum.tool.call`, and dotted tool names
+   such as `connectanum.api.list` or `app.task.create`.
 9. Add full Streamable HTTP compatibility on top of the router endpoint when
    needed: GET/SSE server push, explicit `MCP-Session-Id` handling, strict
    `Accept`/`MCP-Protocol-Version` validation, Origin validation policy, and

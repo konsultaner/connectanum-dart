@@ -2,16 +2,16 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `834e05f`
-(`mcp: isolate router route sessions`)
-Last reviewed implementation commit: `834e05f`
-(`mcp: isolate router route sessions`)
+Last reviewed branch checkpoint: `d75e548`
+(`mcp: add router direct json calls`)
+Last reviewed implementation commit: `d75e548`
+(`mcp: add router direct json calls`)
 Active exec plan:
 `docs/exec-plans/2026-05-03-router-hosted-mcp-auth-meta-api.md` is active. It
 corrects the MCP product direction: MCP must be a router-hosted endpoint and a
 protocol view over authenticated WAMP/meta API calls, not a standalone
 MCP-only server or an internal-session shortcut. The latest clean hosted
-checkpoint is `834e05f`. Deployment-chain audit on 2026-05-02 remains clean for
+checkpoint is `d75e548`. Deployment-chain audit on 2026-05-02 remains clean for
 autonomous CI/log, Dart package dry-run, and native release dry-run gates, with
 only operator/deployment RC blockers left. Do not return to speculative MCP
 protocol polish, WAMP transport benchmarks, or roadmap work until the active
@@ -27,11 +27,33 @@ MCP auth/session/meta-API correction is implemented, verified, and documented.
     MCP-only server; prior router implementation research confirmed the useful
     pattern is WAMP registration/subscription meta API metadata plus
     authorize-then-dispatch-as-caller bridge semantics
-  - latest clean hosted GitHub evidence for branch checkpoint `834e05f`:
-    `CI` run `25263841704`, `WAMP Profile Benchmarks` run `25263841706`, and
-    `Dart Package Publish Dry Run` run `25263841714` all completed
+  - latest clean hosted GitHub evidence for branch checkpoint `d75e548`:
+    `CI` run `25264958567`, `WAMP Profile Benchmarks` run `25264958566`, and
+    `Dart Package Publish Dry Run` run `25264958575` all completed
     successfully on 2026-05-03
-  - current local MCP direct-JSON slice adds a router-hosted JSON-RPC facade on
+  - current local MCP principal-filtered catalog slice keeps MCP and direct
+    JSON-RPC discovery aligned with the route-authenticated principal:
+    callable procedures are advertised only when the principal may `call` them,
+    topics are advertised only for allowed `publish`/`subscribe` operations,
+    and derived event topics from procedure metadata are filtered before the
+    router constructs the MCP tool registry; documentation-only procedures with
+    `allowCall: false` can still appear in `connectanum.api.list` and
+    `connectanum.api.describe` but are not callable tools
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the MCP
+    principal-filtered catalog edits
+  - focused checks passed on 2026-05-03 after the MCP principal-filtered
+    catalog edits: `dart test packages/connectanum_mcp/test/wamp_api_test.dart -r expanded`,
+    `dart analyze packages/connectanum_router packages/connectanum_mcp`, and
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`
+  - full local `bin/verify` passed on 2026-05-03 after the MCP
+    principal-filtered catalog implementation and docs updates; it included
+    formatting, Rust native/FFI tests, Python package-artifact checks, MCP
+    package tests with the derived-topic opt-out regression, client/native
+    tests, auth-server tests, bench integration tests, full router package
+    tests including the updated MCP public/secure catalog filtering smoke and
+    anonymous isolation regression, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests
+  - previous MCP direct-JSON slice adds a router-hosted JSON-RPC facade on
     the same `type: mcp` route: `connectanum.tools.list` lists the active tool
     catalog, `connectanum.tool.call` calls by tool name, and dotted tool names
     such as `connectanum.api.list`, `connectanum.pubsub.publish`, and

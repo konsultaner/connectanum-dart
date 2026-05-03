@@ -148,9 +148,10 @@ const HttpRouteSettings(
 ```
 
 Exact WAMP registrations become MCP tools automatically. WAMP meta API tools
-and `connectanum.pubsub.*` helpers are enabled by default. The same endpoint
-also accepts direct JSON-RPC calls for frontend clients without the MCP
-`initialize` lifecycle:
+and `connectanum.pubsub.*` helpers are enabled by default, then filtered by the
+route-authenticated principal's realm permissions before they are advertised.
+The same endpoint also accepts direct JSON-RPC calls for frontend clients
+without the MCP `initialize` lifecycle:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"connectanum.api.list","params":{"kind":"procedure"}}
@@ -158,6 +159,7 @@ also accepts direct JSON-RPC calls for frontend clients without the MCP
 {"jsonrpc":"2.0","id":3,"method":"connectanum.tool.call","params":{"name":"app.echo","arguments":{"text":"hello"}}}
 ```
 
-Direct calls use the same route authentication, catalog, and authorization path
-as MCP `tools/call`. Full Streamable HTTP GET/SSE server push remains future
-work.
+Direct calls use the same route authentication, filtered catalog, and
+authorization path as MCP `tools/call`. Procedures or topics that the route
+principal may not use are not advertised as tools. Full Streamable HTTP GET/SSE
+server push remains future work.

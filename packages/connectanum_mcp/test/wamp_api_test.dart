@@ -391,6 +391,25 @@ void main() {
       expect(result['topic'], 'app.task.changed');
       expect(result['metadata'], containsPair('domain', 'app'));
     });
+
+    test('can disable derived pubsub topics from procedure metadata', () {
+      final api = McpWampApi(
+        includePublishedEventTopics: false,
+        procedures: [
+          McpWampProcedure(
+            procedure: 'app.task.create',
+            metadata: const McpWampApiMetadata(
+              publishesEvents: ['app.task.changed'],
+            ),
+          ),
+        ],
+      );
+
+      expect(
+        api.topics.map((topic) => topic.topic),
+        isNot(contains('app.task.changed')),
+      );
+    });
   });
 }
 

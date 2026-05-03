@@ -204,6 +204,8 @@ class _RouterMcpEndpoint {
   final HttpRouteSettings route;
   final RouterSession session;
   final mcp.McpServer server;
+  late final RealmAuthorizationProviderCache _authorizationProviderCache =
+      RealmAuthorizationProviderCache(binding.settings);
   String? _toolSignature;
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
@@ -436,15 +438,56 @@ class _RouterMcpEndpoint {
         }
       }
     }
+    _addPublishedEventTopics(topics, procedures.values);
+
+    final includeStandardMetaApi = _boolOption(
+      options,
+      'include_standard_meta_api',
+      defaultValue: true,
+    );
+    if (includeStandardMetaApi) {
+      for (final procedure in mcp.McpWampStandardMetaApi.procedures) {
+        procedures.putIfAbsent(procedure.procedure, () => procedure);
+      }
+      for (final topic in mcp.McpWampStandardMetaApi.topics) {
+        topics.putIfAbsent(topic.topic, () => topic);
+      }
+    }
+
+    final filteredProcedures = <mcp.McpWampProcedure>[];
+    for (final procedure in procedures.values) {
+      if (!procedure.allowCall ||
+          await _isAuthorized(AuthorizationAction.call, procedure.procedure)) {
+        filteredProcedures.add(procedure);
+      }
+    }
+
+    final filteredTopics = <mcp.McpWampTopic>[];
+    for (final topic in topics.values) {
+      final allowPublish =
+          topic.allowPublish &&
+          await _isAuthorized(AuthorizationAction.publish, topic.topic);
+      final allowSubscribe =
+          topic.allowSubscribe &&
+          await _isAuthorized(AuthorizationAction.subscribe, topic.topic);
+      if (!allowPublish && !allowSubscribe) {
+        continue;
+      }
+      filteredTopics.add(
+        _topicWithPermissions(
+          topic,
+          allowPublish: allowPublish,
+          allowSubscribe: allowSubscribe,
+        ),
+      );
+    }
+
     return mcp.McpWampApi(
       name: _stringFrom(options['name']) ?? 'connectanum-router',
-      procedures: procedures.values,
-      topics: topics.values,
-      includeStandardMetaApi: _boolOption(
-        options,
-        'include_standard_meta_api',
-        defaultValue: true,
-      ),
+      procedures: filteredProcedures,
+      topics: filteredTopics,
+      includeStandardMetaApi: false,
+      includePublishedEventTopics: false,
       metadata: <String, Object?>{
         'realm': session.realmUri,
         'routerHosted': true,
@@ -453,6 +496,42 @@ class _RouterMcpEndpoint {
         if (session.authMethod != null) 'authmethod': session.authMethod,
       },
     );
+  }
+
+  Future<bool> _isAuthorized(AuthorizationAction action, String uri) async {
+    final realmSettings = _realmSettings();
+    if (realmSettings == null) {
+      return false;
+    }
+    final provider = await _authorizationProviderCache.providerFor(
+      realmSettings,
+    );
+    final decision = await RealmAuthorizer.authorize(
+      realmSettings: realmSettings,
+      provider: provider,
+      request: AuthorizationRequest(
+        realmUri: session.realmUri,
+        action: action,
+        uri: uri,
+        sessionId: session.sessionId,
+        connectionId: null,
+        authId: session.authId,
+        authRole: session.authRole,
+        authMethod: session.authMethod,
+        authProvider: session.authProvider,
+        isInternal: true,
+      ),
+    );
+    return decision.allowed;
+  }
+
+  RealmSettings? _realmSettings() {
+    for (final realm in binding.settings.realms) {
+      if (realm.name == session.realmUri) {
+        return realm;
+      }
+    }
+    return null;
   }
 
   Future<ResultPayload> _call(mcp.McpWampToolCall call) async {
@@ -826,6 +905,47 @@ mcp.McpWampTopic _topicFromConfig(Map<String, Object?> config) {
     allowPublish: _boolOption(config, 'allow_publish', defaultValue: true),
     allowSubscribe: _boolOption(config, 'allow_subscribe', defaultValue: true),
     metadata: metadata,
+  );
+}
+
+void _addPublishedEventTopics(
+  Map<String, mcp.McpWampTopic> topics,
+  Iterable<mcp.McpWampProcedure> procedures,
+) {
+  for (final procedure in procedures) {
+    for (final topic in procedure.metadata.publishesEvents) {
+      if (topic.isEmpty) {
+        continue;
+      }
+      topics.putIfAbsent(
+        topic,
+        () => mcp.McpWampTopic(
+          topic: topic,
+          title: topic,
+          description: 'Event published by ${procedure.procedure}.',
+        ),
+      );
+    }
+  }
+}
+
+mcp.McpWampTopic _topicWithPermissions(
+  mcp.McpWampTopic topic, {
+  required bool allowPublish,
+  required bool allowSubscribe,
+}) {
+  if (topic.allowPublish == allowPublish &&
+      topic.allowSubscribe == allowSubscribe) {
+    return topic;
+  }
+  return mcp.McpWampTopic(
+    topic: topic.topic,
+    title: topic.title,
+    description: topic.description,
+    eventSchema: topic.eventSchema,
+    metadata: topic.metadata,
+    allowPublish: allowPublish,
+    allowSubscribe: allowSubscribe,
   );
 }
 
