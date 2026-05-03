@@ -213,6 +213,12 @@ Set<String> _mcpAllowedOrigins(Map<String, Object?> options) {
   return const <String>{};
 }
 
+bool _isStandardMetaProcedure(String procedure) {
+  return mcp.McpWampStandardMetaApi.procedures.any(
+    (metaProcedure) => metaProcedure.procedure == procedure,
+  );
+}
+
 String? _mcpRequestMethod(Object? rawMessage) {
   if (rawMessage is Map) {
     final method = rawMessage['method'];
@@ -1274,7 +1280,11 @@ class _RouterMcpEndpoint {
 
     final filteredProcedures = <mcp.McpWampProcedure>[];
     for (final procedure in procedures.values) {
-      if (!procedure.allowCall ||
+      final exposeStandardMetaProcedure =
+          includeStandardMetaApi &&
+          _isStandardMetaProcedure(procedure.procedure);
+      if (exposeStandardMetaProcedure ||
+          !procedure.allowCall ||
           await _isAuthorized(AuthorizationAction.call, procedure.procedure)) {
         filteredProcedures.add(procedure);
       }
@@ -1407,6 +1417,41 @@ class _RouterMcpEndpoint {
     }
   }
 
+  Future<List<RegistrationSnapshot>> _visibleMetaRegistrations(
+    Iterable<RegistrationSnapshot> registrations,
+  ) async {
+    final visible = <RegistrationSnapshot>[];
+    for (final registration in registrations) {
+      if (await _isAuthorized(
+        AuthorizationAction.call,
+        registration.procedure,
+      )) {
+        visible.add(registration);
+      }
+    }
+    return visible;
+  }
+
+  Future<List<SubscriptionSnapshot>> _visibleMetaSubscriptions(
+    Iterable<SubscriptionSnapshot> subscriptions,
+  ) async {
+    final visible = <SubscriptionSnapshot>[];
+    for (final subscription in subscriptions) {
+      final canPublish = await _isAuthorized(
+        AuthorizationAction.publish,
+        subscription.topic,
+      );
+      final canSubscribe = await _isAuthorized(
+        AuthorizationAction.subscribe,
+        subscription.topic,
+      );
+      if (canPublish || canSubscribe) {
+        visible.add(subscription);
+      }
+    }
+    return visible;
+  }
+
   Future<RealmSnapshot> _snapshot() {
     final boss = binding._boss;
     if (boss == null) {
@@ -1420,6 +1465,12 @@ class _RouterMcpEndpoint {
       return null;
     }
     final snapshot = await _snapshot();
+    final visibleRegistrations = await _visibleMetaRegistrations(
+      snapshot.registrations,
+    );
+    final visibleSubscriptions = await _visibleMetaSubscriptions(
+      snapshot.subscriptions,
+    );
     switch (call.procedure) {
       case 'wamp.session.count':
         return _resultPayload(
@@ -1448,14 +1499,14 @@ class _RouterMcpEndpoint {
         );
       case 'wamp.registration.list':
         return _resultPayload(
-          argumentsKeywords: _idsByProcedureMatchPolicy(snapshot),
+          argumentsKeywords: _idsByProcedureMatchPolicy(visibleRegistrations),
         );
       case 'wamp.registration.lookup':
         final procedure = _firstStringArgument(call);
         final match = _matchOption(call);
         return _resultPayload(
           arguments: [
-            for (final registration in snapshot.registrations)
+            for (final registration in visibleRegistrations)
               if (registration.procedure == procedure &&
                   (match == null ||
                       _procedureMatchPolicyName(registration.matchPolicy) ==
@@ -1465,7 +1516,7 @@ class _RouterMcpEndpoint {
         );
       case 'wamp.registration.match':
         final procedure = _firstStringArgument(call);
-        final match = snapshot.registrations.where((registration) {
+        final match = visibleRegistrations.where((registration) {
           return procedure != null &&
               _registrationMatches(registration, procedure);
         }).firstOrNull;
@@ -1474,7 +1525,7 @@ class _RouterMcpEndpoint {
         );
       case 'wamp.registration.get':
         final id = _firstIntArgument(call);
-        final registration = _registrationById(snapshot, id);
+        final registration = _registrationById(visibleRegistrations, id);
         if (registration == null) {
           return _resultPayload(
             arguments: const ['wamp.error.no_such_procedure'],
@@ -1485,7 +1536,7 @@ class _RouterMcpEndpoint {
         );
       case 'wamp.registration.list_callees':
         final registration = _registrationById(
-          snapshot,
+          visibleRegistrations,
           _firstIntArgument(call),
         );
         return _resultPayload(
@@ -1497,20 +1548,22 @@ class _RouterMcpEndpoint {
         );
       case 'wamp.registration.count_callees':
         final registration = _registrationById(
-          snapshot,
+          visibleRegistrations,
           _firstIntArgument(call),
         );
         return _resultPayload(arguments: [registration?.callees.length ?? 0]);
       case 'wamp.subscription.list':
         return _resultPayload(
-          argumentsKeywords: _idsBySubscriptionMatchPolicy(snapshot),
+          argumentsKeywords: _idsBySubscriptionMatchPolicy(
+            visibleSubscriptions,
+          ),
         );
       case 'wamp.subscription.lookup':
         final topic = _firstStringArgument(call);
         final match = _matchOption(call);
         return _resultPayload(
           arguments: [
-            for (final subscription in snapshot.subscriptions)
+            for (final subscription in visibleSubscriptions)
               if (subscription.topic == topic &&
                   (match == null ||
                       _topicMatchPolicyName(subscription.matchPolicy) == match))
@@ -1521,14 +1574,14 @@ class _RouterMcpEndpoint {
         final topic = _firstStringArgument(call);
         return _resultPayload(
           arguments: [
-            for (final subscription in snapshot.subscriptions)
+            for (final subscription in visibleSubscriptions)
               if (topic != null && _subscriptionMatches(subscription, topic))
                 subscription.id,
           ],
         );
       case 'wamp.subscription.get':
         final subscription = _subscriptionById(
-          snapshot,
+          visibleSubscriptions,
           _firstIntArgument(call),
         );
         if (subscription == null) {
@@ -1541,7 +1594,7 @@ class _RouterMcpEndpoint {
         );
       case 'wamp.subscription.list_subscribers':
         final subscription = _subscriptionById(
-          snapshot,
+          visibleSubscriptions,
           _firstIntArgument(call),
         );
         return _resultPayload(
@@ -1553,7 +1606,7 @@ class _RouterMcpEndpoint {
         );
       case 'wamp.subscription.count_subscribers':
         final subscription = _subscriptionById(
-          snapshot,
+          visibleSubscriptions,
           _firstIntArgument(call),
         );
         return _resultPayload(
@@ -1877,39 +1930,43 @@ Map<String, Object?>? _schemaFromDetails(
       _jsonMapFrom(details['${prefix}JsonSchema']);
 }
 
-Map<String, dynamic> _idsByProcedureMatchPolicy(RealmSnapshot snapshot) {
+Map<String, dynamic> _idsByProcedureMatchPolicy(
+  Iterable<RegistrationSnapshot> registrations,
+) {
   return <String, dynamic>{
     'exact': [
-      for (final registration in snapshot.registrations)
+      for (final registration in registrations)
         if (registration.matchPolicy == ProcedureMatchPolicy.exact)
           registration.registrationId,
     ],
     'prefix': [
-      for (final registration in snapshot.registrations)
+      for (final registration in registrations)
         if (registration.matchPolicy == ProcedureMatchPolicy.prefix)
           registration.registrationId,
     ],
     'wildcard': [
-      for (final registration in snapshot.registrations)
+      for (final registration in registrations)
         if (registration.matchPolicy == ProcedureMatchPolicy.wildcard)
           registration.registrationId,
     ],
   };
 }
 
-Map<String, dynamic> _idsBySubscriptionMatchPolicy(RealmSnapshot snapshot) {
+Map<String, dynamic> _idsBySubscriptionMatchPolicy(
+  Iterable<SubscriptionSnapshot> subscriptions,
+) {
   return <String, dynamic>{
     'exact': [
-      for (final subscription in snapshot.subscriptions)
+      for (final subscription in subscriptions)
         if (subscription.matchPolicy == TopicMatchPolicy.exact) subscription.id,
     ],
     'prefix': [
-      for (final subscription in snapshot.subscriptions)
+      for (final subscription in subscriptions)
         if (subscription.matchPolicy == TopicMatchPolicy.prefix)
           subscription.id,
     ],
     'wildcard': [
-      for (final subscription in snapshot.subscriptions)
+      for (final subscription in subscriptions)
         if (subscription.matchPolicy == TopicMatchPolicy.wildcard)
           subscription.id,
     ],
@@ -1956,11 +2013,14 @@ Map<String, dynamic> _subscriptionDetails(SubscriptionSnapshot subscription) {
   };
 }
 
-RegistrationSnapshot? _registrationById(RealmSnapshot snapshot, int? id) {
+RegistrationSnapshot? _registrationById(
+  Iterable<RegistrationSnapshot> registrations,
+  int? id,
+) {
   if (id == null) {
     return null;
   }
-  for (final registration in snapshot.registrations) {
+  for (final registration in registrations) {
     if (registration.registrationId == id) {
       return registration;
     }
@@ -1968,11 +2028,14 @@ RegistrationSnapshot? _registrationById(RealmSnapshot snapshot, int? id) {
   return null;
 }
 
-SubscriptionSnapshot? _subscriptionById(RealmSnapshot snapshot, int? id) {
+SubscriptionSnapshot? _subscriptionById(
+  Iterable<SubscriptionSnapshot> subscriptions,
+  int? id,
+) {
   if (id == null) {
     return null;
   }
-  for (final subscription in snapshot.subscriptions) {
+  for (final subscription in subscriptions) {
     if (subscription.id == id) {
       return subscription;
     }

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Streamable Protected Pub/Sub Smoke
 
-Status: locally complete; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -46,6 +46,15 @@ publish, poll, and unsubscribe the same protected topic.
   expanded --name "MCP"`.
 - 2026-05-03: Full local `bin/verify` passed after the Streamable protected
   pub/sub smoke addition and project-state updates.
+- 2026-05-03: Pushed as `2bc49ce` (`mcp: smoke streamable protected
+  pubsub`). Hosted GitHub evidence is clean: `CI` run `25286547478`
+  completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+  log scan found no warning, deprecation, skipped-test, reset,
+  connection-noise, panic, or failure patterns, `WAMP Profile Benchmarks` run
+  `25286547473` completed successfully, and `Dart Package Publish Dry Run`
+  run `25286547477` completed successfully and covers the checked-out head.
+  Native Artifacts dry-run `25192553399` remains clean and relevant because
+  no native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -56,4 +65,4 @@ publish, poll, and unsubscribe the same protected topic.
 
 ## Handoff
 
-Pending commit, push, and hosted deployment-chain evidence.
+Complete. Continue with the next roadmap-selected production-readiness slice.

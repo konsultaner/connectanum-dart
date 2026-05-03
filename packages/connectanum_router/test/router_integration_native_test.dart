@@ -1438,6 +1438,46 @@ void main() {
       expect(directPublicTopicCatalogJson, contains('app.events.audit'));
       expect(directPublicTopicCatalogJson, isNot(contains('app.secure.audit')));
 
+      final directPublicRegistrationList = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.list',
+        const {},
+      );
+      expect(directPublicRegistrationList['isError'], isFalse);
+      final directPublicRegistrationListKwargs =
+          (directPublicRegistrationList['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(directPublicRegistrationListKwargs['exact'], isNotEmpty);
+
+      final directPublicSafeRegistration = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.match',
+        {'procedure': 'app.safe.lookup'},
+      );
+      final directPublicSafeRegistrationIds =
+          (directPublicSafeRegistration['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directPublicSafeRegistrationIds, isNotEmpty);
+
+      final directPublicUnsafeRegistration = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.match',
+        {'procedure': 'app.unsafe.delete'},
+      );
+      final directPublicUnsafeRegistrationIds =
+          (directPublicUnsafeRegistration['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directPublicUnsafeRegistrationIds, isEmpty);
+
       final streamableClient = McpStreamableHttpClient(
         Uri(
           scheme: 'http',
@@ -1851,6 +1891,20 @@ void main() {
         jsonEncode(directSecureCatalog['structuredContent']),
         contains('app.unsafe.delete'),
       );
+      final directSecureUnsafeRegistration = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.registration.match',
+        {'procedure': 'app.unsafe.delete'},
+        headers: authHeaders,
+      );
+      final directSecureUnsafeRegistrationIds =
+          (directSecureUnsafeRegistration['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(directSecureUnsafeRegistrationIds, isNotEmpty);
+
       final directSecureTopicCatalog = await _callRouterJsonMethod(
         client,
         listener.port,

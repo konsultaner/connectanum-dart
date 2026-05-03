@@ -2,15 +2,17 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP Streamable protected pub/sub
-smoke after `3d4fac6` (`mcp: smoke protected pubsub route`)
-Last reviewed implementation commit: working tree MCP Streamable protected
-pub/sub smoke after `3d4fac6` (`mcp: smoke protected pubsub route`)
+Last reviewed branch checkpoint: working tree MCP direct JSON meta API smoke
+after `2bc49ce` (`mcp: smoke streamable protected pubsub`)
+Last reviewed implementation commit: working tree MCP direct JSON meta API
+smoke after `2bc49ce` (`mcp: smoke streamable protected pubsub`)
 Active exec plan:
-`docs/exec-plans/2026-05-03-mcp-streamable-protected-pubsub-smoke.md`
+`docs/exec-plans/2026-05-03-mcp-direct-json-meta-api-smoke.md`
 (locally complete; hosted evidence pending). Latest completed exec plan:
-`docs/exec-plans/2026-05-03-mcp-protected-pubsub-smoke.md`
+`docs/exec-plans/2026-05-03-mcp-streamable-protected-pubsub-smoke.md`
 (complete; hosted evidence clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-03-mcp-protected-pubsub-smoke.md`
+(complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-pubsub-smoke.md`
 (complete; hosted evidence clean). The MCP authenticated Streamable router smoke plan is complete:
 `docs/exec-plans/2026-05-03-mcp-authenticated-streamable-smoke.md`
@@ -55,13 +57,16 @@ order.
     session/event ids. The direct JSON router smoke now also uses dotted
     `connectanum.pubsub.subscribe`, `connectanum.pubsub.publish`,
     `connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe` methods
-    without MCP lifecycle setup or `connectanum.tool.call` wrapping
+    without MCP lifecycle setup or `connectanum.tool.call` wrapping. The
+    current working tree extends that path to standard WAMP meta API methods
+    (`wamp.registration.list` and `wamp.registration.match`) with route
+    authorization filtering for safe versus protected registrations
   - branch-head GitHub deployment-chain audit was re-run on 2026-05-03 before
     the current Streamable protected pub/sub smoke work; latest branch CI,
     hosted CI log scan, Dart package publish dry-run, and native release
     dry-run evidence were clean/relevant for `3d4fac6`
-  - current working tree extends the MCP smoke fixture so Streamable HTTP
-    clients also pin protected topic behavior: anonymous `/mcp/public` topic
+  - completed Streamable protected pub/sub smoke slice pins protected topic
+    behavior for Streamable HTTP clients: anonymous `/mcp/public` topic
     catalog hides `app.secure.audit`, anonymous Streamable subscribe to that
     topic returns a tool-level error, and bearer-authenticated `/mcp/secure`
     can list, subscribe, publish, poll, and unsubscribe the same topic
@@ -77,9 +82,33 @@ order.
     tests, the full router package tests including the updated Streamable MCP
     protected pub/sub smoke, zero-copy router checks, and Chrome Dart2Wasm
     WebSocket transport tests
-  - current working tree extends the MCP smoke fixture with a protected
-    member-only topic so direct JSON topic catalog and pub/sub access are
-    pinned for anonymous denial and bearer-authenticated success
+  - hosted GitHub evidence for `2bc49ce` is clean: `CI` run `25286547478`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `WAMP Profile Benchmarks` run
+    `25286547473` completed successfully, `Dart Package Publish Dry Run` run
+    `25286547477` completed successfully and covers the checked-out head, and
+    Native Artifacts dry-run `25192553399` remains clean and relevant because
+    no native-release-sensitive paths changed
+  - current working tree exposes standard WAMP meta procedures on
+    router-hosted MCP routes when `include_standard_meta_api` is enabled, then
+    filters registration and subscription meta results through the current
+    route session's authorization. The router-native MCP smoke now verifies
+    anonymous direct JSON can inspect visible safe registrations, cannot
+    discover `app.unsafe.delete`, and bearer-authenticated direct JSON can
+    discover that protected registration.
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the direct JSON
+    meta API smoke edits
+  - focused checks passed for the direct JSON meta API smoke slice:
+    `dart analyze packages/connectanum_mcp packages/connectanum_router`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
+    and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-03 after the direct JSON meta
+    API implementation and project-state updates; it included formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP package tests,
+    client/native tests, auth-server tests, bench integration tests, the full
+    router package tests including the updated direct JSON WAMP meta API smoke,
+    zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests
   - pre-change `bin/test-fast` passed on 2026-05-03 before the protected
     pub/sub smoke edits
   - focused checks passed for the protected pub/sub smoke slice:
