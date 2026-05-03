@@ -124,6 +124,9 @@ class McpServer {
     switch (method) {
       case 'initialize':
         return _initialize(params);
+      case 'ping':
+        _requireInitialized(method);
+        return <String, Object?>{};
       case 'tools/list':
         _requireInitialized(method);
         return _listTools(params);

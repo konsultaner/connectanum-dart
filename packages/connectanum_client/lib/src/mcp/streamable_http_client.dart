@@ -87,6 +87,11 @@ final class McpStreamableHttpClient {
     return response;
   }
 
+  Future<McpJsonMap> ping({Object? id, bool streamable = true}) async {
+    final response = await request('ping', id: id, streamable: streamable);
+    return _jsonMapFrom(response['result'], label: 'ping result');
+  }
+
   Future<void> notification(String method, {McpJsonMap? params}) async {
     await post(<String, Object?>{
       'jsonrpc': '2.0',

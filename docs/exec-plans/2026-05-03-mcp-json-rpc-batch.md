@@ -1,6 +1,6 @@
 # Exec Plan: MCP JSON-RPC Batch Support
 
-Status: full local verification passed; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -41,6 +41,11 @@ without needing a separate MCP server or client-specific workaround.
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
 - 2026-05-03: Full local `bin/verify` passed after the JSON-RPC batch
   implementation.
+- 2026-05-03: Pushed `f42d06d` and watched the hosted GitHub deployment
+  chain. `CI`, `Dart Package Publish Dry Run`, and `WAMP Profile Benchmarks`
+  completed successfully for the branch head. The strict deployment-chain
+  audit passed required clean latest CI, CI-log, Dart package dry-run, and
+  native release dry-run checks.
 
 ## Decision Log
 
@@ -51,4 +56,7 @@ without needing a separate MCP server or client-specific workaround.
 
 ## Handoff
 
-Commit, push, and hosted evidence pending.
+Complete. Remaining audit findings are unchanged deployment/operator items:
+branch protection is not enabled, `.github/workflows/router-image.yml` is not
+discoverable until promoted through the default branch, and the router GHCR
+package is not visible yet.

@@ -944,6 +944,15 @@ void main() {
       });
       expect(initialized.statusCode, equals(HttpStatus.accepted));
 
+      final ping = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'ping',
+        'method': 'ping',
+        'params': {},
+      });
+      expect(ping.statusCode, equals(HttpStatus.ok));
+      expect(ping.json?['result'], isEmpty);
+
       final tools = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
         'id': 2,
@@ -1602,6 +1611,9 @@ void main() {
       expect(streamableInitialize['id'], equals('initialize'));
       expect(streamableClient.sessionId, isNotNull);
       await streamableClient.notifyInitialized();
+
+      final streamablePing = await streamableClient.ping(id: 'streamable-ping');
+      expect(streamablePing, isEmpty);
 
       final streamableTools = await streamableClient.request(
         'tools/list',

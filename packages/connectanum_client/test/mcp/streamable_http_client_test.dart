@@ -57,6 +57,9 @@ void main() {
         );
         expect(jsonTools['id'], 'tools-json');
 
+        final ping = await client.ping(id: 'ping-json', streamable: false);
+        expect(ping, isEmpty);
+
         final streamableBatch = await client.postBatch([
           {'jsonrpc': '2.0', 'id': 'batch-sse', 'method': 'tools/list'},
           {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
@@ -76,7 +79,7 @@ void main() {
         expect(client.sessionId, isNull);
         expect(client.lastEventId, isNull);
 
-        expect(endpoint.requests, hasLength(8));
+        expect(endpoint.requests, hasLength(9));
         expect(endpoint.requests[0].authorization, 'Bearer test-token');
         expect(endpoint.requests[0].accept, contains('text/event-stream'));
         expect(endpoint.requests[0].contentLength, greaterThan(0));
@@ -85,9 +88,11 @@ void main() {
         expect(endpoint.requests[2].sessionId, 'session-1');
         expect(endpoint.requests[3].lastEventId, 'session-1:post:2');
         expect(endpoint.requests[4].accept, 'application/json');
-        expect(endpoint.requests[5].accept, contains('text/event-stream'));
-        expect(endpoint.requests[6].accept, 'application/json');
-        expect(endpoint.requests[7].method, 'DELETE');
+        expect(endpoint.requests[5].accept, 'application/json');
+        expect(endpoint.requests[5].body, containsPair('method', 'ping'));
+        expect(endpoint.requests[6].accept, contains('text/event-stream'));
+        expect(endpoint.requests[7].accept, 'application/json');
+        expect(endpoint.requests[8].method, 'DELETE');
       },
     );
 
@@ -252,6 +257,15 @@ final class _FakeMcpEndpoint {
     if (method == 'notifications/initialized') {
       request.response.statusCode = HttpStatus.accepted;
       await request.response.close();
+      return;
+    }
+
+    if (method == 'ping') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{},
+      });
       return;
     }
 

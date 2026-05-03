@@ -61,6 +61,20 @@ void main() {
       expect(server.state, McpServerState.initialized);
     });
 
+    test('responds to ping requests after initialization', () async {
+      final server = _server();
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'ping',
+        'method': 'ping',
+      });
+
+      expect(response?['id'], 'ping');
+      expect(response?['result'], isEmpty);
+    });
+
     test('unknown methods return method-not-found errors', () async {
       final server = _server();
       await _initializeAndStart(server);
