@@ -1478,6 +1478,66 @@ void main() {
               as List;
       expect(directPublicUnsafeRegistrationIds, isEmpty);
 
+      final directPublicSessionCount = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.session.count',
+        const {},
+      );
+      final directPublicSessionCountKwargs =
+          (directPublicSessionCount['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(directPublicSessionCountKwargs['count'], equals(1));
+
+      final directPublicSessionList = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.session.list',
+        const {},
+      );
+      final directPublicSessionIds =
+          ((directPublicSessionList['structuredContent']
+                      as Map<String, Object?>)['argumentsKeywords']
+                  as Map<String, Object?>)['session_ids']
+              as List;
+      expect(directPublicSessionIds, hasLength(1));
+      expect(directPublicSessionIds, isNot(contains(serviceSession.sessionId)));
+      final directPublicSessionId = directPublicSessionIds.single as int;
+
+      final directPublicSessionGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.session.get',
+        {'id': directPublicSessionId},
+      );
+      final directPublicSessionDetails =
+          ((directPublicSessionGet['structuredContent']
+                      as Map<String, Object?>)['argumentsKeywords']
+                  as Map<String, Object?>)['details']
+              as Map<String, Object?>;
+      expect(directPublicSessionDetails['authid'], equals('anonymous'));
+      expect(directPublicSessionDetails['authrole'], equals('anonymous'));
+
+      final directPublicServiceSessionGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.session.get',
+        {'id': serviceSession.sessionId},
+      );
+      final directPublicServiceSessionGetArguments =
+          (directPublicServiceSessionGet['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(
+        directPublicServiceSessionGetArguments,
+        contains('wamp.error.no_such_session'),
+      );
+
       final streamableClient = McpStreamableHttpClient(
         Uri(
           scheme: 'http',
@@ -1930,6 +1990,56 @@ void main() {
                   as Map<String, Object?>)['arguments']
               as List;
       expect(directSecureUnsafeRegistrationIds, isNotEmpty);
+
+      final directSecureSessionList = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.session.list',
+        const {},
+        headers: authHeaders,
+      );
+      final directSecureSessionIds =
+          ((directSecureSessionList['structuredContent']
+                      as Map<String, Object?>)['argumentsKeywords']
+                  as Map<String, Object?>)['session_ids']
+              as List;
+      expect(directSecureSessionIds, hasLength(1));
+      expect(directSecureSessionIds, isNot(contains(serviceSession.sessionId)));
+      final directSecureSessionId = directSecureSessionIds.single as int;
+
+      final directSecureSessionGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.session.get',
+        {'id': directSecureSessionId},
+        headers: authHeaders,
+      );
+      final directSecureSessionDetails =
+          ((directSecureSessionGet['structuredContent']
+                      as Map<String, Object?>)['argumentsKeywords']
+                  as Map<String, Object?>)['details']
+              as Map<String, Object?>;
+      expect(directSecureSessionDetails['authid'], equals('user-1'));
+      expect(directSecureSessionDetails['authrole'], equals('member'));
+
+      final directSecureServiceSessionGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure',
+        'wamp.session.get',
+        {'id': serviceSession.sessionId},
+        headers: authHeaders,
+      );
+      final directSecureServiceSessionGetArguments =
+          (directSecureServiceSessionGet['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(
+        directSecureServiceSessionGetArguments,
+        contains('wamp.error.no_such_session'),
+      );
 
       final directSecureTopicCatalog = await _callRouterJsonMethod(
         client,

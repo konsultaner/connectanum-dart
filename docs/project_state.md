@@ -2,15 +2,17 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP direct JSON subscription
-meta API smoke after `8bb74f8` (`mcp: expose direct json meta api`)
-Last reviewed implementation commit: working tree MCP direct JSON subscription
-meta API smoke after `8bb74f8` (`mcp: expose direct json meta api`)
+Last reviewed branch checkpoint: working tree MCP direct JSON session meta
+scope after `4a0a877` (`mcp: smoke direct json subscription meta`)
+Last reviewed implementation commit: working tree MCP direct JSON session meta
+scope after `4a0a877` (`mcp: smoke direct json subscription meta`)
 Active exec plan:
-`docs/exec-plans/2026-05-03-mcp-direct-json-subscription-meta-smoke.md`
+`docs/exec-plans/2026-05-03-mcp-direct-json-session-meta-scope.md`
 (locally complete; hosted evidence pending). Latest completed exec plan:
-`docs/exec-plans/2026-05-03-mcp-direct-json-meta-api-smoke.md`
+`docs/exec-plans/2026-05-03-mcp-direct-json-subscription-meta-smoke.md`
 (complete; hosted evidence clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-03-mcp-direct-json-meta-api-smoke.md`
+(complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-streamable-protected-pubsub-smoke.md`
 (complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-protected-pubsub-smoke.md`
@@ -123,7 +125,7 @@ order.
     `25287625035` completed successfully and covers the checked-out head, and
     Native Artifacts dry-run `25192553399` remains clean and relevant because
     no native-release-sensitive paths changed
-  - current working tree extends the direct JSON WAMP meta API smoke with
+  - branch head `4a0a877` extends the direct JSON WAMP meta API smoke with
     subscription meta coverage: anonymous `/mcp/public` can list and look up
     `app.events.audit` subscriptions, anonymous `/mcp/public` cannot discover
     `app.secure.audit` subscriptions, and bearer-authenticated `/mcp/secure`
@@ -141,6 +143,39 @@ order.
     integration tests, the full router package tests including the updated
     direct JSON subscription meta smoke, zero-copy router checks, and Chrome
     Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `4a0a877` is clean: `CI` run `25288536163`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `WAMP Profile Benchmarks` run
+    `25288536164` completed successfully, `Dart Package Publish Dry Run` run
+    `25288536165` completed successfully and covers the checked-out head, and
+    Native Artifacts dry-run `25192553399` remains clean and relevant because
+    no native-release-sensitive paths changed
+  - current working tree scopes router-hosted MCP direct JSON session meta
+    (`wamp.session.count`, `wamp.session.list`, and `wamp.session.get`) to the
+    MCP route's own internal session, so anonymous and bearer-authenticated
+    routes can inspect their own route-principal details but cannot read the
+    service/internal session used by the fixture
+  - current working tree also moves the IO-only `McpStreamableHttpClient`
+    implementation from `packages/connectanum_mcp/lib/src/transport/` to
+    `packages/connectanum_mcp/lib/src/client/`; `connectanum_mcp_io.dart`
+    remains the public export, while `src/transport/` stays reserved for real
+    transport adapters rather than high-level MCP client/session helpers
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the direct JSON
+    session meta scoping edits
+  - focused checks passed for the direct JSON session meta scope slice:
+    targeted native MCP smoke,
+    `dart analyze packages/connectanum_mcp packages/connectanum_router`,
+    `dart test packages/connectanum_mcp/test/streamable_http_client_test.dart -r expanded`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
+    and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-03 after the direct JSON session
+    meta scope implementation and project-state updates; it included
+    formatting, Rust native/FFI tests, Python package-artifact checks, MCP
+    package tests, client/native tests, auth-server tests, bench integration
+    tests, the full router package tests including the updated session meta
+    scope smoke and `remote_auth_integration_test`, zero-copy router checks,
+    and Chrome Dart2Wasm WebSocket transport tests
   - pre-change `bin/test-fast` passed on 2026-05-03 before the protected
     pub/sub smoke edits
   - focused checks passed for the protected pub/sub smoke slice:

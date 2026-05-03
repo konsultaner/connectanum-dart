@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct JSON Subscription Meta Smoke
 
-Status: locally complete; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -44,6 +44,15 @@ topics.
   expanded --name "MCP"`, and `git diff --check`.
 - 2026-05-03: Full local `bin/verify` passed after the subscription meta API
   smoke coverage and project-state updates.
+- 2026-05-03: Committed and pushed as `4a0a877` (`mcp: smoke direct json
+  subscription meta`) to both configured remotes.
+- 2026-05-03: Hosted GitHub evidence is clean for `4a0a877`: `CI` run
+  `25288536163` completed successfully with clean `Fast Checks`, `Full Verify`,
+  and log scan; `WAMP Profile Benchmarks` run `25288536164` completed
+  successfully; `Dart Package Publish Dry Run` run `25288536165` completed
+  successfully and covers the checked-out head; Native Artifacts dry-run
+  `25192553399` remains clean and relevant because no native-release-sensitive
+  paths changed.
 
 ## Decision Log
 
@@ -54,4 +63,7 @@ topics.
 
 ## Handoff
 
-Pending commit, push, and hosted deployment-chain evidence.
+Complete. Direct JSON subscription meta API visibility is pinned for public and
+protected topic discovery through router-hosted MCP routes. The required hosted
+deployment-chain checks are clean; remaining deployment-chain audit findings are
+unchanged operator/default-branch readiness items.

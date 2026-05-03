@@ -1417,6 +1417,13 @@ class _RouterMcpEndpoint {
     }
   }
 
+  List<SessionInfo> _visibleMetaSessions(Iterable<SessionInfo> sessions) {
+    return <SessionInfo>[
+      for (final candidate in sessions)
+        if (candidate.id == session.sessionId) candidate,
+    ];
+  }
+
   Future<List<RegistrationSnapshot>> _visibleMetaRegistrations(
     Iterable<RegistrationSnapshot> registrations,
   ) async {
@@ -1465,6 +1472,7 @@ class _RouterMcpEndpoint {
       return null;
     }
     final snapshot = await _snapshot();
+    final visibleSessions = _visibleMetaSessions(snapshot.sessions);
     final visibleRegistrations = await _visibleMetaRegistrations(
       snapshot.registrations,
     );
@@ -1474,19 +1482,17 @@ class _RouterMcpEndpoint {
     switch (call.procedure) {
       case 'wamp.session.count':
         return _resultPayload(
-          argumentsKeywords: {'count': snapshot.sessions.length},
+          argumentsKeywords: {'count': visibleSessions.length},
         );
       case 'wamp.session.list':
         return _resultPayload(
           argumentsKeywords: {
-            'session_ids': [
-              for (final session in snapshot.sessions) session.id,
-            ],
+            'session_ids': [for (final session in visibleSessions) session.id],
           },
         );
       case 'wamp.session.get':
         final id = _firstIntArgument(call);
-        final sessionInfo = snapshot.sessions
+        final sessionInfo = visibleSessions
             .where((session) => session.id == id)
             .firstOrNull;
         if (sessionInfo == null) {
