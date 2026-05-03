@@ -1545,6 +1545,62 @@ void main() {
         equals('open'),
       );
 
+      final directPubSubSubscribe = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.pubsub.subscribe',
+        {'topic': 'app.events.audit', 'queueLimit': 5},
+      );
+      final directPubSubSubscription =
+          directPubSubSubscribe['structuredContent'] as Map<String, Object?>;
+      final directPubSubHandle = directPubSubSubscription['handle'] as String;
+      expect(directPubSubSubscription['topic'], equals('app.events.audit'));
+
+      final directPubSubPublish = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.pubsub.publish',
+        {
+          'topic': 'app.events.audit',
+          'argumentsKeywords': {'via': 'direct-json-publish'},
+          'acknowledge': true,
+        },
+      );
+      expect(
+        directPubSubPublish['structuredContent'],
+        containsPair('acknowledged', true),
+      );
+
+      await serviceSession.publish(
+        'app.events.audit',
+        argumentsKeywords: {'via': 'direct-json-service'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final directPubSubPoll = await _pollDirectRouterJsonUntilEvents(
+        client,
+        listener.port,
+        '/mcp/public',
+        directPubSubHandle,
+      );
+      expect(
+        jsonEncode(directPubSubPoll['events']),
+        contains('direct-json-service'),
+      );
+
+      final directPubSubUnsubscribe = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.pubsub.unsubscribe',
+        {'handle': directPubSubHandle},
+      );
+      expect(
+        directPubSubUnsubscribe['structuredContent'],
+        containsPair('unsubscribed', true),
+      );
+
       final directUnsafeResult = await _postJson(
         client,
         listener.port,
@@ -3578,6 +3634,32 @@ Future<Map<String, Object?>> _pollMcpUntilEvents(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   fail('Timed out waiting for MCP subscription events for $handle');
+}
+
+Future<Map<String, Object?>> _pollDirectRouterJsonUntilEvents(
+  HttpClient client,
+  int port,
+  String path,
+  String handle, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  for (var attempt = 0; attempt < 30; attempt += 1) {
+    final result = await _callRouterJsonMethod(
+      client,
+      port,
+      path,
+      'connectanum.pubsub.poll',
+      {'handle': handle, 'limit': 10},
+      headers: headers,
+    );
+    final structured = result['structuredContent'] as Map<String, Object?>;
+    final events = structured['events'] as List? ?? const [];
+    if (events.isNotEmpty) {
+      return structured;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  fail('Timed out waiting for direct JSON MCP subscription events for $handle');
 }
 
 Future<Map<String, Object?>> _pollStreamableMcpUntilEvents(

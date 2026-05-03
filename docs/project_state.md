@@ -2,14 +2,16 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP Streamable HTTP pub/sub smoke
-after `b7b0348` (`mcp: smoke authenticated streamable route`)
-Last reviewed implementation commit: working tree MCP Streamable HTTP pub/sub
-smoke after `b7b0348` (`mcp: smoke authenticated streamable route`)
+Last reviewed branch checkpoint: working tree MCP direct JSON pub/sub smoke
+after `7933c71` (`mcp: smoke streamable pubsub tools`)
+Last reviewed implementation commit: working tree MCP direct JSON pub/sub
+smoke after `7933c71` (`mcp: smoke streamable pubsub tools`)
 Active exec plan:
+`docs/exec-plans/2026-05-03-mcp-direct-json-pubsub-smoke.md`
+(locally complete; hosted evidence pending). The MCP authenticated Streamable router smoke plan is complete:
 `docs/exec-plans/2026-05-03-mcp-authenticated-streamable-smoke.md`
-(complete locally; hosted evidence pending). The MCP Streamable HTTP client
-plan is complete:
+(complete; hosted evidence clean). The MCP Streamable HTTP client plan is
+complete:
 `docs/exec-plans/2026-05-03-mcp-streamable-http-client.md`
 (complete; hosted evidence clean). The router MCP POST/SSE response
 plan is complete:
@@ -47,20 +49,31 @@ starting another feature or benchmark slice.
     list safe and unsafe protected tools with bearer auth, call protected
     unsafe router-backed tools, exercise router-backed pub/sub subscribe,
     publish, poll, and unsubscribe through the client, and track
-    session/event ids
-  - focused checks passed for the MCP Streamable HTTP client slice:
+    session/event ids. The direct JSON router smoke now also uses dotted
+    `connectanum.pubsub.subscribe`, `connectanum.pubsub.publish`,
+    `connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe` methods
+    without MCP lifecycle setup or `connectanum.tool.call` wrapping
+  - focused checks passed for the direct JSON pub/sub smoke slice:
     `dart analyze packages/connectanum_mcp packages/connectanum_router`,
     `dart test packages/connectanum_mcp -r expanded`,
     `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
     and `git diff --check`
-  - full local `bin/verify` passed on 2026-05-03 after the authenticated
-    Streamable HTTP router smoke additions and project-state updates; it
+  - full local `bin/verify` passed on 2026-05-03 after the direct JSON
+    pub/sub router smoke addition and project-state updates; it
     included formatting, Rust native/FFI tests, Python package-artifact checks,
     MCP package tests including the Streamable HTTP client tests,
     client/native tests, auth-server tests, bench integration tests, the full
-    router package tests including the updated protected MCP router-hosted
-    smoke and Streamable HTTP pub/sub smoke, zero-copy router checks, and
-    Chrome Dart2Wasm WebSocket transport tests
+    router package tests including the direct JSON pub/sub MCP smoke,
+    zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests
+  - hosted GitHub evidence for `7933c71` is clean: `CI` run `25283791303`
+    completed successfully with `Fast Checks` in 5m36s and `Full Verify` in
+    8m05s, the hosted CI log scan found no warning, deprecation, skipped-test,
+    reset, connection-noise, panic, or failure patterns, `WAMP Profile
+    Benchmarks` run `25283791165` completed successfully in 7m49s, `Dart
+    Package Publish Dry Run` run `25283791166` completed successfully and
+    covers the checked-out head, and Native Artifacts dry-run `25192553399`
+    remains clean and relevant because no native-release-sensitive paths
+    changed
   - hosted GitHub evidence for `b7b0348` is clean: `CI` run `25283148543`
     completed successfully with `Fast Checks` in 5m38s and `Full Verify` in
     8m06s, the hosted CI log scan found no warning, deprecation, skipped-test,

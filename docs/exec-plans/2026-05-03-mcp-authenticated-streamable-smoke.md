@@ -1,6 +1,6 @@
 # Exec Plan: MCP Authenticated Streamable Router Smoke
 
-Status: completed locally
+Status: completed
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -66,6 +66,16 @@ unsafe tool metadata, and protected tool calls.
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`.
 - 2026-05-03: Full local `bin/verify` passed after the Streamable HTTP pub/sub
   router smoke addition and project-state updates.
+- 2026-05-03: Pushed commit `7933c71`
+  (`mcp: smoke streamable pubsub tools`) to GitLab and GitHub. Hosted GitHub
+  evidence is clean: `CI` run `25283791303` completed successfully with
+  `Fast Checks` in 5m36s and `Full Verify` in 8m05s, hosted CI log scan found
+  no warning, deprecation, skipped-test, reset, connection-noise, panic, or
+  failure patterns, `WAMP Profile Benchmarks` run `25283791165` completed
+  successfully in 7m49s, `Dart Package Publish Dry Run` run `25283791166`
+  completed successfully and covers the checked-out head, and Native Artifacts
+  dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -75,6 +85,6 @@ unsafe tool metadata, and protected tool calls.
 
 ## Handoff
 
-Complete locally for the added Streamable HTTP pub/sub smoke coverage. Commit,
-push, and inspect hosted deployment-chain evidence because this is router
-integration coverage on a shipped MCP path.
+Complete. Remaining MCP work should target concrete consumer-readiness gaps in
+router-hosted auth/session behavior, direct JSON meta/tool access, pub/sub
+coverage, or agent smoke compatibility.
