@@ -1467,6 +1467,23 @@ void main() {
       expect(streamableToolNames, isNot(contains('app.unsafe.delete')));
       expect(streamableClient.lastEventId, isNotNull);
 
+      final streamableTopicCatalog = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-topic-catalog',
+        params: {
+          'name': 'connectanum.api.list',
+          'arguments': {'kind': 'topic'},
+        },
+      );
+      final streamableTopicCatalogResult =
+          (streamableTopicCatalog['result'] as Map).cast<String, Object?>();
+      expect(streamableTopicCatalogResult['isError'], isFalse);
+      final streamableTopicCatalogJson = jsonEncode(
+        streamableTopicCatalogResult['structuredContent'],
+      );
+      expect(streamableTopicCatalogJson, contains('app.events.audit'));
+      expect(streamableTopicCatalogJson, isNot(contains('app.secure.audit')));
+
       final streamableSafe = await streamableClient.request(
         'tools/call',
         id: 'streamable-safe',
@@ -1543,6 +1560,23 @@ void main() {
           ((streamableUnsubscribe['result'] as Map)['structuredContent'] as Map)
               .cast<String, Object?>();
       expect(streamableUnsubscribeResult['unsubscribed'], isTrue);
+
+      final streamableSecureTopicDenied = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-secure-topic-denied',
+        params: {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'app.secure.audit', 'queueLimit': 5},
+        },
+      );
+      final streamableSecureTopicDeniedResult =
+          (streamableSecureTopicDenied['result'] as Map)
+              .cast<String, Object?>();
+      expect(streamableSecureTopicDeniedResult['isError'], isTrue);
+      expect(
+        jsonEncode(streamableSecureTopicDeniedResult),
+        contains('Unknown declared WAMP topic: app.secure.audit'),
+      );
 
       final directSafeResult = await _callRouterJsonMethod(
         client,
@@ -1943,6 +1977,23 @@ void main() {
       expect(secureStreamableToolNames, contains('app.safe.lookup'));
       expect(secureStreamableToolNames, contains('app.unsafe.delete'));
 
+      final secureStreamableTopicCatalog = await secureStreamableClient.request(
+        'tools/call',
+        id: 'secure-streamable-topic-catalog',
+        params: {
+          'name': 'connectanum.api.list',
+          'arguments': {'kind': 'topic'},
+        },
+      );
+      final secureStreamableTopicCatalogResult =
+          (secureStreamableTopicCatalog['result'] as Map)
+              .cast<String, Object?>();
+      expect(secureStreamableTopicCatalogResult['isError'], isFalse);
+      expect(
+        jsonEncode(secureStreamableTopicCatalogResult['structuredContent']),
+        contains('app.secure.audit'),
+      );
+
       final secureStreamableUnsafe = await secureStreamableClient.request(
         'tools/call',
         id: 'secure-streamable-unsafe',
@@ -1961,6 +2012,68 @@ void main() {
         equals('T-secure-streamable'),
       );
       expect(secureStreamableClient.lastEventId, isNotNull);
+
+      final secureStreamableSubscribe = await secureStreamableClient.request(
+        'tools/call',
+        id: 'secure-streamable-pubsub-subscribe',
+        params: {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'app.secure.audit', 'queueLimit': 5},
+        },
+      );
+      final secureStreamableSubscription =
+          ((secureStreamableSubscribe['result'] as Map)['structuredContent']
+                  as Map)
+              .cast<String, Object?>();
+      final secureStreamableHandle =
+          secureStreamableSubscription['handle'] as String;
+      expect(secureStreamableSubscription['topic'], equals('app.secure.audit'));
+
+      final secureStreamablePublish = await secureStreamableClient.request(
+        'tools/call',
+        id: 'secure-streamable-pubsub-publish',
+        params: {
+          'name': 'connectanum.pubsub.publish',
+          'arguments': {
+            'topic': 'app.secure.audit',
+            'argumentsKeywords': {'via': 'secure-streamable-publish'},
+            'acknowledge': true,
+          },
+        },
+      );
+      final secureStreamablePublishResult =
+          ((secureStreamablePublish['result'] as Map)['structuredContent']
+                  as Map)
+              .cast<String, Object?>();
+      expect(secureStreamablePublishResult['acknowledged'], isTrue);
+
+      await serviceSession.publish(
+        'app.secure.audit',
+        argumentsKeywords: {'via': 'secure-streamable-service'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final secureStreamablePoll = await _pollStreamableMcpUntilEvents(
+        secureStreamableClient,
+        secureStreamableHandle,
+      );
+      expect(
+        jsonEncode(secureStreamablePoll['events']),
+        contains('secure-streamable-service'),
+      );
+
+      final secureStreamableUnsubscribe = await secureStreamableClient.request(
+        'tools/call',
+        id: 'secure-streamable-pubsub-unsubscribe',
+        params: {
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': {'handle': secureStreamableHandle},
+        },
+      );
+      final secureStreamableUnsubscribeResult =
+          ((secureStreamableUnsubscribe['result'] as Map)['structuredContent']
+                  as Map)
+              .cast<String, Object?>();
+      expect(secureStreamableUnsubscribeResult['unsubscribed'], isTrue);
 
       await _initializeMcp(
         client,

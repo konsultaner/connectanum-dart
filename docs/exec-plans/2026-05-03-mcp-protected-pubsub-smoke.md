@@ -1,6 +1,6 @@
 # Exec Plan: MCP Protected Pub/Sub Smoke
 
-Status: locally complete; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -43,6 +43,15 @@ same topic through the direct JSON MCP facade.
   expanded --name "MCP"`, and `git diff --check`.
 - 2026-05-03: Full local `bin/verify` passed after the protected pub/sub
   smoke addition and project-state updates.
+- 2026-05-03: Pushed as `3d4fac6` (`mcp: smoke protected pubsub route`).
+  Hosted GitHub evidence is clean: `CI` run `25285593843` completed
+  successfully with `Fast Checks` and `Full Verify`, the hosted CI log scan
+  found no warning, deprecation, skipped-test, reset, connection-noise, panic,
+  or failure patterns, `WAMP Profile Benchmarks` run `25285593814` completed
+  successfully, and `Dart Package Publish Dry Run` run `25285593815`
+  completed successfully and covers the checked-out head. Native Artifacts
+  dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -53,4 +62,5 @@ same topic through the direct JSON MCP facade.
 
 ## Handoff
 
-Pending commit, push, and hosted deployment-chain evidence.
+Complete. Continue with the next roadmap-selected production-readiness slice
+after a fresh branch-head audit.

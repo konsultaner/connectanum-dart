@@ -2,13 +2,15 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree MCP protected pub/sub smoke after
-`ac9125e` (`mcp: smoke direct json pubsub tools`)
-Last reviewed implementation commit: working tree MCP protected pub/sub smoke
-after `ac9125e` (`mcp: smoke direct json pubsub tools`)
+Last reviewed branch checkpoint: working tree MCP Streamable protected pub/sub
+smoke after `3d4fac6` (`mcp: smoke protected pubsub route`)
+Last reviewed implementation commit: working tree MCP Streamable protected
+pub/sub smoke after `3d4fac6` (`mcp: smoke protected pubsub route`)
 Active exec plan:
-`docs/exec-plans/2026-05-03-mcp-protected-pubsub-smoke.md`
+`docs/exec-plans/2026-05-03-mcp-streamable-protected-pubsub-smoke.md`
 (locally complete; hosted evidence pending). Latest completed exec plan:
+`docs/exec-plans/2026-05-03-mcp-protected-pubsub-smoke.md`
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-direct-json-pubsub-smoke.md`
 (complete; hosted evidence clean). The MCP authenticated Streamable router smoke plan is complete:
 `docs/exec-plans/2026-05-03-mcp-authenticated-streamable-smoke.md`
@@ -32,8 +34,7 @@ The GitHub deployment-chain readiness plan is paused because the latest
 branch-head audit is clean and remaining RC blockers are operator/deployment
 decisions: branch-protection required checks, default-branch router image/GHCR
 visibility, RC tag/prerelease selection, and Dart package ownership/release
-order. The next continuation should re-audit the current branch head before
-starting another feature or benchmark slice.
+order.
 
 ## Last Known Verification
 
@@ -55,6 +56,27 @@ starting another feature or benchmark slice.
     `connectanum.pubsub.subscribe`, `connectanum.pubsub.publish`,
     `connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe` methods
     without MCP lifecycle setup or `connectanum.tool.call` wrapping
+  - branch-head GitHub deployment-chain audit was re-run on 2026-05-03 before
+    the current Streamable protected pub/sub smoke work; latest branch CI,
+    hosted CI log scan, Dart package publish dry-run, and native release
+    dry-run evidence were clean/relevant for `3d4fac6`
+  - current working tree extends the MCP smoke fixture so Streamable HTTP
+    clients also pin protected topic behavior: anonymous `/mcp/public` topic
+    catalog hides `app.secure.audit`, anonymous Streamable subscribe to that
+    topic returns a tool-level error, and bearer-authenticated `/mcp/secure`
+    can list, subscribe, publish, poll, and unsubscribe the same topic
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the Streamable
+    protected pub/sub smoke edits
+  - focused checks passed for the Streamable protected pub/sub smoke slice:
+    `dart analyze packages/connectanum_mcp packages/connectanum_router` and
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`
+  - full local `bin/verify` passed on 2026-05-03 after the Streamable
+    protected pub/sub smoke addition and project-state updates; it included
+    formatting, Rust native/FFI tests, Python package-artifact checks, MCP
+    package tests, client/native tests, auth-server tests, bench integration
+    tests, the full router package tests including the updated Streamable MCP
+    protected pub/sub smoke, zero-copy router checks, and Chrome Dart2Wasm
+    WebSocket transport tests
   - current working tree extends the MCP smoke fixture with a protected
     member-only topic so direct JSON topic catalog and pub/sub access are
     pinned for anonymous denial and bearer-authenticated success
@@ -66,6 +88,14 @@ starting another feature or benchmark slice.
     and `git diff --check`
   - full local `bin/verify` passed on 2026-05-03 after the protected pub/sub
     smoke addition and project-state updates
+  - hosted GitHub evidence for `3d4fac6` is clean: `CI` run `25285593843`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `WAMP Profile Benchmarks` run
+    `25285593814` completed successfully, `Dart Package Publish Dry Run` run
+    `25285593815` completed successfully and covers the checked-out head, and
+    Native Artifacts dry-run `25192553399` remains clean and relevant because
+    no native-release-sensitive paths changed
   - focused checks passed for the direct JSON pub/sub smoke slice:
     `dart analyze packages/connectanum_mcp packages/connectanum_router`,
     `dart test packages/connectanum_mcp -r expanded`,
