@@ -2,36 +2,54 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `a6a84a8`
-(`mcp: filter router catalog by principal`)
+Last reviewed branch checkpoint: `2fa9896`
+(`docs: record mcp catalog ci evidence`)
 Last reviewed implementation commit: `a6a84a8`
 (`mcp: filter router catalog by principal`)
 Active exec plan:
-`docs/exec-plans/2026-05-03-router-hosted-mcp-auth-meta-api.md` is active. It
-corrects the MCP product direction: MCP must be a router-hosted endpoint and a
-protocol view over authenticated WAMP/meta API calls, not a standalone
-MCP-only server or an internal-session shortcut. The latest clean hosted
-checkpoint is `a6a84a8`. Deployment-chain audit on 2026-05-02 remains clean for
-autonomous CI/log, Dart package dry-run, and native release dry-run gates, with
-only operator/deployment RC blockers left. Do not return to speculative MCP
-protocol polish, WAMP transport benchmarks, or roadmap work until the active
-MCP auth/session/meta-API correction is implemented, verified, and documented.
+`docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md` is active.
+The router-hosted MCP auth/catalog correction plan is complete; the next
+autonomous priority returns to the GitHub deployment chain. The latest clean
+branch-head hosted `CI` checkpoint is `2fa9896`. The latest implementation
+checkpoint remains `a6a84a8`, with clean hosted `CI`, WAMP profile benchmark,
+and Dart package publish dry-run evidence. Remaining RC blockers are still
+operator/deployment decisions: branch-protection required checks,
+default-branch router image/GHCR visibility, RC tag/prerelease selection, and
+Dart package ownership/release order.
 
 ## Last Known Verification
 
 - Current autonomous focus:
-  - active MCP auth/session/meta-API correction responds to product feedback
-    that tool calls must run as the authenticated route principal or session,
-    frontend clients need a JSON-callable meta/tool API using the same catalog,
-    and router configuration should expose MCP endpoints without a separate
-    MCP-only server; prior router implementation research confirmed the useful
-    pattern is WAMP registration/subscription meta API metadata plus
-    authorize-then-dispatch-as-caller bridge semantics
-  - latest clean hosted GitHub evidence for branch checkpoint `a6a84a8`:
-    `CI` run `25266069345` completed successfully on 2026-05-03 with `Fast
-    Checks` and `Full Verify` both green, `WAMP Profile Benchmarks` run
-    `25266069348` completed successfully, and `Dart Package Publish Dry Run`
-    run `25266069346` completed successfully
+  - GitHub deployment-chain readiness is the active plan again after the MCP
+    auth/catalog correction completed. Next autonomous work should refresh the
+    deployment-chain audit on the current branch head and keep hosted CI clean
+    before starting new feature or benchmark work.
+  - latest clean branch-head GitHub `CI` evidence is docs checkpoint `2fa9896`:
+    run `25266339481` completed successfully on 2026-05-03 with `Fast Checks`
+    and `Full Verify` both green
+  - latest implementation checkpoint `a6a84a8` remains clean for hosted
+    deployment evidence: `CI` run `25266069345`, `WAMP Profile Benchmarks` run
+    `25266069348`, and `Dart Package Publish Dry Run` run `25266069346` all
+    completed successfully on 2026-05-03; the later branch-head docs commit did
+    not change package-publish-sensitive, benchmark-sensitive, or
+    native-release-sensitive inputs
+  - pre-change `bin/test-fast` passed on 2026-05-03 before closing the MCP
+    auth/catalog plan and reactivating the GitHub deployment-chain plan
+  - branch-head deployment-chain audit passed on 2026-05-03 against `2fa9896`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; the hosted CI log scan found no
+    warning, deprecation, skipped-test, reset, connection-noise, panic, or
+    failure patterns, Dart package dry-run `25266069346` remains clean and
+    relevant because no package-publish-sensitive inputs changed after
+    `a6a84a8`, and native release dry-run `25192553399` remains clean and
+    relevant because no native-release-sensitive inputs changed after
+    `4267e7a`
+  - deployment-chain audit findings remain operator-owned, not code blockers:
+    `add-router` itself is not protected, `router-image.yml` is checked in but
+    not visible through the GitHub Actions API because it is missing from
+    `master`, and `ghcr.io/konsultaner/connectanum-router` is not visible in
+    GitHub Packages
   - completed MCP principal-filtered catalog slice keeps MCP and direct
     JSON-RPC discovery aligned with the route-authenticated principal:
     callable procedures are advertised only when the principal may `call` them,
@@ -93,9 +111,10 @@ MCP auth/session/meta-API correction is implemented, verified, and documented.
     tests, auth-server tests, bench integration tests, full router package
     tests including the new MCP isolation regression and existing MCP smoke,
     zero-copy publish tests, and Chrome Dart2Wasm WebSocket transport tests
-  - remaining active MCP plan work is stronger catalog filtering by effective
-    principal, hosted CI evidence for the direct-JSON slice after push, and any
-    follow-up public docs cleanup after behavior is complete
+  - the router-hosted MCP auth/catalog correction plan is complete and closed;
+    no known MCP auth/catalog blocker remains. Future downstream MCP usability
+    gaps should get a new focused plan when they become concrete shipped-path
+    blockers.
   - completed MCP icon metadata slice adds package-local `icons` serialization
     for `McpServerInfo`, tools, prompts, resources, and resource templates so
     downstream clients can show display identifiers without changing transport
@@ -4494,9 +4513,11 @@ MCP auth/session/meta-API correction is implemented, verified, and documented.
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-04-23-mcp-support-application-integration.md` until
-  the router-hosted MCP HTTP slice has clean local `bin/verify`, hosted CI, and
-  deployment-chain audit evidence.
+  `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md` after the
+  router-hosted MCP auth/catalog correction closed cleanly. Keep hosted GitHub
+  CI clean first, then refresh deployment-chain audit evidence and continue
+  public/release readiness work that does not require operator-owned publish or
+  repository-setting decisions.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub
@@ -4505,7 +4526,7 @@ MCP auth/session/meta-API correction is implemented, verified, and documented.
 - Most recent deployment-chain checkpoint plan:
   `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 - Most recent completed product-readiness plan:
-  `docs/exec-plans/2026-04-23-mcp-support-application-integration.md`
+  `docs/exec-plans/2026-05-03-router-hosted-mcp-auth-meta-api.md`
 - Supporting research notes:
   - `docs/mcp_integration_research.md`
   - `docs/dart_package_publishing.md`

@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Auth and Meta API
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -158,8 +158,13 @@ Out of scope:
   Checks` and `Full Verify` green, `WAMP Profile Benchmarks` run `25266069348`
   completed successfully, and `Dart Package Publish Dry Run` run `25266069346`
   completed successfully.
-- 2026-05-03: Remaining work in this plan is closing any documentation gaps
-  found by downstream use.
+- 2026-05-03: Follow-up docs checkpoint `2fa9896`
+  (`docs: record mcp catalog ci evidence`) passed hosted GitHub `CI` run
+  `25266339481` with `Fast Checks` and `Full Verify` green. Local
+  `bin/test-fast` also passed before closing the plan.
+- 2026-05-03: Completed and closed. No known router-hosted MCP auth/catalog
+  implementation blocker remains in this plan; downstream MCP usability gaps
+  should get a new focused plan if they become concrete shipped-path blockers.
 
 ## Verification
 
@@ -191,7 +196,6 @@ Out of scope:
 
 ## Handoff
 
-Next automation run should continue with downstream MCP usability gaps or close
-this exec plan if no further router-hosted MCP auth/catalog gaps are found.
-Keep the MCP anonymous isolation test and the MCP direct-JSON smoke path in the
-focused verification set.
+This plan is complete. Future MCP changes should keep the MCP anonymous
+isolation test and the MCP direct-JSON smoke path in the focused verification
+set.

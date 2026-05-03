@@ -1,9 +1,9 @@
 # GitHub Deployment Chain Readiness
 
-Status: paused
+Status: active
 Owner: Codex
 Created: 2026-04-28
-Last updated: 2026-05-02
+Last updated: 2026-05-03
 
 ## Goal
 
@@ -1241,12 +1241,35 @@ operator evidence over speculative feature or benchmark work.
   next action for branch-protection required checks, default-branch workflow
   visibility, GHCR router package validation, RC tag/prerelease setup, and Dart
   package release-order/ownership decisions.
+- 2026-05-03: Reactivated this plan after completing the router-hosted MCP
+  auth/catalog correction. Branch-head docs checkpoint `2fa9896`
+  (`docs: record mcp catalog ci evidence`) passed GitHub `CI` run
+  `25266339481` with `Fast Checks` and `Full Verify` green. The latest
+  implementation checkpoint `a6a84a8` remains clean for `CI` run
+  `25266069345`, `WAMP Profile Benchmarks` run `25266069348`, and
+  `Dart Package Publish Dry Run` run `25266069346`; package and benchmark
+  evidence remains relevant because the later `2fa9896` commit changed only
+  state docs.
+- 2026-05-03: Local `bin/test-fast` passed before reactivating this plan.
+- 2026-05-03: Branch-head deployment-chain audit passed against `2fa9896`
+  with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+  `--require-clean-dart-package-publish-dry-run`, and
+  `--require-clean-native-release-dry-run`. Latest hosted `CI` run
+  `25266339481` is clean, its log scan found no high-signal warning,
+  deprecation, skipped-test, reset, connection-noise, panic, or failure
+  patterns, Dart package dry-run `25266069346` remains clean/relevant, and
+  native release dry-run `25192553399` remains clean/relevant. Remaining
+  not-ready findings are still operator-owned: branch protection,
+  default-branch visibility for `router-image.yml`, GHCR router package
+  publication/visibility, RC tag/prerelease, and Dart package ownership/release
+  order.
 
 ## Handoff
 
-- Next continuation should keep hosted GitHub CI clean. Resume this plan only
-  when the operator approves branch protection, default-branch router image
-  promotion/GHCR publication, an RC tag/prerelease, or Dart package
-  ownership/release order. Do not publish a stable non-validation release tag,
-  router image, or Dart package without an explicit product/version/ownership
-  decision.
+- Next continuation should keep hosted GitHub CI clean and refresh the
+  deployment-chain audit after any new branch-head change. Remaining RC
+  blockers are still operator-owned: branch-protection required checks,
+  default-branch router image promotion/GHCR publication, RC tag/prerelease,
+  and Dart package ownership/release order. Do not publish a stable
+  non-validation release tag, router image, or Dart package without an
+  explicit product/version/ownership decision.
