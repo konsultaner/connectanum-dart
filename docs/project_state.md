@@ -2,14 +2,16 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `c153075`
-(`mcp: add router sse polling`)
-Last reviewed implementation commit: `c153075`
-(`mcp: add router sse polling`)
+Last reviewed branch checkpoint: `eb3d9e6`
+(`mcp: add resumable router sse events`)
+Last reviewed implementation commit: `eb3d9e6`
+(`mcp: add resumable router sse events`)
 Active exec plan:
-`docs/exec-plans/2026-05-03-router-mcp-sse-resumability.md`
-(completed locally; pending commit/push and hosted evidence). The router MCP
-SSE polling plan is complete:
+`docs/exec-plans/2026-05-03-router-mcp-post-sse-responses.md`
+(complete locally on top of `eb3d9e6`; commit/push and hosted evidence
+pending). The router MCP SSE resumability plan is complete:
+`docs/exec-plans/2026-05-03-router-mcp-sse-resumability.md`.
+The router MCP SSE polling plan is complete:
 `docs/exec-plans/2026-05-03-router-mcp-sse-polling.md`.
 The router MCP Streamable HTTP readiness plan is complete:
 `docs/exec-plans/2026-05-03-router-mcp-streamable-http-readiness.md`.
@@ -27,9 +29,29 @@ starting another feature or benchmark slice.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - router-hosted MCP SSE resumability is complete locally after a clean
-    branch-head deployment-chain audit at `c153075` and a passing pre-change
-    `bin/test-fast`. The implementation adds bounded per-endpoint SSE event
+  - router-hosted MCP POST/SSE response streams are implemented locally on top
+    of `eb3d9e6` after the hosted deployment-chain evidence for the previous
+    MCP SSE resumability commit was clean and a fresh pre-change
+    `bin/test-fast` passed locally. Stateful non-`initialize` MCP operation
+    requests that opt into Streamable HTTP now return `text/event-stream`
+    response streams with a primer event and one JSON-RPC response event,
+    commit those events into the same session-scoped bounded history used by
+    GET/SSE, and preserve JSON responses for `initialize` plus direct
+    JSON-only clients
+  - focused checks passed for the local POST/SSE response slice:
+    `dart analyze packages/connectanum_router packages/connectanum_mcp`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --name "MCP"`,
+    `dart test packages/connectanum_mcp -r expanded`, and `git diff --check`
+  - full local `bin/verify` passed on 2026-05-03 after the MCP POST/SSE
+    response implementation and docs updates; it included formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP package tests,
+    client/native tests, auth-server tests, bench integration tests, full
+    router package tests including the updated MCP Streamable HTTP regression,
+    zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests
+  - router-hosted MCP SSE resumability is complete and pushed as `eb3d9e6`
+    after a clean branch-head deployment-chain audit at `c153075` and a
+    passing pre-change `bin/test-fast`. The implementation adds bounded
+    per-endpoint SSE event
     history, route-scoped `notifications/tools/list_changed` delivery, and
     `Last-Event-ID` resume handling on the existing router `type: mcp`
     endpoint without introducing a standalone MCP server path
@@ -44,6 +66,14 @@ starting another feature or benchmark slice.
     router package tests including the updated MCP Streamable HTTP
     resumability regression, zero-copy router checks, and Chrome Dart2Wasm
     WebSocket transport tests
+  - hosted GitHub evidence for `eb3d9e6` is clean: `CI` run `25280137967`
+    completed successfully with `Fast Checks` in 5m37s and `Full Verify` in
+    8m27s, the hosted CI log scan found no warning, deprecation, skipped-test,
+    reset, connection-noise, panic, or failure patterns, `WAMP Profile
+    Benchmarks` run `25280137976` completed successfully, `Dart Package
+    Publish Dry Run` run `25280137972` completed successfully and covers the
+    checked-out head, and Native Artifacts dry-run `25192553399` remains clean
+    and relevant because no native-release-sensitive paths changed
   - router-hosted MCP GET/SSE polling is complete and pushed as `c153075`
     after the Streamable HTTP session-hardening checkpoint. GET now requires
     `Accept: text/event-stream` and a known `MCP-Session-Id`, opens a native
@@ -78,10 +108,10 @@ starting another feature or benchmark slice.
     Publish Dry Run` run `25279091444` completed successfully and covers the
     checked-out head, and Native Artifacts dry-run `25192553399` remains clean
     and relevant because no native-release-sensitive paths changed
-  - remaining MCP transport gap after the local resumability slice:
-    POST-initiated SSE response streams are not implemented; request/response
-    calls still use the JSON POST response path, while GET/SSE is used for
-    server-to-client notifications and polling
+  - the previously noted MCP transport gap after the resumability slice is now
+    closed locally for stateful operation requests: POST-initiated SSE response
+    streams are supported for clients that opt into Streamable HTTP, while
+    JSON-only POST remains the compatibility path
   - router-hosted MCP Streamable HTTP readiness is complete and pushed as
     `041236e` after MCP fix-up was prioritized for downstream application
     readiness. The router now supports per-client `MCP-Session-Id` keys for

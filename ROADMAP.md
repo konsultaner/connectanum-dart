@@ -359,9 +359,9 @@
     IDs, strict HTTP header validation, Origin policy, DELETE session
     termination, GET/SSE polling, server-to-client tool-list notifications, and
     bounded `Last-Event-ID` resume handling.
-  - [ ] Add POST-initiated SSE response streams if a client integration needs
-    request-scoped streamed results or server requests during a long-running
-    MCP tool call.
+  - [x] Add POST-initiated SSE response streams for stateful operation
+    requests that opt into Streamable HTTP, while preserving JSON responses for
+    `initialize` and direct JSON-only clients.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

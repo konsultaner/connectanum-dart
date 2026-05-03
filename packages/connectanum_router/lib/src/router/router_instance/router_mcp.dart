@@ -113,6 +113,42 @@ bool _mcpAcceptRequestsStreamableHttpSession(
       accepted.contains(_mcpSseContentType);
 }
 
+bool _mcpPostResponsesUseSse(
+  RouterBinding binding,
+  RouterHttpRequest request,
+  HttpRouteSettings route, {
+  required bool isInitialize,
+  required String? sessionId,
+}) {
+  if (isInitialize || sessionId == null || sessionId.isEmpty) {
+    return false;
+  }
+  if (!_mcpAcceptRequestsStreamableHttpSession(binding, request)) {
+    return false;
+  }
+
+  final mode = _stringFrom(
+    route.action.options['post_response_transport'],
+  )?.trim().toLowerCase();
+  switch (mode) {
+    case 'json':
+    case 'off':
+    case 'false':
+    case 'disabled':
+      return false;
+    case 'sse':
+    case 'stream':
+    case 'streamable':
+    case 'auto':
+      return true;
+  }
+  return _boolOption(
+    route.action.options,
+    'stream_post_responses',
+    defaultValue: true,
+  );
+}
+
 bool _mcpContentTypeAllowsJsonBody(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -222,7 +258,7 @@ Uint8List _mcpSseEventsBytes(Iterable<_RouterMcpSseEvent> events) {
   return buffer.takeBytes();
 }
 
-Future<bool> _mcpSendSsePollResponse(
+Future<bool> _mcpSendSseResponse(
   RouterBinding binding, {
   required RouterHttpRequest request,
   required NativeHttpHandshake? handshake,
@@ -543,7 +579,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
-    final sent = await _mcpSendSsePollResponse(
+    final sent = await _mcpSendSseResponse(
       binding,
       request: request,
       handshake: handshake,
@@ -679,6 +715,30 @@ Future<void> _handleMcpHttpRequestForBinding(
   }
 
   final response = await endpoint.handleMessage(rawMessage);
+  if (response != null &&
+      _mcpPostResponsesUseSse(
+        binding,
+        request,
+        route,
+        isInitialize: isInitialize,
+        sessionId: effectiveMcpSessionId,
+      )) {
+    final responseBatch = endpoint.ssePostResponseEvents(
+      sessionId: effectiveMcpSessionId!,
+      response: response,
+    );
+    final sent = await _mcpSendSseResponse(
+      binding,
+      request: request,
+      handshake: handshake,
+      sessionId: effectiveMcpSessionId,
+      events: responseBatch.events,
+    );
+    if (sent) {
+      endpoint.commitSsePollBatch(responseBatch);
+      return;
+    }
+  }
   await binding._sendImmediateHttpResponse(
     request: request,
     handshake: handshake,
@@ -905,6 +965,28 @@ class _RouterMcpEndpoint {
       events: events,
       newEvents: newEvents,
       pendingMessages: pendingMessages,
+    );
+  }
+
+  _RouterMcpSsePollBatch ssePostResponseEvents({
+    required String sessionId,
+    required mcp.JsonMap response,
+  }) {
+    final streamId = 's${++_nextSseStream}';
+    final primer = _nextSseEvent(
+      sessionId: sessionId,
+      streamId: streamId,
+      retryMs: 1000,
+    );
+    final responseEvent = _nextSseEvent(
+      sessionId: sessionId,
+      streamId: streamId,
+      data: jsonEncode(response),
+    );
+    return _RouterMcpSsePollBatch(
+      events: <_RouterMcpSseEvent>[primer, responseEvent],
+      newEvents: <_RouterMcpSseEvent>[primer, responseEvent],
+      pendingMessages: const <mcp.JsonMap>[],
     );
   }
 

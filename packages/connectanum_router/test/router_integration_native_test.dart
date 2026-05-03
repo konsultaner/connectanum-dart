@@ -1171,13 +1171,52 @@ void main() {
         contains('Last-Event-ID'),
       );
 
-      final tools = await _postJson(client, listener.port, '/mcp', {
+      final postSse = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
-        'id': 'tools',
+        'id': 'tools-sse',
         'method': 'tools/list',
         'params': {},
       }, headers: sessionHeaders);
+      expect(postSse.statusCode, equals(HttpStatus.ok));
+      expect(
+        postSse.headers[HttpHeaders.contentTypeHeader],
+        contains('text/event-stream'),
+      );
+      expect(postSse.headers['mcp-session-id'], equals(mcpSessionId));
+      expect(postSse.json, isNull);
+      expect(postSse.body, contains('"id":"tools-sse"'));
+      expect(postSse.body, contains('"tools"'));
+      final postSseEventIds = _sseEventIds(postSse.body);
+      expect(postSseEventIds, hasLength(2));
+      expect(postSseEventIds.first, startsWith('$mcpSessionId:'));
+      expect(postSseEventIds.last, startsWith('$mcpSessionId:'));
+
+      final replayPostSse = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'Last-Event-ID': postSseEventIds.first,
+        },
+      );
+      expect(replayPostSse.statusCode, equals(HttpStatus.ok));
+      expect(replayPostSse.body, contains(postSseEventIds.last));
+      expect(replayPostSse.body, contains('"id":"tools-sse"'));
+
+      final tools = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'id': 'tools', 'method': 'tools/list', 'params': {}},
+        headers: {
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'application/json',
+        },
+      );
       expect(tools.statusCode, equals(HttpStatus.ok));
+      expect(tools.json?['id'], equals('tools'));
 
       final unknownSession = await _postJson(
         client,
@@ -3185,12 +3224,18 @@ _postJson(
 }
 
 String _firstSseEventId(String body) {
-  for (final line in const LineSplitter().convert(body)) {
-    if (line.startsWith('id: ')) {
-      return line.substring(4);
-    }
+  final ids = _sseEventIds(body);
+  if (ids.isNotEmpty) {
+    return ids.first;
   }
   fail('SSE body did not contain an event id: $body');
+}
+
+List<String> _sseEventIds(String body) {
+  return [
+    for (final line in const LineSplitter().convert(body))
+      if (line.startsWith('id: ')) line.substring(4),
+  ];
 }
 
 Future<

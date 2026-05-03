@@ -1,6 +1,6 @@
 # Exec Plan: Router MCP SSE Resumability
 
-Status: completed locally
+Status: completed
 Owner: Codex
 Created: 2026-05-03
 Last updated: 2026-05-03
@@ -60,6 +60,14 @@ resume behavior on the existing route-authenticated MCP endpoint.
   tests, auth-server tests, bench integration tests, the full router package
   suite including the updated MCP Streamable HTTP regression, zero-copy router
   checks, and Chrome Dart2Wasm WebSocket transport tests.
+- 2026-05-03: Pushed commit `eb3d9e6`
+  (`mcp: add resumable router sse events`) to GitLab and GitHub. Hosted GitHub
+  evidence is clean: `CI` run `25280137967`, `WAMP Profile Benchmarks` run
+  `25280137976`, and `Dart Package Publish Dry Run` run `25280137972` all
+  completed successfully. The strict add-router deployment-chain audit passed
+  with a clean CI job set, clean CI log scan, clean relevant Dart package
+  dry-run, and the existing Native Artifacts dry-run `25192553399` still
+  relevant because no native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -77,5 +85,6 @@ resume behavior on the existing route-authenticated MCP endpoint.
 
 ## Handoff
 
-Complete locally. Remaining handoff work is commit/push and hosted GitHub
-deployment-chain evidence.
+Complete. Remaining future MCP Streamable HTTP work is POST-initiated SSE
+response streams if a client integration needs request-scoped streamed results
+or server requests during long-running tool calls.
