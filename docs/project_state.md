@@ -2,10 +2,10 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `b6dcfb1`
-(`router: redact metrics auth token`)
-Last reviewed implementation commit: `b6dcfb1`
-(`router: redact metrics auth token`)
+Last reviewed branch checkpoint: `8362a53`
+(`router: align metrics auth flag`)
+Last reviewed implementation commit: `8362a53`
+(`router: align metrics auth flag`)
 Active exec plan:
 None. The metrics secret-redaction plan is complete:
 `docs/exec-plans/2026-05-03-metrics-secret-redaction.md`.
@@ -25,21 +25,32 @@ starting another feature or benchmark slice.
     because the remaining RC blockers require operator/release decisions; every
     continuation should still re-audit the branch head before starting another
     feature or benchmark slice.
-  - latest branch-head GitHub `CI` evidence is implementation checkpoint
-    `b6dcfb1`: run `25274832528` completed successfully on 2026-05-03 with
+  - metrics auth-required consistency is complete in implementation checkpoint
+    `8362a53`: the internal metrics snapshot now reports `auth_required` only
+    when `open_metrics.auth_token` is non-empty, matching the HTTP `/metrics`
+    bearer-token enforcement path; a fail-first regression reproduced the
+    previous empty-token mismatch, the focused router metrics test,
+    `dart analyze packages/connectanum_router`, `git diff --check`, and full
+    local `bin/verify` all passed on 2026-05-03
+  - pre-change `bin/test-fast` passed on 2026-05-03 before the metrics
+    auth-required consistency slice
+  - latest hosted GitHub `CI` evidence before `8362a53` is docs checkpoint
+    `e57c141`: run `25275562139` completed successfully on 2026-05-03 with
     `Fast Checks` and `Full Verify` both green
-  - latest branch-head `WAMP Profile Benchmarks` evidence is run
+  - latest hosted `WAMP Profile Benchmarks` evidence before `8362a53` is run
     `25274832544`, completed successfully on 2026-05-03 for `b6dcfb1`
-  - latest branch-head `Dart Package Publish Dry Run` evidence is run
-    `25274832546`, completed successfully on 2026-05-03 for `b6dcfb1`
-  - branch-head deployment-chain audit passed on 2026-05-03 against `b6dcfb1`
+  - latest hosted `Dart Package Publish Dry Run` evidence before `8362a53` is
+    run `25274832546`, completed successfully on 2026-05-03 for `b6dcfb1`
+  - latest hosted deployment-chain audit before `8362a53` passed on 2026-05-03
+    against `e57c141`
     with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
     `--require-clean-native-release-dry-run`; the hosted CI log scan found no
     warning, deprecation, skipped-test, reset, connection-noise, panic, or
-    failure patterns, Dart package dry-run `25274832546` covers the checked-out
-    head, and native release dry-run `25192553399` remains clean/relevant
-    because no native-release-sensitive inputs changed
+    failure patterns, Dart package dry-run `25274832546` remains
+    clean/relevant for the checked-out package-publish-sensitive inputs, and
+    native release dry-run `25192553399` remains clean/relevant because no
+    native-release-sensitive inputs changed
   - metrics secret-redaction hardening is complete and pushed as `b6dcfb1`: the
     router metrics snapshot now redacts configured OpenMetrics bearer tokens
     from exporter metadata and exposes only a non-secret `auth_required` flag;
