@@ -1300,16 +1300,21 @@ operator evidence over speculative feature or benchmark work.
   `dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart -r expanded`,
   `dart analyze packages/connectanum_client`, and `git diff --check`; full
   local `bin/verify` passed before commit.
+- 2026-05-03: Pushed rawsocket malformed-frame cleanup commit `ed2822f`
+  (`client: fail closed on malformed rawsocket frames`) to both remotes.
+  Hosted GitHub `CI` run `25269453916` passed with `Fast Checks` in 5m47s and
+  `Full Verify` in 7m56s, `WAMP Profile Benchmarks` run `25269453914` passed,
+  and `Dart Package Publish Dry Run` run `25269453990` passed. The strict
+  deployment-chain audit passed against `ed2822f` with clean hosted CI logs,
+  package dry-run evidence covering the checked-out head, and relevant native
+  release dry-run evidence.
 
 ## Handoff
 
 - Next continuation should keep hosted GitHub CI clean and refresh the
-  deployment-chain audit after any new branch-head change. Current local work
-  is the client rawsocket malformed-inbound-WAMP fail-closed slice; full local
-  `bin/verify` has passed. Before handoff, commit, push, wait for hosted GitHub
-  `CI` and package dry-run evidence, then rerun the strict deployment-chain
-  audit. Remaining RC blockers are still operator-owned: branch-protection
-  required checks, default-branch router image promotion/GHCR publication, RC
-  tag/prerelease, and Dart package ownership/release order. Do not publish a
-  stable non-validation release tag, router image, or Dart package without an
+  deployment-chain audit after any new branch-head change. Remaining RC
+  blockers are still operator-owned: branch-protection required checks,
+  default-branch router image promotion/GHCR publication, RC tag/prerelease,
+  and Dart package ownership/release order. Do not publish a stable
+  non-validation release tag, router image, or Dart package without an
   explicit product/version/ownership decision.

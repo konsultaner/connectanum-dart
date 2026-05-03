@@ -2,18 +2,16 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `06e2918`
-(`core: report unsupported json messages`)
-Last reviewed implementation commit: `06e2918`
-(`core: report unsupported json messages`)
+Last reviewed branch checkpoint: `ed2822f`
+(`client: fail closed on malformed rawsocket frames`)
+Last reviewed implementation commit: `ed2822f`
+(`client: fail closed on malformed rawsocket frames`)
 Active exec plan:
 `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md` is active.
 The router-hosted MCP auth/catalog correction plan is complete; the next
 autonomous priority returns to the GitHub deployment chain. The latest clean
-branch-head hosted `CI` checkpoint is `06e2918`, with clean hosted package
-publish dry-run and deployment-chain audit evidence. A small local
-production-readiness cleanup is in progress for malformed inbound rawsocket
-    WAMP frame handling in the client transport.
+implementation checkpoint is `ed2822f`, with clean hosted `CI`, WAMP profile
+benchmark, Dart package publish dry-run, and deployment-chain audit evidence.
 Remaining RC blockers are still operator/deployment decisions:
 branch-protection required checks,
 default-branch router image/GHCR visibility, RC tag/prerelease selection, and
@@ -23,24 +21,26 @@ Dart package ownership/release order.
 
 - Current autonomous focus:
   - GitHub deployment-chain readiness is the active plan again after the MCP
-    auth/catalog correction completed. Current local work is a narrow
-    shipped-path client transport cleanup; before handoff, run full local
-    verification, push, wait for hosted CI/package dry-run, then refresh the
-    strict deployment-chain audit on the new branch head.
+    auth/catalog correction completed. Current work has returned to keeping
+    shipped paths and the GitHub deployment chain clean; next autonomous work
+    should re-audit the latest branch head before starting another feature or
+    benchmark slice.
   - latest clean branch-head GitHub `CI` evidence is implementation checkpoint
-    `06e2918`: run `25268374660` completed successfully on 2026-05-03 with
+    `ed2822f`: run `25269453916` completed successfully on 2026-05-03 with
     `Fast Checks` and `Full Verify` both green
-  - branch-head deployment-chain audit passed on 2026-05-03 against `06e2918`
+  - latest clean branch-head `WAMP Profile Benchmarks` evidence is run
+    `25269453914`, completed successfully on 2026-05-03 for `ed2822f`
+  - branch-head deployment-chain audit passed on 2026-05-03 against `ed2822f`
     with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
     `--require-clean-native-release-dry-run`; the hosted CI log scan found no
     warning, deprecation, skipped-test, reset, connection-noise, panic, or
-    failure patterns, Dart package dry-run `25268374682` covers the checked-out
+    failure patterns, Dart package dry-run `25269453990` covers the checked-out
     head, and native release dry-run `25192553399` remains clean/relevant
     because no native-release-sensitive inputs changed
   - read-only RC readiness audit on 2026-05-03 reports hosted CI/logs, hosted
     Dart package dry-run, and hosted native release dry-run ready at
-    `06e2918`; remaining not-ready gates are operator-owned branch-protection
+    `ed2822f`; remaining not-ready gates are operator-owned branch-protection
     required checks on `master`, default-branch visibility for
     `router-image.yml`, GHCR router package visibility, RC tag/prerelease
     selection, and Dart package ownership/version/release-order approval
@@ -55,16 +55,18 @@ Dart package ownership/release order.
     `dart analyze packages/connectanum_core`, and `git diff --check`, full
     local `bin/verify` passed, and hosted GitHub `CI` plus
     `Dart Package Publish Dry Run` passed after push
-  - current local production-readiness slice makes rawsocket WAMP receive fail
-    closed when an inbound WAMP frame cannot be deserialized: null serializer
-    results now become a `FormatException`, inbound message handling completes
-    `onConnectionLost`, closes the transport, and guards socket-done callbacks
-    from double-completing connection loss; pre-change `bin/test-fast` passed,
-    and focused checks passed:
+  - pushed production-readiness cleanup `ed2822f` makes rawsocket WAMP receive
+    fail closed when an inbound WAMP frame cannot be deserialized: null
+    serializer results now become a `FormatException`, inbound message handling
+    completes `onConnectionLost`, closes the transport, and guards socket-done
+    callbacks from double-completing connection loss; pre-change
+    `bin/test-fast` passed, and focused checks passed:
     `dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart -r expanded`,
     `dart analyze packages/connectanum_client`, and `git diff --check`; full
-    local `bin/verify` passed before commit
-  - latest implementation checkpoint `a6a84a8` remains clean for hosted
+    local `bin/verify` passed before commit, then hosted GitHub `CI`,
+    `WAMP Profile Benchmarks`, `Dart Package Publish Dry Run`, and the strict
+    deployment-chain audit passed after push
+  - previous implementation checkpoint `a6a84a8` remains clean for hosted
     deployment evidence: `CI` run `25266069345`, `WAMP Profile Benchmarks` run
     `25266069348`, and `Dart Package Publish Dry Run` run `25266069346` all
     completed successfully on 2026-05-03; the later branch-head docs commit did
