@@ -25,6 +25,7 @@ import 'package:connectanum_core/src/message/unregister.dart';
 import 'package:connectanum_core/src/message/unregistered.dart';
 import 'package:connectanum_core/src/message/unsubscribe.dart';
 import 'package:connectanum_core/src/message/unsubscribed.dart';
+import 'package:connectanum_core/src/message/unknown_message.dart';
 import 'package:connectanum_core/src/message/welcome.dart';
 import 'package:connectanum_core/src/message/invocation.dart';
 import 'package:connectanum_core/src/message/yield.dart';
@@ -67,6 +68,18 @@ void main() {
       );
       expect(message, contains('"channel_binding":null'));
       expect(message, contains('"nonce":"egVDf3DMJh0="'));
+    });
+    test('unsupported message reports type', () {
+      expect(
+        () => serializer.serializeToString(UnknownMessage(999)),
+        throwsA(
+          isA<UnsupportedError>().having(
+            (error) => error.message,
+            'message',
+            contains('UnknownMessage'),
+          ),
+        ),
+      );
     });
     test('Authenticate', () {
       expect(

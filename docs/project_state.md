@@ -2,18 +2,20 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `2fa9896`
-(`docs: record mcp catalog ci evidence`)
+Last reviewed branch checkpoint: `ea2b067`
+(`docs: switch back to deployment readiness`)
 Last reviewed implementation commit: `a6a84a8`
 (`mcp: filter router catalog by principal`)
 Active exec plan:
 `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md` is active.
 The router-hosted MCP auth/catalog correction plan is complete; the next
 autonomous priority returns to the GitHub deployment chain. The latest clean
-branch-head hosted `CI` checkpoint is `2fa9896`. The latest implementation
+branch-head hosted `CI` checkpoint is `ea2b067`. The latest implementation
 checkpoint remains `a6a84a8`, with clean hosted `CI`, WAMP profile benchmark,
-and Dart package publish dry-run evidence. Remaining RC blockers are still
-operator/deployment decisions: branch-protection required checks,
+and Dart package publish dry-run evidence. A small local production-readiness
+cleanup is in progress for the JSON serializer unsupported-message error path.
+Remaining RC blockers are still operator/deployment decisions:
+branch-protection required checks,
 default-branch router image/GHCR visibility, RC tag/prerelease selection, and
 Dart package ownership/release order.
 
@@ -24,9 +26,30 @@ Dart package ownership/release order.
     auth/catalog correction completed. Next autonomous work should refresh the
     deployment-chain audit on the current branch head and keep hosted CI clean
     before starting new feature or benchmark work.
-  - latest clean branch-head GitHub `CI` evidence is docs checkpoint `2fa9896`:
-    run `25266339481` completed successfully on 2026-05-03 with `Fast Checks`
+  - latest clean branch-head GitHub `CI` evidence is docs checkpoint `ea2b067`:
+    run `25267385154` completed successfully on 2026-05-03 with `Fast Checks`
     and `Full Verify` both green
+  - branch-head deployment-chain audit passed on 2026-05-03 against `ea2b067`
+    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+    `--require-clean-dart-package-publish-dry-run`, and
+    `--require-clean-native-release-dry-run`; the hosted CI log scan found no
+    warning, deprecation, skipped-test, reset, connection-noise, panic, or
+    failure patterns
+  - read-only RC readiness audit on 2026-05-03 reports hosted CI/logs, hosted
+    Dart package dry-run, and hosted native release dry-run ready at
+    `ea2b067`; remaining not-ready gates are operator-owned branch-protection
+    required checks on `master`, default-branch visibility for
+    `router-image.yml`, GHCR router package visibility, RC tag/prerelease
+    selection, and Dart package ownership/version/release-order approval
+  - public-surface scan on 2026-05-03 found no remaining `Groli`, local
+    checkout path, sibling-project, internal-project, or GitLab host references
+    in public docs/package surfaces
+  - current local production-readiness slice makes the JSON serializer match
+    MsgPack/CBOR by reporting unsupported outbound message objects as a typed
+    `UnsupportedError` with the message type instead of an empty generic
+    `Exception`; pre-change `bin/test-fast` passed, and focused checks passed:
+    `dart test packages/connectanum_core/test/serializer/json/serializer_test.dart -r expanded`,
+    `dart analyze packages/connectanum_core`, and `git diff --check`
   - latest implementation checkpoint `a6a84a8` remains clean for hosted
     deployment evidence: `CI` run `25266069345`, `WAMP Profile Benchmarks` run
     `25266069348`, and `Dart Package Publish Dry Run` run `25266069346` all
@@ -35,8 +58,8 @@ Dart package ownership/release order.
     native-release-sensitive inputs
   - pre-change `bin/test-fast` passed on 2026-05-03 before closing the MCP
     auth/catalog plan and reactivating the GitHub deployment-chain plan
-  - branch-head deployment-chain audit passed on 2026-05-03 against `2fa9896`
-    with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+  - previous branch-head deployment-chain audit passed on 2026-05-03 against
+    `2fa9896` with `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
     `--require-clean-dart-package-publish-dry-run`, and
     `--require-clean-native-release-dry-run`; the hosted CI log scan found no
     warning, deprecation, skipped-test, reset, connection-noise, panic, or

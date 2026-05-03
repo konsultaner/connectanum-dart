@@ -833,7 +833,9 @@ class Serializer extends AbstractSerializer {
     }
 
     _logger.shout('Could not serialize the message of type: $message');
-    throw Exception(''); // TODO think of something helpful here...
+    throw UnsupportedError(
+      'JSON serializer does not support ${message.runtimeType}',
+    );
   }
 
   String _serializeDetails(Details details) {

@@ -1263,6 +1263,26 @@ operator evidence over speculative feature or benchmark work.
   default-branch visibility for `router-image.yml`, GHCR router package
   publication/visibility, RC tag/prerelease, and Dart package ownership/release
   order.
+- 2026-05-03: Follow-up docs checkpoint `ea2b067`
+  (`docs: switch back to deployment readiness`) passed GitHub `CI` run
+  `25267385154` with `Fast Checks` and `Full Verify` green. The strict
+  deployment-chain audit passed against `ea2b067`, including the hosted CI log
+  scan, relevant Dart package dry-run evidence, and relevant native release
+  dry-run evidence.
+- 2026-05-03: Read-only RC readiness audit at `ea2b067` reports hosted CI/logs,
+  hosted Dart package dry-run, and hosted native release dry-run ready.
+  Remaining not-ready gates still require operator/release decisions:
+  branch-protection required checks on `master`, default-branch promotion for
+  `router-image.yml`, GHCR router package publication/visibility, RC
+  tag/prerelease selection, and Dart package ownership/version/release-order
+  approval.
+- 2026-05-03: Started a small shipped-path production-readiness cleanup after
+  the public-surface scan found no remaining internal project/path references:
+  the JSON serializer unsupported outbound-message path now matches
+  MsgPack/CBOR by throwing a typed `UnsupportedError` containing the unsupported
+  message type instead of an empty generic `Exception`. Pre-change
+  `bin/test-fast` passed; focused checks passed for the JSON serializer suite,
+  `dart analyze packages/connectanum_core`, and `git diff --check`.
 
 ## Handoff
 
