@@ -152,8 +152,13 @@ Out of scope:
   passed after the catalog-filtering edits.
 - 2026-05-03: Full local `bin/verify` passed after the MCP
   principal-filtered catalog implementation and docs updates.
-- 2026-05-03: Remaining work in this plan is commit and hosted CI evidence for
-  the principal-filtered catalog slice, then closing any documentation gaps
+- 2026-05-03: Pushed commit `a6a84a8`
+  (`mcp: filter router catalog by principal`) to both remotes. Hosted GitHub
+  evidence is clean: `CI` run `25266069345` completed successfully with `Fast
+  Checks` and `Full Verify` green, `WAMP Profile Benchmarks` run `25266069348`
+  completed successfully, and `Dart Package Publish Dry Run` run `25266069346`
+  completed successfully.
+- 2026-05-03: Remaining work in this plan is closing any documentation gaps
   found by downstream use.
 
 ## Verification
@@ -186,7 +191,7 @@ Out of scope:
 
 ## Handoff
 
-Next automation run should commit and push the principal-filtered catalog
-slice if it has not already been published, then monitor GitHub Actions for a
-clean branch-head CI chain. Keep the MCP anonymous isolation test and the MCP
-direct-JSON smoke path in the focused verification set.
+Next automation run should continue with downstream MCP usability gaps or close
+this exec plan if no further router-hosted MCP auth/catalog gaps are found.
+Keep the MCP anonymous isolation test and the MCP direct-JSON smoke path in the
+focused verification set.

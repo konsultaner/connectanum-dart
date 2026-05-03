@@ -2,16 +2,16 @@
 
 Last updated: 2026-05-03
 Current branch: `add-router`
-Last reviewed branch checkpoint: `d75e548`
-(`mcp: add router direct json calls`)
-Last reviewed implementation commit: `d75e548`
-(`mcp: add router direct json calls`)
+Last reviewed branch checkpoint: `a6a84a8`
+(`mcp: filter router catalog by principal`)
+Last reviewed implementation commit: `a6a84a8`
+(`mcp: filter router catalog by principal`)
 Active exec plan:
 `docs/exec-plans/2026-05-03-router-hosted-mcp-auth-meta-api.md` is active. It
 corrects the MCP product direction: MCP must be a router-hosted endpoint and a
 protocol view over authenticated WAMP/meta API calls, not a standalone
 MCP-only server or an internal-session shortcut. The latest clean hosted
-checkpoint is `d75e548`. Deployment-chain audit on 2026-05-02 remains clean for
+checkpoint is `a6a84a8`. Deployment-chain audit on 2026-05-02 remains clean for
 autonomous CI/log, Dart package dry-run, and native release dry-run gates, with
 only operator/deployment RC blockers left. Do not return to speculative MCP
 protocol polish, WAMP transport benchmarks, or roadmap work until the active
@@ -27,11 +27,12 @@ MCP auth/session/meta-API correction is implemented, verified, and documented.
     MCP-only server; prior router implementation research confirmed the useful
     pattern is WAMP registration/subscription meta API metadata plus
     authorize-then-dispatch-as-caller bridge semantics
-  - latest clean hosted GitHub evidence for branch checkpoint `d75e548`:
-    `CI` run `25264958567`, `WAMP Profile Benchmarks` run `25264958566`, and
-    `Dart Package Publish Dry Run` run `25264958575` all completed
-    successfully on 2026-05-03
-  - current local MCP principal-filtered catalog slice keeps MCP and direct
+  - latest clean hosted GitHub evidence for branch checkpoint `a6a84a8`:
+    `CI` run `25266069345` completed successfully on 2026-05-03 with `Fast
+    Checks` and `Full Verify` both green, `WAMP Profile Benchmarks` run
+    `25266069348` completed successfully, and `Dart Package Publish Dry Run`
+    run `25266069346` completed successfully
+  - completed MCP principal-filtered catalog slice keeps MCP and direct
     JSON-RPC discovery aligned with the route-authenticated principal:
     callable procedures are advertised only when the principal may `call` them,
     topics are advertised only for allowed `publish`/`subscribe` operations,
