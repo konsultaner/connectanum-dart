@@ -431,6 +431,12 @@ application-specific resource and prompt projection is intentionally separate
 from WAMP procedure/topic auto-discovery so applications keep explicit control
 over context and prompt surface area.
 
+Malformed MCP route options are rejected while the router native config is
+built or the router starts. That includes invalid configured procedures,
+topics, resources, resource templates, prompts, and prompt arguments, so a
+network-visible MCP route does not defer these errors until the first client
+request.
+
 Tool and topic catalogs are filtered for the effective route principal before
 they are exposed through MCP or direct JSON-RPC. Callable procedures are listed
 only when the principal may `call` them; topics are listed only for the allowed

@@ -1813,6 +1813,20 @@ List<mcp.McpWampTopic> _configuredTopics(Map<String, Object?> options) {
   ];
 }
 
+void _validateMcpRouteOptions(Map<String, Object?> options) {
+  try {
+    _configuredProcedures(options);
+    _configuredTopics(options);
+    _configuredResources(options);
+    _configuredResourceTemplates(options);
+    _configuredPrompts(options);
+  } on FormatException catch (error) {
+    throw StateError('Invalid MCP route options: ${error.message}');
+  } on ArgumentError catch (error) {
+    throw StateError('Invalid MCP route options: ${error.message}');
+  }
+}
+
 List<mcp.McpResource> _configuredResources(Map<String, Object?> options) {
   final entries = options['resources'];
   if (entries is! List) {

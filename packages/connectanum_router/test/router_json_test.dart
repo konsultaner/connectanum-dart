@@ -18,6 +18,44 @@ SniCertificate _cert(String host) => SniCertificate(
   privateKeyPem: _privateKeyPem,
 );
 
+Router _routerWithMcpOptions(Map<String, Object?> options) {
+  final endpoint = Endpoint(
+    host: '127.0.0.1',
+    port: 0,
+    tlsMode: TlsMode.disabled,
+    maxRawSocketSizeExponent: 16,
+  );
+  final settings = RouterSettings(
+    realms: [
+      RealmSettings(
+        name: 'realm1',
+        auth: const RealmAuthSettings(methods: ['anonymous']),
+        roles: const [],
+        limits: const RealmLimitSettings(),
+      ),
+    ],
+    listeners: [
+      ListenerSettings(
+        endpoint: '127.0.0.1:0',
+        protocols: const [ListenerProtocol.http],
+        http: HttpListenerSettings(
+          routes: [
+            HttpRouteSettings(
+              match: const HttpRouteMatch(path: '/mcp'),
+              action: HttpRouteAction(
+                type: HttpRouteActionType.mcp,
+                realm: 'realm1',
+                options: options,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+  return Router(RouterConfig(endpoints: [endpoint]), settings: settings);
+}
+
 void main() {
   group('Router buildNativeConfigJson', () {
     test('encodes schema, version and endpoints', () {
@@ -122,6 +160,73 @@ void main() {
       expect(action['type'], 'translation');
       expect(action['realm'], 'realm1');
       expect(action['procedure'], 'connectanum.mcp.handle');
+    });
+
+    test('validates MCP resource options while building native config', () {
+      final router = _routerWithMcpOptions({
+        'resources': [
+          {'name': 'missing-uri', 'text': 'context'},
+        ],
+      });
+
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('MCP resource config requires uri'),
+          ),
+        ),
+      );
+    });
+
+    test('validates MCP WAMP API options while building native config', () {
+      final router = _routerWithMcpOptions({
+        'procedures': [
+          {'name': 'missing-uri'},
+        ],
+      });
+
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('MCP procedure config requires procedure or uri'),
+          ),
+        ),
+      );
+    });
+
+    test('validates MCP prompt options while building native config', () {
+      final router = _routerWithMcpOptions({
+        'prompts': [
+          {
+            'name': 'summarize',
+            'text': 'Summarize {{taskId}}',
+            'arguments': [
+              {'name': 'taskId'},
+              {'name': 'taskId'},
+            ],
+          },
+        ],
+      });
+
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            allOf(
+              contains('Invalid MCP route options'),
+              contains('Duplicate MCP prompt argument'),
+            ),
+          ),
+        ),
+      );
     });
   });
 }

@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Resources And Prompts
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -67,6 +67,14 @@ Out of scope:
   bench integration tests, the full router package tests including
   router-hosted MCP and `remote_auth_integration_test`, zero-copy router
   checks, and Chrome Dart2Wasm WebSocket transport tests.
+- Hosted GitHub evidence for `09dffab` is clean: `CI` run `25306872679`
+  completed successfully with `Fast Checks` and `Full Verify`, `Dart Package
+  Publish Dry Run` run `25306872647` completed successfully, and `WAMP Profile
+  Benchmarks` run `25306872632` completed successfully. The hosted log scan
+  found no actionable Rust/Dart warnings, deprecations, skipped-test lines,
+  panics, resets, connection failures, or broken pipes; matches were limited to
+  Git checkout's default-branch hint and normal `0 ignored` / filtered-test
+  summaries.
 
 ## Decision Log
 
@@ -77,5 +85,5 @@ Out of scope:
 
 ## Handoff
 
-Complete locally. Hosted GitHub deployment-chain evidence is pending until the
-implementation is pushed.
+Complete. Commit `09dffab` was pushed to both remotes, local verification is
+clean, and hosted GitHub deployment-chain evidence is clean.

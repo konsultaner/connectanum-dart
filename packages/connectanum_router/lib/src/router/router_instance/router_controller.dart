@@ -230,6 +230,7 @@ class Router {
             'HTTP MCP routes require a realm; specify action.realm, action.options.realm, or configure a listener/default realm.',
           );
         }
+        _validateMcpRouteOptions(action.options);
         return <String, Object?>{
           'type': 'translation',
           'realm': realm,

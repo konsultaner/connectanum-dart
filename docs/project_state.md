@@ -4,11 +4,13 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `4a1e42c`
 (`mcp: add router-hosted endpoint example`)
-Last reviewed implementation commit: `4a1e42c`
-(`mcp: add router-hosted endpoint example`)
+Latest pushed implementation commit: `09dffab`
+(`mcp: expose router resources and prompts`)
 Active exec plan:
+`docs/exec-plans/2026-05-04-router-hosted-mcp-config-validation.md`
+(implementation complete; local verification clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-resources-prompts.md`
-(complete locally; hosted evidence pending). Previous completed exec plan:
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-example-readiness.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-package-release-readiness.md`
@@ -71,7 +73,24 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Router-hosted MCP resource and prompt readiness is in progress. The local
+  - Router-hosted MCP config validation is implementation-complete locally. The local
+    implementation now reuses the router-hosted MCP parsers while building
+    native config for `HttpRouteActionType.mcp`, so malformed configured
+    procedures, topics, resources, resource templates, prompts, and prompt
+    arguments fail during router config build/start instead of first request
+    handling. Focused regressions in `router_json_test.dart` cover invalid
+    resource, WAMP API, and prompt options. Pre-change `bin/test-fast` passed
+    on 2026-05-04. Focused checks passed on 2026-05-04:
+    `dart analyze packages/connectanum_router` and
+    `dart test packages/connectanum_router/test/router_json_test.dart -r expanded`.
+    Full local `bin/verify` passed on 2026-05-04 with formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP package tests, client
+    tests including MCP Streamable HTTP/direct JSON helper coverage,
+    auth-server tests, bench integration tests, the full router package tests
+    including the new MCP route-option validation cases and existing
+    router-hosted MCP smoke coverage, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests. Hosted evidence is pending after push.
+  - Router-hosted MCP resource and prompt readiness is complete. The local
     implementation now lets `HttpRouteActionType.mcp` route options configure
     static MCP resources, resource templates, prompts, and their list page
     sizes. Router-hosted `initialize` advertises `resources` and `prompts`
@@ -91,8 +110,15 @@ order.
     including MCP Streamable HTTP/direct JSON helper coverage, auth-server
     tests, bench integration tests, the full router package tests including
     router-hosted MCP and `remote_auth_integration_test`, zero-copy router
-    checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is
-    pending until the implementation is pushed.
+    checks, and Chrome Dart2Wasm WebSocket transport tests. Commit `09dffab`
+    was pushed to both remotes. Hosted GitHub evidence for `09dffab` is clean:
+    `CI` run `25306872679` completed successfully with `Fast Checks` and
+    `Full Verify`, `Dart Package Publish Dry Run` run `25306872647` completed
+    successfully, and `WAMP Profile Benchmarks` run `25306872632` completed
+    successfully. The hosted log scan found no actionable Rust/Dart warnings,
+    deprecations, skipped-test lines, panics, resets, connection failures, or
+    broken pipes; matches were limited to Git checkout's default-branch hint
+    and normal `0 ignored` / filtered-test summaries.
   - Router-hosted MCP public example readiness is complete with hosted evidence
     clean for `4a1e42c`. The local
     implementation adds
