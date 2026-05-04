@@ -91,6 +91,15 @@ Out of scope:
   `WAMP Profile Benchmarks` run `25301180479` completed successfully, and
   Native Artifacts dry-run `25192553399` remains clean and relevant because no
   native-release-sensitive paths changed.
+- Hosted GitHub evidence for the follow-up IO entrypoint smoke commit
+  `a4e32dd` is clean: `CI` run `25302428144` completed successfully with
+  `Fast Checks` and `Full Verify`, the hosted CI log scan found no warning,
+  deprecation, skipped-test, reset, connection-noise, panic, or failure
+  patterns, and `Dart Package Publish Dry Run` run `25302428154` completed
+  successfully and covers the checked-out head. `WAMP Profile Benchmarks` run
+  `25301180479` remains clean and relevant because the follow-up changed only
+  package smoke coverage and docs, and Native Artifacts dry-run `25192553399`
+  remains clean and relevant because no native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -101,8 +110,9 @@ Out of scope:
 
 ## Handoff
 
-Complete. Commit `126d274` was pushed to both remotes and the hosted GitHub
-deployment-chain evidence is clean. Remaining deployment-chain findings are
-operator/setup items: protect the branch, promote `.github/workflows/router-image.yml`
-through the default branch for Actions API visibility, and publish the router
-container package when that release lane is enabled.
+Complete. Commits `126d274` and follow-up `a4e32dd` were pushed to both
+remotes and the hosted GitHub deployment-chain evidence is clean. Remaining
+deployment-chain findings are operator/setup items: protect the branch, promote
+`.github/workflows/router-image.yml` through the default branch for Actions API
+visibility, and publish the router container package when that release lane is
+enabled.

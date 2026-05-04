@@ -36,3 +36,6 @@ jobs:
 
       - name: Validate publishable Dart packages
         run: bin/dart-package-publish-dry-run
+
+      - name: Validate MCP package release readiness
+        run: bin/dart-package-publish-dry-run --include-private connectanum_mcp
