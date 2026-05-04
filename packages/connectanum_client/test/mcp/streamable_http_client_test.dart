@@ -209,6 +209,102 @@ void main() {
       );
     });
 
+    test('uses Connectanum WAMP tool helpers for API and pubsub', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+
+      final catalog = await client.listWampApi(
+        id: 'wamp-api-list',
+        kind: 'topic',
+        streamable: false,
+      );
+      expect(catalog['topics'], hasLength(1));
+      expect(
+        (catalog['topics'] as List).single,
+        containsPair('topic', 'app.events.audit'),
+      );
+
+      final topic = await client.describeWampApi(
+        'app.events.audit',
+        id: 'wamp-api-describe',
+        kind: 'topic',
+        streamable: false,
+      );
+      expect(topic['topic'], 'app.events.audit');
+
+      final subscription = await client.subscribeWampTopic(
+        'app.events.audit',
+        id: 'wamp-subscribe',
+        queueLimit: 3,
+        options: const <String, Object?>{'match': 'exact'},
+        streamable: false,
+      );
+      expect(subscription.handle, 'wamp-sub-1');
+      expect(subscription.topic, 'app.events.audit');
+      expect(subscription.subscriptionId, 7);
+      expect(subscription.queueLimit, 3);
+
+      final publication = await client.publishWampEvent(
+        'app.events.audit',
+        id: 'wamp-publish',
+        argumentsKeywords: const <String, Object?>{'message': 'hello'},
+        acknowledge: true,
+        streamable: false,
+      );
+      expect(publication.topic, 'app.events.audit');
+      expect(publication.publicationId, 42);
+      expect(publication.acknowledged, isTrue);
+
+      final batch = await client.pollWampEvents(
+        subscription.handle,
+        id: 'wamp-poll',
+        limit: 2,
+        streamable: false,
+      );
+      expect(batch.handle, subscription.handle);
+      expect(batch.topic, 'app.events.audit');
+      expect(batch.dropped, 0);
+      expect(batch.remaining, 0);
+      expect(batch.events, hasLength(1));
+      expect(batch.events.single['argumentsKeywords'], {'message': 'hello'});
+
+      final unsubscribe = await client.unsubscribeWampTopic(
+        subscription.handle,
+        id: 'wamp-unsubscribe',
+        streamable: false,
+      );
+      expect(unsubscribe.handle, subscription.handle);
+      expect(unsubscribe.topic, 'app.events.audit');
+      expect(unsubscribe.unsubscribed, isTrue);
+
+      await expectLater(
+        client.subscribeWampTopic(
+          'app.secure.audit',
+          id: 'wamp-denied',
+          streamable: false,
+        ),
+        throwsA(
+          isA<McpStreamableWampToolException>()
+              .having(
+                (error) => error.toolName,
+                'toolName',
+                'connectanum.pubsub.subscribe',
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                'not authorized for topic',
+              ),
+        ),
+      );
+    });
+
     test(
       'parses SSE event ids, retry hints, event names, and multi-line data',
       () {
@@ -392,6 +488,98 @@ final class _FakeMcpEndpoint {
         });
         return;
       }
+      if (params['name'] == 'connectanum.api.list') {
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'topics': <Object?>[
+            <String, Object?>{
+              'topic': 'app.events.audit',
+              'title': 'Audit Events',
+            },
+          ],
+        });
+        return;
+      }
+      if (params['name'] == 'connectanum.api.describe') {
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'topic': 'app.events.audit',
+          'title': 'Audit Events',
+        });
+        return;
+      }
+      if (params['name'] == 'connectanum.pubsub.subscribe') {
+        final arguments = _jsonMapFrom(
+          params['arguments'],
+          label: 'pubsub subscribe arguments',
+        );
+        if (arguments['topic'] == 'app.secure.audit') {
+          _writeJson(request, <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': requestBody['id'],
+            'result': <String, Object?>{
+              'content': <Object?>[
+                <String, Object?>{
+                  'type': 'text',
+                  'text': 'not authorized for topic',
+                },
+              ],
+              'isError': true,
+            },
+          });
+          return;
+        }
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': arguments['topic'],
+          'subscriptionId': 7,
+          'queueLimit': arguments['queueLimit'],
+        });
+        return;
+      }
+      if (params['name'] == 'connectanum.pubsub.publish') {
+        final arguments = _jsonMapFrom(
+          params['arguments'],
+          label: 'pubsub publish arguments',
+        );
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'topic': arguments['topic'],
+          'acknowledged': true,
+          'publicationId': 42,
+        });
+        return;
+      }
+      if (params['name'] == 'connectanum.pubsub.poll') {
+        final arguments = _jsonMapFrom(
+          params['arguments'],
+          label: 'pubsub poll arguments',
+        );
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'handle': arguments['handle'],
+          'topic': 'app.events.audit',
+          'events': <Object?>[
+            <String, Object?>{
+              'subscriptionId': 7,
+              'publicationId': 42,
+              'topic': 'app.events.audit',
+              'argumentsKeywords': <String, Object?>{'message': 'hello'},
+            },
+          ],
+          'dropped': 0,
+          'remaining': 0,
+        });
+        return;
+      }
+      if (params['name'] == 'connectanum.pubsub.unsubscribe') {
+        final arguments = _jsonMapFrom(
+          params['arguments'],
+          label: 'pubsub unsubscribe arguments',
+        );
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'handle': arguments['handle'],
+          'topic': 'app.events.audit',
+          'unsubscribed': true,
+        });
+        return;
+      }
       final arguments = _jsonMapFrom(
         params['arguments'],
         label: 'tools/call arguments',
@@ -543,6 +731,22 @@ final class _FakeMcpEndpoint {
             'inputSchema': <String, Object?>{'type': 'object'},
           },
         ],
+      },
+    });
+  }
+
+  void _writeToolResult(
+    HttpRequest request,
+    Object? id,
+    McpJsonMap structuredContent,
+  ) {
+    _writeJson(request, <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'content': <Object?>[],
+        'structuredContent': structuredContent,
+        'isError': false,
       },
     });
   }

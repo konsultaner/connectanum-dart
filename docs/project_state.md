@@ -2,15 +2,18 @@
 
 Last updated: 2026-05-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: `bb44ecc`
-(`mcp: add streamable tool helpers`)
-Last reviewed implementation commit: `bb44ecc`
-(`mcp: add streamable tool helpers`)
+Last reviewed branch checkpoint: `87226f0`
+(`mcp: add streamable discovery helpers`)
+Last reviewed implementation commit: `87226f0`
+(`mcp: add streamable discovery helpers`)
 Active exec plan:
+`docs/exec-plans/2026-05-04-mcp-streamable-wamp-tools.md`
+(local verification clean; hosted evidence pending). Latest completed exec
+plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-discovery-helpers.md`
-(complete locally; hosted evidence pending). Latest completed exec plan:
-`docs/exec-plans/2026-05-04-mcp-streamable-tool-helpers.md`
 (complete; hosted evidence clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-04-mcp-streamable-tool-helpers.md`
+(complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-ping-readiness.md`
 (complete; hosted evidence clean). Earlier completed exec plan:
 `docs/exec-plans/2026-05-03-mcp-json-rpc-batch.md`
@@ -55,8 +58,33 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP Streamable discovery helper readiness is complete locally with hosted
-    evidence pending. The exported `McpStreamableHttpClient` now has typed
+  - MCP Streamable WAMP tool helper readiness is local-verification clean and
+    waiting for hosted evidence after push. `package:connectanum_client/mcp.dart`
+    now exports typed `McpStreamableHttpClient` extension helpers for
+    `connectanum.api.list`, `connectanum.api.describe`,
+    `connectanum.pubsub.publish`, `connectanum.pubsub.subscribe`,
+    `connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe`. These
+    helpers reuse the existing session-aware `callTool(...)` path, so
+    router-hosted MCP auth/session behavior remains centralized in the router
+    endpoint and generic clients can still use raw `request(...)`/`callTool(...)`
+    for custom methods. Tool-level WAMP helper errors surface as
+    `McpStreamableWampToolException` while generic `callTool(...)` still
+    returns raw successful MCP tool results.
+  - fail-first focused coverage reproduced the missing WAMP helper APIs:
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --plain-name "uses Connectanum WAMP tool helpers for API and pubsub"`.
+    Focused checks passed after implementation:
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --plain-name "uses Connectanum WAMP tool helpers for API and pubsub"`,
+    `dart analyze packages/connectanum_client`, and
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
+    `bin/test-fast` and full local `bin/verify` passed on 2026-05-04 after the
+    helper implementation; full verification included formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP package tests, client
+    tests including the updated `packages/connectanum_client/test/mcp` suite,
+    auth-server tests, bench integration tests, the full router package tests
+    including MCP router smoke coverage and `remote_auth_integration_test`,
+    zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
+  - MCP Streamable discovery helper readiness is complete with hosted evidence
+    clean for `87226f0`. The exported `McpStreamableHttpClient` now has typed
     helpers for standard
     `resources/list`, `resources/read`, `resources/templates/list`,
     `prompts/list`, and `prompts/get` calls while preserving raw JSON-RPC
@@ -71,7 +99,14 @@ order.
     suite, auth-server tests, bench integration tests, the full router package
     tests including MCP router smoke coverage and `remote_auth_integration_test`,
     zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
-    Hosted GitHub evidence is pending.
+  - hosted GitHub evidence for `87226f0` is clean: `CI` run `25294812273`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `Dart Package Publish Dry
+    Run` run `25294812274` completed successfully and covers the checked-out
+    head, `WAMP Profile Benchmarks` run `25294812276` completed successfully,
+    and Native Artifacts dry-run `25192553399` remains clean and relevant
+    because no native-release-sensitive paths changed.
   - MCP Streamable tool helper readiness is complete with hosted evidence
     clean for `bb44ecc`. `McpStreamableHttpClient` now exposes typed
     `listTools(...)` and
