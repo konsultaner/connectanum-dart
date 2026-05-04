@@ -1,6 +1,6 @@
 # Exec Plan: MCP Streamable Session Isolation
 
-Status: complete; local verification clean
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -47,8 +47,18 @@ Out of scope:
   `dart analyze packages/connectanum_router` and
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
 - Full local `bin/verify` passed on 2026-05-04.
+- Commit `4b8ac54` was pushed to both remotes. Hosted GitHub evidence for
+  `4b8ac54` is clean: `CI` run `25320628899` completed successfully with
+  `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+  `25320628923` completed successfully, and `WAMP Profile Benchmarks` run
+  `25320628941` completed successfully. The deployment-chain audit with
+  required clean latest CI, clean hosted CI logs, and clean Dart package
+  publish dry-run passed for branch head `4b8ac54`; the remaining audit
+  findings are the existing operator/deployment items around branch
+  protection, default-branch router workflow visibility, and GHCR router
+  package visibility.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, and hosted
-evidence are still pending.
+Implementation, local verification, and hosted GitHub deployment-chain evidence
+are complete.

@@ -585,6 +585,36 @@ Future<void> _smokeMcpEndpoint(
   );
   print('[$label] Streamable MCP tool result: ${jsonEncode(streamableResult)}');
 
+  final streamableBatch = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-batch-tools',
+      'method': 'tools/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-batch-call',
+      'method': 'tools/call',
+      'params': {
+        'name': 'example.task.lookup',
+        'arguments': {'taskId': 'T-$label-batch'},
+      },
+    },
+    {'jsonrpc': '2.0', 'method': 'notifications/initialized', 'params': {}},
+  ]);
+  if (streamableBatch == null || streamableBatch.length != 2) {
+    throw StateError('Streamable MCP batch did not return two responses.');
+  }
+  if (streamableBatch[0]['id'] != '$label-batch-tools' ||
+      !jsonEncode(streamableBatch[0]).contains('example.task.lookup')) {
+    throw StateError('Streamable MCP batch tools/list response was invalid.');
+  }
+  if (streamableBatch[1]['id'] != '$label-batch-call' ||
+      !jsonEncode(streamableBatch[1]).contains('T-$label-batch')) {
+    throw StateError('Streamable MCP batch tools/call response was invalid.');
+  }
+
   final streamableSubscription = await client.subscribeWampTopic(
     'example.events.task',
     id: '$label-streamable-subscribe',

@@ -1575,6 +1575,120 @@ void main() {
       skip: skipReason,
     );
 
+    test(
+      'serves Streamable HTTP batch responses on router MCP routes',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9116,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final binding = harness.binding;
+        final serviceSession = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-batch-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final registration = await serviceSession.register(
+          'app.safe.lookup',
+          options: core.RegisterOptions(
+            custom: const {
+              '_ai_meta_data': {
+                'short_description': 'Look up task state',
+                'description': 'Reads task state without modifying data.',
+                'domain': 'app',
+                'entity': 'task',
+                'verbs': ['lookup'],
+                'tags': ['safe'],
+                'read_only_hint': true,
+                'destructive_hint': false,
+                'idempotent_hint': true,
+                'open_world_hint': false,
+              },
+            },
+          ),
+        );
+        registration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: {
+              'taskId': invocation.argumentsKeywords?['taskId'],
+              'status': 'open',
+            },
+          );
+        });
+
+        final listener = binding.listeners.single;
+        final httpClient = HttpClient();
+        addTearDown(() => httpClient.close(force: true));
+
+        Future<void> expectStreamableBatch(
+          McpStreamableHttpClient client,
+          String label,
+        ) async {
+          await client.initialize();
+          await client.notifyInitialized();
+          final responses = await client.postBatch([
+            {
+              'jsonrpc': '2.0',
+              'id': '$label-batch-tools',
+              'method': 'tools/list',
+              'params': {},
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': '$label-batch-call',
+              'method': 'tools/call',
+              'params': {
+                'name': 'app.safe.lookup',
+                'arguments': {'taskId': 'T-$label-batch'},
+              },
+            },
+            {
+              'jsonrpc': '2.0',
+              'method': 'notifications/initialized',
+              'params': {},
+            },
+          ]);
+          expect(responses, isNotNull);
+          expect(responses, hasLength(2));
+          expect(responses![0]['id'], equals('$label-batch-tools'));
+          expect(jsonEncode(responses[0]), contains('app.safe.lookup'));
+          expect(responses[1]['id'], equals('$label-batch-call'));
+          expect(jsonEncode(responses[1]), contains('T-$label-batch'));
+          expect(client.lastEventId, startsWith('${client.sessionId}:'));
+        }
+
+        final publicClient = McpStreamableHttpClient(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp/public',
+          ),
+        );
+        addTearDown(() => publicClient.close(force: true));
+        await expectStreamableBatch(publicClient, 'public');
+
+        final token = await _issueTicketHttpToken(httpClient, listener.port);
+        final secureClient = McpStreamableHttpClient.withBearerToken(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp/secure',
+          ),
+          token,
+        );
+        addTearDown(() => secureClient.close(force: true));
+        await expectStreamableBatch(secureClient, 'secure');
+      },
+      skip: skipReason,
+    );
+
     test('smoke tests MCP router RPC pubsub and route security', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9112,

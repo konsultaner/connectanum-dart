@@ -4,11 +4,13 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `7f27566`
-(`mcp: cover example pubsub smoke`; CI clean)
+Latest pushed implementation commit: `4b8ac54`
+(`mcp: cover streamable session isolation`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-04-mcp-streamable-session-isolation.md`
+`docs/exec-plans/2026-05-04-mcp-streamable-batch-smoke.md`
 (complete; local verification clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-04-mcp-streamable-session-isolation.md`
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-example-pubsub-smoke.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-client-bearer-convenience.md`
@@ -87,6 +89,19 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP Streamable HTTP batch smoke is complete locally. The router
+    integration suite now exercises the consumer `McpStreamableHttpClient`
+    `postBatch(...)` path against real public and bearer-protected
+    router-hosted MCP sessions, and the runnable router-hosted MCP example
+    smoke now includes the same stateful batch path. Pre-change
+    `bin/test-fast` passed on 2026-05-04. Focused checks passed on
+    2026-05-04: `dart analyze packages/connectanum_router`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "serves Streamable HTTP batch responses on router MCP routes"`,
+    `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`,
+    and
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
+    Full local `bin/verify` passed on 2026-05-04. Commit, push, and hosted
+    evidence are pending.
   - MCP Streamable HTTP session isolation is complete locally. The router
     integration smoke fixture now has a second neutral ticket-authenticated
     member principal, and the focused regression proves a bearer-protected MCP
@@ -99,8 +114,16 @@ order.
     Additional focused checks passed on 2026-05-04:
     `dart analyze packages/connectanum_router` and
     `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
-    Full local `bin/verify` passed on 2026-05-04. Commit, push, and hosted
-    evidence are pending.
+    Full local `bin/verify` passed on 2026-05-04. Commit `4b8ac54` was pushed
+    to both remotes. Hosted GitHub evidence for `4b8ac54` is clean: `CI` run
+    `25320628899` completed successfully with `Fast Checks` and `Full Verify`,
+    `Dart Package Publish Dry Run` run `25320628923` completed successfully,
+    and `WAMP Profile Benchmarks` run `25320628941` completed successfully.
+    The deployment-chain audit with required clean latest CI, clean hosted CI
+    logs, and clean Dart package publish dry-run passed for branch head
+    `4b8ac54`; the remaining audit findings are the existing
+    operator/deployment items around branch protection, default-branch router
+    workflow visibility, and GHCR router package visibility.
   - Router-hosted MCP example pub/sub smoke is complete locally. The runnable
     `packages/connectanum_router/example/router_hosted_mcp.dart` smoke now
     proves direct JSON and initialized Streamable MCP pub/sub helpers on both
@@ -1117,7 +1140,7 @@ order.
     selection, and Dart package ownership/version/release-order approval; the
     strict Dart publish-readiness gate also remains blocked until
     `connectanum_core` is approved/published before `connectanum_client`
-  - public-surface scan on 2026-05-03 found no remaining private downstream
+  - public-surface scan on 2026-05-03 found no remaining consumer-specific
     application names, local checkout paths, sibling-project references,
     internal-project references, or GitLab host references in public
     docs/package surfaces
