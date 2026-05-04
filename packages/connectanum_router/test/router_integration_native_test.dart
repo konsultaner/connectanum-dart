@@ -1455,6 +1455,126 @@ void main() {
       skip: skipReason,
     );
 
+    test(
+      'isolates MCP Streamable HTTP sessions by route and bearer principal',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9115,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final httpClient = HttpClient();
+        addTearDown(() => httpClient.close(force: true));
+
+        final primaryToken = await _issueTicketHttpToken(
+          httpClient,
+          listener.port,
+          authId: 'user-1',
+        );
+        final otherToken = await _issueTicketHttpToken(
+          httpClient,
+          listener.port,
+          authId: 'user-2',
+        );
+
+        final primaryMcpClient = McpStreamableHttpClient.withBearerToken(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp/secure',
+          ),
+          primaryToken,
+        );
+        addTearDown(() => primaryMcpClient.close(force: true));
+
+        await primaryMcpClient.initialize();
+        await primaryMcpClient.notifyInitialized();
+        final primarySessionId = primaryMcpClient.sessionId;
+        expect(primarySessionId, isNotNull);
+
+        final sessionHeaders = <String, String>{
+          'MCP-Session-Id': primarySessionId!,
+          'MCP-Protocol-Version': '2025-11-25',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        };
+        final reuseWithOtherPrincipal = await _postJson(
+          httpClient,
+          listener.port,
+          '/mcp/secure',
+          {
+            'jsonrpc': '2.0',
+            'id': 'cross-principal-tools',
+            'method': 'tools/list',
+            'params': {},
+          },
+          headers: {
+            ...sessionHeaders,
+            HttpHeaders.authorizationHeader: 'Bearer $otherToken',
+          },
+        );
+        expect(reuseWithOtherPrincipal.statusCode, equals(HttpStatus.notFound));
+        expect(
+          jsonEncode(reuseWithOtherPrincipal.json?['error']),
+          contains('Unknown MCP HTTP session'),
+        );
+
+        final publicRouteReuse =
+            await _postJson(httpClient, listener.port, '/mcp/public', {
+              'jsonrpc': '2.0',
+              'id': 'cross-route-tools',
+              'method': 'tools/list',
+              'params': {},
+            }, headers: sessionHeaders);
+        expect(publicRouteReuse.statusCode, equals(HttpStatus.notFound));
+        expect(
+          jsonEncode(publicRouteReuse.json?['error']),
+          contains('Unknown MCP HTTP session'),
+        );
+
+        final pollWithOtherPrincipal = await _getHttp(
+          httpClient,
+          listener.port,
+          '/mcp/secure',
+          headers: {
+            ...sessionHeaders,
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer $otherToken',
+          },
+        );
+        expect(pollWithOtherPrincipal.statusCode, equals(HttpStatus.notFound));
+
+        final deleteWithOtherPrincipal = await _deleteHttp(
+          httpClient,
+          listener.port,
+          '/mcp/secure',
+          headers: {
+            ...sessionHeaders,
+            HttpHeaders.authorizationHeader: 'Bearer $otherToken',
+          },
+        );
+        expect(
+          deleteWithOtherPrincipal.statusCode,
+          equals(HttpStatus.notFound),
+        );
+
+        final primaryTools = await primaryMcpClient.listTools(
+          id: 'primary-tools-after-reuse-attempts',
+        );
+        expect(
+          primaryTools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+
+        await primaryMcpClient.deleteSession();
+        expect(primaryMcpClient.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
     test('smoke tests MCP router RPC pubsub and route security', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9112,
@@ -4260,6 +4380,11 @@ RouterSettings _buildMcpSmokeSettings() {
             options: <String, Object?>{
               'secrets': <String, Object?>{
                 'user-1': <String, Object?>{
+                  'ticket': 'signed-token',
+                  'role': 'member',
+                  'provider': 'ticket-db',
+                },
+                'user-2': <String, Object?>{
                   'ticket': 'signed-token',
                   'role': 'member',
                   'provider': 'ticket-db',
