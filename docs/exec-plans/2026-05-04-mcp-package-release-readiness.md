@@ -1,6 +1,6 @@
 # Exec Plan: MCP Package Release Readiness
 
-Status: in progress; local verification clean, hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -59,6 +59,14 @@ Out of scope:
   bench integration tests, full router package tests including router-hosted
   MCP and `remote_auth_integration_test`, zero-copy router checks, and Chrome
   Dart2Wasm WebSocket transport tests.
+- Hosted GitHub evidence for `e2ed55d` is clean: `CI` run `25303581665`
+  completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+  log scan found no warning, deprecation, skipped-test, reset,
+  connection-noise, panic, or failure patterns, and `Dart Package Publish Dry
+  Run` run `25303581667` completed successfully with the new
+  `Validate MCP package release readiness` step. Strict deployment-chain audit
+  passed after the push; Native Artifacts dry-run `25192553399` remains clean
+  and relevant because no native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -68,5 +76,9 @@ Out of scope:
 
 ## Handoff
 
-Local verification is clean. Hosted GitHub evidence is pending until the next
-push.
+Complete. Commit `e2ed55d` was pushed to both remotes, and hosted GitHub
+deployment-chain evidence is clean. Remaining deployment-chain findings are
+operator/setup items: protect the branch, promote
+`.github/workflows/router-image.yml` through the default branch for Actions API
+visibility, and publish the router container package when that release lane is
+enabled.

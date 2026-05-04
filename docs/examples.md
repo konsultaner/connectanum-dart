@@ -11,6 +11,9 @@ current gaps with copyable snippets for the APIs that matter most in practice.
   - local router with ticket, WAMP-CRA, SCRAM, and remote-auth demo providers
 - [packages/connectanum_router/example/remote_websocket.dart](../packages/connectanum_router/example/remote_websocket.dart)
   - router with a WebSocket listener and an in-process remote auth delegate
+- [packages/connectanum_router/example/router_hosted_mcp.dart](../packages/connectanum_router/example/router_hosted_mcp.dart)
+  - router-hosted MCP endpoint that exposes a WAMP procedure over Streamable
+    HTTP and direct JSON-RPC
 - [packages/connectanum_mcp/example/stdio_echo_server.dart](../packages/connectanum_mcp/example/stdio_echo_server.dart)
   - local MCP stdio server example for agentic integrations
 - [router_example.yaml](router_example.yaml)
@@ -136,9 +139,11 @@ final tool = McpWampToolDelegate.session(
 ```
 
 For a network endpoint, configure a `connectanum_router` HTTP route with
-`type: mcp`. The router-hosted endpoint accepts MCP JSON-RPC over HTTP POST,
-uses the route-authenticated WAMP principal for calls and pub/sub, and should
-be deployed behind the same TLS/auth controls as other protected HTTP routes.
+`type: mcp`. The router-hosted endpoint supports MCP JSON-RPC `POST`,
+Streamable HTTP session IDs, POST/SSE responses, GET/SSE polling, DELETE
+session teardown, and direct JSON-RPC calls for frontend clients. It uses the
+route-authenticated WAMP principal for calls and pub/sub, and should be
+deployed behind the same TLS/auth controls as other protected HTTP routes.
 
 ```dart
 const HttpRouteSettings(
@@ -161,5 +166,9 @@ without the MCP `initialize` lifecycle:
 
 Direct calls use the same route authentication, filtered catalog, and
 authorization path as MCP `tools/call`. Procedures or topics that the route
-principal may not use are not advertised as tools. Full Streamable HTTP GET/SSE
-server push remains future work.
+principal may not use are not advertised as tools. Run the checked example with
+`--smoke-and-exit` to verify the local toolchain path:
+
+```bash
+dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
+```

@@ -424,7 +424,8 @@ public MCP boundary. WAMP is only an optional backend used by
 
 Use stdio for local agent integrations. Use `connectanum_router` HTTP routes
 with `type: mcp` when an application needs a router-hosted network MCP endpoint.
-That route shape is intentionally narrower than full Streamable HTTP: it is
-ready for normal MCP JSON-RPC `POST` clients and direct JSON-RPC frontend
-clients, while GET/SSE server push, explicit MCP session IDs, and
-router-hosted resource/prompt surfaces remain future work.
+The router-hosted route supports MCP JSON-RPC `POST`, Streamable HTTP session
+IDs, POST responses that may arrive as JSON or SSE, GET/SSE polling with resume
+cursors, DELETE-based session teardown, and direct JSON-RPC frontend clients.
+Router-hosted resources and prompts remain future work; expose those through a
+local `McpServer` when an integration needs them today.

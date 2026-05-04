@@ -2,14 +2,16 @@
 
 Last updated: 2026-05-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: `a4e32dd`
-(`mcp: smoke test io entrypoint exports`)
-Last reviewed implementation commit: `a4e32dd`
-(`mcp: smoke test io entrypoint exports`)
+Last reviewed branch checkpoint: `e2ed55d`
+(`ci: validate mcp package release readiness`)
+Last reviewed implementation commit: `e2ed55d`
+(`ci: validate mcp package release readiness`)
 Active exec plan:
-`docs/exec-plans/2026-05-04-mcp-package-release-readiness.md`
+`docs/exec-plans/2026-05-04-router-hosted-mcp-example-readiness.md`
 (in progress; local verification clean, hosted evidence pending). Previous
 completed exec plan:
+`docs/exec-plans/2026-05-04-mcp-package-release-readiness.md`
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-direct-json-typed-wamp-helpers.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-direct-json-client-helpers.md`
@@ -68,7 +70,36 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP package release-readiness gating is in progress. The local
+  - Router-hosted MCP public example readiness is in progress. The local
+    implementation adds
+    `packages/connectanum_router/example/router_hosted_mcp.dart`, a runnable
+    router-backed MCP endpoint example that registers an internal WAMP
+    procedure, exposes it through the router's `type: mcp` HTTP route, and
+    smoke-tests both direct JSON-RPC helper calls and Streamable HTTP
+    `tools/call` against the live router. Public docs now describe the current
+    router-hosted MCP behavior accurately: MCP JSON-RPC `POST`, Streamable HTTP
+    session IDs, POST/SSE responses, GET/SSE polling, DELETE session teardown,
+    direct JSON-RPC frontend access, route-authenticated WAMP principals, and
+    the remaining router-hosted resource/prompt gap. Focused checks passed on
+    2026-05-04: `bin/test-fast` before changes,
+    `dart analyze packages/connectanum_router`,
+    `dart analyze packages/connectanum_mcp`, and
+    `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`.
+    Full local `bin/verify` passed on 2026-05-04 after the example/docs change;
+    it included formatting, Rust native/FFI tests, Python package-artifact
+    checks, MCP package tests, client tests including MCP Streamable HTTP/direct
+    JSON helper coverage, auth-server tests, bench integration tests, the full
+    router package tests including router-hosted MCP and
+    `remote_auth_integration_test`, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests. The focused private
+    `connectanum_mcp` package dry-run reached package
+    validation but failed because its README is modified in the working tree;
+    rerun it after committing. A broader router private package dry-run is not
+    yet a gate because it still has pre-existing release-readiness blockers:
+    private path dependencies, test fixture secret false positives, and a
+    missing router changelog.
+  - MCP package release-readiness gating is complete with hosted evidence clean
+    for `e2ed55d`. The local
     implementation keeps `connectanum_mcp` private (`publish_to: none`) while
     adding a dedicated GitHub Actions publish dry-run step for
     `bin/dart-package-publish-dry-run --include-private connectanum_mcp`, so
@@ -79,7 +110,14 @@ order.
     `bin/dart-package-publish-dry-run --include-private connectanum_mcp` and
     `bin/dart-package-publish-dry-run`; both reported zero package warnings.
     Full local `bin/verify` passed on 2026-05-04 after the workflow/package
-    change. Hosted GitHub evidence is pending for the next pushed commit.
+    change. Hosted GitHub evidence for `e2ed55d` is clean: `CI` run
+    `25303581665` completed successfully with `Fast Checks` and `Full Verify`,
+    the hosted CI log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, and `Dart Package Publish Dry
+    Run` run `25303581667` completed successfully with the new
+    `Validate MCP package release readiness` step. Strict deployment-chain
+    audit passed after the push; Native Artifacts dry-run `25192553399` remains
+    clean and relevant because no native-release-sensitive paths changed.
   - MCP typed WAMP direct JSON helper readiness and the package IO entrypoint
     guard are complete with hosted evidence clean for `a4e32dd`. The local
     implementation adds an explicit `directJson: true` option to the exported
