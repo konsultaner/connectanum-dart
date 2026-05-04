@@ -4,12 +4,13 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `4a1e42c`
 (`mcp: add router-hosted endpoint example`)
-Latest pushed implementation commit: `42a600d`
-(`mcp: extend router hosted example`)
+Latest pushed implementation commit: `227fbf3`
+(`mcp: harden route resource prompt smoke`)
 Active exec plan:
+`docs/exec-plans/2026-05-04-router-hosted-mcp-secure-example.md`
+(complete; local verification clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-route-security-resources-prompts.md`
-(local verification complete; commit/push/hosted evidence pending). Previous
-completed exec plan:
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-example-resources-prompts.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-direct-json-resources-prompts.md`
@@ -80,7 +81,18 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP route-security resource/prompt hardening is in progress. The existing
+  - Router-hosted MCP secure example readiness is complete locally. The runnable
+    `packages/connectanum_router/example/router_hosted_mcp.dart` example now
+    keeps the public `/mcp` endpoint and also configures `/auth` plus a
+    bearer-protected `/mcp/secure` endpoint. Its `--smoke-and-exit` path now
+    proves public direct JSON and Streamable MCP access, secure
+    unauthenticated denial, HTTP ticket-token issuance, and authenticated
+    direct JSON plus Streamable MCP access on the secure route. Pre-change
+    `bin/test-fast` passed on 2026-05-04. Focused checks passed on 2026-05-04:
+    `dart analyze packages/connectanum_router` and
+    `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`.
+    Full local `bin/verify` passed on 2026-05-04. Hosted evidence is pending.
+  - MCP route-security resource/prompt hardening is complete. The existing
     public/secure router-hosted MCP integration smoke now includes configured
     resources, resource templates, and prompts so direct JSON, initialized
     Streamable MCP, direct JSON batch, and bearer-protected route access are
@@ -89,8 +101,16 @@ order.
     checks passed on 2026-05-04:
     `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`
     and `dart analyze packages/connectanum_router`. Full local `bin/verify`
-    passed on 2026-05-04. Commit, push, and hosted GitHub evidence are
-    pending.
+    passed on 2026-05-04. Commit `227fbf3` was pushed to both remotes. Hosted
+    GitHub evidence for `227fbf3` is clean: `CI` run `25313970259` completed
+    successfully with `Fast Checks` and `Full Verify`, `Dart Package Publish
+    Dry Run` run `25313970231` completed successfully, and `WAMP Profile
+    Benchmarks` run `25313970226` completed successfully. The hosted log scan
+    found no actionable warnings, deprecations, skipped-test lines, panics,
+    failures, connection reset/refused noise, or broken pipes; matches were
+    limited to Git checkout's default-branch hint, package dry-run
+    `0 warnings` summaries, normal Rust `0 ignored` / filtered-test summaries,
+    and passing test names.
   - Router-hosted MCP example resource/prompt readiness is complete. The
     runnable example now configures a static resource, a resource template, and
     a prompt on the same router-owned `type: mcp` route that exposes WAMP tools
