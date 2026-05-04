@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct JSON Typed WAMP Helpers
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -34,6 +34,7 @@ Out of scope:
 
 - `packages/connectanum_client/lib/src/mcp/wamp_tools.dart`
 - `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
+- `packages/connectanum_mcp/test/io_client_export_test.dart`
 - `packages/connectanum_router/test/router_integration_native_test.dart`
 - `docs/project_state.md`
 - `docs/exec-plans/2026-05-04-mcp-direct-json-typed-wamp-helpers.md`
@@ -72,6 +73,24 @@ Out of scope:
   bench integration tests, the full router package tests including the updated
   router-hosted MCP smoke and `remote_auth_integration_test`, zero-copy router
   checks, and Chrome Dart2Wasm WebSocket transport tests.
+- Follow-up package-entrypoint smoke coverage now lives in
+  `packages/connectanum_mcp/test/io_client_export_test.dart`. It imports only
+  `package:connectanum_mcp/connectanum_mcp_io.dart` and proves a downstream IO
+  consumer sees MCP tool primitives, `McpStreamableHttpClient`, and typed WAMP
+  helper calls routed through `directJson: true` without MCP lifecycle or
+  session negotiation. Focused checks passed:
+  `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`
+  and `dart analyze packages/connectanum_mcp packages/connectanum_client`.
+  Post-change `bin/test-fast` and full local `bin/verify` passed again on
+  2026-05-04 with the new smoke included.
+- Hosted GitHub evidence for `126d274` is clean: `CI` run `25301180475`
+  completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+  log scan found no warning, deprecation, skipped-test, reset,
+  connection-noise, panic, or failure patterns, `Dart Package Publish Dry Run`
+  run `25301180495` completed successfully and covers the checked-out head,
+  `WAMP Profile Benchmarks` run `25301180479` completed successfully, and
+  Native Artifacts dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -82,5 +101,8 @@ Out of scope:
 
 ## Handoff
 
-Complete locally. Commit, push, and hosted deployment-chain evidence are still
-pending.
+Complete. Commit `126d274` was pushed to both remotes and the hosted GitHub
+deployment-chain evidence is clean. Remaining deployment-chain findings are
+operator/setup items: protect the branch, promote `.github/workflows/router-image.yml`
+through the default branch for Actions API visibility, and publish the router
+container package when that release lane is enabled.

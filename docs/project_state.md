@@ -2,13 +2,13 @@
 
 Last updated: 2026-05-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: `a3a7c96`
-(`mcp: add direct json client helpers`)
-Last reviewed implementation commit: `a3a7c96`
-(`mcp: add direct json client helpers`)
+Last reviewed branch checkpoint: `126d274`
+(`mcp: route typed wamp helpers through direct json`)
+Last reviewed implementation commit: `126d274`
+(`mcp: route typed wamp helpers through direct json`)
 Active exec plan:
 `docs/exec-plans/2026-05-04-mcp-direct-json-typed-wamp-helpers.md`
-(complete locally; hosted evidence pending). Previous completed exec plan:
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-direct-json-client-helpers.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-standard-meta-helpers.md`
@@ -65,8 +65,8 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP typed WAMP direct JSON helper readiness is complete locally with hosted
-    evidence pending. The local
+  - MCP typed WAMP direct JSON helper readiness is complete with hosted
+    evidence clean for `126d274`. The local
     implementation adds an explicit `directJson: true` option to the exported
     typed WAMP API, meta, and pub/sub helpers so consumer applications can call
     router-hosted `connectanum.tool.call` direct JSON endpoints without
@@ -90,7 +90,26 @@ order.
     `packages/connectanum_client/test/mcp` suite, auth-server tests, bench
     integration tests, the full router package tests including the updated
     router-hosted MCP smoke and `remote_auth_integration_test`, zero-copy
-    router checks, and Chrome Dart2Wasm WebSocket transport tests.
+    router checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted
+    GitHub evidence for `126d274` is clean: `CI` run `25301180475` completed
+    successfully with `Fast Checks` and `Full Verify`, the hosted CI log scan
+    found no warning, deprecation, skipped-test, reset, connection-noise, panic,
+    or failure patterns, `Dart Package Publish Dry Run` run `25301180495`
+    completed successfully and covers the checked-out head,
+    `WAMP Profile Benchmarks` run `25301180479` completed successfully, and
+    Native Artifacts dry-run `25192553399` remains clean and relevant because
+    no native-release-sensitive paths changed.
+  - A follow-up package-entrypoint smoke guard now lives in
+    `packages/connectanum_mcp/test/io_client_export_test.dart`. It imports only
+    `package:connectanum_mcp/connectanum_mcp_io.dart` and proves a downstream
+    IO consumer sees MCP tool primitives, `McpStreamableHttpClient`, and typed
+    WAMP helper calls routed through `directJson: true` without MCP lifecycle
+    or session negotiation. Focused checks passed:
+    `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`
+    and `dart analyze packages/connectanum_mcp packages/connectanum_client`.
+    Post-change `bin/test-fast` and full local `bin/verify` passed again on
+    2026-05-04 with the new smoke included. Hosted evidence for this follow-up
+    commit is pending until after push.
   - MCP direct JSON client helper readiness is complete with hosted evidence
     clean for `a3a7c96`. The local
     implementation adds `McpStreamableHttpClient.listConnectanumToolsDirect`,
