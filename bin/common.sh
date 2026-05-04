@@ -430,11 +430,34 @@ dependency_overrides:
 EOF
 
   cat >"$smoke_dir/bin/main.dart" <<'DART'
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:connectanum_client/mcp.dart';
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 
-void main() {
+const _realm = 'consumer.mcp.realm';
+const _mcpPath = '/mcp';
+const _topic = 'consumer.events.task';
+const _procedure = 'consumer.task.lookup';
+
+Future<void> main() async {
+  final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
+  if (nativeLibraryPath == null || nativeLibraryPath.isEmpty) {
+    _runApiOnlySmoke();
+    print(
+      'Native runtime unavailable; completed public API smoke without '
+      'starting router-hosted MCP.',
+    );
+    return;
+  }
+
+  await _runRouterHostedMcpSmoke(nativeLibraryPath);
+}
+
+void _runApiOnlySmoke() {
   final client = McpStreamableHttpClient(Uri.parse('http://127.0.0.1:1/mcp'));
   final config = RouterConfig(
     endpoints: [
@@ -460,6 +483,272 @@ void main() {
 
   client.close();
 }
+
+Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
+  late final NativeTransportRuntime runtime;
+  try {
+    runtime = NativeTransportRuntime(libraryPath: nativeLibraryPath);
+  } on ArgumentError catch (error) {
+    throw StateError('Failed to load native runtime: ${error.message}');
+  }
+
+  runtime.start();
+  final router = Router(
+    RouterConfig(
+      endpoints: [
+        Endpoint(
+          host: '127.0.0.1',
+          port: 0,
+          tlsMode: TlsMode.disabled,
+          maxRawSocketSizeExponent: 16,
+        ),
+      ],
+    ),
+    settings: _consumerRouterSettings(),
+  );
+
+  final binding = router.start(runtime);
+  final serviceSession = await binding.createInternalSession(
+    realmUri: _realm,
+    authId: 'consumer-service',
+    authRole: 'service',
+  );
+  final client = McpStreamableHttpClient(_mcpEndpoint(binding));
+
+  try {
+    await _registerConsumerApi(serviceSession);
+    await _smokeDirectJson(client);
+    await _smokeStreamableMcp(client, serviceSession);
+    print('Consumer package router-hosted MCP smoke completed.');
+  } finally {
+    client.close();
+    await serviceSession.close();
+    await binding.dispose();
+    runtime.shutdown();
+    runtime.dispose();
+  }
+}
+
+RouterSettings _consumerRouterSettings() {
+  final realm = RealmSettingsBuilder(_realm)
+    ..addAuthMethod('anonymous')
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('anonymous')
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('consumer.task.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['call']),
+        )
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('consumer.events.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['publish', 'subscribe', 'unsubscribe']),
+        ),
+    )
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('service')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('consumer.')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const [
+            'register',
+            'unregister',
+            'call',
+            'publish',
+            'subscribe',
+            'unsubscribe',
+          ]),
+      ),
+    );
+
+  final listener = ListenerSettingsBuilder(
+    'consumer-mcp-http',
+    '127.0.0.1:0',
+  )
+    ..setSessionProfile('public-wamp')
+    ..addProtocol(ListenerProtocol.rawsocket)
+    ..addProtocol(ListenerProtocol.http)
+    ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
+    ..setHttpOptions(
+      const HttpListenerSettings(
+        sessionProfile: 'public-http',
+        routes: [
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: _mcpPath),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: _realm,
+              sessionProfile: 'mcp-public',
+              options: {
+                'include_registered_procedures': true,
+                'include_pubsub_tools': true,
+                'topics': [
+                  {
+                    'topic': _topic,
+                    'title': 'Consumer task events',
+                    'description': 'Events emitted by consumer task tools.',
+                  },
+                ],
+              },
+            ),
+          ),
+        ],
+      ),
+    )
+    ..setOptions(const {'max_rawsocket_size_exponent': 16});
+
+  return (RouterSettingsBuilder()
+        ..addAuthenticator(
+          'anonymous',
+          const AuthenticatorDefinition(type: 'anonymous'),
+        )
+        ..addRealmFromBuilder(realm)
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('public-wamp')
+            ..addAuthMethod('anonymous'),
+        )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('public-http'),
+        )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('mcp-public')
+            ..setRealm(_realm)
+            ..addAuthMethod('anonymous'),
+        )
+        ..addListenerFromBuilder(listener))
+      .build();
+}
+
+Uri _mcpEndpoint(RouterBinding binding) {
+  final listener = binding.listeners.single;
+  return Uri(
+    scheme: 'http',
+    host: '127.0.0.1',
+    port: listener.port,
+    path: _mcpPath,
+  );
+}
+
+Future<void> _registerConsumerApi(RouterSession serviceSession) async {
+  final registration = await serviceSession.register(
+    _procedure,
+    options: RegisterOptions(
+      custom: const {
+        '_ai_meta_data': {
+          'short_description': 'Look up consumer task state',
+          'description': 'Returns a small task status document.',
+          'input_json_schema': {
+            'type': 'object',
+            'properties': {
+              'taskId': {'type': 'string'},
+            },
+            'required': ['taskId'],
+          },
+          'read_only_hint': true,
+          'destructive_hint': false,
+          'idempotent_hint': true,
+          'open_world_hint': false,
+        },
+      },
+    ),
+  );
+
+  registration.onInvoke((invocation) {
+    final taskId = invocation.argumentsKeywords?['taskId'] ?? 'unknown';
+    invocation.respondWith(
+      argumentsKeywords: {
+        'taskId': taskId,
+        'status': 'open',
+        'source': 'consumer-package-smoke',
+      },
+    );
+  });
+}
+
+Future<void> _smokeDirectJson(McpStreamableHttpClient client) async {
+  final tools = await client.listConnectanumToolsDirect(id: 'direct-tools');
+  final names = {for (final tool in tools.tools) tool['name'] as String};
+  if (!names.contains(_procedure)) {
+    throw StateError('Direct JSON tool catalog did not expose $_procedure.');
+  }
+
+  final result = await client.callConnectanumMethodDirect(
+    _procedure,
+    id: 'direct-call',
+    params: {'taskId': 'T-direct'},
+  );
+  if (!jsonEncode(result).contains('T-direct')) {
+    throw StateError('Direct JSON tool call did not return expected payload.');
+  }
+}
+
+Future<void> _smokeStreamableMcp(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession,
+) async {
+  await client.initialize(
+    clientInfo: const {
+      'name': 'connectanum_consumer_package_smoke',
+      'version': '0.1.0',
+    },
+  );
+  await client.notifyInitialized();
+
+  final tools = await client.listTools(id: 'streamable-tools');
+  final names = {for (final tool in tools.tools) tool['name'] as String};
+  if (!names.contains(_procedure)) {
+    throw StateError('Streamable MCP tool catalog did not expose $_procedure.');
+  }
+
+  final result = await client.callTool(
+    _procedure,
+    id: 'streamable-call',
+    arguments: {'taskId': 'T-streamable'},
+  );
+  if (!jsonEncode(result).contains('T-streamable')) {
+    throw StateError('Streamable MCP tool call returned unexpected payload.');
+  }
+
+  final subscription = await client.subscribeWampTopic(
+    _topic,
+    id: 'streamable-subscribe',
+    queueLimit: 4,
+  );
+  try {
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': 'T-event'},
+      options: PublishOptions(acknowledge: true),
+    );
+    final events = await _pollMcpEventsUntil(client, subscription.handle);
+    if (!jsonEncode(events.events).contains('T-event')) {
+      throw StateError('Streamable MCP pub/sub poll missed service event.');
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      subscription.handle,
+      id: 'streamable-unsubscribe',
+    );
+  }
+}
+
+Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
+  McpStreamableHttpClient client,
+  String subscriptionHandle,
+) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    final events = await client.pollWampEvents(
+      subscriptionHandle,
+      id: 'streamable-poll-${DateTime.now().microsecondsSinceEpoch}',
+      limit: 4,
+    );
+    if (events.events.isNotEmpty) {
+      return events;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError('Timed out waiting for MCP pub/sub event.');
+}
 DART
 
   printf 'Running MCP consumer package smoke from %s.\n' "$smoke_dir"
@@ -467,6 +756,10 @@ DART
     cd "$smoke_dir"
     dart pub get
     dart analyze
-    dart run bin/main.dart
+    if [[ -n "$hook_native_lib" ]]; then
+      CONNECTANUM_NATIVE_LIB="$hook_native_lib" dart run bin/main.dart
+    else
+      dart run bin/main.dart
+    fi
   )
 )

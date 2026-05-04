@@ -4,11 +4,15 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `e9c689c`
-(`mcp: gate consumer package imports`; CI clean)
+Latest pushed implementation commit: `207be91`
+(`mcp: run consumer smoke with hook user defines`; hosted CI/dry-run/bench
+evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-04-native-hook-user-defines-consumer-run.md`
+`docs/exec-plans/2026-05-04-mcp-consumer-runtime-smoke.md`
 (local verification complete; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-04-native-hook-user-defines-consumer-run.md`
+(complete; hosted evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-consumer-package-smoke.md`
 (complete; hosted CI evidence clean). Previous completed exec plan:
@@ -96,8 +100,28 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer runtime smoke is in progress. The temporary downstream
+    package smoke now starts a native router when the native runtime library is
+    available, configures a public router-hosted MCP route through public
+    `connectanum_router` APIs, registers a neutral WAMP procedure through a
+    public internal router session, and calls the endpoint through public
+    `connectanum_client` MCP helpers. The smoke proves direct JSON-RPC
+    tool listing/calling, initialized Streamable MCP tool listing/calling, and
+    WAMP pub/sub subscribe/publish/poll/unsubscribe from outside the workspace.
+    It keeps the existing public API construction fallback for environments
+    without a native runtime. Pre-change `bin/test-fast` passed on 2026-05-04.
+    The focused consumer package smoke passed on 2026-05-04:
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-04 and included the upgraded
+    runtime consumer package smoke. Full local `bin/verify` passed on
+    2026-05-04. It included formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP package tests, client tests, auth-server tests,
+    bench integration tests, the router-hosted MCP example smoke, the upgraded
+    consumer runtime smoke, full router package tests including router-hosted
+    MCP auth/session coverage, zero-copy router checks, and Chrome Dart2Wasm
+    WebSocket transport tests. Hosted GitHub evidence is pending after push.
   - Native build-hook user-defines / consumer package `dart run` readiness is
-    complete locally. Dart 3.11 hooks run in a semi-hermetic environment that
+    complete. Dart 3.11 hooks run in a semi-hermetic environment that
     strips non-allowlisted shell variables from hook processes, so the
     client/router hooks now read `CONNECTANUM_NATIVE_LIB`,
     `CONNECTANUM_NATIVE_RELEASE_TAG`,
@@ -121,7 +145,16 @@ order.
     the upgraded consumer package smoke, full router package tests including
     router-hosted MCP auth/session coverage and hook user-define tests,
     zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
-    Hosted GitHub evidence is pending after push.
+    Commit `207be91` was pushed to both remotes. Hosted GitHub evidence for
+    `207be91` is clean: `CI` run `25330136036` completed successfully with
+    `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+    `25330135937` completed successfully, and `WAMP Profile Benchmarks` run
+    `25330135956` completed successfully. The deployment-chain audit with
+    required clean latest CI, clean hosted CI logs, and clean Dart package
+    publish dry-run passed for branch head `207be91`; the remaining audit
+    findings are the existing operator/deployment items around branch
+    protection, default-branch router workflow visibility, and GHCR router
+    package visibility.
   - MCP consumer package smoke is complete locally. The root verification path
     now creates a temporary Dart package outside the workspace, resolves the
     public client/MCP/router package entrypoints through local package

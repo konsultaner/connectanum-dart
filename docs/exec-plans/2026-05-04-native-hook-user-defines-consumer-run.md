@@ -1,6 +1,6 @@
 # Exec Plan: Native Hook User Defines Consumer Run
 
-Status: local verification complete; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -65,8 +65,18 @@ Out of scope:
   smoke, the upgraded consumer package smoke, full router package tests
   including router-hosted MCP auth/session coverage and hook user-define tests,
   zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
+- Commit `207be91` was pushed to both remotes. Hosted GitHub evidence for
+  `207be91` is clean: `CI` run `25330136036` completed successfully with
+  `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+  `25330135937` completed successfully, and `WAMP Profile Benchmarks` run
+  `25330135956` completed successfully. The deployment-chain audit with
+  required clean latest CI, clean hosted CI logs, and clean Dart package
+  publish dry-run passed for branch head `207be91`; the remaining audit
+  findings are the existing operator/deployment items around branch protection,
+  default-branch router workflow visibility, and GHCR router package
+  visibility.
 
 ## Handoff
 
-Implementation and local verification are complete. Hosted GitHub evidence is
-pending after push.
+Implementation, local verification, hosted GitHub CI evidence, package dry-run
+evidence, and WAMP benchmark evidence are complete.
