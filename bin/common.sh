@@ -446,6 +446,9 @@ const _ticketAuthId = 'consumer-user';
 const _ticketSecret = 'consumer-ticket';
 const _topic = 'consumer.events.task';
 const _procedure = 'consumer.task.lookup';
+const _resourceUri = 'consumer://mcp/context';
+const _resourceTemplateUri = 'consumer://mcp/task/{taskId}';
+const _promptName = 'inspect-consumer-task';
 
 Future<void> main() async {
   final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
@@ -630,11 +633,57 @@ RouterSettings _consumerRouterSettings() {
               options: {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
+                'resource_list_page_size': 10,
+                'resource_template_list_page_size': 10,
+                'prompt_list_page_size': 10,
                 'topics': [
                   {
                     'topic': _topic,
                     'title': 'Consumer task events',
                     'description': 'Events emitted by consumer task tools.',
+                  },
+                ],
+                'resources': [
+                  {
+                    'uri': _resourceUri,
+                    'name': 'consumer-mcp-context',
+                    'title': 'Consumer MCP context',
+                    'description':
+                        'Static context exposed by the consumer MCP route.',
+                    'mime_type': 'text/plain',
+                    'text':
+                        'Consumer package router-hosted MCP context document.',
+                  },
+                ],
+                'resource_templates': [
+                  {
+                    'uri_template': _resourceTemplateUri,
+                    'name': 'consumer-task-context',
+                    'title': 'Consumer task context',
+                    'description':
+                        'Template for consumer task context resources.',
+                    'mime_type': 'application/json',
+                  },
+                ],
+                'prompts': [
+                  {
+                    'name': _promptName,
+                    'title': 'Inspect consumer task',
+                    'description': 'Builds a prompt for a consumer task id.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect consumer task {{taskId}} using MCP route context.',
+                      },
+                    ],
                   },
                 ],
               },
@@ -650,11 +699,57 @@ RouterSettings _consumerRouterSettings() {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
                 'allow_insecure_transport': true,
+                'resource_list_page_size': 10,
+                'resource_template_list_page_size': 10,
+                'prompt_list_page_size': 10,
                 'topics': [
                   {
                     'topic': _topic,
                     'title': 'Consumer task events',
                     'description': 'Events emitted by consumer task tools.',
+                  },
+                ],
+                'resources': [
+                  {
+                    'uri': _resourceUri,
+                    'name': 'consumer-mcp-context',
+                    'title': 'Consumer MCP context',
+                    'description':
+                        'Static context exposed by the consumer MCP route.',
+                    'mime_type': 'text/plain',
+                    'text':
+                        'Consumer package router-hosted MCP context document.',
+                  },
+                ],
+                'resource_templates': [
+                  {
+                    'uri_template': _resourceTemplateUri,
+                    'name': 'consumer-task-context',
+                    'title': 'Consumer task context',
+                    'description':
+                        'Template for consumer task context resources.',
+                    'mime_type': 'application/json',
+                  },
+                ],
+                'prompts': [
+                  {
+                    'name': _promptName,
+                    'title': 'Inspect consumer task',
+                    'description': 'Builds a prompt for a consumer task id.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect consumer task {{taskId}} using MCP route context.',
+                      },
+                    ],
                   },
                 ],
               },
@@ -874,6 +969,7 @@ Future<void> _smokeDirectJson(
     throw StateError('Direct JSON tool call did not return expected payload.');
   }
 
+  await _smokeResourcesAndPrompts(client, label: label, directJson: true);
   await _smokeWampMetaDiscovery(client, label: label, directJson: true);
 
   final subscription = await client.subscribeWampTopic(
@@ -923,12 +1019,19 @@ Future<void> _smokeStreamableMcp(
   RouterSession serviceSession,
   {required String label}
 ) async {
-  await client.initialize(
+  final initializeResult = await client.initialize(
     clientInfo: const {
       'name': 'connectanum_consumer_package_smoke',
       'version': '0.1.0',
     },
   );
+  final initializeJson = jsonEncode(initializeResult);
+  if (!initializeJson.contains('resources') ||
+      !initializeJson.contains('prompts')) {
+    throw StateError(
+      'Streamable MCP initialize did not advertise resources and prompts.',
+    );
+  }
   await client.notifyInitialized();
 
   final tools = await client.listTools(id: '$label-streamable-tools');
@@ -946,6 +1049,7 @@ Future<void> _smokeStreamableMcp(
     throw StateError('Streamable MCP tool call returned unexpected payload.');
   }
 
+  await _smokeResourcesAndPrompts(client, label: label);
   await _smokeWampMetaDiscovery(client, label: label);
 
   final subscription = await client.subscribeWampTopic(
@@ -977,6 +1081,73 @@ Future<void> _smokeStreamableMcp(
     serviceSession,
     label: label,
   );
+}
+
+Future<void> _smokeResourcesAndPrompts(
+  McpStreamableHttpClient client, {
+  required String label,
+  bool directJson = false,
+}) async {
+  final mode = directJson ? 'direct' : 'streamable';
+  final resources = await client.listResources(
+    id: '$label-$mode-resources',
+    directJson: directJson,
+  );
+  final resourceUris = {
+    for (final resource in resources.resources) resource['uri'],
+  };
+  if (!resourceUris.contains(_resourceUri)) {
+    throw StateError('MCP resources/list did not expose $_resourceUri.');
+  }
+
+  final contents = await client.readResource(
+    _resourceUri,
+    id: '$label-$mode-resource-read',
+    directJson: directJson,
+  );
+  if (!jsonEncode(contents).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError('MCP resources/read did not return route context.');
+  }
+
+  final templates = await client.listResourceTemplates(
+    id: '$label-$mode-resource-templates',
+    directJson: directJson,
+  );
+  final templateUris = {
+    for (final template in templates.resourceTemplates)
+      template['uriTemplate'] ?? template['uri_template'],
+  };
+  if (!templateUris.contains(_resourceTemplateUri)) {
+    throw StateError(
+      'MCP resources/templates/list did not expose $_resourceTemplateUri.',
+    );
+  }
+
+  final prompts = await client.listPrompts(
+    id: '$label-$mode-prompts',
+    directJson: directJson,
+  );
+  final promptNames = {for (final prompt in prompts.prompts) prompt['name']};
+  if (!promptNames.contains(_promptName)) {
+    throw StateError('MCP prompts/list did not expose $_promptName.');
+  }
+
+  final taskId = 'T-$label-$mode-prompt';
+  final prompt = await client.getPrompt(
+    _promptName,
+    id: '$label-$mode-prompt',
+    arguments: {'taskId': taskId},
+    directJson: directJson,
+  );
+  if (!jsonEncode(prompt).contains(taskId)) {
+    throw StateError('MCP prompts/get did not substitute $taskId.');
+  }
+
+  if (directJson && client.sessionId != null) {
+    throw StateError('Direct JSON resource/prompt helpers captured a session.');
+  }
 }
 
 Future<void> _smokeWampMetaDiscovery(

@@ -4,7 +4,7 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest implementation checkpoint: `mcp: smoke consumer wamp meta helpers`
+Latest implementation checkpoint: `mcp: smoke consumer resources prompts`
 (local verification clean; hosted evidence pending)
 Active exec plan: none.
 Previous completed exec plan:
@@ -108,14 +108,18 @@ order.
     session, proves the protected endpoint rejects unauthenticated callers,
     obtains a bearer token through the public HTTP auth flow, and calls both
     endpoints through public `connectanum_client` MCP helpers. The smoke proves
-    direct JSON-RPC tool listing/calling, direct JSON-RPC WAMP pub/sub
+    direct JSON-RPC tool listing/calling, direct JSON-RPC configured MCP
+    resource listing/reading, resource-template listing, and prompt
+    listing/getting, direct JSON-RPC WAMP pub/sub
     subscribe/publish/poll/unsubscribe, initialized Streamable MCP tool
-    listing/calling, Streamable WAMP pub/sub polling, typed WAMP API/meta
-    discovery helpers, and Streamable HTTP session lifecycle from outside the
-    workspace. The meta-helper smoke uses public `connectanum_client` helpers
-    through both direct JSON and initialized Streamable MCP to discover
-    procedures/topics, resolve registration and subscription details, and count
-    route-visible sessions. The session lifecycle smoke
+    listing/calling, initialized Streamable MCP configured resource and prompt
+    access with advertised capabilities, Streamable WAMP pub/sub polling,
+    typed WAMP API/meta discovery helpers, and Streamable HTTP session
+    lifecycle from outside the workspace. The meta-helper smoke uses public
+    `connectanum_client` helpers through both direct JSON and initialized
+    Streamable MCP to discover procedures/topics, resolve registration and
+    subscription details, and count route-visible sessions. The session
+    lifecycle smoke
     captures the router-provided MCP session id, receives `tools/list_changed`
     over `GET`/SSE after registering a dynamic WAMP procedure, resumes with
     `Last-Event-ID` without replaying the old event, and deletes the MCP
@@ -125,18 +129,41 @@ order.
     consumer package smoke passed on 2026-05-04:
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-04 and included the upgraded
-    protected consumer runtime smoke. The latest WAMP meta-helper extension
-    passed the focused consumer package smoke, `bin/test-fast`, and full local
+    protected consumer runtime smoke. The latest resource/prompt consumer-smoke
+    extension passed the focused consumer package smoke, `bin/test-fast`, and
+    full local `bin/verify` on 2026-05-04. It proves that the neutral consumer
+    package can configure resources, resource templates, and prompts on public
+    and bearer-protected router-hosted MCP routes and exercise them through
+    public `connectanum_client` helpers using both direct JSON and initialized
+    Streamable MCP. Full verify included formatting, Rust native/FFI tests,
+    Python package-artifact checks, MCP package tests, client tests,
+    auth-server tests, bench integration tests, the router-hosted MCP example
+    smoke, the upgraded protected consumer runtime smoke with configured
+    resources/prompts, WAMP meta helpers, and Streamable HTTP session
+    lifecycle, full router package tests including router-hosted MCP
+    auth/session coverage, zero-copy router checks, and Chrome Dart2Wasm
+    WebSocket transport tests. Hosted evidence is pending for the latest
+    resource/prompt consumer-smoke implementation commit. The previous WAMP
+    meta-helper extension passed the focused consumer package smoke,
+    `bin/test-fast`, and full local
     `bin/verify` on 2026-05-04. Full verify included formatting, Rust
     native/FFI tests, Python package-artifact checks, MCP package tests, client
     tests, auth-server tests, bench integration tests, the router-hosted MCP
     example smoke, the upgraded protected consumer runtime smoke with WAMP meta
     helpers and Streamable HTTP session lifecycle, full router package tests
     including router-hosted MCP auth/session coverage, zero-copy router checks,
-    and Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is pending
-    for the latest WAMP meta-helper implementation commit. Previous commit
-    `95956f3` was pushed to both remotes. Hosted GitHub `CI` run `25336128328`
-    completed
+    and Chrome Dart2Wasm WebSocket transport tests. Commit `e826f7e` was pushed
+    to both remotes. Hosted GitHub `CI` run `25338108663` completed
+    successfully with `Fast Checks` and `Full Verify`. The deployment-chain
+    audit with required clean latest CI, clean hosted CI logs, and clean Dart
+    package publish dry-run passed for branch head `e826f7e`. `Dart Package
+    Publish Dry Run` and `WAMP Profile Benchmarks` did not trigger for this
+    script/docs change; the latest package dry-run remains clean and relevant
+    on `207be91` because no publish-sensitive paths changed. The remaining
+    audit findings are the existing operator/deployment items around branch
+    protection, default-branch router workflow visibility, and GHCR router
+    package visibility. Previous commit `95956f3` was pushed to both remotes.
+    Hosted GitHub `CI` run `25336128328` completed
     successfully with `Fast Checks` and `Full Verify`. The deployment-chain
     audit with required clean latest CI, clean hosted CI logs, and clean Dart
     package publish dry-run passed for branch head `95956f3`. `Dart Package
