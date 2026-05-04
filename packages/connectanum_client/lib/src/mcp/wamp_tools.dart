@@ -6,6 +6,24 @@ const _pubsubPublishTool = 'connectanum.pubsub.publish';
 const _pubsubSubscribeTool = 'connectanum.pubsub.subscribe';
 const _pubsubPollTool = 'connectanum.pubsub.poll';
 const _pubsubUnsubscribeTool = 'connectanum.pubsub.unsubscribe';
+const _wampSessionCountProcedure = 'wamp.session.count';
+const _wampSessionListProcedure = 'wamp.session.list';
+const _wampSessionGetProcedure = 'wamp.session.get';
+const _wampRegistrationListProcedure = 'wamp.registration.list';
+const _wampRegistrationLookupProcedure = 'wamp.registration.lookup';
+const _wampRegistrationMatchProcedure = 'wamp.registration.match';
+const _wampRegistrationGetProcedure = 'wamp.registration.get';
+const _wampRegistrationListCalleesProcedure = 'wamp.registration.list_callees';
+const _wampRegistrationCountCalleesProcedure =
+    'wamp.registration.count_callees';
+const _wampSubscriptionListProcedure = 'wamp.subscription.list';
+const _wampSubscriptionLookupProcedure = 'wamp.subscription.lookup';
+const _wampSubscriptionMatchProcedure = 'wamp.subscription.match';
+const _wampSubscriptionGetProcedure = 'wamp.subscription.get';
+const _wampSubscriptionListSubscribersProcedure =
+    'wamp.subscription.list_subscribers';
+const _wampSubscriptionCountSubscribersProcedure =
+    'wamp.subscription.count_subscribers';
 
 /// Convenience helpers for Connectanum router-hosted WAMP MCP tools.
 extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
@@ -66,6 +84,197 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     return McpStreamableWampMetaCallResult.fromJson(
       procedure,
       structuredContent,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> countWampSessions({
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSessionCountProcedure,
+      id: id,
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampSessions({
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSessionListProcedure,
+      id: id,
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> getWampSession(
+    int sessionId, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSessionGetProcedure,
+      id: id,
+      arguments: <Object?>[sessionId],
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampRegistrations({
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampRegistrationListProcedure,
+      id: id,
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> lookupWampRegistration(
+    String procedure, {
+    Object? id,
+    String? match,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampRegistrationLookupProcedure,
+      id: id,
+      arguments: <Object?>[procedure],
+      argumentsKeywords: _wampMetaMatchArguments(match),
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> matchWampRegistration(
+    String procedure, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampRegistrationMatchProcedure,
+      id: id,
+      arguments: <Object?>[procedure],
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> getWampRegistration(
+    int registrationId, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampRegistrationGetProcedure,
+      id: id,
+      arguments: <Object?>[registrationId],
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampRegistrationCallees(
+    int registrationId, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampRegistrationListCalleesProcedure,
+      id: id,
+      arguments: <Object?>[registrationId],
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> countWampRegistrationCallees(
+    int registrationId, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampRegistrationCountCalleesProcedure,
+      id: id,
+      arguments: <Object?>[registrationId],
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampSubscriptions({
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSubscriptionListProcedure,
+      id: id,
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> lookupWampSubscription(
+    String topic, {
+    Object? id,
+    String? match,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSubscriptionLookupProcedure,
+      id: id,
+      arguments: <Object?>[topic],
+      argumentsKeywords: _wampMetaMatchArguments(match),
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> matchWampSubscription(
+    String topic, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSubscriptionMatchProcedure,
+      id: id,
+      arguments: <Object?>[topic],
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> getWampSubscription(
+    int subscriptionId, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSubscriptionGetProcedure,
+      id: id,
+      arguments: <Object?>[subscriptionId],
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampSubscriptionSubscribers(
+    int subscriptionId, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSubscriptionListSubscribersProcedure,
+      id: id,
+      arguments: <Object?>[subscriptionId],
+      streamable: streamable,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> countWampSubscriptionSubscribers(
+    int subscriptionId, {
+    Object? id,
+    bool streamable = true,
+  }) {
+    return callWampMetaProcedure(
+      _wampSubscriptionCountSubscribersProcedure,
+      id: id,
+      arguments: <Object?>[subscriptionId],
+      streamable: streamable,
     );
   }
 
@@ -340,6 +549,13 @@ McpJsonMap _wampMetaArguments({
     'arguments': ?arguments,
     'argumentsKeywords': ?argumentsKeywords,
   };
+}
+
+McpJsonMap? _wampMetaMatchArguments(String? match) {
+  if (match == null) {
+    return null;
+  }
+  return <String, Object?>{'match': match};
 }
 
 String _requiredString(McpJsonMap json, String key) {

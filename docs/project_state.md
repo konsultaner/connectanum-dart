@@ -2,13 +2,15 @@
 
 Last updated: 2026-05-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: local implementation bundle for
-`mcp: add streamable meta helpers`
-Last reviewed implementation commit: pending local commit
+Last reviewed branch checkpoint: `06c7a5f`
+(`mcp: add streamable meta helpers`)
+Last reviewed implementation commit: `06c7a5f`
 (`mcp: add streamable meta helpers`)
 Active exec plan:
+`docs/exec-plans/2026-05-04-mcp-streamable-standard-meta-helpers.md`
+(complete; local verification clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-meta-helpers.md`
-(local verification clean; hosted evidence pending). Latest completed exec plan:
+(complete; hosted evidence clean). Latest completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-wamp-tools.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-discovery-helpers.md`
@@ -59,9 +61,28 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP Streamable WAMP meta helper readiness is local-verification clean and
-    waiting for hosted evidence after push. The exported
-    `package:connectanum_client/mcp.dart` WAMP helper extension now adds
+  - MCP Streamable standard meta convenience helper readiness is in progress.
+    The local implementation adds named `package:connectanum_client/mcp.dart`
+    helpers for standard `wamp.session.*`, `wamp.registration.*`, and
+    `wamp.subscription.*` meta procedure calls while keeping all calls routed
+    through the existing authenticated Streamable MCP `tools/call` path via
+    `callWampMetaProcedure(...)`. Focused checks passed:
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --plain-name "uses standard WAMP meta convenience helpers"`,
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+    `dart analyze packages/connectanum_client packages/connectanum_router`, and
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
+    Post-change `bin/test-fast` passed on 2026-05-04. Full local `bin/verify`
+    passed on 2026-05-04 after the helper implementation; it included
+    formatting, Rust native/FFI tests, Python package-artifact checks, MCP
+    package tests, client tests including the updated
+    `packages/connectanum_client/test/mcp` suite, auth-server tests, bench
+    integration tests, the full router package tests including the updated
+    router-hosted MCP smoke and `remote_auth_integration_test`, zero-copy router
+    checks, and Chrome Dart2Wasm WebSocket transport tests. Commit, push, and
+    hosted GitHub evidence are still pending.
+  - MCP Streamable WAMP meta helper readiness is complete with hosted evidence
+    clean for `06c7a5f`. The exported `package:connectanum_client/mcp.dart`
+    WAMP helper extension now adds
     `callWampMetaProcedure(...)` for router-hosted standard `wamp.*` meta
     procedure tools. The helper reuses the existing session-aware
     `callTool(...)` path, so route authentication, MCP session IDs, and
@@ -82,6 +103,14 @@ order.
     integration tests, the full router package tests including the updated
     router-hosted MCP smoke and `remote_auth_integration_test`, zero-copy router
     checks, and Chrome Dart2Wasm WebSocket transport tests.
+  - hosted GitHub evidence for `06c7a5f` is clean: `CI` run `25297227105`
+    completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+    log scan found no warning, deprecation, skipped-test, reset,
+    connection-noise, panic, or failure patterns, `Dart Package Publish Dry
+    Run` run `25297227117` completed successfully and covers the checked-out
+    head, `WAMP Profile Benchmarks` run `25297227103` completed successfully,
+    and Native Artifacts dry-run `25192553399` remains clean and relevant
+    because no native-release-sensitive paths changed.
   - MCP Streamable WAMP tool helper readiness is complete with hosted evidence
     clean for `9bace00`. `package:connectanum_client/mcp.dart` now exports
     typed `McpStreamableHttpClient` extension helpers for

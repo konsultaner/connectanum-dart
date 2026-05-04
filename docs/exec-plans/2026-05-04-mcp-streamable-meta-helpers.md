@@ -1,6 +1,6 @@
 # Exec Plan: MCP Streamable Meta Helpers
 
-Status: local verification clean; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -66,6 +66,14 @@ Out of scope:
   bench integration tests, the full router package tests including the updated
   router-hosted MCP smoke and `remote_auth_integration_test`, zero-copy router
   checks, and Chrome Dart2Wasm WebSocket transport tests.
+- Hosted GitHub evidence for `06c7a5f` is clean: `CI` run `25297227105`
+  completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+  log scan found no warning, deprecation, skipped-test, reset,
+  connection-noise, panic, or failure patterns, `Dart Package Publish Dry Run`
+  run `25297227117` completed successfully and covers the checked-out head,
+  `WAMP Profile Benchmarks` run `25297227103` completed successfully, and
+  Native Artifacts dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -78,6 +86,8 @@ Out of scope:
 
 ## Handoff
 
-In progress. Commit/push the implementation bundle, and then inspect hosted
-GitHub evidence because this changes exported package API and router smoke
-coverage.
+Complete. Commit `06c7a5f` was pushed to both remotes and the hosted GitHub
+deployment-chain evidence is clean. Remaining deployment-chain findings are
+operator/setup items: protect the branch, promote `.github/workflows/router-image.yml`
+through the default branch for Actions API visibility, and publish the router
+container package when that release lane is enabled.

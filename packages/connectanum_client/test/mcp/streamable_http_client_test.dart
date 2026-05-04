@@ -372,6 +372,137 @@ void main() {
       });
     });
 
+    test('uses standard WAMP meta convenience helpers', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+
+      final sessionCount = await client.countWampSessions(
+        id: 'session-count',
+        streamable: false,
+      );
+      expect(sessionCount.procedure, 'wamp.session.count');
+      expect(sessionCount.argumentsKeywords['count'], 2);
+
+      final sessions = await client.listWampSessions(
+        id: 'session-list',
+        streamable: false,
+      );
+      expect(sessions.argumentsKeywords['session_ids'], [101, 102]);
+
+      final session = await client.getWampSession(
+        101,
+        id: 'session-get',
+        streamable: false,
+      );
+      expect(session.argumentsKeywords['details'], {
+        'session': 101,
+        'authid': 'anonymous',
+      });
+
+      final registrations = await client.listWampRegistrations(
+        id: 'registration-list',
+        streamable: false,
+      );
+      expect(registrations.argumentsKeywords['exact'], [11]);
+
+      final lookup = await client.lookupWampRegistration(
+        'app.echo',
+        id: 'registration-lookup',
+        match: 'exact',
+        streamable: false,
+      );
+      expect(lookup.arguments, [11]);
+
+      final match = await client.matchWampRegistration(
+        'app.echo',
+        id: 'registration-match-helper',
+        streamable: false,
+      );
+      expect(match.arguments, [11]);
+
+      final registration = await client.getWampRegistration(
+        11,
+        id: 'registration-get-helper',
+        streamable: false,
+      );
+      expect(registration.argumentsKeywords['uri'], 'app.echo');
+
+      final callees = await client.listWampRegistrationCallees(
+        11,
+        id: 'registration-callees',
+        streamable: false,
+      );
+      expect(callees.arguments, [101]);
+
+      final calleeCount = await client.countWampRegistrationCallees(
+        11,
+        id: 'registration-callee-count',
+        streamable: false,
+      );
+      expect(calleeCount.arguments, [1]);
+
+      final subscriptions = await client.listWampSubscriptions(
+        id: 'subscription-list',
+        streamable: false,
+      );
+      expect(subscriptions.argumentsKeywords['exact'], [7]);
+
+      final lookupSubscription = await client.lookupWampSubscription(
+        'app.events.audit',
+        id: 'subscription-lookup-helper',
+        match: 'exact',
+        streamable: false,
+      );
+      expect(lookupSubscription.arguments, [7]);
+
+      final matchingSubscriptions = await client.matchWampSubscription(
+        'app.events.audit.created',
+        id: 'subscription-match',
+        streamable: false,
+      );
+      expect(matchingSubscriptions.arguments, [7]);
+
+      final subscription = await client.getWampSubscription(
+        7,
+        id: 'subscription-get',
+        streamable: false,
+      );
+      expect(subscription.argumentsKeywords['uri'], 'app.events.audit');
+
+      final subscribers = await client.listWampSubscriptionSubscribers(
+        7,
+        id: 'subscription-subscribers',
+        streamable: false,
+      );
+      expect(subscribers.arguments, [102]);
+
+      final subscriberCount = await client.countWampSubscriptionSubscribers(
+        7,
+        id: 'subscription-subscriber-count',
+        streamable: false,
+      );
+      expect(subscriberCount.arguments, [1]);
+
+      expect(endpoint.requests.last.sessionId, 'session-1');
+      expect(endpoint.requests.last.body, {
+        'jsonrpc': '2.0',
+        'id': 'subscription-subscriber-count',
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.subscription.count_subscribers',
+          'arguments': {
+            'arguments': [7],
+          },
+        },
+      });
+    });
+
     test(
       'parses SSE event ids, retry hints, event names, and multi-line data',
       () {
@@ -831,12 +962,36 @@ final class _FakeMcpEndpoint {
     final firstArgument = arguments.firstOrNull;
 
     final structuredContent = switch (procedure) {
+      'wamp.session.count' => <String, Object?>{
+        'argumentsKeywords': <String, Object?>{'count': 2},
+      },
+      'wamp.session.list' => <String, Object?>{
+        'argumentsKeywords': <String, Object?>{
+          'session_ids': <Object?>[101, 102],
+        },
+      },
+      'wamp.session.get' => <String, Object?>{
+        'argumentsKeywords': <String, Object?>{
+          'details': <String, Object?>{
+            'session': argumentsKeywords['id'] ?? firstArgument,
+            'authid': 'anonymous',
+          },
+        },
+      },
       'wamp.registration.list' => <String, Object?>{
         'argumentsKeywords': <String, Object?>{
           'exact': <Object?>[11],
           'prefix': <Object?>[],
           'wildcard': <Object?>[],
         },
+      },
+      'wamp.registration.lookup' => <String, Object?>{
+        'arguments': <Object?>[
+          if ((firstArgument == 'app.echo' ||
+                  argumentsKeywords['procedure'] == 'app.echo') &&
+              argumentsKeywords['match'] == 'exact')
+            11,
+        ],
       },
       'wamp.registration.match' => <String, Object?>{
         'arguments': <Object?>[
@@ -852,11 +1007,49 @@ final class _FakeMcpEndpoint {
           'match': 'exact',
         },
       },
+      'wamp.registration.list_callees' => <String, Object?>{
+        'arguments': <Object?>[
+          if (firstArgument == 11 || argumentsKeywords['id'] == 11) 101,
+        ],
+      },
+      'wamp.registration.count_callees' => <String, Object?>{
+        'arguments': <Object?>[
+          if (firstArgument == 11 || argumentsKeywords['id'] == 11) 1 else 0,
+        ],
+      },
+      'wamp.subscription.list' => <String, Object?>{
+        'argumentsKeywords': <String, Object?>{
+          'exact': <Object?>[7],
+          'prefix': <Object?>[],
+          'wildcard': <Object?>[],
+        },
+      },
       'wamp.subscription.lookup' => <String, Object?>{
         'arguments': <Object?>[
-          if (firstArgument == 'app.events.audit' ||
-              argumentsKeywords['topic'] == 'app.events.audit')
+          if ((firstArgument == 'app.events.audit' ||
+                  argumentsKeywords['topic'] == 'app.events.audit') &&
+              (argumentsKeywords['match'] == null ||
+                  argumentsKeywords['match'] == 'exact'))
             7,
+        ],
+      },
+      'wamp.subscription.match' => <String, Object?>{
+        'arguments': <Object?>[
+          if (firstArgument == 'app.events.audit.created' ||
+              argumentsKeywords['topic'] == 'app.events.audit.created')
+            7,
+        ],
+      },
+      'wamp.subscription.get' => <String, Object?>{
+        'argumentsKeywords': <String, Object?>{
+          'id': argumentsKeywords['id'] ?? firstArgument,
+          'uri': 'app.events.audit',
+          'match': 'exact',
+        },
+      },
+      'wamp.subscription.list_subscribers' => <String, Object?>{
+        'arguments': <Object?>[
+          if (firstArgument == 7 || argumentsKeywords['id'] == 7) 102,
         ],
       },
       'wamp.subscription.count_subscribers' => <String, Object?>{

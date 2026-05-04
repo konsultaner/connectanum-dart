@@ -1638,10 +1638,9 @@ void main() {
       expect(streamableTopicCatalogJson, isNot(contains('app.secure.audit')));
 
       final streamableSafeRegistration = await streamableClient
-          .callWampMetaProcedure(
-            'wamp.registration.match',
+          .matchWampRegistration(
+            'app.safe.lookup',
             id: 'streamable-registration-match',
-            argumentsKeywords: const {'procedure': 'app.safe.lookup'},
           );
       expect(
         streamableSafeRegistration.arguments,
@@ -1649,10 +1648,9 @@ void main() {
       );
 
       final streamableUnsafeRegistration = await streamableClient
-          .callWampMetaProcedure(
-            'wamp.registration.match',
+          .matchWampRegistration(
+            'app.unsafe.delete',
             id: 'streamable-unsafe-registration-match',
-            argumentsKeywords: const {'procedure': 'app.unsafe.delete'},
           );
       expect(streamableUnsafeRegistration.arguments, isEmpty);
 
@@ -1685,10 +1683,9 @@ void main() {
       expect(streamableSubscription['topic'], equals('app.events.audit'));
 
       final streamableSubscriptionLookup = await streamableClient
-          .callWampMetaProcedure(
-            'wamp.subscription.lookup',
+          .lookupWampSubscription(
+            'app.events.audit',
             id: 'streamable-subscription-lookup',
-            argumentsKeywords: const {'topic': 'app.events.audit'},
           );
       expect(streamableSubscriptionLookup.arguments, isNotEmpty);
 
