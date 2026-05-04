@@ -1593,6 +1593,56 @@ void main() {
       expect(directPublicTopicCatalogJson, contains('app.events.audit'));
       expect(directPublicTopicCatalogJson, isNot(contains('app.secure.audit')));
 
+      final directPublicResources = await directPublicMcpClient.listResources(
+        id: 'direct-public-resources',
+        directJson: true,
+      );
+      expect(
+        directPublicResources.resources.map((resource) => resource['uri']),
+        contains('app://mcp/context'),
+      );
+
+      final directPublicResourceContents = await directPublicMcpClient
+          .readResource(
+            'app://mcp/context',
+            id: 'direct-public-resource-read',
+            directJson: true,
+          );
+      expect(
+        directPublicResourceContents.single['text'],
+        contains('router-hosted MCP route'),
+      );
+
+      final directPublicResourceTemplates = await directPublicMcpClient
+          .listResourceTemplates(
+            id: 'direct-public-resource-templates',
+            directJson: true,
+          );
+      expect(
+        directPublicResourceTemplates.resourceTemplates.map(
+          (template) => template['uriTemplate'],
+        ),
+        contains('app://mcp/task/{taskId}'),
+      );
+
+      final directPublicPrompts = await directPublicMcpClient.listPrompts(
+        id: 'direct-public-prompts',
+        directJson: true,
+      );
+      expect(
+        directPublicPrompts.prompts.map((prompt) => prompt['name']),
+        contains('inspect-task'),
+      );
+
+      final directPublicPrompt = await directPublicMcpClient.getPrompt(
+        'inspect-task',
+        id: 'direct-public-prompt',
+        arguments: {'taskId': 'T-direct-public'},
+        directJson: true,
+      );
+      expect(jsonEncode(directPublicPrompt), contains('T-direct-public'));
+      expect(directPublicMcpClient.sessionId, isNull);
+
       final directPublicRegistrationList = await _callRouterJsonMethod(
         client,
         listener.port,
@@ -1769,6 +1819,31 @@ void main() {
       expect(streamableToolNames, isNot(contains('app.unsafe.delete')));
       expect(streamableClient.lastEventId, isNotNull);
 
+      final streamableResources = await streamableClient.listResources(
+        id: 'streamable-resources',
+      );
+      expect(
+        streamableResources.resources.map((resource) => resource['uri']),
+        contains('app://mcp/context'),
+      );
+
+      final streamableTemplates = await streamableClient.listResourceTemplates(
+        id: 'streamable-resource-templates',
+      );
+      expect(
+        streamableTemplates.resourceTemplates.map(
+          (template) => template['uriTemplate'],
+        ),
+        contains('app://mcp/task/{taskId}'),
+      );
+
+      final streamablePrompt = await streamableClient.getPrompt(
+        'inspect-task',
+        id: 'streamable-prompt',
+        arguments: {'taskId': 'T-streamable-prompt'},
+      );
+      expect(jsonEncode(streamablePrompt), contains('T-streamable-prompt'));
+
       final streamableTopicCatalogResult = await streamableClient.callTool(
         'connectanum.api.list',
         id: 'streamable-topic-catalog',
@@ -1927,6 +2002,21 @@ void main() {
           },
           {
             'jsonrpc': '2.0',
+            'id': 'batch-resources',
+            'method': 'resources/list',
+            'params': {},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'batch-prompt',
+            'method': 'prompts/get',
+            'params': {
+              'name': 'inspect-task',
+              'arguments': {'taskId': 'T-batch-prompt'},
+            },
+          },
+          {
+            'jsonrpc': '2.0',
             'method': 'connectanum.tool.call',
             'params': {
               'name': 'app.safe.lookup',
@@ -1939,7 +2029,7 @@ void main() {
       expect(directBatch.json, isA<List<Object?>>());
       final directBatchResponses = (directBatch.json as List)
           .cast<Map<String, Object?>>();
-      expect(directBatchResponses, hasLength(2));
+      expect(directBatchResponses, hasLength(4));
       expect(directBatchResponses[0]['id'], equals('batch-catalog'));
       expect(
         jsonEncode(directBatchResponses[0]['result']),
@@ -1951,6 +2041,16 @@ void main() {
                 as Map)['argumentsKeywords']
             as Map)['status'],
         equals('open'),
+      );
+      expect(directBatchResponses[2]['id'], equals('batch-resources'));
+      expect(
+        jsonEncode(directBatchResponses[2]['result']),
+        contains('app://mcp/context'),
+      );
+      expect(directBatchResponses[3]['id'], equals('batch-prompt'));
+      expect(
+        jsonEncode(directBatchResponses[3]['result']),
+        contains('T-batch-prompt'),
       );
 
       final nestedBatch = await _postJsonValue(
@@ -2288,6 +2388,18 @@ void main() {
       );
       expect(unauthorized.statusCode, equals(HttpStatus.unauthorized));
 
+      final unauthorizedDirectResources =
+          await _postJson(client, listener.port, '/mcp/secure', {
+            'jsonrpc': '2.0',
+            'id': 'secure-direct-resources-unauthorized',
+            'method': 'resources/list',
+            'params': {},
+          });
+      expect(
+        unauthorizedDirectResources.statusCode,
+        equals(HttpStatus.unauthorized),
+      );
+
       final token = await _issueTicketHttpToken(client, listener.port);
       final authHeaders = {'authorization': 'Bearer $token'};
       final directSecureMcpClient = McpStreamableHttpClient(
@@ -2307,6 +2419,25 @@ void main() {
         directJson: true,
       );
       expect(jsonEncode(directSecureCatalog), contains('app.unsafe.delete'));
+
+      final directSecureResources = await directSecureMcpClient.listResources(
+        id: 'direct-secure-resources',
+        directJson: true,
+      );
+      expect(
+        directSecureResources.resources.map((resource) => resource['uri']),
+        contains('app://mcp/context'),
+      );
+
+      final directSecurePrompt = await directSecureMcpClient.getPrompt(
+        'inspect-task',
+        id: 'direct-secure-prompt',
+        arguments: {'taskId': 'T-direct-secure'},
+        directJson: true,
+      );
+      expect(jsonEncode(directSecurePrompt), contains('T-direct-secure'));
+      expect(directSecureMcpClient.sessionId, isNull);
+
       final directSecureUnsafeRegistration = await _callRouterJsonMethod(
         client,
         listener.port,
@@ -3956,6 +4087,48 @@ RouterSettings _buildMcpSmokeSettings() {
             },
           },
         },
+      },
+    ],
+    'resource_list_page_size': 10,
+    'resource_template_list_page_size': 10,
+    'prompt_list_page_size': 10,
+    'resources': [
+      {
+        'uri': 'app://mcp/context',
+        'name': 'mcp-context',
+        'title': 'MCP route context',
+        'description': 'Static context exposed by the MCP route.',
+        'mime_type': 'text/plain',
+        'text': 'This context is served by the router-hosted MCP route.',
+      },
+    ],
+    'resource_templates': [
+      {
+        'uri_template': 'app://mcp/task/{taskId}',
+        'name': 'mcp-task',
+        'title': 'MCP task resource',
+        'description': 'Template for task resources exposed by the MCP route.',
+        'mime_type': 'application/json',
+      },
+    ],
+    'prompts': [
+      {
+        'name': 'inspect-task',
+        'title': 'Inspect task',
+        'description': 'Builds a task inspection prompt.',
+        'arguments': [
+          {
+            'name': 'taskId',
+            'description': 'Task identifier to inspect.',
+            'required': true,
+          },
+        ],
+        'messages': [
+          {
+            'role': 'user',
+            'text': 'Inspect task {{taskId}} using the route context.',
+          },
+        ],
       },
     ],
   };
