@@ -7,6 +7,12 @@
 3. Use `ROADMAP_NEXT.md` to choose the next milestone only when no active plan exists.
 4. Use `ROADMAP.md` and `STRUCTURE.md` as reference material, not as mandatory startup reading for every task.
 
+## Codebase workflow skill
+
+- For coding, debugging, refactoring, review, test, build, or automation work in this repository, use the `konsultaner-codebase-workflow` skill before codebase exploration or edits.
+- If the skill is not available in the current Codex session, perform its equivalent Serena preflight manually: call Serena `initial_instructions`, activate this repo path, run `check_onboarding_performed`, and prefer symbol-aware Serena navigation before broad source reads.
+- Keep shell/file tools for tests, formatting, builds, non-code files, and narrow line edits.
+
 ## Canonical commands
 
 - `bin/bootstrap` validates the local toolchain and fetches workspace dependencies.
