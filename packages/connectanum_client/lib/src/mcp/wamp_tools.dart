@@ -39,6 +39,36 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     );
   }
 
+  Future<McpStreamableWampMetaCallResult> callWampMetaProcedure(
+    String procedure, {
+    Object? id,
+    List<Object?>? arguments,
+    McpJsonMap? argumentsKeywords,
+    bool streamable = true,
+  }) async {
+    if (!procedure.startsWith('wamp.')) {
+      throw ArgumentError.value(
+        procedure,
+        'procedure',
+        'must be a WAMP meta procedure',
+      );
+    }
+    final structuredContent = await _callStructuredTool(
+      this,
+      procedure,
+      id: id,
+      arguments: _wampMetaArguments(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      streamable: streamable,
+    );
+    return McpStreamableWampMetaCallResult.fromJson(
+      procedure,
+      structuredContent,
+    );
+  }
+
   Future<McpStreamableWampPublicationResult> publishWampEvent(
     String topic, {
     Object? id,
@@ -115,6 +145,35 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     );
     return McpStreamableWampUnsubscribeResult.fromJson(structuredContent);
   }
+}
+
+final class McpStreamableWampMetaCallResult {
+  const McpStreamableWampMetaCallResult({
+    required this.procedure,
+    required this.arguments,
+    required this.argumentsKeywords,
+    required this.structuredContent,
+  });
+
+  factory McpStreamableWampMetaCallResult.fromJson(
+    String procedure,
+    McpJsonMap structuredContent,
+  ) {
+    return McpStreamableWampMetaCallResult(
+      procedure: procedure,
+      arguments: _optionalJsonListFrom(structuredContent, 'arguments'),
+      argumentsKeywords: _optionalJsonMapFrom(
+        structuredContent,
+        'argumentsKeywords',
+      ),
+      structuredContent: structuredContent,
+    );
+  }
+
+  final String procedure;
+  final List<Object?> arguments;
+  final McpJsonMap argumentsKeywords;
+  final McpJsonMap structuredContent;
 }
 
 final class McpStreamableWampPublicationResult {
@@ -273,6 +332,16 @@ Future<McpJsonMap> _callStructuredTool(
   );
 }
 
+McpJsonMap _wampMetaArguments({
+  List<Object?>? arguments,
+  McpJsonMap? argumentsKeywords,
+}) {
+  return <String, Object?>{
+    'arguments': ?arguments,
+    'argumentsKeywords': ?argumentsKeywords,
+  };
+}
+
 String _requiredString(McpJsonMap json, String key) {
   final value = json[key];
   if (value is! String || value.isEmpty) {
@@ -301,6 +370,25 @@ bool? _boolFrom(McpJsonMap json, String key) {
     throw FormatException('$key must be a boolean');
   }
   return value;
+}
+
+List<Object?> _optionalJsonListFrom(McpJsonMap json, String key) {
+  final value = json[key];
+  if (value == null) {
+    return const <Object?>[];
+  }
+  if (value is! List) {
+    throw FormatException('$key must be an array');
+  }
+  return List<Object?>.unmodifiable(value);
+}
+
+McpJsonMap _optionalJsonMapFrom(McpJsonMap json, String key) {
+  final value = json[key];
+  if (value == null) {
+    return const <String, Object?>{};
+  }
+  return _jsonMapFrom(value, label: key);
 }
 
 List<McpJsonMap> _jsonMapListFrom(McpJsonMap json, String key) {

@@ -305,6 +305,73 @@ void main() {
       );
     });
 
+    test('uses Connectanum WAMP meta procedure helpers', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+
+      final registrations = await client.callWampMetaProcedure(
+        'wamp.registration.list',
+        id: 'wamp-registration-list',
+        streamable: false,
+      );
+      expect(registrations.procedure, 'wamp.registration.list');
+      expect(registrations.arguments, isEmpty);
+      expect(registrations.argumentsKeywords['exact'], [11]);
+
+      final registrationMatch = await client.callWampMetaProcedure(
+        'wamp.registration.match',
+        id: 'wamp-registration-match',
+        arguments: const <Object?>['app.echo'],
+        streamable: false,
+      );
+      expect(registrationMatch.arguments, [11]);
+      expect(registrationMatch.argumentsKeywords, isEmpty);
+
+      final registrationDetails = await client.callWampMetaProcedure(
+        'wamp.registration.get',
+        id: 'wamp-registration-get',
+        argumentsKeywords: const <String, Object?>{'id': 11},
+        streamable: false,
+      );
+      expect(registrationDetails.argumentsKeywords['uri'], 'app.echo');
+      expect(registrationDetails.argumentsKeywords['match'], 'exact');
+
+      final subscriptions = await client.callWampMetaProcedure(
+        'wamp.subscription.lookup',
+        id: 'wamp-subscription-lookup',
+        argumentsKeywords: const <String, Object?>{'topic': 'app.events.audit'},
+        streamable: false,
+      );
+      expect(subscriptions.arguments, [7]);
+
+      final subscribers = await client.callWampMetaProcedure(
+        'wamp.subscription.count_subscribers',
+        id: 'wamp-subscription-count',
+        arguments: const <Object?>[7],
+        streamable: false,
+      );
+      expect(subscribers.arguments, [1]);
+
+      expect(endpoint.requests.last.sessionId, 'session-1');
+      expect(endpoint.requests.last.body, {
+        'jsonrpc': '2.0',
+        'id': 'wamp-subscription-count',
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.subscription.count_subscribers',
+          'arguments': {
+            'arguments': [7],
+          },
+        },
+      });
+    });
+
     test(
       'parses SSE event ids, retry hints, event names, and multi-line data',
       () {
@@ -486,6 +553,16 @@ final class _FakeMcpEndpoint {
           'id': requestBody['id'],
           'error': <String, Object?>{'code': -32000, 'message': 'tool failed'},
         });
+        return;
+      }
+      if (params['name'] is String &&
+          (params['name'] as String).startsWith('wamp.')) {
+        _writeWampMetaToolResult(
+          request,
+          requestBody['id'],
+          params['name'] as String,
+          _jsonMapFrom(params['arguments'], label: 'wamp meta arguments'),
+        );
         return;
       }
       if (params['name'] == 'connectanum.api.list') {
@@ -733,6 +810,67 @@ final class _FakeMcpEndpoint {
         ],
       },
     });
+  }
+
+  void _writeWampMetaToolResult(
+    HttpRequest request,
+    Object? id,
+    String procedure,
+    McpJsonMap toolArguments,
+  ) {
+    final arguments = switch (toolArguments['arguments']) {
+      final List value => List<Object?>.unmodifiable(value),
+      null => const <Object?>[],
+      _ => throw StateError('wamp meta arguments must be an array'),
+    };
+    final argumentsKeywords = switch (toolArguments['argumentsKeywords']) {
+      final Map value => _jsonMapFrom(value, label: 'wamp meta kwargs'),
+      null => const <String, Object?>{},
+      _ => throw StateError('wamp meta argumentsKeywords must be an object'),
+    };
+    final firstArgument = arguments.firstOrNull;
+
+    final structuredContent = switch (procedure) {
+      'wamp.registration.list' => <String, Object?>{
+        'argumentsKeywords': <String, Object?>{
+          'exact': <Object?>[11],
+          'prefix': <Object?>[],
+          'wildcard': <Object?>[],
+        },
+      },
+      'wamp.registration.match' => <String, Object?>{
+        'arguments': <Object?>[
+          if (firstArgument == 'app.echo' ||
+              argumentsKeywords['procedure'] == 'app.echo')
+            11,
+        ],
+      },
+      'wamp.registration.get' => <String, Object?>{
+        'argumentsKeywords': <String, Object?>{
+          'id': argumentsKeywords['id'] ?? firstArgument,
+          'uri': 'app.echo',
+          'match': 'exact',
+        },
+      },
+      'wamp.subscription.lookup' => <String, Object?>{
+        'arguments': <Object?>[
+          if (firstArgument == 'app.events.audit' ||
+              argumentsKeywords['topic'] == 'app.events.audit')
+            7,
+        ],
+      },
+      'wamp.subscription.count_subscribers' => <String, Object?>{
+        'arguments': <Object?>[
+          if (firstArgument == 7 || argumentsKeywords['id'] == 7) 1 else 0,
+        ],
+      },
+      _ => <String, Object?>{
+        'arguments': <Object?>[],
+        'argumentsKeywords': <String, Object?>{},
+      },
+    };
+
+    _writeToolResult(request, id, structuredContent);
   }
 
   void _writeToolResult(

@@ -1637,6 +1637,25 @@ void main() {
       expect(streamableTopicCatalogJson, contains('app.events.audit'));
       expect(streamableTopicCatalogJson, isNot(contains('app.secure.audit')));
 
+      final streamableSafeRegistration = await streamableClient
+          .callWampMetaProcedure(
+            'wamp.registration.match',
+            id: 'streamable-registration-match',
+            argumentsKeywords: const {'procedure': 'app.safe.lookup'},
+          );
+      expect(
+        streamableSafeRegistration.arguments,
+        equals([directPublicSafeRegistrationId]),
+      );
+
+      final streamableUnsafeRegistration = await streamableClient
+          .callWampMetaProcedure(
+            'wamp.registration.match',
+            id: 'streamable-unsafe-registration-match',
+            argumentsKeywords: const {'procedure': 'app.unsafe.delete'},
+          );
+      expect(streamableUnsafeRegistration.arguments, isEmpty);
+
       final streamableSafeResult = await streamableClient.callTool(
         'app.safe.lookup',
         id: 'streamable-safe',
@@ -1664,6 +1683,14 @@ void main() {
               .cast<String, Object?>();
       final streamableHandle = streamableSubscription['handle'] as String;
       expect(streamableSubscription['topic'], equals('app.events.audit'));
+
+      final streamableSubscriptionLookup = await streamableClient
+          .callWampMetaProcedure(
+            'wamp.subscription.lookup',
+            id: 'streamable-subscription-lookup',
+            argumentsKeywords: const {'topic': 'app.events.audit'},
+          );
+      expect(streamableSubscriptionLookup.arguments, isNotEmpty);
 
       final streamablePublish = await streamableClient.request(
         'tools/call',
