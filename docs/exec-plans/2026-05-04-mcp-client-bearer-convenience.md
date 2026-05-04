@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Bearer Convenience
 
-Status: complete; local verification clean
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -44,8 +44,17 @@ Out of scope:
   and
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
 - Full local `bin/verify` passed on 2026-05-04.
+- Commit `627cde4` was pushed to both remotes. Hosted GitHub evidence for
+  `627cde4` is clean: `CI` run `25317115053` completed successfully with
+  `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+  `25317115064` completed successfully, and `WAMP Profile Benchmarks` run
+  `25317115069` completed successfully. The hosted log scan found no
+  actionable warnings, deprecations, skipped-test lines, panics, failures,
+  connection reset/refused noise, or broken pipes; matches were limited to Git
+  checkout's default-branch hint, package dry-run `0 warnings` summaries,
+  normal Rust `0 ignored` / filtered-test summaries, and passing test names.
 
 ## Handoff
 
-Implementation and local verification are complete. Hosted evidence is pending
-for the implementation commit.
+Implementation, local verification, and hosted GitHub deployment-chain evidence
+are complete.

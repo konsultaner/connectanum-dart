@@ -65,7 +65,11 @@ Future<void> main(List<String> args) async {
 
   try {
     await _registerExampleApi(serviceSession);
-    await _smokeMcpEndpoint(publicMcpClient, label: 'public');
+    await _smokeMcpEndpoint(
+      publicMcpClient,
+      label: 'public',
+      serviceSession: serviceSession,
+    );
 
     await _assertSecureMcpRequiresBearer(binding);
     final bearerToken = await _issueTicketHttpToken(binding);
@@ -73,7 +77,11 @@ Future<void> main(List<String> args) async {
       _mcpEndpoint(binding, secure: true),
       bearerToken,
     );
-    await _smokeMcpEndpoint(secureMcpClient, label: 'secure');
+    await _smokeMcpEndpoint(
+      secureMcpClient,
+      label: 'secure',
+      serviceSession: serviceSession,
+    );
 
     final endpoint = _mcpEndpoint(binding);
     final secureEndpoint = _mcpEndpoint(binding, secure: true);
@@ -467,6 +475,7 @@ Map<String, Object?> _jsonMap(Object? value, String label) {
 Future<void> _smokeMcpEndpoint(
   McpStreamableHttpClient client, {
   required String label,
+  required RouterSession serviceSession,
 }) async {
   final directTools = await client.listConnectanumToolsDirect(
     id: '$label-direct-tools',
@@ -514,6 +523,46 @@ Future<void> _smokeMcpEndpoint(
     throw StateError('Direct JSON-RPC prompts/get did not render taskId.');
   }
 
+  final directSubscription = await client.subscribeWampTopic(
+    'example.events.task',
+    id: '$label-direct-subscribe',
+    queueLimit: 4,
+    directJson: true,
+  );
+  try {
+    final directPublication = await client.publishWampEvent(
+      'example.events.task',
+      id: '$label-direct-publish',
+      argumentsKeywords: {'taskId': 'T-$label-direct-publish'},
+      acknowledge: true,
+      directJson: true,
+    );
+    if (!directPublication.acknowledged) {
+      throw StateError('Direct JSON-RPC pub/sub publish was not acknowledged.');
+    }
+
+    await serviceSession.publish(
+      'example.events.task',
+      argumentsKeywords: {'taskId': 'T-$label-direct-service'},
+      options: PublishOptions(acknowledge: true),
+    );
+    final directEvents = await _pollMcpEventsUntil(
+      client,
+      directSubscription.handle,
+      label: '$label direct JSON',
+      directJson: true,
+    );
+    if (!jsonEncode(directEvents.events).contains('T-$label-direct-service')) {
+      throw StateError('Direct JSON-RPC pub/sub poll did not receive event.');
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      directSubscription.handle,
+      id: '$label-direct-unsubscribe',
+      directJson: true,
+    );
+  }
+
   await client.initialize(
     clientInfo: const {'name': 'router_hosted_mcp_example', 'version': '0.1.0'},
   );
@@ -536,6 +585,44 @@ Future<void> _smokeMcpEndpoint(
   );
   print('[$label] Streamable MCP tool result: ${jsonEncode(streamableResult)}');
 
+  final streamableSubscription = await client.subscribeWampTopic(
+    'example.events.task',
+    id: '$label-streamable-subscribe',
+    queueLimit: 4,
+  );
+  try {
+    final streamablePublication = await client.publishWampEvent(
+      'example.events.task',
+      id: '$label-streamable-publish',
+      argumentsKeywords: {'taskId': 'T-$label-streamable-publish'},
+      acknowledge: true,
+    );
+    if (!streamablePublication.acknowledged) {
+      throw StateError('Streamable MCP pub/sub publish was not acknowledged.');
+    }
+
+    await serviceSession.publish(
+      'example.events.task',
+      argumentsKeywords: {'taskId': 'T-$label-streamable-service'},
+      options: PublishOptions(acknowledge: true),
+    );
+    final streamableEvents = await _pollMcpEventsUntil(
+      client,
+      streamableSubscription.handle,
+      label: '$label Streamable',
+    );
+    if (!jsonEncode(
+      streamableEvents.events,
+    ).contains('T-$label-streamable-service')) {
+      throw StateError('Streamable MCP pub/sub poll did not receive event.');
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      streamableSubscription.handle,
+      id: '$label-streamable-unsubscribe',
+    );
+  }
+
   final streamableTemplates = await client.listResourceTemplates(
     id: '$label-template-list',
   );
@@ -553,4 +640,24 @@ Future<void> _smokeMcpEndpoint(
   if (!jsonEncode(streamablePrompt).contains('T-$label-streamable')) {
     throw StateError('Streamable MCP prompt did not render taskId.');
   }
+}
+
+Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
+  McpStreamableHttpClient client,
+  String handle, {
+  required String label,
+  bool directJson = false,
+}) async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    final batch = await client.pollWampEvents(
+      handle,
+      id: '$label-poll-$attempt',
+      directJson: directJson,
+    );
+    if (batch.events.isNotEmpty) {
+      return batch;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+  }
+  throw StateError('Timed out waiting for $label MCP pub/sub events.');
 }
