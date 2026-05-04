@@ -140,6 +140,75 @@ void main() {
       );
     });
 
+    test('uses typed helpers for resources and prompts', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+
+      final resources = await client.listResources(
+        id: 'resources-helper',
+        streamable: false,
+      );
+      expect(resources.nextCursor, isNull);
+      expect(resources.resources, hasLength(1));
+      expect(resources.resources.single['uri'], 'wamp://app/readme');
+
+      final contents = await client.readResource(
+        'wamp://app/readme',
+        id: 'resource-read',
+        streamable: false,
+      );
+      expect(contents, hasLength(1));
+      expect(contents.single['text'], 'hello resource');
+
+      final templates = await client.listResourceTemplates(
+        id: 'resource-templates-helper',
+        streamable: false,
+      );
+      expect(templates.nextCursor, isNull);
+      expect(templates.resourceTemplates, hasLength(1));
+      expect(
+        templates.resourceTemplates.single['uriTemplate'],
+        'wamp://app/{name}',
+      );
+
+      final prompts = await client.listPrompts(
+        id: 'prompts-helper',
+        streamable: false,
+      );
+      expect(prompts.nextCursor, isNull);
+      expect(prompts.prompts, hasLength(1));
+      expect(prompts.prompts.single['name'], 'summarize');
+
+      final prompt = await client.getPrompt(
+        'summarize',
+        id: 'prompt-get',
+        arguments: {'topic': 'mcp'},
+        streamable: false,
+      );
+      expect(prompt['description'], 'Summarizes a topic.');
+      expect(prompt['messages'], hasLength(1));
+
+      await expectLater(
+        client.getPrompt('missing', id: 'prompt-missing', streamable: false),
+        throwsA(
+          isA<McpJsonRpcException>()
+              .having((error) => error.id, 'id', 'prompt-missing')
+              .having((error) => error.method, 'method', 'prompts/get')
+              .having(
+                (error) => error.error['message'],
+                'message',
+                'prompt not found',
+              ),
+        ),
+      );
+    });
+
     test(
       'parses SSE event ids, retry hints, event names, and multi-line data',
       () {
@@ -334,6 +403,115 @@ final class _FakeMcpEndpoint {
           'content': <Object?>[],
           'structuredContent': <String, Object?>{'echo': arguments},
           'isError': false,
+        },
+      });
+      return;
+    }
+
+    if (method == 'resources/list') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'resources': <Object?>[
+            <String, Object?>{
+              'uri': 'wamp://app/readme',
+              'name': 'readme',
+              'mimeType': 'text/plain',
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method == 'resources/read') {
+      final params = _jsonMapFrom(
+        requestBody['params'],
+        label: 'resources/read',
+      );
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'contents': <Object?>[
+            <String, Object?>{
+              'uri': params['uri'],
+              'mimeType': 'text/plain',
+              'text': 'hello resource',
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method == 'resources/templates/list') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'resourceTemplates': <Object?>[
+            <String, Object?>{
+              'uriTemplate': 'wamp://app/{name}',
+              'name': 'app-resource',
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method == 'prompts/list') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'prompts': <Object?>[
+            <String, Object?>{
+              'name': 'summarize',
+              'description': 'Summarizes a topic.',
+              'arguments': <Object?>[
+                <String, Object?>{'name': 'topic', 'required': true},
+              ],
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method == 'prompts/get') {
+      final params = _jsonMapFrom(requestBody['params'], label: 'prompts/get');
+      if (params['name'] == 'missing') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'error': <String, Object?>{
+            'code': -32602,
+            'message': 'prompt not found',
+          },
+        });
+        return;
+      }
+      final arguments = _jsonMapFrom(
+        params['arguments'],
+        label: 'prompts/get arguments',
+      );
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'description': 'Summarizes a topic.',
+          'messages': <Object?>[
+            <String, Object?>{
+              'role': 'user',
+              'content': <String, Object?>{
+                'type': 'text',
+                'text': 'Summarize ${arguments['topic']}',
+              },
+            },
+          ],
         },
       });
       return;

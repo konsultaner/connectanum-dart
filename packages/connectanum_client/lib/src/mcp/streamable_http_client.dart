@@ -104,22 +104,14 @@ final class McpStreamableHttpClient {
       streamable: streamable,
     );
     final result = _jsonRpcResultFrom(response, method: 'tools/list');
-    final toolsValue = result['tools'];
-    if (toolsValue is! List) {
-      throw const FormatException('tools/list result.tools must be an array');
-    }
-    final nextCursor = result['nextCursor'];
-    if (nextCursor != null && nextCursor is! String) {
-      throw const FormatException(
-        'tools/list result.nextCursor must be a string',
-      );
-    }
     return McpStreamableToolListPage(
-      tools: [
-        for (final tool in toolsValue)
-          _jsonMapFrom(tool, label: 'tools/list result tool'),
-      ],
-      nextCursor: nextCursor as String?,
+      tools: _jsonMapListFrom(
+        result,
+        key: 'tools',
+        method: 'tools/list',
+        label: 'tools/list result tool',
+      ),
+      nextCursor: _nextCursorFrom(result, method: 'tools/list'),
     );
   }
 
@@ -136,6 +128,113 @@ final class McpStreamableHttpClient {
       streamable: streamable,
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
+  }
+
+  Future<McpStreamableResourceListPage> listResources({
+    Object? id,
+    String? cursor,
+    bool streamable = true,
+  }) async {
+    final response = await request(
+      'resources/list',
+      id: id,
+      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      streamable: streamable,
+    );
+    final result = _jsonRpcResultFrom(response, method: 'resources/list');
+    return McpStreamableResourceListPage(
+      resources: _jsonMapListFrom(
+        result,
+        key: 'resources',
+        method: 'resources/list',
+        label: 'resources/list result resource',
+      ),
+      nextCursor: _nextCursorFrom(result, method: 'resources/list'),
+    );
+  }
+
+  Future<List<McpJsonMap>> readResource(
+    String uri, {
+    Object? id,
+    bool streamable = true,
+  }) async {
+    final response = await request(
+      'resources/read',
+      id: id,
+      params: <String, Object?>{'uri': uri},
+      streamable: streamable,
+    );
+    final result = _jsonRpcResultFrom(response, method: 'resources/read');
+    return _jsonMapListFrom(
+      result,
+      key: 'contents',
+      method: 'resources/read',
+      label: 'resources/read result content',
+    );
+  }
+
+  Future<McpStreamableResourceTemplateListPage> listResourceTemplates({
+    Object? id,
+    String? cursor,
+    bool streamable = true,
+  }) async {
+    final response = await request(
+      'resources/templates/list',
+      id: id,
+      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      streamable: streamable,
+    );
+    final result = _jsonRpcResultFrom(
+      response,
+      method: 'resources/templates/list',
+    );
+    return McpStreamableResourceTemplateListPage(
+      resourceTemplates: _jsonMapListFrom(
+        result,
+        key: 'resourceTemplates',
+        method: 'resources/templates/list',
+        label: 'resources/templates/list result resource template',
+      ),
+      nextCursor: _nextCursorFrom(result, method: 'resources/templates/list'),
+    );
+  }
+
+  Future<McpStreamablePromptListPage> listPrompts({
+    Object? id,
+    String? cursor,
+    bool streamable = true,
+  }) async {
+    final response = await request(
+      'prompts/list',
+      id: id,
+      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      streamable: streamable,
+    );
+    final result = _jsonRpcResultFrom(response, method: 'prompts/list');
+    return McpStreamablePromptListPage(
+      prompts: _jsonMapListFrom(
+        result,
+        key: 'prompts',
+        method: 'prompts/list',
+        label: 'prompts/list result prompt',
+      ),
+      nextCursor: _nextCursorFrom(result, method: 'prompts/list'),
+    );
+  }
+
+  Future<McpJsonMap> getPrompt(
+    String name, {
+    Object? id,
+    Map<String, String> arguments = const <String, String>{},
+    bool streamable = true,
+  }) async {
+    final response = await request(
+      'prompts/get',
+      id: id,
+      params: <String, Object?>{'name': name, 'arguments': arguments},
+      streamable: streamable,
+    );
+    return _jsonRpcResultFrom(response, method: 'prompts/get');
   }
 
   Future<void> notification(String method, {McpJsonMap? params}) async {
@@ -301,6 +400,33 @@ final class McpStreamableToolListPage {
   const McpStreamableToolListPage({required this.tools, this.nextCursor});
 
   final List<McpJsonMap> tools;
+  final String? nextCursor;
+}
+
+final class McpStreamableResourceListPage {
+  const McpStreamableResourceListPage({
+    required this.resources,
+    this.nextCursor,
+  });
+
+  final List<McpJsonMap> resources;
+  final String? nextCursor;
+}
+
+final class McpStreamableResourceTemplateListPage {
+  const McpStreamableResourceTemplateListPage({
+    required this.resourceTemplates,
+    this.nextCursor,
+  });
+
+  final List<McpJsonMap> resourceTemplates;
+  final String? nextCursor;
+}
+
+final class McpStreamablePromptListPage {
+  const McpStreamablePromptListPage({required this.prompts, this.nextCursor});
+
+  final List<McpJsonMap> prompts;
   final String? nextCursor;
 }
 
@@ -475,6 +601,27 @@ McpJsonMap _jsonRpcResultFrom(McpJsonMap response, {required String method}) {
     );
   }
   return _jsonMapFrom(response['result'], label: '$method result');
+}
+
+List<McpJsonMap> _jsonMapListFrom(
+  McpJsonMap result, {
+  required String key,
+  required String method,
+  required String label,
+}) {
+  final value = result[key];
+  if (value is! List) {
+    throw FormatException('$method result.$key must be an array');
+  }
+  return [for (final item in value) _jsonMapFrom(item, label: label)];
+}
+
+String? _nextCursorFrom(McpJsonMap result, {required String method}) {
+  final nextCursor = result['nextCursor'];
+  if (nextCursor != null && nextCursor is! String) {
+    throw FormatException('$method result.nextCursor must be a string');
+  }
+  return nextCursor as String?;
 }
 
 McpJsonMap _jsonMapFrom(Object? value, {required String label}) {
