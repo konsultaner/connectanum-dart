@@ -159,6 +159,49 @@ RouterSettings _buildSettings() {
                     'description': 'Events emitted by task procedures.',
                   },
                 ],
+                'resources': [
+                  {
+                    'uri': 'app://example/context',
+                    'name': 'Example context',
+                    'title': 'Router-hosted MCP example context',
+                    'description': 'Static context exposed by the router.',
+                    'mime_type': 'text/markdown',
+                    'text':
+                        '# Router-hosted MCP example\n'
+                        'This endpoint exposes WAMP tools, pub/sub helpers, '
+                        'resources, and prompts from one router route.',
+                  },
+                ],
+                'resource_templates': [
+                  {
+                    'uri_template': 'app://example/tasks/{taskId}',
+                    'name': 'Example task template',
+                    'description': 'Template URI shape for task context.',
+                    'mime_type': 'application/json',
+                  },
+                ],
+                'prompts': [
+                  {
+                    'name': 'summarize-task',
+                    'title': 'Summarize task',
+                    'description': 'Builds a prompt for summarizing a task.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task identifier to summarize.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Summarize task {{taskId}} using the '
+                            'router-hosted MCP context.',
+                      },
+                    ],
+                  },
+                ],
               },
             ),
           ),
@@ -255,6 +298,35 @@ Future<void> _smokeMcpEndpoint(McpStreamableHttpClient client) async {
   );
   print('Direct JSON-RPC result: ${jsonEncode(directResult)}');
 
+  final directResources = await client.listResources(
+    id: 'example-direct-resources',
+    directJson: true,
+  );
+  if (!directResources.resources.any(
+    (resource) => resource['uri'] == 'app://example/context',
+  )) {
+    throw StateError('Direct JSON-RPC resources/list did not expose context.');
+  }
+
+  final directResource = await client.readResource(
+    'app://example/context',
+    id: 'example-direct-resource-read',
+    directJson: true,
+  );
+  if (!jsonEncode(directResource).contains('Router-hosted MCP example')) {
+    throw StateError('Direct JSON-RPC resources/read did not return context.');
+  }
+
+  final directPrompt = await client.getPrompt(
+    'summarize-task',
+    id: 'example-direct-prompt',
+    arguments: const {'taskId': 'T-direct'},
+    directJson: true,
+  );
+  if (!jsonEncode(directPrompt).contains('T-direct')) {
+    throw StateError('Direct JSON-RPC prompts/get did not render taskId.');
+  }
+
   await client.initialize(
     clientInfo: const {'name': 'router_hosted_mcp_example', 'version': '0.1.0'},
   );
@@ -276,4 +348,22 @@ Future<void> _smokeMcpEndpoint(McpStreamableHttpClient client) async {
     arguments: const {'taskId': 'T-streamable'},
   );
   print('Streamable MCP tool result: ${jsonEncode(streamableResult)}');
+
+  final streamableTemplates = await client.listResourceTemplates(
+    id: 'example-template-list',
+  );
+  if (!streamableTemplates.resourceTemplates.any(
+    (template) => template['uriTemplate'] == 'app://example/tasks/{taskId}',
+  )) {
+    throw StateError('Streamable MCP did not expose resource template.');
+  }
+
+  final streamablePrompt = await client.getPrompt(
+    'summarize-task',
+    id: 'example-prompt-get',
+    arguments: const {'taskId': 'T-streamable'},
+  );
+  if (!jsonEncode(streamablePrompt).contains('T-streamable')) {
+    throw StateError('Streamable MCP prompt did not render taskId.');
+  }
 }

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct JSON Resources And Prompts
 
-Status: implementation complete; local verification clean; hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -64,6 +64,15 @@ Out of scope:
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "hosts MCP over HTTP using the router internal session"`.
 - Full local `bin/verify` passed on 2026-05-04 after the direct JSON
   resource/prompt implementation.
+- Commit `7ee0363` was pushed to both remotes. Hosted GitHub evidence for
+  `7ee0363` is clean: `CI` run `25310692222` completed successfully with
+  `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+  `25310692197` completed successfully, and `WAMP Profile Benchmarks` run
+  `25310692221` completed successfully. The hosted log scan found no
+  actionable warnings, deprecations, skipped-test lines, panics, failures,
+  connection reset/refused noise, or broken pipes; matches were limited to Git
+  checkout's default-branch hint, package dry-run `0 warnings` summaries,
+  normal Rust `0 ignored` / filtered-test summaries, and passing test names.
 
 ## Decision Log
 
@@ -74,5 +83,5 @@ Out of scope:
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, and hosted
-GitHub deployment-chain evidence are pending.
+Implementation, local verification, and hosted GitHub deployment-chain evidence
+are complete.
