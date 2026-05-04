@@ -2,13 +2,16 @@
 
 Last updated: 2026-05-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: `4a1e42c`
-(`mcp: add router-hosted endpoint example`)
-Latest pushed implementation commit: `227fbf3`
-(`mcp: harden route resource prompt smoke`)
+Last reviewed branch checkpoint: `d56b456`
+(`chore: require konsultaner codebase workflow`; CI clean)
+Latest pushed implementation commit: `af56f1c`
+(`mcp: document secure router hosted example`)
 Active exec plan:
+`docs/exec-plans/2026-05-04-mcp-client-bearer-convenience.md`
+(complete; local verification clean; hosted evidence pending). Previous
+completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-secure-example.md`
-(complete; local verification clean). Previous completed exec plan:
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-route-security-resources-prompts.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-example-resources-prompts.md`
@@ -81,7 +84,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Router-hosted MCP secure example readiness is complete locally. The runnable
+  - MCP Streamable HTTP client bearer-token convenience is complete locally.
+    It packages the common authenticated router-hosted MCP client setup as a
+    typed constructor, moves secure example/smoke paths onto it, and refreshes
+    stale public MCP docs while keeping router-hosted MCP as the intended
+    endpoint shape. Pre-change `bin/test-fast` passed on 2026-05-04. Focused
+    checks
+    passed on 2026-05-04:
+    `dart analyze packages/connectanum_client packages/connectanum_router packages/connectanum_mcp`,
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+    `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`,
+    and
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
+    Full local `bin/verify` passed on 2026-05-04. Hosted evidence is pending
+    for the implementation commit.
+  - Router-hosted MCP secure example readiness is complete. The runnable
     `packages/connectanum_router/example/router_hosted_mcp.dart` example now
     keeps the public `/mcp` endpoint and also configures `/auth` plus a
     bearer-protected `/mcp/secure` endpoint. Its `--smoke-and-exit` path now
@@ -91,7 +108,19 @@ order.
     `bin/test-fast` passed on 2026-05-04. Focused checks passed on 2026-05-04:
     `dart analyze packages/connectanum_router` and
     `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`.
-    Full local `bin/verify` passed on 2026-05-04. Hosted evidence is pending.
+    Full local `bin/verify` passed on 2026-05-04. Commit `af56f1c` was pushed
+    to both remotes. Hosted GitHub evidence for `af56f1c` is clean: `CI` run
+    `25315729357` completed successfully with `Fast Checks` and `Full Verify`,
+    `Dart Package Publish Dry Run` run `25315729371` completed successfully,
+    and `WAMP Profile Benchmarks` run `25315729373` completed successfully.
+    The hosted log scan found no actionable warnings, deprecations,
+    skipped-test lines, panics, failures, connection reset/refused noise, or
+    broken pipes; matches were limited to Git checkout's default-branch hint,
+    package dry-run `0 warnings` summaries, normal Rust `0 ignored` /
+    filtered-test summaries, and passing test names. The newer branch-head
+    automation-guidance commit `d56b456` also has clean hosted `CI` evidence:
+    run `25315879512` completed successfully with `Fast Checks` and
+    `Full Verify`, and its hosted log scan had the same benign-only matches.
   - MCP route-security resource/prompt hardening is complete. The existing
     public/secure router-hosted MCP integration smoke now includes configured
     resources, resource templates, and prompts so direct JSON, initialized

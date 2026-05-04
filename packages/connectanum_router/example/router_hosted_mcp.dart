@@ -69,9 +69,9 @@ Future<void> main(List<String> args) async {
 
     await _assertSecureMcpRequiresBearer(binding);
     final bearerToken = await _issueTicketHttpToken(binding);
-    secureMcpClient = McpStreamableHttpClient(
+    secureMcpClient = McpStreamableHttpClient.withBearerToken(
       _mcpEndpoint(binding, secure: true),
-      headers: {HttpHeaders.authorizationHeader: 'Bearer $bearerToken'},
+      bearerToken,
     );
     await _smokeMcpEndpoint(secureMcpClient, label: 'secure');
 

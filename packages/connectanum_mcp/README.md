@@ -23,15 +23,17 @@ implements a narrow, stable subset first:
 - router-hosted MCP endpoints through `connectanum_router` `mcp` HTTP routes
 - direct router-hosted JSON-RPC calls for the same tool/meta API catalog
 
-The package itself does not ship a standalone full Streamable HTTP transport,
-prompt argument completions, sampling, or tasks. Router-hosted HTTP MCP
-endpoints are provided by `connectanum_router` routes with `type: mcp`; they
-support the request/response JSON-RPC subset over HTTP `POST` and return `405`
-for `GET` because server-push SSE streams are not implemented yet. The same
-route can also serve direct JSON-RPC tool calls for frontend clients without
-requiring the MCP `initialize` lifecycle first. Tool execution failures are
-returned as MCP tool results with `isError: true`; malformed JSON-RPC messages,
-unknown methods, and invalid parameters remain protocol errors.
+The package itself does not ship prompt argument completions, sampling, or
+tasks yet. Network MCP endpoints are hosted by `connectanum_router` routes with
+`type: mcp`; they support Streamable HTTP `POST`, optional SSE responses,
+`GET`/SSE polling, `DELETE` session teardown, and direct JSON-RPC tool/meta API
+calls for frontend clients that do not need the MCP `initialize` lifecycle.
+Consumer clients can use `McpStreamableHttpClient` from
+`package:connectanum_client/mcp.dart`, including
+`McpStreamableHttpClient.withBearerToken(...)` for bearer-protected routes.
+Tool execution failures are returned as MCP tool results with `isError: true`;
+malformed JSON-RPC messages, unknown methods, and invalid parameters remain
+protocol errors.
 
 ## Quick Start
 

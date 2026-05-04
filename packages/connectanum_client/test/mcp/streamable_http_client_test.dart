@@ -13,11 +13,9 @@ void main() {
         final endpoint = await _FakeMcpEndpoint.bind();
         addTearDown(endpoint.close);
 
-        final client = McpStreamableHttpClient(
+        final client = McpStreamableHttpClient.withBearerToken(
           endpoint.uri,
-          headers: const <String, String>{
-            HttpHeaders.authorizationHeader: 'Bearer test-token',
-          },
+          ' test-token ',
         );
         addTearDown(() => client.close(force: true));
 
@@ -95,6 +93,16 @@ void main() {
         expect(endpoint.requests[8].method, 'DELETE');
       },
     );
+
+    test('rejects empty bearer tokens', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      expect(
+        () => McpStreamableHttpClient.withBearerToken(endpoint.uri, '  '),
+        throwsArgumentError,
+      );
+    });
 
     test('lists and calls tools through typed helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();

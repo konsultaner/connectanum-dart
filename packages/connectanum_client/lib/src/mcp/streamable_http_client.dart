@@ -28,6 +28,22 @@ final class McpStreamableHttpClient {
        _ownsHttpClient = httpClient == null || closeHttpClient,
        protocolVersion = defaultProtocolVersion;
 
+  /// Creates a client for bearer-protected MCP HTTP endpoints.
+  McpStreamableHttpClient.withBearerToken(
+    Uri endpoint,
+    String bearerToken, {
+    HttpClient? httpClient,
+    Map<String, String> headers = const <String, String>{},
+    String defaultProtocolVersion = latestProtocolVersion,
+    bool closeHttpClient = false,
+  }) : this(
+         endpoint,
+         httpClient: httpClient,
+         headers: _headersWithBearerToken(headers, bearerToken),
+         defaultProtocolVersion: defaultProtocolVersion,
+         closeHttpClient: closeHttpClient,
+       );
+
   final Uri endpoint;
   final Map<String, String> headers;
   final String defaultProtocolVersion;
@@ -39,6 +55,24 @@ final class McpStreamableHttpClient {
   String protocolVersion;
   String? sessionId;
   String? lastEventId;
+
+  static Map<String, String> _headersWithBearerToken(
+    Map<String, String> headers,
+    String bearerToken,
+  ) {
+    final token = bearerToken.trim();
+    if (token.isEmpty) {
+      throw ArgumentError.value(
+        bearerToken,
+        'bearerToken',
+        'Bearer token must not be empty.',
+      );
+    }
+    return <String, String>{
+      ...headers,
+      HttpHeaders.authorizationHeader: 'Bearer $token',
+    };
+  }
 
   Future<McpJsonMap> initialize({
     Object? id = 'initialize',

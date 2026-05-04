@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Secure Example
 
-Status: complete; local verification clean
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -48,6 +48,15 @@ Out of scope:
   `dart analyze packages/connectanum_router` and
   `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`.
 - Full local `bin/verify` passed on 2026-05-04.
+- Commit `af56f1c` was pushed to both remotes. Hosted GitHub evidence for
+  `af56f1c` is clean: `CI` run `25315729357` completed successfully with
+  `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+  `25315729371` completed successfully, and `WAMP Profile Benchmarks` run
+  `25315729373` completed successfully. The hosted log scan found no
+  actionable warnings, deprecations, skipped-test lines, panics, failures,
+  connection reset/refused noise, or broken pipes; matches were limited to Git
+  checkout's default-branch hint, package dry-run `0 warnings` summaries,
+  normal Rust `0 ignored` / filtered-test summaries, and passing test names.
 
 ## Decision Log
 
@@ -57,4 +66,5 @@ Out of scope:
 
 ## Handoff
 
-Implementation and local verification are complete. Hosted evidence is pending.
+Implementation, local verification, and hosted GitHub deployment-chain evidence
+are complete.

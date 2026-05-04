@@ -2402,14 +2402,14 @@ void main() {
 
       final token = await _issueTicketHttpToken(client, listener.port);
       final authHeaders = {'authorization': 'Bearer $token'};
-      final directSecureMcpClient = McpStreamableHttpClient(
+      final directSecureMcpClient = McpStreamableHttpClient.withBearerToken(
         Uri(
           scheme: 'http',
           host: '127.0.0.1',
           port: listener.port,
           path: '/mcp/secure',
         ),
-        headers: authHeaders,
+        token,
       );
       addTearDown(() => directSecureMcpClient.close(force: true));
 
@@ -2724,14 +2724,14 @@ void main() {
         equals('T-3'),
       );
 
-      final secureStreamableClient = McpStreamableHttpClient(
+      final secureStreamableClient = McpStreamableHttpClient.withBearerToken(
         Uri(
           scheme: 'http',
           host: '127.0.0.1',
           port: listener.port,
           path: '/mcp/secure',
         ),
-        headers: authHeaders,
+        token,
       );
       addTearDown(() => secureStreamableClient.close(force: true));
 
