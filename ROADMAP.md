@@ -367,6 +367,9 @@
     router-hosted MCP sessions, send authenticated JSON-RPC requests, consume
     POST/SSE responses, poll GET/SSE events with resume cursors, and delete
     sessions without reimplementing the transport.
+  - [x] Add configured router-hosted MCP resources, resource templates, and
+    prompts so a router route can advertise read-only context and prompt
+    templates without starting a separate MCP server.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

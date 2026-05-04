@@ -390,6 +390,47 @@ configuration: bind local-only endpoints to localhost, require bearer or
 stronger auth for network-visible routes, and expose only procedures/topics
 whose realm permissions are intended for agents.
 
+The same route `options` map can expose static MCP resources, resource
+templates, and prompts without creating a separate `McpServer`:
+
+```dart
+options: {
+  'resource_list_page_size': 50,
+  'resource_template_list_page_size': 50,
+  'prompt_list_page_size': 50,
+  'resources': [
+    {
+      'uri': 'app://example/context',
+      'name': 'example-context',
+      'mime_type': 'text/plain',
+      'text': 'Read-only context for the agent.',
+    },
+  ],
+  'resource_templates': [
+    {'uri_template': 'app://example/task/{taskId}', 'name': 'task'},
+  ],
+  'prompts': [
+    {
+      'name': 'summarize-task',
+      'arguments': [
+        {'name': 'taskId', 'required': true},
+      ],
+      'messages': [
+        {'role': 'user', 'text': 'Summarize task {{taskId}}.'},
+      ],
+    },
+  ],
+}
+```
+
+Configured resources are served by `resources/list` and `resources/read`;
+templates are served by `resources/templates/list`; prompts are served by
+`prompts/list` and `prompts/get`. Prompt text replaces `{{argumentName}}`
+placeholders with string arguments supplied by the MCP client. Dynamic
+application-specific resource and prompt projection is intentionally separate
+from WAMP procedure/topic auto-discovery so applications keep explicit control
+over context and prompt surface area.
+
 Tool and topic catalogs are filtered for the effective route principal before
 they are exposed through MCP or direct JSON-RPC. Callable procedures are listed
 only when the principal may `call` them; topics are listed only for the allowed
@@ -426,6 +467,5 @@ Use stdio for local agent integrations. Use `connectanum_router` HTTP routes
 with `type: mcp` when an application needs a router-hosted network MCP endpoint.
 The router-hosted route supports MCP JSON-RPC `POST`, Streamable HTTP session
 IDs, POST responses that may arrive as JSON or SSE, GET/SSE polling with resume
-cursors, DELETE-based session teardown, and direct JSON-RPC frontend clients.
-Router-hosted resources and prompts remain future work; expose those through a
-local `McpServer` when an integration needs them today.
+cursors, DELETE-based session teardown, direct JSON-RPC frontend clients,
+configured resources, configured resource templates, and configured prompts.

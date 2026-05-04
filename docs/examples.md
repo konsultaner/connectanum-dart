@@ -148,15 +148,44 @@ deployed behind the same TLS/auth controls as other protected HTTP routes.
 ```dart
 const HttpRouteSettings(
   match: HttpRouteMatch(path: '/mcp'),
-  action: HttpRouteAction(type: HttpRouteActionType.mcp, realm: 'realm1'),
+  action: HttpRouteAction(
+    type: HttpRouteActionType.mcp,
+    realm: 'realm1',
+    options: {
+      'resources': [
+        {
+          'uri': 'app://example/context',
+          'name': 'example-context',
+          'mime_type': 'text/plain',
+          'text': 'Read-only context for the agent.',
+        },
+      ],
+      'resource_templates': [
+        {'uri_template': 'app://example/task/{taskId}', 'name': 'task'},
+      ],
+      'prompts': [
+        {
+          'name': 'summarize-task',
+          'arguments': [
+            {'name': 'taskId', 'required': true},
+          ],
+          'messages': [
+            {'role': 'user', 'text': 'Summarize task {{taskId}}.'},
+          ],
+        },
+      ],
+    },
+  ),
 );
 ```
 
 Exact WAMP registrations become MCP tools automatically. WAMP meta API tools
 and `connectanum.pubsub.*` helpers are enabled by default, then filtered by the
 route-authenticated principal's realm permissions before they are advertised.
-The same endpoint also accepts direct JSON-RPC calls for frontend clients
-without the MCP `initialize` lifecycle:
+Configured resources, resource templates, and prompts are served by the
+standard MCP `resources/*` and `prompts/*` methods. The same endpoint also
+accepts direct JSON-RPC calls for frontend clients without the MCP `initialize`
+lifecycle:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"connectanum.api.list","params":{"kind":"procedure"}}

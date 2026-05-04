@@ -2,14 +2,15 @@
 
 Last updated: 2026-05-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: `e2ed55d`
-(`ci: validate mcp package release readiness`)
-Last reviewed implementation commit: `e2ed55d`
-(`ci: validate mcp package release readiness`)
+Last reviewed branch checkpoint: `4a1e42c`
+(`mcp: add router-hosted endpoint example`)
+Last reviewed implementation commit: `4a1e42c`
+(`mcp: add router-hosted endpoint example`)
 Active exec plan:
+`docs/exec-plans/2026-05-04-router-hosted-mcp-resources-prompts.md`
+(complete locally; hosted evidence pending). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-example-readiness.md`
-(in progress; local verification clean, hosted evidence pending). Previous
-completed exec plan:
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-package-release-readiness.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-direct-json-typed-wamp-helpers.md`
@@ -70,7 +71,30 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Router-hosted MCP public example readiness is in progress. The local
+  - Router-hosted MCP resource and prompt readiness is in progress. The local
+    implementation now lets `HttpRouteActionType.mcp` route options configure
+    static MCP resources, resource templates, prompts, and their list page
+    sizes. Router-hosted `initialize` advertises `resources` and `prompts`
+    capabilities when those route surfaces are configured, and the existing
+    native router MCP HTTP smoke now proves `resources/list`,
+    `resources/read`, `resources/templates/list`, `prompts/list`, and
+    `prompts/get` through the router-owned MCP endpoint. Public MCP docs,
+    examples, research notes, and the roadmap now describe this as an
+    implemented explicit configuration path while keeping automatic application
+    data or prompt projection as a future product decision. Pre-change
+    `bin/test-fast` passed on 2026-05-04. Focused checks passed on 2026-05-04:
+    `dart analyze packages/connectanum_router` and
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "hosts MCP over HTTP using the router internal session"`.
+    Full local `bin/verify` passed on 2026-05-04 after the router-hosted MCP
+    resource/prompt implementation; it included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP package tests, client tests
+    including MCP Streamable HTTP/direct JSON helper coverage, auth-server
+    tests, bench integration tests, the full router package tests including
+    router-hosted MCP and `remote_auth_integration_test`, zero-copy router
+    checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is
+    pending until the implementation is pushed.
+  - Router-hosted MCP public example readiness is complete with hosted evidence
+    clean for `4a1e42c`. The local
     implementation adds
     `packages/connectanum_router/example/router_hosted_mcp.dart`, a runnable
     router-backed MCP endpoint example that registers an internal WAMP
@@ -91,13 +115,23 @@ order.
     JSON helper coverage, auth-server tests, bench integration tests, the full
     router package tests including router-hosted MCP and
     `remote_auth_integration_test`, zero-copy router checks, and Chrome
-    Dart2Wasm WebSocket transport tests. The focused private
-    `connectanum_mcp` package dry-run reached package
-    validation but failed because its README is modified in the working tree;
-    rerun it after committing. A broader router private package dry-run is not
-    yet a gate because it still has pre-existing release-readiness blockers:
-    private path dependencies, test fixture secret false positives, and a
-    missing router changelog.
+    Dart2Wasm WebSocket transport tests. Post-commit package checks passed:
+    `bin/dart-package-publish-dry-run --include-private connectanum_mcp`
+    reported zero package warnings, and `bin/dart-package-publish-dry-run`
+    reported zero package warnings while preserving the known default-mode
+    release-order blocker that `connectanum_client` depends on private
+    `connectanum_core`. Hosted GitHub evidence for `4a1e42c` is clean: `CI`
+    run `25305027870` completed successfully with `Fast Checks` and
+    `Full Verify`, the hosted CI log scan found no warning, deprecation,
+    skipped-test, reset, connection-noise, panic, or failure patterns, `Dart
+    Package Publish Dry Run` run `25305027872` completed successfully with the
+    private MCP package readiness step, and `WAMP Profile Benchmarks` run
+    `25305027866` completed successfully. Strict deployment-chain audit passed
+    after the push; Native Artifacts dry-run `25192553399` remains clean and
+    relevant because no native-release-sensitive paths changed. A broader router
+    private package dry-run is not yet a gate because it still has pre-existing
+    release-readiness blockers: private path dependencies, test fixture secret
+    false positives, and a missing router changelog.
   - MCP package release-readiness gating is complete with hosted evidence clean
     for `e2ed55d`. The local
     implementation keeps `connectanum_mcp` private (`publish_to: none`) while

@@ -82,9 +82,11 @@ Driving use case: downstream application integrations
   `connectanum_client`.
 - Map read-only application context to MCP resources now that the tool path is
   stable. Resource URIs need explicit access control, especially for filesystem
-  or project data. The first package-local slice should stay transport-neutral:
-  list/read/template-list only, no resource subscriptions or router-hosted
-  resource projection until an application needs those semantics.
+  or project data. The package-local slice stays transport-neutral:
+  list/read/template-list only, no resource subscriptions. The router-hosted
+  endpoint supports explicitly configured static resources and templates via
+  route options; automatic application data projection remains a product
+  decision.
 - Treat prompts as a transport-neutral MCP server primitive now that the
   package-local tools/resources path is stable. Prompt templates are
   user-selected surface area, so automatic projection from WAMP APIs should
@@ -149,17 +151,21 @@ Driving use case: downstream application integrations
    DELETE session termination semantics.
 10. Add package-local resource support only after tool calls are stable and
    access-control rules are documented. Done for transport-independent
-   `resources/list`, `resources/read`, and `resources/templates/list`; resource
-   subscriptions and router-hosted resource projection remain future slices.
+   `resources/list`, `resources/read`, and `resources/templates/list`. The
+   router-hosted endpoint now serves explicitly configured static resources and
+   resource templates from route options. Resource subscriptions and automatic
+   application data projection remain future slices.
 11. Add full package-local `CallToolResult.content` block helpers. Done for
    text annotations, image, audio, resource links, and embedded resources;
    `_meta`, tasks, and router-hosted resource projection remain future slices.
 12. Add package-local prompt support after resources/tool result content blocks
     are stable. Done for transport-independent `prompts/list` and
     `prompts/get`, required string-argument validation, prompt messages using
-    existing typed content blocks, and stdio example coverage; prompt
-    list-change notifications, completions, sampling, tasks, and router-hosted
-    prompt projection remain future slices.
+    existing typed content blocks, and stdio example coverage. The
+    router-hosted endpoint now serves explicitly configured static prompt
+    templates from route options. Prompt list-change notifications,
+    completions, sampling, tasks, and automatic prompt projection remain future
+    slices.
 13. Add package-local icon metadata after tools/resources/prompts are stable.
     Done for transport-independent `icons` serialization on `McpServerInfo`,
     tools, prompts, resources, and resource templates; icon fetching/rendering,

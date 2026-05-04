@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Example Readiness
 
-Status: in progress; local verification clean, hosted evidence pending
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -74,6 +74,21 @@ Out of scope:
   helper coverage, auth-server tests, bench integration tests, the full router
   package tests including router-hosted MCP and `remote_auth_integration_test`,
   zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
+- Post-commit package checks passed on 2026-05-04:
+  `bin/dart-package-publish-dry-run --include-private connectanum_mcp`
+  reported zero package warnings, and `bin/dart-package-publish-dry-run`
+  reported zero package warnings while preserving the known default-mode
+  release-order blocker that `connectanum_client` depends on private
+  `connectanum_core`.
+- Hosted GitHub evidence for `4a1e42c` is clean: `CI` run `25305027870`
+  completed successfully with `Fast Checks` and `Full Verify`, the hosted CI
+  log scan found no warning, deprecation, skipped-test, reset,
+  connection-noise, panic, or failure patterns, `Dart Package Publish Dry Run`
+  run `25305027872` completed successfully with the private MCP package
+  readiness step, and `WAMP Profile Benchmarks` run `25305027866` completed
+  successfully. Strict deployment-chain audit passed after the push; Native
+  Artifacts dry-run `25192553399` remains clean and relevant because no
+  native-release-sensitive paths changed.
 
 ## Decision Log
 
@@ -84,5 +99,9 @@ Out of scope:
 
 ## Handoff
 
-In progress. Local verification is clean; post-commit focused package dry-run
-and hosted GitHub evidence are pending.
+Complete. Commit `4a1e42c` was pushed to both remotes, local verification is
+clean, and hosted GitHub deployment-chain evidence is clean. Remaining
+deployment-chain findings are operator/setup items: protect the branch, promote
+`.github/workflows/router-image.yml` through the default branch for Actions API
+visibility, and publish the router container package when that release lane is
+enabled.

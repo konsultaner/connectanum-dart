@@ -935,7 +935,13 @@ void main() {
         'params': {'protocolVersion': '2025-11-25'},
       });
       expect(initialize.statusCode, equals(HttpStatus.ok));
-      expect(initialize.json?['result'], isA<Map<String, Object?>>());
+      final initializeResult =
+          initialize.json?['result'] as Map<String, Object?>;
+      expect(initializeResult, isA<Map<String, Object?>>());
+      final capabilities =
+          initializeResult['capabilities'] as Map<String, Object?>;
+      expect(capabilities['resources'], isA<Map<String, Object?>>());
+      expect(capabilities['prompts'], isA<Map<String, Object?>>());
 
       final initialized = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
@@ -952,6 +958,84 @@ void main() {
       });
       expect(ping.statusCode, equals(HttpStatus.ok));
       expect(ping.json?['result'], isEmpty);
+
+      final resources = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'resources-list',
+        'method': 'resources/list',
+        'params': {},
+      });
+      expect(resources.statusCode, equals(HttpStatus.ok));
+      final resourceList =
+          ((resources.json?['result'] as Map<String, Object?>)['resources']
+                  as List)
+              .cast<Map>();
+      expect(
+        resourceList.map((resource) => resource['uri']),
+        contains('app://example/context'),
+      );
+
+      final resourceRead = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'resources-read',
+        'method': 'resources/read',
+        'params': {'uri': 'app://example/context'},
+      });
+      expect(resourceRead.statusCode, equals(HttpStatus.ok));
+      final resourceContents =
+          ((resourceRead.json?['result'] as Map<String, Object?>)['contents']
+                  as List)
+              .cast<Map>();
+      expect(resourceContents.single['text'], contains('router-hosted MCP'));
+
+      final templates = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'resources-templates-list',
+        'method': 'resources/templates/list',
+        'params': {},
+      });
+      expect(templates.statusCode, equals(HttpStatus.ok));
+      final templateList =
+          ((templates.json?['result']
+                      as Map<String, Object?>)['resourceTemplates']
+                  as List)
+              .cast<Map>();
+      expect(
+        templateList.map((template) => template['uriTemplate']),
+        contains('app://example/task/{taskId}'),
+      );
+
+      final prompts = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'prompts-list',
+        'method': 'prompts/list',
+        'params': {},
+      });
+      expect(prompts.statusCode, equals(HttpStatus.ok));
+      final promptList =
+          ((prompts.json?['result'] as Map<String, Object?>)['prompts'] as List)
+              .cast<Map>();
+      expect(
+        promptList.map((prompt) => prompt['name']),
+        contains('summarize-task'),
+      );
+
+      final prompt = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'prompts-get',
+        'method': 'prompts/get',
+        'params': {
+          'name': 'summarize-task',
+          'arguments': {'taskId': 'T-100'},
+        },
+      });
+      expect(prompt.statusCode, equals(HttpStatus.ok));
+      final promptMessages =
+          ((prompt.json?['result'] as Map<String, Object?>)['messages'] as List)
+              .cast<Map>();
+      final promptContent =
+          promptMessages.single['content'] as Map<String, Object?>;
+      expect(promptContent['text'], contains('T-100'));
 
       final tools = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
@@ -3594,7 +3678,53 @@ RouterSettings _buildRouterSettings({
         action: HttpRouteAction(
           type: HttpRouteActionType.mcp,
           realm: 'realm1',
-          options: {'tool_list_page_size': 100},
+          options: {
+            'tool_list_page_size': 100,
+            'resource_list_page_size': 10,
+            'resource_template_list_page_size': 10,
+            'prompt_list_page_size': 10,
+            'resources': [
+              {
+                'uri': 'app://example/context',
+                'name': 'example-context',
+                'title': 'Example context',
+                'description':
+                    'Static context exposed by the router MCP endpoint.',
+                'mime_type': 'text/plain',
+                'text': 'This context came from router-hosted MCP.',
+              },
+            ],
+            'resource_templates': [
+              {
+                'uri_template': 'app://example/task/{taskId}',
+                'name': 'example-task',
+                'title': 'Example task resource',
+                'description':
+                    'Template for task resources exposed by the router.',
+                'mime_type': 'application/json',
+              },
+            ],
+            'prompts': [
+              {
+                'name': 'summarize-task',
+                'title': 'Summarize task',
+                'description': 'Builds a task summary prompt.',
+                'arguments': [
+                  {
+                    'name': 'taskId',
+                    'description': 'Task identifier to summarize.',
+                    'required': true,
+                  },
+                ],
+                'messages': [
+                  {
+                    'role': 'user',
+                    'text': 'Summarize task {{taskId}} using router context.',
+                  },
+                ],
+              },
+            ],
+          },
         ),
       ),
     );

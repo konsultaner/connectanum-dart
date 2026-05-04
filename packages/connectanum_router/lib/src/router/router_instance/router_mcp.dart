@@ -867,6 +867,9 @@ class _RouterMcpEndpoint {
            name: 'connectanum-router',
            version: '0.1.0',
          ),
+         resources: _configuredResources(route.action.options),
+         resourceTemplates: _configuredResourceTemplates(route.action.options),
+         prompts: _configuredPrompts(route.action.options),
          instructions:
              'This MCP endpoint is hosted by the Connectanum router and uses '
              'the route-authenticated WAMP principal for calls and pub/sub.',
@@ -874,9 +877,19 @@ class _RouterMcpEndpoint {
            route.action.options,
            'tool_list_page_size',
          ),
-         capabilities: const mcp.McpServerCapabilities(
-           tools: mcp.McpToolCapabilities(listChanged: true),
+         promptListPageSize: _intOption(
+           route.action.options,
+           'prompt_list_page_size',
          ),
+         resourceListPageSize: _intOption(
+           route.action.options,
+           'resource_list_page_size',
+         ),
+         resourceTemplateListPageSize: _intOption(
+           route.action.options,
+           'resource_template_list_page_size',
+         ),
+         capabilities: _mcpServerCapabilitiesForOptions(route.action.options),
        );
 
   final RouterBinding binding;
@@ -1800,6 +1813,57 @@ List<mcp.McpWampTopic> _configuredTopics(Map<String, Object?> options) {
   ];
 }
 
+List<mcp.McpResource> _configuredResources(Map<String, Object?> options) {
+  final entries = options['resources'];
+  if (entries is! List) {
+    return const [];
+  }
+  return [
+    for (final entry in entries)
+      if (entry is Map) _resourceFromConfig(entry.cast<String, Object?>()),
+  ];
+}
+
+List<mcp.McpResourceTemplate> _configuredResourceTemplates(
+  Map<String, Object?> options,
+) {
+  final entries = options['resource_templates'] ?? options['resourceTemplates'];
+  if (entries is! List) {
+    return const [];
+  }
+  return [
+    for (final entry in entries)
+      if (entry is Map)
+        _resourceTemplateFromConfig(entry.cast<String, Object?>()),
+  ];
+}
+
+List<mcp.McpPrompt> _configuredPrompts(Map<String, Object?> options) {
+  final entries = options['prompts'];
+  if (entries is! List) {
+    return const [];
+  }
+  return [
+    for (final entry in entries)
+      if (entry is Map) _promptFromConfig(entry.cast<String, Object?>()),
+  ];
+}
+
+mcp.McpServerCapabilities _mcpServerCapabilitiesForOptions(
+  Map<String, Object?> options,
+) {
+  final hasResources =
+      _configuredResources(options).isNotEmpty ||
+      _configuredResourceTemplates(options).isNotEmpty;
+  return mcp.McpServerCapabilities(
+    tools: const mcp.McpToolCapabilities(listChanged: true),
+    prompts: _configuredPrompts(options).isNotEmpty
+        ? const mcp.McpPromptCapabilities()
+        : null,
+    resources: hasResources ? const mcp.McpResourceCapabilities() : null,
+  );
+}
+
 mcp.McpWampProcedure _procedureFromConfig(Map<String, Object?> config) {
   final procedure =
       _stringFrom(config['procedure']) ??
@@ -1838,6 +1902,176 @@ mcp.McpWampTopic _topicFromConfig(Map<String, Object?> config) {
     allowSubscribe: _boolOption(config, 'allow_subscribe', defaultValue: true),
     metadata: metadata,
   );
+}
+
+mcp.McpResource _resourceFromConfig(Map<String, Object?> config) {
+  final uri =
+      _stringFrom(config['uri']) ??
+      (throw FormatException('MCP resource config requires uri'));
+  final name =
+      _stringFrom(config['name']) ?? _stringFrom(config['title']) ?? uri;
+  final mimeType =
+      _stringFrom(config['mime_type']) ?? _stringFrom(config['mimeType']);
+  final text = _stringFrom(config['text']) ?? _stringFrom(config['content']);
+  final blob = _stringFrom(config['blob']);
+  if (text == null && blob == null) {
+    throw FormatException(
+      'MCP resource config for $uri requires text, content, or blob',
+    );
+  }
+  return mcp.McpResource(
+    uri: uri,
+    name: name,
+    title: _stringFrom(config['title']),
+    description: _stringFrom(config['description']),
+    mimeType: mimeType,
+    size: _intOption(config, 'size'),
+    read: (_) async => <mcp.McpResourceContent>[
+      if (text != null)
+        mcp.McpTextResourceContent(uri: uri, text: text, mimeType: mimeType)
+      else
+        mcp.McpBlobResourceContent(uri: uri, blob: blob!, mimeType: mimeType),
+    ],
+  );
+}
+
+mcp.McpResourceTemplate _resourceTemplateFromConfig(
+  Map<String, Object?> config,
+) {
+  final uriTemplate =
+      _stringFrom(config['uri_template']) ??
+      _stringFrom(config['uriTemplate']) ??
+      (throw FormatException(
+        'MCP resource template config requires uri_template or uriTemplate',
+      ));
+  final name =
+      _stringFrom(config['name']) ??
+      _stringFrom(config['title']) ??
+      uriTemplate;
+  return mcp.McpResourceTemplate(
+    uriTemplate: uriTemplate,
+    name: name,
+    title: _stringFrom(config['title']),
+    description: _stringFrom(config['description']),
+    mimeType:
+        _stringFrom(config['mime_type']) ?? _stringFrom(config['mimeType']),
+  );
+}
+
+mcp.McpPrompt _promptFromConfig(Map<String, Object?> config) {
+  final name =
+      _stringFrom(config['name']) ??
+      (throw FormatException('MCP prompt config requires name'));
+  final messages = _configuredPromptMessages(config);
+  final text = _stringFrom(config['text']) ?? _stringFrom(config['content']);
+  if (messages.isEmpty && text == null) {
+    throw FormatException(
+      'MCP prompt config for $name requires messages, text, or content',
+    );
+  }
+  return mcp.McpPrompt(
+    name: name,
+    title: _stringFrom(config['title']),
+    description: _stringFrom(config['description']),
+    arguments: _configuredPromptArguments(config),
+    handler: (request) async {
+      if (messages.isNotEmpty) {
+        return mcp.McpPromptResult(
+          description:
+              _stringFrom(config['result_description']) ??
+              _stringFrom(config['description']),
+          messages: [
+            for (final message in messages)
+              mcp.McpPromptMessage(
+                role: message.role,
+                content: mcp.McpTextContent(
+                  _renderConfiguredPromptText(message.text, request.arguments),
+                ),
+              ),
+          ],
+        );
+      }
+      return mcp.McpPromptResult.text(
+        _renderConfiguredPromptText(text!, request.arguments),
+        description:
+            _stringFrom(config['result_description']) ??
+            _stringFrom(config['description']),
+      );
+    },
+  );
+}
+
+List<mcp.McpPromptArgument> _configuredPromptArguments(
+  Map<String, Object?> config,
+) {
+  final entries = config['arguments'];
+  if (entries is! List) {
+    return const [];
+  }
+  return [
+    for (final entry in entries)
+      if (entry is Map)
+        _promptArgumentFromConfig(entry.cast<String, Object?>()),
+  ];
+}
+
+mcp.McpPromptArgument _promptArgumentFromConfig(Map<String, Object?> config) {
+  final name =
+      _stringFrom(config['name']) ??
+      (throw FormatException('MCP prompt argument config requires name'));
+  return mcp.McpPromptArgument(
+    name: name,
+    title: _stringFrom(config['title']),
+    description: _stringFrom(config['description']),
+    required: _boolOption(config, 'required', defaultValue: false),
+  );
+}
+
+List<_ConfiguredPromptMessage> _configuredPromptMessages(
+  Map<String, Object?> config,
+) {
+  final entries = config['messages'];
+  if (entries is! List) {
+    return const [];
+  }
+  return [
+    for (final entry in entries)
+      if (entry is Map)
+        _configuredPromptMessageFromConfig(entry.cast<String, Object?>()),
+  ];
+}
+
+_ConfiguredPromptMessage _configuredPromptMessageFromConfig(
+  Map<String, Object?> config,
+) {
+  final roleName = _stringFrom(config['role']) ?? 'user';
+  final role = switch (roleName) {
+    'assistant' => mcp.McpPromptRole.assistant,
+    'user' => mcp.McpPromptRole.user,
+    _ => throw FormatException(
+      'MCP prompt message role must be user or assistant',
+    ),
+  };
+  final text =
+      _stringFrom(config['text']) ??
+      _stringFrom(config['content']) ??
+      (throw FormatException('MCP prompt message config requires text'));
+  return _ConfiguredPromptMessage(role: role, text: text);
+}
+
+String _renderConfiguredPromptText(String text, Map<String, String> arguments) {
+  var rendered = text;
+  for (final entry in arguments.entries) {
+    rendered = rendered.replaceAll('{{${entry.key}}}', entry.value);
+  }
+  return rendered;
+}
+
+class _ConfiguredPromptMessage {
+  const _ConfiguredPromptMessage({required this.role, required this.text});
+
+  final mcp.McpPromptRole role;
+  final String text;
 }
 
 void _addPublishedEventTopics(
