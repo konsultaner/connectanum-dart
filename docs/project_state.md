@@ -4,11 +4,13 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `4b8ac54`
-(`mcp: cover streamable session isolation`; CI clean)
+Latest pushed implementation commit: `c754772`
+(`mcp: cover streamable batch routes`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-04-mcp-streamable-batch-smoke.md`
+`docs/exec-plans/2026-05-04-mcp-example-verification-gate.md`
 (complete; local verification clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-04-mcp-streamable-batch-smoke.md`
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-session-isolation.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-example-pubsub-smoke.md`
@@ -89,6 +91,17 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP example verification gate is complete locally. The public
+    router-hosted MCP example smoke now runs from the standard root
+    verification path, so consumer-style public API usage is continuously
+    covered by `bin/test-fast` and `bin/verify` when a native runtime is
+    available. Pre-change `bin/test-fast` passed on 2026-05-04. Focused smoke
+    helper check passed on 2026-05-04:
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_router_hosted_mcp_example_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-04 and included the
+    router-hosted MCP example smoke gate. Full local `bin/verify` passed on
+    2026-05-04 and included the same gate through `bin/test-all`. Commit,
+    push, and hosted evidence are pending.
   - MCP Streamable HTTP batch smoke is complete locally. The router
     integration suite now exercises the consumer `McpStreamableHttpClient`
     `postBatch(...)` path against real public and bearer-protected
@@ -100,8 +113,16 @@ order.
     `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`,
     and
     `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
-    Full local `bin/verify` passed on 2026-05-04. Commit, push, and hosted
-    evidence are pending.
+    Full local `bin/verify` passed on 2026-05-04. Commit `c754772` was pushed
+    to both remotes. Hosted GitHub evidence for `c754772` is clean: `CI` run
+    `25322481688` completed successfully with `Fast Checks` and `Full Verify`,
+    `Dart Package Publish Dry Run` run `25322481294` completed successfully,
+    and `WAMP Profile Benchmarks` run `25322481349` completed successfully.
+    The deployment-chain audit with required clean latest CI, clean hosted CI
+    logs, and clean Dart package publish dry-run passed for branch head
+    `c754772`; the remaining audit findings are the existing
+    operator/deployment items around branch protection, default-branch router
+    workflow visibility, and GHCR router package visibility.
   - MCP Streamable HTTP session isolation is complete locally. The router
     integration smoke fixture now has a second neutral ticket-authenticated
     member principal, and the focused regression proves a bearer-protected MCP

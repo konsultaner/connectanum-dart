@@ -359,3 +359,25 @@ ensure_native_client_test_runtime() {
 
   build_native_ffi_test_release
 }
+
+run_router_hosted_mcp_example_smoke() {
+  if ! native_runtime_supported; then
+    printf 'Native router-hosted MCP example smoke requires Linux or macOS; skipping on %s.\n' "$(uname -s)"
+    return 0
+  fi
+
+  if ensure_rust_env; then
+    ensure_native_lib_env
+    if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+      build_native_ffi_test_release
+    fi
+  else
+    ensure_native_lib_env
+    if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+      printf 'Cargo and CONNECTANUM_NATIVE_LIB unavailable; skipping router-hosted MCP example smoke.\n'
+      return 0
+    fi
+  fi
+
+  dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
+}

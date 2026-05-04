@@ -1,6 +1,6 @@
 # Exec Plan: MCP Streamable Batch Smoke
 
-Status: complete; local verification clean
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -48,8 +48,18 @@ Out of scope:
   and
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "smoke tests MCP router RPC pubsub and route security"`.
 - Full local `bin/verify` passed on 2026-05-04.
+- Commit `c754772` was pushed to both remotes. Hosted GitHub evidence for
+  `c754772` is clean: `CI` run `25322481688` completed successfully with
+  `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+  `25322481294` completed successfully, and `WAMP Profile Benchmarks` run
+  `25322481349` completed successfully. The deployment-chain audit with
+  required clean latest CI, clean hosted CI logs, and clean Dart package
+  publish dry-run passed for branch head `c754772`; the remaining audit
+  findings are the existing operator/deployment items around branch
+  protection, default-branch router workflow visibility, and GHCR router
+  package visibility.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, and hosted
-evidence are pending.
+Implementation, local verification, and hosted GitHub deployment-chain evidence
+are complete.

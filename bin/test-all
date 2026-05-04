@@ -74,6 +74,7 @@ dart test packages/connectanum_mcp/test
 run_client_vm_tests
 dart test packages/connectanum_auth_server/test
 run_bench_vm_tests
+run_router_hosted_mcp_example_smoke
 run_router_vm_tests
 run_router_zero_copy_publish_tests
 
