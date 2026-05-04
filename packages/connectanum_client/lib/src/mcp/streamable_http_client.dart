@@ -74,13 +74,18 @@ final class McpStreamableHttpClient {
     Object? id,
     McpJsonMap? params,
     bool streamable = true,
+    bool includeSession = true,
   }) async {
-    final response = await post(<String, Object?>{
-      'jsonrpc': '2.0',
-      'id': id ?? _nextRequestId++,
-      'method': method,
-      'params': ?params,
-    }, streamable: streamable);
+    final response = await post(
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id ?? _nextRequestId++,
+        'method': method,
+        'params': ?params,
+      },
+      streamable: streamable,
+      includeSession: includeSession,
+    );
     if (response == null) {
       throw FormatException('$method did not return a JSON-RPC body');
     }
@@ -140,6 +145,7 @@ final class McpStreamableHttpClient {
       id: id,
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: false,
+      includeSession: false,
     );
     final result = _jsonRpcResultFrom(response, method: method);
     return McpStreamableToolListPage(
@@ -164,6 +170,7 @@ final class McpStreamableHttpClient {
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: false,
+      includeSession: false,
     );
     return _jsonRpcResultFrom(response, method: method);
   }
@@ -178,6 +185,7 @@ final class McpStreamableHttpClient {
       id: id,
       params: params,
       streamable: false,
+      includeSession: false,
     );
     return _jsonRpcResultFrom(response, method: method);
   }
@@ -186,12 +194,14 @@ final class McpStreamableHttpClient {
     Object? id,
     String? cursor,
     bool streamable = true,
+    bool directJson = false,
   }) async {
     final response = await request(
       'resources/list',
       id: id,
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
-      streamable: streamable,
+      streamable: directJson ? false : streamable,
+      includeSession: !directJson,
     );
     final result = _jsonRpcResultFrom(response, method: 'resources/list');
     return McpStreamableResourceListPage(
@@ -209,12 +219,14 @@ final class McpStreamableHttpClient {
     String uri, {
     Object? id,
     bool streamable = true,
+    bool directJson = false,
   }) async {
     final response = await request(
       'resources/read',
       id: id,
       params: <String, Object?>{'uri': uri},
-      streamable: streamable,
+      streamable: directJson ? false : streamable,
+      includeSession: !directJson,
     );
     final result = _jsonRpcResultFrom(response, method: 'resources/read');
     return _jsonMapListFrom(
@@ -229,12 +241,14 @@ final class McpStreamableHttpClient {
     Object? id,
     String? cursor,
     bool streamable = true,
+    bool directJson = false,
   }) async {
     final response = await request(
       'resources/templates/list',
       id: id,
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
-      streamable: streamable,
+      streamable: directJson ? false : streamable,
+      includeSession: !directJson,
     );
     final result = _jsonRpcResultFrom(
       response,
@@ -255,12 +269,14 @@ final class McpStreamableHttpClient {
     Object? id,
     String? cursor,
     bool streamable = true,
+    bool directJson = false,
   }) async {
     final response = await request(
       'prompts/list',
       id: id,
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
-      streamable: streamable,
+      streamable: directJson ? false : streamable,
+      includeSession: !directJson,
     );
     final result = _jsonRpcResultFrom(response, method: 'prompts/list');
     return McpStreamablePromptListPage(
@@ -279,12 +295,14 @@ final class McpStreamableHttpClient {
     Object? id,
     Map<String, String> arguments = const <String, String>{},
     bool streamable = true,
+    bool directJson = false,
   }) async {
     final response = await request(
       'prompts/get',
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
-      streamable: streamable,
+      streamable: directJson ? false : streamable,
+      includeSession: !directJson,
     );
     return _jsonRpcResultFrom(response, method: 'prompts/get');
   }
@@ -297,8 +315,16 @@ final class McpStreamableHttpClient {
     });
   }
 
-  Future<McpJsonMap?> post(McpJsonMap message, {bool streamable = true}) async {
-    final response = await _postPayload(message, streamable: streamable);
+  Future<McpJsonMap?> post(
+    McpJsonMap message, {
+    bool streamable = true,
+    bool includeSession = true,
+  }) async {
+    final response = await _postPayload(
+      message,
+      streamable: streamable,
+      includeSession: includeSession,
+    );
     if (response == null) {
       return null;
     }
@@ -308,8 +334,13 @@ final class McpStreamableHttpClient {
   Future<List<McpJsonMap>?> postBatch(
     List<McpJsonMap> messages, {
     bool streamable = true,
+    bool includeSession = true,
   }) async {
-    final response = await _postPayload(messages, streamable: streamable);
+    final response = await _postPayload(
+      messages,
+      streamable: streamable,
+      includeSession: includeSession,
+    );
     if (response == null) {
       return null;
     }
@@ -325,11 +356,13 @@ final class McpStreamableHttpClient {
   Future<Object?> _postPayload(
     Object? message, {
     bool streamable = true,
+    bool includeSession = true,
   }) async {
     final request = await _httpClient.postUrl(endpoint);
     _applyHeaders(
       request,
       accept: streamable ? _acceptStreamableHttp : _acceptJson,
+      includeSession: includeSession,
     );
     request.headers.contentType = ContentType.json;
     final requestBody = utf8.encode(jsonEncode(message));
@@ -398,13 +431,14 @@ final class McpStreamableHttpClient {
     HttpClientRequest request, {
     required String accept,
     String? lastEventId,
+    bool includeSession = true,
   }) {
     request.headers.set(HttpHeaders.acceptHeader, accept);
     request.headers.set(_headerProtocolVersion, protocolVersion);
     for (final entry in headers.entries) {
       request.headers.set(entry.key, entry.value);
     }
-    final session = sessionId;
+    final session = includeSession ? sessionId : null;
     if (session != null) {
       request.headers.set(_headerSessionId, session);
     }

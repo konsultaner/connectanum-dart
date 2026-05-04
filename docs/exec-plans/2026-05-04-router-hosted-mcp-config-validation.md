@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Config Validation
 
-Status: implementation complete; local verification clean
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -62,6 +62,14 @@ Out of scope:
   new MCP route-option validation cases and existing router-hosted MCP smoke
   coverage, zero-copy router checks, and Chrome Dart2Wasm WebSocket transport
   tests.
+- Commit `67d3256` was pushed to both remotes on 2026-05-04. Hosted GitHub
+  evidence for `67d3256` is clean: `CI` run `25308635274` completed
+  successfully with `Fast Checks` and `Full Verify`, `Dart Package Publish Dry
+  Run` run `25308635243` completed successfully, and `WAMP Profile Benchmarks`
+  run `25308635311` completed successfully. The hosted log scan found no
+  actionable warning, deprecation, skipped-test, panic, failure, connection
+  reset/refused, or broken-pipe patterns; matches were limited to normal Rust
+  test summaries with `0 ignored` / filtered-test counts.
 
 ## Decision Log
 
@@ -72,5 +80,5 @@ Out of scope:
 
 ## Handoff
 
-Implementation and local verification are complete. Hosted GitHub evidence is
-pending after push.
+Complete. Implementation, local verification, push, hosted GitHub evidence, and
+hosted log audit are clean.

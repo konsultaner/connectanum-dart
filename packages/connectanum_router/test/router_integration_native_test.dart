@@ -928,6 +928,52 @@ void main() {
       final client = HttpClient();
       addTearDown(() => client.close(force: true));
 
+      final directResources = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'direct-resources-list',
+        'method': 'resources/list',
+        'params': {},
+      });
+      expect(directResources.statusCode, equals(HttpStatus.ok));
+      final directResourceList =
+          ((directResources.json?['result']
+                      as Map<String, Object?>)['resources']
+                  as List)
+              .cast<Map>();
+      expect(
+        directResourceList.map((resource) => resource['uri']),
+        contains('app://example/context'),
+      );
+
+      final directResourceRead = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-resources-read',
+          'method': 'resources/read',
+          'params': {'uri': 'app://example/context'},
+        },
+      );
+      expect(directResourceRead.statusCode, equals(HttpStatus.ok));
+      expect(
+        jsonEncode(directResourceRead.json?['result']),
+        contains('router-hosted MCP'),
+      );
+
+      final directPrompt = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'direct-prompts-get',
+        'method': 'prompts/get',
+        'params': {
+          'name': 'summarize-task',
+          'arguments': {'taskId': 'T-direct'},
+        },
+      });
+      expect(directPrompt.statusCode, equals(HttpStatus.ok));
+      expect(jsonEncode(directPrompt.json?['result']), contains('T-direct'));
+
       final initialize = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
         'id': 1,

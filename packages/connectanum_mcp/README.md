@@ -447,13 +447,16 @@ registered as callable MCP tools.
 
 The same HTTP `POST` endpoint also accepts direct JSON-RPC tool calls for
 frontend clients. These calls use the same catalog and authorization path as MCP
-`tools/list` and `tools/call`, but they do not require `initialize` first:
+`tools/list` and `tools/call`, but they do not require `initialize` first. The
+configured resource and prompt methods can be used the same way:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"connectanum.api.list","params":{"kind":"procedure"}}
 {"jsonrpc":"2.0","id":2,"method":"app.task.create","params":{"title":"Ship docs"}}
 {"jsonrpc":"2.0","id":3,"method":"connectanum.tool.call","params":{"name":"app.task.create","arguments":{"title":"Ship docs"}}}
 {"jsonrpc":"2.0","id":4,"method":"connectanum.pubsub.publish","params":{"topic":"app.task.changed","argumentsKeywords":{"id":"T-1"},"acknowledge":true}}
+{"jsonrpc":"2.0","id":5,"method":"resources/list","params":{}}
+{"jsonrpc":"2.0","id":6,"method":"prompts/get","params":{"name":"summarize-task","arguments":{"taskId":"T-1"}}}
 ```
 
 `connectanum.tools.list` returns the current tool definitions. Dotted tool
@@ -461,7 +464,9 @@ names such as `app.task.create`, `connectanum.api.describe`, and
 `connectanum.pubsub.publish` can be used directly as JSON-RPC methods with the
 method `params` becoming the tool arguments. `connectanum.tool.call` is the
 generic by-name form. Direct calls return the same MCP tool result JSON shape as
-`tools/call`, including `structuredContent` and `isError`.
+`tools/call`, including `structuredContent` and `isError`. Direct
+`resources/*` and `prompts/*` calls return the same JSON result shapes as the
+standard MCP methods, without creating or requiring an `MCP-Session-Id`.
 
 ## Compatibility Notes
 

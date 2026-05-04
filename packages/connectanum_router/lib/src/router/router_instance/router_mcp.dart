@@ -1137,6 +1137,11 @@ class _RouterMcpEndpoint {
     return method == 'connectanum.tools.list' ||
         method == 'connectanum.tool.call' ||
         method == 'connectanum.tools.call' ||
+        method == 'resources/list' ||
+        method == 'resources/read' ||
+        method == 'resources/templates/list' ||
+        method == 'prompts/list' ||
+        method == 'prompts/get' ||
         (method.contains('.') && server.tools[method] != null);
   }
 
@@ -1150,6 +1155,16 @@ class _RouterMcpEndpoint {
       case 'connectanum.tool.call':
       case 'connectanum.tools.call':
         return _callDirectJsonTool(params);
+      case 'resources/list':
+        return _listDirectJsonResources(params);
+      case 'resources/read':
+        return _readDirectJsonResource(params);
+      case 'resources/templates/list':
+        return _listDirectJsonResourceTemplates(params);
+      case 'prompts/list':
+        return _listDirectJsonPrompts(params);
+      case 'prompts/get':
+        return _getDirectJsonPrompt(params);
       default:
         final tool = server.tools[method];
         if (tool != null && method.contains('.')) {
@@ -1194,6 +1209,135 @@ class _RouterMcpEndpoint {
       label: 'connectanum.tool.call.params.arguments',
     );
     return _callDirectJsonToolByName(name, arguments);
+  }
+
+  mcp.JsonMap _listDirectJsonResources(mcp.JsonMap params) {
+    final cursor = params['cursor'];
+    if (cursor != null && cursor is! String) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'resources/list.params.cursor must be a string',
+      );
+    }
+    final page = server.resources.listPage(cursor: cursor as String?);
+    final result = <String, Object?>{
+      'resources': [for (final resource in page.resources) resource.toJson()],
+    };
+    final nextCursor = page.nextCursor;
+    if (nextCursor != null) {
+      result['nextCursor'] = nextCursor;
+    }
+    return result;
+  }
+
+  Future<mcp.JsonMap> _readDirectJsonResource(mcp.JsonMap params) async {
+    final uri = params['uri'];
+    if (uri is! String) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'resources/read.params.uri must be a string',
+      );
+    }
+    final resource = server.resources[uri];
+    if (resource == null) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.resourceNotFound,
+        'Resource not found',
+        data: <String, Object?>{'uri': uri},
+      );
+    }
+    final contents = await resource.read(mcp.McpResourceRequest(uri: uri));
+    return <String, Object?>{
+      'contents': [for (final content in contents) content.toJson()],
+    };
+  }
+
+  mcp.JsonMap _listDirectJsonResourceTemplates(mcp.JsonMap params) {
+    final cursor = params['cursor'];
+    if (cursor != null && cursor is! String) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'resources/templates/list.params.cursor must be a string',
+      );
+    }
+    final page = server.resources.listTemplatePage(cursor: cursor as String?);
+    final result = <String, Object?>{
+      'resourceTemplates': [
+        for (final template in page.templates) template.toJson(),
+      ],
+    };
+    final nextCursor = page.nextCursor;
+    if (nextCursor != null) {
+      result['nextCursor'] = nextCursor;
+    }
+    return result;
+  }
+
+  mcp.JsonMap _listDirectJsonPrompts(mcp.JsonMap params) {
+    final cursor = params['cursor'];
+    if (cursor != null && cursor is! String) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'prompts/list.params.cursor must be a string',
+      );
+    }
+    final page = server.prompts.listPage(cursor: cursor as String?);
+    final result = <String, Object?>{
+      'prompts': [for (final prompt in page.prompts) prompt.toJson()],
+    };
+    final nextCursor = page.nextCursor;
+    if (nextCursor != null) {
+      result['nextCursor'] = nextCursor;
+    }
+    return result;
+  }
+
+  Future<mcp.JsonMap> _getDirectJsonPrompt(mcp.JsonMap params) async {
+    final name = params['name'];
+    if (name is! String) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'prompts/get.params.name must be a string',
+      );
+    }
+    final arguments = _directJsonPromptArgumentsFrom(params['arguments']);
+    final prompt = server.prompts[name];
+    if (prompt == null) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'Unknown MCP prompt: $name',
+      );
+    }
+    prompt.validateArguments(arguments);
+    final result = await prompt.handler(
+      mcp.McpPromptRequest(name: name, arguments: arguments),
+    );
+    return result.toJson();
+  }
+
+  Map<String, String> _directJsonPromptArgumentsFrom(Object? value) {
+    if (value == null) {
+      return const <String, String>{};
+    }
+    if (value is! Map) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'prompts/get.params.arguments must be an object',
+      );
+    }
+    final arguments = <String, String>{};
+    for (final entry in value.entries) {
+      final key = entry.key;
+      final argumentValue = entry.value;
+      if (key is! String || argumentValue is! String) {
+        throw mcp.McpException(
+          mcp.McpErrorCodes.invalidParams,
+          'prompts/get.params.arguments must contain only string values',
+        );
+      }
+      arguments[key] = argumentValue;
+    }
+    return arguments;
   }
 
   Future<mcp.JsonMap> _callDirectJsonToolByName(

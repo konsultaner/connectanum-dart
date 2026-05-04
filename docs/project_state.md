@@ -4,11 +4,13 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `4a1e42c`
 (`mcp: add router-hosted endpoint example`)
-Latest pushed implementation commit: `09dffab`
-(`mcp: expose router resources and prompts`)
+Latest pushed implementation commit: `67d3256`
+(`mcp: validate router route options`)
 Active exec plan:
+`docs/exec-plans/2026-05-04-mcp-direct-json-resources-prompts.md`
+(implementation complete; local verification clean; hosted evidence pending). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-config-validation.md`
-(implementation complete; local verification clean). Previous completed exec plan:
+(complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-resources-prompts.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-router-hosted-mcp-example-readiness.md`
@@ -73,7 +75,27 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Router-hosted MCP config validation is implementation-complete locally. The local
+  - MCP direct JSON resource/prompt readiness is in progress. The local
+    implementation now lets typed `McpStreamableHttpClient` resource and prompt
+    helpers use `directJson: true` without attaching `MCP-Session-Id`, and the
+    router-hosted endpoint now accepts `resources/list`, `resources/read`,
+    `resources/templates/list`, `prompts/list`, and `prompts/get` as direct
+    JSON methods before MCP initialization. Pre-change `bin/test-fast` passed
+    on 2026-05-04. Focused checks passed on 2026-05-04:
+    `dart analyze packages/connectanum_client packages/connectanum_router`,
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+    and
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "hosts MCP over HTTP using the router internal session"`.
+    Full local `bin/verify` passed on 2026-05-04 after this implementation,
+    including formatting, Rust native/FFI tests, Python package-artifact
+    checks, MCP package tests, client tests including the updated
+    `streamable_http_client_test.dart` direct JSON resource/prompt coverage,
+    auth-server tests, bench integration tests, the full router package tests
+    including the updated router-hosted MCP integration case and
+    `remote_auth_integration_test`, zero-copy router checks, and Chrome
+    Dart2Wasm WebSocket transport tests. Commit/push and hosted GitHub
+    evidence are pending.
+  - Router-hosted MCP config validation is complete. The local
     implementation now reuses the router-hosted MCP parsers while building
     native config for `HttpRouteActionType.mcp`, so malformed configured
     procedures, topics, resources, resource templates, prompts, and prompt
@@ -89,7 +111,15 @@ order.
     auth-server tests, bench integration tests, the full router package tests
     including the new MCP route-option validation cases and existing
     router-hosted MCP smoke coverage, zero-copy router checks, and Chrome
-    Dart2Wasm WebSocket transport tests. Hosted evidence is pending after push.
+    Dart2Wasm WebSocket transport tests. Commit `67d3256` was pushed to both
+    remotes. Hosted GitHub evidence for `67d3256` is clean: `CI` run
+    `25308635274` completed successfully with `Fast Checks` and `Full Verify`,
+    `Dart Package Publish Dry Run` run `25308635243` completed successfully,
+    and `WAMP Profile Benchmarks` run `25308635311` completed successfully.
+    The hosted log scan found no actionable warning, deprecation,
+    skipped-test, panic, failure, connection reset/refused, or broken-pipe
+    patterns; matches were limited to normal Rust test summaries with
+    `0 ignored` / filtered-test counts.
   - Router-hosted MCP resource and prompt readiness is complete. The local
     implementation now lets `HttpRouteActionType.mcp` route options configure
     static MCP resources, resource templates, prompts, and their list page

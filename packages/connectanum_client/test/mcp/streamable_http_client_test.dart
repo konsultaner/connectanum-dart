@@ -276,6 +276,75 @@ void main() {
       );
     });
 
+    test(
+      'uses typed resource and prompt helpers through direct JSON without session headers',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+        expect(client.sessionId, 'session-1');
+        endpoint.requests.clear();
+
+        final resources = await client.listResources(
+          id: 'direct-resources-helper',
+          directJson: true,
+        );
+        expect(resources.resources.single['uri'], 'wamp://app/readme');
+
+        final contents = await client.readResource(
+          'wamp://app/readme',
+          id: 'direct-resource-read',
+          directJson: true,
+        );
+        expect(contents.single['text'], 'hello resource');
+
+        final templates = await client.listResourceTemplates(
+          id: 'direct-resource-templates-helper',
+          directJson: true,
+        );
+        expect(
+          templates.resourceTemplates.single['uriTemplate'],
+          'wamp://app/{name}',
+        );
+
+        final prompts = await client.listPrompts(
+          id: 'direct-prompts-helper',
+          directJson: true,
+        );
+        expect(prompts.prompts.single['name'], 'summarize');
+
+        final prompt = await client.getPrompt(
+          'summarize',
+          id: 'direct-prompt-get',
+          arguments: {'topic': 'mcp'},
+          directJson: true,
+        );
+        expect(prompt['messages'], hasLength(1));
+
+        expect(client.sessionId, 'session-1');
+        expect(endpoint.requests, hasLength(5));
+        expect(
+          endpoint.requests.map((request) => (request.body as Map)['method']),
+          [
+            'resources/list',
+            'resources/read',
+            'resources/templates/list',
+            'prompts/list',
+            'prompts/get',
+          ],
+        );
+        for (final request in endpoint.requests) {
+          expect(request.accept, 'application/json');
+          expect(request.sessionId, isNull);
+        }
+      },
+    );
+
     test('uses Connectanum WAMP tool helpers for API and pubsub', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
