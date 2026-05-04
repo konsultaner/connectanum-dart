@@ -56,9 +56,10 @@ Future<void> runBuildHook(
     final dylibName = targetOS.dylibFileName('ct_ffi');
     final outputLibUri = input.outputDirectory.resolve(dylibName);
     final outputLibFile = File.fromUri(outputLibUri);
-    final configuredNativeLib = _configuredNativeLibrary(buildEnvironment);
+    final hookSettings = _hookSettingsFor(input, buildEnvironment);
+    final configuredNativeLib = _configuredNativeLibrary(hookSettings);
     final releaseAsset = _configuredReleaseAsset(
-      buildEnvironment,
+      hookSettings,
       targetOS: targetOS,
       targetArch: targetArch,
     );
@@ -78,7 +79,7 @@ Future<void> runBuildHook(
     Directory? transportDir;
     if (releaseAsset == null &&
         configuredNativeLib == null &&
-        !_shouldSkipNativeBuild(buildEnvironment)) {
+        !_shouldSkipNativeBuild(hookSettings)) {
       transportDir = _findTransportWorkspace(
         Directory.fromUri(input.packageRoot),
       );
@@ -113,8 +114,7 @@ Future<void> runBuildHook(
       return;
     }
 
-    if (_shouldSkipNativeBuild(buildEnvironment) &&
-        configuredNativeLib == null) {
+    if (_shouldSkipNativeBuild(hookSettings) && configuredNativeLib == null) {
       return;
     }
 
@@ -203,11 +203,83 @@ Future<void> runBuildHook(
   });
 }
 
-bool _shouldSkipNativeBuild(Map<String, String> environment) =>
-    _isTruthy(environment[skipNativeBuildEnv]);
+final class _BuildHookSettings {
+  const _BuildHookSettings({
+    required this.nativeLibPath,
+    required this.nativeReleaseTag,
+    required this.nativeReleaseRepository,
+    required this.skipNativeBuild,
+  });
 
-File? _configuredNativeLibrary(Map<String, String> environment) {
-  final configuredPath = environment[nativeLibEnv];
+  final String? nativeLibPath;
+  final String? nativeReleaseTag;
+  final String? nativeReleaseRepository;
+  final bool skipNativeBuild;
+}
+
+_BuildHookSettings _hookSettingsFor(
+  BuildInput input,
+  Map<String, String> environment,
+) {
+  final userDefines = input.userDefines;
+  return _BuildHookSettings(
+    nativeLibPath:
+        _pathUserDefine(userDefines, nativeLibEnv) ??
+        _stringEnvironment(environment, nativeLibEnv),
+    nativeReleaseTag:
+        _stringUserDefine(userDefines, nativeReleaseTagEnv) ??
+        _stringEnvironment(environment, nativeReleaseTagEnv),
+    nativeReleaseRepository:
+        _stringUserDefine(userDefines, nativeReleaseRepoEnv) ??
+        _stringEnvironment(environment, nativeReleaseRepoEnv),
+    skipNativeBuild:
+        _boolUserDefine(userDefines, skipNativeBuildEnv) ??
+        _isTruthy(environment[skipNativeBuildEnv]),
+  );
+}
+
+String? _pathUserDefine(HookInputUserDefines userDefines, String key) {
+  final raw = _stringUserDefine(userDefines, key);
+  if (raw == null) {
+    return null;
+  }
+  return userDefines.path(key)?.toFilePath() ?? raw;
+}
+
+String? _stringUserDefine(HookInputUserDefines userDefines, String key) {
+  final value = userDefines[key];
+  if (value == null) {
+    return null;
+  }
+  final string = value is String ? value : value.toString();
+  final trimmed = string.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+bool? _boolUserDefine(HookInputUserDefines userDefines, String key) {
+  final value = userDefines[key];
+  if (value == null) {
+    return null;
+  }
+  if (value is bool) {
+    return value;
+  }
+  if (value is num) {
+    return value != 0;
+  }
+  return _isTruthy(value.toString());
+}
+
+String? _stringEnvironment(Map<String, String> environment, String key) {
+  final value = environment[key]?.trim();
+  return value == null || value.isEmpty ? null : value;
+}
+
+bool _shouldSkipNativeBuild(_BuildHookSettings settings) =>
+    settings.skipNativeBuild;
+
+File? _configuredNativeLibrary(_BuildHookSettings settings) {
+  final configuredPath = settings.nativeLibPath;
   if (configuredPath == null || configuredPath.isEmpty) {
     return null;
   }
@@ -215,19 +287,17 @@ File? _configuredNativeLibrary(Map<String, String> environment) {
 }
 
 ReleaseAssetSpec? _configuredReleaseAsset(
-  Map<String, String> environment, {
+  _BuildHookSettings settings, {
   required OS targetOS,
   required Architecture targetArch,
 }) {
-  final tag = environment[nativeReleaseTagEnv]?.trim();
+  final tag = settings.nativeReleaseTag;
   if (tag == null || tag.isEmpty) {
     return null;
   }
 
   final repository =
-      environment[nativeReleaseRepoEnv]?.trim().isNotEmpty == true
-      ? environment[nativeReleaseRepoEnv]!.trim()
-      : defaultReleaseRepository;
+      settings.nativeReleaseRepository ?? defaultReleaseRepository;
 
   return ReleaseAssetSpec(
     repository: repository,

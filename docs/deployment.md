@@ -63,16 +63,26 @@ dart run connectanum_router --config /etc/connectanum/router.yaml
 ```
 
 During `dart run` / `dart test`, the package build hooks compile `ct_ffi`
-automatically by default. If you already have a prebuilt library, export
-`CONNECTANUM_NATIVE_LIB` before invoking Dart and the hook will bundle that
-binary instead of running Cargo. If your environment installs `ct_ffi` on the
-platform loader search path, set `CONNECTANUM_SKIP_NATIVE_BUILD=1` to suppress
-Cargo entirely and let the runtime loader use the system library.
-If you want the hook to download a hosted prebuilt bundle instead of building
-locally, export `CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` before invoking Dart.
-The hook downloads `ct-ffi-<host-triple>.tar.gz` and its `.sha256` sidecar from
-GitHub Releases, verifies the checksum, extracts the archive, and bundles the
-native library automatically. Override the default release source
+automatically by default. Dart SDK hooks run in a semi-hermetic environment, so
+configure hook inputs in the application `pubspec.yaml`:
+
+```yaml
+hooks:
+  user_defines:
+    connectanum_router:
+      CONNECTANUM_NATIVE_RELEASE_TAG: <tag>
+      # CONNECTANUM_NATIVE_RELEASE_REPOSITORY: <owner/repo>
+```
+
+Use `CONNECTANUM_NATIVE_LIB` as a hook user define when you already have a
+prebuilt library; paths may be absolute or relative to the pubspec. Use
+`CONNECTANUM_SKIP_NATIVE_BUILD: true` when the deployment provides `ct_ffi` via
+the platform loader search path. If you want the hook to download a hosted
+prebuilt bundle instead of building locally, set
+`CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` as a user define. The hook downloads
+`ct-ffi-<host-triple>.tar.gz` and its `.sha256` sidecar from GitHub Releases,
+verifies the checksum, extracts the archive, and bundles the native library
+automatically. Override the default release source
 (`konsultaner/connectanum-dart`) with
 `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` when needed.
 
@@ -110,12 +120,11 @@ bundles for:
 - Windows x64 (`x86_64-pc-windows-msvc`)
 
 Release-tag runs publish the same assets to GitHub Releases. You can either
-let the hook fetch those assets via
-`CONNECTANUM_NATIVE_RELEASE_TAG` or extract the archive manually and export
-`CONNECTANUM_NATIVE_LIB` to the bundled library path before starting the
-router. The main `CI` workflow does not publish generic debug metrics dumps,
-so production packaging should rely on this workflow or GitHub Releases rather
-than arbitrary branch-run artifacts.
+let the hook fetch those assets via a `CONNECTANUM_NATIVE_RELEASE_TAG` user
+define or extract the archive manually and provide `CONNECTANUM_NATIVE_LIB` to
+the runtime before starting the router. The main `CI` workflow does not publish
+generic debug metrics dumps, so production packaging should rely on this
+workflow or GitHub Releases rather than arbitrary branch-run artifacts.
 
 Before publishing a real release, maintainers can manually dispatch the
 `Native Artifacts` workflow with `release_tag=<tag>` and `dry_run=true`. That

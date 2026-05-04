@@ -383,11 +383,24 @@ run_router_hosted_mcp_example_smoke() {
 }
 
 run_mcp_consumer_package_smoke() (
+  local hook_setting
+  local hook_native_lib
   local smoke_dir
 
   require_command dart
+  hook_native_lib=""
+  if native_runtime_supported && ensure_native_client_test_runtime; then
+    hook_native_lib="${CONNECTANUM_NATIVE_LIB:-}"
+  fi
+
+  if [[ -n "$hook_native_lib" ]]; then
+    hook_setting="CONNECTANUM_NATIVE_LIB: \"$hook_native_lib\""
+  else
+    hook_setting="CONNECTANUM_SKIP_NATIVE_BUILD: true"
+  fi
+
   smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-consumer-smoke.XXXXXX")"
-  trap 'rm -rf "$smoke_dir"' EXIT
+  trap "rm -rf '$smoke_dir'" EXIT
 
   mkdir -p "$smoke_dir/bin"
   cat >"$smoke_dir/pubspec.yaml" <<EOF
@@ -395,6 +408,12 @@ name: connectanum_mcp_consumer_smoke
 publish_to: none
 environment:
   sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      $hook_setting
+    connectanum_router:
+      $hook_setting
 dependencies:
   connectanum_client: any
   connectanum_mcp: any
@@ -417,7 +436,16 @@ import 'package:connectanum_router/connectanum_router.dart';
 
 void main() {
   final client = McpStreamableHttpClient(Uri.parse('http://127.0.0.1:1/mcp'));
-  final config = RouterConfig(endpoints: const []);
+  final config = RouterConfig(
+    endpoints: [
+      Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      ),
+    ],
+  );
   final tool = McpTool(
     name: 'consumer.echo',
     description: 'Consumer API check',
@@ -425,7 +453,7 @@ void main() {
   );
 
   if (client.endpoint.path != '/mcp' ||
-      config.endpoints.isNotEmpty ||
+      config.endpoints.single.port != 0 ||
       tool.name != 'consumer.echo') {
     throw StateError('Unexpected consumer MCP API smoke state.');
   }
@@ -439,5 +467,6 @@ DART
     cd "$smoke_dir"
     dart pub get
     dart analyze
+    dart run bin/main.dart
   )
 )

@@ -4,11 +4,14 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `0fe20eb`
-(`mcp: gate router hosted example smoke`; CI clean)
+Latest pushed implementation commit: `e9c689c`
+(`mcp: gate consumer package imports`; CI clean)
 Active exec plan:
+`docs/exec-plans/2026-05-04-native-hook-user-defines-consumer-run.md`
+(local verification complete; hosted evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-consumer-package-smoke.md`
-(complete; local verification clean). Previous completed exec plan:
+(complete; hosted CI evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-example-verification-gate.md`
 (complete; hosted CI evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-batch-smoke.md`
@@ -93,6 +96,32 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - Native build-hook user-defines / consumer package `dart run` readiness is
+    complete locally. Dart 3.11 hooks run in a semi-hermetic environment that
+    strips non-allowlisted shell variables from hook processes, so the
+    client/router hooks now read `CONNECTANUM_NATIVE_LIB`,
+    `CONNECTANUM_NATIVE_RELEASE_TAG`,
+    `CONNECTANUM_NATIVE_RELEASE_REPOSITORY`, and
+    `CONNECTANUM_SKIP_NATIVE_BUILD` from cache-safe `hooks.user_defines` while
+    keeping the injected environment fallback for direct hook tests/manual hook
+    debugging. The temporary MCP consumer package smoke now configures those
+    user defines and runs `dart run bin/main.dart` after dependency resolution
+    and analysis. Pre-change `bin/test-fast` passed on 2026-05-04. Focused
+    hook checks passed on 2026-05-04:
+    `dart test packages/connectanum_client/test/hook/build_hook_test.dart -r expanded`
+    and
+    `dart test packages/connectanum_router/test/hook/build_hook_test.dart -r expanded`.
+    The focused consumer package smoke also passed on 2026-05-04:
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-04 and included the upgraded
+    temporary consumer package smoke with a real `dart run`. Full local
+    `bin/verify` passed on 2026-05-04. It included formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP package tests, client tests,
+    auth-server tests, bench integration tests, router-hosted MCP example smoke,
+    the upgraded consumer package smoke, full router package tests including
+    router-hosted MCP auth/session coverage and hook user-define tests,
+    zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
+    Hosted GitHub evidence is pending after push.
   - MCP consumer package smoke is complete locally. The root verification path
     now creates a temporary Dart package outside the workspace, resolves the
     public client/MCP/router package entrypoints through local package
@@ -108,8 +137,16 @@ order.
     tests, auth-server tests, bench integration tests, router-hosted MCP
     example smoke, the new consumer package smoke, full router package tests
     including `remote_auth_integration_test`, zero-copy router checks, and
-    Chrome Dart2Wasm WebSocket transport tests. Commit, push, and hosted
-    evidence are pending.
+    Chrome Dart2Wasm WebSocket transport tests. Commit `e9c689c` was pushed to
+    both remotes. Hosted GitHub `CI` run `25327138243` completed successfully
+    with `Fast Checks` and `Full Verify`. The deployment-chain audit with
+    required clean latest CI and clean hosted CI logs passed for branch head
+    `e9c689c`. `Dart Package Publish Dry Run` and `WAMP Profile Benchmarks`
+    did not trigger for this script/docs change because their workflow path
+    filters exclude the touched files; the latest relevant runs remain clean on
+    `c754772`. The remaining audit findings are the existing
+    operator/deployment items around branch protection, default-branch router
+    workflow visibility, and GHCR router package visibility.
   - MCP example verification gate is complete locally. The public
     router-hosted MCP example smoke now runs from the standard root
     verification path, so consumer-style public API usage is continuously

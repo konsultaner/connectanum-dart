@@ -28,10 +28,14 @@ Most users want one of these two paths:
 
 ### Run The Router With Published Artifacts
 
-1. Tell the build hook which published native bundle to use:
+1. Tell the router build hook which published native bundle to use from the
+   application `pubspec.yaml`:
 
-   ```bash
-   export CONNECTANUM_NATIVE_RELEASE_TAG=<release-tag>
+   ```yaml
+   hooks:
+     user_defines:
+       connectanum_router:
+         CONNECTANUM_NATIVE_RELEASE_TAG: <release-tag>
    ```
 
 2. Start the router:
@@ -174,19 +178,33 @@ Releases, while performance/transport evidence comes from the dedicated bench
 artifact and gate outputs.
 
 The root scripts auto-detect the standard release location for `ct_ffi` and set
-`CONNECTANUM_NATIVE_LIB` when possible. If you are using a prebuilt library in a
-different location, export `CONNECTANUM_NATIVE_LIB` yourself before running
-tests or the router runner. The package-local build hooks also honor that same
-variable and will bundle the referenced library instead of invoking Cargo. For
-deployments that intentionally provide `ct_ffi` as a system/shared library, set
-`CONNECTANUM_SKIP_NATIVE_BUILD=1` to disable Cargo in the build hooks and rely
-on `CONNECTANUM_NATIVE_LIB` or the platform loader search path at runtime.
+`CONNECTANUM_NATIVE_LIB` when possible. Dart SDK build hooks run in a
+semi-hermetic environment, so consumer applications should configure hook
+inputs under `hooks.user_defines` in their workspace `pubspec.yaml` instead of
+relying on exported shell variables:
 
-If you want the hooks to acquire a hosted prebuilt bundle automatically, export
-`CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` before `dart run` / `dart test`. The
-hooks then download `ct-ffi-<host-triple>.tar.gz` plus its `.sha256` file from
-GitHub Releases, verify the checksum, extract the bundle, and stage the native
-library without requiring a local Rust toolchain. Use
+```yaml
+hooks:
+  user_defines:
+    connectanum_router:
+      CONNECTANUM_NATIVE_RELEASE_TAG: <tag>
+      # CONNECTANUM_NATIVE_RELEASE_REPOSITORY: <owner/repo>
+    connectanum_client:
+      CONNECTANUM_NATIVE_RELEASE_TAG: <tag>
+```
+
+The router and client hooks support `CONNECTANUM_NATIVE_LIB`,
+`CONNECTANUM_NATIVE_RELEASE_TAG`, `CONNECTANUM_NATIVE_RELEASE_REPOSITORY`, and
+`CONNECTANUM_SKIP_NATIVE_BUILD` as user defines. `CONNECTANUM_NATIVE_LIB` paths
+may be absolute or relative to the application pubspec. The runtime loaders and
+root scripts still honor the `CONNECTANUM_NATIVE_LIB` environment variable for
+explicit runtime library selection.
+
+If you want the hooks to acquire a hosted prebuilt bundle automatically, set
+`CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` as a user define for the package hook.
+The hooks then download `ct-ffi-<host-triple>.tar.gz` plus its `.sha256` file
+from GitHub Releases, verify the checksum, extract the bundle, and stage the
+native library without requiring a local Rust toolchain. Use
 `CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` to override the default
 release source (`konsultaner/connectanum-dart`).
 

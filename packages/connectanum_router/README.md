@@ -13,10 +13,14 @@ it is not yet published as a stable public package.
 
 ## Run The Router
 
-Tell the build hook which published native bundle to use:
+Tell the build hook which published native bundle to use from the application
+`pubspec.yaml`:
 
-```bash
-export CONNECTANUM_NATIVE_RELEASE_TAG=<release-tag>
+```yaml
+hooks:
+  user_defines:
+    connectanum_router:
+      CONNECTANUM_NATIVE_RELEASE_TAG: <release-tag>
 ```
 
 Then start the router:
@@ -29,10 +33,10 @@ The CLI also accepts `--native-lib <path>` when you do not want to rely on an
 environment variable.
 
 From a source checkout, you can prefetch the current host bundle explicitly and
-wire the printed path into `CONNECTANUM_NATIVE_LIB`:
+use the printed path as a `CONNECTANUM_NATIVE_LIB` hook user define:
 
 ```bash
-export CONNECTANUM_NATIVE_LIB="$(dart packages/connectanum_router/tool/install_native.dart --tag <release-tag>)"
+dart packages/connectanum_router/tool/install_native.dart --tag <release-tag>
 ```
 
 ## Library Usage
@@ -115,12 +119,13 @@ before re-encoding.
 During `dart run` and `dart test`, the build hook can compile `ct_ffi`
 automatically when a Rust toolchain is available.
 
-For prebuilt deployments, the same env contract as the repo root applies:
+For prebuilt deployments, configure hook inputs under `hooks.user_defines` for
+the `connectanum_router` package:
 
 - `CONNECTANUM_NATIVE_LIB`
 - `CONNECTANUM_NATIVE_RELEASE_TAG`
 - `CONNECTANUM_NATIVE_RELEASE_REPOSITORY`
-- `CONNECTANUM_SKIP_NATIVE_BUILD=1`
+- `CONNECTANUM_SKIP_NATIVE_BUILD`
 
 The full deployment path, container image, and release-artifact flow are
 documented in [../../docs/deployment.md](../../docs/deployment.md).

@@ -5,12 +5,13 @@ import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
+import 'package:hooks/hooks.dart';
 import 'package:test/test.dart';
 
 import '../../hook/build.dart' as build_hook;
 
 void main() {
-  test('build hook reuses CONNECTANUM_NATIVE_LIB without invoking cargo', () {
+  test('build hook reuses CONNECTANUM_NATIVE_LIB user define', () {
     return _withPackageRoot(() async {
       final tempDir = await Directory.systemTemp.createTemp(
         'connectanum_client_hook_',
@@ -22,10 +23,11 @@ void main() {
       )..writeAsStringSync('client-prebuilt');
 
       await testCodeBuildHook(
-        mainMethod: (args) => build_hook.runBuildHook(
-          args,
-          environment: {_nativeLibEnv: prebuiltLibrary.path},
-          cargoRunner: _unexpectedCargoRunner,
+        mainMethod: (args) =>
+            build_hook.runBuildHook(args, cargoRunner: _unexpectedCargoRunner),
+        userDefines: _userDefines(
+          basePath: tempDir.uri,
+          defines: {_nativeLibEnv: prebuiltLibrary.path},
         ),
         check: (_, output) {
           expect(output.assets.code, hasLength(1));
@@ -42,14 +44,15 @@ void main() {
     });
   });
 
-  test('build hook honors CONNECTANUM_SKIP_NATIVE_BUILD', () {
+  test('build hook honors CONNECTANUM_SKIP_NATIVE_BUILD user define', () {
     return _withPackageRoot(() async {
       await testCodeBuildHook(
         mainMethod: (args) => build_hook.runBuildHook(
           args,
-          environment: {_skipNativeBuildEnv: '1'},
+          environment: const {},
           cargoRunner: _unexpectedCargoRunner,
         ),
+        userDefines: _userDefines(defines: {_skipNativeBuildEnv: true}),
         check: (_, output) {
           expect(output.assets.code, isEmpty);
         },
@@ -65,10 +68,7 @@ void main() {
       await testCodeBuildHook(
         mainMethod: (args) => build_hook.runBuildHook(
           args,
-          environment: {
-            _releaseTagEnv: 'ct-ffi-v2026.04.22-validation.043206-attest',
-            _releaseRepoEnv: 'konsultaner/connectanum-dart',
-          },
+          environment: const {},
           cargoRunner: _unexpectedCargoRunner,
           artifactDownloader: ({required source, required destination}) async {
             downloaded.add(source);
@@ -89,6 +89,12 @@ void main() {
             );
             extractedLib.parent.createSync(recursive: true);
             extractedLib.writeAsStringSync('client-release-prebuilt');
+          },
+        ),
+        userDefines: _userDefines(
+          defines: {
+            _releaseTagEnv: 'ct-ffi-v2026.04.22-validation.043206-attest',
+            _releaseRepoEnv: 'konsultaner/connectanum-dart',
           },
         ),
         check: (_, output) {
@@ -161,6 +167,16 @@ ProcessResult _unexpectedCargoRunner({
   required String workingDirectory,
   required Map<String, String> environment,
 }) => throw StateError('cargo should not be invoked in this test');
+
+PackageUserDefines _userDefines({
+  Map<String, Object?> defines = const {},
+  Uri? basePath,
+}) => PackageUserDefines(
+  workspacePubspec: PackageUserDefinesSource(
+    defines: defines,
+    basePath: basePath ?? Directory.current.uri,
+  ),
+);
 
 Future<void> _withPackageRoot(Future<void> Function() body) async {
   final original = Directory.current;

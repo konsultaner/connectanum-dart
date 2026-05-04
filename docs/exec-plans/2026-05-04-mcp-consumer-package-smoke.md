@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Package Smoke
 
-Status: complete; local verification clean
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -54,8 +54,16 @@ Out of scope:
   smoke, the new consumer package smoke, full router package tests including
   `remote_auth_integration_test`, zero-copy router checks, and Chrome
   Dart2Wasm WebSocket transport tests.
+- Commit `e9c689c` was pushed to both remotes. Hosted GitHub `CI` run
+  `25327138243` completed successfully with `Fast Checks` and `Full Verify`.
+  The deployment-chain audit with required clean latest CI and clean hosted CI
+  logs passed for branch head `e9c689c`. `Dart Package Publish Dry Run` and
+  `WAMP Profile Benchmarks` did not trigger for this script/docs change because
+  their workflow path filters exclude the touched files; the latest relevant
+  runs remain clean on `c754772`. The remaining audit findings are the existing
+  operator/deployment items around branch protection, default-branch router
+  workflow visibility, and GHCR router package visibility.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, and hosted
-evidence are pending.
+Implementation, local verification, and hosted GitHub CI evidence are complete.

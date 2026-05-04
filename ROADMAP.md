@@ -279,7 +279,7 @@
 - [x] Router example CLI for local testing
 - [x] Router runner binary + deployment docs (`packages/connectanum_router/bin/connectanum_router.dart`, `docs/deployment.md`).
 - [ ] Developer docs for native runtime build pipeline
-- [ ] Dart 3.10+ build hooks to compile `ct_ffi` during pub install/`dart pub get` (the current run/test hooks now honor `CONNECTANUM_NATIVE_LIB`, support `CONNECTANUM_SKIP_NATIVE_BUILD`, and document prebuilt/system-library usage).
+- [ ] Dart 3.10+ build hooks to compile `ct_ffi` during pub install/`dart pub get` (the current run/test hooks now honor cache-safe `hooks.user_defines` for `CONNECTANUM_NATIVE_LIB`, `CONNECTANUM_NATIVE_RELEASE_TAG`, and `CONNECTANUM_SKIP_NATIVE_BUILD`, and document prebuilt/system-library usage).
 - [ ] Configuration reference (realm JSON schema, TLS modes, worker tuning)
   - [x] TLS configuration notes + example config (`docs/tls.md`, `docs/router_example.yaml`).
   - [ ] Document feature toggles in crossbar-compatible config (meta events, benchmark exporters, zero-copy assertions)
