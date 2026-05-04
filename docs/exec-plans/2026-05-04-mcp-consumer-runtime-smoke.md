@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Runtime Smoke
 
-Status: complete; local verification clean; hosted evidence pending for latest session-lifecycle commit
+Status: complete; local verification clean; hosted evidence pending for latest WAMP meta-helper commit
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -25,6 +25,9 @@ In scope:
   unauthenticated rejection on the protected MCP route and bearer-token use for
   direct JSON and Streamable HTTP requests.
 - Exercise direct JSON-RPC tool listing/calling from the consumer package.
+- Exercise typed WAMP API/meta discovery helpers from the consumer package,
+  including procedure/topic catalog lookup, registration lookup/details,
+  session counting, and subscription lookup/details.
 - Exercise direct JSON-RPC WAMP pub/sub subscribe/publish/poll/unsubscribe from
   the consumer package.
 - Exercise initialized Streamable MCP tool listing/calling, WAMP pub/sub helper
@@ -73,8 +76,35 @@ Out of scope:
   protected consumer runtime smoke with Streamable HTTP session lifecycle,
   full router package tests including router-hosted MCP auth/session coverage,
   zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
-- Hosted evidence is pending for the latest Streamable HTTP lifecycle
-  implementation commit.
+- The latest WAMP meta-helper extension passed the focused consumer package
+  smoke on 2026-05-04:
+  `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+  It proves that the neutral consumer package can use typed WAMP API and
+  standard meta helpers through both direct JSON and initialized Streamable MCP
+  to discover procedures/topics, resolve registration and subscription details,
+  and count route-visible sessions.
+- Latest local `bin/test-fast` passed on 2026-05-04 after the WAMP meta-helper
+  extension.
+- Latest local `bin/verify` passed on 2026-05-04 after the WAMP meta-helper
+  extension. It included formatting, Rust native/FFI tests, Python
+  package-artifact checks, MCP package tests, client tests, auth-server tests,
+  bench integration tests, the router-hosted MCP example smoke, the upgraded
+  protected consumer runtime smoke with WAMP meta helpers and Streamable HTTP
+  session lifecycle, full router package tests including router-hosted MCP
+  auth/session coverage, zero-copy router checks, and Chrome Dart2Wasm
+  WebSocket transport tests.
+- Hosted evidence is pending for the latest WAMP meta-helper implementation
+  commit.
+- Commit `95956f3` was pushed to both remotes. Hosted GitHub `CI` run
+  `25336128328` completed successfully with `Fast Checks` and `Full Verify`.
+  The deployment-chain audit with required clean latest CI, clean hosted CI
+  logs, and clean Dart package publish dry-run passed for branch head
+  `95956f3`. `Dart Package Publish Dry Run` and `WAMP Profile Benchmarks` did
+  not trigger for this script/docs change; the latest package dry-run remains
+  clean and relevant on `207be91` because no publish-sensitive paths changed.
+  The remaining audit findings are the existing operator/deployment items
+  around branch protection, default-branch router workflow visibility, and
+  GHCR router package visibility.
 - Commit `d8310ac` was pushed to both remotes. Hosted GitHub `CI` run
   `25334205849` completed successfully with `Fast Checks` and `Full Verify`.
   The deployment-chain audit with required clean latest CI, clean hosted CI
@@ -98,4 +128,4 @@ Out of scope:
 ## Handoff
 
 Latest implementation and local verification are complete. Hosted GitHub CI
-evidence is pending for the Streamable HTTP lifecycle commit.
+evidence is pending for the WAMP meta-helper commit.

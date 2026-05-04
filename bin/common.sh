@@ -874,6 +874,8 @@ Future<void> _smokeDirectJson(
     throw StateError('Direct JSON tool call did not return expected payload.');
   }
 
+  await _smokeWampMetaDiscovery(client, label: label, directJson: true);
+
   final subscription = await client.subscribeWampTopic(
     _topic,
     id: '$label-direct-subscribe',
@@ -881,6 +883,8 @@ Future<void> _smokeDirectJson(
     directJson: true,
   );
   try {
+    await _smokeWampSubscriptionMeta(client, label: label, directJson: true);
+
     final publication = await client.publishWampEvent(
       _topic,
       id: '$label-direct-publish',
@@ -942,12 +946,16 @@ Future<void> _smokeStreamableMcp(
     throw StateError('Streamable MCP tool call returned unexpected payload.');
   }
 
+  await _smokeWampMetaDiscovery(client, label: label);
+
   final subscription = await client.subscribeWampTopic(
     _topic,
     id: '$label-streamable-subscribe',
     queueLimit: 4,
   );
   try {
+    await _smokeWampSubscriptionMeta(client, label: label);
+
     await serviceSession.publish(
       _topic,
       argumentsKeywords: {'taskId': 'T-$label-streamable-event'},
@@ -969,6 +977,108 @@ Future<void> _smokeStreamableMcp(
     serviceSession,
     label: label,
   );
+}
+
+Future<void> _smokeWampMetaDiscovery(
+  McpStreamableHttpClient client, {
+  required String label,
+  bool directJson = false,
+}) async {
+  final mode = directJson ? 'direct' : 'streamable';
+  final procedureCatalog = await client.listWampApi(
+    id: '$label-$mode-api-procedures',
+    kind: 'procedure',
+    directJson: directJson,
+  );
+  if (!jsonEncode(procedureCatalog).contains(_procedure)) {
+    throw StateError('WAMP API procedure catalog did not expose $_procedure.');
+  }
+
+  final procedureDescription = await client.describeWampApi(
+    _procedure,
+    id: '$label-$mode-api-procedure-describe',
+    kind: 'procedure',
+    directJson: directJson,
+  );
+  if (!jsonEncode(procedureDescription).contains(_procedure)) {
+    throw StateError('WAMP API procedure describe missed $_procedure.');
+  }
+
+  final topicCatalog = await client.listWampApi(
+    id: '$label-$mode-api-topics',
+    kind: 'topic',
+    directJson: directJson,
+  );
+  if (!jsonEncode(topicCatalog).contains(_topic)) {
+    throw StateError('WAMP API topic catalog did not expose $_topic.');
+  }
+
+  final registrationMatch = await client.matchWampRegistration(
+    _procedure,
+    id: '$label-$mode-registration-match',
+    directJson: directJson,
+  );
+  final registrationId = _singleMetaId(
+    registrationMatch.arguments,
+    '$mode registration match',
+  );
+  final registrationDetails = await client.getWampRegistration(
+    registrationId,
+    id: '$label-$mode-registration-get',
+    directJson: directJson,
+  );
+  if (!jsonEncode(registrationDetails.argumentsKeywords).contains(_procedure)) {
+    throw StateError('WAMP registration details missed $_procedure.');
+  }
+
+  final sessionCount = await client.countWampSessions(
+    id: '$label-$mode-session-count',
+    directJson: directJson,
+  );
+  if (!sessionCount.argumentsKeywords.containsKey('count')) {
+    throw StateError('WAMP session count did not return count metadata.');
+  }
+}
+
+Future<void> _smokeWampSubscriptionMeta(
+  McpStreamableHttpClient client, {
+  required String label,
+  bool directJson = false,
+}) async {
+  final mode = directJson ? 'direct' : 'streamable';
+  final subscriptionLookup = await client.lookupWampSubscription(
+    _topic,
+    id: '$label-$mode-subscription-lookup',
+    directJson: directJson,
+  );
+  final subscriptionId = _singleMetaId(
+    subscriptionLookup.arguments,
+    '$mode subscription lookup',
+  );
+  final subscriptionDetails = await client.getWampSubscription(
+    subscriptionId,
+    id: '$label-$mode-subscription-get',
+    directJson: directJson,
+  );
+  if (!jsonEncode(subscriptionDetails.argumentsKeywords).contains(_topic)) {
+    throw StateError('WAMP subscription details missed $_topic.');
+  }
+
+  final subscriberCount = await client.countWampSubscriptionSubscribers(
+    subscriptionId,
+    id: '$label-$mode-subscription-subscriber-count',
+    directJson: directJson,
+  );
+  if (subscriberCount.arguments.isEmpty) {
+    throw StateError('WAMP subscription subscriber count was empty.');
+  }
+}
+
+int _singleMetaId(List<Object?> arguments, String label) {
+  if (arguments.length != 1 || arguments.single is! int) {
+    throw StateError('WAMP meta $label returned ${jsonEncode(arguments)}.');
+  }
+  return arguments.single as int;
 }
 
 Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
