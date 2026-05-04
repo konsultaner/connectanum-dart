@@ -439,7 +439,11 @@ import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 
 const _realm = 'consumer.mcp.realm';
-const _mcpPath = '/mcp';
+const _authPath = '/auth';
+const _publicMcpPath = '/mcp';
+const _secureMcpPath = '/mcp/secure';
+const _ticketAuthId = 'consumer-user';
+const _ticketSecret = 'consumer-ticket';
 const _topic = 'consumer.events.task';
 const _procedure = 'consumer.task.lookup';
 
@@ -513,15 +517,34 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
     authId: 'consumer-service',
     authRole: 'service',
   );
-  final client = McpStreamableHttpClient(_mcpEndpoint(binding));
+  final publicClient = McpStreamableHttpClient(_mcpEndpoint(binding));
+  McpStreamableHttpClient? secureClient;
 
   try {
     await _registerConsumerApi(serviceSession);
-    await _smokeDirectJson(client);
-    await _smokeStreamableMcp(client, serviceSession);
+    await _smokeDirectJson(publicClient, serviceSession, label: 'public');
+    await _smokeStreamableMcp(
+      publicClient,
+      serviceSession,
+      label: 'public',
+    );
+
+    await _assertSecureMcpRequiresBearer(binding);
+    final bearerToken = await _issueTicketHttpToken(binding);
+    secureClient = McpStreamableHttpClient.withBearerToken(
+      _mcpEndpoint(binding, secure: true),
+      bearerToken,
+    );
+    await _smokeDirectJson(secureClient, serviceSession, label: 'secure');
+    await _smokeStreamableMcp(
+      secureClient,
+      serviceSession,
+      label: 'secure',
+    );
     print('Consumer package router-hosted MCP smoke completed.');
   } finally {
-    client.close();
+    secureClient?.close();
+    publicClient.close();
     await serviceSession.close();
     await binding.dispose();
     runtime.shutdown();
@@ -532,8 +555,22 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
 RouterSettings _consumerRouterSettings() {
   final realm = RealmSettingsBuilder(_realm)
     ..addAuthMethod('anonymous')
+    ..addAuthMethod('ticket', options: const {'authenticator': 'ticket-demo'})
     ..addRoleFromBuilder(
       RoleSettingsBuilder('anonymous')
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('consumer.task.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['call']),
+        )
+        ..addPermissionFromBuilder(
+          PermissionSettingsBuilder('consumer.events.')
+            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+            ..allowOperations(const ['publish', 'subscribe', 'unsubscribe']),
+        ),
+    )
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('member')
         ..addPermissionFromBuilder(
           PermissionSettingsBuilder('consumer.task.')
             ..setMatchPolicy(PermissionMatchPolicy.prefix)
@@ -573,7 +610,19 @@ RouterSettings _consumerRouterSettings() {
         sessionProfile: 'public-http',
         routes: [
           HttpRouteSettings(
-            match: HttpRouteMatch(path: _mcpPath),
+            match: HttpRouteMatch(path: _authPath),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.auth,
+              sessionProfile: 'mcp-ticket',
+              options: {
+                'allow_insecure_transport': true,
+                'token_ttl_ms': 60000,
+                'refresh_token_ttl_ms': 300000,
+              },
+            ),
+          ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: _publicMcpPath),
             action: HttpRouteAction(
               type: HttpRouteActionType.mcp,
               realm: _realm,
@@ -581,6 +630,26 @@ RouterSettings _consumerRouterSettings() {
               options: {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
+                'topics': [
+                  {
+                    'topic': _topic,
+                    'title': 'Consumer task events',
+                    'description': 'Events emitted by consumer task tools.',
+                  },
+                ],
+              },
+            ),
+          ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: _secureMcpPath),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: _realm,
+              sessionProfile: 'mcp-ticket',
+              options: {
+                'include_registered_procedures': true,
+                'include_pubsub_tools': true,
+                'allow_insecure_transport': true,
                 'topics': [
                   {
                     'topic': _topic,
@@ -614,17 +683,47 @@ RouterSettings _consumerRouterSettings() {
             ..setRealm(_realm)
             ..addAuthMethod('anonymous'),
         )
+        ..addSessionProfileFromBuilder(
+          SessionProfileSettingsBuilder('mcp-ticket')
+            ..setRealm(_realm)
+            ..setAuthMethods(const ['ticket']),
+        )
+        ..addAuthenticator(
+          'ticket-demo',
+          const AuthenticatorDefinition(
+            type: 'ticket',
+            options: {
+              'secrets': {
+                _ticketAuthId: {
+                  'ticket': _ticketSecret,
+                  'role': 'member',
+                  'provider': 'consumer-local',
+                },
+              },
+            },
+          ),
+        )
         ..addListenerFromBuilder(listener))
       .build();
 }
 
-Uri _mcpEndpoint(RouterBinding binding) {
+Uri _mcpEndpoint(RouterBinding binding, {bool secure = false}) {
   final listener = binding.listeners.single;
   return Uri(
     scheme: 'http',
     host: '127.0.0.1',
     port: listener.port,
-    path: _mcpPath,
+    path: secure ? _secureMcpPath : _publicMcpPath,
+  );
+}
+
+Uri _authEndpoint(RouterBinding binding) {
+  final listener = binding.listeners.single;
+  return Uri(
+    scheme: 'http',
+    host: '127.0.0.1',
+    port: listener.port,
+    path: _authPath,
   );
 }
 
@@ -664,8 +763,103 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
   });
 }
 
-Future<void> _smokeDirectJson(McpStreamableHttpClient client) async {
-  final tools = await client.listConnectanumToolsDirect(id: 'direct-tools');
+Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
+  final client = McpStreamableHttpClient(_mcpEndpoint(binding, secure: true));
+  try {
+    await client.listConnectanumToolsDirect(id: 'secure-unauthenticated-tools');
+    throw StateError('Bearer-protected MCP endpoint accepted no credentials.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'Bearer-protected MCP endpoint returned ${error.statusCode} '
+        'instead of ${HttpStatus.unauthorized}.',
+      );
+    }
+  } finally {
+    client.close();
+  }
+}
+
+Future<String> _issueTicketHttpToken(RouterBinding binding) async {
+  final httpClient = HttpClient();
+  try {
+    final challenge = await _postJson(httpClient, _authEndpoint(binding), {
+      'realm': _realm,
+      'authmethod': 'ticket',
+      'authid': _ticketAuthId,
+    });
+    if (challenge.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'HTTP auth challenge returned ${challenge.statusCode}: '
+        '${challenge.body}',
+      );
+    }
+    final challengeBody = _jsonMap(challenge.json, 'auth challenge');
+    final state = challengeBody['state'];
+    if (state is! String || state.isEmpty) {
+      throw StateError('HTTP auth challenge did not return a state token.');
+    }
+
+    final authenticate = await TicketAuthentication(
+      _ticketSecret,
+    ).challenge(Extra());
+    final success = await _postJson(httpClient, _authEndpoint(binding), {
+      'state': state,
+      'signature': authenticate.signature,
+      'extra': authenticate.extra,
+    });
+    if (success.statusCode != HttpStatus.ok) {
+      throw StateError(
+        'HTTP auth token request returned ${success.statusCode}: '
+        '${success.body}',
+      );
+    }
+    final successBody = _jsonMap(success.json, 'auth success');
+    final token = successBody['access_token'];
+    if (token is! String || token.isEmpty) {
+      throw StateError('HTTP auth success did not return an access token.');
+    }
+    return token;
+  } finally {
+    httpClient.close(force: true);
+  }
+}
+
+Future<({String body, Object? json, int statusCode})> _postJson(
+  HttpClient client,
+  Uri uri,
+  Map<String, Object?> payload,
+) async {
+  final request = await client.postUrl(uri);
+  request.headers.contentType = ContentType.json;
+  final bodyBytes = utf8.encode(jsonEncode(payload));
+  request.contentLength = bodyBytes.length;
+  request.add(bodyBytes);
+
+  final response = await request.close();
+  final body = await utf8.decodeStream(response);
+  return (
+    body: body,
+    json: body.isEmpty ? null : jsonDecode(body),
+    statusCode: response.statusCode,
+  );
+}
+
+Map<String, Object?> _jsonMap(Object? value, String label) {
+  if (value is Map) {
+    return value.cast<String, Object?>();
+  }
+  throw StateError('Expected $label response to be a JSON object.');
+}
+
+Future<void> _smokeDirectJson(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final tools = await client.listConnectanumToolsDirect(
+    id: '$label-direct-tools',
+  );
   final names = {for (final tool in tools.tools) tool['name'] as String};
   if (!names.contains(_procedure)) {
     throw StateError('Direct JSON tool catalog did not expose $_procedure.');
@@ -673,17 +867,57 @@ Future<void> _smokeDirectJson(McpStreamableHttpClient client) async {
 
   final result = await client.callConnectanumMethodDirect(
     _procedure,
-    id: 'direct-call',
-    params: {'taskId': 'T-direct'},
+    id: '$label-direct-call',
+    params: {'taskId': 'T-$label-direct'},
   );
-  if (!jsonEncode(result).contains('T-direct')) {
+  if (!jsonEncode(result).contains('T-$label-direct')) {
     throw StateError('Direct JSON tool call did not return expected payload.');
+  }
+
+  final subscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-direct-subscribe',
+    queueLimit: 4,
+    directJson: true,
+  );
+  try {
+    final publication = await client.publishWampEvent(
+      _topic,
+      id: '$label-direct-publish',
+      argumentsKeywords: {'taskId': 'T-$label-direct-publish'},
+      acknowledge: true,
+      directJson: true,
+    );
+    if (!publication.acknowledged) {
+      throw StateError('Direct JSON MCP pub/sub publish was not acknowledged.');
+    }
+
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': 'T-$label-direct-event'},
+      options: PublishOptions(acknowledge: true),
+    );
+    final events = await _pollMcpEventsUntil(
+      client,
+      subscription.handle,
+      directJson: true,
+    );
+    if (!jsonEncode(events.events).contains('T-$label-direct-event')) {
+      throw StateError('Direct JSON MCP pub/sub poll missed service event.');
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      subscription.handle,
+      id: '$label-direct-unsubscribe',
+      directJson: true,
+    );
   }
 }
 
 Future<void> _smokeStreamableMcp(
   McpStreamableHttpClient client,
   RouterSession serviceSession,
+  {required String label}
 ) async {
   await client.initialize(
     clientInfo: const {
@@ -693,7 +927,7 @@ Future<void> _smokeStreamableMcp(
   );
   await client.notifyInitialized();
 
-  final tools = await client.listTools(id: 'streamable-tools');
+  final tools = await client.listTools(id: '$label-streamable-tools');
   final names = {for (final tool in tools.tools) tool['name'] as String};
   if (!names.contains(_procedure)) {
     throw StateError('Streamable MCP tool catalog did not expose $_procedure.');
@@ -701,39 +935,41 @@ Future<void> _smokeStreamableMcp(
 
   final result = await client.callTool(
     _procedure,
-    id: 'streamable-call',
-    arguments: {'taskId': 'T-streamable'},
+    id: '$label-streamable-call',
+    arguments: {'taskId': 'T-$label-streamable'},
   );
-  if (!jsonEncode(result).contains('T-streamable')) {
+  if (!jsonEncode(result).contains('T-$label-streamable')) {
     throw StateError('Streamable MCP tool call returned unexpected payload.');
   }
 
   final subscription = await client.subscribeWampTopic(
     _topic,
-    id: 'streamable-subscribe',
+    id: '$label-streamable-subscribe',
     queueLimit: 4,
   );
   try {
     await serviceSession.publish(
       _topic,
-      argumentsKeywords: {'taskId': 'T-event'},
+      argumentsKeywords: {'taskId': 'T-$label-streamable-event'},
       options: PublishOptions(acknowledge: true),
     );
     final events = await _pollMcpEventsUntil(client, subscription.handle);
-    if (!jsonEncode(events.events).contains('T-event')) {
+    if (!jsonEncode(events.events).contains('T-$label-streamable-event')) {
       throw StateError('Streamable MCP pub/sub poll missed service event.');
     }
   } finally {
     await client.unsubscribeWampTopic(
       subscription.handle,
-      id: 'streamable-unsubscribe',
+      id: '$label-streamable-unsubscribe',
     );
   }
 }
 
 Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
   McpStreamableHttpClient client,
-  String subscriptionHandle,
+  String subscriptionHandle, {
+  bool directJson = false,
+}
 ) async {
   final deadline = DateTime.now().add(const Duration(seconds: 5));
   while (DateTime.now().isBefore(deadline)) {
@@ -741,6 +977,7 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
       subscriptionHandle,
       id: 'streamable-poll-${DateTime.now().microsecondsSinceEpoch}',
       limit: 4,
+      directJson: directJson,
     );
     if (events.events.isNotEmpty) {
       return events;

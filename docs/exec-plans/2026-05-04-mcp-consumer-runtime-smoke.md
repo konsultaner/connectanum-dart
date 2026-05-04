@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Runtime Smoke
 
-Status: local verification complete; hosted evidence pending
+Status: complete; local verification clean; hosted evidence pending for latest commit
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -10,7 +10,8 @@ Last updated: 2026-05-04
 Prove that a neutral downstream Dart package can use only public
 `connectanum_client`, `connectanum_mcp`, and `connectanum_router` entrypoints to
 host and call a router-backed MCP endpoint, not just resolve imports or
-construct API objects.
+construct API objects. The current smoke also proves a bearer-protected
+router-hosted MCP route from the same neutral consumer package.
 
 ## Scope
 
@@ -19,8 +20,13 @@ In scope:
 - Upgrade the temporary consumer package smoke to start a native router when a
   native runtime library is available.
 - Register a WAMP procedure through a public internal router session and expose
-  it through a public router-hosted MCP HTTP route.
+  it through public and bearer-protected router-hosted MCP HTTP routes.
+- Exercise the HTTP ticket-auth bridge from the consumer package, including
+  unauthenticated rejection on the protected MCP route and bearer-token use for
+  direct JSON and Streamable HTTP requests.
 - Exercise direct JSON-RPC tool listing/calling from the consumer package.
+- Exercise direct JSON-RPC WAMP pub/sub subscribe/publish/poll/unsubscribe from
+  the consumer package.
 - Exercise initialized Streamable MCP tool listing/calling and WAMP pub/sub
   helper polling from the consumer package.
 - Preserve the existing public API construction fallback when no native runtime
@@ -36,7 +42,8 @@ Out of scope:
 
 1. Run the pre-change fast baseline.
 2. Extend `run_mcp_consumer_package_smoke` so the generated consumer app can
-   host a router-backed MCP endpoint with public package APIs.
+   host public and bearer-protected router-backed MCP endpoints with public
+   package APIs.
 3. Run the focused consumer smoke.
 4. Run `bin/test-fast` and `bin/verify`.
 5. Push and collect hosted CI/deployment-chain evidence.
@@ -47,15 +54,26 @@ Out of scope:
 - Focused consumer package smoke passed on 2026-05-04:
   `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-04 and included the upgraded
-  runtime consumer package smoke.
+  protected runtime consumer package smoke.
 - Full local `bin/verify` passed on 2026-05-04. It included formatting, Rust
   native/FFI tests, Python package-artifact checks, MCP package tests, client
   tests, auth-server tests, bench integration tests, the router-hosted MCP
-  example smoke, the upgraded consumer runtime smoke, full router package tests
-  including router-hosted MCP auth/session coverage, zero-copy router checks,
-  and Chrome Dart2Wasm WebSocket transport tests.
+  example smoke, the upgraded protected consumer runtime smoke, full router
+  package tests including router-hosted MCP auth/session coverage, zero-copy
+  router checks, and Chrome Dart2Wasm WebSocket transport tests.
+- The protected consumer-smoke implementation has local verification clean;
+  hosted evidence is pending for the branch head.
+- Previous commit `693f930` was pushed to both remotes. Hosted GitHub `CI` run
+  `25332159136` completed successfully with `Fast Checks` and `Full Verify`.
+  The deployment-chain audit with required clean latest CI and clean hosted CI
+  logs passed for branch head `693f930`. `Dart Package Publish Dry Run` and
+  `WAMP Profile Benchmarks` did not trigger for this script/docs change; the
+  latest package dry-run remains clean and relevant on `207be91` because no
+  publish-sensitive paths changed. The remaining audit findings are the
+  existing operator/deployment items around branch protection, default-branch
+  router workflow visibility, and GHCR router package visibility.
 
 ## Handoff
 
-Implementation and local verification are complete. Hosted GitHub evidence is
-pending after push.
+Implementation and local verification are complete. Hosted GitHub CI evidence
+is pending for the latest protected consumer-smoke commit.
