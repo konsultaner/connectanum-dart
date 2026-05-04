@@ -381,3 +381,63 @@ run_router_hosted_mcp_example_smoke() {
 
   dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
 }
+
+run_mcp_consumer_package_smoke() (
+  local smoke_dir
+
+  require_command dart
+  smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-consumer-smoke.XXXXXX")"
+  trap 'rm -rf "$smoke_dir"' EXIT
+
+  mkdir -p "$smoke_dir/bin"
+  cat >"$smoke_dir/pubspec.yaml" <<EOF
+name: connectanum_mcp_consumer_smoke
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+dependencies:
+  connectanum_client: any
+  connectanum_mcp: any
+  connectanum_router: any
+dependency_overrides:
+  connectanum_core:
+    path: "$ROOT_DIR/packages/connectanum_core"
+  connectanum_client:
+    path: "$ROOT_DIR/packages/connectanum_client"
+  connectanum_mcp:
+    path: "$ROOT_DIR/packages/connectanum_mcp"
+  connectanum_router:
+    path: "$ROOT_DIR/packages/connectanum_router"
+EOF
+
+  cat >"$smoke_dir/bin/main.dart" <<'DART'
+import 'package:connectanum_client/mcp.dart';
+import 'package:connectanum_mcp/connectanum_mcp.dart';
+import 'package:connectanum_router/connectanum_router.dart';
+
+void main() {
+  final client = McpStreamableHttpClient(Uri.parse('http://127.0.0.1:1/mcp'));
+  final config = RouterConfig(endpoints: const []);
+  final tool = McpTool(
+    name: 'consumer.echo',
+    description: 'Consumer API check',
+    handler: (_) => McpToolResult.text('ok'),
+  );
+
+  if (client.endpoint.path != '/mcp' ||
+      config.endpoints.isNotEmpty ||
+      tool.name != 'consumer.echo') {
+    throw StateError('Unexpected consumer MCP API smoke state.');
+  }
+
+  client.close();
+}
+DART
+
+  printf 'Running MCP consumer package smoke from %s.\n' "$smoke_dir"
+  (
+    cd "$smoke_dir"
+    dart pub get
+    dart analyze
+  )
+)

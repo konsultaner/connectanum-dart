@@ -1,6 +1,6 @@
 # Exec Plan: MCP Example Verification Gate
 
-Status: complete; local verification clean
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -46,8 +46,16 @@ Out of scope:
   router-hosted MCP example smoke gate.
 - Full local `bin/verify` passed on 2026-05-04 and included the same gate
   through `bin/test-all`.
+- Commit `0fe20eb` was pushed to both remotes. Hosted GitHub `CI` run
+  `25324595775` completed successfully with `Fast Checks` and `Full Verify`.
+  The deployment-chain audit with required clean latest CI and clean hosted CI
+  logs passed for branch head `0fe20eb`. `Dart Package Publish Dry Run` and
+  `WAMP Profile Benchmarks` did not trigger for this script/docs change because
+  their workflow path filters exclude the touched files; the latest relevant
+  runs remain clean on `c754772`. The remaining audit findings are the existing
+  operator/deployment items around branch protection, default-branch router
+  workflow visibility, and GHCR router package visibility.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, and hosted
-evidence are pending.
+Implementation, local verification, and hosted GitHub CI evidence are complete.

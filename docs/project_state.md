@@ -4,11 +4,13 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `c754772`
-(`mcp: cover streamable batch routes`; CI clean)
+Latest pushed implementation commit: `0fe20eb`
+(`mcp: gate router hosted example smoke`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-04-mcp-example-verification-gate.md`
+`docs/exec-plans/2026-05-04-mcp-consumer-package-smoke.md`
 (complete; local verification clean). Previous completed exec plan:
+`docs/exec-plans/2026-05-04-mcp-example-verification-gate.md`
+(complete; hosted CI evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-batch-smoke.md`
 (complete; hosted evidence clean). Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-streamable-session-isolation.md`
@@ -91,6 +93,23 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer package smoke is complete locally. The root verification path
+    now creates a temporary Dart package outside the workspace, resolves the
+    public client/MCP/router package entrypoints through local package
+    overrides, and analyzes a small neutral consumer program. This complements
+    the router-hosted MCP runtime example by proving external dependency
+    solving and public imports. Pre-change `bin/test-fast` passed on
+    2026-05-04. The focused helper check passed on 2026-05-04:
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-04 and included the new
+    temporary consumer package smoke after the router-hosted MCP example gate.
+    Full local `bin/verify` passed on 2026-05-04. It included formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP package tests, client
+    tests, auth-server tests, bench integration tests, router-hosted MCP
+    example smoke, the new consumer package smoke, full router package tests
+    including `remote_auth_integration_test`, zero-copy router checks, and
+    Chrome Dart2Wasm WebSocket transport tests. Commit, push, and hosted
+    evidence are pending.
   - MCP example verification gate is complete locally. The public
     router-hosted MCP example smoke now runs from the standard root
     verification path, so consumer-style public API usage is continuously
@@ -100,8 +119,17 @@ order.
     `bash -lc 'source bin/common.sh && cd_repo_root && run_router_hosted_mcp_example_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-04 and included the
     router-hosted MCP example smoke gate. Full local `bin/verify` passed on
-    2026-05-04 and included the same gate through `bin/test-all`. Commit,
-    push, and hosted evidence are pending.
+    2026-05-04 and included the same gate through `bin/test-all`. Commit
+    `0fe20eb` was pushed to both remotes. Hosted GitHub `CI` run
+    `25324595775` completed successfully with `Fast Checks` and `Full Verify`.
+    The deployment-chain audit with required clean latest CI and clean hosted
+    CI logs passed for branch head `0fe20eb`. `Dart Package Publish Dry Run`
+    and `WAMP Profile Benchmarks` did not trigger for this script/docs change
+    because their workflow path filters exclude the touched files; the latest
+    relevant runs remain clean on `c754772`. The remaining audit findings are
+    the existing operator/deployment items around branch protection,
+    default-branch router workflow visibility, and GHCR router package
+    visibility.
   - MCP Streamable HTTP batch smoke is complete locally. The router
     integration suite now exercises the consumer `McpStreamableHttpClient`
     `postBatch(...)` path against real public and bearer-protected
