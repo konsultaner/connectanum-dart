@@ -963,6 +963,12 @@ Future<void> _smokeStreamableMcp(
       id: '$label-streamable-unsubscribe',
     );
   }
+
+  await _smokeStreamableSessionLifecycle(
+    client,
+    serviceSession,
+    label: label,
+  );
 }
 
 Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
@@ -985,6 +991,87 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   throw StateError('Timed out waiting for MCP pub/sub event.');
+}
+
+Future<void> _smokeStreamableSessionLifecycle(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable MCP session did not capture a session id.');
+  }
+
+  final dynamicProcedure = 'consumer.task.dynamic.$label';
+  final registration = await serviceSession.register(
+    dynamicProcedure,
+    options: RegisterOptions(
+      custom: {
+        '_ai_meta_data': {
+          'short_description': 'Dynamic $label consumer task',
+          'description':
+              'Procedure registered after MCP initialization to verify '
+              'Streamable HTTP GET/SSE polling.',
+          'read_only_hint': true,
+          'destructive_hint': false,
+          'idempotent_hint': true,
+          'open_world_hint': false,
+        },
+      },
+    ),
+  );
+  registration.onInvoke((invocation) {
+    invocation.respondWith(
+      argumentsKeywords: {'label': label, 'source': 'consumer-package-smoke'},
+    );
+  });
+
+  final events = await _pollStreamableSessionEventsUntil(client, label: label);
+  final hasToolListChanged = events.any(
+    (event) => event.jsonData?['method'] == 'notifications/tools/list_changed',
+  );
+  if (!hasToolListChanged) {
+    throw StateError(
+      'Streamable MCP GET/SSE poll did not receive tools/list_changed.',
+    );
+  }
+  final eventId = client.lastEventId;
+  if (eventId == null || eventId.isEmpty) {
+    throw StateError('Streamable MCP GET/SSE poll did not capture event id.');
+  }
+
+  final resumedEvents = await client.poll(lastEventId: eventId);
+  if (resumedEvents.any(
+    (event) =>
+        event.id == eventId ||
+        event.jsonData?['method'] == 'notifications/tools/list_changed',
+  )) {
+    throw StateError('Streamable MCP Last-Event-ID replayed an old event.');
+  }
+
+  await client.deleteSession();
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError('Streamable MCP DELETE did not clear session state.');
+  }
+}
+
+Future<List<McpSseEvent>> _pollStreamableSessionEventsUntil(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    final events = await client.poll();
+    if (events.any(
+      (event) =>
+          event.jsonData?['method'] == 'notifications/tools/list_changed',
+    )) {
+      return events;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError('Timed out waiting for $label Streamable MCP SSE event.');
 }
 DART
 

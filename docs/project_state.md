@@ -4,7 +4,7 @@ Last updated: 2026-05-04
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest implementation checkpoint: `mcp: run protected consumer mcp smoke`
+Latest implementation checkpoint: `mcp: smoke streamable consumer sessions`
 (local verification clean; hosted evidence pending)
 Active exec plan: none.
 Previous completed exec plan:
@@ -110,27 +110,37 @@ order.
     endpoints through public `connectanum_client` MCP helpers. The smoke proves
     direct JSON-RPC tool listing/calling, direct JSON-RPC WAMP pub/sub
     subscribe/publish/poll/unsubscribe, initialized Streamable MCP tool
-    listing/calling, and Streamable WAMP pub/sub polling from outside the
-    workspace. It keeps the existing public API construction fallback for
-    environments without a native runtime. Pre-change `bin/test-fast` passed on
-    2026-05-04. The focused consumer package smoke passed on 2026-05-04:
+    listing/calling, Streamable WAMP pub/sub polling, and Streamable HTTP
+    session lifecycle from outside the workspace. The session lifecycle smoke
+    captures the router-provided MCP session id, receives `tools/list_changed`
+    over `GET`/SSE after registering a dynamic WAMP procedure, resumes with
+    `Last-Event-ID` without replaying the old event, and deletes the MCP
+    session through public consumer APIs. It keeps the existing public API
+    construction fallback for environments without a native runtime.
+    Pre-change `bin/test-fast` passed on 2026-05-04. The protected runtime
+    consumer package smoke passed on 2026-05-04:
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-04 and included the upgraded
-    protected consumer runtime smoke. Full local `bin/verify` passed on
-    2026-05-04. It included formatting, Rust native/FFI tests, Python
-    package-artifact checks, MCP package tests, client tests, auth-server tests,
-    bench integration tests, the router-hosted MCP example smoke, the upgraded
-    protected consumer runtime smoke, full router package tests including
-    router-hosted MCP auth/session coverage, zero-copy router checks, and Chrome
-    Dart2Wasm WebSocket transport tests. Hosted evidence is pending for the
-    protected consumer-smoke branch head. The previous consumer runtime
-    smoke commit `693f930` was pushed to both remotes with clean hosted GitHub
-    `CI` run `25332159136` and a clean deployment-chain audit; `Dart Package
-    Publish Dry Run` and `WAMP Profile Benchmarks` did not trigger for that
-    script/docs change, and the latest package dry-run remained clean and
-    relevant on `207be91`. The remaining audit findings are the existing
-    operator/deployment items around branch protection, default-branch router
-    workflow visibility, and GHCR router package visibility.
+    protected consumer runtime smoke. The latest Streamable HTTP lifecycle
+    extension passed the focused consumer package smoke, `bin/test-fast`, and
+    full local `bin/verify` on 2026-05-04. Full verify included formatting,
+    Rust native/FFI tests, Python package-artifact checks, MCP package tests,
+    client tests, auth-server tests, bench integration tests, the
+    router-hosted MCP example smoke, the upgraded protected consumer runtime
+    smoke with Streamable HTTP session lifecycle, full router package tests
+    including router-hosted MCP auth/session coverage, zero-copy router checks,
+    and Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is pending
+    for the latest Streamable HTTP lifecycle implementation commit. Previous
+    commit `d8310ac` was pushed to both remotes. Hosted GitHub `CI` run
+    `25334205849` completed successfully with
+    `Fast Checks` and `Full Verify`. The deployment-chain audit with required
+    clean latest CI, clean hosted CI logs, and clean Dart package publish
+    dry-run passed for branch head `d8310ac`. `Dart Package Publish Dry Run`
+    and `WAMP Profile Benchmarks` did not trigger for this script/docs change;
+    the latest package dry-run remains clean and relevant on `207be91` because
+    no publish-sensitive paths changed. The remaining audit findings are the
+    existing operator/deployment items around branch protection, default-branch
+    router workflow visibility, and GHCR router package visibility.
   - Native build-hook user-defines / consumer package `dart run` readiness is
     complete. Dart 3.11 hooks run in a semi-hermetic environment that
     strips non-allowlisted shell variables from hook processes, so the
