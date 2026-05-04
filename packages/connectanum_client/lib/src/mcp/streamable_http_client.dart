@@ -130,6 +130,58 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: 'tools/call');
   }
 
+  Future<McpStreamableToolListPage> listConnectanumToolsDirect({
+    Object? id,
+    String? cursor,
+  }) async {
+    const method = 'connectanum.tools.list';
+    final response = await request(
+      method,
+      id: id,
+      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      streamable: false,
+    );
+    final result = _jsonRpcResultFrom(response, method: method);
+    return McpStreamableToolListPage(
+      tools: _jsonMapListFrom(
+        result,
+        key: 'tools',
+        method: method,
+        label: '$method result tool',
+      ),
+      nextCursor: _nextCursorFrom(result, method: method),
+    );
+  }
+
+  Future<McpJsonMap> callConnectanumToolDirect(
+    String name, {
+    Object? id,
+    McpJsonMap arguments = const <String, Object?>{},
+  }) async {
+    const method = 'connectanum.tool.call';
+    final response = await request(
+      method,
+      id: id,
+      params: <String, Object?>{'name': name, 'arguments': arguments},
+      streamable: false,
+    );
+    return _jsonRpcResultFrom(response, method: method);
+  }
+
+  Future<McpJsonMap> callConnectanumMethodDirect(
+    String method, {
+    Object? id,
+    McpJsonMap params = const <String, Object?>{},
+  }) async {
+    final response = await request(
+      method,
+      id: id,
+      params: params,
+      streamable: false,
+    );
+    return _jsonRpcResultFrom(response, method: method);
+  }
+
   Future<McpStreamableResourceListPage> listResources({
     Object? id,
     String? cursor,

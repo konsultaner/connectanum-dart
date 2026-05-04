@@ -140,6 +140,73 @@ void main() {
       );
     });
 
+    test(
+      'uses Connectanum direct JSON helpers without MCP lifecycle',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final page = await client.listConnectanumToolsDirect(
+          id: 'direct-tools',
+        );
+        expect(page.nextCursor, isNull);
+        expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
+
+        final toolResult = await client.callConnectanumToolDirect(
+          'app.echo',
+          id: 'direct-call',
+          arguments: {'message': 'direct'},
+        );
+        expect(toolResult['isError'], isFalse);
+        expect(toolResult['structuredContent'], {
+          'echo': {'message': 'direct'},
+        });
+
+        final methodResult = await client.callConnectanumMethodDirect(
+          'app.echo',
+          id: 'direct-dotted',
+          params: {'message': 'dotted'},
+        );
+        expect(methodResult['isError'], isFalse);
+        expect(methodResult['structuredContent'], {
+          'echo': {'message': 'dotted'},
+        });
+
+        final metaResult = await client.callConnectanumMethodDirect(
+          'wamp.registration.match',
+          id: 'direct-meta',
+          params: {
+            'arguments': ['app.echo'],
+          },
+        );
+        expect(metaResult['structuredContent'], {
+          'arguments': [11],
+        });
+
+        expect(client.sessionId, isNull);
+        expect(endpoint.requests, hasLength(4));
+        for (final request in endpoint.requests) {
+          expect(request.accept, 'application/json');
+          expect(request.sessionId, isNull);
+        }
+        expect(
+          endpoint.requests.first.body,
+          containsPair('method', 'connectanum.tools.list'),
+        );
+        expect(endpoint.requests.last.body, {
+          'jsonrpc': '2.0',
+          'id': 'direct-meta',
+          'method': 'wamp.registration.match',
+          'params': {
+            'arguments': ['app.echo'],
+          },
+        });
+      },
+    );
+
     test('uses typed helpers for resources and prompts', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -672,6 +739,64 @@ final class _FakeMcpEndpoint {
         'jsonrpc': '2.0',
         'id': requestBody['id'],
         'result': <String, Object?>{},
+      });
+      return;
+    }
+
+    if (method == 'connectanum.tools.list') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'tools': <Object?>[
+            <String, Object?>{
+              'name': 'app.echo',
+              'description': 'Echoes arguments.',
+              'inputSchema': <String, Object?>{'type': 'object'},
+            },
+            <String, Object?>{
+              'name': 'wamp.registration.match',
+              'description': 'Matches a visible WAMP registration.',
+              'inputSchema': <String, Object?>{'type': 'object'},
+            },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (method == 'connectanum.tool.call' ||
+        method == 'connectanum.tools.call') {
+      final params = _jsonMapFrom(
+        requestBody['params'],
+        label: 'connectanum.tool.call',
+      );
+      final name = params['name'];
+      final arguments = _jsonMapFrom(
+        params['arguments'],
+        label: 'connectanum.tool.call arguments',
+      );
+      if (name is String && name.startsWith('wamp.')) {
+        _writeWampMetaToolResult(request, requestBody['id'], name, arguments);
+        return;
+      }
+      _writeToolResult(request, requestBody['id'], <String, Object?>{
+        'echo': arguments,
+      });
+      return;
+    }
+
+    if (method is String && method.contains('.')) {
+      final params = _jsonMapFrom(
+        requestBody['params'],
+        label: 'connectanum direct method params',
+      );
+      if (method.startsWith('wamp.')) {
+        _writeWampMetaToolResult(request, requestBody['id'], method, params);
+        return;
+      }
+      _writeToolResult(request, requestBody['id'], <String, Object?>{
+        'echo': params,
       });
       return;
     }

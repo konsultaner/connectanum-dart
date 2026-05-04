@@ -1416,14 +1416,31 @@ void main() {
       final listener = binding.listeners.single;
       final client = HttpClient();
       addTearDown(() => client.close(force: true));
-
-      final directCatalog = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/public',
-        'connectanum.api.list',
-        {'kind': 'procedure'},
+      final directPublicMcpClient = McpStreamableHttpClient(
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        ),
       );
+      addTearDown(() => directPublicMcpClient.close(force: true));
+
+      final directPublicTools = await directPublicMcpClient
+          .listConnectanumToolsDirect(id: 'direct-public-tools');
+      final directPublicToolNames = {
+        for (final tool in directPublicTools.tools) tool['name'] as String,
+      };
+      expect(directPublicToolNames, contains('app.safe.lookup'));
+      expect(directPublicToolNames, isNot(contains('app.unsafe.delete')));
+      expect(directPublicMcpClient.sessionId, isNull);
+
+      final directCatalog = await directPublicMcpClient
+          .callConnectanumMethodDirect(
+            'connectanum.api.list',
+            id: 'direct-public-catalog',
+            params: {'kind': 'procedure'},
+          );
       final directCatalogContent =
           directCatalog['structuredContent'] as Map<String, Object?>;
       final directCatalogMetadata =
@@ -2157,14 +2174,23 @@ void main() {
 
       final token = await _issueTicketHttpToken(client, listener.port);
       final authHeaders = {'authorization': 'Bearer $token'};
-      final directSecureCatalog = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/secure',
-        'connectanum.api.list',
-        {'kind': 'procedure'},
+      final directSecureMcpClient = McpStreamableHttpClient(
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/secure',
+        ),
         headers: authHeaders,
       );
+      addTearDown(() => directSecureMcpClient.close(force: true));
+
+      final directSecureCatalog = await directSecureMcpClient
+          .callConnectanumMethodDirect(
+            'connectanum.api.list',
+            id: 'direct-secure-catalog',
+            params: {'kind': 'procedure'},
+          );
       expect(
         jsonEncode(directSecureCatalog['structuredContent']),
         contains('app.unsafe.delete'),
@@ -2441,17 +2467,12 @@ void main() {
         containsPair('unsubscribed', true),
       );
 
-      final directSecureUnsafeResult = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/secure',
-        'connectanum.tool.call',
-        {
-          'name': 'app.unsafe.delete',
-          'arguments': {'taskId': 'T-3'},
-        },
-        headers: authHeaders,
-      );
+      final directSecureUnsafeResult = await directSecureMcpClient
+          .callConnectanumToolDirect(
+            'app.unsafe.delete',
+            id: 'direct-secure-delete',
+            arguments: {'taskId': 'T-3'},
+          );
       expect(directSecureUnsafeResult['isError'], isFalse);
       expect(
         ((directSecureUnsafeResult['structuredContent']
