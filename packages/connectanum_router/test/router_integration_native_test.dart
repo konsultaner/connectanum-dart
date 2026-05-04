@@ -1435,14 +1435,11 @@ void main() {
       expect(directPublicToolNames, isNot(contains('app.unsafe.delete')));
       expect(directPublicMcpClient.sessionId, isNull);
 
-      final directCatalog = await directPublicMcpClient
-          .callConnectanumMethodDirect(
-            'connectanum.api.list',
-            id: 'direct-public-catalog',
-            params: {'kind': 'procedure'},
-          );
-      final directCatalogContent =
-          directCatalog['structuredContent'] as Map<String, Object?>;
+      final directCatalogContent = await directPublicMcpClient.listWampApi(
+        id: 'direct-public-catalog',
+        kind: 'procedure',
+        directJson: true,
+      );
       final directCatalogMetadata =
           directCatalogContent['metadata'] as Map<String, Object?>;
       expect(directCatalogMetadata, containsPair('authid', 'anonymous'));
@@ -1851,17 +1848,15 @@ void main() {
         equals(-32600),
       );
 
-      final directPubSubSubscribe = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/public',
-        'connectanum.pubsub.subscribe',
-        {'topic': 'app.events.audit', 'queueLimit': 5},
-      );
-      final directPubSubSubscription =
-          directPubSubSubscribe['structuredContent'] as Map<String, Object?>;
-      final directPubSubHandle = directPubSubSubscription['handle'] as String;
-      expect(directPubSubSubscription['topic'], equals('app.events.audit'));
+      final directPubSubSubscription = await directPublicMcpClient
+          .subscribeWampTopic(
+            'app.events.audit',
+            id: 'direct-pubsub-subscribe',
+            queueLimit: 5,
+            directJson: true,
+          );
+      final directPubSubHandle = directPubSubSubscription.handle;
+      expect(directPubSubSubscription.topic, equals('app.events.audit'));
 
       final directPublicSubscriptionList = await _callRouterJsonMethod(
         client,
@@ -1939,21 +1934,16 @@ void main() {
         equals([1]),
       );
 
-      final directPubSubPublish = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/public',
-        'connectanum.pubsub.publish',
-        {
-          'topic': 'app.events.audit',
-          'argumentsKeywords': {'via': 'direct-json-publish'},
-          'acknowledge': true,
+      final directPubSubPublish = await directPublicMcpClient.publishWampEvent(
+        'app.events.audit',
+        id: 'direct-pubsub-publish',
+        argumentsKeywords: const <String, Object?>{
+          'via': 'direct-json-publish',
         },
+        acknowledge: true,
+        directJson: true,
       );
-      expect(
-        directPubSubPublish['structuredContent'],
-        containsPair('acknowledged', true),
-      );
+      expect(directPubSubPublish.acknowledged, isTrue);
 
       await serviceSession.publish(
         'app.events.audit',
@@ -1971,17 +1961,13 @@ void main() {
         contains('direct-json-service'),
       );
 
-      final directPubSubUnsubscribe = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/public',
-        'connectanum.pubsub.unsubscribe',
-        {'handle': directPubSubHandle},
-      );
-      expect(
-        directPubSubUnsubscribe['structuredContent'],
-        containsPair('unsubscribed', true),
-      );
+      final directPubSubUnsubscribe = await directPublicMcpClient
+          .unsubscribeWampTopic(
+            directPubSubHandle,
+            id: 'direct-pubsub-unsubscribe',
+            directJson: true,
+          );
+      expect(directPubSubUnsubscribe.unsubscribed, isTrue);
 
       final directSecureTopicDenied = await _postJson(
         client,
@@ -2185,16 +2171,12 @@ void main() {
       );
       addTearDown(() => directSecureMcpClient.close(force: true));
 
-      final directSecureCatalog = await directSecureMcpClient
-          .callConnectanumMethodDirect(
-            'connectanum.api.list',
-            id: 'direct-secure-catalog',
-            params: {'kind': 'procedure'},
-          );
-      expect(
-        jsonEncode(directSecureCatalog['structuredContent']),
-        contains('app.unsafe.delete'),
+      final directSecureCatalog = await directSecureMcpClient.listWampApi(
+        id: 'direct-secure-catalog',
+        kind: 'procedure',
+        directJson: true,
       );
+      expect(jsonEncode(directSecureCatalog), contains('app.unsafe.delete'));
       final directSecureUnsafeRegistration = await _callRouterJsonMethod(
         client,
         listener.port,

@@ -372,6 +372,82 @@ void main() {
       );
     });
 
+    test(
+      'uses typed WAMP helpers through direct JSON without lifecycle',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final catalog = await client.listWampApi(
+          id: 'direct-helper-api-list',
+          kind: 'topic',
+          directJson: true,
+        );
+        expect(catalog['topics'], hasLength(1));
+
+        final subscription = await client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'direct-helper-subscribe',
+          queueLimit: 3,
+          directJson: true,
+        );
+        expect(subscription.handle, 'wamp-sub-1');
+
+        final publication = await client.publishWampEvent(
+          'app.events.audit',
+          id: 'direct-helper-publish',
+          argumentsKeywords: const <String, Object?>{'message': 'hello'},
+          acknowledge: true,
+          directJson: true,
+        );
+        expect(publication.acknowledged, isTrue);
+
+        final batch = await client.pollWampEvents(
+          subscription.handle,
+          id: 'direct-helper-poll',
+          directJson: true,
+        );
+        expect(batch.events.single['argumentsKeywords'], {'message': 'hello'});
+
+        final registration = await client.matchWampRegistration(
+          'app.echo',
+          id: 'direct-helper-registration-match',
+          directJson: true,
+        );
+        expect(registration.arguments, [11]);
+
+        final unsubscribe = await client.unsubscribeWampTopic(
+          subscription.handle,
+          id: 'direct-helper-unsubscribe',
+          directJson: true,
+        );
+        expect(unsubscribe.unsubscribed, isTrue);
+
+        expect(client.sessionId, isNull);
+        expect(endpoint.requests, hasLength(6));
+        for (final request in endpoint.requests) {
+          expect(request.accept, 'application/json');
+          expect(request.sessionId, isNull);
+          expect(request.body, containsPair('method', 'connectanum.tool.call'));
+        }
+        final firstParams = _jsonMapFrom(
+          (endpoint.requests.first.body as Map)['params'],
+          label: 'direct helper first params',
+        );
+        expect(
+          _jsonMapFrom(
+            firstParams['arguments'],
+            label: 'direct API list arguments',
+          ),
+          {'kind': 'topic'},
+        );
+        expect(firstParams['name'], 'connectanum.api.list');
+      },
+    );
+
     test('uses Connectanum WAMP meta procedure helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -778,6 +854,82 @@ final class _FakeMcpEndpoint {
       );
       if (name is String && name.startsWith('wamp.')) {
         _writeWampMetaToolResult(request, requestBody['id'], name, arguments);
+        return;
+      }
+      if (name == 'connectanum.api.list') {
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'topics': <Object?>[
+            <String, Object?>{
+              'topic': 'app.events.audit',
+              'title': 'Audit Events',
+            },
+          ],
+        });
+        return;
+      }
+      if (name == 'connectanum.api.describe') {
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'topic': 'app.events.audit',
+          'title': 'Audit Events',
+        });
+        return;
+      }
+      if (name == 'connectanum.pubsub.subscribe') {
+        if (arguments['topic'] == 'app.secure.audit') {
+          _writeJson(request, <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': requestBody['id'],
+            'result': <String, Object?>{
+              'content': <Object?>[
+                <String, Object?>{
+                  'type': 'text',
+                  'text': 'not authorized for topic',
+                },
+              ],
+              'isError': true,
+            },
+          });
+          return;
+        }
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': arguments['topic'],
+          'subscriptionId': 7,
+          'queueLimit': arguments['queueLimit'],
+        });
+        return;
+      }
+      if (name == 'connectanum.pubsub.publish') {
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'topic': arguments['topic'],
+          'acknowledged': true,
+          'publicationId': 42,
+        });
+        return;
+      }
+      if (name == 'connectanum.pubsub.poll') {
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'handle': arguments['handle'],
+          'topic': 'app.events.audit',
+          'events': <Object?>[
+            <String, Object?>{
+              'subscriptionId': 7,
+              'publicationId': 42,
+              'topic': 'app.events.audit',
+              'argumentsKeywords': <String, Object?>{'message': 'hello'},
+            },
+          ],
+          'dropped': 0,
+          'remaining': 0,
+        });
+        return;
+      }
+      if (name == 'connectanum.pubsub.unsubscribe') {
+        _writeToolResult(request, requestBody['id'], <String, Object?>{
+          'handle': arguments['handle'],
+          'topic': 'app.events.audit',
+          'unsubscribed': true,
+        });
         return;
       }
       _writeToolResult(request, requestBody['id'], <String, Object?>{
