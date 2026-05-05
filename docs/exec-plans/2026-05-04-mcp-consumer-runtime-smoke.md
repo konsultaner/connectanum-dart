@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Runtime Smoke
 
-Status: complete; local verification clean; hosted evidence pending for latest batch-smoke extension
+Status: complete; hosted evidence clean
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -147,7 +147,16 @@ Out of scope:
   batch/resources/prompts/WAMP meta/session-lifecycle coverage, full router
   package tests including router-hosted MCP auth/session/batch coverage,
   zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
-  Hosted evidence is pending for this latest batch-smoke extension.
+- Commit `4847124` was pushed to both remotes. Hosted GitHub `CI` run
+  `25363296633` completed successfully with `Fast Checks` and `Full Verify`.
+  The hosted log audit found no actionable warnings, skipped tests,
+  deprecations, panics, broken pipes, connection errors, or GitHub annotation
+  errors/warnings. Broad failed/error word matches were benign passing test
+  names and expected error-path coverage. `Dart Package Publish Dry Run` and
+  `WAMP Profile Benchmarks` did not trigger for this script/docs change; the
+  latest package dry-run and WAMP benchmark workflows remain clean and relevant
+  on `207be91` because no publish-sensitive or benchmark-sensitive package
+  paths changed.
 - Commit `e826f7e` was pushed to both remotes. Hosted GitHub `CI` run
   `25338108663` completed successfully with `Fast Checks` and `Full Verify`.
   The deployment-chain audit with required clean latest CI, clean hosted CI
@@ -190,5 +199,4 @@ Out of scope:
 
 ## Handoff
 
-Implementation and full local verification are complete for the latest
-batch-smoke extension. Hosted GitHub CI evidence is pending.
+Implementation, local verification, and hosted GitHub CI evidence are complete.

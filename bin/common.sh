@@ -876,75 +876,17 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
 }
 
 Future<String> _issueTicketHttpToken(RouterBinding binding) async {
-  final httpClient = HttpClient();
+  final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   try {
-    final challenge = await _postJson(httpClient, _authEndpoint(binding), {
-      'realm': _realm,
-      'authmethod': 'ticket',
-      'authid': _ticketAuthId,
-    });
-    if (challenge.statusCode != HttpStatus.unauthorized) {
-      throw StateError(
-        'HTTP auth challenge returned ${challenge.statusCode}: '
-        '${challenge.body}',
-      );
-    }
-    final challengeBody = _jsonMap(challenge.json, 'auth challenge');
-    final state = challengeBody['state'];
-    if (state is! String || state.isEmpty) {
-      throw StateError('HTTP auth challenge did not return a state token.');
-    }
-
-    final authenticate = await TicketAuthentication(
-      _ticketSecret,
-    ).challenge(Extra());
-    final success = await _postJson(httpClient, _authEndpoint(binding), {
-      'state': state,
-      'signature': authenticate.signature,
-      'extra': authenticate.extra,
-    });
-    if (success.statusCode != HttpStatus.ok) {
-      throw StateError(
-        'HTTP auth token request returned ${success.statusCode}: '
-        '${success.body}',
-      );
-    }
-    final successBody = _jsonMap(success.json, 'auth success');
-    final token = successBody['access_token'];
-    if (token is! String || token.isEmpty) {
-      throw StateError('HTTP auth success did not return an access token.');
-    }
-    return token;
+    final grant = await authClient.issueTicketToken(
+      realm: _realm,
+      authId: _ticketAuthId,
+      ticket: _ticketSecret,
+    );
+    return grant.accessToken;
   } finally {
-    httpClient.close(force: true);
+    authClient.close(force: true);
   }
-}
-
-Future<({String body, Object? json, int statusCode})> _postJson(
-  HttpClient client,
-  Uri uri,
-  Map<String, Object?> payload,
-) async {
-  final request = await client.postUrl(uri);
-  request.headers.contentType = ContentType.json;
-  final bodyBytes = utf8.encode(jsonEncode(payload));
-  request.contentLength = bodyBytes.length;
-  request.add(bodyBytes);
-
-  final response = await request.close();
-  final body = await utf8.decodeStream(response);
-  return (
-    body: body,
-    json: body.isEmpty ? null : jsonDecode(body),
-    statusCode: response.statusCode,
-  );
-}
-
-Map<String, Object?> _jsonMap(Object? value, String label) {
-  if (value is Map) {
-    return value.cast<String, Object?>();
-  }
-  throw StateError('Expected $label response to be a JSON object.');
 }
 
 Future<void> _smokeDirectJson(

@@ -4,13 +4,17 @@ Last updated: 2026-05-05
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest implementation checkpoint: MCP consumer batch smoke
+Latest pushed implementation commit: `4847124`
+(`mcp: smoke consumer batch requests`; hosted CI evidence clean)
+Latest implementation checkpoint: MCP HTTP auth client helper
 (local verification clean; hosted evidence pending)
 Active exec plan: none.
 Previous completed exec plan:
+`docs/exec-plans/2026-05-05-mcp-http-auth-client-helper.md`
+(complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-consumer-runtime-smoke.md`
-(complete; local verification clean; hosted evidence pending for latest
-batch-smoke extension).
+(complete; hosted evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-04-native-hook-user-defines-consumer-run.md`
 (complete; hosted evidence clean).
@@ -101,6 +105,25 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP HTTP auth client helper is complete locally.
+    `package:connectanum_client/mcp.dart` now exports
+    `ConnectanumHttpAuthClient`, which performs the router HTTP auth bridge
+    challenge/token handshake for ticket, WAMP-CRA, SCRAM, and generic
+    `AbstractAuthentication` flows, parses access/refresh-token grants, and
+    supports refresh/revoke with typed HTTP auth errors. The router-hosted MCP
+    example and generated external consumer package smoke now use this public
+    helper instead of duplicating raw `/auth` JSON plumbing. Pre-change
+    `bin/test-fast`, focused helper tests, package analyzer, router-hosted MCP
+    example smoke, generated external consumer package smoke, and post-change
+    `bin/test-fast` passed on 2026-05-05. Full local `bin/verify` also passed
+    on 2026-05-05, including formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP package tests, client tests with the new HTTP
+    auth helper coverage, auth-server tests, bench integration tests, the
+    router-hosted MCP example smoke, the generated external consumer package
+    smoke using the new helper, full router package tests including
+    router-hosted MCP auth/session/batch coverage, zero-copy router checks, and
+    Chrome Dart2Wasm WebSocket transport tests. Hosted GitHub evidence is
+    pending.
   - MCP consumer runtime smoke is complete locally. The temporary downstream
     package smoke now starts a native router when the native runtime library is
     available, configures public and bearer-protected router-hosted MCP routes
@@ -159,8 +182,16 @@ order.
     smoke with batch/resources/prompts/WAMP meta/session-lifecycle coverage,
     full router package tests including router-hosted MCP auth/session/batch
     coverage, zero-copy router checks, and Chrome Dart2Wasm WebSocket transport
-    tests. Hosted evidence is pending for this latest batch-smoke extension.
-    Commit `cb63df1` was pushed to both remotes.
+    tests. Commit `4847124` was pushed to both remotes. Hosted GitHub `CI` run
+    `25363296633` completed successfully with `Fast Checks` and `Full Verify`.
+    The hosted log audit found no actionable warnings, skipped tests,
+    deprecations, panics, broken pipes, connection errors, or GitHub annotation
+    errors/warnings. Broad failed/error word matches were benign passing test
+    names and expected error-path coverage. `Dart Package Publish Dry Run` and
+    `WAMP Profile Benchmarks` did not trigger for this script/docs change; the
+    latest package dry-run and WAMP benchmark workflows remain clean and
+    relevant on `207be91` because no publish-sensitive or benchmark-sensitive
+    package paths changed. Commit `cb63df1` was pushed to both remotes.
     Hosted GitHub `CI` run `25340546748` completed successfully with
     `Fast Checks` and `Full Verify`. The deployment-chain audit with required
     clean latest CI, clean hosted CI logs, and clean Dart package publish
