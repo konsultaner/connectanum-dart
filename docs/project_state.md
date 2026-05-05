@@ -1,15 +1,16 @@
 # Project State
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest implementation checkpoint: `mcp: smoke consumer resources prompts`
+Latest implementation checkpoint: MCP consumer batch smoke
 (local verification clean; hosted evidence pending)
 Active exec plan: none.
 Previous completed exec plan:
 `docs/exec-plans/2026-05-04-mcp-consumer-runtime-smoke.md`
-(complete; local verification clean; hosted evidence pending for latest commit).
+(complete; local verification clean; hosted evidence pending for latest
+batch-smoke extension).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-04-native-hook-user-defines-consumer-run.md`
 (complete; hosted evidence clean).
@@ -142,10 +143,35 @@ order.
     resources/prompts, WAMP meta helpers, and Streamable HTTP session
     lifecycle, full router package tests including router-hosted MCP
     auth/session coverage, zero-copy router checks, and Chrome Dart2Wasm
-    WebSocket transport tests. Hosted evidence is pending for the latest
-    resource/prompt consumer-smoke implementation commit. The previous WAMP
-    meta-helper extension passed the focused consumer package smoke,
-    `bin/test-fast`, and full local
+    WebSocket transport tests. The latest batch-smoke extension passed local
+    `bin/test-fast` and full local `bin/verify` on 2026-05-05. The generated
+    consumer package now proves mixed direct JSON-RPC batches and initialized
+    Streamable HTTP batches against both public and bearer-protected
+    router-hosted MCP routes. The direct JSON batch path proves API catalog
+    lookup, direct procedure calls, configured resources/prompts, notification
+    response omission, and no Streamable session state capture. The Streamable
+    batch path proves tool listing/calling, configured resources/prompts,
+    notification response omission, and a session-prefixed SSE event id update
+    through the public consumer client API. Full verify included formatting,
+    Rust native/FFI tests, Python package-artifact checks, MCP package tests,
+    client tests, auth-server tests, bench integration tests, the
+    router-hosted MCP example smoke, the upgraded protected consumer runtime
+    smoke with batch/resources/prompts/WAMP meta/session-lifecycle coverage,
+    full router package tests including router-hosted MCP auth/session/batch
+    coverage, zero-copy router checks, and Chrome Dart2Wasm WebSocket transport
+    tests. Hosted evidence is pending for this latest batch-smoke extension.
+    Commit `cb63df1` was pushed to both remotes.
+    Hosted GitHub `CI` run `25340546748` completed successfully with
+    `Fast Checks` and `Full Verify`. The deployment-chain audit with required
+    clean latest CI, clean hosted CI logs, and clean Dart package publish
+    dry-run passed for branch head `cb63df1`. `Dart Package Publish Dry Run`
+    and `WAMP Profile Benchmarks` did not trigger for this script/docs change;
+    the latest package dry-run remains clean and relevant on `207be91` because
+    no publish-sensitive paths changed. The remaining audit findings are the
+    existing operator/deployment items around branch protection, default-branch
+    router workflow visibility, and GHCR router package visibility. The
+    previous WAMP meta-helper extension passed the focused consumer package
+    smoke, `bin/test-fast`, and full local
     `bin/verify` on 2026-05-04. Full verify included formatting, Rust
     native/FFI tests, Python package-artifact checks, MCP package tests, client
     tests, auth-server tests, bench integration tests, the router-hosted MCP

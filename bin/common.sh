@@ -969,6 +969,7 @@ Future<void> _smokeDirectJson(
     throw StateError('Direct JSON tool call did not return expected payload.');
   }
 
+  await _smokeDirectJsonBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label, directJson: true);
   await _smokeWampMetaDiscovery(client, label: label, directJson: true);
 
@@ -1049,6 +1050,7 @@ Future<void> _smokeStreamableMcp(
     throw StateError('Streamable MCP tool call returned unexpected payload.');
   }
 
+  await _smokeStreamableBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label);
   await _smokeWampMetaDiscovery(client, label: label);
 
@@ -1081,6 +1083,149 @@ Future<void> _smokeStreamableMcp(
     serviceSession,
     label: label,
   );
+}
+
+Future<void> _smokeDirectJsonBatch(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final taskId = 'T-$label-direct-batch';
+  final promptTaskId = 'T-$label-direct-batch-prompt';
+  final responses = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-api',
+        'method': 'connectanum.api.list',
+        'params': {'kind': 'procedure'},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-call',
+        'method': _procedure,
+        'params': {'taskId': taskId},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-resources',
+        'method': 'resources/list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-prompt',
+        'method': 'prompts/get',
+        'params': {
+          'name': _promptName,
+          'arguments': {'taskId': promptTaskId},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': 'T-$label-direct-batch-notification'},
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (responses == null || responses.length != 4) {
+    throw StateError('Direct JSON batch did not return four responses.');
+  }
+  if (responses[0]['id'] != '$label-direct-batch-api' ||
+      !jsonEncode(responses[0]).contains(_procedure)) {
+    throw StateError('Direct JSON batch API catalog response was invalid.');
+  }
+  if (responses[1]['id'] != '$label-direct-batch-call' ||
+      !jsonEncode(responses[1]).contains(taskId)) {
+    throw StateError('Direct JSON batch procedure call response was invalid.');
+  }
+  if (responses[2]['id'] != '$label-direct-batch-resources' ||
+      !jsonEncode(responses[2]).contains(_resourceUri)) {
+    throw StateError('Direct JSON batch resources/list response was invalid.');
+  }
+  if (responses[3]['id'] != '$label-direct-batch-prompt' ||
+      !jsonEncode(responses[3]).contains(promptTaskId)) {
+    throw StateError('Direct JSON batch prompts/get response was invalid.');
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError('Direct JSON batch captured Streamable session state.');
+  }
+}
+
+Future<void> _smokeStreamableBatch(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable MCP batch has no initialized session id.');
+  }
+
+  final previousEventId = client.lastEventId;
+  final taskId = 'T-$label-streamable-batch';
+  final promptTaskId = 'T-$label-streamable-batch-prompt';
+  final responses = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-tools',
+      'method': 'tools/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-call',
+      'method': 'tools/call',
+      'params': {
+        'name': _procedure,
+        'arguments': {'taskId': taskId},
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-resources',
+      'method': 'resources/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-prompt',
+      'method': 'prompts/get',
+      'params': {
+        'name': _promptName,
+        'arguments': {'taskId': promptTaskId},
+      },
+    },
+    {'jsonrpc': '2.0', 'method': 'notifications/initialized', 'params': {}},
+  ]);
+  if (responses == null || responses.length != 4) {
+    throw StateError('Streamable MCP batch did not return four responses.');
+  }
+  if (responses[0]['id'] != '$label-streamable-batch-tools' ||
+      !jsonEncode(responses[0]).contains(_procedure)) {
+    throw StateError('Streamable MCP batch tools/list response was invalid.');
+  }
+  if (responses[1]['id'] != '$label-streamable-batch-call' ||
+      !jsonEncode(responses[1]).contains(taskId)) {
+    throw StateError('Streamable MCP batch tools/call response was invalid.');
+  }
+  if (responses[2]['id'] != '$label-streamable-batch-resources' ||
+      !jsonEncode(responses[2]).contains(_resourceUri)) {
+    throw StateError('Streamable MCP batch resources/list response invalid.');
+  }
+  if (responses[3]['id'] != '$label-streamable-batch-prompt' ||
+      !jsonEncode(responses[3]).contains(promptTaskId)) {
+    throw StateError('Streamable MCP batch prompts/get response was invalid.');
+  }
+  final eventId = client.lastEventId;
+  if (eventId == null ||
+      !eventId.startsWith('$sessionId:') ||
+      eventId == previousEventId) {
+    throw StateError('Streamable MCP batch did not update SSE event state.');
+  }
 }
 
 Future<void> _smokeResourcesAndPrompts(

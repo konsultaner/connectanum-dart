@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Runtime Smoke
 
-Status: complete; local verification clean; hosted evidence pending for latest resource/prompt consumer-smoke commit
+Status: complete; local verification clean; hosted evidence pending for latest batch-smoke extension
 Owner: Codex
 Created: 2026-05-04
 Last updated: 2026-05-04
@@ -25,6 +25,9 @@ In scope:
   unauthenticated rejection on the protected MCP route and bearer-token use for
   direct JSON and Streamable HTTP requests.
 - Exercise direct JSON-RPC tool listing/calling from the consumer package.
+- Exercise mixed direct JSON-RPC batches from the consumer package, including
+  API catalog lookup, direct procedure calls, configured resources/prompts, and
+  notification response omission without capturing Streamable session state.
 - Exercise configured MCP resources, resource templates, and prompts from the
   consumer package through direct JSON and initialized Streamable MCP on public
   and bearer-protected routes.
@@ -35,6 +38,9 @@ In scope:
   the consumer package.
 - Exercise initialized Streamable MCP tool listing/calling, WAMP pub/sub helper
   polling, and Streamable HTTP session lifecycle from the consumer package.
+- Exercise mixed initialized Streamable HTTP batches from the consumer package,
+  including tool listing/calling, configured resources/prompts, notification
+  response omission, and session-prefixed SSE event-state updates.
 - Prove Streamable HTTP `GET`/SSE polling, `Last-Event-ID` resume behavior, and
   `DELETE` session cleanup through public consumer APIs.
 - Preserve the existing public API construction fallback when no native runtime
@@ -115,8 +121,33 @@ Out of scope:
   resources/prompts, WAMP meta helpers, and Streamable HTTP session lifecycle,
   full router package tests including router-hosted MCP auth/session coverage,
   zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
-- Hosted evidence is pending for the latest resource/prompt consumer-smoke
-  implementation commit.
+- Commit `cb63df1` was pushed to both remotes. Hosted GitHub `CI` run
+  `25340546748` completed successfully with `Fast Checks` and `Full Verify`.
+  The deployment-chain audit with required clean latest CI, clean hosted CI
+  logs, and clean Dart package publish dry-run passed for branch head
+  `cb63df1`. `Dart Package Publish Dry Run` and `WAMP Profile Benchmarks` did
+  not trigger for this script/docs change; the latest package dry-run remains
+  clean and relevant on `207be91` because no publish-sensitive paths changed.
+  The remaining audit findings are the existing operator/deployment items
+  around branch protection, default-branch router workflow visibility, and
+  GHCR router package visibility.
+- The latest batch-smoke extension passed local `bin/test-fast` and full local
+  `bin/verify` on 2026-05-05.
+  The generated consumer package now proves mixed direct JSON-RPC batches and
+  initialized Streamable HTTP batches against both public and bearer-protected
+  router-hosted MCP routes. The direct JSON batch path proves API catalog
+  lookup, direct procedure calls, configured resources/prompts, notification
+  response omission, and no Streamable session state capture. The Streamable
+  batch path proves tool listing/calling, configured resources/prompts,
+  notification response omission, and a session-prefixed SSE event id update
+  through the public consumer client API. Full verify included formatting,
+  Rust native/FFI tests, Python package-artifact checks, MCP package tests,
+  client tests, auth-server tests, bench integration tests, the router-hosted
+  MCP example smoke, the upgraded protected consumer runtime smoke with
+  batch/resources/prompts/WAMP meta/session-lifecycle coverage, full router
+  package tests including router-hosted MCP auth/session/batch coverage,
+  zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
+  Hosted evidence is pending for this latest batch-smoke extension.
 - Commit `e826f7e` was pushed to both remotes. Hosted GitHub `CI` run
   `25338108663` completed successfully with `Fast Checks` and `Full Verify`.
   The deployment-chain audit with required clean latest CI, clean hosted CI
@@ -159,5 +190,5 @@ Out of scope:
 
 ## Handoff
 
-Latest implementation and local verification are complete. Hosted GitHub CI
-evidence is pending for the resource/prompt consumer-smoke commit.
+Implementation and full local verification are complete for the latest
+batch-smoke extension. Hosted GitHub CI evidence is pending.
