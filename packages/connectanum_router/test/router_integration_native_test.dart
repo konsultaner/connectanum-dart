@@ -4228,7 +4228,6 @@ RouterSettings _buildMcpAnonymousIsolationSettings() {
     );
 
   final listener = ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
-    ..setSessionProfile('public-wamp')
     ..addProtocol(ListenerProtocol.rawsocket)
     ..addProtocol(ListenerProtocol.http)
     ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
@@ -4250,10 +4249,6 @@ RouterSettings _buildMcpAnonymousIsolationSettings() {
 
   return (RouterSettingsBuilder()
         ..addRealmFromBuilder(realmBuilder)
-        ..addSessionProfileFromBuilder(
-          SessionProfileSettingsBuilder('public-wamp')
-            ..addAuthMethod('anonymous'),
-        )
         ..addListenerFromBuilder(listener)
         ..addAuthenticator(
           'anonymous',

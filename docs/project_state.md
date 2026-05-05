@@ -6,9 +6,12 @@ Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Latest pushed implementation commit: `4847124`
 (`mcp: smoke consumer batch requests`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP HTTP auth client helper
+Latest implementation checkpoint: MCP external authorization context
 (local verification clean; hosted evidence pending)
 Active exec plan: none.
+Previous completed exec plan:
+`docs/exec-plans/2026-05-05-mcp-external-authorization-context.md`
+(complete; local verification clean; hosted evidence pending).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-05-mcp-http-auth-client-helper.md`
 (complete; local verification clean; hosted evidence pending).
@@ -105,6 +108,24 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP external authorization context is complete locally. Router-hosted MCP
+    and HTTP-auth bridge sessions now carry an explicit
+    `authorizationIsInternal` flag so public MCP callers and bearer-authenticated
+    bridge callers authorize as their effective external principal instead of
+    accidentally inheriting privileged router-service semantics. The MCP route
+    re-checks call, publish, and subscribe authorization at dispatch time, while
+    generic configured HTTP RPC bridge routes retain their existing internal
+    route-service behavior for compatibility with configured service routes
+    such as OpenMetrics. Focused MCP isolation and OpenMetrics regression tests
+    passed on 2026-05-05. `bin/test-fast` and full local `bin/verify` also
+    passed on 2026-05-05, including formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP package tests, client tests with HTTP auth
+    helper coverage, auth-server tests, bench integration tests, the
+    router-hosted MCP example smoke, the generated external consumer package
+    smoke, full router package tests including router-hosted MCP
+    auth/session/batch coverage and the OpenMetrics HTTP route, zero-copy
+    router checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted
+    GitHub evidence is pending.
   - MCP HTTP auth client helper is complete locally.
     `package:connectanum_client/mcp.dart` now exports
     `ConnectanumHttpAuthClient`, which performs the router HTTP auth bridge

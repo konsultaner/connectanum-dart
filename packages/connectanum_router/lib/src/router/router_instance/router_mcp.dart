@@ -502,6 +502,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           realmUri: resolvedRealmUri,
           sessionProfile: sessionProfile,
         ),
+        authorizationIsInternal: false,
       );
     }
   } on _HttpUnauthorized catch (error) {
@@ -1544,7 +1545,7 @@ class _RouterMcpEndpoint {
         authRole: session.authRole,
         authMethod: session.authMethod,
         authProvider: session.authProvider,
-        isInternal: true,
+        isInternal: session.authorizationIsInternal,
       ),
     );
     return decision.allowed;
@@ -1564,6 +1565,9 @@ class _RouterMcpEndpoint {
     if (metaResult != null) {
       return metaResult;
     }
+    if (!await _isAuthorized(AuthorizationAction.call, call.procedure)) {
+      throw StateError('Not authorized to call ${call.procedure}');
+    }
     final result = await session
         .call(
           call.procedure,
@@ -1578,6 +1582,9 @@ class _RouterMcpEndpoint {
   Future<mcp.McpWampPublication?> _publish(
     mcp.McpWampPublishRequest request,
   ) async {
+    if (!await _isAuthorized(AuthorizationAction.publish, request.topic)) {
+      throw StateError('Not authorized to publish ${request.topic}');
+    }
     final published = await session.publish(
       request.topic,
       arguments: request.arguments,
@@ -1594,6 +1601,9 @@ class _RouterMcpEndpoint {
     mcp.McpWampSubscribeRequest request,
     void Function(mcp.McpWampEvent event) onEvent,
   ) async {
+    if (!await _isAuthorized(AuthorizationAction.subscribe, request.topic)) {
+      throw StateError('Not authorized to subscribe ${request.topic}');
+    }
     final subscribed = await session.subscribe(
       request.topic,
       options: request.options,

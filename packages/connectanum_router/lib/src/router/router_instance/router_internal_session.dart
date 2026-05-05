@@ -11,6 +11,7 @@ class RouterSession {
     required this.authRole,
     required this.authMethod,
     required this.authProvider,
+    required this.authorizationIsInternal,
     this.cacheKey,
     required Map<String, Object?> roles,
     required SendPort commandPort,
@@ -35,6 +36,7 @@ class RouterSession {
   final String? authRole;
   final String? authMethod;
   final String? authProvider;
+  final bool authorizationIsInternal;
   final String? cacheKey;
   final Map<String, Object?> roles;
 
@@ -1408,6 +1410,7 @@ class _InternalSessionBootstrap {
     required this.authRole,
     required this.authMethod,
     required this.authProvider,
+    required this.authorizationIsInternal,
     required this.roles,
     required this.realmSettings,
     required this.statePort,
@@ -1421,6 +1424,7 @@ class _InternalSessionBootstrap {
   final String? authRole;
   final String? authMethod;
   final String? authProvider;
+  final bool authorizationIsInternal;
   final Map<String, Object?> roles;
   final RealmSettings? realmSettings;
   final SendPort statePort;
@@ -1583,7 +1587,7 @@ class _InternalSessionIsolate {
       authMethod: _bootstrap.authMethod,
       authProvider: _bootstrap.authProvider,
       protocol: null,
-      isInternal: true,
+      isInternal: _bootstrap.authorizationIsInternal,
       options: options,
       targetMatchPolicy: targetMatchPolicy,
     );

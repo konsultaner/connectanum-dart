@@ -326,6 +326,7 @@ class RouterBinding {
     Map<String, Object?> roles = const {},
     String? sessionProfile,
     String? cacheKey,
+    bool authorizationIsInternal = true,
     bool indexByRealm = true,
   }) async {
     if (!_ready) {
@@ -374,6 +375,7 @@ class RouterBinding {
         authRole: resolvedAuthRole,
         authMethod: authMethod,
         authProvider: authProvider,
+        authorizationIsInternal: authorizationIsInternal,
         roles: resolvedRoles,
         realmSettings: realmSettings,
         statePort: statePort,
@@ -415,6 +417,7 @@ class RouterBinding {
       authRole: resolvedAuthRole,
       authMethod: authMethod,
       authProvider: authProvider,
+      authorizationIsInternal: authorizationIsInternal,
       cacheKey: cacheKey,
       roles: resolvedRoles,
       commandPort: requestPort,
@@ -1437,10 +1440,22 @@ class RouterBinding {
     String? authProvider,
     Map<String, Object?> roles = const {},
     String? cacheKey,
+    bool authorizationIsInternal = true,
   }) async {
-    final resolvedCacheKey = cacheKey ?? sessionProfile;
+    final resolvedCacheKey =
+        cacheKey ??
+        (authorizationIsInternal
+            ? sessionProfile
+            : _externalSessionCacheKey(
+                realmUri: realmUri,
+                sessionProfile: sessionProfile,
+                authId: authId,
+                authRole: authRole,
+                authMethod: authMethod,
+                authProvider: authProvider,
+              ));
     final existing = resolvedCacheKey == null
-        ? _internalSessionsByRealm[realmUri]
+        ? (authorizationIsInternal ? _internalSessionsByRealm[realmUri] : null)
         : _internalSessionsByCacheKey[resolvedCacheKey];
     if (existing != null) {
       return existing;
@@ -1454,8 +1469,28 @@ class RouterBinding {
       roles: roles,
       sessionProfile: sessionProfile,
       cacheKey: resolvedCacheKey,
-      indexByRealm: resolvedCacheKey == null,
+      authorizationIsInternal: authorizationIsInternal,
+      indexByRealm: authorizationIsInternal && resolvedCacheKey == null,
     );
+  }
+
+  String _externalSessionCacheKey({
+    required String realmUri,
+    String? sessionProfile,
+    String? authId,
+    String? authRole,
+    String? authMethod,
+    String? authProvider,
+  }) {
+    return [
+      'http-external',
+      realmUri,
+      sessionProfile ?? '',
+      authId ?? 'anonymous',
+      authRole ?? '',
+      authMethod ?? '',
+      authProvider ?? '',
+    ].join(':');
   }
 
   SessionProfileSettings? _resolveHttpSessionProfile({
@@ -2419,6 +2454,7 @@ class RouterBinding {
         authProvider: record.authProvider,
         sessionProfile: sessionProfile?.name,
         cacheKey: cacheKey,
+        authorizationIsInternal: false,
       );
     }
 
@@ -2475,6 +2511,7 @@ class RouterBinding {
       cacheKey: sessionProfile?.name != null && sessionProfile!.name.isNotEmpty
           ? '$cacheKeyBase:${sessionProfile.name}'
           : cacheKeyBase,
+      authorizationIsInternal: false,
     );
   }
 
