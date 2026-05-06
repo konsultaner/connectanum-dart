@@ -11,7 +11,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
 
-import 'package:connectanum_client/mcp.dart';
+import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_router/src/native/ffi_bindings.dart';
 import 'package:connectanum_router/src/native/runtime.dart';

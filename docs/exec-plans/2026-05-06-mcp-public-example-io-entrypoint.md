@@ -1,6 +1,6 @@
 # Exec Plan: MCP Public Example IO Entrypoint
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-06
 Last updated: 2026-05-06
@@ -56,7 +56,17 @@ direct JSON-RPC helpers, and HTTP auth bridge helpers.
   returned no matches on 2026-05-06.
 - Post-change `bin/test-fast` passed on 2026-05-06.
 - Full local `bin/verify` passed on 2026-05-06.
-- Pending: hosted GitHub evidence after push.
+- Hosted GitHub evidence for `f9e7608` is clean:
+  - `CI` run `25459179156` completed successfully with `Fast Checks` and
+    `Full Verify`.
+  - `Dart Package Publish Dry Run` run `25459179227` completed successfully.
+  - `WAMP Profile Benchmarks` run `25459179240` completed successfully.
+  - Public check-run annotation audit found zero GitHub annotations across
+    `Fast Checks`, `Full Verify`, `Publish Dry Run`, and
+    `Linux WAMP profile gates`.
+  - Standard deployment-chain audit passed.
+  - Strict audit failed only on the known operator-owned branch protection,
+    default-branch workflow visibility, and GHCR package visibility gaps.
 
 ## Decision Log
 
@@ -66,5 +76,5 @@ direct JSON-RPC helpers, and HTTP auth bridge helpers.
 
 ## Handoff
 
-- Public example IO entrypoint work is complete locally. Push the implementation
-  commit and collect hosted GitHub evidence.
+- Public example IO entrypoint work is complete with local and hosted evidence.
+  Remaining deployment-chain findings are operator-owned.
