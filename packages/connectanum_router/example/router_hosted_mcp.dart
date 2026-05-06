@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:connectanum_client/mcp.dart';
+import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 
 const String _realm = 'example.realm';

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer IO Entrypoint Smoke
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-06
 Last updated: 2026-05-06
@@ -53,7 +53,16 @@ application dependency.
 - `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'` passed on 2026-05-06.
 - Post-change `bin/test-fast` passed on 2026-05-06.
 - Full local `bin/verify` passed on 2026-05-06.
-- Pending: hosted GitHub evidence after push.
+- Hosted GitHub evidence for `5d5c18f` is clean:
+  - `CI` run `25456751385` completed successfully with `Fast Checks` and
+    `Full Verify`.
+  - Public check-run annotation audit found zero GitHub annotations for both
+    check runs.
+  - Standard deployment-chain audit passed; `Dart Package Publish Dry Run`
+    run `25454447229` remains clean and relevant because no publish-sensitive
+    paths changed since `acb0ed8`.
+  - Strict audit failed only on the known operator-owned branch protection,
+    default-branch workflow visibility, and GHCR package visibility gaps.
 
 ## Decision Log
 
@@ -65,5 +74,5 @@ application dependency.
 
 ## Handoff
 
-- Consumer IO entrypoint smoke is complete locally. Push the implementation
-  commit and collect hosted GitHub evidence.
+- Consumer IO entrypoint smoke is complete with local and hosted evidence.
+  Remaining deployment-chain findings are operator-owned.

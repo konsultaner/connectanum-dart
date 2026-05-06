@@ -29,7 +29,7 @@ tasks yet. Network MCP endpoints are hosted by `connectanum_router` routes with
 `GET`/SSE polling, `DELETE` session teardown, and direct JSON-RPC tool/meta API
 calls for frontend clients that do not need the MCP `initialize` lifecycle.
 Consumer clients can use `McpStreamableHttpClient` from
-`package:connectanum_client/mcp.dart`, including
+`package:connectanum_mcp/connectanum_mcp_io.dart`, including
 `McpStreamableHttpClient.withBearerToken(...)` for bearer-protected routes.
 Tool execution failures are returned as MCP tool results with `isError: true`;
 malformed JSON-RPC messages, unknown methods, and invalid parameters remain

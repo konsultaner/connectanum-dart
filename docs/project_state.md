@@ -4,13 +4,16 @@ Last updated: 2026-05-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `acb0ed8`
-(`test: keep direct mcp batches lifecycle-free`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP consumer IO entrypoint smoke
+Latest pushed implementation commit: `5d5c18f`
+(`test: smoke mcp io entrypoint consumer`; hosted CI evidence clean)
+Latest implementation checkpoint: MCP public example IO entrypoint
 (complete locally; hosted evidence pending).
 Active exec plan:
-`docs/exec-plans/2026-05-06-mcp-consumer-io-entrypoint-smoke.md`
+`docs/exec-plans/2026-05-06-mcp-public-example-io-entrypoint.md`
 (complete locally; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-06-mcp-consumer-io-entrypoint-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-direct-batch-after-streamable-smoke.md`
 (complete; hosted CI evidence clean).
@@ -134,8 +137,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer IO entrypoint smoke is complete locally and pending hosted
-    evidence. The generated consumer package smoke now imports
+  - MCP public example IO entrypoint is complete locally and pending hosted
+    evidence. The runnable
+    router-hosted MCP example now imports
+    `package:connectanum_mcp/connectanum_mcp_io.dart` instead of the lower-level
+    client MCP barrel, and the MCP package README now points consumer clients
+    to the same public IO entrypoint. Pre-change `bin/test-fast` passed on
+    2026-05-06. Focused verification passed on 2026-05-06:
+    `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart`;
+    `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`;
+    and
+    `rg -n "package:connectanum_client/mcp.dart" packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_mcp/README.md`
+    returned no matches. Post-change `bin/test-fast` passed on 2026-05-06.
+    Full local `bin/verify` passed on 2026-05-06. Hosted evidence is pending.
+  - MCP consumer IO entrypoint smoke is complete with hosted CI evidence. The
+    generated consumer package smoke now imports
     `package:connectanum_mcp/connectanum_mcp_io.dart` for MCP primitives plus
     the Streamable HTTP/direct JSON client surface, and no longer declares
     `connectanum_client` as a direct application dependency. It still keeps
@@ -149,7 +165,19 @@ order.
     package-artifact checks, MCP package tests, client tests, auth-server tests,
     bench integration tests, router-hosted MCP example and generated consumer
     package smoke, full router package tests, zero-copy router checks, and
-    Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is pending.
+    Chrome Dart2Wasm WebSocket transport tests. Hosted GitHub evidence for
+    `5d5c18f` is clean: `CI` run `25456751385` completed successfully with
+    `Fast Checks` and `Full Verify`, and public check-run annotation audit
+    found zero GitHub annotations for both check runs. The deployment-chain
+    audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `5d5c18f`; `Dart Package Publish Dry Run` run `25454447229`
+    remains clean and relevant because no publish-sensitive paths changed since
+    `acb0ed8`. The strict variant
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+    correctly failed only on the known operator-owned deployment-chain gaps:
+    `add-router` is unprotected, the router image workflow is not discoverable
+    from the default branch, and the router container package is not visible.
   - MCP direct JSON batch after Streamable initialization is complete with
     hosted CI evidence. The client now has focused coverage proving
     `postBatch(..., streamable: false, includeSession: false)` remains
