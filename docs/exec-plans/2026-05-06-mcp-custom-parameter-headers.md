@@ -54,8 +54,15 @@ malformed, or inconsistent with the JSON-RPC body.
   tests, auth-server tests, bench integration tests, router-hosted MCP example
   and generated consumer package smoke, full router package tests, zero-copy
   router checks, and Chrome Dart2Wasm WebSocket transport tests.
+- Hosted GitHub evidence for `255c990` is clean on 2026-05-06: `CI` run
+  `25441310755` completed successfully with `Fast Checks` and `Full Verify`,
+  `Dart Package Publish Dry Run` run `25441310873` completed successfully, and
+  `WAMP Profile Benchmarks` run `25441310971` completed successfully. Public
+  check-run annotation audit found zero GitHub annotations for all four check
+  runs. Raw hosted log download remains blocked in this environment because
+  GitHub returns `Must have admin rights to Repository` and no GitHub token is
+  present.
 
 ## Status
 
-- 2026-05-06: Implementation and full local verification are complete. Hosted
-  evidence is pending after push.
+- 2026-05-06: Complete. Hosted evidence is clean for `255c990`.

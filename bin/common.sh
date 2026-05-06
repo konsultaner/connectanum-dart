@@ -449,6 +449,7 @@ const _procedure = 'consumer.task.lookup';
 const _resourceUri = 'consumer://mcp/context';
 const _resourceTemplateUri = 'consumer://mcp/task/{taskId}';
 const _promptName = 'inspect-consumer-task';
+const _headerWrappedNote = '=?base64?Zm9v?=';
 
 Future<void> main() async {
   final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
@@ -833,7 +834,8 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
           'input_json_schema': {
             'type': 'object',
             'properties': {
-              'taskId': {'type': 'string'},
+              'taskId': {'type': 'string', 'x-mcp-header': 'TaskId'},
+              'note': {'type': 'string', 'x-mcp-header': 'Note'},
             },
             'required': ['taskId'],
           },
@@ -848,11 +850,13 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
 
   registration.onInvoke((invocation) {
     final taskId = invocation.argumentsKeywords?['taskId'] ?? 'unknown';
+    final note = invocation.argumentsKeywords?['note'];
     invocation.respondWith(
       argumentsKeywords: {
         'taskId': taskId,
         'status': 'open',
         'source': 'consumer-package-smoke',
+        if (note != null) 'note': note,
       },
     );
   });
@@ -905,9 +909,11 @@ Future<void> _smokeDirectJson(
   final result = await client.callConnectanumMethodDirect(
     _procedure,
     id: '$label-direct-call',
-    params: {'taskId': 'T-$label-direct'},
+    params: {'taskId': 'T-$label-direct', 'note': _headerWrappedNote},
   );
-  if (!jsonEncode(result).contains('T-$label-direct')) {
+  final resultJson = jsonEncode(result);
+  if (!resultJson.contains('T-$label-direct') ||
+      !resultJson.contains(_headerWrappedNote)) {
     throw StateError('Direct JSON tool call did not return expected payload.');
   }
 
@@ -986,9 +992,14 @@ Future<void> _smokeStreamableMcp(
   final result = await client.callTool(
     _procedure,
     id: '$label-streamable-call',
-    arguments: {'taskId': 'T-$label-streamable'},
+    arguments: {
+      'taskId': 'T-$label-streamable',
+      'note': _headerWrappedNote,
+    },
   );
-  if (!jsonEncode(result).contains('T-$label-streamable')) {
+  final resultJson = jsonEncode(result);
+  if (!resultJson.contains('T-$label-streamable') ||
+      !resultJson.contains(_headerWrappedNote)) {
     throw StateError('Streamable MCP tool call returned unexpected payload.');
   }
 
