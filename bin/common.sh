@@ -983,24 +983,45 @@ Future<void> _smokeStreamableMcp(
   }
   await client.notifyInitialized();
 
-  final tools = await client.listTools(id: '$label-streamable-tools');
-  final names = {for (final tool in tools.tools) tool['name'] as String};
-  if (!names.contains(_procedure)) {
-    throw StateError('Streamable MCP tool catalog did not expose $_procedure.');
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable MCP initialize did not capture a session id.');
+  }
+  final eventIdBeforeDirectCatalog = client.lastEventId;
+  final directCatalog = await client.listConnectanumToolsDirect(
+    id: '$label-direct-catalog-for-streamable',
+  );
+  final directCatalogNames = {
+    for (final tool in directCatalog.tools) tool['name'] as String,
+  };
+  if (!directCatalogNames.contains(_procedure)) {
+    throw StateError('Direct JSON tool catalog did not expose $_procedure.');
+  }
+  if (client.sessionId != sessionId ||
+      client.lastEventId != eventIdBeforeDirectCatalog) {
+    throw StateError(
+      'Direct JSON tool catalog changed Streamable MCP session state.',
+    );
   }
 
   final result = await client.callTool(
     _procedure,
-    id: '$label-streamable-call',
+    id: '$label-streamable-direct-catalog-call',
     arguments: {
-      'taskId': 'T-$label-streamable',
+      'taskId': 'T-$label-streamable-direct-catalog',
       'note': _headerWrappedNote,
     },
   );
   final resultJson = jsonEncode(result);
-  if (!resultJson.contains('T-$label-streamable') ||
+  if (!resultJson.contains('T-$label-streamable-direct-catalog') ||
       !resultJson.contains(_headerWrappedNote)) {
     throw StateError('Streamable MCP tool call returned unexpected payload.');
+  }
+
+  final tools = await client.listTools(id: '$label-streamable-tools');
+  final names = {for (final tool in tools.tools) tool['name'] as String};
+  if (!names.contains(_procedure)) {
+    throw StateError('Streamable MCP tool catalog did not expose $_procedure.');
   }
 
   await _smokeStreamableBatch(client, label: label);

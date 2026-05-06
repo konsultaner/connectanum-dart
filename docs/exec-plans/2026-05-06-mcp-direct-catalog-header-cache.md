@@ -36,7 +36,19 @@ cache as standard `tools/list`.
   tests, auth-server tests, bench integration tests, router-hosted MCP example
   and generated consumer package smoke, full router package tests, zero-copy
   router checks, and Chrome Dart2Wasm WebSocket transport tests.
-- Hosted evidence pending.
+- Hosted GitHub evidence for `722cf78` is clean on 2026-05-06: `CI` run
+  `25447162568` completed successfully with `Fast Checks` and `Full Verify`;
+  `Dart Package Publish Dry Run` run `25447165335` completed successfully;
+  `WAMP Profile Benchmarks` run `25447166796` completed successfully. Public
+  check-run annotation audit found zero GitHub annotations for all four check
+  runs. The deployment-chain audit
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci`
+  passed against `722cf78`; it still reports the known operator-owned findings
+  that `add-router` is unprotected, the router image workflow is not
+  discoverable from the default branch, and the router container package is not
+  visible. The strict variant
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --strict`
+  correctly failed only on those operator-owned deployment-chain gaps.
 
 ## Status
 
@@ -46,3 +58,6 @@ cache as standard `tools/list`.
 - 2026-05-06: Complete locally. Direct JSON tool catalog discovery now warms
   the same client custom-header cache as standard `tools/list`, and focused,
   fast-suite, and full local verification passed. Hosted evidence is pending.
+- 2026-05-06: Complete. Hosted CI, package dry-run, WAMP profile benchmark, and
+  deployment-chain evidence are clean for `722cf78`; strict audit only reports
+  the known operator-owned deployment-chain gaps.
