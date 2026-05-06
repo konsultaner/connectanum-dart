@@ -421,6 +421,16 @@ import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 const _sessionId = 'agent-session';
 const _protocolVersion = McpStreamableHttpClient.latestProtocolVersion;
 const _toolName = 'agent.echo';
+const _procedureName = 'agent.lookup';
+const _resourceUri = 'wamp://agent/readme';
+const _resourceTemplateUri = 'wamp://agent/task/{taskId}';
+const _promptName = 'agent.summary';
+const _topic = 'agent.events';
+const _subscriptionHandlePrefix = 'agent-subscription';
+const _registrationId = 101;
+const _subscriptionId = 202;
+const _sessionCount = 1;
+const _publicationId = 303;
 
 Future<void> main() async {
   final endpoint = await _AgentMcpEndpoint.bind();
@@ -452,7 +462,10 @@ Future<void> main() async {
       id: 'tools-json',
       streamable: false,
     );
-    _expect(tools.tools.single['name'] == _toolName, 'tools/list failed');
+    _expect(
+      tools.tools.any((tool) => tool['name'] == _toolName),
+      'tools/list failed',
+    );
 
     final toolResult = await client.callTool(
       _toolName,
@@ -474,13 +487,16 @@ Future<void> main() async {
       id: 'direct-tools',
     );
     _expect(
-      directTools.tools.single['name'] == _toolName,
+      directTools.tools.any((tool) => tool['name'] == _toolName),
       'direct JSON tools/list failed',
     );
     _expect(
       endpoint.sawDirectRequestWithoutSession,
       'direct JSON request included Streamable HTTP session state',
     );
+
+    await _smokeResourcesAndPrompts(client, endpoint);
+    await _smokeWampHelpers(client, endpoint);
 
     final events = await client.poll();
     _expect(
@@ -499,6 +515,191 @@ Future<void> main() async {
   }
 }
 
+Future<void> _smokeResourcesAndPrompts(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final resources = await client.listResources(id: 'streamable-resources');
+  _expect(
+    resources.resources.single['uri'] == _resourceUri,
+    'streamable resources/list failed',
+  );
+
+  final readResource = await client.readResource(
+    _resourceUri,
+    id: 'streamable-resource-read',
+  );
+  _expect(
+    readResource.single['text'] == 'agent context is available',
+    'streamable resources/read failed',
+  );
+
+  final templates = await client.listResourceTemplates(
+    id: 'streamable-resource-templates',
+  );
+  _expect(
+    templates.resourceTemplates.single['uriTemplate'] == _resourceTemplateUri,
+    'streamable resources/templates/list failed',
+  );
+
+  final prompts = await client.listPrompts(id: 'streamable-prompts');
+  _expect(
+    prompts.prompts.single['name'] == _promptName,
+    'streamable prompts/list failed',
+  );
+
+  final prompt = await client.getPrompt(
+    _promptName,
+    id: 'streamable-prompt-get',
+    arguments: const <String, String>{'taskId': 'T-streamable'},
+  );
+  _expect(
+    jsonEncode(prompt).contains('T-streamable'),
+    'streamable prompts/get failed',
+  );
+
+  final directResources = await client.listResources(
+    id: 'direct-resources',
+    directJson: true,
+  );
+  _expect(
+    directResources.resources.single['uri'] == _resourceUri,
+    'direct JSON resources/list failed',
+  );
+
+  final directPrompt = await client.getPrompt(
+    _promptName,
+    id: 'direct-prompt-get',
+    arguments: const <String, String>{'taskId': 'T-direct'},
+    directJson: true,
+  );
+  _expect(
+    jsonEncode(directPrompt).contains('T-direct'),
+    'direct JSON prompts/get failed',
+  );
+  _expect(
+    endpoint.directMethodsWithoutSession.contains('resources/list') &&
+        endpoint.directMethodsWithoutSession.contains('prompts/get'),
+    'direct JSON resource/prompt helpers included Streamable session state',
+  );
+}
+
+Future<void> _smokeWampHelpers(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final api = await client.listWampApi(id: 'streamable-api-list');
+  _expect(
+    jsonEncode(api).contains(_procedureName) && jsonEncode(api).contains(_topic),
+    'streamable WAMP API list helper failed',
+  );
+
+  final described = await client.describeWampApi(
+    _procedureName,
+    id: 'streamable-api-describe',
+    kind: 'procedure',
+  );
+  _expect(
+    described['uri'] == _procedureName,
+    'streamable WAMP API describe helper failed',
+  );
+
+  final sessionCount = await client.countWampSessions(
+    id: 'streamable-session-count',
+  );
+  _expect(
+    sessionCount.argumentsKeywords['count'] == _sessionCount,
+    'streamable WAMP session meta helper failed',
+  );
+
+  final streamableSubscription = await client.subscribeWampTopic(
+    _topic,
+    id: 'streamable-subscribe',
+    queueLimit: 5,
+  );
+  _expect(
+    streamableSubscription.topic == _topic,
+    'streamable pub/sub subscribe helper failed',
+  );
+
+  final streamablePublication = await client.publishWampEvent(
+    _topic,
+    id: 'streamable-publish',
+    argumentsKeywords: const <String, Object?>{'text': 'streamable'},
+    acknowledge: true,
+  );
+  _expect(
+    streamablePublication.acknowledged &&
+        streamablePublication.publicationId == _publicationId,
+    'streamable pub/sub publish helper failed',
+  );
+
+  final streamableEvents = await client.pollWampEvents(
+    streamableSubscription.handle,
+    id: 'streamable-poll',
+  );
+  _expect(
+    jsonEncode(streamableEvents.events).contains('streamable'),
+    'streamable pub/sub poll helper failed',
+  );
+
+  final streamableUnsubscribe = await client.unsubscribeWampTopic(
+    streamableSubscription.handle,
+    id: 'streamable-unsubscribe',
+  );
+  _expect(
+    streamableUnsubscribe.unsubscribed,
+    'streamable pub/sub unsubscribe helper failed',
+  );
+
+  final directApi = await client.listWampApi(
+    id: 'direct-api-list',
+    directJson: true,
+  );
+  _expect(
+    jsonEncode(directApi).contains(_procedureName),
+    'direct JSON WAMP API list helper failed',
+  );
+
+  final directSubscription = await client.subscribeWampTopic(
+    _topic,
+    id: 'direct-subscribe',
+    directJson: true,
+  );
+  final directPublication = await client.publishWampEvent(
+    _topic,
+    id: 'direct-publish',
+    argumentsKeywords: const <String, Object?>{'text': 'direct'},
+    acknowledge: true,
+    directJson: true,
+  );
+  _expect(
+    directPublication.acknowledged,
+    'direct JSON pub/sub publish helper failed',
+  );
+
+  final directEvents = await client.pollWampEvents(
+    directSubscription.handle,
+    id: 'direct-poll',
+    directJson: true,
+  );
+  _expect(
+    jsonEncode(directEvents.events).contains('direct'),
+    'direct JSON pub/sub poll helper failed',
+  );
+
+  await client.unsubscribeWampTopic(
+    directSubscription.handle,
+    id: 'direct-unsubscribe',
+    directJson: true,
+  );
+
+  _expect(
+    endpoint.directMethodsWithoutSession.contains('connectanum.tool.call'),
+    'direct JSON WAMP helpers included Streamable session state',
+  );
+}
+
 final class _AgentMcpEndpoint {
   _AgentMcpEndpoint._(this._server) {
     _subscription = _server.listen(_handle);
@@ -506,6 +707,9 @@ final class _AgentMcpEndpoint {
 
   final HttpServer _server;
   late final StreamSubscription<HttpRequest> _subscription;
+  final directMethodsWithoutSession = <String>{};
+  final _subscriptions = <String, String>{};
+  final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
 
@@ -569,6 +773,7 @@ final class _AgentMcpEndpoint {
     final message = _jsonMapFrom(jsonDecode(body), label: 'request');
     final method = message['method'] as String?;
     final id = message['id'];
+    _recordDirectRequest(method, request);
 
     switch (method) {
       case 'initialize':
@@ -612,6 +817,18 @@ final class _AgentMcpEndpoint {
         sawDirectRequestWithoutSession =
             request.headers.value('MCP-Session-Id') == null;
         await _writeJson(request, _toolListResponse(id));
+      case 'connectanum.tool.call':
+        await _writeJson(request, _toolCallResponse(id, message));
+      case 'resources/list':
+        await _writeJson(request, _resourceListResponse(id));
+      case 'resources/read':
+        await _writeJson(request, _resourceReadResponse(id, message));
+      case 'resources/templates/list':
+        await _writeJson(request, _resourceTemplateListResponse(id));
+      case 'prompts/list':
+        await _writeJson(request, _promptListResponse(id));
+      case 'prompts/get':
+        await _writeJson(request, _promptGetResponse(id, message));
       default:
         await _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
@@ -621,6 +838,12 @@ final class _AgentMcpEndpoint {
             'message': 'unsupported method',
           },
         });
+    }
+  }
+
+  void _recordDirectRequest(String? method, HttpRequest request) {
+    if (method != null && request.headers.value('MCP-Session-Id') == null) {
+      directMethodsWithoutSession.add(method);
     }
   }
 
@@ -644,8 +867,23 @@ final class _AgentMcpEndpoint {
               },
             },
           },
+          _toolDefinition('connectanum.api.list'),
+          _toolDefinition('connectanum.api.describe'),
+          _toolDefinition('connectanum.pubsub.publish'),
+          _toolDefinition('connectanum.pubsub.subscribe'),
+          _toolDefinition('connectanum.pubsub.poll'),
+          _toolDefinition('connectanum.pubsub.unsubscribe'),
+          _toolDefinition('wamp.session.count'),
         ],
       },
+    };
+  }
+
+  Map<String, Object?> _toolDefinition(String name) {
+    return <String, Object?>{
+      'name': name,
+      'description': 'Connectanum helper $name.',
+      'inputSchema': <String, Object?>{'type': 'object'},
     };
   }
 
@@ -654,7 +892,11 @@ final class _AgentMcpEndpoint {
     Map<String, Object?> message,
   ) {
     final params = _jsonMapFrom(message['params'], label: 'tool params');
+    final name = params['name'] as String?;
     final arguments = _jsonMapFrom(params['arguments'], label: 'arguments');
+    if (name != _toolName) {
+      return _structuredToolResponse(id, _wampToolStructuredContent(name, arguments));
+    }
     return <String, Object?>{
       'jsonrpc': '2.0',
       'id': id,
@@ -664,6 +906,255 @@ final class _AgentMcpEndpoint {
         ],
         'structuredContent': <String, Object?>{'echo': arguments},
         'isError': false,
+      },
+    };
+  }
+
+  Map<String, Object?> _structuredToolResponse(
+    Object? id,
+    Map<String, Object?> structuredContent,
+  ) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'content': <Object?>[
+          <String, Object?>{
+            'type': 'text',
+            'text': jsonEncode(structuredContent),
+          },
+        ],
+        'structuredContent': structuredContent,
+        'isError': false,
+      },
+    };
+  }
+
+  Map<String, Object?> _wampToolStructuredContent(
+    String? name,
+    Map<String, Object?> arguments,
+  ) {
+    switch (name) {
+      case 'connectanum.api.list':
+        return _apiListStructuredContent();
+      case 'connectanum.api.describe':
+        return _apiDescribeStructuredContent(arguments);
+      case 'wamp.session.count':
+        return <String, Object?>{
+          'arguments': <Object?>[_sessionCount],
+          'argumentsKeywords': <String, Object?>{'count': _sessionCount},
+        };
+      case 'connectanum.pubsub.subscribe':
+        return _subscribeStructuredContent(arguments);
+      case 'connectanum.pubsub.publish':
+        return _publishStructuredContent(arguments);
+      case 'connectanum.pubsub.poll':
+        return _pollStructuredContent(arguments);
+      case 'connectanum.pubsub.unsubscribe':
+        return _unsubscribeStructuredContent(arguments);
+      default:
+        return <String, Object?>{
+          'unknownTool': name,
+          'arguments': arguments,
+        };
+    }
+  }
+
+  Map<String, Object?> _apiListStructuredContent() {
+    return <String, Object?>{
+      'procedures': <Object?>[
+        <String, Object?>{
+          'uri': _procedureName,
+          'description': 'Looks up agent task context.',
+          'metadata': <String, Object?>{
+            'tags': <Object?>['agent', 'safe'],
+          },
+        },
+      ],
+      'topics': <Object?>[
+        <String, Object?>{
+          'uri': _topic,
+          'description': 'Agent task events.',
+          'metadata': <String, Object?>{
+            'tags': <Object?>['agent'],
+          },
+        },
+      ],
+    };
+  }
+
+  Map<String, Object?> _apiDescribeStructuredContent(
+    Map<String, Object?> arguments,
+  ) {
+    return <String, Object?>{
+      'uri': arguments['uri'],
+      'kind': arguments['kind'] ?? 'procedure',
+      'description': 'Agent task metadata.',
+      'metadata': <String, Object?>{
+        'registrationId': _registrationId,
+        'subscriptionId': _subscriptionId,
+      },
+    };
+  }
+
+  Map<String, Object?> _subscribeStructuredContent(
+    Map<String, Object?> arguments,
+  ) {
+    final topic = arguments['topic'] as String? ?? _topic;
+    final handle = '$_subscriptionHandlePrefix-${_subscriptions.length + 1}';
+    _subscriptions[handle] = topic;
+    _eventsByHandle[handle] = <Map<String, Object?>>[];
+    return <String, Object?>{
+      'handle': handle,
+      'topic': topic,
+      'queueLimit': arguments['queueLimit'] ?? 100,
+      'subscriptionId': _subscriptionId,
+    };
+  }
+
+  Map<String, Object?> _publishStructuredContent(
+    Map<String, Object?> arguments,
+  ) {
+    final topic = arguments['topic'] as String? ?? _topic;
+    final event = <String, Object?>{
+      'topic': topic,
+      'arguments': arguments['arguments'] ?? <Object?>[],
+      'argumentsKeywords': arguments['argumentsKeywords'] ?? <String, Object?>{},
+      'publicationId': _publicationId,
+    };
+    for (final entry in _subscriptions.entries) {
+      if (entry.value == topic) {
+        _eventsByHandle[entry.key]?.add(event);
+      }
+    }
+    return <String, Object?>{
+      'topic': topic,
+      'acknowledged': arguments['acknowledge'] == true,
+      'publicationId': _publicationId,
+    };
+  }
+
+  Map<String, Object?> _pollStructuredContent(Map<String, Object?> arguments) {
+    final handle = arguments['handle'] as String? ?? '';
+    final topic = _subscriptions[handle] ?? _topic;
+    final events = _eventsByHandle[handle] ?? const <Map<String, Object?>>[];
+    return <String, Object?>{
+      'handle': handle,
+      'topic': topic,
+      'events': events,
+      'dropped': 0,
+      'remaining': 0,
+    };
+  }
+
+  Map<String, Object?> _unsubscribeStructuredContent(
+    Map<String, Object?> arguments,
+  ) {
+    final handle = arguments['handle'] as String? ?? '';
+    final topic = _subscriptions.remove(handle) ?? _topic;
+    _eventsByHandle.remove(handle);
+    return <String, Object?>{
+      'handle': handle,
+      'topic': topic,
+      'unsubscribed': true,
+    };
+  }
+
+  Map<String, Object?> _resourceListResponse(Object? id) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'resources': <Object?>[
+          <String, Object?>{
+            'uri': _resourceUri,
+            'name': 'Agent context',
+            'mimeType': 'text/plain',
+          },
+        ],
+      },
+    };
+  }
+
+  Map<String, Object?> _resourceReadResponse(
+    Object? id,
+    Map<String, Object?> message,
+  ) {
+    final params = _jsonMapFrom(message['params'], label: 'resource params');
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'contents': <Object?>[
+          <String, Object?>{
+            'uri': params['uri'],
+            'mimeType': 'text/plain',
+            'text': 'agent context is available',
+          },
+        ],
+      },
+    };
+  }
+
+  Map<String, Object?> _resourceTemplateListResponse(Object? id) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'resourceTemplates': <Object?>[
+          <String, Object?>{
+            'uriTemplate': _resourceTemplateUri,
+            'name': 'Agent task context',
+            'mimeType': 'application/json',
+          },
+        ],
+      },
+    };
+  }
+
+  Map<String, Object?> _promptListResponse(Object? id) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'prompts': <Object?>[
+          <String, Object?>{
+            'name': _promptName,
+            'description': 'Summarizes an agent task.',
+            'arguments': <Object?>[
+              <String, Object?>{
+                'name': 'taskId',
+                'description': 'Task id.',
+                'required': true,
+              },
+            ],
+          },
+        ],
+      },
+    };
+  }
+
+  Map<String, Object?> _promptGetResponse(
+    Object? id,
+    Map<String, Object?> message,
+  ) {
+    final params = _jsonMapFrom(message['params'], label: 'prompt params');
+    final arguments = _jsonMapFrom(params['arguments'], label: 'prompt args');
+    final taskId = arguments['taskId'];
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'description': 'Agent task summary prompt.',
+        'messages': <Object?>[
+          <String, Object?>{
+            'role': 'user',
+            'content': <String, Object?>{
+              'type': 'text',
+              'text': 'Summarize task $taskId for an agent.',
+            },
+          },
+        ],
       },
     };
   }

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Package Smoke
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-07
 Last updated: 2026-05-07
@@ -55,6 +55,17 @@ lower-level client packages as direct dependencies.
   passed on 2026-05-07.
 - Post-change `bin/test-fast` passed on 2026-05-07.
 - Full local `bin/verify` passed on 2026-05-07.
+- Hosted GitHub `CI` run `25465909291` for `ebce710` completed successfully
+  with `Fast Checks` and `Full Verify`, both with zero annotations.
+- The Dart Package Publish Dry Run workflow did not trigger for `ebce710`
+  because no publish-sensitive paths changed. The latest relevant package
+  dry-run remains `25463696541` for `3a0bbf0`, which completed successfully.
+- The deployment-chain audit
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed against `ebce710`; the strict variant correctly failed only on the
+  known operator-owned gaps: `add-router` branch protection, router image
+  workflow visibility from the default branch, and GHCR router package
+  visibility.
 
 ## Decision Log
 
@@ -66,5 +77,5 @@ lower-level client packages as direct dependencies.
 
 ## Handoff
 
-- Local verification is clean. Pending hosted GitHub CI/deployment-chain
-  evidence after the implementation commit is pushed.
+- Implementation and hosted CI evidence are clean. Remaining strict audit
+  findings are operator-owned deployment-chain gaps.

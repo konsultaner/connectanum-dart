@@ -4,13 +4,16 @@ Last updated: 2026-05-07
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `3a0bbf0`
-(`chore: align mcp package metadata`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP client package smoke
+Latest pushed implementation commit: `ebce710`
+(`test: add mcp client package smoke`; hosted CI evidence clean)
+Latest implementation checkpoint: MCP client package helper smoke
 (complete locally; hosted evidence pending).
 Active exec plan:
-`docs/exec-plans/2026-05-07-mcp-client-package-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-client-package-helper-smoke.md`
 (complete locally; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-client-package-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-package-metadata-readiness.md`
 (complete; hosted CI evidence clean).
@@ -146,8 +149,23 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP client package smoke is complete locally. A generated temporary
-    consumer package now depends directly only on `connectanum_mcp` and imports
+  - MCP client package helper smoke is complete locally with hosted evidence
+    pending. The generated temporary consumer package still depends directly
+    only on `connectanum_mcp` and imports
+    `package:connectanum_mcp/connectanum_mcp_io.dart`; its mock endpoint now
+    also exercises resources, resource templates, prompts, WAMP API metadata,
+    WAMP session-count meta helpers, and WAMP pub/sub helper calls through
+    both initialized Streamable MCP and lifecycle-free direct JSON. Direct
+    JSON resource/prompt/WAMP helper calls assert that no `MCP-Session-Id`
+    leaks from the active Streamable session. Pre-change `bin/test-fast`
+    passed on 2026-05-07. Focused verification passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all` and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_client_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07.
+  - MCP client package smoke is complete with hosted CI evidence. A generated
+    temporary consumer package now depends directly only on `connectanum_mcp`
+    and imports
     `package:connectanum_mcp/connectanum_mcp_io.dart` while using local path
     overrides only for workspace resolution. It exercises Streamable HTTP
     initialization, typed tool helpers, lifecycle-free direct JSON access,
@@ -157,8 +175,17 @@ order.
     2026-05-07: `bash -n bin/common.sh bin/test-fast bin/test-all` and
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_client_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local `bin/verify`
-    passed on 2026-05-07. Hosted GitHub CI/deployment-chain evidence is
-    pending until the implementation commit is pushed.
+    passed on 2026-05-07. Hosted GitHub evidence for `ebce710` is clean: `CI`
+    run `25465909291` completed successfully with `Fast Checks` and
+    `Full Verify`, both with zero annotations. The Dart Package Publish Dry
+    Run workflow did not trigger for `ebce710` because no publish-sensitive
+    paths changed; the latest relevant package dry-run remains `25463696541`
+    for `3a0bbf0`, which completed successfully. The deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `ebce710`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP package metadata readiness is complete locally. The `connectanum_mcp`
     package description and README introduction are aligned with the
     shipped public surface: local MCP server primitives plus router-hosted
