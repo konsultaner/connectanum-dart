@@ -4,13 +4,16 @@ Last updated: 2026-05-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `f9e7608`
-(`example: use mcp io entrypoint`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP router integration IO entrypoint
+Latest pushed implementation commit: `e263234`
+(`test: use mcp io entrypoint in router integration`; hosted CI evidence clean)
+Latest implementation checkpoint: MCP package metadata readiness
 (complete locally; hosted evidence pending).
 Active exec plan:
-`docs/exec-plans/2026-05-06-mcp-router-integration-io-entrypoint.md`
+`docs/exec-plans/2026-05-06-mcp-package-metadata-readiness.md`
 (complete locally; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-06-mcp-router-integration-io-entrypoint.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-public-example-io-entrypoint.md`
 (complete; hosted CI evidence clean).
@@ -140,8 +143,20 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP router integration IO entrypoint is complete locally and pending
-    hosted evidence. The router MCP integration suite now imports
+  - MCP package metadata readiness is complete locally. The `connectanum_mcp`
+    package description and README introduction are aligned with the
+    shipped public surface: local MCP server primitives plus router-hosted
+    Streamable HTTP client helpers for consumer applications. Pre-change
+    `bin/test-fast` passed on 2026-05-06. Focused verification passed on
+    2026-05-06: `dart analyze packages/connectanum_mcp`;
+    `dart test packages/connectanum_mcp`;
+    `bin/dart-package-publish-dry-run --include-private packages/connectanum_mcp`
+    after the package files were committed locally, with zero warnings; and
+    `rg -n "server primitives for Connectanum apps|first production shapes needed by Connectanum apps|private downstream|local downstream|/Users/konsultaner|Guten|guten" packages/connectanum_mcp/pubspec.yaml packages/connectanum_mcp/README.md docs/project_state.md docs/exec-plans/2026-05-06-mcp-package-metadata-readiness.md`
+    returned no matches. Post-change `bin/test-fast` passed on 2026-05-06.
+    Full local `bin/verify` passed on 2026-05-06. Hosted evidence is pending.
+  - MCP router integration IO entrypoint is complete with hosted CI evidence.
+    The router MCP integration suite now imports
     `package:connectanum_mcp/connectanum_mcp_io.dart` instead of the lower-level
     client MCP barrel, and `ROADMAP_NEXT.md` now points Dart IO consumers to
     that same public entrypoint. Pre-change `bin/test-fast` passed on
@@ -151,7 +166,20 @@ order.
     and
     `rg -n 'package:connectanum_client/mcp.dart' packages/connectanum_router/test/router_integration_native_test.dart ROADMAP_NEXT.md packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_mcp/README.md`
     returned no matches. Post-change `bin/test-fast` passed on 2026-05-06.
-    Full local `bin/verify` passed on 2026-05-06. Hosted evidence is pending.
+    Full local `bin/verify` passed on 2026-05-06. Hosted GitHub evidence for
+    `e263234` is clean: `CI` run `25461531075` completed successfully with
+    `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+    `25461531073` completed successfully, and `WAMP Profile Benchmarks` run
+    `25461531331` completed successfully. Public check-run annotation audit
+    found zero GitHub annotations across `Fast Checks`, `Full Verify`,
+    `Publish Dry Run`, and `Linux WAMP profile gates`. The deployment-chain
+    audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `e263234`; the strict variant
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+    correctly failed only on the known operator-owned deployment-chain gaps:
+    `add-router` is unprotected, the router image workflow is not discoverable
+    from the default branch, and the router container package is not visible.
   - MCP public example IO entrypoint is complete with hosted CI evidence. The
     runnable
     router-hosted MCP example now imports

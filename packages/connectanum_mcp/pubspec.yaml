@@ -1,5 +1,5 @@
 name: connectanum_mcp
-description: Model Context Protocol server primitives for Connectanum apps.
+description: Model Context Protocol server primitives and Streamable HTTP client helpers for Dart applications and router-hosted endpoints.
 version: 0.1.0
 homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart

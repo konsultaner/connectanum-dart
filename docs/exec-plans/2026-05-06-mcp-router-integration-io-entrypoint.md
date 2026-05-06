@@ -1,6 +1,6 @@
 # Exec Plan: MCP Router Integration IO Entrypoint
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-06
 Last updated: 2026-05-06
@@ -56,7 +56,17 @@ of the lower-level client MCP barrel.
   returned no matches on 2026-05-06.
 - Post-change `bin/test-fast` passed on 2026-05-06.
 - Full local `bin/verify` passed on 2026-05-06.
-- Pending: hosted GitHub evidence after push.
+- Hosted GitHub evidence for `e263234` is clean:
+  - `CI` run `25461531075` completed successfully with `Fast Checks` and
+    `Full Verify`.
+  - `Dart Package Publish Dry Run` run `25461531073` completed successfully.
+  - `WAMP Profile Benchmarks` run `25461531331` completed successfully.
+  - Public check-run annotation audit found zero GitHub annotations across
+    `Fast Checks`, `Full Verify`, `Publish Dry Run`, and
+    `Linux WAMP profile gates`.
+  - Standard deployment-chain audit passed.
+  - Strict audit failed only on the known operator-owned branch protection,
+    default-branch workflow visibility, and GHCR package visibility gaps.
 
 ## Decision Log
 
@@ -66,5 +76,5 @@ of the lower-level client MCP barrel.
 
 ## Handoff
 
-- Router integration IO entrypoint work is complete locally. Push the
-  implementation commit and collect hosted GitHub evidence.
+- Router integration IO entrypoint work is complete with local and hosted
+  evidence. Remaining deployment-chain findings are operator-owned.

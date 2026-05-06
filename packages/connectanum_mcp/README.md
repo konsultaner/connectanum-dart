@@ -1,9 +1,9 @@
 # connectanum_mcp
 
-`connectanum_mcp` lets a Dart or Flutter application expose a small MCP server
-without taking a dependency on a private bridge protocol. It is designed for the
-first production shapes needed by Connectanum apps: local stdio MCP servers,
-router-hosted HTTP JSON-RPC endpoints, and MCP tools backed by normal
+`connectanum_mcp` lets a Dart or Flutter application expose MCP servers and
+consume router-hosted MCP endpoints without taking a dependency on a private
+bridge protocol. It covers local stdio MCP servers, router-hosted HTTP
+JSON-RPC and Streamable HTTP endpoints, and MCP tools backed by normal
 Connectanum WAMP procedures.
 
 The supported MCP protocol revision is `2025-11-25`. The package intentionally
