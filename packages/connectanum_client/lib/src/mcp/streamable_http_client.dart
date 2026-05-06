@@ -92,7 +92,7 @@ final class McpStreamableHttpClient {
         'capabilities': capabilities,
         'clientInfo': clientInfo,
       },
-    });
+    }, includeSession: false);
     if (response == null) {
       throw const FormatException('initialize did not return a JSON-RPC body');
     }
@@ -406,7 +406,7 @@ final class McpStreamableHttpClient {
     final response = await request.close();
     _captureSessionHeaders(response);
     final body = await _readBody(response);
-    _throwIfHttpError(response, body);
+    _throwIfHttpErrorForSession(response, body);
 
     if (response.statusCode == HttpStatus.accepted ||
         response.statusCode == HttpStatus.noContent ||
@@ -431,7 +431,7 @@ final class McpStreamableHttpClient {
     final response = await request.close();
     _captureSessionHeaders(response);
     final body = await _readBody(response);
-    _throwIfHttpError(response, body);
+    _throwIfHttpErrorForSession(response, body);
 
     if (!_isSse(response)) {
       throw FormatException(
@@ -450,9 +450,8 @@ final class McpStreamableHttpClient {
 
     final response = await request.close();
     final body = await _readBody(response);
-    _throwIfHttpError(response, body);
-    sessionId = null;
-    lastEventId = null;
+    _throwIfHttpErrorForSession(response, body);
+    _clearSessionState();
   }
 
   void close({bool force = false}) {
@@ -493,6 +492,22 @@ final class McpStreamableHttpClient {
         negotiatedProtocolVersion.isNotEmpty) {
       protocolVersion = negotiatedProtocolVersion;
     }
+  }
+
+  void _throwIfHttpErrorForSession(HttpClientResponse response, String body) {
+    try {
+      _throwIfHttpError(response, body);
+    } on McpStreamableHttpException catch (error) {
+      if (error.statusCode == HttpStatus.notFound) {
+        _clearSessionState();
+      }
+      rethrow;
+    }
+  }
+
+  void _clearSessionState() {
+    sessionId = null;
+    lastEventId = null;
   }
 
   Object? _firstJsonValue(List<McpSseEvent> events) {

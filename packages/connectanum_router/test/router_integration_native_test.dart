@@ -1571,6 +1571,37 @@ void main() {
 
         await primaryMcpClient.deleteSession();
         expect(primaryMcpClient.sessionId, isNull);
+
+        primaryMcpClient.sessionId = primarySessionId;
+        primaryMcpClient.lastEventId = '$primarySessionId:get:1';
+        await expectLater(
+          primaryMcpClient.listTools(id: 'primary-tools-after-delete'),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        expect(primaryMcpClient.sessionId, isNull);
+        expect(primaryMcpClient.lastEventId, isNull);
+
+        final recoveredInitialize = await primaryMcpClient.initialize(
+          id: 'recovered-initialize',
+        );
+        expect(recoveredInitialize['id'], equals('recovered-initialize'));
+        expect(primaryMcpClient.sessionId, isNotNull);
+        expect(primaryMcpClient.sessionId, isNot(equals(primarySessionId)));
+        await primaryMcpClient.notifyInitialized();
+        final recoveredTools = await primaryMcpClient.listTools(
+          id: 'primary-tools-after-reinitialize',
+        );
+        expect(
+          recoveredTools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        await primaryMcpClient.deleteSession();
       },
       skip: skipReason,
     );

@@ -56,6 +56,15 @@ Out of scope:
   existing service-route behavior after the OpenMetrics focused regression
   caught an over-broad externalization.
 - 2026-05-05: Completed local verification.
+- 2026-05-05: Pushed commit `f1d4f0c`
+  (`mcp: preserve external authorization context`) to both remotes. Hosted
+  GitHub evidence is clean: `CI` run `25366182412` completed successfully with
+  `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+  `25366182396` completed successfully, and `WAMP Profile Benchmarks` run
+  `25366182431` completed successfully. The hosted log audit found no real
+  warning/error annotations, compiler warnings, actionable skipped tests,
+  deprecations, panics, broken pipes, connection errors, or unexpected timeout
+  failures.
 
 ## Verification
 
@@ -74,4 +83,6 @@ Out of scope:
 
 ## Handoff
 
-Complete locally. Push and hosted GitHub evidence are pending.
+Complete. Hosted GitHub evidence is clean. The hosted-evidence notes are
+docs-only bookkeeping and should be bundled with the next implementation commit
+rather than pushed as a standalone docs-only commit.

@@ -1,17 +1,20 @@
 # Project State
 
-Last updated: 2026-05-05
+Last updated: 2026-05-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `4847124`
-(`mcp: smoke consumer batch requests`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP external authorization context
-(local verification clean; hosted evidence pending)
+Latest pushed implementation commit: `f1d4f0c`
+(`mcp: preserve external authorization context`; hosted CI evidence clean)
+Latest implementation checkpoint: MCP Streamable HTTP session recovery
+(local verification clean; hosted evidence pending).
 Active exec plan: none.
 Previous completed exec plan:
-`docs/exec-plans/2026-05-05-mcp-external-authorization-context.md`
+`docs/exec-plans/2026-05-06-mcp-streamable-session-recovery.md`
 (complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-05-mcp-external-authorization-context.md`
+(complete; hosted evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-05-mcp-http-auth-client-helper.md`
 (complete; local verification clean; hosted evidence pending).
@@ -108,6 +111,29 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP Streamable HTTP session recovery is complete locally. The public
+    `McpStreamableHttpClient` no longer sends a stored `MCP-Session-Id` on
+    `initialize`, and it clears the stored session id plus SSE cursor after
+    HTTP `404 Not Found` responses from POST, GET/SSE poll, and DELETE paths so
+    downstream applications can reinitialize cleanly after a router-hosted MCP
+    session is deleted or otherwise unknown. Coverage now includes a focused
+    fake-endpoint client regression for stale POST/GET/DELETE sessions, real
+    bearer-protected router-hosted MCP recovery in the route/principal
+    isolation integration test, and the generated consumer package smoke,
+    which now proves stale session failure, state clearing, reinitialize, and
+    cleanup through public package APIs. Pre-change `bin/test-fast` passed on
+    2026-05-06. Focused verification also passed on 2026-05-06:
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "isolates MCP Streamable HTTP sessions by route and bearer principal"`,
+    and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Full local `bin/verify` passed on 2026-05-06, including formatting, Rust
+    native/FFI tests, Python package-artifact checks, MCP package tests, client
+    tests with the new stale-session recovery coverage, auth-server tests,
+    bench integration tests, router-hosted MCP example smoke, the upgraded
+    generated consumer package smoke, full router package tests including
+    router-hosted MCP auth/session/batch coverage, zero-copy router checks, and
+    Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is pending.
   - MCP external authorization context is complete locally. Router-hosted MCP
     and HTTP-auth bridge sessions now carry an explicit
     `authorizationIsInternal` flag so public MCP callers and bearer-authenticated
@@ -125,7 +151,15 @@ order.
     smoke, full router package tests including router-hosted MCP
     auth/session/batch coverage and the OpenMetrics HTTP route, zero-copy
     router checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted
-    GitHub evidence is pending.
+    GitHub evidence is clean: `CI` run `25366182412` completed successfully
+    with `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+    `25366182396` completed successfully, and `WAMP Profile Benchmarks` run
+    `25366182431` completed successfully. The hosted log audit found no real
+    GitHub warning/error annotations, compiler warnings, actionable skipped
+    tests, deprecations, panics, broken pipes, connection errors, or unexpected
+    timeout failures. Broad matches were benign passing negative-path test names,
+    Git checkout default-branch hints, private package publish skips for
+    `publish_to: none`, and expected filtered Rust test counts.
   - MCP HTTP auth client helper is complete locally.
     `package:connectanum_client/mcp.dart` now exports
     `ConnectanumHttpAuthClient`, which performs the router HTTP auth bridge
