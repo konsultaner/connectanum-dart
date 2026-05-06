@@ -1004,6 +1004,12 @@ Future<void> _smokeStreamableMcp(
     );
   }
 
+  await _smokeDirectJsonWhileStreamableInitialized(
+    client,
+    serviceSession,
+    label: label,
+  );
+
   final result = await client.callTool(
     _procedure,
     id: '$label-streamable-direct-catalog-call',
@@ -1057,6 +1063,69 @@ Future<void> _smokeStreamableMcp(
     serviceSession,
     label: label,
   );
+}
+
+Future<void> _smokeDirectJsonWhileStreamableInitialized(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable MCP direct JSON smoke has no session id.');
+  }
+  final eventId = client.lastEventId;
+
+  await _smokeWampMetaDiscovery(
+    client,
+    label: '$label-direct-after-streamable',
+    directJson: true,
+  );
+
+  final subscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-direct-after-streamable-subscribe',
+    queueLimit: 4,
+    directJson: true,
+  );
+  try {
+    await _smokeWampSubscriptionMeta(
+      client,
+      label: '$label-direct-after-streamable',
+      directJson: true,
+    );
+
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': 'T-$label-direct-after-streamable-event'},
+      options: PublishOptions(acknowledge: true),
+    );
+    final events = await _pollMcpEventsUntil(
+      client,
+      subscription.handle,
+      directJson: true,
+    );
+    if (!jsonEncode(events.events).contains(
+      'T-$label-direct-after-streamable-event',
+    )) {
+      throw StateError(
+        'Direct JSON MCP pub/sub poll missed service event after '
+        'Streamable initialization.',
+      );
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      subscription.handle,
+      id: '$label-direct-after-streamable-unsubscribe',
+      directJson: true,
+    );
+  }
+
+  if (client.sessionId != sessionId || client.lastEventId != eventId) {
+    throw StateError(
+      'Direct JSON WAMP helpers changed Streamable MCP session state.',
+    );
+  }
 }
 
 Future<void> _smokeDirectJsonBatch(

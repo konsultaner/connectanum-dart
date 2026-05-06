@@ -698,6 +698,114 @@ void main() {
       },
     );
 
+    test(
+      'keeps direct WAMP helpers lifecycle-free with an active Streamable session',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        final eventId = client.lastEventId;
+        expect(sessionId, 'session-1');
+        endpoint.requests.clear();
+
+        final catalog = await client.listWampApi(
+          id: 'direct-active-api-list',
+          kind: 'topic',
+          directJson: true,
+        );
+        expect(catalog['topics'], hasLength(1));
+
+        final topic = await client.describeWampApi(
+          'app.events.audit',
+          id: 'direct-active-api-describe',
+          kind: 'topic',
+          directJson: true,
+        );
+        expect(topic['topic'], 'app.events.audit');
+
+        final subscription = await client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'direct-active-subscribe',
+          queueLimit: 3,
+          directJson: true,
+        );
+        expect(subscription.handle, 'wamp-sub-1');
+
+        final publication = await client.publishWampEvent(
+          'app.events.audit',
+          id: 'direct-active-publish',
+          argumentsKeywords: const <String, Object?>{'message': 'hello'},
+          acknowledge: true,
+          directJson: true,
+        );
+        expect(publication.acknowledged, isTrue);
+
+        final batch = await client.pollWampEvents(
+          subscription.handle,
+          id: 'direct-active-poll',
+          directJson: true,
+        );
+        expect(batch.events.single['argumentsKeywords'], {'message': 'hello'});
+
+        final registration = await client.matchWampRegistration(
+          'app.echo',
+          id: 'direct-active-registration-match',
+          directJson: true,
+        );
+        expect(registration.arguments, [11]);
+
+        final unsubscribe = await client.unsubscribeWampTopic(
+          subscription.handle,
+          id: 'direct-active-unsubscribe',
+          directJson: true,
+        );
+        expect(unsubscribe.unsubscribed, isTrue);
+
+        expect(client.sessionId, sessionId);
+        expect(client.lastEventId, eventId);
+        expect(endpoint.requests, hasLength(7));
+        for (final request in endpoint.requests) {
+          expect(request.accept, 'application/json');
+          expect(request.sessionId, isNull);
+          expect(request.lastEventId, isNull);
+          expect(request.mcpMethod, 'connectanum.tool.call');
+          expect(request.body, containsPair('method', 'connectanum.tool.call'));
+        }
+        expect(
+          endpoint.requests.map(
+            (request) => _jsonMapFrom(
+              _jsonMapFrom(
+                (request.body as Map)['params'],
+                label: 'direct active params',
+              )['arguments'],
+              label: 'direct active arguments',
+            ),
+          ),
+          [
+            {'kind': 'topic'},
+            {'uri': 'app.events.audit', 'kind': 'topic'},
+            {'topic': 'app.events.audit', 'queueLimit': 3},
+            {
+              'topic': 'app.events.audit',
+              'argumentsKeywords': {'message': 'hello'},
+              'acknowledge': true,
+            },
+            {'handle': 'wamp-sub-1'},
+            {
+              'arguments': ['app.echo'],
+            },
+            {'handle': 'wamp-sub-1'},
+          ],
+        );
+      },
+    );
+
     test('uses Connectanum WAMP meta procedure helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
