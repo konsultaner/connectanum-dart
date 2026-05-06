@@ -71,6 +71,7 @@ build_native_ffi_test_release
 python3 tool/test_package_native_artifact.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
+run_mcp_client_package_smoke
 run_client_vm_tests
 dart test packages/connectanum_auth_server/test
 run_bench_vm_tests

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Package Metadata Readiness
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-06
 Last updated: 2026-05-06
@@ -53,11 +53,24 @@ server primitives plus router-hosted Streamable HTTP client access.
 - `bin/dart-package-publish-dry-run --include-private packages/connectanum_mcp`
   passed on 2026-05-06 with zero warnings after the package files were
   committed locally.
-- `rg -n "server primitives for Connectanum apps|first production shapes needed by Connectanum apps|private downstream|local downstream|/Users/konsultaner|Guten|guten" packages/connectanum_mcp/pubspec.yaml packages/connectanum_mcp/README.md docs/project_state.md docs/exec-plans/2026-05-06-mcp-package-metadata-readiness.md`
+- Stale package/private downstream wording search across
+  `packages/connectanum_mcp/pubspec.yaml`,
+  `packages/connectanum_mcp/README.md`, `docs/project_state.md`, and this plan
   returned no matches on 2026-05-06.
 - Post-change `bin/test-fast` passed on 2026-05-06.
 - Full local `bin/verify` passed on 2026-05-06.
-- Pending: hosted GitHub evidence after push.
+- Hosted GitHub evidence for `3a0bbf0` is clean:
+  - `CI` run `25463696534` completed successfully with `Fast Checks` and
+    `Full Verify`.
+  - `Dart Package Publish Dry Run` run `25463696541` completed successfully.
+  - Public check-run annotation audit found zero GitHub annotations across
+    `Fast Checks`, `Full Verify`, and `Publish Dry Run`.
+  - Standard deployment-chain audit passed.
+  - Strict audit failed only on the known operator-owned branch protection,
+    default-branch workflow visibility, and GHCR package visibility gaps.
+  - No WAMP Profile Benchmarks run was triggered for this metadata-only package
+    change; the latest relevant WAMP profile run remains the prior clean
+    branch-head evidence.
 
 ## Decision Log
 
@@ -68,5 +81,5 @@ server primitives plus router-hosted Streamable HTTP client access.
 
 ## Handoff
 
-- MCP package metadata readiness is complete locally. Push the implementation
-  commit and collect hosted GitHub evidence.
+- MCP package metadata readiness is complete with local and hosted evidence.
+  Remaining deployment-chain findings are operator-owned.

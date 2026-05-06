@@ -382,6 +382,351 @@ run_router_hosted_mcp_example_smoke() {
   dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
 }
 
+run_mcp_client_package_smoke() (
+  local smoke_dir
+
+  require_command dart
+
+  smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-client-smoke.XXXXXX")"
+  trap "rm -rf '$smoke_dir'" EXIT
+
+  mkdir -p "$smoke_dir/bin"
+  cat >"$smoke_dir/pubspec.yaml" <<EOF
+name: connectanum_mcp_client_smoke
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+dependencies:
+  connectanum_mcp: any
+dependency_overrides:
+  connectanum_core:
+    path: "$ROOT_DIR/packages/connectanum_core"
+  connectanum_client:
+    path: "$ROOT_DIR/packages/connectanum_client"
+  connectanum_mcp:
+    path: "$ROOT_DIR/packages/connectanum_mcp"
+EOF
+
+  cat >"$smoke_dir/bin/main.dart" <<'DART'
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:connectanum_mcp/connectanum_mcp_io.dart';
+
+const _sessionId = 'agent-session';
+const _protocolVersion = McpStreamableHttpClient.latestProtocolVersion;
+const _toolName = 'agent.echo';
+
+Future<void> main() async {
+  final endpoint = await _AgentMcpEndpoint.bind();
+  final client = McpStreamableHttpClient.withBearerToken(
+    endpoint.uri,
+    'agent-token',
+  );
+
+  try {
+    final initialize = await client.initialize(
+      clientInfo: const <String, Object?>{
+        'name': 'consumer-agent-smoke',
+        'version': '0.1.0',
+      },
+    );
+    _expect(client.sessionId == _sessionId, 'initialize did not capture session');
+    final initializeResult = _jsonMapFrom(
+      initialize['result'],
+      label: 'initialize result',
+    );
+    _expect(
+      initializeResult['protocolVersion'] == _protocolVersion,
+      'initialize returned an unexpected protocol version',
+    );
+
+    await client.notifyInitialized();
+
+    final tools = await client.listTools(
+      id: 'tools-json',
+      streamable: false,
+    );
+    _expect(tools.tools.single['name'] == _toolName, 'tools/list failed');
+
+    final toolResult = await client.callTool(
+      _toolName,
+      id: 'call-json',
+      arguments: const <String, Object?>{'text': 'ready'},
+      streamable: false,
+    );
+    final structuredContent = _jsonMapFrom(
+      toolResult['structuredContent'],
+      label: 'structured content',
+    );
+    final echo = _jsonMapFrom(structuredContent['echo'], label: 'echo');
+    _expect(
+      echo['text'] == 'ready',
+      'tools/call returned an unexpected payload',
+    );
+
+    final directTools = await client.listConnectanumToolsDirect(
+      id: 'direct-tools',
+    );
+    _expect(
+      directTools.tools.single['name'] == _toolName,
+      'direct JSON tools/list failed',
+    );
+    _expect(
+      endpoint.sawDirectRequestWithoutSession,
+      'direct JSON request included Streamable HTTP session state',
+    );
+
+    final events = await client.poll();
+    _expect(
+      events.single.jsonData?['method'] == 'notifications/tools/list_changed',
+      'GET/SSE poll did not return a tools/list_changed notification',
+    );
+
+    await client.deleteSession();
+    _expect(client.sessionId == null, 'DELETE did not clear session state');
+    _expect(endpoint.sessionDeleted, 'mock endpoint did not receive DELETE');
+
+    print('MCP client-only consumer package smoke completed.');
+  } finally {
+    client.close(force: true);
+    await endpoint.close();
+  }
+}
+
+final class _AgentMcpEndpoint {
+  _AgentMcpEndpoint._(this._server) {
+    _subscription = _server.listen(_handle);
+  }
+
+  final HttpServer _server;
+  late final StreamSubscription<HttpRequest> _subscription;
+  var sawDirectRequestWithoutSession = false;
+  var sessionDeleted = false;
+
+  Uri get uri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/mcp',
+  );
+
+  static Future<_AgentMcpEndpoint> bind() async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    return _AgentMcpEndpoint._(server);
+  }
+
+  Future<void> close() async {
+    await _subscription.cancel();
+    await _server.close(force: true);
+  }
+
+  Future<void> _handle(HttpRequest request) async {
+    if (request.headers.value(HttpHeaders.authorizationHeader) !=
+        'Bearer agent-token') {
+      await _writeError(request, HttpStatus.unauthorized, 'missing bearer');
+      return;
+    }
+
+    if (request.method == 'GET') {
+      if (!_hasSession(request)) {
+        await _writeError(request, HttpStatus.badRequest, 'missing session');
+        return;
+      }
+      await _writeSse(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/tools/list_changed',
+      });
+      return;
+    }
+
+    if (request.method == 'DELETE') {
+      if (!_hasSession(request)) {
+        await _writeError(request, HttpStatus.notFound, 'unknown session');
+        return;
+      }
+      sessionDeleted = true;
+      request.response.statusCode = HttpStatus.noContent;
+      await request.response.close();
+      return;
+    }
+
+    if (request.method != 'POST') {
+      await _writeError(
+        request,
+        HttpStatus.methodNotAllowed,
+        'unsupported method',
+      );
+      return;
+    }
+
+    final body = await utf8.decoder.bind(request).join();
+    final message = _jsonMapFrom(jsonDecode(body), label: 'request');
+    final method = message['method'] as String?;
+    final id = message['id'];
+
+    switch (method) {
+      case 'initialize':
+        request.response.headers
+          ..set('MCP-Session-Id', _sessionId)
+          ..set('MCP-Protocol-Version', _protocolVersion);
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': id,
+          'result': <String, Object?>{
+            'protocolVersion': _protocolVersion,
+            'capabilities': <String, Object?>{
+              'tools': <String, Object?>{},
+            },
+            'serverInfo': <String, Object?>{
+              'name': 'agent-smoke',
+              'version': '0.1.0',
+            },
+          },
+        });
+      case 'notifications/initialized':
+        if (!_hasSession(request)) {
+          await _writeError(request, HttpStatus.badRequest, 'missing session');
+          return;
+        }
+        request.response.statusCode = HttpStatus.accepted;
+        await request.response.close();
+      case 'tools/list':
+        if (!_hasSession(request)) {
+          await _writeError(request, HttpStatus.badRequest, 'missing session');
+          return;
+        }
+        await _writeJson(request, _toolListResponse(id));
+      case 'tools/call':
+        if (!_hasSession(request)) {
+          await _writeError(request, HttpStatus.badRequest, 'missing session');
+          return;
+        }
+        await _writeJson(request, _toolCallResponse(id, message));
+      case 'connectanum.tools.list':
+        sawDirectRequestWithoutSession =
+            request.headers.value('MCP-Session-Id') == null;
+        await _writeJson(request, _toolListResponse(id));
+      default:
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': id,
+          'error': <String, Object?>{
+            'code': -32601,
+            'message': 'unsupported method',
+          },
+        });
+    }
+  }
+
+  bool _hasSession(HttpRequest request) {
+    return request.headers.value('MCP-Session-Id') == _sessionId;
+  }
+
+  Map<String, Object?> _toolListResponse(Object? id) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'tools': <Object?>[
+          <String, Object?>{
+            'name': _toolName,
+            'description': 'Echoes an agent request.',
+            'inputSchema': <String, Object?>{
+              'type': 'object',
+              'properties': <String, Object?>{
+                'text': <String, Object?>{'type': 'string'},
+              },
+            },
+          },
+        ],
+      },
+    };
+  }
+
+  Map<String, Object?> _toolCallResponse(
+    Object? id,
+    Map<String, Object?> message,
+  ) {
+    final params = _jsonMapFrom(message['params'], label: 'tool params');
+    final arguments = _jsonMapFrom(params['arguments'], label: 'arguments');
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'content': <Object?>[
+          <String, Object?>{'type': 'text', 'text': jsonEncode(arguments)},
+        ],
+        'structuredContent': <String, Object?>{'echo': arguments},
+        'isError': false,
+      },
+    };
+  }
+
+  Future<void> _writeJson(
+    HttpRequest request,
+    Map<String, Object?> body,
+  ) async {
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode(body));
+    await request.response.close();
+  }
+
+  Future<void> _writeSse(
+    HttpRequest request,
+    Map<String, Object?> message,
+  ) async {
+    request.response.headers.contentType = ContentType(
+      'text',
+      'event-stream',
+      charset: 'utf-8',
+    );
+    request.response.write('id: agent-event-1\n');
+    request.response.write('event: message\n');
+    request.response.write('data: ${jsonEncode(message)}\n\n');
+    await request.response.close();
+  }
+
+  Future<void> _writeError(
+    HttpRequest request,
+    int statusCode,
+    String message,
+  ) async {
+    request.response.statusCode = statusCode;
+    await _writeJson(request, <String, Object?>{
+      'error': <String, Object?>{'message': message},
+    });
+  }
+}
+
+Map<String, Object?> _jsonMapFrom(Object? value, {required String label}) {
+  if (value is Map<Object?, Object?>) {
+    return value.map((key, value) => MapEntry(key as String, value));
+  }
+  throw StateError('$label was not a JSON object.');
+}
+
+void _expect(bool condition, String message) {
+  if (!condition) {
+    throw StateError(message);
+  }
+}
+DART
+
+  printf 'Running MCP client-only consumer package smoke from %s.\n' "$smoke_dir"
+  (
+    cd "$smoke_dir"
+    dart pub get
+    dart analyze
+    dart run bin/main.dart
+  )
+)
+
 run_mcp_consumer_package_smoke() (
   local hook_setting
   local hook_native_lib
