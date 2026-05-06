@@ -4,13 +4,16 @@ Last updated: 2026-05-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `0d40b3c`
-(`test: keep direct wamp helpers lifecycle-free`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP direct JSON batch after Streamable init
+Latest pushed implementation commit: `acb0ed8`
+(`test: keep direct mcp batches lifecycle-free`; hosted CI evidence clean)
+Latest implementation checkpoint: MCP consumer IO entrypoint smoke
 (complete locally; hosted evidence pending).
 Active exec plan:
-`docs/exec-plans/2026-05-06-mcp-direct-batch-after-streamable-smoke.md`
+`docs/exec-plans/2026-05-06-mcp-consumer-io-entrypoint-smoke.md`
 (complete locally; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-06-mcp-direct-batch-after-streamable-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-direct-wamp-after-streamable-smoke.md`
 (complete; hosted CI evidence clean).
@@ -131,8 +134,24 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP direct JSON batch after Streamable initialization is complete locally
-    and pending hosted evidence. The client now has focused coverage proving
+  - MCP consumer IO entrypoint smoke is complete locally and pending hosted
+    evidence. The generated consumer package smoke now imports
+    `package:connectanum_mcp/connectanum_mcp_io.dart` for MCP primitives plus
+    the Streamable HTTP/direct JSON client surface, and no longer declares
+    `connectanum_client` as a direct application dependency. It still keeps
+    transitive path overrides and hook user-defines so native build-hook
+    behavior remains representative. Pre-change `bin/test-fast` passed on
+    2026-05-06. Focused verification also passed on 2026-05-06:
+    `bash -n bin/common.sh` and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-06. Full local `bin/verify`
+    passed on 2026-05-06, including formatting, Rust native/FFI tests, Python
+    package-artifact checks, MCP package tests, client tests, auth-server tests,
+    bench integration tests, router-hosted MCP example and generated consumer
+    package smoke, full router package tests, zero-copy router checks, and
+    Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is pending.
+  - MCP direct JSON batch after Streamable initialization is complete with
+    hosted CI evidence. The client now has focused coverage proving
     `postBatch(..., streamable: false, includeSession: false)` remains
     lifecycle-free on a client that already owns a Streamable MCP session: the
     request uses `Accept: application/json`, sends no `Mcp-Session-Id`, sends no
@@ -154,7 +173,19 @@ order.
     auth-server tests, bench integration tests, router-hosted MCP example and
     generated consumer package smoke, full router package tests, zero-copy
     router checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted
-    evidence is pending.
+    GitHub evidence for `acb0ed8` is clean: `CI` run `25454447247` completed
+    successfully with `Fast Checks` and `Full Verify`, `Dart Package Publish
+    Dry Run` run `25454447229` completed successfully, and `WAMP Profile
+    Benchmarks` run `25454447314` completed successfully. Public check-run
+    annotation audit found zero GitHub annotations for all four check runs. The
+    deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `acb0ed8`; it still reports the known operator-owned
+    findings that `add-router` is unprotected, the router image workflow is not
+    discoverable from the default branch, and the router container package is
+    not visible. The strict variant
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+    correctly failed only on those operator-owned deployment-chain gaps.
   - MCP direct WAMP helpers after Streamable initialization are complete
     with hosted CI evidence. Direct JSON WAMP API and pub/sub helper calls now
     have coverage proving they remain lifecycle-free on a client that already

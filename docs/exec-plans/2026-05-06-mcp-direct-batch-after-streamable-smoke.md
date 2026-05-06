@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct Batch After Streamable Smoke
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-06
 Last updated: 2026-05-06
@@ -58,7 +58,16 @@ without leaking or mutating session state.
 - `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'` passed on 2026-05-06.
 - Post-change `bin/test-fast` passed on 2026-05-06.
 - Full local `bin/verify` passed on 2026-05-06.
-- Pending: hosted GitHub evidence after push.
+- Hosted GitHub evidence for `acb0ed8` is clean:
+  - `CI` run `25454447247` completed successfully with `Fast Checks` and
+    `Full Verify`.
+  - `Dart Package Publish Dry Run` run `25454447229` completed successfully.
+  - `WAMP Profile Benchmarks` run `25454447314` completed successfully.
+  - Public check-run annotation audit found zero GitHub annotations for all
+    four check runs.
+  - Standard deployment-chain audit passed; strict audit failed only on the
+    known operator-owned branch protection, default-branch workflow visibility,
+    and GHCR package visibility gaps.
 
 ## Decision Log
 
@@ -70,5 +79,5 @@ without leaking or mutating session state.
 
 ## Handoff
 
-- Direct JSON batch-after-Streamable coverage is complete locally. Push the
-  implementation commit and collect hosted GitHub evidence.
+- Direct JSON batch-after-Streamable coverage is complete with local and
+  hosted evidence. Remaining deployment-chain findings are operator-owned.

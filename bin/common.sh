@@ -415,7 +415,6 @@ hooks:
     connectanum_router:
       $hook_setting
 dependencies:
-  connectanum_client: any
   connectanum_mcp: any
   connectanum_router: any
 dependency_overrides:
@@ -434,8 +433,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:connectanum_client/mcp.dart';
-import 'package:connectanum_mcp/connectanum_mcp.dart';
+import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 
 const _realm = 'consumer.mcp.realm';
