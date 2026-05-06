@@ -197,12 +197,24 @@ void main() {
       final result = await client.callTool(
         'app.echo',
         id: 'call-helper',
-        arguments: {'message': 'hello'},
+        arguments: {
+          'message': 'hello',
+          'attempt': 2,
+          'dryRun': true,
+          'note': ' padded ',
+          'wrapper': '=?base64?Zm9v?=',
+        },
         streamable: false,
       );
       expect(result['isError'], isFalse);
       expect(result['structuredContent'], {
-        'echo': {'message': 'hello'},
+        'echo': {
+          'message': 'hello',
+          'attempt': 2,
+          'dryRun': true,
+          'note': ' padded ',
+          'wrapper': '=?base64?Zm9v?=',
+        },
       });
 
       await expectLater(
@@ -223,8 +235,17 @@ void main() {
       expect(endpoint.requests[2].mcpName, isNull);
       expect(endpoint.requests[3].mcpMethod, 'tools/call');
       expect(endpoint.requests[3].mcpName, 'app.echo');
+      expect(endpoint.requests[3].mcpParameterHeaders, {
+        'mcp-param-message': 'hello',
+        'mcp-param-attempt': '2',
+        'mcp-param-dryrun': 'true',
+        'mcp-param-note': '=?base64?${base64Encode(utf8.encode(' padded '))}?=',
+        'mcp-param-wrapper':
+            '=?base64?${base64Encode(utf8.encode('=?base64?Zm9v?='))}?=',
+      });
       expect(endpoint.requests[4].mcpMethod, 'tools/call');
       expect(endpoint.requests[4].mcpName, 'app.fail');
+      expect(endpoint.requests[4].mcpParameterHeaders, isEmpty);
     });
 
     test(
@@ -1398,7 +1419,20 @@ final class _FakeMcpEndpoint {
           <String, Object?>{
             'name': 'app.echo',
             'description': 'Echoes arguments.',
-            'inputSchema': <String, Object?>{'type': 'object'},
+            'inputSchema': _toolInputSchemaWithHeaders(),
+          },
+          <String, Object?>{
+            'name': 'app.invalid-header',
+            'description': 'Uses an invalid MCP header annotation.',
+            'inputSchema': <String, Object?>{
+              'type': 'object',
+              'properties': <String, Object?>{
+                'payload': <String, Object?>{
+                  'type': 'object',
+                  'x-mcp-header': 'Payload',
+                },
+              },
+            },
           },
         ],
       },
@@ -1583,6 +1617,22 @@ const _headerSessionId = 'MCP-Session-Id';
 const _headerMethod = 'Mcp-Method';
 const _headerName = 'Mcp-Name';
 
+McpJsonMap _toolInputSchemaWithHeaders() {
+  return <String, Object?>{
+    'type': 'object',
+    'properties': <String, Object?>{
+      'message': <String, Object?>{'type': 'string', 'x-mcp-header': 'Message'},
+      'attempt': <String, Object?>{
+        'type': 'integer',
+        'x-mcp-header': 'Attempt',
+      },
+      'dryRun': <String, Object?>{'type': 'boolean', 'x-mcp-header': 'DryRun'},
+      'note': <String, Object?>{'type': 'string', 'x-mcp-header': 'Note'},
+      'wrapper': <String, Object?>{'type': 'string', 'x-mcp-header': 'Wrapper'},
+    },
+  };
+}
+
 final class _SeenRequest {
   const _SeenRequest({
     required this.method,
@@ -1592,6 +1642,7 @@ final class _SeenRequest {
     required this.lastEventId,
     required this.mcpMethod,
     required this.mcpName,
+    required this.mcpParameterHeaders,
     required this.contentLength,
     required this.transferEncoding,
     required this.body,
@@ -1604,6 +1655,7 @@ final class _SeenRequest {
   final String? lastEventId;
   final String? mcpMethod;
   final String? mcpName;
+  final Map<String, String> mcpParameterHeaders;
   final int contentLength;
   final String? transferEncoding;
   final Object? body;
@@ -1617,6 +1669,7 @@ final class _SeenRequest {
       lastEventId: request.headers.value('Last-Event-ID'),
       mcpMethod: request.headers.value(_headerMethod),
       mcpName: request.headers.value(_headerName),
+      mcpParameterHeaders: _mcpParameterHeadersFrom(request),
       contentLength: request.headers.contentLength,
       transferEncoding: request.headers.value(
         HttpHeaders.transferEncodingHeader,
@@ -1624,6 +1677,17 @@ final class _SeenRequest {
       body: body,
     );
   }
+}
+
+Map<String, String> _mcpParameterHeadersFrom(HttpRequest request) {
+  final headers = <String, String>{};
+  request.headers.forEach((name, values) {
+    final lowerName = name.toLowerCase();
+    if (lowerName.startsWith('mcp-param-')) {
+      headers[lowerName] = values.join(', ');
+    }
+  });
+  return headers;
 }
 
 McpJsonMap _jsonMapFrom(Object? value, {required String label}) {

@@ -42,6 +42,14 @@ router-hosted MCP through intermediaries that inspect `Mcp-Method` and
   `dart analyze packages/connectanum_router/test/router_integration_native_test.dart`
   passed after the style cleanup for the new test helper.
 - Full local `bin/verify` passed on 2026-05-06.
+- Hosted GitHub evidence for `a644253` is clean on 2026-05-06: `CI` run
+  `25437028971` completed successfully with `Fast Checks` and `Full Verify`,
+  `Dart Package Publish Dry Run` run `25437028956` completed successfully, and
+  `WAMP Profile Benchmarks` run `25437029002` completed successfully. Public
+  check-run annotation audit found zero GitHub annotations for all four check
+  runs. Raw hosted log download remains blocked in this environment because
+  GitHub returns `Must have admin rights to Repository` and no GitHub token is
+  present.
 
 ## Status
 
@@ -49,5 +57,4 @@ router-hosted MCP through intermediaries that inspect `Mcp-Method` and
   headers mirrored from the JSON-RPC body. This slice updates the package client
   and router-hosted endpoint together so downstream applications get compliant
   client behavior plus router-side mismatch protection.
-- 2026-05-06: Complete locally. Hosted evidence is pending for the next
-  implementation push.
+- 2026-05-06: Complete. Hosted evidence is clean for `a644253`.

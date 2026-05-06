@@ -5,6 +5,9 @@ const String _mcpProtocolVersionHeader = 'MCP-Protocol-Version';
 const String _mcpLastEventIdHeader = 'Last-Event-ID';
 const String _mcpMethodHeader = 'Mcp-Method';
 const String _mcpNameHeader = 'Mcp-Name';
+const String _mcpParameterHeaderPrefix = 'Mcp-Param-';
+const String _mcpBase64HeaderPrefix = '=?base64?';
+const String _mcpBase64HeaderSuffix = '?=';
 const String _mcpSseContentType = 'text/event-stream';
 const String _mcpJsonContentType = 'application/json';
 const int _mcpSseEventHistoryLimit = 128;
@@ -326,6 +329,252 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
     );
   }
   return null;
+}
+
+NativeHttpResponse? _mcpToolParameterHeaderValidationError(
+  RouterBinding binding, {
+  required RouterHttpRequest request,
+  required Object? rawMessage,
+  required _RouterMcpEndpoint endpoint,
+  required bool requireHeaders,
+  String? sessionId,
+}) {
+  for (final header in request.headers.entries) {
+    if (!_mcpIsParameterHeaderName(header.key)) {
+      continue;
+    }
+    if (!_mcpParameterHeaderValueCharactersValid(header.value)) {
+      return _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.headerMismatch,
+        message:
+            'Header mismatch: ${header.key} header contains invalid characters',
+        id: _recoverDirectJsonRequestId(rawMessage),
+        sessionId: sessionId,
+      );
+    }
+  }
+
+  if (_mcpRequestMethod(rawMessage) != 'tools/call' || rawMessage is! Map) {
+    return null;
+  }
+  final params = rawMessage['params'];
+  if (params is! Map) {
+    return null;
+  }
+  final toolName = params['name'];
+  if (toolName is! String) {
+    return null;
+  }
+  final arguments =
+      _jsonMapFrom(params['arguments']) ?? const <String, Object?>{};
+  final tool = endpoint.server.tools[toolName];
+  if (tool == null) {
+    return null;
+  }
+  final headerParameters = _mcpToolHeaderParametersFromSchema(tool.inputSchema);
+  if (headerParameters.isEmpty) {
+    return null;
+  }
+  final id = _recoverDirectJsonRequestId(rawMessage);
+  for (final parameter in headerParameters) {
+    final headerName = '$_mcpParameterHeaderPrefix${parameter.headerName}';
+    final headerValue = _mcpHeaderValueRaw(binding, request, headerName);
+    final hasArgument = arguments.containsKey(parameter.argumentName);
+    final argumentValue = hasArgument
+        ? arguments[parameter.argumentName]
+        : null;
+    if (argumentValue == null) {
+      if (headerValue != null) {
+        return _mcpJsonRpcHttpError(
+          status: HttpStatus.badRequest,
+          code: mcp.McpErrorCodes.headerMismatch,
+          message:
+              'Header mismatch: $headerName header is present but body value '
+              "for '${parameter.argumentName}' is missing",
+          id: id,
+          sessionId: sessionId,
+        );
+      }
+      continue;
+    }
+    final expectedValue = _mcpStringFromHeaderParameterValue(argumentValue);
+    if (expectedValue == null) {
+      return _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.headerMismatch,
+        message:
+            "Header mismatch: body value for '${parameter.argumentName}' must "
+            'be a string, number, or boolean',
+        id: id,
+        sessionId: sessionId,
+      );
+    }
+    if (headerValue == null) {
+      if (!requireHeaders) {
+        continue;
+      }
+      return _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.headerMismatch,
+        message: 'Header mismatch: missing $headerName header',
+        id: id,
+        sessionId: sessionId,
+      );
+    }
+    final decodedValue = _mcpDecodeParameterHeaderValue(headerValue);
+    if (decodedValue == null) {
+      return _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.headerMismatch,
+        message: 'Header mismatch: malformed $headerName header',
+        id: id,
+        sessionId: sessionId,
+      );
+    }
+    if (decodedValue != expectedValue) {
+      return _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.headerMismatch,
+        message:
+            "Header mismatch: $headerName header value '$decodedValue' does "
+            "not match body value '$expectedValue'",
+        id: id,
+        sessionId: sessionId,
+      );
+    }
+  }
+  return null;
+}
+
+bool _mcpIsParameterHeaderName(String name) {
+  return name.toLowerCase().startsWith(_mcpParameterHeaderPrefix.toLowerCase());
+}
+
+bool _mcpParameterHeaderValueCharactersValid(String value) {
+  for (final codeUnit in value.codeUnits) {
+    final visibleAscii = codeUnit >= 0x20 && codeUnit <= 0x7E;
+    if (!visibleAscii && codeUnit != 0x09) {
+      return false;
+    }
+  }
+  return true;
+}
+
+String? _mcpDecodeParameterHeaderValue(String value) {
+  if (!_mcpParameterHeaderValueCharactersValid(value)) {
+    return null;
+  }
+  if (!value.startsWith(_mcpBase64HeaderPrefix) ||
+      !value.endsWith(_mcpBase64HeaderSuffix)) {
+    return value;
+  }
+  final encoded = value.substring(
+    _mcpBase64HeaderPrefix.length,
+    value.length - _mcpBase64HeaderSuffix.length,
+  );
+  try {
+    return utf8.decode(base64Decode(encoded));
+  } on FormatException {
+    return null;
+  }
+}
+
+String? _mcpStringFromHeaderParameterValue(Object? value) {
+  return switch (value) {
+    final String value => value,
+    final num value => value.toString(),
+    final bool value => value ? 'true' : 'false',
+    _ => null,
+  };
+}
+
+List<_McpToolHeaderParameter> _mcpToolHeaderParametersFromSchema(
+  Map<String, Object?> inputSchema,
+) {
+  final properties = inputSchema['properties'];
+  if (properties is! Map) {
+    return const <_McpToolHeaderParameter>[];
+  }
+  final headerNames = <String>{};
+  final parameters = <_McpToolHeaderParameter>[];
+  for (final entry in properties.entries) {
+    final argumentName = entry.key;
+    final property = entry.value;
+    if (argumentName is! String || property is! Map) {
+      continue;
+    }
+    final headerName = property['x-mcp-header'];
+    if (headerName == null) {
+      continue;
+    }
+    if (headerName is! String ||
+        !_mcpHeaderNameSegmentValid(headerName) ||
+        !headerNames.add(headerName.toLowerCase()) ||
+        !_mcpHeaderParameterSchemaIsPrimitive(property)) {
+      return const <_McpToolHeaderParameter>[];
+    }
+    parameters.add(
+      _McpToolHeaderParameter(
+        argumentName: argumentName,
+        headerName: headerName,
+      ),
+    );
+  }
+  return List<_McpToolHeaderParameter>.unmodifiable(parameters);
+}
+
+bool _mcpHeaderNameSegmentValid(String value) {
+  if (value.isEmpty) {
+    return false;
+  }
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit < 0x21 || codeUnit > 0x7E || codeUnit == 0x3A) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _mcpHeaderParameterSchemaIsPrimitive(Map property) {
+  final type = property['type'];
+  if (type is String) {
+    return _mcpHeaderPrimitiveType(type);
+  }
+  if (type is Iterable) {
+    var sawType = false;
+    for (final value in type) {
+      if (value is! String) {
+        return false;
+      }
+      if (value == 'null') {
+        continue;
+      }
+      sawType = true;
+      if (!_mcpHeaderPrimitiveType(value)) {
+        return false;
+      }
+    }
+    return sawType;
+  }
+  return false;
+}
+
+bool _mcpHeaderPrimitiveType(String type) {
+  return type == 'string' ||
+      type == 'number' ||
+      type == 'integer' ||
+      type == 'boolean';
+}
+
+final class _McpToolHeaderParameter {
+  const _McpToolHeaderParameter({
+    required this.argumentName,
+    required this.headerName,
+  });
+
+  final String argumentName;
+  final String headerName;
 }
 
 String _mcpGenerateHttpSessionId() {
@@ -831,6 +1080,24 @@ Future<void> _handleMcpHttpRequestForBinding(
         message: 'Unknown MCP HTTP session',
         sessionId: mcpSessionId,
       ),
+    );
+    return;
+  }
+
+  await endpoint._refreshTools();
+  final toolParameterHeaderError = _mcpToolParameterHeaderValidationError(
+    binding,
+    request: request,
+    rawMessage: rawMessage,
+    endpoint: endpoint,
+    requireHeaders: streamableHttpRequest,
+    sessionId: effectiveMcpSessionId,
+  );
+  if (toolParameterHeaderError != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: toolParameterHeaderError,
     );
     return;
   }

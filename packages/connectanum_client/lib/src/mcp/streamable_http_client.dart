@@ -11,6 +11,9 @@ const _headerProtocolVersion = 'MCP-Protocol-Version';
 const _headerSessionId = 'MCP-Session-Id';
 const _headerMethod = 'Mcp-Method';
 const _headerName = 'Mcp-Name';
+const _headerParameterPrefix = 'Mcp-Param-';
+const _base64HeaderPrefix = '=?base64?';
+const _base64HeaderSuffix = '?=';
 
 /// Minimal Dart IO client for MCP Streamable HTTP endpoints.
 ///
@@ -51,6 +54,7 @@ final class McpStreamableHttpClient {
   final String defaultProtocolVersion;
   final HttpClient _httpClient;
   final bool _ownsHttpClient;
+  final _toolHeaderParametersByName = <String, List<_McpToolHeaderParameter>>{};
 
   int _nextRequestId = 1;
 
@@ -111,6 +115,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? params,
     bool streamable = true,
     bool includeSession = true,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await post(
       <String, Object?>{
@@ -121,6 +126,7 @@ final class McpStreamableHttpClient {
       },
       streamable: streamable,
       includeSession: includeSession,
+      headers: headers,
     );
     if (response == null) {
       throw FormatException('$method did not return a JSON-RPC body');
@@ -145,13 +151,16 @@ final class McpStreamableHttpClient {
       streamable: streamable,
     );
     final result = _jsonRpcResultFrom(response, method: 'tools/list');
-    return McpStreamableToolListPage(
-      tools: _jsonMapListFrom(
+    final tools = _rememberToolHeaderParameters(
+      _jsonMapListFrom(
         result,
         key: 'tools',
         method: 'tools/list',
         label: 'tools/list result tool',
       ),
+    );
+    return McpStreamableToolListPage(
+      tools: tools,
       nextCursor: _nextCursorFrom(result, method: 'tools/list'),
     );
   }
@@ -162,11 +171,13 @@ final class McpStreamableHttpClient {
     McpJsonMap arguments = const <String, Object?>{},
     bool streamable = true,
   }) async {
+    final headers = _mcpToolParameterHeaders(name, arguments);
     final response = await request(
       'tools/call',
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: streamable,
+      headers: headers,
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
   }
@@ -355,11 +366,13 @@ final class McpStreamableHttpClient {
     McpJsonMap message, {
     bool streamable = true,
     bool includeSession = true,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await _postPayload(
       message,
       streamable: streamable,
       includeSession: includeSession,
+      extraHeaders: headers,
     );
     if (response == null) {
       return null;
@@ -393,12 +406,14 @@ final class McpStreamableHttpClient {
     Object? message, {
     bool streamable = true,
     bool includeSession = true,
+    Map<String, String> extraHeaders = const <String, String>{},
   }) async {
     final request = await _httpClient.postUrl(endpoint);
     _applyHeaders(
       request,
       accept: streamable ? _acceptStreamableHttp : _acceptJson,
       includeSession: includeSession,
+      extraHeaders: extraHeaders,
     );
     _applyStandardRequestHeaders(request, message);
     request.headers.contentType = ContentType.json;
@@ -483,10 +498,14 @@ final class McpStreamableHttpClient {
     required String accept,
     String? lastEventId,
     bool includeSession = true,
+    Map<String, String> extraHeaders = const <String, String>{},
   }) {
     request.headers.set(HttpHeaders.acceptHeader, accept);
     request.headers.set(_headerProtocolVersion, protocolVersion);
     for (final entry in headers.entries) {
+      request.headers.set(entry.key, entry.value);
+    }
+    for (final entry in extraHeaders.entries) {
       request.headers.set(entry.key, entry.value);
     }
     final session = includeSession ? sessionId : null;
@@ -547,6 +566,187 @@ final class McpStreamableHttpClient {
       }
     }
   }
+
+  List<McpJsonMap> _rememberToolHeaderParameters(List<McpJsonMap> tools) {
+    final visibleTools = <McpJsonMap>[];
+    for (final tool in tools) {
+      final name = tool['name'];
+      if (name is! String) {
+        visibleTools.add(tool);
+        continue;
+      }
+      final headerParameters = _mcpToolHeaderParametersFromTool(tool);
+      if (headerParameters == null) {
+        _toolHeaderParametersByName.remove(name);
+        continue;
+      }
+      if (headerParameters.isEmpty) {
+        _toolHeaderParametersByName.remove(name);
+      } else {
+        _toolHeaderParametersByName[name] = headerParameters;
+      }
+      visibleTools.add(tool);
+    }
+    return List<McpJsonMap>.unmodifiable(visibleTools);
+  }
+
+  Map<String, String> _mcpToolParameterHeaders(
+    String toolName,
+    McpJsonMap arguments,
+  ) {
+    final parameters = _toolHeaderParametersByName[toolName];
+    if (parameters == null || parameters.isEmpty) {
+      return const <String, String>{};
+    }
+    final headers = <String, String>{};
+    for (final parameter in parameters) {
+      if (!arguments.containsKey(parameter.argumentName)) {
+        continue;
+      }
+      final value = arguments[parameter.argumentName];
+      if (value == null) {
+        continue;
+      }
+      headers['$_headerParameterPrefix${parameter.headerName}'] =
+          _encodeMcpParameterHeaderValue(
+            value,
+            argumentName: parameter.argumentName,
+          );
+    }
+    return headers;
+  }
+}
+
+final class _McpToolHeaderParameter {
+  const _McpToolHeaderParameter({
+    required this.argumentName,
+    required this.headerName,
+  });
+
+  final String argumentName;
+  final String headerName;
+}
+
+List<_McpToolHeaderParameter>? _mcpToolHeaderParametersFromTool(
+  McpJsonMap tool,
+) {
+  final inputSchema = tool['inputSchema'];
+  if (inputSchema is! Map) {
+    return const <_McpToolHeaderParameter>[];
+  }
+  final properties = inputSchema['properties'];
+  if (properties is! Map) {
+    return const <_McpToolHeaderParameter>[];
+  }
+  final headerNames = <String>{};
+  final parameters = <_McpToolHeaderParameter>[];
+  for (final entry in properties.entries) {
+    final argumentName = entry.key;
+    final property = entry.value;
+    if (argumentName is! String || property is! Map) {
+      continue;
+    }
+    final headerName = property['x-mcp-header'];
+    if (headerName == null) {
+      continue;
+    }
+    if (headerName is! String ||
+        !_isValidMcpHeaderNameSegment(headerName) ||
+        !headerNames.add(headerName.toLowerCase()) ||
+        !_mcpHeaderParameterSchemaIsPrimitive(property)) {
+      return null;
+    }
+    parameters.add(
+      _McpToolHeaderParameter(
+        argumentName: argumentName,
+        headerName: headerName,
+      ),
+    );
+  }
+  return List<_McpToolHeaderParameter>.unmodifiable(parameters);
+}
+
+bool _isValidMcpHeaderNameSegment(String value) {
+  if (value.isEmpty) {
+    return false;
+  }
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit < 0x21 || codeUnit > 0x7E || codeUnit == 0x3A) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _mcpHeaderParameterSchemaIsPrimitive(Map property) {
+  final type = property['type'];
+  if (type is String) {
+    return _isMcpHeaderPrimitiveType(type);
+  }
+  if (type is Iterable) {
+    var sawType = false;
+    for (final value in type) {
+      if (value is! String) {
+        return false;
+      }
+      if (value == 'null') {
+        continue;
+      }
+      sawType = true;
+      if (!_isMcpHeaderPrimitiveType(value)) {
+        return false;
+      }
+    }
+    return sawType;
+  }
+  return false;
+}
+
+bool _isMcpHeaderPrimitiveType(String type) {
+  return type == 'string' ||
+      type == 'number' ||
+      type == 'integer' ||
+      type == 'boolean';
+}
+
+String _encodeMcpParameterHeaderValue(
+  Object? value, {
+  required String argumentName,
+}) {
+  final stringValue = switch (value) {
+    final String value => value,
+    final num value => value.toString(),
+    final bool value => value ? 'true' : 'false',
+    _ => throw ArgumentError.value(
+      value,
+      argumentName,
+      'MCP header parameters must be strings, numbers, or booleans.',
+    ),
+  };
+  if (!_mcpParameterHeaderValueNeedsBase64(stringValue)) {
+    return stringValue;
+  }
+  return '$_base64HeaderPrefix${base64Encode(utf8.encode(stringValue))}'
+      '$_base64HeaderSuffix';
+}
+
+bool _mcpParameterHeaderValueNeedsBase64(String value) {
+  if (value.startsWith(_base64HeaderPrefix) &&
+      value.endsWith(_base64HeaderSuffix)) {
+    return true;
+  }
+  if (value.startsWith(' ') ||
+      value.startsWith('\t') ||
+      value.endsWith(' ') ||
+      value.endsWith('\t')) {
+    return true;
+  }
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit < 0x20 || codeUnit > 0x7E || codeUnit == 0x7F) {
+      return true;
+    }
+  }
+  return false;
 }
 
 String? _requestMethodForStandardHeaders(Object? message) {

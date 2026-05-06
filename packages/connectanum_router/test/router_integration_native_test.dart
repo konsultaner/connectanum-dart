@@ -917,7 +917,19 @@ void main() {
       );
       addTearDown(serviceSession.close);
 
-      final registration = await serviceSession.register('app.echo');
+      final registration = await serviceSession.register(
+        'app.echo',
+        options: core.RegisterOptions(
+          custom: const <String, Object?>{
+            'input_json_schema': {
+              'type': 'object',
+              'properties': {
+                'message': {'type': 'string', 'x-mcp-header': 'Message'},
+              },
+            },
+          },
+        ),
+      );
       registration.onInvoke((invocation) {
         invocation.respondWith(
           argumentsKeywords: {'received': invocation.argumentsKeywords},
@@ -1140,6 +1152,39 @@ void main() {
         'received': {'message': 'hello'},
       });
 
+      final directParamHeaderMismatch = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-param-header-mismatch',
+          'method': 'tools/call',
+          'params': {
+            'name': 'app.echo',
+            'arguments': {'message': 'hello'},
+          },
+        },
+        headers: {
+          'Mcp-Method': 'tools/call',
+          'Mcp-Name': 'app.echo',
+          'Mcp-Param-Message': 'wrong',
+        },
+      );
+      expect(
+        directParamHeaderMismatch.statusCode,
+        equals(HttpStatus.badRequest),
+      );
+      expect(
+        (directParamHeaderMismatch.json?['error']
+            as Map<String, Object?>)['code'],
+        equals(-32001),
+      );
+      expect(
+        jsonEncode(directParamHeaderMismatch.json?['error']),
+        contains('Mcp-Param-Message'),
+      );
+
       final meta = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
         'id': 4,
@@ -1329,12 +1374,76 @@ void main() {
         'app.sse.dynamic',
         options: core.RegisterOptions(
           custom: const {
+            'input_json_schema': {
+              'type': 'object',
+              'properties': {
+                'tenant': {'type': 'string', 'x-mcp-header': 'Tenant'},
+                'priority': {'type': 'integer', 'x-mcp-header': 'Priority'},
+              },
+            },
             '_ai_meta_data': {
               'short_description': 'Dynamic SSE tool',
               'description': 'Tool registered after MCP initialization.',
             },
           },
         ),
+      );
+
+      final missingParameterHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'missing-parameter-header',
+          'method': 'tools/call',
+          'params': {
+            'name': 'app.sse.dynamic',
+            'arguments': {'tenant': 'consumer-a'},
+          },
+        },
+        headers: streamableHeaders('tools/call', name: 'app.sse.dynamic'),
+      );
+      expect(missingParameterHeader.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        (missingParameterHeader.json?['error'] as Map<String, Object?>)['code'],
+        equals(-32001),
+      );
+      expect(
+        jsonEncode(missingParameterHeader.json?['error']),
+        contains('Mcp-Param-Tenant'),
+      );
+
+      final malformedParameterHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'malformed-parameter-header',
+          'method': 'tools/call',
+          'params': {
+            'name': 'app.sse.dynamic',
+            'arguments': {'tenant': 'consumer-a'},
+          },
+        },
+        headers: {
+          ...streamableHeaders('tools/call', name: 'app.sse.dynamic'),
+          'Mcp-Param-Tenant': '=?base64?not-base64?=',
+        },
+      );
+      expect(
+        malformedParameterHeader.statusCode,
+        equals(HttpStatus.badRequest),
+      );
+      expect(
+        (malformedParameterHeader.json?['error']
+            as Map<String, Object?>)['code'],
+        equals(-32001),
+      );
+      expect(
+        jsonEncode(malformedParameterHeader.json?['error']),
+        contains('Mcp-Param-Tenant'),
       );
 
       final missingSession = await _postJson(
