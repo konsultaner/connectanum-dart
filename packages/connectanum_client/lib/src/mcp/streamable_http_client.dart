@@ -195,13 +195,16 @@ final class McpStreamableHttpClient {
       includeSession: false,
     );
     final result = _jsonRpcResultFrom(response, method: method);
-    return McpStreamableToolListPage(
-      tools: _jsonMapListFrom(
+    final tools = _rememberToolHeaderParameters(
+      _jsonMapListFrom(
         result,
         key: 'tools',
         method: method,
         label: '$method result tool',
       ),
+    );
+    return McpStreamableToolListPage(
+      tools: tools,
       nextCursor: _nextCursorFrom(result, method: method),
     );
   }

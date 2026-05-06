@@ -36,11 +36,24 @@ Streamable MCP so the package client must emit matching `Mcp-Param-*` headers.
   tests, auth-server tests, bench integration tests, router-hosted MCP example
   and generated consumer package smoke, full router package tests, zero-copy
   router checks, and Chrome Dart2Wasm WebSocket transport tests.
+- Hosted GitHub CI evidence for `117628f` is clean on 2026-05-06: `CI` run
+  `25444228405` completed successfully with `Fast Checks` and `Full Verify`;
+  public check-run annotation audit found zero GitHub annotations for both
+  check runs. The deployment-chain audit
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci`
+  passed against `117628f`; it still reports the known operator-owned findings
+  that `add-router` is unprotected, the router image workflow is not
+  discoverable from the default branch, and the router container package is not
+  visible. The strict variant
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --strict`
+  correctly failed only on those operator-owned deployment-chain gaps. `Dart
+  Package Publish Dry Run` and `WAMP Profile Benchmarks` did not run for this
+  SHA because their checked-in push path filters do not include `bin/common.sh`
+  or the touched docs files.
 
 ## Status
 
 - 2026-05-06: Started after hosted evidence for `255c990` was clean. The next
   slice is generated consumer-package smoke coverage for custom MCP parameter
   headers.
-- 2026-05-06: Implementation and full local verification are complete. Hosted
-  evidence is pending after push.
+- 2026-05-06: Complete. Hosted CI evidence is clean for `117628f`.

@@ -319,6 +319,63 @@ void main() {
       },
     );
 
+    test(
+      'reuses direct JSON tool catalog for later Streamable custom headers',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final page = await client.listConnectanumToolsDirect(
+          id: 'direct-catalog',
+        );
+        expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        final result = await client.callTool(
+          'app.echo',
+          id: 'streamable-after-direct-catalog',
+          arguments: {
+            'message': 'from-direct-catalog',
+            'attempt': 3,
+            'dryRun': false,
+            'note': ' spaced ',
+            'wrapper': '=?base64?Zm9v?=',
+          },
+        );
+        expect(result['isError'], isFalse);
+        expect(result['structuredContent'], {
+          'echo': {
+            'message': 'from-direct-catalog',
+            'attempt': 3,
+            'dryRun': false,
+            'note': ' spaced ',
+            'wrapper': '=?base64?Zm9v?=',
+          },
+        });
+
+        expect(endpoint.requests[0].mcpMethod, 'connectanum.tools.list');
+        expect(endpoint.requests[0].accept, 'application/json');
+        expect(endpoint.requests[1].mcpMethod, 'initialize');
+        expect(endpoint.requests[2].mcpMethod, 'notifications/initialized');
+        expect(endpoint.requests[3].mcpMethod, 'tools/call');
+        expect(endpoint.requests[3].mcpName, 'app.echo');
+        expect(endpoint.requests[3].mcpParameterHeaders, {
+          'mcp-param-message': 'from-direct-catalog',
+          'mcp-param-attempt': '3',
+          'mcp-param-dryrun': 'false',
+          'mcp-param-note':
+              '=?base64?${base64Encode(utf8.encode(' spaced '))}?=',
+          'mcp-param-wrapper':
+              '=?base64?${base64Encode(utf8.encode('=?base64?Zm9v?='))}?=',
+        });
+      },
+    );
+
     test('uses typed helpers for resources and prompts', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -1034,7 +1091,7 @@ final class _FakeMcpEndpoint {
             <String, Object?>{
               'name': 'app.echo',
               'description': 'Echoes arguments.',
-              'inputSchema': <String, Object?>{'type': 'object'},
+              'inputSchema': _toolInputSchemaWithHeaders(),
             },
             <String, Object?>{
               'name': 'wamp.registration.match',

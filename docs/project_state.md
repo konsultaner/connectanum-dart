@@ -4,13 +4,17 @@ Last updated: 2026-05-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `255c990`
-(`mcp: add custom parameter headers`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP consumer custom header smoke
-(local `bin/verify` clean; hosted evidence pending).
+Latest pushed implementation commit: `117628f`
+(`test: smoke mcp custom headers in consumer package`; hosted CI evidence
+clean)
+Latest implementation checkpoint: MCP direct catalog header cache
+(local verification clean; hosted evidence pending).
 Active exec plan:
+`docs/exec-plans/2026-05-06-mcp-direct-catalog-header-cache.md`
+(complete locally; hosted evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-consumer-custom-header-smoke.md`
-(implementation and local verification complete; hosted evidence pending).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-custom-parameter-headers.md`
 (complete; hosted evidence clean).
@@ -119,22 +123,30 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer custom header smoke is in progress locally. The generated
-    consumer package smoke now registers its WAMP-backed procedure with
-    `x-mcp-header` annotations for `taskId` and `note`, calls it through the
-    direct JSON path with a wrapper-shaped string value to preserve JSON-only
-    compatibility, and calls it through public Streamable MCP after
-    `listTools()` so `McpStreamableHttpClient` must emit matching
-    `Mcp-Param-*` headers, including the SEP-2243 base64 wrapper ambiguity
-    path. Focused verification passed on 2026-05-06:
-    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
-    Post-change `bin/test-fast` passed on 2026-05-06. Full local `bin/verify`
-    passed on 2026-05-06, including formatting, Rust native/FFI tests, Python
-    package-artifact checks, MCP package tests, client tests, auth-server
-    tests, bench integration tests, router-hosted MCP example and generated
-    consumer package smoke, full router package tests, zero-copy router
-    checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is
-    pending.
+  - MCP direct catalog header cache is complete locally.
+    `McpStreamableHttpClient.listConnectanumToolsDirect()` now remembers valid
+    tool `x-mcp-header` mappings from lifecycle-free direct JSON
+    `connectanum.tools.list` catalogs the same way `listTools()` does, so
+    consumer applications can discover a router-hosted tool through direct JSON
+    and later call it through Streamable MCP with cached `Mcp-Param-*` headers.
+    The client fixture for direct JSON tool catalogs now preserves the full
+    `inputSchema`, matching router-hosted `tool.toJson()` catalog behavior.
+    Pre-change `bin/test-fast` passed on 2026-05-06. Focused verification
+    passed on 2026-05-06:
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --plain-name "reuses direct JSON tool catalog for later Streamable custom headers"`
+    and
+    `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`.
+    Post-change `bin/test-fast` passed on 2026-05-06, including the generated
+    consumer package smoke. Full local `bin/verify` passed on 2026-05-06,
+    including formatting, Rust native/FFI tests, Python package-artifact
+    checks, MCP package tests, client tests with the new direct-catalog header
+    cache regression, auth-server tests, bench integration tests,
+    router-hosted MCP example and generated consumer package smoke, full
+    router package tests, zero-copy router checks, and Chrome Dart2Wasm
+    WebSocket transport tests. Hosted evidence for this checkpoint is pending.
+    The previous MCP consumer custom-header smoke (`117628f`) remains
+    hosted-clean, with hosted evidence recorded in
+    `docs/exec-plans/2026-05-06-mcp-consumer-custom-header-smoke.md`.
   - MCP custom parameter headers are complete locally. The public
     `McpStreamableHttpClient` now remembers valid tool `x-mcp-header`
     mappings from `tools/list`, filters malformed typed tool definitions from
