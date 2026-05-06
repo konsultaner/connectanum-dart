@@ -21,13 +21,14 @@ import 'package:test/test.dart';
 void main() {
   group('Socket open and close', () {
     test('initial close', () async {
-      final server = await ServerSocket.bind('0.0.0.0', 8998);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close());
       server.listen((socket) {
         socket.listen((message) {});
       });
       final transportJson = SocketTransport(
-        '127.0.0.1',
-        8998,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         json_serializer.Serializer(),
         SocketHelper.serializationJson,
       );
@@ -36,8 +37,8 @@ void main() {
       await transportJson.close();
 
       final transportMsgpack = SocketTransport(
-        '127.0.0.1',
-        8998,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         msgpack_serializer.Serializer(),
         SocketHelper.serializationMsgpack,
       );
@@ -46,8 +47,8 @@ void main() {
       await transportMsgpack.close();
 
       final transportCbor = SocketTransport(
-        '127.0.0.1',
-        8998,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         cbor_serializer.Serializer(),
         SocketHelper.serializationCbor,
       );
@@ -60,7 +61,8 @@ void main() {
     test('Opening with max header', () async {
       var handshakes = <Uint8List?>[null, null];
       var serializer = json_serializer.Serializer();
-      final server = await ServerSocket.bind('0.0.0.0', 8999);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close());
       server.listen((socket) {
         socket.listen((message) {
           if (message.length == 4) {
@@ -83,12 +85,13 @@ void main() {
         });
       });
       final transport = SocketTransport(
-        '127.0.0.1',
-        8999,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         serializer,
         SocketHelper.serializationJson,
         messageLengthExponent: SocketHelper.maxMessageLengthConnectanumExponent,
       );
+      addTearDown(() => transport.close());
       await transport.open();
       final handshakeCompleter = Completer();
       unawaited(
@@ -105,7 +108,8 @@ void main() {
     test('Opening with server only allowing power of 20', () async {
       var handshakes = <Uint8List?>[null, null];
       var serializer = json_serializer.Serializer();
-      final server = await ServerSocket.bind('0.0.0.0', 9007);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close());
       server.listen((socket) {
         socket.listen((message) {
           if (message.length == 4) {
@@ -120,12 +124,13 @@ void main() {
         });
       });
       final transport = SocketTransport(
-        '127.0.0.1',
-        9007,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         serializer,
         SocketHelper.serializationJson,
         messageLengthExponent: SocketHelper.maxMessageLengthConnectanumExponent,
       );
+      addTearDown(() => transport.close());
       await transport.open();
       final handshakeCompleter = Completer();
       unawaited(
@@ -142,7 +147,8 @@ void main() {
     test('Opening with client max header of 20', () async {
       var handshakes = <Uint8List?>[null, null];
       var serializer = json_serializer.Serializer();
-      final server = await ServerSocket.bind('0.0.0.0', 9008);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close());
       server.listen((socket) {
         socket.listen((message) {
           if (message.length == 4) {
@@ -166,12 +172,13 @@ void main() {
         });
       });
       final transport = SocketTransport(
-        '127.0.0.1',
-        9008,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         serializer,
         SocketHelper.serializationJson,
         messageLengthExponent: 20,
       );
+      addTearDown(() => transport.close());
       await transport.open();
       final handshakeCompleter = Completer();
       unawaited(
@@ -186,7 +193,8 @@ void main() {
       expect(handshakes[1], equals(null));
     });
     test('Opening with server error', () async {
-      final server = await ServerSocket.bind('0.0.0.0', 9006);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close());
       server.listen((socket) {
         socket.listen((message) {
           if (SocketHelper.getMaxMessageSizeExponent(message) == 9) {
@@ -216,8 +224,8 @@ void main() {
 
       // error 1
       var transport = SocketTransport(
-        '127.0.0.1',
-        9006,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         json_serializer.Serializer(),
         SocketHelper.serializationJson,
         messageLengthExponent: 9,
@@ -245,8 +253,8 @@ void main() {
 
       // error 2
       transport = SocketTransport(
-        '127.0.0.1',
-        9006,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         json_serializer.Serializer(),
         SocketHelper.serializationJson,
         messageLengthExponent: 10,
@@ -272,8 +280,8 @@ void main() {
 
       // error 3
       transport = SocketTransport(
-        '127.0.0.1',
-        9006,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         json_serializer.Serializer(),
         SocketHelper.serializationJson,
         messageLengthExponent: 11,
@@ -301,8 +309,8 @@ void main() {
 
       // error 4
       transport = SocketTransport(
-        '127.0.0.1',
-        9006,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         json_serializer.Serializer(),
         SocketHelper.serializationJson,
         messageLengthExponent: 12,
@@ -331,7 +339,8 @@ void main() {
     test('Ping Pong', () async {
       var serializer = json_serializer.Serializer();
       var pongCompleter = Completer();
-      final server = await ServerSocket.bind('0.0.0.0', 9004);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close());
       server.listen((socket) {
         socket.listen((message) {
           if (message[0] == 0x7F) {
@@ -361,12 +370,13 @@ void main() {
         });
       });
       final transport = SocketTransport(
-        '127.0.0.1',
-        9004,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         serializer,
         SocketHelper.serializationJson,
         messageLengthExponent: SocketHelper.maxMessageLengthExponent,
       );
+      addTearDown(() => transport.close());
       await transport.open();
       transport.receive().listen((message) {});
       var pong = await transport.sendPing();
@@ -381,7 +391,7 @@ void main() {
         final serializer = json_serializer.Serializer();
         final receivedFrames = <Uint8List>[];
         final frameCompleter = Completer<void>();
-        final server = await ServerSocket.bind('0.0.0.0', 9011);
+        final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
         server.listen((socket) {
           var handshakeDone = false;
           socket.listen((message) {
@@ -403,8 +413,8 @@ void main() {
         });
 
         final transport = SocketTransport(
-          '127.0.0.1',
-          9011,
+          InternetAddress.loopbackIPv4.address,
+          server.port,
           serializer,
           SocketHelper.serializationJson,
           messageLengthExponent: SocketHelper.maxMessageLengthExponent,
@@ -432,7 +442,7 @@ void main() {
 
     test('buffers partial raw socket frames until complete', () async {
       final serializer = json_serializer.Serializer();
-      final server = await ServerSocket.bind('0.0.0.0', 9012);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       server.listen((socket) {
         var handshakeDone = false;
         socket.listen((message) {
@@ -467,8 +477,8 @@ void main() {
       });
 
       final transport = SocketTransport(
-        '127.0.0.1',
-        9012,
+        InternetAddress.loopbackIPv4.address,
+        server.port,
         serializer,
         SocketHelper.serializationJson,
         messageLengthExponent: SocketHelper.maxMessageLengthExponent,

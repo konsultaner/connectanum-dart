@@ -4,14 +4,14 @@ Last updated: 2026-05-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `f1d4f0c`
-(`mcp: preserve external authorization context`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP Streamable HTTP session recovery
+Latest pushed implementation commit: `eff3b10`
+(`mcp: recover streamable sessions after 404`; hosted CI evidence clean)
+Latest implementation checkpoint: socket transport test port isolation
 (local verification clean; hosted evidence pending).
 Active exec plan: none.
 Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-streamable-session-recovery.md`
-(complete; local verification clean; hosted evidence pending).
+(complete; hosted evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-05-mcp-external-authorization-context.md`
 (complete; hosted evidence clean).
@@ -111,6 +111,19 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - Socket transport test port isolation is complete locally. The local
+    handoff `bin/verify` initially reproduced a timeout in
+    `packages/connectanum_client/test/transport/socket/socket_transport_test.dart`
+    when a hard-coded raw socket fixture port was already owned by another
+    local listener. The socket transport tests now bind loopback fixture
+    servers on OS-assigned ports and connect through `server.port`, with
+    teardown for the newly isolated server/transport fixtures. Focused
+    verification passed on 2026-05-06:
+    `dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart -r expanded --plain-name "Opening with client max header of 20"`
+    and
+    `dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart -r expanded`.
+    Full local `bin/test-fast` and `bin/verify` both passed on 2026-05-06
+    after the fix. Hosted evidence is pending for the next push.
   - MCP Streamable HTTP session recovery is complete locally. The public
     `McpStreamableHttpClient` no longer sends a stored `MCP-Session-Id` on
     `initialize`, and it clears the stored session id plus SSE cursor after
@@ -133,7 +146,14 @@ order.
     bench integration tests, router-hosted MCP example smoke, the upgraded
     generated consumer package smoke, full router package tests including
     router-hosted MCP auth/session/batch coverage, zero-copy router checks, and
-    Chrome Dart2Wasm WebSocket transport tests. Hosted evidence is pending.
+    Chrome Dart2Wasm WebSocket transport tests. Hosted GitHub evidence for
+    `eff3b10` is clean: `CI` run `25431647686` completed successfully with
+    `Fast Checks` and `Full Verify`, `Dart Package Publish Dry Run` run
+    `25431647641` completed successfully, and `WAMP Profile Benchmarks` run
+    `25431647607` completed successfully. Public check-run annotation audit
+    found zero GitHub annotations for all four check runs. Raw hosted log
+    download remained blocked in this environment because GitHub returned
+    `Must have admin rights to Repository` and no GitHub token was present.
   - MCP external authorization context is complete locally. Router-hosted MCP
     and HTTP-auth bridge sessions now carry an explicit
     `authorizationIsInternal` flag so public MCP callers and bearer-authenticated

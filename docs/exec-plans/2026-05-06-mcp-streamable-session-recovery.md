@@ -47,7 +47,16 @@ Out of scope:
   tests, auth-server tests, bench integration tests, router-hosted MCP example
   smoke, generated consumer package smoke, full router package tests,
   zero-copy router checks, and Chrome Dart2Wasm WebSocket transport tests.
+- Hosted GitHub evidence for `eff3b10` is clean: `CI` run `25431647686`
+  completed successfully with `Fast Checks` and `Full Verify`, `Dart Package
+  Publish Dry Run` run `25431647641` completed successfully, and `WAMP Profile
+  Benchmarks` run `25431647607` completed successfully.
+- Public check-run annotation audit found zero GitHub annotations for the
+  `Fast Checks`, `Full Verify`, `Publish Dry Run`, and `Linux WAMP profile
+  gates` check runs. Raw hosted log download remained blocked in this
+  environment because GitHub returned `Must have admin rights to Repository`
+  and no GitHub token was present.
 
 ## Handoff
 
-Complete locally. Hosted evidence is pending.
+Complete. Local verification and hosted GitHub evidence are clean.
