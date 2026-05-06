@@ -974,6 +974,28 @@ void main() {
       expect(directPrompt.statusCode, equals(HttpStatus.ok));
       expect(jsonEncode(directPrompt.json?['result']), contains('T-direct'));
 
+      final directHeaderMismatch = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-header-mismatch',
+          'method': 'resources/list',
+          'params': {},
+        },
+        headers: {'Mcp-Method': 'tools/list'},
+      );
+      expect(directHeaderMismatch.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        (directHeaderMismatch.json?['error'] as Map<String, Object?>)['code'],
+        equals(-32001),
+      );
+      expect(
+        jsonEncode(directHeaderMismatch.json?['error']),
+        contains('Mcp-Method'),
+      );
+
       final initialize = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
         'id': 1,
@@ -1201,6 +1223,26 @@ void main() {
       );
       expect(invalidVersion.statusCode, equals(HttpStatus.badRequest));
 
+      final missingMethodHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        payload,
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        },
+      );
+      expect(missingMethodHeader.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        (missingMethodHeader.json?['error'] as Map<String, Object?>)['code'],
+        equals(-32001),
+      );
+      expect(
+        jsonEncode(missingMethodHeader.json?['error']),
+        contains('Mcp-Method'),
+      );
+
       final initialize = await _postJson(
         client,
         listener.port,
@@ -1209,6 +1251,7 @@ void main() {
         headers: {
           'origin': 'http://127.0.0.1:${listener.port}',
           HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'initialize',
         },
       );
       expect(initialize.statusCode, equals(HttpStatus.ok));
@@ -1222,12 +1265,65 @@ void main() {
         'MCP-Protocol-Version': '2025-11-25',
         HttpHeaders.acceptHeader: 'application/json, text/event-stream',
       };
-      final initialized = await _postJson(client, listener.port, '/mcp', {
-        'jsonrpc': '2.0',
-        'method': 'notifications/initialized',
-        'params': {},
-      }, headers: sessionHeaders);
+      Map<String, String> streamableHeaders(
+        String method, {
+        String? name,
+        String? accept,
+      }) {
+        return <String, String>{
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: ?accept,
+          'Mcp-Method': method,
+          'Mcp-Name': ?name,
+        };
+      }
+
+      final initialized = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'method': 'notifications/initialized', 'params': {}},
+        headers: streamableHeaders('notifications/initialized'),
+      );
       expect(initialized.statusCode, equals(HttpStatus.accepted));
+
+      final mismatchedMethodHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'header-mismatch',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: streamableHeaders('prompts/list'),
+      );
+      expect(mismatchedMethodHeader.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        (mismatchedMethodHeader.json?['error'] as Map<String, Object?>)['code'],
+        equals(-32001),
+      );
+      expect(
+        jsonEncode(mismatchedMethodHeader.json?['error']),
+        contains('Mcp-Method'),
+      );
+
+      final missingNameHeader = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'missing-name-header',
+        'method': 'tools/call',
+        'params': {'name': 'app.sse.dynamic', 'arguments': {}},
+      }, headers: streamableHeaders('tools/call'));
+      expect(missingNameHeader.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        (missingNameHeader.json?['error'] as Map<String, Object?>)['code'],
+        equals(-32001),
+      );
+      expect(
+        jsonEncode(missingNameHeader.json?['error']),
+        contains('Mcp-Name'),
+      );
 
       await serviceSession.register(
         'app.sse.dynamic',
@@ -1248,6 +1344,7 @@ void main() {
         {'jsonrpc': '2.0', 'id': 'tools', 'method': 'tools/list', 'params': {}},
         headers: {
           HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'tools/list',
         },
       );
       expect(missingSession.statusCode, equals(HttpStatus.badRequest));
@@ -1316,7 +1413,7 @@ void main() {
         'id': 'tools-sse',
         'method': 'tools/list',
         'params': {},
-      }, headers: sessionHeaders);
+      }, headers: streamableHeaders('tools/list'));
       expect(postSse.statusCode, equals(HttpStatus.ok));
       expect(
         postSse.headers[HttpHeaders.contentTypeHeader],
@@ -1350,10 +1447,7 @@ void main() {
         listener.port,
         '/mcp',
         {'jsonrpc': '2.0', 'id': 'tools', 'method': 'tools/list', 'params': {}},
-        headers: {
-          ...sessionHeaders,
-          HttpHeaders.acceptHeader: 'application/json',
-        },
+        headers: streamableHeaders('tools/list', accept: 'application/json'),
       );
       expect(tools.statusCode, equals(HttpStatus.ok));
       expect(tools.json?['id'], equals('tools'));
@@ -1363,7 +1457,10 @@ void main() {
         listener.port,
         '/mcp',
         {'jsonrpc': '2.0', 'id': 'tools', 'method': 'tools/list', 'params': {}},
-        headers: {...sessionHeaders, 'MCP-Session-Id': 'unknown-session'},
+        headers: {
+          ...streamableHeaders('tools/list'),
+          'MCP-Session-Id': 'unknown-session',
+        },
       );
       expect(unknownSession.statusCode, equals(HttpStatus.notFound));
 
@@ -1380,7 +1477,7 @@ void main() {
         'id': 'tools-after-delete',
         'method': 'tools/list',
         'params': {},
-      }, headers: sessionHeaders);
+      }, headers: streamableHeaders('tools/list'));
       expect(afterDelete.statusCode, equals(HttpStatus.notFound));
     }, skip: skipReason);
 
@@ -1501,6 +1598,10 @@ void main() {
           'MCP-Protocol-Version': '2025-11-25',
           HttpHeaders.acceptHeader: 'application/json, text/event-stream',
         };
+        final toolsHeaders = <String, String>{
+          ...sessionHeaders,
+          'Mcp-Method': 'tools/list',
+        };
         final reuseWithOtherPrincipal = await _postJson(
           httpClient,
           listener.port,
@@ -1512,7 +1613,7 @@ void main() {
             'params': {},
           },
           headers: {
-            ...sessionHeaders,
+            ...toolsHeaders,
             HttpHeaders.authorizationHeader: 'Bearer $otherToken',
           },
         );
@@ -1528,7 +1629,7 @@ void main() {
               'id': 'cross-route-tools',
               'method': 'tools/list',
               'params': {},
-            }, headers: sessionHeaders);
+            }, headers: toolsHeaders);
         expect(publicRouteReuse.statusCode, equals(HttpStatus.notFound));
         expect(
           jsonEncode(publicRouteReuse.json?['error']),

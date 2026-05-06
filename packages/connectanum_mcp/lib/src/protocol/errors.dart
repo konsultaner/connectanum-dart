@@ -6,6 +6,7 @@ abstract final class McpErrorCodes {
   static const int internalError = -32603;
 
   static const int serverClosed = -32000;
+  static const int headerMismatch = -32001;
   static const int serverNotInitialized = -32002;
   static const int resourceNotFound = -32002;
 }

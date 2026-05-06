@@ -3,6 +3,8 @@ part of '../router_instance.dart';
 const String _mcpSessionIdHeader = 'MCP-Session-Id';
 const String _mcpProtocolVersionHeader = 'MCP-Protocol-Version';
 const String _mcpLastEventIdHeader = 'Last-Event-ID';
+const String _mcpMethodHeader = 'Mcp-Method';
+const String _mcpNameHeader = 'Mcp-Name';
 const String _mcpSseContentType = 'text/event-stream';
 const String _mcpJsonContentType = 'application/json';
 const int _mcpSseEventHistoryLimit = 128;
@@ -61,6 +63,15 @@ String? _mcpHeaderValue(
   String name,
 ) {
   final value = binding._headerValue(request.headers, name)?.trim();
+  return value == null || value.isEmpty ? null : value;
+}
+
+String? _mcpHeaderValueRaw(
+  RouterBinding binding,
+  RouterHttpRequest request,
+  String name,
+) {
+  final value = binding._headerValue(request.headers, name);
   return value == null || value.isEmpty ? null : value;
 }
 
@@ -225,6 +236,94 @@ String? _mcpRequestMethod(Object? rawMessage) {
     if (method is String) {
       return method;
     }
+  }
+  return null;
+}
+
+String? _mcpRequestName(Object? rawMessage, String method) {
+  if (rawMessage is! Map) {
+    return null;
+  }
+  final params = rawMessage['params'];
+  if (params is! Map) {
+    return null;
+  }
+  final field = switch (method) {
+    'tools/call' || 'prompts/get' => 'name',
+    'resources/read' => 'uri',
+    _ => null,
+  };
+  if (field == null) {
+    return null;
+  }
+  final value = params[field];
+  return value is String && value.isNotEmpty ? value : null;
+}
+
+NativeHttpResponse? _mcpStandardHeaderValidationError(
+  RouterBinding binding, {
+  required RouterHttpRequest request,
+  required Object? rawMessage,
+  required bool requireHeaders,
+  String? sessionId,
+}) {
+  final bodyMethod = _mcpRequestMethod(rawMessage);
+  if (bodyMethod == null) {
+    return null;
+  }
+  final id = _recoverDirectJsonRequestId(rawMessage);
+  final headerMethod = _mcpHeaderValueRaw(binding, request, _mcpMethodHeader);
+  if (headerMethod == null) {
+    if (!requireHeaders) {
+      return null;
+    }
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.headerMismatch,
+      message: 'Header mismatch: missing Mcp-Method header',
+      id: id,
+      sessionId: sessionId,
+    );
+  }
+  if (headerMethod != bodyMethod) {
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.headerMismatch,
+      message:
+          "Header mismatch: Mcp-Method header value '$headerMethod' does not "
+          "match body method '$bodyMethod'",
+      id: id,
+      sessionId: sessionId,
+    );
+  }
+
+  final bodyName = _mcpRequestName(rawMessage, bodyMethod);
+  if (bodyName == null) {
+    return null;
+  }
+  final headerName = _mcpHeaderValueRaw(binding, request, _mcpNameHeader);
+  if (headerName == null) {
+    if (!requireHeaders) {
+      return null;
+    }
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.headerMismatch,
+      message: 'Header mismatch: missing Mcp-Name header',
+      id: id,
+      sessionId: sessionId,
+    );
+  }
+  if (headerName != bodyName) {
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.headerMismatch,
+      message:
+          "Header mismatch: Mcp-Name header value '$headerName' does not "
+          "match body value '$bodyName'",
+      id: id,
+      sessionId: sessionId,
+    );
   }
   return null;
 }
@@ -682,6 +781,21 @@ Future<void> _handleMcpHttpRequestForBinding(
     binding,
     request,
   );
+  final standardHeaderError = _mcpStandardHeaderValidationError(
+    binding,
+    request: request,
+    rawMessage: rawMessage,
+    requireHeaders: streamableHttpRequest,
+    sessionId: mcpSessionId,
+  );
+  if (standardHeaderError != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: standardHeaderError,
+    );
+    return;
+  }
   if (mcpSessionId == null && !isInitialize && streamableHttpRequest) {
     await binding._sendImmediateHttpResponse(
       request: request,

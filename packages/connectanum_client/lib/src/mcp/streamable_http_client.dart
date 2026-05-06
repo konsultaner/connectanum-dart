@@ -9,6 +9,8 @@ const _acceptStreamableHttp = 'application/json, text/event-stream';
 const _headerLastEventId = 'Last-Event-ID';
 const _headerProtocolVersion = 'MCP-Protocol-Version';
 const _headerSessionId = 'MCP-Session-Id';
+const _headerMethod = 'Mcp-Method';
+const _headerName = 'Mcp-Name';
 
 /// Minimal Dart IO client for MCP Streamable HTTP endpoints.
 ///
@@ -398,6 +400,7 @@ final class McpStreamableHttpClient {
       accept: streamable ? _acceptStreamableHttp : _acceptJson,
       includeSession: includeSession,
     );
+    _applyStandardRequestHeaders(request, message);
     request.headers.contentType = ContentType.json;
     final requestBody = utf8.encode(jsonEncode(message));
     request.contentLength = requestBody.length;
@@ -457,6 +460,21 @@ final class McpStreamableHttpClient {
   void close({bool force = false}) {
     if (_ownsHttpClient) {
       _httpClient.close(force: force);
+    }
+  }
+
+  void _applyStandardRequestHeaders(
+    HttpClientRequest request,
+    Object? message,
+  ) {
+    final method = _requestMethodForStandardHeaders(message);
+    if (method == null) {
+      return;
+    }
+    request.headers.set(_headerMethod, method);
+    final name = _requestNameForStandardHeaders(message, method);
+    if (name != null) {
+      request.headers.set(_headerName, name);
     }
   }
 
@@ -529,6 +547,34 @@ final class McpStreamableHttpClient {
       }
     }
   }
+}
+
+String? _requestMethodForStandardHeaders(Object? message) {
+  if (message is! Map) {
+    return null;
+  }
+  final method = message['method'];
+  return method is String && method.isNotEmpty ? method : null;
+}
+
+String? _requestNameForStandardHeaders(Object? message, String method) {
+  if (message is! Map) {
+    return null;
+  }
+  final params = message['params'];
+  if (params is! Map) {
+    return null;
+  }
+  final field = switch (method) {
+    'tools/call' || 'prompts/get' => 'name',
+    'resources/read' => 'uri',
+    _ => null,
+  };
+  if (field == null) {
+    return null;
+  }
+  final value = params[field];
+  return value is String && value.isNotEmpty ? value : null;
 }
 
 final class McpStreamableToolListPage {

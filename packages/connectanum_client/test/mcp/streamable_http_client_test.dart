@@ -80,16 +80,24 @@ void main() {
         expect(endpoint.requests, hasLength(9));
         expect(endpoint.requests[0].authorization, 'Bearer test-token');
         expect(endpoint.requests[0].accept, contains('text/event-stream'));
+        expect(endpoint.requests[0].mcpMethod, 'initialize');
+        expect(endpoint.requests[0].mcpName, isNull);
         expect(endpoint.requests[0].contentLength, greaterThan(0));
         expect(endpoint.requests[0].transferEncoding, isNull);
         expect(endpoint.requests[1].sessionId, 'session-1');
+        expect(endpoint.requests[1].mcpMethod, 'notifications/initialized');
         expect(endpoint.requests[2].sessionId, 'session-1');
+        expect(endpoint.requests[2].mcpMethod, 'tools/list');
         expect(endpoint.requests[3].lastEventId, 'session-1:post:2');
         expect(endpoint.requests[4].accept, 'application/json');
+        expect(endpoint.requests[4].mcpMethod, 'tools/list');
         expect(endpoint.requests[5].accept, 'application/json');
         expect(endpoint.requests[5].body, containsPair('method', 'ping'));
+        expect(endpoint.requests[5].mcpMethod, 'ping');
         expect(endpoint.requests[6].accept, contains('text/event-stream'));
+        expect(endpoint.requests[6].mcpMethod, isNull);
         expect(endpoint.requests[7].accept, 'application/json');
+        expect(endpoint.requests[7].mcpMethod, isNull);
         expect(endpoint.requests[8].method, 'DELETE');
       },
     );
@@ -210,6 +218,13 @@ void main() {
               ),
         ),
       );
+
+      expect(endpoint.requests[2].mcpMethod, 'tools/list');
+      expect(endpoint.requests[2].mcpName, isNull);
+      expect(endpoint.requests[3].mcpMethod, 'tools/call');
+      expect(endpoint.requests[3].mcpName, 'app.echo');
+      expect(endpoint.requests[4].mcpMethod, 'tools/call');
+      expect(endpoint.requests[4].mcpName, 'app.fail');
     });
 
     test(
@@ -263,7 +278,11 @@ void main() {
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.sessionId, isNull);
+          expect(request.mcpMethod, isNotEmpty);
         }
+        expect(endpoint.requests[0].mcpMethod, 'connectanum.tools.list');
+        expect(endpoint.requests[1].mcpMethod, 'connectanum.tool.call');
+        expect(endpoint.requests[1].mcpName, isNull);
         expect(
           endpoint.requests.first.body,
           containsPair('method', 'connectanum.tools.list'),
@@ -346,6 +365,13 @@ void main() {
               ),
         ),
       );
+
+      expect(endpoint.requests[3].mcpMethod, 'resources/read');
+      expect(endpoint.requests[3].mcpName, 'wamp://app/readme');
+      expect(endpoint.requests[6].mcpMethod, 'prompts/get');
+      expect(endpoint.requests[6].mcpName, 'summarize');
+      expect(endpoint.requests[7].mcpMethod, 'prompts/get');
+      expect(endpoint.requests[7].mcpName, 'missing');
     });
 
     test(
@@ -413,7 +439,12 @@ void main() {
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.sessionId, isNull);
+          expect(request.mcpMethod, isNotEmpty);
         }
+        expect(endpoint.requests[1].mcpMethod, 'resources/read');
+        expect(endpoint.requests[1].mcpName, 'wamp://app/readme');
+        expect(endpoint.requests[4].mcpMethod, 'prompts/get');
+        expect(endpoint.requests[4].mcpName, 'summarize');
       },
     );
 
@@ -1549,6 +1580,8 @@ final class _FakeMcpEndpoint {
 
 const _headerProtocolVersion = 'MCP-Protocol-Version';
 const _headerSessionId = 'MCP-Session-Id';
+const _headerMethod = 'Mcp-Method';
+const _headerName = 'Mcp-Name';
 
 final class _SeenRequest {
   const _SeenRequest({
@@ -1557,6 +1590,8 @@ final class _SeenRequest {
     required this.authorization,
     required this.sessionId,
     required this.lastEventId,
+    required this.mcpMethod,
+    required this.mcpName,
     required this.contentLength,
     required this.transferEncoding,
     required this.body,
@@ -1567,6 +1602,8 @@ final class _SeenRequest {
   final String? authorization;
   final String? sessionId;
   final String? lastEventId;
+  final String? mcpMethod;
+  final String? mcpName;
   final int contentLength;
   final String? transferEncoding;
   final Object? body;
@@ -1578,6 +1615,8 @@ final class _SeenRequest {
       authorization: request.headers.value(HttpHeaders.authorizationHeader),
       sessionId: request.headers.value(_headerSessionId),
       lastEventId: request.headers.value('Last-Event-ID'),
+      mcpMethod: request.headers.value(_headerMethod),
+      mcpName: request.headers.value(_headerName),
       contentLength: request.headers.contentLength,
       transferEncoding: request.headers.value(
         HttpHeaders.transferEncodingHeader,

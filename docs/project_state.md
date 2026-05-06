@@ -4,11 +4,14 @@ Last updated: 2026-05-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `eff3b10`
-(`mcp: recover streamable sessions after 404`; hosted CI evidence clean)
-Latest implementation checkpoint: socket transport test port isolation
+Latest pushed implementation commit: `d8f50ca`
+(`test: isolate socket transport fixture ports`; hosted CI evidence clean)
+Latest implementation checkpoint: MCP Streamable HTTP standard request headers
 (local verification clean; hosted evidence pending).
 Active exec plan: none.
+Previous completed exec plan:
+`docs/exec-plans/2026-05-06-mcp-streamable-standard-headers.md`
+(complete; local verification clean; hosted evidence pending).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-streamable-session-recovery.md`
 (complete; hosted evidence clean).
@@ -111,6 +114,32 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP Streamable HTTP standard request headers are complete locally. The
+    public `McpStreamableHttpClient` now emits the current standard
+    `Mcp-Method` header on single-message POSTs and emits `Mcp-Name` for
+    `tools/call`, `resources/read`, and `prompts/get` when the JSON-RPC body
+    carries the corresponding `params.name` or `params.uri`. Router-hosted MCP
+    endpoints now reject Streamable single-message POSTs with missing or
+    mismatched standard headers using the MCP `HeaderMismatch` server-error
+    code while preserving JSON-only direct-call compatibility for callers that
+    do not send the standard headers. Pre-change `bin/test-fast` passed on
+    2026-05-06. Focused verification also passed on 2026-05-06:
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "hosts MCP over HTTP using the router internal session"`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "guards MCP Streamable HTTP ingress and sessions"`,
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "isolates MCP Streamable HTTP sessions by route and bearer principal"`,
+    and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed after the implementation; a subsequent
+    focused `dart analyze packages/connectanum_router/test/router_integration_native_test.dart`
+    confirmed the style cleanup for the new test helper. Full local
+    `bin/verify` passed on 2026-05-06, including formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP package tests, client tests with
+    the new header-emission coverage, auth-server tests, bench integration
+    tests, router-hosted MCP example and generated consumer package smoke,
+    full router package tests including the new Streamable header validation
+    coverage, zero-copy router checks, and Chrome Dart2Wasm WebSocket
+    transport tests. Hosted evidence is pending for the next push.
   - Socket transport test port isolation is complete locally. The local
     handoff `bin/verify` initially reproduced a timeout in
     `packages/connectanum_client/test/transport/socket/socket_transport_test.dart`
@@ -123,7 +152,14 @@ order.
     and
     `dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart -r expanded`.
     Full local `bin/test-fast` and `bin/verify` both passed on 2026-05-06
-    after the fix. Hosted evidence is pending for the next push.
+    after the fix. Hosted GitHub evidence for `d8f50ca` is clean: `CI` run
+    `25433887759` completed successfully with `Fast Checks` and `Full Verify`,
+    `Dart Package Publish Dry Run` run `25433887741` completed successfully,
+    and `WAMP Profile Benchmarks` run `25433887733` completed successfully.
+    Public check-run annotation audit found zero GitHub annotations for all
+    four check runs. Raw hosted log download remains blocked in this
+    environment because GitHub returns `Must have admin rights to Repository`
+    and no GitHub token is present.
   - MCP Streamable HTTP session recovery is complete locally. The public
     `McpStreamableHttpClient` no longer sends a stored `MCP-Session-Id` on
     `initialize`, and it clears the stored session id plus SSE cursor after
