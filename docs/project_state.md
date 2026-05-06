@@ -4,13 +4,16 @@ Last updated: 2026-05-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `d6eda5c`
-(`test: smoke direct catalog streamable call`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP direct WAMP helpers after Streamable init
-(local verification clean; hosted evidence pending).
-Active exec plan:
-`docs/exec-plans/2026-05-06-mcp-direct-wamp-after-streamable-smoke.md`
+Latest pushed implementation commit: `0d40b3c`
+(`test: keep direct wamp helpers lifecycle-free`; hosted CI evidence clean)
+Latest implementation checkpoint: MCP direct JSON batch after Streamable init
 (complete locally; hosted evidence pending).
+Active exec plan:
+`docs/exec-plans/2026-05-06-mcp-direct-batch-after-streamable-smoke.md`
+(complete locally; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-06-mcp-direct-wamp-after-streamable-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-06-mcp-consumer-direct-catalog-smoke.md`
 (complete; hosted CI evidence clean).
@@ -128,15 +131,39 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP direct WAMP helpers after Streamable initialization are complete
-    locally and pending hosted evidence. Direct JSON WAMP API and pub/sub
-    helper calls now have coverage proving they remain lifecycle-free on a
-    client that already owns a Streamable MCP session: no `Mcp-Session-Id`, no
-    `Last-Event-ID`, and no mutation of the Streamable session cursor. The
-    generated consumer package smoke now exercises direct WAMP meta discovery
-    plus pub/sub after Streamable initialization before continuing normal
+  - MCP direct JSON batch after Streamable initialization is complete locally
+    and pending hosted evidence. The client now has focused coverage proving
+    `postBatch(..., streamable: false, includeSession: false)` remains
+    lifecycle-free on a client that already owns a Streamable MCP session: the
+    request uses `Accept: application/json`, sends no `Mcp-Session-Id`, sends no
+    `Last-Event-ID`, and does not mutate the cached session id or event cursor.
+    The generated consumer package smoke now exercises the direct JSON batch
+    path after Streamable initialization and before continuing normal
     Streamable tool calls. Pre-change `bin/test-fast` passed on 2026-05-06.
     Focused verification also passed on 2026-05-06:
+    `bash -n bin/common.sh`;
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --plain-name "keeps direct JSON batches lifecycle-free with an active Streamable session"`;
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`;
+    `dart analyze packages/connectanum_client/test/mcp/streamable_http_client_test.dart`;
+    and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-06, including the new client
+    regression and the updated generated consumer package smoke. Full local
+    `bin/verify` passed on 2026-05-06, including formatting, Rust native/FFI
+    tests, Python package-artifact checks, MCP package tests, client tests,
+    auth-server tests, bench integration tests, router-hosted MCP example and
+    generated consumer package smoke, full router package tests, zero-copy
+    router checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted
+    evidence is pending.
+  - MCP direct WAMP helpers after Streamable initialization are complete
+    with hosted CI evidence. Direct JSON WAMP API and pub/sub helper calls now
+    have coverage proving they remain lifecycle-free on a client that already
+    owns a Streamable MCP session: no `Mcp-Session-Id`, no `Last-Event-ID`, and
+    no mutation of the Streamable session cursor. The generated consumer
+    package smoke now exercises direct WAMP meta discovery plus pub/sub after
+    Streamable initialization before continuing normal Streamable tool calls.
+    Pre-change `bin/test-fast` passed on 2026-05-06. Focused verification also
+    passed on 2026-05-06:
     `bash -n bin/common.sh`;
     `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --plain-name "keeps direct WAMP helpers lifecycle-free with an active Streamable session"`;
     `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`;
@@ -150,7 +177,19 @@ order.
     auth-server tests, bench integration tests, router-hosted MCP example and
     generated consumer package smoke, full router package tests, zero-copy
     router checks, and Chrome Dart2Wasm WebSocket transport tests. Hosted
-    evidence is pending.
+    GitHub evidence for `0d40b3c` is clean: `CI` run `25452060608` completed
+    successfully with `Fast Checks` and `Full Verify`, `Dart Package Publish
+    Dry Run` run `25452060607` completed successfully, and `WAMP Profile
+    Benchmarks` run `25452060592` completed successfully. Public check-run
+    annotation audit found zero GitHub annotations for all four check runs. The
+    deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci`
+    passed against `0d40b3c`; it still reports the known operator-owned
+    findings that `add-router` is unprotected, the router image workflow is not
+    discoverable from the default branch, and the router container package is
+    not visible. The strict variant
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --strict`
+    correctly failed only on those operator-owned deployment-chain gaps.
   - MCP consumer direct catalog smoke is complete with hosted CI evidence. The
     generated consumer package smoke now discovers router-hosted tools through
     direct JSON `connectanum.tools.list` after Streamable initialization but

@@ -1076,6 +1076,8 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
   }
   final eventId = client.lastEventId;
 
+  await _smokeDirectJsonBatch(client, label: '$label-after-streamable');
+
   await _smokeWampMetaDiscovery(
     client,
     label: '$label-direct-after-streamable',
@@ -1132,6 +1134,8 @@ Future<void> _smokeDirectJsonBatch(
   McpStreamableHttpClient client, {
   required String label,
 }) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
   final taskId = 'T-$label-direct-batch';
   final promptTaskId = 'T-$label-direct-batch-prompt';
   final responses = await client.postBatch(
@@ -1194,8 +1198,9 @@ Future<void> _smokeDirectJsonBatch(
       !jsonEncode(responses[3]).contains(promptTaskId)) {
     throw StateError('Direct JSON batch prompts/get response was invalid.');
   }
-  if (client.sessionId != null || client.lastEventId != null) {
-    throw StateError('Direct JSON batch captured Streamable session state.');
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct JSON batch changed Streamable session state.');
   }
 }
 

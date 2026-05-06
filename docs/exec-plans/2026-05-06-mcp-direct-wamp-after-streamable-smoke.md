@@ -44,7 +44,19 @@ state.
   tests, auth-server tests, bench integration tests, router-hosted MCP example
   and generated consumer package smoke, full router package tests, zero-copy
   router checks, and Chrome Dart2Wasm WebSocket transport tests.
-- Hosted evidence pending.
+- Hosted GitHub evidence for `0d40b3c` is clean on 2026-05-06: `CI` run
+  `25452060608` completed successfully with `Fast Checks` and `Full Verify`;
+  `Dart Package Publish Dry Run` run `25452060607` completed successfully;
+  `WAMP Profile Benchmarks` run `25452060592` completed successfully. Public
+  check-run annotation audit found zero GitHub annotations for all four check
+  runs. The deployment-chain audit
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci`
+  passed against `0d40b3c`; it still reports the known operator-owned findings
+  that `add-router` is unprotected, the router image workflow is not
+  discoverable from the default branch, and the router container package is not
+  visible. The strict variant
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --strict`
+  correctly failed only on those operator-owned deployment-chain gaps.
 
 ## Status
 
@@ -56,4 +68,7 @@ state.
   WAMP helpers omit Streamable session and event headers while preserving
   client session state, and the generated consumer package smoke now exercises
   direct WAMP meta discovery plus pub/sub after Streamable initialization
-  before continuing normal Streamable tool calls. Hosted evidence is pending.
+  before continuing normal Streamable tool calls.
+- 2026-05-06: Complete. Hosted CI, package dry-run, WAMP profile benchmark, and
+  deployment-chain evidence are clean for `0d40b3c`; strict audit only reports
+  the known operator-owned deployment-chain gaps.

@@ -806,6 +806,48 @@ void main() {
       },
     );
 
+    test(
+      'keeps direct JSON batches lifecycle-free with an active Streamable session',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        final eventId = client.lastEventId;
+        expect(sessionId, 'session-1');
+        endpoint.requests.clear();
+
+        final batch = await client.postBatch(
+          [
+            {
+              'jsonrpc': '2.0',
+              'id': 'direct-batch-tools',
+              'method': 'tools/list',
+            },
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+          ],
+          streamable: false,
+          includeSession: false,
+        );
+
+        expect(batch, hasLength(1));
+        expect(batch?.single['id'], 'direct-batch-tools');
+        expect(client.sessionId, sessionId);
+        expect(client.lastEventId, eventId);
+        expect(endpoint.requests, hasLength(1));
+        expect(endpoint.requests.single.accept, 'application/json');
+        expect(endpoint.requests.single.sessionId, isNull);
+        expect(endpoint.requests.single.lastEventId, isNull);
+        expect(endpoint.requests.single.mcpMethod, isNull);
+        expect(endpoint.requests.single.body, isA<List>());
+      },
+    );
+
     test('uses Connectanum WAMP meta procedure helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
