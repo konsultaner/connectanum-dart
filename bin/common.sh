@@ -1284,6 +1284,8 @@ const _resourceUri = 'consumer://mcp/context';
 const _resourceTemplateUri = 'consumer://mcp/task/{taskId}';
 const _promptName = 'inspect-consumer-task';
 const _headerWrappedNote = '=?base64?Zm9v?=';
+const _supportedOlderProtocolVersions = ['2025-03-26', '2025-06-18'];
+const _unsupportedProtocolVersion = '2099-01-01';
 
 Future<void> main() async {
   final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
@@ -1360,6 +1362,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
 
   try {
     await _registerConsumerApi(serviceSession);
+    await _smokeMcpProtocolVersionCompatibility(binding);
     await _smokeDirectJson(publicClient, serviceSession, label: 'public');
     await _smokeStreamableMcp(
       publicClient,
@@ -1712,6 +1715,96 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
       throw StateError(
         'Bearer-protected MCP endpoint returned ${error.statusCode} '
         'instead of ${HttpStatus.unauthorized}.',
+      );
+    }
+  } finally {
+    client.close();
+  }
+}
+
+Future<void> _smokeMcpProtocolVersionCompatibility(
+  RouterBinding binding,
+) async {
+  for (final version in _supportedOlderProtocolVersions) {
+    await _smokeSupportedMcpProtocolVersion(binding, version);
+  }
+  await _assertUnsupportedMcpProtocolVersionRejected(binding);
+}
+
+Future<void> _smokeSupportedMcpProtocolVersion(
+  RouterBinding binding,
+  String protocolVersion,
+) async {
+  final client = McpStreamableHttpClient(
+    _mcpEndpoint(binding),
+    defaultProtocolVersion: protocolVersion,
+  );
+  try {
+    final initializeId = 'supported-$protocolVersion-initialize';
+    final initialize = await client.initialize(id: initializeId);
+    final returnedInitializeId = initialize['id'];
+    if (returnedInitializeId != initializeId) {
+      throw StateError(
+        'MCP initialize with protocol $protocolVersion returned '
+        'unexpected id $returnedInitializeId.',
+      );
+    }
+    final sessionId = client.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError(
+        'MCP initialize with protocol $protocolVersion did not create '
+        'a Streamable HTTP session.',
+      );
+    }
+    if (client.protocolVersion !=
+        McpStreamableHttpClient.latestProtocolVersion) {
+      throw StateError(
+        'MCP initialize with protocol $protocolVersion did not negotiate '
+        'the latest server protocol version.',
+      );
+    }
+
+    await client.notifyInitialized();
+    final ping = await client.ping(id: 'supported-$protocolVersion-ping');
+    if (ping.isNotEmpty) {
+      throw StateError(
+        'MCP ping after protocol $protocolVersion negotiation returned '
+        'unexpected content.',
+      );
+    }
+
+    await client.deleteSession();
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError(
+        'MCP protocol $protocolVersion compatibility smoke leaked '
+        'Streamable session state.',
+      );
+    }
+  } finally {
+    client.close();
+  }
+}
+
+Future<void> _assertUnsupportedMcpProtocolVersionRejected(
+  RouterBinding binding,
+) async {
+  final client = McpStreamableHttpClient(
+    _mcpEndpoint(binding),
+    defaultProtocolVersion: _unsupportedProtocolVersion,
+  );
+  try {
+    await client.initialize(id: 'unsupported-protocol-initialize');
+    throw StateError('MCP accepted an unsupported protocol version.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.badRequest) {
+      throw StateError(
+        'MCP unsupported protocol version returned ${error.statusCode} '
+        'instead of ${HttpStatus.badRequest}.',
+      );
+    }
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError(
+        'MCP unsupported protocol rejection leaked Streamable session state.',
       );
     }
   } finally {

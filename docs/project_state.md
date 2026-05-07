@@ -5,13 +5,15 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-protocol-version-compatibility-smoke.md`
+(complete; local verification clean; hosted evidence pending).
+Latest pushed implementation commit: `0c499e6`
+(`test: cover mcp streamable auth methods`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP protocol-version compatibility smoke
+(complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-active-session-method-auth-smoke.md`
-(complete; local verification clean; hosted evidence pending).
-Latest pushed implementation commit: pending for MCP active session method auth
-smoke (`abf60f9` remains the latest hosted-clean pushed implementation
-commit).
-Latest implementation checkpoint: MCP active session method auth smoke
-(complete; local verification clean; hosted evidence pending).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-active-session-auth-invalidation-smoke.md`
 (complete; hosted CI evidence clean).
@@ -162,8 +164,24 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP active session method auth smoke is complete locally with hosted
-    evidence pending. The generated router-hosted consumer package smoke now
+  - MCP protocol-version compatibility smoke is complete with local
+    verification; hosted evidence is pending for the next pushed
+    implementation commit. The generated router-hosted consumer package smoke
+    now opens public `McpStreamableHttpClient` sessions with older supported
+    Streamable HTTP protocol-version headers (`2025-03-26` and `2025-06-18`),
+    verifies that initialize negotiates the client back to
+    `McpStreamableHttpClient.latestProtocolVersion`, confirms liveness with
+    `ping`, deletes the session cleanly, and asserts unsupported protocol
+    version `2099-01-01` returns HTTP 400 without leaking session or SSE
+    cursor state. Pre-change `bin/test-fast` passed on 2026-05-07. Focused
+    checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07.
+  - MCP active session method auth smoke is complete with hosted CI evidence.
+    The generated router-hosted consumer package smoke now
     proves active protected Streamable MCP sessions reject rotated or revoked
     bearers on POST `tools/list`, GET/SSE polling, and DELETE session
     requests. Pre-change `bin/test-fast` passed on 2026-05-07. Focused
@@ -171,7 +189,18 @@ order.
     `bash -n bin/common.sh bin/test-fast bin/test-all` and
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07. Hosted evidence is pending.
+    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence for `0c499e6`
+    is clean: `CI` run `25473930343` completed successfully with
+    `Fast Checks` and `Full Verify`, both with zero annotations. The Dart
+    Package Publish Dry Run workflow did not trigger for `0c499e6` because no
+    publish-sensitive paths changed; the latest relevant package dry-run
+    remains `25463696541` for `3a0bbf0`, which completed successfully. The
+    deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `0c499e6`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP active session auth invalidation smoke is complete with hosted CI
     evidence. The generated router-hosted consumer package smoke now
     opens a protected Streamable MCP session with the initial ticket bearer
