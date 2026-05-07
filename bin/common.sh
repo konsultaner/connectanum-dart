@@ -2013,6 +2013,32 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
+      await client.postBatch(
+        [
+          {
+            'jsonrpc': '2.0',
+            'id': '$label-rejected-direct-batch-api',
+            'method': 'connectanum.api.list',
+            'params': {'kind': 'procedure'},
+          },
+          {
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+            'params': {},
+          },
+        ],
+        streamable: false,
+        includeSession: false,
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON batch connectanum.api.list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
       await client.request(
         'connectanum.api.list',
         id: '$label-rejected-direct-api',
