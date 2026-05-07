@@ -2055,6 +2055,34 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
+      await client.postBatch([
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-rejected-session-batch-tools',
+          'method': 'tools/list',
+          'params': {},
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-rejected-session-batch-resources',
+          'method': 'resources/list',
+          'params': {},
+        },
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+          'params': {},
+        },
+      ]);
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST batch tools/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
       await client.notifyInitialized();
     },
     sessionId: sessionId,
