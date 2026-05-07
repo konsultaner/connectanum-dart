@@ -2013,6 +2013,22 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
+      await client.request(
+        'connectanum.api.list',
+        id: '$label-rejected-direct-api',
+        params: {'kind': 'procedure'},
+        streamable: false,
+        includeSession: false,
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON connectanum.api.list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
       await client.listTools(id: '$label-rejected-session-tools');
     },
     sessionId: sessionId,

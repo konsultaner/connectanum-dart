@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-streamable-resource-prompt-error-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-consumer-active-direct-json-auth-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-streamable-resource-prompt-error-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-resource-prompt-error-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -35,11 +38,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`89da29d`
-(`test: cover mcp resource prompt errors`; hosted CI evidence clean).
-Current implementation checkpoint: MCP consumer Streamable resource/prompt
-error smoke (complete; local verification clean; hosted evidence pending).
-Latest implementation checkpoint: MCP consumer resource/prompt error smoke
+`2890ed5`
+(`test: cover mcp streamable resource prompt errors`; hosted CI evidence
+clean).
+Current implementation checkpoint: MCP consumer active direct JSON auth smoke
+(complete; local verification clean; hosted evidence pending).
+Latest implementation checkpoint: MCP consumer Streamable resource/prompt
+error smoke (complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP consumer resource/prompt error smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer generic resources/prompts smoke
 (complete; hosted CI evidence clean).
@@ -222,6 +228,44 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer active direct JSON auth smoke is complete with local
+    verification. The generated router-hosted consumer package smoke now proves
+    a lifecycle-free direct JSON `connectanum.api.list` request made on an
+    already initialized secure Streamable MCP client rejects an invalidated
+    bearer token with HTTP 401 and clears stale Streamable session id and SSE
+    cursor state, while preserving the existing Streamable POST, GET/SSE, and
+    DELETE rejected-bearer checks. Pre-change `bin/test-fast` passed on
+    2026-05-07 with isolated `TMPDIR`. Focused checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
+    with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-07
+    with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-07 with
+    isolated `TMPDIR`. Hosted evidence is pending after push.
+  - MCP consumer Streamable resource/prompt error smoke is complete with local
+    and hosted verification. The generated router-hosted consumer package
+    smoke now proves initialized Streamable HTTP MCP sessions throw typed
+    `McpJsonRpcException` values for missing standard `resources/read` and
+    `prompts/get` targets, keep the Streamable session id stable, advance the
+    SSE cursor, and recover through `resources/list` and `prompts/list`.
+    Pre-change `bin/test-fast` passed on 2026-05-07 with isolated `TMPDIR`.
+    Focused checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
+    with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-07
+    with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-07 with
+    isolated `TMPDIR`. Commit `2890ed5`
+    (`test: cover mcp streamable resource prompt errors`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-07. Hosted GitHub
+    `CI` run `25509658158` for `2890ed5` completed successfully on
+    2026-05-07 with `Fast Checks` and `Full Verify` green.
+    Deployment-chain audit passed on 2026-05-07 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports only operator-side gaps: branch protection is absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer resource/prompt error smoke is complete with local
     verification. The generated router-hosted consumer package smoke now proves
     public generic `McpStreamableHttpClient.request(...)` / `post(...)` direct

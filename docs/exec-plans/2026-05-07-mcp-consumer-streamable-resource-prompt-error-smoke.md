@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Streamable Resource And Prompt Error Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-07
 Last updated: 2026-05-07
@@ -68,7 +68,18 @@ resource and prompt list calls.
   with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-07 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-07 with isolated `TMPDIR`.
-- Hosted GitHub evidence pending after push.
+- Commit `2890ed5`
+  (`test: cover mcp streamable resource prompt errors`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-07.
+- Hosted GitHub `CI` run `25509658158` for `2890ed5` completed successfully on
+  2026-05-07 with `Fast Checks` and `Full Verify` green.
+- Deployment-chain audit passed on 2026-05-07 with clean latest CI and a
+  relevant clean Dart package publish dry-run (`25485027779`, no
+  publish-sensitive changes since that run).
+- Strict deployment audit still reports only known operator-side gaps: branch
+  protection is absent, `.github/workflows/router-image.yml` is not
+  discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -78,5 +89,7 @@ resource and prompt list calls.
 
 ## Handoff
 
-Local implementation and verification complete. Hosted evidence pending after
-push.
+Complete with local and hosted evidence. Implementation commit `2890ed5` was
+pushed to both remotes. This hosted-evidence docs update is intentionally left
+uncommitted until it can be bundled with the next code/config implementation
+commit.
