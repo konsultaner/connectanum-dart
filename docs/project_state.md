@@ -5,12 +5,16 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-active-session-auth-invalidation-smoke.md`
+(complete; local verification clean; hosted evidence pending).
+Latest pushed implementation commit: pending for MCP active session auth
+invalidation smoke (`312814e` remains the latest hosted-clean pushed
+implementation commit).
+Latest implementation checkpoint: MCP active session auth invalidation smoke
+(complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-auth-refresh-revoke-smoke.md`
-(complete; local verification clean; hosted evidence pending).
-Latest pushed implementation commit: pending for MCP consumer auth refresh/revoke
-smoke (`24e475e` remains the latest hosted-clean pushed implementation commit).
-Latest implementation checkpoint: MCP consumer auth refresh/revoke smoke
-(complete; local verification clean; hosted evidence pending).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-direct-resources-after-streamable.md`
 (complete; hosted CI evidence clean).
@@ -155,8 +159,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer auth refresh/revoke smoke is complete locally with hosted
+  - MCP active session auth invalidation smoke is complete locally with hosted
     evidence pending. The generated router-hosted consumer package smoke now
+    opens a protected Streamable MCP session with the initial ticket bearer
+    before refresh rotation and asserts that the still-active session receives
+    `401 Unauthorized` after the bearer is rotated. It then opens a protected
+    Streamable MCP session with the refreshed bearer, revokes the grant, and
+    asserts the still-active session receives `401 Unauthorized` after
+    revocation. Pre-change `bin/test-fast` passed on 2026-05-07. Focused
+    verification passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all` and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07. Hosted evidence is pending.
+  - MCP consumer auth refresh/revoke smoke is complete with hosted CI evidence.
+    The generated router-hosted consumer package smoke now
     enables refresh-token rotation on its auth route, obtains a ticket grant
     through public `ConnectanumHttpAuthClient`, uses the initial bearer for
     secure direct JSON and Streamable MCP, refreshes the grant, asserts the
@@ -168,7 +185,18 @@ order.
     `bash -n bin/common.sh bin/test-fast bin/test-all` and
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07. Hosted evidence is pending.
+    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence for `312814e`
+    is clean: `CI` run `25470934618` completed successfully with
+    `Fast Checks` and `Full Verify`, both with zero annotations. The Dart
+    Package Publish Dry Run workflow did not trigger for `312814e` because no
+    publish-sensitive paths changed; the latest relevant package dry-run
+    remains `25463696541` for `3a0bbf0`, which completed successfully. The
+    deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `312814e`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP consumer direct resources after Streamable is complete with hosted CI
     evidence. The generated router-hosted consumer package smoke now calls
     direct JSON resource and prompt helpers after Streamable initialization
