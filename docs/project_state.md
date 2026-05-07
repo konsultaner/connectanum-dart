@@ -5,12 +5,15 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-batch-error-smoke.md`
+(complete locally; hosted evidence pending).
+Latest pushed implementation commit: `d5375b5`
+(`test: cover mcp invalid resume cursor`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP consumer batch error smoke
+(complete locally; hosted evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-invalid-last-event-id-smoke.md`
-(complete; local verification clean; hosted evidence pending).
-Latest pushed implementation commit: `d0d1761`
-(`test: cover mcp protocol version smoke`; hosted CI evidence clean).
-Latest implementation checkpoint: MCP consumer invalid Last-Event-ID smoke
-(complete; local verification clean; hosted evidence pending).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-protocol-version-compatibility-smoke.md`
 (complete; hosted CI evidence clean).
@@ -167,8 +170,22 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer batch error smoke is complete locally; hosted evidence is
+    pending after push. The generated router-hosted consumer package smoke now
+    sends mixed JSON-RPC batches through both lifecycle-free direct JSON and
+    initialized Streamable HTTP: an unknown tool returns a JSON-RPC error
+    between successful catalog/tool/prompt responses, notifications are still
+    omitted, direct JSON leaves Streamable session state unchanged, and the
+    Streamable batch keeps the session id while advancing the SSE cursor.
+    Pre-change `bin/test-fast` passed on 2026-05-07. Focused checks passed on
+    2026-05-07: `bash -n bin/common.sh bin/test-fast bin/test-all`,
+    `git diff --check`, and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07.
   - MCP consumer invalid Last-Event-ID smoke is complete with local
-    verification. The generated router-hosted consumer package smoke now uses
+    and hosted verification. The generated router-hosted consumer package
+    smoke now uses
     public `McpStreamableHttpClient` APIs to prove an unknown Streamable HTTP
     `Last-Event-ID` resume cursor returns HTTP 400 with a `Last-Event-ID`
     error, does not clear the active MCP session/cursor state, and leaves the
@@ -178,8 +195,18 @@ order.
     `git diff --check`, and
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence is pending for
-    the implementation commit.
+    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence for `d5375b5`
+    is clean: `CI` run `25476889557` completed successfully with
+    `Fast Checks` and `Full Verify`, both with zero annotations. The Dart
+    Package Publish Dry Run workflow did not trigger for `d5375b5` because no
+    publish-sensitive paths changed; the latest relevant package dry-run
+    remains `25463696541` for `3a0bbf0`, which completed successfully and
+    still covers checked-out package inputs. The deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `d5375b5`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP protocol-version compatibility smoke is complete with hosted CI
     evidence. The generated router-hosted consumer package smoke
     now opens public `McpStreamableHttpClient` sessions with older supported

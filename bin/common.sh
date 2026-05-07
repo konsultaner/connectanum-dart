@@ -2364,6 +2364,7 @@ Future<void> _smokeDirectJsonBatch(
       !jsonEncode(responses[3]).contains(promptTaskId)) {
     throw StateError('Direct JSON batch prompts/get response was invalid.');
   }
+  await _smokeDirectJsonBatchErrorIsolation(client, label: label);
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Direct JSON batch changed Streamable session state.');
@@ -2439,6 +2440,169 @@ Future<void> _smokeStreamableBatch(
       !eventId.startsWith('$sessionId:') ||
       eventId == previousEventId) {
     throw StateError('Streamable MCP batch did not update SSE event state.');
+  }
+
+  await _smokeStreamableBatchErrorIsolation(client, label: label);
+}
+
+Future<void> _smokeDirectJsonBatchErrorIsolation(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final taskId = 'T-$label-direct-batch-error-ok';
+  final missingTool = 'missing.$label.direct.batch';
+  final responses = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-error-api',
+        'method': 'connectanum.api.list',
+        'params': {'kind': 'procedure'},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-error-missing',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': missingTool,
+          'arguments': {},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-error-call',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': taskId},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {
+            'taskId': 'T-$label-direct-batch-error-notification',
+          },
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (responses == null || responses.length != 3) {
+    throw StateError(
+      'Direct JSON batch error smoke did not return three responses.',
+    );
+  }
+  if (responses[0]['id'] != '$label-direct-batch-error-api' ||
+      !jsonEncode(responses[0]).contains(_procedure)) {
+    throw StateError('Direct JSON batch error smoke lost API response.');
+  }
+  _expectJsonRpcError(
+    responses[1],
+    id: '$label-direct-batch-error-missing',
+    messageSubstring: missingTool,
+    label: 'Direct JSON batch missing tool',
+  );
+  if (responses[2]['id'] != '$label-direct-batch-error-call' ||
+      !jsonEncode(responses[2]).contains(taskId)) {
+    throw StateError('Direct JSON batch error smoke lost success response.');
+  }
+}
+
+Future<void> _smokeStreamableBatchErrorIsolation(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP batch error smoke has no initialized session id.',
+    );
+  }
+
+  final previousEventId = client.lastEventId;
+  final missingTool = 'missing.$label.streamable.batch';
+  final promptTaskId = 'T-$label-streamable-batch-error-prompt';
+  final responses = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-error-tools',
+      'method': 'tools/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-error-missing',
+      'method': 'tools/call',
+      'params': {
+        'name': missingTool,
+        'arguments': {},
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-error-prompt',
+      'method': 'prompts/get',
+      'params': {
+        'name': _promptName,
+        'arguments': {'taskId': promptTaskId},
+      },
+    },
+    {'jsonrpc': '2.0', 'method': 'notifications/initialized', 'params': {}},
+  ]);
+  if (responses == null || responses.length != 3) {
+    throw StateError(
+      'Streamable MCP batch error smoke did not return three responses.',
+    );
+  }
+  if (responses[0]['id'] != '$label-streamable-batch-error-tools' ||
+      !jsonEncode(responses[0]).contains(_procedure)) {
+    throw StateError('Streamable MCP batch error smoke lost tools response.');
+  }
+  _expectJsonRpcError(
+    responses[1],
+    id: '$label-streamable-batch-error-missing',
+    messageSubstring: missingTool,
+    label: 'Streamable MCP batch missing tool',
+  );
+  if (responses[2]['id'] != '$label-streamable-batch-error-prompt' ||
+      !jsonEncode(responses[2]).contains(promptTaskId)) {
+    throw StateError('Streamable MCP batch error smoke lost prompt response.');
+  }
+  if (client.sessionId != sessionId) {
+    throw StateError('Streamable MCP batch error smoke changed session id.');
+  }
+  final eventId = client.lastEventId;
+  if (eventId == null ||
+      !eventId.startsWith('$sessionId:') ||
+      eventId == previousEventId) {
+    throw StateError(
+      'Streamable MCP batch error smoke did not update SSE event state.',
+    );
+  }
+}
+
+void _expectJsonRpcError(
+  Map<String, Object?> response, {
+  required Object id,
+  required String messageSubstring,
+  required String label,
+}) {
+  if (response['id'] != id) {
+    throw StateError('$label response id was invalid.');
+  }
+  if (response.containsKey('result')) {
+    throw StateError('$label response unexpectedly contained a result.');
+  }
+  final error = response['error'];
+  if (error is! Map) {
+    throw StateError('$label response did not contain a JSON-RPC error.');
+  }
+  if (!jsonEncode(error).contains(messageSubstring)) {
+    throw StateError('$label error did not mention $messageSubstring.');
   }
 }
 
