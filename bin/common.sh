@@ -2232,6 +2232,24 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     throw StateError('Generic direct JSON-RPC tool call failed.');
   }
 
+  final apiListId = '$label-generic-direct-api-list';
+  final apiList = await client.request(
+    'connectanum.api.list',
+    id: apiListId,
+    streamable: false,
+    includeSession: false,
+  );
+  final apiCatalog = _jsonRpcStructuredContent(
+    apiList,
+    id: apiListId,
+    label: 'Generic direct JSON-RPC API list',
+  );
+  final apiCatalogJson = jsonEncode(apiCatalog);
+  if (!apiCatalogJson.contains(_procedure) ||
+      !apiCatalogJson.contains(_topic)) {
+    throw StateError('Generic direct JSON-RPC API list missed catalog items.');
+  }
+
   final describeId = '$label-generic-direct-api-describe';
   final describe = await client.request(
     'connectanum.api.describe',
