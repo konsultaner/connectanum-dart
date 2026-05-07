@@ -2094,6 +2094,7 @@ Future<void> _smokeDirectJson(
     throw StateError('Direct JSON tool call did not return expected payload.');
   }
 
+  await _smokeGenericDirectJsonRpcAccess(client, label: label);
   await _smokeDirectJsonSingleError(client, label: label);
   await _smokeDirectJsonBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label, directJson: true);
@@ -2152,6 +2153,66 @@ Future<void> _smokeDirectJson(
 
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Direct JSON MCP helpers captured Streamable state.');
+  }
+}
+
+Future<void> _smokeGenericDirectJsonRpcAccess(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final toolsId = '$label-generic-direct-tools';
+  final tools = await client.request(
+    'connectanum.tools.list',
+    id: toolsId,
+    streamable: false,
+    includeSession: false,
+  );
+  if (tools['id'] != toolsId ||
+      !jsonEncode(tools['result']).contains(_procedure)) {
+    throw StateError('Generic direct JSON-RPC tools/list missed $_procedure.');
+  }
+
+  final taskId = 'T-$label-generic-direct-tool-call';
+  final toolCallId = '$label-generic-direct-tool-call';
+  final toolCall = await client.post(
+    {
+      'jsonrpc': '2.0',
+      'id': toolCallId,
+      'method': 'connectanum.tool.call',
+      'params': {
+        'name': _procedure,
+        'arguments': {'taskId': taskId, 'note': _headerWrappedNote},
+      },
+    },
+    streamable: false,
+    includeSession: false,
+  );
+  final toolCallJson = jsonEncode(toolCall);
+  if (toolCall == null ||
+      toolCall['id'] != toolCallId ||
+      !toolCallJson.contains(taskId) ||
+      !toolCallJson.contains(_headerWrappedNote)) {
+    throw StateError('Generic direct JSON-RPC tool call failed.');
+  }
+
+  final describeId = '$label-generic-direct-api-describe';
+  final describe = await client.request(
+    'connectanum.api.describe',
+    id: describeId,
+    params: {'uri': _procedure, 'kind': 'procedure'},
+    streamable: false,
+    includeSession: false,
+  );
+  if (describe['id'] != describeId ||
+      !jsonEncode(describe['result']).contains(_procedure)) {
+    throw StateError('Generic direct JSON-RPC API describe missed $_procedure.');
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Generic direct JSON-RPC access changed session state.');
   }
 }
 
@@ -2273,6 +2334,10 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
   }
   final eventId = client.lastEventId;
 
+  await _smokeGenericDirectJsonRpcAccess(
+    client,
+    label: '$label-after-streamable',
+  );
   await _smokeDirectJsonBatch(client, label: '$label-after-streamable');
   await _smokeResourcesAndPrompts(
     client,

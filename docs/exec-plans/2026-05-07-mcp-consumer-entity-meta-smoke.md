@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Entity Meta Smoke
 
-Status: complete locally; hosted CI evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-07
 Last updated: 2026-05-07
@@ -62,8 +62,17 @@ initialized Streamable HTTP and lifecycle-free direct JSON calls.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-07.
 - Full local `bin/verify` passed on 2026-05-07.
-- Hosted CI evidence is pending until this implementation is committed and
-  pushed.
+- Commit `586801e` (`test: cover mcp entity meta smoke`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-07.
+- Hosted GitHub `CI` run `25490897809` for `586801e` completed successfully on
+  2026-05-07 with `Fast Checks` and `Full Verify` green.
+- Deployment-chain audit passed on 2026-05-07 with clean latest CI and a
+  relevant clean Dart package publish dry-run (`25485027779`, no
+  publish-sensitive changes since that run).
+- Strict deployment audit still reports only known operator-side gaps: branch
+  protection is absent, `.github/workflows/router-image.yml` is not
+  discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -75,5 +84,7 @@ initialized Streamable HTTP and lifecycle-free direct JSON calls.
 
 ## Handoff
 
-Complete locally. Commit with the existing hosted-evidence docs updates, push
-both remotes, and capture hosted GitHub evidence.
+Complete with local and hosted evidence. Implementation commit `586801e` was
+pushed to both remotes. This hosted-evidence docs update is intentionally left
+uncommitted until it can be bundled with the next code/config implementation
+commit.

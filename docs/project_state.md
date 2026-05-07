@@ -5,11 +5,11 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-entity-meta-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-consumer-generic-jsonrpc-smoke.md`
 (complete locally; hosted CI evidence pending).
 Latest completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-entity-meta-smoke.md`
-(complete locally; hosted CI evidence pending).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-session-meta-smoke.md`
 (complete; hosted CI evidence clean).
@@ -20,10 +20,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`19c7e27`
-(`test: cover mcp session meta smoke`; hosted CI evidence clean).
-Latest implementation checkpoint: MCP consumer entity meta smoke
+`586801e`
+(`test: cover mcp entity meta smoke`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP consumer generic JSON-RPC smoke
 (complete locally; hosted CI evidence pending).
+Previous implementation checkpoint: MCP consumer entity meta smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer session meta smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP client auth error session clearing
@@ -195,6 +197,25 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer generic JSON-RPC smoke is complete with local verification.
+    The generated router-hosted consumer package smoke now adds a public
+    generic `McpStreamableHttpClient.request(...)` / `post(...)` direct
+    JSON-RPC path for `connectanum.tools.list`, `connectanum.tool.call`, and
+    `connectanum.api.describe`, and runs it both before Streamable
+    initialization and while a Streamable session is active. The assertions
+    verify the direct JSON path does not mutate Streamable session id or SSE
+    cursor state. Pre-change `bin/test-fast` with the default system temp
+    directory reached the generated MCP consumer smoke successfully but failed
+    later because an existing long-lived router process outside this task held
+    the native runtime lock. Pre-change `bin/test-fast` passed on 2026-05-07
+    with isolated `TMPDIR`. Focused checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
+    with isolated `TMPDIR`. Post-change `bin/test-fast` passed on
+    2026-05-07 with isolated `TMPDIR`. Full local `bin/verify` passed on
+    2026-05-07 with isolated `TMPDIR`. Commit, push, hosted CI, and
+    deployment-chain audit evidence are pending.
   - MCP consumer entity meta smoke is complete with local verification. The
     generated router-hosted consumer package smoke now uses public
     `McpStreamableHttpClient` WAMP meta helpers to prove
@@ -207,8 +228,17 @@ order.
     2026-05-07: `bash -n bin/common.sh bin/test-fast bin/test-all` and
     `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07. Hosted CI evidence is pending until
-    this implementation is committed and pushed.
+    `bin/verify` passed on 2026-05-07. Commit `586801e`
+    (`test: cover mcp entity meta smoke`) was pushed to `origin/add-router`
+    and `github/add-router` on 2026-05-07. Hosted GitHub `CI` run
+    `25490897809` for `586801e` completed successfully on 2026-05-07 with
+    `Fast Checks` and `Full Verify` green. Deployment-chain audit passed on
+    2026-05-07 with clean latest CI and a relevant clean Dart package publish
+    dry-run (`25485027779`, no publish-sensitive changes since that run).
+    Strict deployment audit still reports only operator-side gaps: branch
+    protection is absent, `.github/workflows/router-image.yml` is not
+    discoverable from the default branch, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer session meta smoke is complete with local and hosted
     verification. The generated router-hosted consumer package smoke now uses
     public `McpStreamableHttpClient` WAMP meta helpers to prove
