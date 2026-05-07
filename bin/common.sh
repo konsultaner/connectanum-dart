@@ -2919,8 +2919,36 @@ Future<void> _smokeWampMetaDiscovery(
     id: '$label-$mode-session-count',
     directJson: directJson,
   );
-  if (!sessionCount.argumentsKeywords.containsKey('count')) {
+  final visibleSessionCount = sessionCount.argumentsKeywords['count'];
+  if (visibleSessionCount is! int) {
     throw StateError('WAMP session count did not return count metadata.');
+  }
+  final sessions = await client.listWampSessions(
+    id: '$label-$mode-session-list',
+    directJson: directJson,
+  );
+  final sessionIds = _integerMetaIdsFromValue(
+    sessions.argumentsKeywords['session_ids'],
+    '$mode session list',
+  );
+  if (sessionIds.contains(serviceSession.sessionId)) {
+    throw StateError('WAMP session list leaked service session.');
+  }
+  if (sessionIds.length != visibleSessionCount) {
+    throw StateError('WAMP session count did not match visible session list.');
+  }
+  if (sessionIds.isEmpty) {
+    throw StateError('WAMP session list did not expose any visible sessions.');
+  }
+  final visibleSessionId = sessionIds.first;
+  final sessionDetails = await client.getWampSession(
+    visibleSessionId,
+    id: '$label-$mode-session-get',
+    directJson: directJson,
+  );
+  final details = sessionDetails.argumentsKeywords['details'];
+  if (details is! Map || details['id'] != visibleSessionId) {
+    throw StateError('WAMP session get did not return visible session details.');
   }
 }
 
@@ -2997,6 +3025,13 @@ List<int> _integerMetaIds(List<Object?> arguments, String label) {
     ids.add(value);
   }
   return ids;
+}
+
+List<int> _integerMetaIdsFromValue(Object? value, String label) {
+  if (value is! List) {
+    throw StateError('WAMP meta $label returned ${jsonEncode(value)}.');
+  }
+  return _integerMetaIds(value.cast<Object?>(), label);
 }
 
 Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
