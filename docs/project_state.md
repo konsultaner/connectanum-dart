@@ -4,13 +4,16 @@ Last updated: 2026-05-07
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
-Latest pushed implementation commit: `8116786`
-(`test: expand mcp client package smoke`; hosted CI evidence clean)
-Latest implementation checkpoint: MCP consumer direct resources after
-Streamable (complete locally; hosted evidence pending).
-Active exec plan:
+Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-auth-refresh-revoke-smoke.md`
+(complete; local verification clean; hosted evidence pending).
+Latest pushed implementation commit: pending for MCP consumer auth refresh/revoke
+smoke (`24e475e` remains the latest hosted-clean pushed implementation commit).
+Latest implementation checkpoint: MCP consumer auth refresh/revoke smoke
+(complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-direct-resources-after-streamable.md`
-(complete locally; hosted evidence pending).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-client-package-helper-smoke.md`
 (complete; hosted CI evidence clean).
@@ -152,17 +155,42 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer direct resources after Streamable is complete locally with
-    hosted evidence pending. The generated router-hosted consumer package
-    smoke now calls direct JSON resource and prompt helpers after Streamable
-    initialization against both public and bearer-protected real router MCP
-    endpoints, and then asserts the active Streamable session id and SSE cursor
-    are unchanged. Pre-change `bin/test-fast` passed on 2026-05-07. Focused
-    verification passed on 2026-05-07:
+  - MCP consumer auth refresh/revoke smoke is complete locally with hosted
+    evidence pending. The generated router-hosted consumer package smoke now
+    enables refresh-token rotation on its auth route, obtains a ticket grant
+    through public `ConnectanumHttpAuthClient`, uses the initial bearer for
+    secure direct JSON and Streamable MCP, refreshes the grant, asserts the
+    initial access and refresh tokens are rejected, uses the refreshed bearer
+    for secure direct JSON and Streamable MCP, revokes the refreshed grant, and
+    then asserts the refreshed access and refresh tokens are rejected.
+    Pre-change `bin/test-fast` passed on 2026-05-07. Focused verification
+    passed on 2026-05-07:
     `bash -n bin/common.sh bin/test-fast bin/test-all` and
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07.
+    `bin/verify` passed on 2026-05-07. Hosted evidence is pending.
+  - MCP consumer direct resources after Streamable is complete with hosted CI
+    evidence. The generated router-hosted consumer package smoke now calls
+    direct JSON resource and prompt helpers after Streamable initialization
+    against both public and bearer-protected real router MCP endpoints, and
+    then asserts the active Streamable session id and SSE cursor are unchanged.
+    Pre-change `bin/test-fast` passed on 2026-05-07. Focused verification
+    passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all` and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence for `24e475e`
+    is clean: `CI` run `25469270650` completed successfully with
+    `Fast Checks` and `Full Verify`, both with zero annotations. The Dart
+    Package Publish Dry Run workflow did not trigger for `24e475e` because no
+    publish-sensitive paths changed; the latest relevant package dry-run
+    remains `25463696541` for `3a0bbf0`, which completed successfully. The
+    deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `24e475e`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP client package helper smoke is complete with hosted CI evidence. The
     generated temporary consumer package still depends directly only on
     `connectanum_mcp` and imports
