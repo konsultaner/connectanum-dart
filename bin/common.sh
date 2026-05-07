@@ -2102,6 +2102,7 @@ Future<void> _smokeDirectJson(
   );
   await _smokeDirectJsonSingleError(client, label: label);
   await _smokeDirectJsonBatch(client, label: label);
+  await _smokeGenericDirectJsonRpcResourcesAndPrompts(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label, directJson: true);
   await _smokeWampMetaDiscovery(
     client,
@@ -2191,6 +2192,17 @@ Map<String, Object?> _jsonRpcStructuredContent(
   );
 }
 
+Map<String, Object?> _jsonRpcResult(
+  Map<String, Object?> response, {
+  required Object id,
+  required String label,
+}) {
+  if (response['id'] != id) {
+    throw StateError('$label response id was invalid.');
+  }
+  return _jsonObjectFrom(response['result'], label: '$label result');
+}
+
 Future<void> _smokeGenericDirectJsonRpcAccess(
   McpStreamableHttpClient client, {
   required String label,
@@ -2266,6 +2278,128 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Generic direct JSON-RPC access changed session state.');
+  }
+}
+
+Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final resourcesId = '$label-generic-direct-resources';
+  final resources = await client.request(
+    'resources/list',
+    id: resourcesId,
+    streamable: false,
+    includeSession: false,
+  );
+  final resourcesResult = _jsonRpcResult(
+    resources,
+    id: resourcesId,
+    label: 'Generic direct JSON-RPC resources/list',
+  );
+  if (!jsonEncode(resourcesResult['resources']).contains(_resourceUri)) {
+    throw StateError(
+      'Generic direct JSON-RPC resources/list missed $_resourceUri.',
+    );
+  }
+
+  final readId = '$label-generic-direct-resource-read';
+  final read = await client.request(
+    'resources/read',
+    id: readId,
+    params: {'uri': _resourceUri},
+    streamable: false,
+    includeSession: false,
+  );
+  final readResult = _jsonRpcResult(
+    read,
+    id: readId,
+    label: 'Generic direct JSON-RPC resources/read',
+  );
+  if (!jsonEncode(readResult['contents']).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError(
+      'Generic direct JSON-RPC resources/read missed route context.',
+    );
+  }
+
+  final templatesId = '$label-generic-direct-resource-templates';
+  final templates = await client.request(
+    'resources/templates/list',
+    id: templatesId,
+    streamable: false,
+    includeSession: false,
+  );
+  final templatesResult = _jsonRpcResult(
+    templates,
+    id: templatesId,
+    label: 'Generic direct JSON-RPC resources/templates/list',
+  );
+  if (!jsonEncode(
+    templatesResult['resourceTemplates'],
+  ).contains(_resourceTemplateUri)) {
+    throw StateError(
+      'Generic direct JSON-RPC resources/templates/list missed '
+      '$_resourceTemplateUri.',
+    );
+  }
+
+  final promptsId = '$label-generic-direct-prompts';
+  final prompts = await client.request(
+    'prompts/list',
+    id: promptsId,
+    streamable: false,
+    includeSession: false,
+  );
+  final promptsResult = _jsonRpcResult(
+    prompts,
+    id: promptsId,
+    label: 'Generic direct JSON-RPC prompts/list',
+  );
+  if (!jsonEncode(promptsResult['prompts']).contains(_promptName)) {
+    throw StateError(
+      'Generic direct JSON-RPC prompts/list missed $_promptName.',
+    );
+  }
+
+  final taskId = 'T-$label-generic-direct-prompt';
+  final promptId = '$label-generic-direct-prompt-get';
+  final prompt = _jsonObjectFrom(
+    await client.post(
+      {
+        'jsonrpc': '2.0',
+        'id': promptId,
+        'method': 'prompts/get',
+        'params': {
+          'name': _promptName,
+          'arguments': {'taskId': taskId},
+        },
+      },
+      streamable: false,
+      includeSession: false,
+    ),
+    label: 'Generic direct JSON-RPC prompts/get response',
+  );
+  final promptResult = _jsonRpcResult(
+    prompt,
+    id: promptId,
+    label: 'Generic direct JSON-RPC prompts/get',
+  );
+  if (!jsonEncode(promptResult).contains(taskId)) {
+    throw StateError(
+      'Generic direct JSON-RPC prompts/get did not substitute $taskId.',
+    );
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError(
+      'Generic direct JSON-RPC resources/prompts changed Streamable state.',
+    );
   }
 }
 
@@ -2541,6 +2675,10 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
     label: '$label-after-streamable',
   );
   await _smokeDirectJsonBatch(client, label: '$label-after-streamable');
+  await _smokeGenericDirectJsonRpcResourcesAndPrompts(
+    client,
+    label: '$label-direct-after-streamable',
+  );
   await _smokeResourcesAndPrompts(
     client,
     label: '$label-direct-after-streamable',

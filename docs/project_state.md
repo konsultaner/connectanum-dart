@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-generic-api-list-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-consumer-generic-resources-prompts-smoke.md`
 (complete locally; hosted CI evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-generic-api-list-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-generic-pubsub-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -26,10 +29,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`7fa39d1`
-(`test: cover mcp generic pubsub smoke`; hosted CI evidence clean).
-Latest implementation checkpoint: MCP consumer generic API list smoke
+`6bd5d8e`
+(`test: cover mcp generic api list smoke`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP consumer generic resources/prompts smoke
 (complete locally; hosted CI evidence pending).
+Previous implementation checkpoint: MCP consumer generic API list smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer generic pub/sub smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer generic JSON-RPC smoke
@@ -207,6 +212,23 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer generic resources/prompts smoke is complete with local
+    verification. The generated router-hosted consumer package smoke now adds
+    public generic `McpStreamableHttpClient.request(...)` / `post(...)` direct
+    JSON-RPC calls for `resources/list`, `resources/read`,
+    `resources/templates/list`, `prompts/list`, and `prompts/get`, and runs
+    them both before Streamable initialization and while a Streamable session
+    is active. The assertions verify generic direct JSON resource/prompt access
+    does not mutate Streamable session id or SSE cursor state. Pre-change
+    `bin/test-fast` passed on 2026-05-07 with isolated `TMPDIR`. Focused
+    checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
+    with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-07
+    with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-07 with
+    isolated `TMPDIR`. Commit, push, hosted CI, and deployment-chain audit
+    evidence are pending.
   - MCP consumer generic API list smoke is complete with local verification.
     The generated router-hosted consumer package smoke now adds a public
     generic `McpStreamableHttpClient.request(...)` direct JSON-RPC call for
@@ -222,8 +244,17 @@ order.
     `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
     with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-07
     with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-07 with
-    isolated `TMPDIR`. Commit, push, hosted CI, and deployment-chain audit
-    evidence are pending.
+    isolated `TMPDIR`. Commit `6bd5d8e`
+    (`test: cover mcp generic api list smoke`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-07. Hosted GitHub
+    `CI` run `25501478676` for `6bd5d8e` completed successfully on
+    2026-05-07 with `Fast Checks` and `Full Verify` green.
+    Deployment-chain audit passed on 2026-05-07 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports only operator-side gaps: branch protection is absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer generic pub/sub smoke is complete with local and hosted
     verification. The generated router-hosted consumer package smoke now adds
     public generic `McpStreamableHttpClient.request(...)` / `post(...)`
