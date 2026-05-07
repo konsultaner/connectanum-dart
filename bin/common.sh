@@ -2687,6 +2687,17 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('Streamable MCP Last-Event-ID replayed an old event.');
   }
 
+  final eventIdAfterResume = client.lastEventId;
+  if (eventIdAfterResume == null || eventIdAfterResume.isEmpty) {
+    throw StateError('Streamable MCP resume did not preserve an SSE cursor.');
+  }
+  await _assertInvalidLastEventIdRejectedWithoutSessionLoss(
+    client,
+    label: label,
+    sessionId: sessionId,
+    eventId: eventIdAfterResume,
+  );
+
   await client.deleteSession();
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Streamable MCP DELETE did not clear session state.');
@@ -2712,6 +2723,52 @@ Future<void> _smokeStreamableSessionLifecycle(
   }
   await client.notifyInitialized();
   await client.deleteSession();
+}
+
+Future<void> _assertInvalidLastEventIdRejectedWithoutSessionLoss(
+  McpStreamableHttpClient client, {
+  required String label,
+  required String sessionId,
+  required String eventId,
+}) async {
+  try {
+    await client.poll(lastEventId: '$sessionId:missing:1');
+    throw StateError('Streamable MCP accepted an unknown Last-Event-ID.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.badRequest) {
+      throw StateError(
+        'Streamable MCP invalid Last-Event-ID returned '
+        '${error.statusCode} instead of ${HttpStatus.badRequest}.',
+      );
+    }
+    if (!error.body.contains('Last-Event-ID')) {
+      throw StateError(
+        'Streamable MCP invalid Last-Event-ID error did not explain '
+        'the resume cursor problem.',
+      );
+    }
+  }
+
+  if (client.sessionId != sessionId || client.lastEventId != eventId) {
+    throw StateError(
+      'Streamable MCP invalid Last-Event-ID changed active session state.',
+    );
+  }
+
+  final tools = await client.listTools(
+    id: '$label-after-invalid-last-event-id-tools',
+  );
+  final names = {for (final tool in tools.tools) tool['name'] as String};
+  if (!names.contains(_procedure)) {
+    throw StateError(
+      'Streamable MCP session failed after invalid Last-Event-ID rejection.',
+    );
+  }
+  if (client.sessionId != sessionId) {
+    throw StateError(
+      'Streamable MCP invalid Last-Event-ID recovery lost session id.',
+    );
+  }
 }
 
 Future<List<McpSseEvent>> _pollStreamableSessionEventsUntil(
