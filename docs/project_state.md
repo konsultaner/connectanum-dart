@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-resource-prompt-error-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-consumer-streamable-resource-prompt-error-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-resource-prompt-error-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-generic-resources-prompts-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -32,11 +35,13 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`e4deead`
-(`test: cover mcp generic resources prompts smoke`; hosted CI evidence clean).
-Current implementation checkpoint: MCP consumer resource/prompt error smoke
-(complete; local verification clean; hosted evidence pending).
-Latest implementation checkpoint: MCP consumer generic resources/prompts smoke
+`89da29d`
+(`test: cover mcp resource prompt errors`; hosted CI evidence clean).
+Current implementation checkpoint: MCP consumer Streamable resource/prompt
+error smoke (complete; local verification clean; hosted evidence pending).
+Latest implementation checkpoint: MCP consumer resource/prompt error smoke
+(complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP consumer generic resources/prompts smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer generic API list smoke
 (complete; hosted CI evidence clean).
@@ -230,8 +235,17 @@ order.
     `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
     with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-07
     with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-07 with
-    isolated `TMPDIR`. Hosted evidence is pending after the implementation
-    commit is pushed.
+    isolated `TMPDIR`. Commit `89da29d`
+    (`test: cover mcp resource prompt errors`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-07. Hosted GitHub
+    `CI` run `25507071961` for `89da29d` completed successfully on
+    2026-05-07 with `Fast Checks` and `Full Verify` green.
+    Deployment-chain audit passed on 2026-05-07 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports only operator-side gaps: branch protection is absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer generic resources/prompts smoke is complete with local
     verification. The generated router-hosted consumer package smoke now adds
     public generic `McpStreamableHttpClient.request(...)` / `post(...)` direct

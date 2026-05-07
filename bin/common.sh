@@ -2711,6 +2711,7 @@ Future<void> _smokeStreamableMcp(
   await _smokeStreamableSingleError(client, label: label);
   await _smokeStreamableBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label);
+  await _smokeStreamableResourcePromptErrors(client, label: label);
   await _smokeWampMetaDiscovery(client, serviceSession, label: label);
 
   final subscription = await client.subscribeWampTopic(
@@ -2933,6 +2934,132 @@ Future<void> _smokeStreamableSingleError(
       eventIdAfterRecovery == eventIdAfterError) {
     throw StateError(
       'Streamable MCP single error recovery did not update SSE state.',
+    );
+  }
+}
+
+Future<void> _smokeStreamableResourcePromptErrors(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP resource/prompt error smoke has no session id.',
+    );
+  }
+
+  var previousEventId = client.lastEventId;
+  final missingResourceUri = 'connectanum://consumer/$label/missing-resource';
+  final resourceErrorId = '$label-streamable-resource-error';
+  try {
+    await client.readResource(missingResourceUri, id: resourceErrorId);
+    throw StateError(
+      'Streamable MCP resource error smoke accepted missing resource.',
+    );
+  } on McpJsonRpcException catch (error) {
+    _expectMcpJsonRpcException(
+      error,
+      id: resourceErrorId,
+      method: 'resources/read',
+      messageSubstring: missingResourceUri,
+      label: 'Streamable MCP missing resource',
+    );
+  }
+
+  if (client.sessionId != sessionId) {
+    throw StateError('Streamable MCP resource error changed session id.');
+  }
+  final eventIdAfterResourceError = client.lastEventId;
+  if (eventIdAfterResourceError == null ||
+      !eventIdAfterResourceError.startsWith('$sessionId:') ||
+      eventIdAfterResourceError == previousEventId) {
+    throw StateError(
+      'Streamable MCP resource error did not update SSE event state.',
+    );
+  }
+  previousEventId = eventIdAfterResourceError;
+
+  final missingPromptName = 'missing-$label-streamable-prompt';
+  final promptErrorId = '$label-streamable-prompt-error';
+  try {
+    await client.getPrompt(
+      missingPromptName,
+      id: promptErrorId,
+      arguments: {},
+    );
+    throw StateError(
+      'Streamable MCP prompt error smoke accepted missing prompt.',
+    );
+  } on McpJsonRpcException catch (error) {
+    _expectMcpJsonRpcException(
+      error,
+      id: promptErrorId,
+      method: 'prompts/get',
+      messageSubstring: missingPromptName,
+      label: 'Streamable MCP missing prompt',
+    );
+  }
+
+  if (client.sessionId != sessionId) {
+    throw StateError('Streamable MCP prompt error changed session id.');
+  }
+  final eventIdAfterPromptError = client.lastEventId;
+  if (eventIdAfterPromptError == null ||
+      !eventIdAfterPromptError.startsWith('$sessionId:') ||
+      eventIdAfterPromptError == previousEventId) {
+    throw StateError(
+      'Streamable MCP prompt error did not update SSE event state.',
+    );
+  }
+  previousEventId = eventIdAfterPromptError;
+
+  final resources = await client.listResources(
+    id: '$label-streamable-resource-error-recovery',
+  );
+  final resourceUris = {
+    for (final resource in resources.resources) resource['uri'],
+  };
+  if (!resourceUris.contains(_resourceUri)) {
+    throw StateError(
+      'Streamable MCP resource error recovery missed $_resourceUri.',
+    );
+  }
+  if (client.sessionId != sessionId) {
+    throw StateError(
+      'Streamable MCP resource error recovery changed session id.',
+    );
+  }
+  final eventIdAfterResourceRecovery = client.lastEventId;
+  if (eventIdAfterResourceRecovery == null ||
+      !eventIdAfterResourceRecovery.startsWith('$sessionId:') ||
+      eventIdAfterResourceRecovery == previousEventId) {
+    throw StateError(
+      'Streamable MCP resource error recovery did not update SSE state.',
+    );
+  }
+  previousEventId = eventIdAfterResourceRecovery;
+
+  final prompts = await client.listPrompts(
+    id: '$label-streamable-prompt-error-recovery',
+  );
+  final promptNames = {for (final prompt in prompts.prompts) prompt['name']};
+  if (!promptNames.contains(_promptName)) {
+    throw StateError(
+      'Streamable MCP prompt error recovery missed $_promptName.',
+    );
+  }
+  if (client.sessionId != sessionId) {
+    throw StateError(
+      'Streamable MCP prompt error recovery changed session id.',
+    );
+  }
+  final eventIdAfterPromptRecovery = client.lastEventId;
+  if (eventIdAfterPromptRecovery == null ||
+      !eventIdAfterPromptRecovery.startsWith('$sessionId:') ||
+      eventIdAfterPromptRecovery == previousEventId) {
+    throw StateError(
+      'Streamable MCP prompt error recovery did not update SSE state.',
     );
   }
 }
