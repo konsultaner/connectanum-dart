@@ -2055,6 +2055,16 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
+      await client.notifyInitialized();
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST notifications/initialized',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
       await client.listTools(id: '$label-rejected-session-tools');
     },
     sessionId: sessionId,
