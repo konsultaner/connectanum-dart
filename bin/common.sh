@@ -1916,13 +1916,41 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
     throw StateError('Secure Streamable MCP rejection smoke has no session.');
   }
 
+  await _assertActiveStreamableRequestRejectsBearer(
+    () async {
+      await client.listTools(id: '$label-rejected-session-tools');
+    },
+    method: 'POST tools/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    () async {
+      await client.poll();
+    },
+    method: 'GET SSE poll',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    () async {
+      await client.deleteSession();
+    },
+    method: 'DELETE session',
+    acceptedMessage: acceptedMessage,
+  );
+}
+
+Future<void> _assertActiveStreamableRequestRejectsBearer(
+  Future<void> Function() request, {
+  required String method,
+  required String acceptedMessage,
+}) async {
   try {
-    await client.listTools(id: '$label-rejected-session-tools');
-    throw StateError(acceptedMessage);
+    await request();
+    throw StateError('$acceptedMessage $method succeeded.');
   } on McpStreamableHttpException catch (error) {
     if (error.statusCode != HttpStatus.unauthorized) {
       throw StateError(
-        'Active Streamable MCP session returned ${error.statusCode} '
+        'Active Streamable MCP $method returned ${error.statusCode} '
         'instead of ${HttpStatus.unauthorized} for a rejected token.',
       );
     }
