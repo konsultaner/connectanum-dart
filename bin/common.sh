@@ -1795,6 +1795,10 @@ Future<void> _smokeDirectJson(
       directJson: true,
     );
   }
+
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError('Direct JSON MCP helpers captured Streamable state.');
+  }
 }
 
 Future<void> _smokeStreamableMcp(
@@ -1911,6 +1915,11 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
   final eventId = client.lastEventId;
 
   await _smokeDirectJsonBatch(client, label: '$label-after-streamable');
+  await _smokeResourcesAndPrompts(
+    client,
+    label: '$label-direct-after-streamable',
+    directJson: true,
+  );
 
   await _smokeWampMetaDiscovery(
     client,
@@ -1959,7 +1968,7 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
 
   if (client.sessionId != sessionId || client.lastEventId != eventId) {
     throw StateError(
-      'Direct JSON WAMP helpers changed Streamable MCP session state.',
+      'Direct JSON helpers changed Streamable MCP session state.',
     );
   }
 }
@@ -2172,9 +2181,6 @@ Future<void> _smokeResourcesAndPrompts(
     throw StateError('MCP prompts/get did not substitute $taskId.');
   }
 
-  if (directJson && client.sessionId != null) {
-    throw StateError('Direct JSON resource/prompt helpers captured a session.');
-  }
 }
 
 Future<void> _smokeWampMetaDiscovery(
