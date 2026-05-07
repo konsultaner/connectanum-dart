@@ -5,12 +5,16 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-single-error-smoke.md`
+(complete locally; hosted CI evidence pending).
+Latest pushed implementation commit before the current local checkpoint:
+`b1f805e`
+(`test: cover mcp batch error isolation`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP consumer single JSON-RPC error smoke
+(complete locally; hosted CI evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-batch-error-smoke.md`
-(complete locally; hosted evidence pending).
-Latest pushed implementation commit: `d5375b5`
-(`test: cover mcp invalid resume cursor`; hosted CI evidence clean).
-Latest implementation checkpoint: MCP consumer batch error smoke
-(complete locally; hosted evidence pending).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-invalid-last-event-id-smoke.md`
 (complete; hosted CI evidence clean).
@@ -170,9 +174,25 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer batch error smoke is complete locally; hosted evidence is
-    pending after push. The generated router-hosted consumer package smoke now
-    sends mixed JSON-RPC batches through both lifecycle-free direct JSON and
+  - MCP consumer single JSON-RPC error smoke is complete with local
+    verification. The generated router-hosted consumer package smoke now uses
+    public `McpStreamableHttpClient` APIs to prove missing direct JSON
+    `connectanum.tool.call` and initialized Streamable `tools/call` requests
+    surface as `McpJsonRpcException` values with the expected id, method, and
+    error body. Direct JSON single errors leave active Streamable session id
+    and SSE cursor state unchanged; Streamable single errors keep the session
+    id stable while advancing the SSE cursor, and both paths recover with a
+    follow-up tool-list request. Pre-change `bin/test-fast` passed on
+    2026-05-07. Focused checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07. Hosted CI evidence is pending until
+    this implementation is committed and pushed.
+  - MCP consumer batch error smoke is complete with local and hosted
+    verification. The generated router-hosted consumer package smoke now sends
+    mixed JSON-RPC batches through both lifecycle-free direct JSON and
     initialized Streamable HTTP: an unknown tool returns a JSON-RPC error
     between successful catalog/tool/prompt responses, notifications are still
     omitted, direct JSON leaves Streamable session state unchanged, and the
@@ -182,7 +202,18 @@ order.
     `git diff --check`, and
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07.
+    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence for `b1f805e`
+    is clean: `CI` run `25478356531` completed successfully with
+    `Fast Checks` and `Full Verify`, both with zero annotations. The Dart
+    Package Publish Dry Run workflow did not trigger for `b1f805e` because no
+    publish-sensitive paths changed; the latest relevant package dry-run
+    remains `25463696541` for `3a0bbf0`, which completed successfully and
+    still covers checked-out package inputs. The deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `b1f805e`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP consumer invalid Last-Event-ID smoke is complete with local
     and hosted verification. The generated router-hosted consumer package
     smoke now uses

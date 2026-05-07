@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Batch Error Smoke
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-07
 Last updated: 2026-05-07
@@ -58,7 +58,19 @@ for both lifecycle-free direct JSON and initialized Streamable HTTP clients.
   `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-07.
 - Full local `bin/verify` passed on 2026-05-07.
-- Hosted GitHub CI evidence is pending after push.
+- Hosted GitHub `CI` run `25478356531` for `b1f805e` completed
+  successfully with `Fast Checks` and `Full Verify`, both with zero
+  annotations.
+- The Dart Package Publish Dry Run workflow did not trigger for `b1f805e`
+  because no publish-sensitive paths changed. The latest relevant package
+  dry-run remains `25463696541` for `3a0bbf0`, which completed successfully
+  and still covers checked-out package inputs.
+- The deployment-chain audit
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed against `b1f805e`; the strict variant correctly failed only on the
+  known operator-owned gaps: `add-router` branch protection, router image
+  workflow visibility from the default branch, and GHCR router package
+  visibility.
 
 ## Decision Log
 
@@ -70,5 +82,5 @@ for both lifecycle-free direct JSON and initialized Streamable HTTP clients.
 
 ## Handoff
 
-Complete locally. Hosted CI evidence remains pending until this implementation
-commit is pushed.
+Complete with hosted CI evidence. Remaining strict audit findings are
+operator-owned deployment-chain gaps.

@@ -2074,6 +2074,7 @@ Future<void> _smokeDirectJson(
     throw StateError('Direct JSON tool call did not return expected payload.');
   }
 
+  await _smokeDirectJsonSingleError(client, label: label);
   await _smokeDirectJsonBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label, directJson: true);
   await _smokeWampMetaDiscovery(client, label: label, directJson: true);
@@ -2165,6 +2166,10 @@ Future<void> _smokeStreamableMcp(
     );
   }
 
+  await _smokeDirectJsonSingleError(
+    client,
+    label: '$label-direct-after-streamable',
+  );
   await _smokeDirectJsonWhileStreamableInitialized(
     client,
     serviceSession,
@@ -2191,6 +2196,7 @@ Future<void> _smokeStreamableMcp(
     throw StateError('Streamable MCP tool catalog did not expose $_procedure.');
   }
 
+  await _smokeStreamableSingleError(client, label: label);
   await _smokeStreamableBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label);
   await _smokeWampMetaDiscovery(client, label: label);
@@ -2292,6 +2298,110 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
   if (client.sessionId != sessionId || client.lastEventId != eventId) {
     throw StateError(
       'Direct JSON helpers changed Streamable MCP session state.',
+    );
+  }
+}
+
+Future<void> _smokeDirectJsonSingleError(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final missingTool = 'missing.$label.direct.single';
+  final errorId = '$label-direct-error-missing';
+  try {
+    await client.callConnectanumToolDirect(
+      missingTool,
+      id: errorId,
+      arguments: {},
+    );
+    throw StateError('Direct JSON single error smoke accepted a missing tool.');
+  } on McpJsonRpcException catch (error) {
+    _expectMcpJsonRpcException(
+      error,
+      id: errorId,
+      method: 'connectanum.tool.call',
+      messageSubstring: missingTool,
+      label: 'Direct JSON single missing tool',
+    );
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct JSON single error changed Streamable state.');
+  }
+
+  final tools = await client.listConnectanumToolsDirect(
+    id: '$label-direct-error-recovery-tools',
+  );
+  final names = {for (final tool in tools.tools) tool['name'] as String};
+  if (!names.contains(_procedure)) {
+    throw StateError('Direct JSON recovery tool catalog missed $_procedure.');
+  }
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct JSON error recovery changed Streamable state.');
+  }
+}
+
+Future<void> _smokeStreamableSingleError(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP single error smoke has no initialized session id.',
+    );
+  }
+
+  final previousEventId = client.lastEventId;
+  final missingTool = 'missing.$label.streamable.single';
+  final errorId = '$label-streamable-error-missing';
+  try {
+    await client.callTool(missingTool, id: errorId, arguments: {});
+    throw StateError('Streamable MCP single error smoke accepted missing tool.');
+  } on McpJsonRpcException catch (error) {
+    _expectMcpJsonRpcException(
+      error,
+      id: errorId,
+      method: 'tools/call',
+      messageSubstring: missingTool,
+      label: 'Streamable MCP single missing tool',
+    );
+  }
+
+  if (client.sessionId != sessionId) {
+    throw StateError('Streamable MCP single error changed session id.');
+  }
+  final eventIdAfterError = client.lastEventId;
+  if (eventIdAfterError == null ||
+      !eventIdAfterError.startsWith('$sessionId:') ||
+      eventIdAfterError == previousEventId) {
+    throw StateError(
+      'Streamable MCP single error did not update SSE event state.',
+    );
+  }
+
+  final tools = await client.listTools(id: '$label-streamable-error-recovery');
+  final names = {for (final tool in tools.tools) tool['name'] as String};
+  if (!names.contains(_procedure)) {
+    throw StateError(
+      'Streamable MCP single error recovery missed $_procedure.',
+    );
+  }
+  if (client.sessionId != sessionId) {
+    throw StateError(
+      'Streamable MCP single error recovery changed session id.',
+    );
+  }
+  final eventIdAfterRecovery = client.lastEventId;
+  if (eventIdAfterRecovery == null ||
+      !eventIdAfterRecovery.startsWith('$sessionId:') ||
+      eventIdAfterRecovery == eventIdAfterError) {
+    throw StateError(
+      'Streamable MCP single error recovery did not update SSE state.',
     );
   }
 }
@@ -2603,6 +2713,24 @@ void _expectJsonRpcError(
   }
   if (!jsonEncode(error).contains(messageSubstring)) {
     throw StateError('$label error did not mention $messageSubstring.');
+  }
+}
+
+void _expectMcpJsonRpcException(
+  McpJsonRpcException error, {
+  required Object id,
+  required String method,
+  required String messageSubstring,
+  required String label,
+}) {
+  if (error.id != id) {
+    throw StateError('$label exception id was invalid.');
+  }
+  if (error.method != method) {
+    throw StateError('$label exception method was invalid.');
+  }
+  if (!jsonEncode(error.error).contains(messageSubstring)) {
+    throw StateError('$label exception did not mention $messageSubstring.');
   }
 }
 
