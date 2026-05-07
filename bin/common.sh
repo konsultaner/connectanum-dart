@@ -2077,7 +2077,12 @@ Future<void> _smokeDirectJson(
   await _smokeDirectJsonSingleError(client, label: label);
   await _smokeDirectJsonBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label, directJson: true);
-  await _smokeWampMetaDiscovery(client, label: label, directJson: true);
+  await _smokeWampMetaDiscovery(
+    client,
+    serviceSession,
+    label: label,
+    directJson: true,
+  );
 
   final subscription = await client.subscribeWampTopic(
     _topic,
@@ -2086,7 +2091,12 @@ Future<void> _smokeDirectJson(
     directJson: true,
   );
   try {
-    await _smokeWampSubscriptionMeta(client, label: label, directJson: true);
+    await _smokeWampSubscriptionMeta(
+      client,
+      serviceSession,
+      label: label,
+      directJson: true,
+    );
 
     final publication = await client.publishWampEvent(
       _topic,
@@ -2199,7 +2209,7 @@ Future<void> _smokeStreamableMcp(
   await _smokeStreamableSingleError(client, label: label);
   await _smokeStreamableBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label);
-  await _smokeWampMetaDiscovery(client, label: label);
+  await _smokeWampMetaDiscovery(client, serviceSession, label: label);
 
   final subscription = await client.subscribeWampTopic(
     _topic,
@@ -2207,7 +2217,7 @@ Future<void> _smokeStreamableMcp(
     queueLimit: 4,
   );
   try {
-    await _smokeWampSubscriptionMeta(client, label: label);
+    await _smokeWampSubscriptionMeta(client, serviceSession, label: label);
 
     await serviceSession.publish(
       _topic,
@@ -2252,6 +2262,7 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
 
   await _smokeWampMetaDiscovery(
     client,
+    serviceSession,
     label: '$label-direct-after-streamable',
     directJson: true,
   );
@@ -2265,6 +2276,7 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
   try {
     await _smokeWampSubscriptionMeta(
       client,
+      serviceSession,
       label: '$label-direct-after-streamable',
       directJson: true,
     );
@@ -2799,7 +2811,8 @@ Future<void> _smokeResourcesAndPrompts(
 }
 
 Future<void> _smokeWampMetaDiscovery(
-  McpStreamableHttpClient client, {
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
   required String label,
   bool directJson = false,
 }) async {
@@ -2850,6 +2863,38 @@ Future<void> _smokeWampMetaDiscovery(
     throw StateError('WAMP registration details missed $_procedure.');
   }
 
+  final registrationCallees = await client.listWampRegistrationCallees(
+    registrationId,
+    id: '$label-$mode-registration-callees',
+    directJson: directJson,
+  );
+  final calleeIds = _integerMetaIds(
+    registrationCallees.arguments,
+    '$mode registration callees',
+  );
+  if (calleeIds.contains(serviceSession.sessionId)) {
+    throw StateError('WAMP registration callee list leaked service session.');
+  }
+  if (calleeIds.isNotEmpty) {
+    throw StateError(
+      'WAMP registration callee list exposed unexpected sessions '
+      '${jsonEncode(calleeIds)}.',
+    );
+  }
+
+  final registrationCalleeCount = await client.countWampRegistrationCallees(
+    registrationId,
+    id: '$label-$mode-registration-callee-count',
+    directJson: directJson,
+  );
+  final calleeCount = _singleMetaId(
+    registrationCalleeCount.arguments,
+    '$mode registration callee count',
+  );
+  if (calleeCount != 0) {
+    throw StateError('WAMP registration callee count leaked service session.');
+  }
+
   final sessionCount = await client.countWampSessions(
     id: '$label-$mode-session-count',
     directJson: directJson,
@@ -2860,7 +2905,8 @@ Future<void> _smokeWampMetaDiscovery(
 }
 
 Future<void> _smokeWampSubscriptionMeta(
-  McpStreamableHttpClient client, {
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
   required String label,
   bool directJson = false,
 }) async {
@@ -2883,13 +2929,35 @@ Future<void> _smokeWampSubscriptionMeta(
     throw StateError('WAMP subscription details missed $_topic.');
   }
 
+  final subscribers = await client.listWampSubscriptionSubscribers(
+    subscriptionId,
+    id: '$label-$mode-subscription-subscribers',
+    directJson: directJson,
+  );
+  final subscriberIds = _integerMetaIds(
+    subscribers.arguments,
+    '$mode subscription subscribers',
+  );
+  if (subscriberIds.isEmpty) {
+    throw StateError('WAMP subscription subscriber list was empty.');
+  }
+  if (subscriberIds.contains(serviceSession.sessionId)) {
+    throw StateError('WAMP subscription subscriber list leaked service session.');
+  }
+
   final subscriberCount = await client.countWampSubscriptionSubscribers(
     subscriptionId,
     id: '$label-$mode-subscription-subscriber-count',
     directJson: directJson,
   );
-  if (subscriberCount.arguments.isEmpty) {
-    throw StateError('WAMP subscription subscriber count was empty.');
+  final subscriberTotal = _singleMetaId(
+    subscriberCount.arguments,
+    '$mode subscription subscriber count',
+  );
+  if (subscriberTotal != subscriberIds.length) {
+    throw StateError(
+      'WAMP subscription subscriber count did not match visible sessions.',
+    );
   }
 }
 
@@ -2898,6 +2966,17 @@ int _singleMetaId(List<Object?> arguments, String label) {
     throw StateError('WAMP meta $label returned ${jsonEncode(arguments)}.');
   }
   return arguments.single as int;
+}
+
+List<int> _integerMetaIds(List<Object?> arguments, String label) {
+  final ids = <int>[];
+  for (final value in arguments) {
+    if (value is! int) {
+      throw StateError('WAMP meta $label returned ${jsonEncode(arguments)}.');
+    }
+    ids.add(value);
+  }
+  return ids;
 }
 
 Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(

@@ -5,13 +5,16 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Latest completed exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-single-error-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete locally; hosted CI evidence pending).
 Latest pushed implementation commit before the current local checkpoint:
-`b1f805e`
-(`test: cover mcp batch error isolation`; hosted CI evidence clean).
-Latest implementation checkpoint: MCP consumer single JSON-RPC error smoke
+`aa1987f`
+(`test: cover mcp single error recovery`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP consumer participant meta smoke
 (complete locally; hosted CI evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-single-error-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-batch-error-smoke.md`
 (complete; hosted CI evidence clean).
@@ -174,6 +177,22 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer participant meta smoke is complete with local verification.
+    The generated router-hosted consumer package smoke now uses public
+    `McpStreamableHttpClient` WAMP meta helpers to prove
+    `wamp.registration.list_callees` / `count_callees` hide the router service
+    callee for the exposed procedure, and
+    `wamp.subscription.list_subscribers` / `count_subscribers` report only
+    consumer-visible subscriber IDs with matching counts. The assertions run
+    through lifecycle-free direct JSON, initialized Streamable HTTP, and direct
+    JSON after Streamable initialization. Pre-change `bin/test-fast` passed on
+    2026-05-07. Focused checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07. Hosted CI evidence is pending until
+    this implementation is committed and pushed.
   - MCP consumer single JSON-RPC error smoke is complete with local
     verification. The generated router-hosted consumer package smoke now uses
     public `McpStreamableHttpClient` APIs to prove missing direct JSON
@@ -188,8 +207,18 @@ order.
     and
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07. Hosted CI evidence is pending until
-    this implementation is committed and pushed.
+    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence for `aa1987f`
+    is clean: `CI` run `25480299943` completed successfully with
+    `Fast Checks` and `Full Verify`, both with zero annotations. The Dart
+    Package Publish Dry Run workflow did not trigger for `aa1987f` because no
+    publish-sensitive paths changed; the latest relevant package dry-run
+    remains `25463696541` for `3a0bbf0`, which completed successfully and
+    still covers checked-out package inputs. The deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `aa1987f`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP consumer batch error smoke is complete with local and hosted
     verification. The generated router-hosted consumer package smoke now sends
     mixed JSON-RPC batches through both lifecycle-free direct JSON and
