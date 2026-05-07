@@ -102,69 +102,94 @@ void main() {
       },
     );
 
-    test('clears stale Streamable HTTP session state after 404', () async {
-      final endpoint = await _FakeMcpEndpoint.bind();
-      addTearDown(endpoint.close);
+    test(
+      'clears stale Streamable HTTP session state after session failures',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
 
-      final client = McpStreamableHttpClient(endpoint.uri);
-      addTearDown(() => client.close(force: true));
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
 
-      client.sessionId = 'stale-before-initialize';
-      client.lastEventId = 'stale-before-initialize:get:1';
-      final initialize = await client.initialize(id: 'fresh-initialize');
-      expect(initialize['id'], 'fresh-initialize');
-      expect(client.sessionId, 'session-1');
-      expect(endpoint.requests.single.sessionId, isNull);
+        Future<void> expectSessionFailureClearsState({
+          required String staleSessionId,
+          required int statusCode,
+          required String label,
+        }) async {
+          client.sessionId = staleSessionId;
+          client.lastEventId = '$staleSessionId:get:1';
+          await expectLater(
+            client.listTools(id: '$label-stale-tools'),
+            throwsA(
+              isA<McpStreamableHttpException>().having(
+                (error) => error.statusCode,
+                'statusCode',
+                statusCode,
+              ),
+            ),
+          );
+          expect(client.sessionId, isNull);
+          expect(client.lastEventId, isNull);
+          expect(endpoint.requests.last.sessionId, staleSessionId);
 
-      client.sessionId = 'expired-session';
-      client.lastEventId = 'expired-session:get:1';
-      await expectLater(
-        client.listTools(id: 'stale-tools'),
-        throwsA(
-          isA<McpStreamableHttpException>().having(
-            (error) => error.statusCode,
-            'statusCode',
-            HttpStatus.notFound,
-          ),
-        ),
-      );
-      expect(client.sessionId, isNull);
-      expect(client.lastEventId, isNull);
-      expect(endpoint.requests.last.sessionId, 'expired-session');
+          client.sessionId = staleSessionId;
+          client.lastEventId = '$staleSessionId:get:2';
+          await expectLater(
+            client.poll(),
+            throwsA(
+              isA<McpStreamableHttpException>().having(
+                (error) => error.statusCode,
+                'statusCode',
+                statusCode,
+              ),
+            ),
+          );
+          expect(client.sessionId, isNull);
+          expect(client.lastEventId, isNull);
+          expect(endpoint.requests.last.method, 'GET');
+          expect(endpoint.requests.last.lastEventId, '$staleSessionId:get:2');
 
-      client.sessionId = 'expired-session';
-      client.lastEventId = 'expired-session:get:2';
-      await expectLater(
-        client.poll(),
-        throwsA(
-          isA<McpStreamableHttpException>().having(
-            (error) => error.statusCode,
-            'statusCode',
-            HttpStatus.notFound,
-          ),
-        ),
-      );
-      expect(client.sessionId, isNull);
-      expect(client.lastEventId, isNull);
-      expect(endpoint.requests.last.method, 'GET');
-      expect(endpoint.requests.last.lastEventId, 'expired-session:get:2');
+          client.sessionId = staleSessionId;
+          client.lastEventId = '$staleSessionId:get:3';
+          await expectLater(
+            client.deleteSession(),
+            throwsA(
+              isA<McpStreamableHttpException>().having(
+                (error) => error.statusCode,
+                'statusCode',
+                statusCode,
+              ),
+            ),
+          );
+          expect(client.sessionId, isNull);
+          expect(client.lastEventId, isNull);
+          expect(endpoint.requests.last.method, 'DELETE');
+        }
 
-      client.sessionId = 'expired-session';
-      client.lastEventId = 'expired-session:get:3';
-      await expectLater(
-        client.deleteSession(),
-        throwsA(
-          isA<McpStreamableHttpException>().having(
-            (error) => error.statusCode,
-            'statusCode',
-            HttpStatus.notFound,
-          ),
-        ),
-      );
-      expect(client.sessionId, isNull);
-      expect(client.lastEventId, isNull);
-      expect(endpoint.requests.last.method, 'DELETE');
-    });
+        client.sessionId = 'stale-before-initialize';
+        client.lastEventId = 'stale-before-initialize:get:1';
+        final initialize = await client.initialize(id: 'fresh-initialize');
+        expect(initialize['id'], 'fresh-initialize');
+        expect(client.sessionId, 'session-1');
+        expect(endpoint.requests.single.sessionId, isNull);
+
+        await expectSessionFailureClearsState(
+          staleSessionId: 'expired-session',
+          statusCode: HttpStatus.notFound,
+          label: 'not-found',
+        );
+        await expectSessionFailureClearsState(
+          staleSessionId: 'unauthorized-session',
+          statusCode: HttpStatus.unauthorized,
+          label: 'unauthorized',
+        );
+        await expectSessionFailureClearsState(
+          staleSessionId: 'forbidden-session',
+          statusCode: HttpStatus.forbidden,
+          label: 'forbidden',
+        );
+      },
+    );
 
     test('rejects empty bearer tokens', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
@@ -1130,13 +1155,25 @@ final class _FakeMcpEndpoint {
     final jsonBody = body.isEmpty ? null : jsonDecode(body);
     requests.add(_SeenRequest.from(request, jsonBody));
 
-    if (request.headers.value(_headerSessionId) == 'expired-session') {
-      request.response.statusCode = HttpStatus.notFound;
+    final requestSessionId = request.headers.value(_headerSessionId);
+    if (requestSessionId == 'expired-session' ||
+        requestSessionId == 'unauthorized-session' ||
+        requestSessionId == 'forbidden-session') {
+      var statusCode = HttpStatus.notFound;
+      var message = 'Unknown MCP HTTP session';
+      if (requestSessionId == 'unauthorized-session') {
+        statusCode = HttpStatus.unauthorized;
+        message = 'Missing or invalid bearer token';
+      } else if (requestSessionId == 'forbidden-session') {
+        statusCode = HttpStatus.forbidden;
+        message = 'MCP session is forbidden';
+      }
+      request.response.statusCode = statusCode;
       request.response.headers.contentType = ContentType.json;
-      request.response.headers.set(_headerSessionId, 'expired-session');
+      request.response.headers.set(_headerSessionId, requestSessionId!);
       request.response.write(
         jsonEncode(<String, Object?>{
-          'error': <String, Object?>{'message': 'Unknown MCP HTTP session'},
+          'error': <String, Object?>{'message': message},
         }),
       );
       await request.response.close();

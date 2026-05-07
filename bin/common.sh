@@ -2008,35 +2008,50 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   if (sessionId == null || sessionId.isEmpty) {
     throw StateError('Secure Streamable MCP rejection smoke has no session.');
   }
+  final lastEventId = client.lastEventId;
 
   await _assertActiveStreamableRequestRejectsBearer(
+    client,
     () async {
       await client.listTools(id: '$label-rejected-session-tools');
     },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
     method: 'POST tools/list',
     acceptedMessage: acceptedMessage,
   );
   await _assertActiveStreamableRequestRejectsBearer(
+    client,
     () async {
       await client.poll();
     },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
     method: 'GET SSE poll',
     acceptedMessage: acceptedMessage,
   );
   await _assertActiveStreamableRequestRejectsBearer(
+    client,
     () async {
       await client.deleteSession();
     },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
     method: 'DELETE session',
     acceptedMessage: acceptedMessage,
   );
 }
 
 Future<void> _assertActiveStreamableRequestRejectsBearer(
+  McpStreamableHttpClient client,
   Future<void> Function() request, {
+  required String sessionId,
+  String? lastEventId,
   required String method,
   required String acceptedMessage,
 }) async {
+  client.sessionId = sessionId;
+  client.lastEventId = lastEventId;
   try {
     await request();
     throw StateError('$acceptedMessage $method succeeded.');
@@ -2047,6 +2062,11 @@ Future<void> _assertActiveStreamableRequestRejectsBearer(
         'instead of ${HttpStatus.unauthorized} for a rejected token.',
       );
     }
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Active Streamable MCP $method did not clear rejected session state.',
+    );
   }
 }
 

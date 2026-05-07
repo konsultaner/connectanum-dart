@@ -538,7 +538,9 @@ final class McpStreamableHttpClient {
     try {
       _throwIfHttpError(response, body);
     } on McpStreamableHttpException catch (error) {
-      if (error.statusCode == HttpStatus.notFound) {
+      if (error.statusCode == HttpStatus.unauthorized ||
+          error.statusCode == HttpStatus.forbidden ||
+          error.statusCode == HttpStatus.notFound) {
         _clearSessionState();
       }
       rethrow;

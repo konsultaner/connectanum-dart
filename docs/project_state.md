@@ -4,14 +4,19 @@ Last updated: 2026-05-07
 Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
+Active exec plan:
+`docs/exec-plans/2026-05-07-mcp-client-auth-error-session-clear.md`
+(complete locally; hosted CI evidence pending).
 Latest completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
+(complete; hosted CI evidence clean).
+Latest pushed implementation commit:
+`6114ed0`
+(`test: cover mcp participant meta smoke`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP client auth error session clearing
 (complete locally; hosted CI evidence pending).
-Latest pushed implementation commit before the current local checkpoint:
-`aa1987f`
-(`test: cover mcp single error recovery`; hosted CI evidence clean).
-Latest implementation checkpoint: MCP consumer participant meta smoke
-(complete locally; hosted CI evidence pending).
+Previous implementation checkpoint: MCP consumer participant meta smoke
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-single-error-smoke.md`
 (complete; hosted CI evidence clean).
@@ -177,7 +182,23 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer participant meta smoke is complete with local verification.
+  - MCP client auth error session clearing is complete with local
+    verification. The public `McpStreamableHttpClient` now clears cached
+    Streamable HTTP session id and SSE cursor state on session-scoped HTTP 401
+    and 403 responses, matching the existing stale-session 404 behavior. The
+    generated router-hosted consumer package smoke now proves active protected
+    sessions rejected after bearer rotation or revocation clear stale state for
+    POST `tools/list`, GET/SSE polling, and DELETE. Pre-change `bin/test-fast`
+    passed on 2026-05-07. Focused checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`,
+    `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --chain-stack-traces`,
+    `git diff --check`, and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07. Hosted CI evidence is pending until
+    this implementation is committed and pushed.
+  - MCP consumer participant meta smoke is complete with local and hosted
+    verification.
     The generated router-hosted consumer package smoke now uses public
     `McpStreamableHttpClient` WAMP meta helpers to prove
     `wamp.registration.list_callees` / `count_callees` hide the router service
@@ -191,8 +212,18 @@ order.
     and
     `bash -lc 'source bin/common.sh && cd_repo_root && run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07. Hosted CI evidence is pending until
-    this implementation is committed and pushed.
+    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence for `6114ed0`
+    is clean: `CI` run `25482719085` completed successfully with
+    `Fast Checks` and `Full Verify`, both with zero annotations. The Dart
+    Package Publish Dry Run workflow did not trigger for `6114ed0` because no
+    publish-sensitive paths changed; the latest relevant package dry-run
+    remains `25463696541` for `3a0bbf0`, which completed successfully and
+    still covers checked-out package inputs. The deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `6114ed0`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP consumer single JSON-RPC error smoke is complete with local
     verification. The generated router-hosted consumer package smoke now uses
     public `McpStreamableHttpClient` APIs to prove missing direct JSON
