@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Session Meta Smoke
 
-Status: complete locally; hosted CI evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-07
 Last updated: 2026-05-07
@@ -58,8 +58,19 @@ initialized Streamable HTTP and lifecycle-free direct JSON calls.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-07.
 - Full local `bin/verify` passed on 2026-05-07.
-- Hosted CI evidence is pending until this implementation is committed and
-  pushed.
+- Hosted GitHub evidence for `19c7e27` is clean: `CI` run `25487804565`
+  completed successfully with `Fast Checks` and `Full Verify`, both with zero
+  annotations.
+- The Dart Package Publish Dry Run workflow did not trigger for `19c7e27`
+  because no publish-sensitive paths changed; the latest relevant package
+  dry-run remains `25485027779` for `951ed89`, which completed successfully
+  and still covers checked-out package inputs.
+- The deployment-chain audit
+  `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed against `19c7e27`; the strict variant correctly failed only on the
+  known operator-owned deployment-chain gaps: `add-router` is unprotected, the
+  router image workflow is not discoverable from the default branch, and the
+  router container package is not visible.
 
 ## Decision Log
 
@@ -70,5 +81,6 @@ initialized Streamable HTTP and lifecycle-free direct JSON calls.
 
 ## Handoff
 
-Complete locally. Hosted CI and deployment-chain audit evidence should be
-captured after the implementation commit is pushed.
+Complete with local and hosted evidence. The implementation was committed as
+`19c7e27` and pushed to both remotes. Keep the hosted-evidence docs update
+uncommitted until it can be bundled with the next code or config change.

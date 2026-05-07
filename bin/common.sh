@@ -2874,6 +2874,29 @@ Future<void> _smokeWampMetaDiscovery(
     registrationMatch.arguments,
     '$mode registration match',
   );
+  final registrationLookup = await client.lookupWampRegistration(
+    _procedure,
+    id: '$label-$mode-registration-lookup',
+    directJson: directJson,
+  );
+  final lookupRegistrationIds = _integerMetaIds(
+    registrationLookup.arguments,
+    '$mode registration lookup',
+  );
+  if (!lookupRegistrationIds.contains(registrationId)) {
+    throw StateError('WAMP registration lookup missed $_procedure.');
+  }
+  final registrationList = await client.listWampRegistrations(
+    id: '$label-$mode-registration-list',
+    directJson: directJson,
+  );
+  final exactRegistrationIds = _integerMetaIdsFromValue(
+    registrationList.argumentsKeywords['exact'],
+    '$mode registration list exact',
+  );
+  if (!exactRegistrationIds.contains(registrationId)) {
+    throw StateError('WAMP registration list missed $_procedure.');
+  }
   final registrationDetails = await client.getWampRegistration(
     registrationId,
     id: '$label-$mode-registration-get',
@@ -2968,6 +2991,29 @@ Future<void> _smokeWampSubscriptionMeta(
     subscriptionLookup.arguments,
     '$mode subscription lookup',
   );
+  final subscriptionMatch = await client.matchWampSubscription(
+    _topic,
+    id: '$label-$mode-subscription-match',
+    directJson: directJson,
+  );
+  final matchedSubscriptionIds = _integerMetaIds(
+    subscriptionMatch.arguments,
+    '$mode subscription match',
+  );
+  if (!matchedSubscriptionIds.contains(subscriptionId)) {
+    throw StateError('WAMP subscription match missed $_topic.');
+  }
+  final subscriptionList = await client.listWampSubscriptions(
+    id: '$label-$mode-subscription-list',
+    directJson: directJson,
+  );
+  final exactSubscriptionIds = _integerMetaIdsFromValue(
+    subscriptionList.argumentsKeywords['exact'],
+    '$mode subscription list exact',
+  );
+  if (!exactSubscriptionIds.contains(subscriptionId)) {
+    throw StateError('WAMP subscription list missed $_topic.');
+  }
   final subscriptionDetails = await client.getWampSubscription(
     subscriptionId,
     id: '$label-$mode-subscription-get',

@@ -5,11 +5,14 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-session-meta-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-consumer-entity-meta-smoke.md`
 (complete locally; hosted CI evidence pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-session-meta-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-consumer-entity-meta-smoke.md`
 (complete locally; hosted CI evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-session-meta-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-client-auth-error-session-clear.md`
 (complete; hosted CI evidence clean).
@@ -17,10 +20,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`951ed89`
-(`fix: clear mcp session on auth errors`; hosted CI evidence clean).
-Latest implementation checkpoint: MCP consumer session meta smoke
+`19c7e27`
+(`test: cover mcp session meta smoke`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP consumer entity meta smoke
 (complete locally; hosted CI evidence pending).
+Previous implementation checkpoint: MCP consumer session meta smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP client auth error session clearing
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer participant meta smoke
@@ -190,7 +195,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer session meta smoke is complete with local focused
+  - MCP consumer entity meta smoke is complete with local verification. The
+    generated router-hosted consumer package smoke now uses public
+    `McpStreamableHttpClient` WAMP meta helpers to prove
+    `wamp.registration.list`, `lookup`, `match`, and `get` agree on the
+    exposed procedure registration, and `wamp.subscription.list`, `lookup`,
+    `match`, and `get` agree on a consumer-created subscription. The
+    assertions run through lifecycle-free direct JSON, initialized Streamable
+    HTTP, and direct JSON after Streamable initialization. Pre-change
+    `bin/test-fast` passed on 2026-05-07. Focused checks passed on
+    2026-05-07: `bash -n bin/common.sh bin/test-fast bin/test-all` and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`.
+    Post-change `bin/test-fast` passed on 2026-05-07. Full local
+    `bin/verify` passed on 2026-05-07. Hosted CI evidence is pending until
+    this implementation is committed and pushed.
+  - MCP consumer session meta smoke is complete with local and hosted
     verification. The generated router-hosted consumer package smoke now uses
     public `McpStreamableHttpClient` WAMP meta helpers to prove
     `wamp.session.count`, `list`, and `get` are internally consistent and do
@@ -200,8 +219,18 @@ order.
     2026-05-07: `bash -n bin/common.sh bin/test-fast bin/test-all` and
     `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`.
     Post-change `bin/test-fast` passed on 2026-05-07. Full local
-    `bin/verify` passed on 2026-05-07. Hosted CI evidence is pending until
-    this implementation is committed and pushed.
+    `bin/verify` passed on 2026-05-07. Hosted GitHub evidence for `19c7e27`
+    is clean: `CI` run `25487804565` completed successfully with
+    `Fast Checks` and `Full Verify`, both with zero annotations. The Dart
+    Package Publish Dry Run workflow did not trigger for `19c7e27` because no
+    publish-sensitive paths changed; the latest relevant package dry-run
+    remains `25485027779` for `951ed89`, which completed successfully and
+    still covers checked-out package inputs. The deployment-chain audit
+    `bin/audit-github-deployment-chain --branch add-router --run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+    passed against `19c7e27`; the strict variant correctly failed only on the
+    known operator-owned deployment-chain gaps: `add-router` is unprotected,
+    the router image workflow is not discoverable from the default branch, and
+    the router container package is not visible.
   - MCP client auth error session clearing is complete with local and hosted
     verification. The public `McpStreamableHttpClient` now clears cached
     Streamable HTTP session id and SSE cursor state on session-scoped HTTP 401
