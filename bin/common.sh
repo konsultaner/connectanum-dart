@@ -2095,6 +2095,11 @@ Future<void> _smokeDirectJson(
   }
 
   await _smokeGenericDirectJsonRpcAccess(client, label: label);
+  await _smokeGenericDirectJsonRpcPubSub(
+    client,
+    serviceSession,
+    label: label,
+  );
   await _smokeDirectJsonSingleError(client, label: label);
   await _smokeDirectJsonBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label, directJson: true);
@@ -2156,6 +2161,36 @@ Future<void> _smokeDirectJson(
   }
 }
 
+Map<String, Object?> _jsonObjectFrom(Object? value, {required String label}) {
+  if (value is Map<Object?, Object?>) {
+    return value.map((key, value) {
+      if (key is! String) {
+        throw StateError('$label contained a non-string key.');
+      }
+      return MapEntry(key, value);
+    });
+  }
+  throw StateError('$label was not a JSON object.');
+}
+
+Map<String, Object?> _jsonRpcStructuredContent(
+  Map<String, Object?> response, {
+  required Object id,
+  required String label,
+}) {
+  if (response['id'] != id) {
+    throw StateError('$label response id was invalid.');
+  }
+  final result = _jsonObjectFrom(response['result'], label: '$label result');
+  if (result['isError'] == true) {
+    throw StateError('$label returned an MCP tool error: ${jsonEncode(result)}');
+  }
+  return _jsonObjectFrom(
+    result['structuredContent'],
+    label: '$label structuredContent',
+  );
+}
+
 Future<void> _smokeGenericDirectJsonRpcAccess(
   McpStreamableHttpClient client, {
   required String label,
@@ -2214,6 +2249,150 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
       client.lastEventId != previousEventId) {
     throw StateError('Generic direct JSON-RPC access changed session state.');
   }
+}
+
+Future<void> _smokeGenericDirectJsonRpcPubSub(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final subscribeId = '$label-generic-direct-pubsub-subscribe';
+  final subscribe = await client.request(
+    'connectanum.pubsub.subscribe',
+    id: subscribeId,
+    params: {'topic': _topic, 'queueLimit': 4},
+    streamable: false,
+    includeSession: false,
+  );
+  final subscription = _jsonRpcStructuredContent(
+    subscribe,
+    id: subscribeId,
+    label: 'Generic direct JSON-RPC pub/sub subscribe',
+  );
+  final handle = subscription['handle'];
+  if (handle is! String ||
+      handle.isEmpty ||
+      subscription['topic'] != _topic ||
+      subscription['queueLimit'] != 4) {
+    throw StateError(
+      'Generic direct JSON-RPC pub/sub subscribe returned invalid content.',
+    );
+  }
+
+  try {
+    final publishId = '$label-generic-direct-pubsub-publish';
+    final publishResponse = _jsonObjectFrom(
+      await client.post(
+        {
+          'jsonrpc': '2.0',
+          'id': publishId,
+          'method': 'connectanum.pubsub.publish',
+          'params': {
+            'topic': _topic,
+            'argumentsKeywords': {
+              'taskId': 'T-$label-generic-direct-pubsub-publish',
+            },
+            'acknowledge': true,
+          },
+        },
+        streamable: false,
+        includeSession: false,
+      ),
+      label: 'Generic direct JSON-RPC pub/sub publish response',
+    );
+    final publication = _jsonRpcStructuredContent(
+      publishResponse,
+      id: publishId,
+      label: 'Generic direct JSON-RPC pub/sub publish',
+    );
+    if (publication['topic'] != _topic ||
+        publication['acknowledged'] != true) {
+      throw StateError(
+        'Generic direct JSON-RPC pub/sub publish returned invalid content.',
+      );
+    }
+
+    final serviceTaskId = 'T-$label-generic-direct-pubsub-event';
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': serviceTaskId},
+      options: PublishOptions(acknowledge: true),
+    );
+    await _pollGenericDirectJsonRpcPubSubUntil(
+      client,
+      handle,
+      label: label,
+      expectedTaskId: serviceTaskId,
+    );
+  } finally {
+    final unsubscribeId = '$label-generic-direct-pubsub-unsubscribe';
+    final unsubscribe = await client.request(
+      'connectanum.pubsub.unsubscribe',
+      id: unsubscribeId,
+      params: {'handle': handle},
+      streamable: false,
+      includeSession: false,
+    );
+    final unsubscribeContent = _jsonRpcStructuredContent(
+      unsubscribe,
+      id: unsubscribeId,
+      label: 'Generic direct JSON-RPC pub/sub unsubscribe',
+    );
+    if (unsubscribeContent['handle'] != handle ||
+        unsubscribeContent['topic'] != _topic ||
+        unsubscribeContent['unsubscribed'] != true) {
+      throw StateError(
+        'Generic direct JSON-RPC pub/sub unsubscribe returned invalid content.',
+      );
+    }
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError(
+      'Generic direct JSON-RPC pub/sub changed Streamable state.',
+    );
+  }
+}
+
+Future<void> _pollGenericDirectJsonRpcPubSubUntil(
+  McpStreamableHttpClient client,
+  String handle, {
+  required String label,
+  required String expectedTaskId,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    final pollId =
+        '$label-generic-direct-pubsub-poll-'
+        '${DateTime.now().microsecondsSinceEpoch}';
+    final poll = await client.request(
+      'connectanum.pubsub.poll',
+      id: pollId,
+      params: {'handle': handle, 'limit': 4},
+      streamable: false,
+      includeSession: false,
+    );
+    final eventBatch = _jsonRpcStructuredContent(
+      poll,
+      id: pollId,
+      label: 'Generic direct JSON-RPC pub/sub poll',
+    );
+    if (eventBatch['handle'] != handle || eventBatch['topic'] != _topic) {
+      throw StateError(
+        'Generic direct JSON-RPC pub/sub poll returned invalid content.',
+      );
+    }
+    if (jsonEncode(eventBatch['events']).contains(expectedTaskId)) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError(
+    'Timed out waiting for generic direct JSON-RPC pub/sub event.',
+  );
 }
 
 Future<void> _smokeStreamableMcp(
@@ -2336,6 +2515,11 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
 
   await _smokeGenericDirectJsonRpcAccess(
     client,
+    label: '$label-after-streamable',
+  );
+  await _smokeGenericDirectJsonRpcPubSub(
+    client,
+    serviceSession,
     label: '$label-after-streamable',
   );
   await _smokeDirectJsonBatch(client, label: '$label-after-streamable');

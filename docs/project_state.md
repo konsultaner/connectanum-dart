@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-generic-jsonrpc-smoke.md`
+`docs/exec-plans/2026-05-07-mcp-consumer-generic-pubsub-smoke.md`
 (complete locally; hosted CI evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-generic-jsonrpc-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-entity-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -20,10 +23,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`586801e`
-(`test: cover mcp entity meta smoke`; hosted CI evidence clean).
-Latest implementation checkpoint: MCP consumer generic JSON-RPC smoke
+`0a13551`
+(`test: cover mcp generic jsonrpc smoke`; hosted CI evidence clean).
+Latest implementation checkpoint: MCP consumer generic pub/sub smoke
 (complete locally; hosted CI evidence pending).
+Previous implementation checkpoint: MCP consumer generic JSON-RPC smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer entity meta smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer session meta smoke
@@ -197,18 +202,16 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer generic JSON-RPC smoke is complete with local verification.
-    The generated router-hosted consumer package smoke now adds a public
-    generic `McpStreamableHttpClient.request(...)` / `post(...)` direct
-    JSON-RPC path for `connectanum.tools.list`, `connectanum.tool.call`, and
-    `connectanum.api.describe`, and runs it both before Streamable
-    initialization and while a Streamable session is active. The assertions
-    verify the direct JSON path does not mutate Streamable session id or SSE
-    cursor state. Pre-change `bin/test-fast` with the default system temp
-    directory reached the generated MCP consumer smoke successfully but failed
-    later because an existing long-lived router process outside this task held
-    the native runtime lock. Pre-change `bin/test-fast` passed on 2026-05-07
-    with isolated `TMPDIR`. Focused checks passed on 2026-05-07:
+  - MCP consumer generic pub/sub smoke is complete with local verification.
+    The generated router-hosted consumer package smoke now adds public generic
+    `McpStreamableHttpClient.request(...)` / `post(...)` direct JSON-RPC
+    calls for `connectanum.pubsub.subscribe`, `connectanum.pubsub.publish`,
+    `connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe`, and runs
+    them both before Streamable initialization and while a Streamable session
+    is active. The assertions verify generic direct JSON pub/sub does not
+    mutate Streamable session id or SSE cursor state. Pre-change
+    `bin/test-fast` passed on 2026-05-07 with isolated `TMPDIR`. Focused
+    checks passed on 2026-05-07:
     `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
     and
     `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
@@ -216,6 +219,35 @@ order.
     2026-05-07 with isolated `TMPDIR`. Full local `bin/verify` passed on
     2026-05-07 with isolated `TMPDIR`. Commit, push, hosted CI, and
     deployment-chain audit evidence are pending.
+  - MCP consumer generic JSON-RPC smoke is complete with local and hosted
+    verification. The generated router-hosted consumer package smoke now adds
+    a public generic `McpStreamableHttpClient.request(...)` / `post(...)`
+    direct JSON-RPC path for `connectanum.tools.list`,
+    `connectanum.tool.call`, and `connectanum.api.describe`, and runs it both
+    before Streamable initialization and while a Streamable session is active.
+    The assertions verify the direct JSON path does not mutate Streamable
+    session id or SSE cursor state. Pre-change `bin/test-fast` with the
+    default system temp directory reached the generated MCP consumer smoke
+    successfully but failed later because an existing long-lived router
+    process outside this task held the native runtime lock. Pre-change
+    `bin/test-fast` passed on 2026-05-07 with isolated `TMPDIR`. Focused
+    checks passed on 2026-05-07:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
+    with isolated `TMPDIR`. Post-change `bin/test-fast` passed on
+    2026-05-07 with isolated `TMPDIR`. Full local `bin/verify` passed on
+    2026-05-07 with isolated `TMPDIR`. Commit `0a13551`
+    (`test: cover mcp generic jsonrpc smoke`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-07. Hosted GitHub
+    `CI` run `25494035617` for `0a13551` completed successfully on
+    2026-05-07 with `Fast Checks` and `Full Verify` green.
+    Deployment-chain audit passed on 2026-05-07 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports only operator-side gaps: branch protection is absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer entity meta smoke is complete with local verification. The
     generated router-hosted consumer package smoke now uses public
     `McpStreamableHttpClient` WAMP meta helpers to prove
