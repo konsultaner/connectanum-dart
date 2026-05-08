@@ -2117,6 +2117,26 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
+      await client.listResources(id: '$label-rejected-session-resources');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST resources/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
+      await client.listPrompts(id: '$label-rejected-session-prompts');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST prompts/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
       await client.poll();
     },
     sessionId: sessionId,

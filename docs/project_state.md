@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-07-mcp-consumer-active-tool-call-auth-smoke.md`
+`docs/exec-plans/2026-05-08-mcp-consumer-active-resource-prompt-auth-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-07-mcp-consumer-active-tool-call-auth-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-active-streamable-batch-auth-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -50,12 +53,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`b355f84`
-(`test: cover mcp active streamable batch auth`; hosted CI evidence
+`5a37705`
+(`test: cover mcp active tool call auth`; hosted CI evidence
 clean).
-Current implementation checkpoint: MCP consumer active tool call auth smoke
-(complete; local verification clean; hosted evidence pending).
-Latest implementation checkpoint: MCP consumer active Streamable batch auth
+Current implementation checkpoint: MCP consumer active resource/prompt auth
+smoke (complete; local verification clean; hosted evidence pending).
+Latest implementation checkpoint: MCP consumer active tool call auth smoke
+(complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP consumer active Streamable batch auth
 smoke (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer active notification auth smoke
 (complete; hosted CI evidence clean).
@@ -248,7 +253,23 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer active tool call auth smoke is complete with local
+  - MCP consumer active resource/prompt auth smoke is complete with local
+    verification. The generated router-hosted consumer package smoke now proves
+    Streamable `resources/list` and `prompts/list` POSTs
+    made on an already initialized secure Streamable MCP client reject an
+    invalidated bearer token with HTTP 401 and clear stale Streamable session id
+    and SSE cursor state. The same rejected-bearer harness still covers direct
+    JSON batch, direct JSON single, Streamable batch, notification-only POST,
+    Streamable `tools/list`, Streamable `tools/call`, GET/SSE, and DELETE
+    request shapes. Pre-change `bin/test-fast` passed on 2026-05-08 with
+    isolated `TMPDIR`. Focused checks passed on 2026-05-08:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
+    with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-08
+    with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-08 with
+    isolated `TMPDIR`. Commit and hosted evidence are pending.
+  - MCP consumer active tool call auth smoke is complete with local and hosted
     verification. The generated router-hosted consumer package smoke now proves
     a Streamable `tools/call` POST made on an already initialized secure
     Streamable MCP client rejects an invalidated bearer token with HTTP 401 and
@@ -262,7 +283,17 @@ order.
     `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`
     with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-08
     with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-08 with
-    isolated `TMPDIR`. Commit and hosted evidence are pending.
+    isolated `TMPDIR`. Commit `5a37705`
+    (`test: cover mcp active tool call auth`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-08. Hosted GitHub
+    `CI` run `25541860069` for `5a37705` completed successfully on
+    2026-05-08 with `Fast Checks` and `Full Verify` green.
+    Deployment-chain audit passed on 2026-05-08 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports only operator-side gaps: branch protection is absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer active Streamable batch auth smoke is complete with hosted CI
     evidence. The generated router-hosted consumer package smoke now proves
     a Streamable JSON-RPC batch POST made on an already initialized secure
