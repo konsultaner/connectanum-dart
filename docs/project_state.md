@@ -1,13 +1,16 @@
 # Project State
 
-Last updated: 2026-05-08
+Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `5af0f56`
-(`test: cover mcp batch pubsub`; CI clean)
+Last reviewed branch checkpoint: `f75c16e`
+(`test: cover mcp batch resource prompts`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-08-mcp-consumer-batch-resource-prompt-smoke.md`
+`docs/exec-plans/2026-05-09-router-hosted-mcp-example-batch-resource-prompt-smoke.md`
 (complete; local verification clean; commit/hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-consumer-batch-resource-prompt-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-08-mcp-consumer-batch-pubsub-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -101,11 +104,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`5af0f56`
-(`test: cover mcp batch pubsub`; hosted CI evidence clean).
-Current implementation checkpoint: MCP consumer batch resource/prompt smoke
+`f75c16e`
+(`test: cover mcp batch resource prompts`; hosted CI evidence clean).
+Current implementation checkpoint: router-hosted MCP example batch
+resource/prompt smoke
 (complete; local verification clean; commit/hosted evidence pending).
-Latest implementation checkpoint: MCP consumer batch pub/sub smoke
+Latest implementation checkpoint: MCP consumer batch resource/prompt smoke
+(complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP consumer batch pub/sub smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer batch subscription meta
 smoke (complete; hosted CI evidence clean).
@@ -333,8 +339,22 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer batch resource/prompt smoke has local verification. The
-    generated router-hosted consumer package smoke now proves downstream
+  - Router-hosted MCP example batch resource/prompt smoke has pre-change and
+    focused example verification. The runnable public example now proves
+    consumer applications can batch `resources/read`,
+    `resources/templates/list`, and `prompts/list` through lifecycle-free
+    direct JSON and initialized Streamable HTTP JSON-RPC paths. The direct JSON
+    batch asserts no Streamable session id or SSE cursor is created; the
+    Streamable batch asserts the initialized session id is preserved and the
+    SSE cursor advances. Pre-change `bin/test-fast` passed on 2026-05-09 with
+    isolated `TMPDIR`. Focused router-hosted MCP example smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`)
+    passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`,
+    `git diff --check`, and full local `bin/verify` passed on 2026-05-09 with
+    isolated `TMPDIR`. Commit, push, and hosted evidence are pending.
+  - MCP consumer batch resource/prompt smoke is complete with local and hosted
+    verification. The generated router-hosted consumer package smoke now proves
+    downstream
     applications can batch `resources/read`, `resources/templates/list`, and
     `prompts/list` through lifecycle-free direct JSON and Streamable HTTP
     JSON-RPC paths. Direct JSON batch detail calls preserve any initialized
@@ -346,8 +366,18 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`)
     passed on 2026-05-08 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-08 with isolated `TMPDIR`. Full local `bin/verify`
-    passed on 2026-05-08 with isolated `TMPDIR`. Commit, push, and hosted
-    evidence are pending.
+    passed on 2026-05-08 with isolated `TMPDIR`. Commit `f75c16e`
+    (`test: cover mcp batch resource prompts`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-08. Hosted GitHub
+    `CI` run `25582129000` for `f75c16e` completed successfully on 2026-05-08
+    with `Fast Checks` (5m49s) and `Full Verify` (8m34s) green.
+    Deployment-chain audit passed on 2026-05-08 with clean latest CI, clean
+    hosted CI logs, and a relevant clean Dart package publish dry-run
+    (`25485027779`, no publish-sensitive changes since that run). Strict
+    deployment audit still reports operator-side gaps: branch protection and
+    required status checks are absent, `.github/workflows/router-image.yml` is
+    not discoverable from the default branch, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer batch pub/sub smoke is complete with local and hosted
     verification. The generated router-hosted consumer package smoke now proves
     downstream applications can use batched direct JSON

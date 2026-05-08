@@ -465,6 +465,62 @@ Future<void> _smokeMcpEndpoint(
     throw StateError('Direct JSON-RPC prompts/get did not render taskId.');
   }
 
+  final directResourcePromptBatch = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-direct-batch-resource-read',
+      'method': 'resources/read',
+      'params': {'uri': 'app://example/context'},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-direct-batch-resource-templates',
+      'method': 'resources/templates/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-direct-batch-prompts',
+      'method': 'prompts/list',
+      'params': {},
+    },
+  ], streamable: false);
+  if (directResourcePromptBatch == null ||
+      directResourcePromptBatch.length != 3) {
+    throw StateError(
+      'Direct JSON-RPC resource/prompt batch did not return three responses.',
+    );
+  }
+  if (directResourcePromptBatch[0]['id'] !=
+          '$label-direct-batch-resource-read' ||
+      !jsonEncode(
+        directResourcePromptBatch[0],
+      ).contains('Router-hosted MCP example')) {
+    throw StateError(
+      'Direct JSON-RPC batch resources/read response was invalid.',
+    );
+  }
+  if (directResourcePromptBatch[1]['id'] !=
+          '$label-direct-batch-resource-templates' ||
+      !jsonEncode(
+        directResourcePromptBatch[1],
+      ).contains('app://example/tasks/{taskId}')) {
+    throw StateError(
+      'Direct JSON-RPC batch resources/templates/list response was invalid.',
+    );
+  }
+  if (directResourcePromptBatch[2]['id'] != '$label-direct-batch-prompts' ||
+      !jsonEncode(directResourcePromptBatch[2]).contains('summarize-task')) {
+    throw StateError(
+      'Direct JSON-RPC batch prompts/list response was invalid.',
+    );
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Direct JSON-RPC resource/prompt batch changed Streamable state.',
+    );
+  }
+
   final directSubscription = await client.subscribeWampTopic(
     'example.events.task',
     id: '$label-direct-subscribe',
@@ -555,6 +611,72 @@ Future<void> _smokeMcpEndpoint(
   if (streamableBatch[1]['id'] != '$label-batch-call' ||
       !jsonEncode(streamableBatch[1]).contains('T-$label-batch')) {
     throw StateError('Streamable MCP batch tools/call response was invalid.');
+  }
+
+  final streamableSessionId = client.sessionId;
+  if (streamableSessionId == null) {
+    throw StateError('Streamable MCP example has no initialized session id.');
+  }
+  final streamableLastEventId = client.lastEventId;
+  final streamableResourcePromptBatch = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-batch-resource-read',
+      'method': 'resources/read',
+      'params': {'uri': 'app://example/context'},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-batch-resource-templates',
+      'method': 'resources/templates/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-batch-prompts',
+      'method': 'prompts/list',
+      'params': {},
+    },
+  ]);
+  if (streamableResourcePromptBatch == null ||
+      streamableResourcePromptBatch.length != 3) {
+    throw StateError(
+      'Streamable MCP resource/prompt batch did not return three responses.',
+    );
+  }
+  if (streamableResourcePromptBatch[0]['id'] != '$label-batch-resource-read' ||
+      !jsonEncode(
+        streamableResourcePromptBatch[0],
+      ).contains('Router-hosted MCP example')) {
+    throw StateError('Streamable MCP batch resources/read response invalid.');
+  }
+  if (streamableResourcePromptBatch[1]['id'] !=
+          '$label-batch-resource-templates' ||
+      !jsonEncode(
+        streamableResourcePromptBatch[1],
+      ).contains('app://example/tasks/{taskId}')) {
+    throw StateError(
+      'Streamable MCP batch resources/templates/list response was invalid.',
+    );
+  }
+  if (streamableResourcePromptBatch[2]['id'] != '$label-batch-prompts' ||
+      !jsonEncode(
+        streamableResourcePromptBatch[2],
+      ).contains('summarize-task')) {
+    throw StateError('Streamable MCP batch prompts/list response was invalid.');
+  }
+  if (client.sessionId != streamableSessionId) {
+    throw StateError(
+      'Streamable MCP resource/prompt batch changed session id.',
+    );
+  }
+  final nextEventId = client.lastEventId;
+  if (nextEventId == null ||
+      nextEventId == streamableLastEventId ||
+      !nextEventId.startsWith('$streamableSessionId:')) {
+    throw StateError(
+      'Streamable MCP resource/prompt batch did not advance SSE state.',
+    );
   }
 
   final streamableSubscription = await client.subscribeWampTopic(

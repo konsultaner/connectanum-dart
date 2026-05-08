@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Batch Resource/Prompt Smoke
 
-Status: complete; local verification clean; commit/hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -63,7 +63,17 @@ lifecycle-free direct JSON and Streamable HTTP JSON-RPC paths.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - `git diff --check` passed on 2026-05-08.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
-- Commit, push, and hosted GitHub evidence pending.
+- Commit `f75c16e` (`test: cover mcp batch resource prompts`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-08.
+- Hosted GitHub `CI` run `25582129000` for `f75c16e` completed successfully on
+  2026-05-08 with `Fast Checks` (5m49s) and `Full Verify` (8m34s) green.
+- Deployment-chain audit passed on 2026-05-08 with clean latest CI, clean
+  hosted CI logs, and a relevant clean Dart package publish dry-run
+  (`25485027779`, no publish-sensitive changes since that run).
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -74,5 +84,7 @@ lifecycle-free direct JSON and Streamable HTTP JSON-RPC paths.
 
 ## Handoff
 
-Implementation and local verification are clean. Commit, push, and hosted
-evidence remain.
+Implementation, local verification, hosted CI, and standard deployment-chain
+audit evidence are clean for `f75c16e`. Remaining strict audit failures are
+operator-side release controls: branch protection/required checks,
+default-branch router workflow visibility, and GHCR router package visibility.
