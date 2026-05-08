@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Package Direct Generic Tool Method Smoke
 
-Status: complete locally; full local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -74,7 +74,18 @@ relying on router/private project assumptions.
   `cargo test -p ct_ffi tests::listen_flow::http3_handshake_surfaced_via_ffi`
   rerun passed immediately.
 - Full local `bin/verify` rerun passed on 2026-05-08 with isolated `TMPDIR`.
-- Commit and hosted evidence are pending.
+- Commit `54621c8`
+  (`test: cover mcp direct generic tool client smoke`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-08.
+- Hosted GitHub `CI` run `25554720402` for `54621c8` completed successfully on
+  2026-05-08 with `Fast Checks` (5m47s) and `Full Verify` (8m10s) green.
+- Deployment-chain audit passed on 2026-05-08 with clean latest CI and a
+  relevant clean Dart package publish dry-run (`25485027779`, no
+  publish-sensitive changes since that run).
+- Strict deployment audit still reports operator-side gaps: branch protection
+  and required status checks are absent, `.github/workflows/router-image.yml`
+  is not discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -87,6 +98,8 @@ relying on router/private project assumptions.
 
 ## Handoff
 
-Implementation passed focused syntax/generated client-only smoke checks,
-post-change `bin/test-fast`, and full local `bin/verify`; commit and hosted
-evidence are pending.
+Implementation, local verification, push to both remotes, hosted GitHub CI,
+and deployment-chain audit evidence are complete. Remaining strict deployment
+findings are operator-owned release controls: branch protection and required
+status checks, default-branch router image workflow visibility, and GHCR router
+package visibility.

@@ -2687,17 +2687,7 @@ Future<void> _smokeDirectJson(
     throw StateError('Direct JSON tool catalog did not expose $_procedure.');
   }
 
-  final result = await client.callConnectanumMethodDirect(
-    _procedure,
-    id: '$label-direct-call',
-    params: {'taskId': 'T-$label-direct', 'note': _headerWrappedNote},
-  );
-  final resultJson = jsonEncode(result);
-  if (!resultJson.contains('T-$label-direct') ||
-      !resultJson.contains(_headerWrappedNote)) {
-    throw StateError('Direct JSON tool call did not return expected payload.');
-  }
-
+  await _smokeDirectToolApi(client, label: label);
   await _smokeGenericDirectJsonRpcAccess(client, label: label);
   await _smokeGenericDirectJsonRpcPubSub(
     client,
@@ -2767,6 +2757,70 @@ Future<void> _smokeDirectJson(
 
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Direct JSON MCP helpers captured Streamable state.');
+  }
+}
+
+Future<void> _smokeDirectToolApi(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final helperTaskId = 'T-$label-direct-tool-helper';
+  final helperResult = await client.callConnectanumToolDirect(
+    _procedure,
+    id: '$label-direct-tool-helper',
+    arguments: {'taskId': helperTaskId, 'note': _headerWrappedNote},
+  );
+  _expectDirectToolPayload(
+    helperResult,
+    taskId: helperTaskId,
+    label: 'Direct JSON tool helper',
+  );
+
+  final aliasTaskId = 'T-$label-direct-tools-call-alias';
+  final aliasResult = await client.callConnectanumMethodDirect(
+    'connectanum.tools.call',
+    id: '$label-direct-tools-call-alias',
+    params: {
+      'name': _procedure,
+      'arguments': {'taskId': aliasTaskId, 'note': _headerWrappedNote},
+    },
+  );
+  _expectDirectToolPayload(
+    aliasResult,
+    taskId: aliasTaskId,
+    label: 'Direct JSON plural tool alias',
+  );
+
+  final dottedTaskId = 'T-$label-direct-dotted-method';
+  final dottedResult = await client.callConnectanumMethodDirect(
+    _procedure,
+    id: '$label-direct-dotted-method',
+    params: {'taskId': dottedTaskId, 'note': _headerWrappedNote},
+  );
+  _expectDirectToolPayload(
+    dottedResult,
+    taskId: dottedTaskId,
+    label: 'Direct JSON dotted tool method',
+  );
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct JSON tool API changed Streamable session state.');
+  }
+}
+
+void _expectDirectToolPayload(
+  Object? result, {
+  required String taskId,
+  required String label,
+}) {
+  final resultJson = jsonEncode(result);
+  if (!resultJson.contains(taskId) ||
+      !resultJson.contains(_headerWrappedNote)) {
+    throw StateError('$label did not return expected payload.');
   }
 }
 
@@ -3360,6 +3414,10 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
   }
   final eventId = client.lastEventId;
 
+  await _smokeDirectToolApi(
+    client,
+    label: '$label-direct-after-streamable',
+  );
   await _smokeGenericDirectJsonRpcAccess(
     client,
     label: '$label-after-streamable',
