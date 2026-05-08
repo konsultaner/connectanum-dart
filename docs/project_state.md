@@ -5,9 +5,15 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-08-mcp-consumer-batch-wamp-meta-smoke.md`
-(complete; local verification clean; hosted evidence pending).
+`docs/exec-plans/2026-05-08-mcp-consumer-batch-subscription-meta-smoke.md`
+(complete; local verification clean, hosted CI pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-consumer-batch-subscription-meta-smoke.md`
+(complete; local verification clean, hosted CI pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-consumer-batch-wamp-meta-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-08-mcp-consumer-generic-direct-wamp-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -92,11 +98,15 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`ea63e72`
-(`test: cover mcp generic direct wamp meta`; hosted CI evidence
+`3746b94`
+(`test: cover mcp batch wamp meta`; hosted CI evidence
 clean).
-Current implementation checkpoint: MCP consumer batch WAMP meta smoke (in
-complete; local verification clean; hosted evidence pending).
+Current implementation checkpoint: MCP consumer batch WAMP subscription meta
+smoke (complete; local verification clean, hosted CI pending).
+Latest implementation checkpoint: MCP consumer batch WAMP subscription meta
+smoke (complete; local verification clean, hosted CI pending).
+Previous implementation checkpoint: MCP consumer batch WAMP meta smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer generic direct JSON WAMP meta
 smoke (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer generic Streamable WAMP
