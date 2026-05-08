@@ -5581,6 +5581,7 @@ Future<void> _smokeDirectJsonBatch(
       !jsonEncode(responses[4]).contains(promptTaskId)) {
     throw StateError('Direct JSON batch prompts/get response was invalid.');
   }
+  await _smokeDirectJsonBatchResourcePromptDetails(client, label: label);
   await _smokeDirectJsonBatchErrorIsolation(client, label: label);
   await _smokeDirectJsonBatchWampMeta(
     client,
@@ -5590,6 +5591,78 @@ Future<void> _smokeDirectJsonBatch(
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Direct JSON batch changed Streamable session state.');
+  }
+}
+
+Future<void> _smokeDirectJsonBatchResourcePromptDetails(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final detailBatch = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-resource-read',
+        'method': 'resources/read',
+        'params': {'uri': _resourceUri},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-resource-templates',
+        'method': 'resources/templates/list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-prompts',
+        'method': 'prompts/list',
+        'params': {},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (detailBatch == null || detailBatch.length != 3) {
+    throw StateError(
+      'Direct JSON batch resource/prompt details did not return three '
+      'responses.',
+    );
+  }
+
+  final resource = _jsonRpcResult(
+    detailBatch[0],
+    id: '$label-direct-batch-resource-read',
+    label: 'Direct JSON batch resources/read',
+  );
+  if (!jsonEncode(resource['contents']).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError(
+      'Direct JSON batch resources/read missed route context.',
+    );
+  }
+
+  final templates = _jsonRpcResult(
+    detailBatch[1],
+    id: '$label-direct-batch-resource-templates',
+    label: 'Direct JSON batch resources/templates/list',
+  );
+  if (!jsonEncode(
+    templates['resourceTemplates'],
+  ).contains(_resourceTemplateUri)) {
+    throw StateError(
+      'Direct JSON batch resources/templates/list missed '
+      '$_resourceTemplateUri.',
+    );
+  }
+
+  final prompts = _jsonRpcResult(
+    detailBatch[2],
+    id: '$label-direct-batch-prompts',
+    label: 'Direct JSON batch prompts/list',
+  );
+  if (!jsonEncode(prompts['prompts']).contains(_promptName)) {
+    throw StateError('Direct JSON batch prompts/list missed $_promptName.');
   }
 }
 
@@ -5778,12 +5851,103 @@ Future<void> _smokeStreamableBatch(
     throw StateError('Streamable MCP batch did not update SSE event state.');
   }
 
+  await _smokeStreamableBatchResourcePromptDetails(client, label: label);
   await _smokeStreamableBatchWampMeta(
     client,
     serviceSession,
     label: label,
   );
   await _smokeStreamableBatchErrorIsolation(client, label: label);
+}
+
+Future<void> _smokeStreamableBatchResourcePromptDetails(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP batch resource/prompt details has no session id.',
+    );
+  }
+
+  final previousEventId = client.lastEventId;
+  final detailBatch = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-resource-read',
+      'method': 'resources/read',
+      'params': {'uri': _resourceUri},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-resource-templates',
+      'method': 'resources/templates/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-prompts',
+      'method': 'prompts/list',
+      'params': {},
+    },
+  ]);
+  if (detailBatch == null || detailBatch.length != 3) {
+    throw StateError(
+      'Streamable MCP batch resource/prompt details did not return three '
+      'responses.',
+    );
+  }
+
+  final resource = _jsonRpcResult(
+    detailBatch[0],
+    id: '$label-streamable-batch-resource-read',
+    label: 'Streamable MCP batch resources/read',
+  );
+  if (!jsonEncode(resource['contents']).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError(
+      'Streamable MCP batch resources/read missed route context.',
+    );
+  }
+
+  final templates = _jsonRpcResult(
+    detailBatch[1],
+    id: '$label-streamable-batch-resource-templates',
+    label: 'Streamable MCP batch resources/templates/list',
+  );
+  if (!jsonEncode(
+    templates['resourceTemplates'],
+  ).contains(_resourceTemplateUri)) {
+    throw StateError(
+      'Streamable MCP batch resources/templates/list missed '
+      '$_resourceTemplateUri.',
+    );
+  }
+
+  final prompts = _jsonRpcResult(
+    detailBatch[2],
+    id: '$label-streamable-batch-prompts',
+    label: 'Streamable MCP batch prompts/list',
+  );
+  if (!jsonEncode(prompts['prompts']).contains(_promptName)) {
+    throw StateError('Streamable MCP batch prompts/list missed $_promptName.');
+  }
+
+  if (client.sessionId != sessionId) {
+    throw StateError(
+      'Streamable MCP batch resource/prompt details changed session id.',
+    );
+  }
+  final eventId = client.lastEventId;
+  if (eventId == null ||
+      !eventId.startsWith('$sessionId:') ||
+      eventId == previousEventId) {
+    throw StateError(
+      'Streamable MCP batch resource/prompt details did not update SSE state.',
+    );
+  }
 }
 
 Future<void> _smokeStreamableBatchWampMeta(

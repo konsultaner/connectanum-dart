@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: `d56b456`
-(`chore: require konsultaner codebase workflow`; CI clean)
+Last reviewed branch checkpoint: `5af0f56`
+(`test: cover mcp batch pubsub`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-08-mcp-consumer-batch-pubsub-smoke.md`
-(complete; local verification clean; hosted CI pending).
+`docs/exec-plans/2026-05-08-mcp-consumer-batch-resource-prompt-smoke.md`
+(complete; local verification clean; commit/hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-consumer-batch-pubsub-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-08-mcp-consumer-batch-subscription-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -98,12 +101,13 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`d43c963`
-(`test: cover mcp batch subscription meta`; hosted CI evidence
-clean).
-Current implementation checkpoint: MCP consumer batch pub/sub smoke
+`5af0f56`
+(`test: cover mcp batch pubsub`; hosted CI evidence clean).
+Current implementation checkpoint: MCP consumer batch resource/prompt smoke
 (complete; local verification clean; commit/hosted evidence pending).
-Latest implementation checkpoint: MCP consumer batch WAMP subscription meta
+Latest implementation checkpoint: MCP consumer batch pub/sub smoke
+(complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP consumer batch subscription meta
 smoke (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer batch WAMP meta smoke
 (complete; hosted CI evidence clean).
@@ -329,6 +333,46 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer batch resource/prompt smoke has local verification. The
+    generated router-hosted consumer package smoke now proves downstream
+    applications can batch `resources/read`, `resources/templates/list`, and
+    `prompts/list` through lifecycle-free direct JSON and Streamable HTTP
+    JSON-RPC paths. Direct JSON batch detail calls preserve any initialized
+    Streamable session id and SSE cursor; Streamable batch detail calls
+    preserve the session id and advance the SSE cursor. Pre-change
+    `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`. Focused
+    `bash -n bin/common.sh`, `git diff --check`, and generated router-hosted
+    consumer package smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`)
+    passed on 2026-05-08 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-08 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-08 with isolated `TMPDIR`. Commit, push, and hosted
+    evidence are pending.
+  - MCP consumer batch pub/sub smoke is complete with local and hosted
+    verification. The generated router-hosted consumer package smoke now proves
+    downstream applications can use batched direct JSON
+    `connectanum.pubsub.subscribe/publish/poll/unsubscribe` helpers and
+    equivalent Streamable HTTP `tools/call` batches while preserving initialized
+    Streamable session identity and SSE cursor semantics. Temporary batch
+    subscribe/unsubscribe checks use a distinct declared smoke topic so the
+    primary task-event subscription remains valid for downstream poll checks.
+    Pre-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
+    Focused `bash -n bin/common.sh`, `git diff --check`, and generated
+    router-hosted consumer package smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`)
+    passed on 2026-05-08 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-08 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-08 with isolated `TMPDIR`. Commit `5af0f56`
+    (`test: cover mcp batch pubsub`) was pushed to `origin/add-router` and
+    `github/add-router` on 2026-05-08. Hosted GitHub `CI` run `25580108031`
+    for `5af0f56` completed successfully on 2026-05-08 with `Fast Checks`
+    (6m20s) and `Full Verify` (8m42s) green. Deployment-chain audit passed on
+    2026-05-08 with clean latest CI, clean hosted CI logs, and a relevant clean
+    Dart package publish dry-run (`25485027779`, no publish-sensitive changes
+    since that run). Strict deployment audit still reports operator-side gaps:
+    branch protection and required status checks are absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer generic direct JSON WAMP meta smoke has focused and
     post-change fast verification. The generated router-hosted consumer package
     smoke now proves public generic direct JSON-RPC method-name calls can

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Batch Pub/Sub Smoke
 
-Status: complete; local verification clean; hosted CI pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -61,12 +61,23 @@ HTTP `tools/call` batches.
 
 - Pre-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Focused `bash -n bin/common.sh` passed on 2026-05-08.
+- `git diff --check` passed on 2026-05-08.
 - Focused generated router-hosted consumer package smoke
   (`source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke`) passed
   on 2026-05-08 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
-- Hosted GitHub CI pending.
+- Commit `5af0f56` (`test: cover mcp batch pubsub`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-08.
+- Hosted GitHub `CI` run `25580108031` for `5af0f56` completed successfully
+  on 2026-05-08 with `Fast Checks` (6m20s) and `Full Verify` (8m42s) green.
+- Deployment-chain audit passed on 2026-05-08 with clean latest CI, clean
+  hosted CI logs, and a relevant clean Dart package publish dry-run
+  (`25485027779`, no publish-sensitive changes since that run).
+- Strict deployment audit still reports operator-side gaps: branch protection
+  and required status checks are absent, `.github/workflows/router-image.yml`
+  is not discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -84,5 +95,6 @@ HTTP `tools/call` batches.
 
 ## Handoff
 
-Implementation and local verification are clean. Commit, push, and hosted
-evidence remain.
+Implementation, hosted GitHub CI, and the standard deployment-chain audit are
+clean. Remaining strict deployment audit findings are release-operations gaps
+outside this implementation slice.
