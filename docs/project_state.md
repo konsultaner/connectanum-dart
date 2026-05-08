@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-08-mcp-client-package-direct-wamp-meta-helper-smoke.md`
+`docs/exec-plans/2026-05-08-mcp-client-package-direct-generic-tool-method-smoke.md`
 (complete locally; full local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-client-package-direct-wamp-meta-helper-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-08-mcp-client-package-direct-wamp-helper-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -65,13 +68,15 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`be335d8`
-(`test: cover mcp direct wamp helper client smoke`; hosted CI evidence
+`86f59f6`
+(`test: cover mcp direct wamp meta client smoke`; hosted CI evidence
 clean).
-Current implementation checkpoint: MCP client package direct WAMP meta helper
+Current implementation checkpoint: MCP client package direct generic tool method
 smoke (complete locally; full local verification clean; hosted evidence
 pending).
-Latest implementation checkpoint: MCP client package direct WAMP helper smoke
+Latest implementation checkpoint: MCP client package direct WAMP meta helper smoke
+(complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP client package direct WAMP helper smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP client package direct resource/prompt
 smoke (complete; hosted CI evidence clean).
@@ -274,9 +279,29 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP client package direct WAMP meta helper smoke is in progress after a
-    clean pre-change baseline. The generated client-only consumer package
-    smoke is being extended so direct JSON WAMP session, registration, and
+  - MCP client package direct generic tool method smoke is complete locally
+    after a clean pre-change baseline. The generated client-only consumer
+    package smoke now proves `callConnectanumToolDirect`,
+    `callConnectanumMethodDirect('connectanum.tools.call')`, and
+    `callConnectanumMethodDirect` with a dotted application tool name all work
+    after a Streamable session has been initialized, and so
+    `connectanum.tools.list`, `connectanum.tool.call`,
+    `connectanum.tools.call`, and the dotted application tool method all omit
+    `MCP-Session-Id`. Pre-change `bin/test-fast` passed on 2026-05-08 with
+    isolated `TMPDIR`. Focused checks passed on 2026-05-08:
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and
+    `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_client_package_smoke'`
+    with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-08
+    with isolated `TMPDIR`. First full local `bin/verify` attempt on
+    2026-05-08 hit a transient `ct_ffi` HTTP/3 handshake timeout in
+    `tests::listen_flow::http3_handshake_surfaced_via_ffi`; the focused
+    `cargo test -p ct_ffi tests::listen_flow::http3_handshake_surfaced_via_ffi`
+    rerun passed immediately. Full local `bin/verify` rerun passed on
+    2026-05-08 with isolated `TMPDIR`. Commit and hosted evidence are pending.
+  - MCP client package direct WAMP meta helper smoke is complete with local and
+    hosted verification. The generated client-only consumer package smoke now
+    proves direct JSON WAMP session, registration, and
     subscription meta helper calls prove `wamp.session.list`,
     `wamp.session.get`, `wamp.registration.list`,
     `wamp.registration.lookup`, `wamp.registration.match`,
@@ -292,7 +317,17 @@ order.
     `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_client_package_smoke'`
     with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-08
     with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-08 with
-    isolated `TMPDIR`. Commit and hosted evidence are pending.
+    isolated `TMPDIR`. Commit `86f59f6`
+    (`test: cover mcp direct wamp meta client smoke`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-08. Hosted GitHub
+    `CI` run `25552420753` for `86f59f6` completed successfully on
+    2026-05-08 with `Fast Checks` (6m18s) and `Full Verify` (8m45s) green.
+    Deployment-chain audit passed on 2026-05-08 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports only operator-side gaps: branch protection is absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP client package direct WAMP helper smoke is complete with local and
     hosted verification. The
     generated client-only consumer package smoke now proves direct JSON WAMP

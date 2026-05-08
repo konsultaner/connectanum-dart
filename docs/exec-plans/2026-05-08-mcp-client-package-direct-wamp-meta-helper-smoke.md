@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Package Direct WAMP Meta Helper Smoke
 
-Status: complete locally; full local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -72,7 +72,17 @@ assumptions.
   on 2026-05-08 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
-- Commit and hosted evidence are pending.
+- Commit `86f59f6` (`test: cover mcp direct wamp meta client smoke`) was
+  pushed to `origin/add-router` and `github/add-router` on 2026-05-08.
+- Hosted GitHub `CI` run `25552420753` for `86f59f6` completed successfully on
+  2026-05-08 with `Fast Checks` (6m18s) and `Full Verify` (8m45s) green.
+- Deployment-chain audit passed on 2026-05-08 with clean latest CI and a
+  relevant clean Dart package publish dry-run (`25485027779`, no
+  publish-sensitive changes since that run).
+- Strict deployment audit still reports only operator-side gaps: branch
+  protection is absent, `.github/workflows/router-image.yml` is not
+  discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -84,6 +94,7 @@ assumptions.
 
 ## Handoff
 
-Implementation passed focused syntax/generated client-only smoke checks,
-post-change `bin/test-fast`, and full local `bin/verify`; commit and hosted
-evidence are pending.
+Implementation, local verification, push to both remotes, hosted GitHub CI,
+and deployment-chain audit evidence are complete. Remaining strict deployment
+findings are operator-owned release controls: branch protection, default-branch
+router image workflow visibility, and GHCR router package visibility.

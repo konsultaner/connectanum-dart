@@ -496,6 +496,7 @@ Future<void> main() async {
       'direct JSON request included Streamable HTTP session state',
     );
 
+    await _smokeDirectToolApi(client, endpoint);
     await _smokeResourcesAndPrompts(client, endpoint);
     await _smokeWampHelpers(client, endpoint);
 
@@ -514,6 +515,66 @@ Future<void> main() async {
     client.close(force: true);
     await endpoint.close();
   }
+}
+
+Future<void> _smokeDirectToolApi(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final directToolCall = await client.callConnectanumToolDirect(
+    _toolName,
+    id: 'direct-tool-call',
+    arguments: const <String, Object?>{'text': 'direct tool'},
+  );
+  _expect(
+    _toolEchoText(directToolCall, label: 'direct tool call') == 'direct tool',
+    'direct JSON connectanum.tool.call helper failed',
+  );
+
+  final aliasToolCall = await client.callConnectanumMethodDirect(
+    'connectanum.tools.call',
+    id: 'direct-tools-call-alias',
+    params: const <String, Object?>{
+      'name': _toolName,
+      'arguments': <String, Object?>{'text': 'direct alias'},
+    },
+  );
+  _expect(
+    _toolEchoText(aliasToolCall, label: 'direct tools.call alias') ==
+        'direct alias',
+    'direct JSON connectanum.tools.call alias failed',
+  );
+
+  final dottedToolCall = await client.callConnectanumMethodDirect(
+    _toolName,
+    id: 'direct-dotted-tool-call',
+    params: const <String, Object?>{'text': 'direct dotted'},
+  );
+  _expect(
+    _toolEchoText(dottedToolCall, label: 'direct dotted tool') ==
+        'direct dotted',
+    'direct JSON dotted tool-name method failed',
+  );
+
+  const expectedDirectToolApiMethods = <String>{
+    'connectanum.tools.list',
+    'connectanum.tool.call',
+    'connectanum.tools.call',
+    _toolName,
+  };
+  final missingDirectToolApiMethods = expectedDirectToolApiMethods.difference(
+    endpoint.directMethodsWithoutSession,
+  );
+  _expect(
+    missingDirectToolApiMethods.isEmpty,
+    'direct JSON generic tool API included Streamable session state for '
+    '${missingDirectToolApiMethods.join(', ')}',
+  );
+  _expect(
+    endpoint.directToolNamesWithoutSession.contains(_toolName),
+    'direct JSON generic tool call did not capture the tool name without '
+    'Streamable session state',
+  );
 }
 
 Future<void> _smokeResourcesAndPrompts(
@@ -1056,6 +1117,7 @@ final class _AgentMcpEndpoint {
             request.headers.value('MCP-Session-Id') == null;
         await _writeJson(request, _toolListResponse(id));
       case 'connectanum.tool.call':
+      case 'connectanum.tools.call':
         await _writeJson(request, _toolCallResponse(id, message));
       case 'resources/list':
         await _writeJson(request, _resourceListResponse(id));
@@ -1068,6 +1130,10 @@ final class _AgentMcpEndpoint {
       case 'prompts/get':
         await _writeJson(request, _promptGetResponse(id, message));
       default:
+        if (method == _toolName) {
+          await _writeJson(request, _directToolMethodResponse(id, message));
+          return;
+        }
         await _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
           'id': id,
@@ -1086,7 +1152,8 @@ final class _AgentMcpEndpoint {
   ) {
     if (method != null && request.headers.value('MCP-Session-Id') == null) {
       directMethodsWithoutSession.add(method);
-      if (method == 'connectanum.tool.call') {
+      if (method == 'connectanum.tool.call' ||
+          method == 'connectanum.tools.call') {
         final params = message['params'];
         if (params is Map) {
           final name = params['name'];
@@ -1162,6 +1229,24 @@ final class _AgentMcpEndpoint {
     if (name != _toolName) {
       return _structuredToolResponse(id, _wampToolStructuredContent(name, arguments));
     }
+    return _agentToolResponse(id, arguments);
+  }
+
+  Map<String, Object?> _directToolMethodResponse(
+    Object? id,
+    Map<String, Object?> message,
+  ) {
+    final arguments = _jsonMapFrom(
+      message['params'],
+      label: 'direct tool method params',
+    );
+    return _agentToolResponse(id, arguments);
+  }
+
+  Map<String, Object?> _agentToolResponse(
+    Object? id,
+    Map<String, Object?> arguments,
+  ) {
     return <String, Object?>{
       'jsonrpc': '2.0',
       'id': id,
@@ -1552,6 +1637,16 @@ Map<String, Object?> _jsonMapFrom(Object? value, {required String label}) {
     return value.map((key, value) => MapEntry(key as String, value));
   }
   throw StateError('$label was not a JSON object.');
+}
+
+String? _toolEchoText(Map<String, Object?> result, {required String label}) {
+  final structuredContent = _jsonMapFrom(
+    result['structuredContent'],
+    label: '$label structured content',
+  );
+  final echo = _jsonMapFrom(structuredContent['echo'], label: '$label echo');
+  final text = echo['text'];
+  return text is String ? text : null;
 }
 
 bool _jsonListContains(Object? value, Object? expected) {
