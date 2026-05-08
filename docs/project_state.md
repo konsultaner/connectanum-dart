@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-08-mcp-consumer-generic-direct-wamp-meta-smoke.md`
-(complete locally; hosted CI pending).
+`docs/exec-plans/2026-05-08-mcp-consumer-batch-wamp-meta-smoke.md`
+(complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-consumer-generic-direct-wamp-meta-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-08-mcp-consumer-generic-streamable-registration-session-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -89,13 +92,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`3b28363`
-(`test: cover mcp generic streamable registration meta`; hosted CI evidence
+`ea63e72`
+(`test: cover mcp generic direct wamp meta`; hosted CI evidence
 clean).
-Current implementation checkpoint: MCP consumer generic direct JSON WAMP meta
-smoke
-(complete locally; hosted CI pending).
-Latest implementation checkpoint: MCP consumer generic Streamable WAMP
+Current implementation checkpoint: MCP consumer batch WAMP meta smoke (in
+complete; local verification clean; hosted evidence pending).
+Previous implementation checkpoint: MCP consumer generic direct JSON WAMP meta
+smoke (complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP consumer generic Streamable WAMP
 registration/session meta smoke (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer generic Streamable WAMP
 subscription meta smoke (complete; hosted CI evidence clean).
@@ -336,8 +340,18 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`)
     passed on 2026-05-08 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-08 with isolated `TMPDIR`. Full local `bin/verify`
-    passed on 2026-05-08 with isolated `TMPDIR`. Commit/push and hosted CI
-    evidence are pending.
+    passed on 2026-05-08 with isolated `TMPDIR`. Commit `ea63e72`
+    (`test: cover mcp generic direct wamp meta`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-08. Hosted GitHub
+    `CI` run `25572843753` for `ea63e72` completed successfully on
+    2026-05-08 with `Fast Checks` (6m16s) and `Full Verify` (8m22s) green.
+    Deployment-chain audit passed on 2026-05-08 with clean latest CI, clean
+    hosted CI logs, and a relevant clean Dart package publish dry-run
+    (`25485027779`, no publish-sensitive changes since that run). Strict
+    deployment audit still reports operator-side gaps: branch protection and
+    required status checks are absent, `.github/workflows/router-image.yml` is
+    not discoverable from the default branch, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer generic Streamable WAMP registration/session meta smoke has
     local verification. The generated router-hosted consumer package smoke now
     proves public generic Streamable JSON-RPC `tools/call` requests can inspect

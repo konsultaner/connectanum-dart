@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Generic Direct WAMP Meta Smoke
 
-Status: complete locally; hosted CI pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -68,7 +68,18 @@ headers, or private project assumptions.
   on 2026-05-08 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
-- Commit/push and hosted GitHub CI evidence are pending.
+- Commit `ea63e72`
+  (`test: cover mcp generic direct wamp meta`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-08.
+- Hosted GitHub `CI` run `25572843753` for `ea63e72` completed successfully
+  on 2026-05-08 with `Fast Checks` (6m16s) and `Full Verify` (8m22s) green.
+- Deployment-chain audit passed on 2026-05-08 with clean latest CI, clean
+  hosted CI logs, and a relevant clean Dart package publish dry-run
+  (`25485027779`, no publish-sensitive changes since that run).
+- Strict deployment audit still reports operator-side gaps: branch protection
+  and required status checks are absent, `.github/workflows/router-image.yml`
+  is not discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -80,5 +91,6 @@ headers, or private project assumptions.
 
 ## Handoff
 
-Implementation and full local verification are clean. Commit/push, hosted CI,
-and deployment-chain audit evidence are pending.
+Implementation, hosted GitHub CI, and the standard deployment-chain audit are
+clean. Remaining strict deployment audit findings are release-operations gaps
+outside this implementation slice.
