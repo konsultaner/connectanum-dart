@@ -3459,6 +3459,80 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
   }
   expectStreamableProgress('WAMP session list');
 
+  final visibleSessionId = sessionIds.first;
+  final sessionGetId = '$label-generic-streamable-session-get';
+  final sessionGet = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': sessionGetId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.session.get',
+        'arguments': {
+          'arguments': [visibleSessionId],
+        },
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC WAMP session get response',
+  );
+  final sessionGetContent = _jsonRpcStructuredContent(
+    sessionGet,
+    id: sessionGetId,
+    label: 'Generic Streamable JSON-RPC WAMP session get',
+  );
+  final sessionGetKeywords = _jsonObjectFrom(
+    sessionGetContent['argumentsKeywords'],
+    label: 'Generic Streamable JSON-RPC WAMP session get kwargs',
+  );
+  final sessionDetails = _jsonObjectFrom(
+    sessionGetKeywords['details'],
+    label: 'Generic Streamable JSON-RPC WAMP session details',
+  );
+  if (sessionDetails['id'] != visibleSessionId) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP session get missed visible session.',
+    );
+  }
+  expectStreamableProgress('WAMP session get');
+
+  final registrationLookupId = '$label-generic-streamable-registration-lookup';
+  final registrationLookup = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': registrationLookupId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.lookup',
+        'arguments': {
+          'arguments': [_procedure],
+        },
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC WAMP registration lookup response',
+  );
+  final registrationLookupContent = _jsonRpcStructuredContent(
+    registrationLookup,
+    id: registrationLookupId,
+    label: 'Generic Streamable JSON-RPC WAMP registration lookup',
+  );
+  final registrationLookupArguments = registrationLookupContent['arguments'];
+  if (registrationLookupArguments is! List) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration lookup missed arguments.',
+    );
+  }
+  final registrationId = _singleMetaId(
+    registrationLookupArguments.cast<Object?>(),
+    'generic streamable registration lookup',
+  );
+  if (registrationId <= 0) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration lookup returned '
+      'invalid id $registrationId.',
+    );
+  }
+  expectStreamableProgress('WAMP registration lookup');
+
   final registrationMatchId = '$label-generic-streamable-registration-match';
   final registrationMatch = _jsonObjectFrom(
     await client.post({
@@ -3485,17 +3559,163 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       'Generic Streamable JSON-RPC WAMP registration match missed arguments.',
     );
   }
-  final registrationId = _singleMetaId(
+  final matchingRegistrationId = _singleMetaId(
     registrationMatchArguments.cast<Object?>(),
     'generic streamable registration match',
   );
-  if (registrationId <= 0) {
+  if (matchingRegistrationId != registrationId) {
     throw StateError(
-      'Generic Streamable JSON-RPC WAMP registration match returned '
-      'invalid id $registrationId.',
+      'Generic Streamable JSON-RPC WAMP registration match did not agree '
+      'with lookup.',
     );
   }
   expectStreamableProgress('WAMP registration match');
+
+  final registrationListId = '$label-generic-streamable-registration-list';
+  final registrationList = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': registrationListId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.list',
+        'arguments': {},
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC WAMP registration list response',
+  );
+  final registrationListContent = _jsonRpcStructuredContent(
+    registrationList,
+    id: registrationListId,
+    label: 'Generic Streamable JSON-RPC WAMP registration list',
+  );
+  final registrationListKeywords = _jsonObjectFrom(
+    registrationListContent['argumentsKeywords'],
+    label: 'Generic Streamable JSON-RPC WAMP registration list kwargs',
+  );
+  final exactRegistrationIds = _integerMetaIdsFromValue(
+    registrationListKeywords['exact'],
+    'generic streamable registration list exact',
+  );
+  if (!exactRegistrationIds.contains(registrationId)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration list missed $_procedure.',
+    );
+  }
+  expectStreamableProgress('WAMP registration list');
+
+  final registrationGetId = '$label-generic-streamable-registration-get';
+  final registrationGet = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': registrationGetId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.get',
+        'arguments': {
+          'arguments': [registrationId],
+        },
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC WAMP registration get response',
+  );
+  final registrationGetContent = _jsonRpcStructuredContent(
+    registrationGet,
+    id: registrationGetId,
+    label: 'Generic Streamable JSON-RPC WAMP registration get',
+  );
+  final registrationGetKeywords = _jsonObjectFrom(
+    registrationGetContent['argumentsKeywords'],
+    label: 'Generic Streamable JSON-RPC WAMP registration get kwargs',
+  );
+  if (registrationGetKeywords['uri'] != _procedure) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration get missed $_procedure.',
+    );
+  }
+  expectStreamableProgress('WAMP registration get');
+
+  final registrationCalleesId =
+      '$label-generic-streamable-registration-callees';
+  final registrationCallees = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': registrationCalleesId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.list_callees',
+        'arguments': {
+          'arguments': [registrationId],
+        },
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC WAMP registration callees response',
+  );
+  final registrationCalleesContent = _jsonRpcStructuredContent(
+    registrationCallees,
+    id: registrationCalleesId,
+    label: 'Generic Streamable JSON-RPC WAMP registration callees',
+  );
+  final registrationCalleeArguments = registrationCalleesContent['arguments'];
+  if (registrationCalleeArguments is! List) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration callees missed '
+      'arguments.',
+    );
+  }
+  final calleeIds = _integerMetaIds(
+    registrationCalleeArguments.cast<Object?>(),
+    'generic streamable registration callees',
+  );
+  if (calleeIds.contains(serviceSession.sessionId) || calleeIds.isNotEmpty) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration callees leaked '
+      'internal sessions.',
+    );
+  }
+  expectStreamableProgress('WAMP registration callees');
+
+  final registrationCalleeCountId =
+      '$label-generic-streamable-registration-callee-count';
+  final registrationCalleeCount = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': registrationCalleeCountId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.count_callees',
+        'arguments': {
+          'arguments': [registrationId],
+        },
+      },
+    }),
+    label:
+        'Generic Streamable JSON-RPC WAMP registration callee count response',
+  );
+  final registrationCalleeCountContent = _jsonRpcStructuredContent(
+    registrationCalleeCount,
+    id: registrationCalleeCountId,
+    label: 'Generic Streamable JSON-RPC WAMP registration callee count',
+  );
+  final registrationCalleeCountArguments =
+      registrationCalleeCountContent['arguments'];
+  if (registrationCalleeCountArguments is! List) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration callee count missed '
+      'arguments.',
+    );
+  }
+  final calleeCount = _singleMetaId(
+    registrationCalleeCountArguments.cast<Object?>(),
+    'generic streamable registration callee count',
+  );
+  if (calleeCount != 0) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration callee count leaked '
+      'internal sessions.',
+    );
+  }
+  expectStreamableProgress('WAMP registration callee count');
 
   final resourcesId = '$label-generic-streamable-resources';
   final resources = await client.request('resources/list', id: resourcesId);
