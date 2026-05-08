@@ -3361,6 +3361,142 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
   }
   expectStreamableProgress('WAMP API list');
 
+  final apiDescribeId = '$label-generic-streamable-api-describe';
+  final apiDescribe = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': apiDescribeId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'connectanum.api.describe',
+        'arguments': {'uri': _procedure, 'kind': 'procedure'},
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC API describe response',
+  );
+  final apiDescription = _jsonRpcStructuredContent(
+    apiDescribe,
+    id: apiDescribeId,
+    label: 'Generic Streamable JSON-RPC API describe',
+  );
+  if (!jsonEncode(apiDescription).contains(_procedure)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC API describe missed $_procedure.',
+    );
+  }
+  expectStreamableProgress('WAMP API describe');
+
+  final sessionCountId = '$label-generic-streamable-session-count';
+  final sessionCount = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': sessionCountId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.session.count',
+        'arguments': {},
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC WAMP session count response',
+  );
+  final sessionCountContent = _jsonRpcStructuredContent(
+    sessionCount,
+    id: sessionCountId,
+    label: 'Generic Streamable JSON-RPC WAMP session count',
+  );
+  final sessionCountKeywords = _jsonObjectFrom(
+    sessionCountContent['argumentsKeywords'],
+    label: 'Generic Streamable JSON-RPC WAMP session count kwargs',
+  );
+  final visibleSessionCount = sessionCountKeywords['count'];
+  if (visibleSessionCount is! int) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP session count missed count metadata.',
+    );
+  }
+  expectStreamableProgress('WAMP session count');
+
+  final sessionListId = '$label-generic-streamable-session-list';
+  final sessionList = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': sessionListId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.session.list',
+        'arguments': {},
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC WAMP session list response',
+  );
+  final sessionListContent = _jsonRpcStructuredContent(
+    sessionList,
+    id: sessionListId,
+    label: 'Generic Streamable JSON-RPC WAMP session list',
+  );
+  final sessionListKeywords = _jsonObjectFrom(
+    sessionListContent['argumentsKeywords'],
+    label: 'Generic Streamable JSON-RPC WAMP session list kwargs',
+  );
+  final sessionIds = _integerMetaIdsFromValue(
+    sessionListKeywords['session_ids'],
+    'generic streamable session list',
+  );
+  if (sessionIds.contains(serviceSession.sessionId)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP session list leaked service session.',
+    );
+  }
+  if (sessionIds.length != visibleSessionCount) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP session count did not match list.',
+    );
+  }
+  if (sessionIds.isEmpty) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP session list missed visible sessions.',
+    );
+  }
+  expectStreamableProgress('WAMP session list');
+
+  final registrationMatchId = '$label-generic-streamable-registration-match';
+  final registrationMatch = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': registrationMatchId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.match',
+        'arguments': {
+          'arguments': [_procedure],
+        },
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC WAMP registration match response',
+  );
+  final registrationMatchContent = _jsonRpcStructuredContent(
+    registrationMatch,
+    id: registrationMatchId,
+    label: 'Generic Streamable JSON-RPC WAMP registration match',
+  );
+  final registrationMatchArguments = registrationMatchContent['arguments'];
+  if (registrationMatchArguments is! List) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration match missed arguments.',
+    );
+  }
+  final registrationId = _singleMetaId(
+    registrationMatchArguments.cast<Object?>(),
+    'generic streamable registration match',
+  );
+  if (registrationId <= 0) {
+    throw StateError(
+      'Generic Streamable JSON-RPC WAMP registration match returned '
+      'invalid id $registrationId.',
+    );
+  }
+  expectStreamableProgress('WAMP registration match');
+
   final resourcesId = '$label-generic-streamable-resources';
   final resources = await client.request('resources/list', id: resourcesId);
   final resourcesResult = _jsonRpcResult(
@@ -3394,6 +3530,26 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
     );
   }
   expectStreamableProgress('resources/read');
+
+  final templatesId = '$label-generic-streamable-resource-templates';
+  final templates = await client.request(
+    'resources/templates/list',
+    id: templatesId,
+  );
+  final templatesResult = _jsonRpcResult(
+    templates,
+    id: templatesId,
+    label: 'Generic Streamable JSON-RPC resources/templates/list',
+  );
+  if (!jsonEncode(
+    templatesResult['resourceTemplates'],
+  ).contains(_resourceTemplateUri)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC resources/templates/list missed '
+      '$_resourceTemplateUri.',
+    );
+  }
+  expectStreamableProgress('resources/templates/list');
 
   final promptsId = '$label-generic-streamable-prompts';
   final prompts = await client.request('prompts/list', id: promptsId);
