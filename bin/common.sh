@@ -2836,6 +2836,9 @@ Map<String, Object?> _jsonObjectFrom(Object? value, {required String label}) {
   throw StateError('$label was not a JSON object.');
 }
 
+String _mcpBase64Header(String value) =>
+    '=?base64?${base64Encode(utf8.encode(value))}?=';
+
 Map<String, Object?> _jsonRpcStructuredContent(
   Map<String, Object?> response, {
   required Object id,
@@ -3257,6 +3260,323 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
   }
 }
 
+Future<void> _smokeGenericStreamableJsonRpcAccess(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Generic Streamable JSON-RPC smoke has no session id.');
+  }
+
+  var previousEventId = client.lastEventId;
+  void expectStreamableProgress(String operation) {
+    if (client.sessionId != sessionId) {
+      throw StateError(
+        'Generic Streamable JSON-RPC $operation changed session id.',
+      );
+    }
+    final eventId = client.lastEventId;
+    if (eventId == null ||
+        !eventId.startsWith('$sessionId:') ||
+        eventId == previousEventId) {
+      throw StateError(
+        'Generic Streamable JSON-RPC $operation did not advance SSE state.',
+      );
+    }
+    previousEventId = eventId;
+  }
+
+  final toolsId = '$label-generic-streamable-tools';
+  final tools = await client.request('tools/list', id: toolsId);
+  final toolsResult = _jsonRpcResult(
+    tools,
+    id: toolsId,
+    label: 'Generic Streamable JSON-RPC tools/list',
+  );
+  final toolsJson = jsonEncode(toolsResult['tools']);
+  if (!toolsJson.contains(_procedure) ||
+      !toolsJson.contains('connectanum.pubsub.subscribe')) {
+    throw StateError(
+      'Generic Streamable JSON-RPC tools/list missed router tools.',
+    );
+  }
+  expectStreamableProgress('tools/list');
+
+  final taskId = 'T-$label-generic-streamable-tool-call';
+  final toolCallId = '$label-generic-streamable-tool-call';
+  final toolCall = _jsonObjectFrom(
+    await client.post(
+      {
+        'jsonrpc': '2.0',
+        'id': toolCallId,
+        'method': 'tools/call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': taskId, 'note': _headerWrappedNote},
+        },
+      },
+      headers: {
+        'Mcp-Param-TaskId': taskId,
+        'Mcp-Param-Note': _mcpBase64Header(_headerWrappedNote),
+      },
+    ),
+    label: 'Generic Streamable JSON-RPC tools/call response',
+  );
+  final toolContent = _jsonRpcStructuredContent(
+    toolCall,
+    id: toolCallId,
+    label: 'Generic Streamable JSON-RPC tools/call',
+  );
+  final toolContentJson = jsonEncode(toolContent);
+  if (!toolContentJson.contains(taskId) ||
+      !toolContentJson.contains(_headerWrappedNote)) {
+    throw StateError('Generic Streamable JSON-RPC tools/call failed.');
+  }
+  expectStreamableProgress('tools/call');
+
+  final apiListId = '$label-generic-streamable-api-list';
+  final apiList = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': apiListId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'connectanum.api.list',
+        'arguments': {'kind': 'procedure'},
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC API list response',
+  );
+  final apiContent = _jsonRpcStructuredContent(
+    apiList,
+    id: apiListId,
+    label: 'Generic Streamable JSON-RPC API list',
+  );
+  if (!jsonEncode(apiContent).contains(_procedure)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC API list missed $_procedure.',
+    );
+  }
+  expectStreamableProgress('WAMP API list');
+
+  final resourcesId = '$label-generic-streamable-resources';
+  final resources = await client.request('resources/list', id: resourcesId);
+  final resourcesResult = _jsonRpcResult(
+    resources,
+    id: resourcesId,
+    label: 'Generic Streamable JSON-RPC resources/list',
+  );
+  if (!jsonEncode(resourcesResult['resources']).contains(_resourceUri)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC resources/list missed $_resourceUri.',
+    );
+  }
+  expectStreamableProgress('resources/list');
+
+  final readId = '$label-generic-streamable-resource-read';
+  final read = await client.request(
+    'resources/read',
+    id: readId,
+    params: {'uri': _resourceUri},
+  );
+  final readResult = _jsonRpcResult(
+    read,
+    id: readId,
+    label: 'Generic Streamable JSON-RPC resources/read',
+  );
+  if (!jsonEncode(readResult['contents']).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError(
+      'Generic Streamable JSON-RPC resources/read missed route context.',
+    );
+  }
+  expectStreamableProgress('resources/read');
+
+  final promptsId = '$label-generic-streamable-prompts';
+  final prompts = await client.request('prompts/list', id: promptsId);
+  final promptsResult = _jsonRpcResult(
+    prompts,
+    id: promptsId,
+    label: 'Generic Streamable JSON-RPC prompts/list',
+  );
+  if (!jsonEncode(promptsResult['prompts']).contains(_promptName)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC prompts/list missed $_promptName.',
+    );
+  }
+  expectStreamableProgress('prompts/list');
+
+  final promptTaskId = 'T-$label-generic-streamable-prompt';
+  final promptId = '$label-generic-streamable-prompt-get';
+  final prompt = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': promptId,
+      'method': 'prompts/get',
+      'params': {
+        'name': _promptName,
+        'arguments': {'taskId': promptTaskId},
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC prompts/get response',
+  );
+  final promptResult = _jsonRpcResult(
+    prompt,
+    id: promptId,
+    label: 'Generic Streamable JSON-RPC prompts/get',
+  );
+  if (!jsonEncode(promptResult).contains(promptTaskId)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC prompts/get did not substitute '
+      '$promptTaskId.',
+    );
+  }
+  expectStreamableProgress('prompts/get');
+
+  final subscribeId = '$label-generic-streamable-pubsub-subscribe';
+  final subscribe = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': subscribeId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'connectanum.pubsub.subscribe',
+        'arguments': {'topic': _topic, 'queueLimit': 4},
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC pub/sub subscribe response',
+  );
+  final subscription = _jsonRpcStructuredContent(
+    subscribe,
+    id: subscribeId,
+    label: 'Generic Streamable JSON-RPC pub/sub subscribe',
+  );
+  final handle = subscription['handle'];
+  if (handle is! String ||
+      handle.isEmpty ||
+      subscription['topic'] != _topic ||
+      subscription['queueLimit'] != 4) {
+    throw StateError(
+      'Generic Streamable JSON-RPC pub/sub subscribe returned invalid content.',
+    );
+  }
+  expectStreamableProgress('pub/sub subscribe');
+
+  try {
+    final publishId = '$label-generic-streamable-pubsub-publish';
+    final publish = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': publishId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.publish',
+          'arguments': {
+            'topic': _topic,
+            'argumentsKeywords': {
+              'taskId': 'T-$label-generic-streamable-pubsub-publish',
+            },
+            'acknowledge': true,
+          },
+        },
+      }),
+      label: 'Generic Streamable JSON-RPC pub/sub publish response',
+    );
+    final publication = _jsonRpcStructuredContent(
+      publish,
+      id: publishId,
+      label: 'Generic Streamable JSON-RPC pub/sub publish',
+    );
+    if (publication['topic'] != _topic ||
+        publication['acknowledged'] != true) {
+      throw StateError(
+        'Generic Streamable JSON-RPC pub/sub publish returned invalid content.',
+      );
+    }
+    expectStreamableProgress('pub/sub publish');
+
+    final serviceTaskId = 'T-$label-generic-streamable-pubsub-event';
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': serviceTaskId},
+      options: PublishOptions(acknowledge: true),
+    );
+
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    var sawServiceEvent = false;
+    while (DateTime.now().isBefore(deadline)) {
+      final pollId =
+          '$label-generic-streamable-pubsub-poll-'
+          '${DateTime.now().microsecondsSinceEpoch}';
+      final poll = _jsonObjectFrom(
+        await client.post({
+          'jsonrpc': '2.0',
+          'id': pollId,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.poll',
+            'arguments': {'handle': handle, 'limit': 4},
+          },
+        }),
+        label: 'Generic Streamable JSON-RPC pub/sub poll response',
+      );
+      final eventBatch = _jsonRpcStructuredContent(
+        poll,
+        id: pollId,
+        label: 'Generic Streamable JSON-RPC pub/sub poll',
+      );
+      if (eventBatch['handle'] != handle || eventBatch['topic'] != _topic) {
+        throw StateError(
+          'Generic Streamable JSON-RPC pub/sub poll returned invalid content.',
+        );
+      }
+      expectStreamableProgress('pub/sub poll');
+      if (jsonEncode(eventBatch['events']).contains(serviceTaskId)) {
+        sawServiceEvent = true;
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (!sawServiceEvent) {
+      throw StateError(
+        'Generic Streamable JSON-RPC pub/sub poll missed service event.',
+      );
+    }
+  } finally {
+    final unsubscribeId = '$label-generic-streamable-pubsub-unsubscribe';
+    final unsubscribe = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': unsubscribeId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': {'handle': handle},
+        },
+      }),
+      label: 'Generic Streamable JSON-RPC pub/sub unsubscribe response',
+    );
+    final unsubscribeContent = _jsonRpcStructuredContent(
+      unsubscribe,
+      id: unsubscribeId,
+      label: 'Generic Streamable JSON-RPC pub/sub unsubscribe',
+    );
+    if (unsubscribeContent['handle'] != handle ||
+        unsubscribeContent['topic'] != _topic ||
+        unsubscribeContent['unsubscribed'] != true) {
+      throw StateError(
+        'Generic Streamable JSON-RPC pub/sub unsubscribe returned invalid '
+        'content.',
+      );
+    }
+    expectStreamableProgress('pub/sub unsubscribe');
+  }
+}
+
 Future<void> _pollGenericDirectJsonRpcPubSubUntil(
   McpStreamableHttpClient client,
   String handle, {
@@ -3366,6 +3686,11 @@ Future<void> _smokeStreamableMcp(
     throw StateError('Streamable MCP tool catalog did not expose $_procedure.');
   }
 
+  await _smokeGenericStreamableJsonRpcAccess(
+    client,
+    serviceSession,
+    label: label,
+  );
   await _smokeStreamableSingleError(client, label: label);
   await _smokeStreamableBatch(client, label: label);
   await _smokeResourcesAndPrompts(client, label: label);

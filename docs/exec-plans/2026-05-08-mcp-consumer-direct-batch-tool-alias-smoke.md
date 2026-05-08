@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Direct Batch Tool Alias Smoke
 
-Status: complete locally; full local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -63,7 +63,17 @@ session state.
   on 2026-05-08 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
-- Commit and hosted evidence are pending.
+- Commit `ecac196` (`test: cover mcp direct batch tool alias`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-08.
+- Hosted GitHub `CI` run `25559566762` for `ecac196` completed successfully on
+  2026-05-08 with `Fast Checks` (6m14s) and `Full Verify` (8m30s) green.
+- Standard deployment-chain audit passed with clean latest CI and relevant
+  clean Dart package publish dry-run `25485027779`; no publish-sensitive paths
+  changed since that dry-run.
+- Strict deployment audit still reports operator-side gaps: branch protection
+  and required status checks are absent, `.github/workflows/router-image.yml`
+  is not discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -74,6 +84,6 @@ session state.
 
 ## Handoff
 
-Implementation passed focused syntax/generated consumer smoke checks,
-post-change `bin/test-fast`, and full local `bin/verify`; commit and hosted
-evidence are pending.
+Implementation, local verification, hosted GitHub `CI`, and the standard
+deployment-chain audit are clean. The remaining strict-audit findings are
+release-operations gaps outside this implementation slice.
