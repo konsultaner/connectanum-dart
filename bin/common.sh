@@ -2127,11 +2127,50 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
+      await client.readResource(
+        _resourceUri,
+        id: '$label-rejected-session-resource-read',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST resources/read',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
+      await client.listResourceTemplates(
+        id: '$label-rejected-session-resource-templates',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST resources/templates/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
       await client.listPrompts(id: '$label-rejected-session-prompts');
     },
     sessionId: sessionId,
     lastEventId: lastEventId,
     method: 'POST prompts/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
+      await client.getPrompt(
+        _promptName,
+        id: '$label-rejected-session-prompt-get',
+        arguments: {'taskId': 'T-$label-rejected-session-prompt-get'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST prompts/get',
     acceptedMessage: acceptedMessage,
   );
   await _assertActiveStreamableRequestRejectsBearer(
