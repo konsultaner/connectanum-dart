@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Active Resource Prompt Detail Auth Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -74,7 +74,17 @@ resource/prompt detail POSTs, not only catalog/list requests.
   passed on 2026-05-08 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
-- Commit and hosted evidence are pending.
+- Pushed implementation commit `6797337`
+  (`test: cover mcp active resource prompt detail auth`) to `origin/add-router`
+  and `github/add-router` on 2026-05-08.
+- GitHub CI run `25545836377` passed on 2026-05-08: `Fast Checks` passed in
+  5m58s and `Full Verify` passed in 8m32s.
+- Deployment-chain audit passed with latest clean CI and relevant Dart package
+  publish dry-run evidence on 2026-05-08.
+- Strict deployment-chain audit still fails only the known operator-owned gaps:
+  no branch protection, `.github/workflows/router-image.yml` not discoverable
+  from the default branch, and `ghcr.io/konsultaner/connectanum-router` not
+  visible.
 
 ## Decision Log
 
@@ -84,5 +94,6 @@ resource/prompt detail POSTs, not only catalog/list requests.
 
 ## Handoff
 
-Complete locally. Implementation passed focused and fast local verification,
-then full local `bin/verify`; commit and hosted evidence are pending.
+Complete. Implementation passed focused and fast local verification, full local
+`bin/verify`, hosted GitHub CI, and the normal deployment-chain audit. Strict
+audit remains blocked only on the known operator-owned GitHub deployment gaps.

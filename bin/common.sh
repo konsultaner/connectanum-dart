@@ -567,6 +567,35 @@ Future<void> _smokeResourcesAndPrompts(
     'direct JSON resources/list failed',
   );
 
+  final directReadResource = await client.readResource(
+    _resourceUri,
+    id: 'direct-resource-read',
+    directJson: true,
+  );
+  _expect(
+    directReadResource.single['text'] == 'agent context is available',
+    'direct JSON resources/read failed',
+  );
+
+  final directTemplates = await client.listResourceTemplates(
+    id: 'direct-resource-templates',
+    directJson: true,
+  );
+  _expect(
+    directTemplates.resourceTemplates.single['uriTemplate'] ==
+        _resourceTemplateUri,
+    'direct JSON resources/templates/list failed',
+  );
+
+  final directPrompts = await client.listPrompts(
+    id: 'direct-prompts',
+    directJson: true,
+  );
+  _expect(
+    directPrompts.prompts.single['name'] == _promptName,
+    'direct JSON prompts/list failed',
+  );
+
   final directPrompt = await client.getPrompt(
     _promptName,
     id: 'direct-prompt-get',
@@ -577,10 +606,21 @@ Future<void> _smokeResourcesAndPrompts(
     jsonEncode(directPrompt).contains('T-direct'),
     'direct JSON prompts/get failed',
   );
+  const expectedDirectResourcePromptMethods = <String>{
+    'resources/list',
+    'resources/read',
+    'resources/templates/list',
+    'prompts/list',
+    'prompts/get',
+  };
+  final missingDirectResourcePromptMethods =
+      expectedDirectResourcePromptMethods.difference(
+    endpoint.directMethodsWithoutSession,
+  );
   _expect(
-    endpoint.directMethodsWithoutSession.contains('resources/list') &&
-        endpoint.directMethodsWithoutSession.contains('prompts/get'),
-    'direct JSON resource/prompt helpers included Streamable session state',
+    missingDirectResourcePromptMethods.isEmpty,
+    'direct JSON resource/prompt helpers included Streamable session state '
+    'for ${missingDirectResourcePromptMethods.join(', ')}',
   );
 }
 
