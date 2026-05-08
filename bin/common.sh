@@ -2103,6 +2103,20 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
+      await client.callTool(
+        _procedure,
+        id: '$label-rejected-session-tool-call',
+        arguments: {'taskId': 'T-$label-rejected-session-tool-call'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST tools/call',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
       await client.poll();
     },
     sessionId: sessionId,

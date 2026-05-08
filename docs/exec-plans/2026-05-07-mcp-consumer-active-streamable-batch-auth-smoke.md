@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Active Streamable Batch Auth Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-07
 Last updated: 2026-05-07
@@ -66,7 +66,17 @@ token and clear stale Streamable session state.
 - Focused `run_mcp_consumer_package_smoke` passed with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed with isolated `TMPDIR`.
 - Full local `bin/verify` passed with isolated `TMPDIR`.
-- Commit and hosted evidence are pending.
+- Commit `b355f84` (`test: cover mcp active streamable batch auth`) was pushed
+  to `origin/add-router` and `github/add-router` on 2026-05-07.
+- Hosted GitHub `CI` run `25519775921` completed successfully on 2026-05-07
+  with `Fast Checks` and `Full Verify` green.
+- Deployment-chain audit passed on 2026-05-07 with clean latest CI and a
+  relevant clean Dart package publish dry-run (`25485027779`, no
+  publish-sensitive changes since that run).
+- Strict deployment audit still reports only operator-side gaps: branch
+  protection is absent, `.github/workflows/router-image.yml` is not
+  discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -77,4 +87,5 @@ token and clear stale Streamable session state.
 
 ## Handoff
 
-Implemented locally. Commit and hosted evidence are pending.
+Complete. Local and hosted CI evidence are clean; strict deployment audit is
+blocked only by known operator-side GitHub settings/package visibility gaps.
