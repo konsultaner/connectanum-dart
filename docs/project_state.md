@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-08-mcp-consumer-generic-streamable-meta-template-smoke.md`
+`docs/exec-plans/2026-05-08-mcp-consumer-generic-streamable-subscription-meta-smoke.md`
 (complete locally; full local verification clean; commit pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-consumer-generic-streamable-meta-template-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-08-mcp-consumer-generic-streamable-jsonrpc-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -80,12 +83,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`047928f`
-(`test: cover mcp generic streamable jsonrpc smoke`; hosted CI evidence clean).
+`53e616e`
+(`test: cover mcp generic streamable meta smoke`; hosted CI evidence clean).
 Current implementation checkpoint: MCP consumer generic Streamable WAMP
-meta/resource-template smoke
+subscription meta smoke
 (complete locally; full local verification clean; commit pending).
-Latest implementation checkpoint: MCP consumer generic Streamable JSON-RPC
+Latest implementation checkpoint: MCP consumer generic Streamable WAMP
+meta/resource-template smoke (complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP consumer generic Streamable JSON-RPC
 smoke (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer direct batch tool alias smoke
 (complete; hosted CI evidence clean).
@@ -299,12 +304,29 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer generic Streamable WAMP subscription meta smoke has complete
+    local verification. The generated router-hosted consumer package smoke now
+    proves public generic Streamable JSON-RPC `tools/call` requests can inspect
+    an active generic pub/sub subscription through `wamp.subscription.lookup`,
+    `wamp.subscription.match`, `wamp.subscription.list`,
+    `wamp.subscription.get`, `wamp.subscription.list_subscribers`, and
+    `wamp.subscription.count_subscribers` while preserving the initialized
+    Streamable session id, advancing the SSE cursor, and keeping service
+    sessions out of visible subscriber metadata. Pre-change `bin/test-fast`
+    passed on 2026-05-08 with isolated `TMPDIR`. Focused
+    `bash -n bin/common.sh bin/test-fast bin/test-all`, `git diff --check`,
+    and generated router-hosted consumer package smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`)
+    passed on 2026-05-08 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-08 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-08 with isolated `TMPDIR`. Commit and hosted evidence
+    are pending.
   - MCP consumer generic Streamable WAMP meta/resource-template smoke has
-    complete local verification. The generated router-hosted consumer package
-    smoke now proves public generic Streamable JSON-RPC calls can access
-    router-provided WAMP API describe, WAMP session/registration meta tools,
-    and configured `resources/templates/list` while preserving the initialized
-    Streamable session id and advancing the SSE cursor. Pre-change
+    local and hosted verification. The generated router-hosted consumer
+    package smoke now proves public generic Streamable JSON-RPC calls can
+    access router-provided WAMP API describe, WAMP session/registration meta
+    tools, and configured `resources/templates/list` while preserving the
+    initialized Streamable session id and advancing the SSE cursor. Pre-change
     `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`. Focused
     `bash -n bin/common.sh bin/test-fast bin/test-all` and `git diff --check`
     passed on 2026-05-08. Focused generated router-hosted consumer package
@@ -312,8 +334,18 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`)
     passed on 2026-05-08 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-08 with isolated `TMPDIR`. Full local `bin/verify`
-    passed on 2026-05-08 with isolated `TMPDIR`. Commit and hosted evidence
-    are pending.
+    passed on 2026-05-08 with isolated `TMPDIR`. Commit `53e616e`
+    (`test: cover mcp generic streamable meta smoke`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-08. Hosted GitHub
+    `CI` run `25565190217` for `53e616e` completed successfully on
+    2026-05-08 with `Fast Checks` (6m03s) and `Full Verify` (8m27s) green.
+    Deployment-chain audit passed on 2026-05-08 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports operator-side gaps: branch protection and required status checks
+    are absent, `.github/workflows/router-image.yml` is not discoverable from
+    the default branch, and `ghcr.io/konsultaner/connectanum-router` is not
+    visible.
   - MCP consumer generic Streamable JSON-RPC smoke is complete with local and
     hosted verification. The generated router-hosted consumer package smoke
     now proves public

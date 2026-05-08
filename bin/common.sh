@@ -3622,6 +3622,240 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
   expectStreamableProgress('pub/sub subscribe');
 
   try {
+    final subscriptionLookupId =
+        '$label-generic-streamable-subscription-lookup';
+    final subscriptionLookup = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': subscriptionLookupId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.subscription.lookup',
+          'arguments': {
+            'arguments': [_topic],
+          },
+        },
+      }),
+      label:
+          'Generic Streamable JSON-RPC WAMP subscription lookup response',
+    );
+    final subscriptionLookupContent = _jsonRpcStructuredContent(
+      subscriptionLookup,
+      id: subscriptionLookupId,
+      label: 'Generic Streamable JSON-RPC WAMP subscription lookup',
+    );
+    final subscriptionLookupArguments =
+        subscriptionLookupContent['arguments'];
+    if (subscriptionLookupArguments is! List) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription lookup missed '
+        'arguments.',
+      );
+    }
+    final subscriptionId = _singleMetaId(
+      subscriptionLookupArguments.cast<Object?>(),
+      'generic streamable subscription lookup',
+    );
+    if (subscriptionId <= 0) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription lookup returned '
+        'invalid id $subscriptionId.',
+      );
+    }
+    expectStreamableProgress('WAMP subscription lookup');
+
+    final subscriptionMatchId =
+        '$label-generic-streamable-subscription-match';
+    final subscriptionMatch = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': subscriptionMatchId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.subscription.match',
+          'arguments': {
+            'arguments': [_topic],
+          },
+        },
+      }),
+      label: 'Generic Streamable JSON-RPC WAMP subscription match response',
+    );
+    final subscriptionMatchContent = _jsonRpcStructuredContent(
+      subscriptionMatch,
+      id: subscriptionMatchId,
+      label: 'Generic Streamable JSON-RPC WAMP subscription match',
+    );
+    final subscriptionMatchArguments =
+        subscriptionMatchContent['arguments'];
+    if (subscriptionMatchArguments is! List) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription match missed '
+        'arguments.',
+      );
+    }
+    final matchedSubscriptionIds = _integerMetaIds(
+      subscriptionMatchArguments.cast<Object?>(),
+      'generic streamable subscription match',
+    );
+    if (!matchedSubscriptionIds.contains(subscriptionId)) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription match missed $_topic.',
+      );
+    }
+    expectStreamableProgress('WAMP subscription match');
+
+    final subscriptionListId =
+        '$label-generic-streamable-subscription-list';
+    final subscriptionList = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': subscriptionListId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.subscription.list',
+          'arguments': {},
+        },
+      }),
+      label: 'Generic Streamable JSON-RPC WAMP subscription list response',
+    );
+    final subscriptionListContent = _jsonRpcStructuredContent(
+      subscriptionList,
+      id: subscriptionListId,
+      label: 'Generic Streamable JSON-RPC WAMP subscription list',
+    );
+    final subscriptionListKeywords = _jsonObjectFrom(
+      subscriptionListContent['argumentsKeywords'],
+      label: 'Generic Streamable JSON-RPC WAMP subscription list kwargs',
+    );
+    final exactSubscriptionIds = _integerMetaIdsFromValue(
+      subscriptionListKeywords['exact'],
+      'generic streamable subscription list exact',
+    );
+    if (!exactSubscriptionIds.contains(subscriptionId)) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription list missed $_topic.',
+      );
+    }
+    expectStreamableProgress('WAMP subscription list');
+
+    final subscriptionGetId = '$label-generic-streamable-subscription-get';
+    final subscriptionGet = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': subscriptionGetId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.subscription.get',
+          'arguments': {
+            'arguments': [subscriptionId],
+          },
+        },
+      }),
+      label: 'Generic Streamable JSON-RPC WAMP subscription get response',
+    );
+    final subscriptionGetContent = _jsonRpcStructuredContent(
+      subscriptionGet,
+      id: subscriptionGetId,
+      label: 'Generic Streamable JSON-RPC WAMP subscription get',
+    );
+    final subscriptionGetKeywords = _jsonObjectFrom(
+      subscriptionGetContent['argumentsKeywords'],
+      label: 'Generic Streamable JSON-RPC WAMP subscription get kwargs',
+    );
+    if (!jsonEncode(subscriptionGetKeywords).contains(_topic)) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription get missed $_topic.',
+      );
+    }
+    expectStreamableProgress('WAMP subscription get');
+
+    final subscribersId = '$label-generic-streamable-subscription-subscribers';
+    final subscribers = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': subscribersId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.subscription.list_subscribers',
+          'arguments': {
+            'arguments': [subscriptionId],
+          },
+        },
+      }),
+      label:
+          'Generic Streamable JSON-RPC WAMP subscription subscribers response',
+    );
+    final subscribersContent = _jsonRpcStructuredContent(
+      subscribers,
+      id: subscribersId,
+      label: 'Generic Streamable JSON-RPC WAMP subscription subscribers',
+    );
+    final subscriberArguments = subscribersContent['arguments'];
+    if (subscriberArguments is! List) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription subscribers missed '
+        'arguments.',
+      );
+    }
+    final subscriberIds = _integerMetaIds(
+      subscriberArguments.cast<Object?>(),
+      'generic streamable subscription subscribers',
+    );
+    if (subscriberIds.isEmpty) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription subscribers was empty.',
+      );
+    }
+    if (subscriberIds.contains(serviceSession.sessionId)) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription subscribers leaked '
+        'service session.',
+      );
+    }
+    expectStreamableProgress('WAMP subscription subscribers');
+
+    final subscriberCountId =
+        '$label-generic-streamable-subscription-subscriber-count';
+    final subscriberCount = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': subscriberCountId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.subscription.count_subscribers',
+          'arguments': {
+            'arguments': [subscriptionId],
+          },
+        },
+      }),
+      label:
+          'Generic Streamable JSON-RPC WAMP subscription subscriber count '
+          'response',
+    );
+    final subscriberCountContent = _jsonRpcStructuredContent(
+      subscriberCount,
+      id: subscriberCountId,
+      label: 'Generic Streamable JSON-RPC WAMP subscription subscriber count',
+    );
+    final subscriberCountArguments = subscriberCountContent['arguments'];
+    if (subscriberCountArguments is! List) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription subscriber count '
+        'missed arguments.',
+      );
+    }
+    final subscriberTotal = _singleMetaId(
+      subscriberCountArguments.cast<Object?>(),
+      'generic streamable subscription subscriber count',
+    );
+    if (subscriberTotal != subscriberIds.length) {
+      throw StateError(
+        'Generic Streamable JSON-RPC WAMP subscription subscriber count did '
+        'not match visible sessions.',
+      );
+    }
+    expectStreamableProgress('WAMP subscription subscriber count');
+
     final publishId = '$label-generic-streamable-pubsub-publish';
     final publish = _jsonObjectFrom(
       await client.post({
