@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-08-mcp-client-package-direct-resource-prompt-smoke.md`
-(complete; local verification clean; hosted evidence pending).
+`docs/exec-plans/2026-05-08-mcp-client-package-direct-wamp-helper-smoke.md`
+(complete locally; full local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-client-package-direct-resource-prompt-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-08-mcp-consumer-active-resource-prompt-detail-auth-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -59,12 +62,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`6797337`
-(`test: cover mcp active resource prompt detail auth`; hosted CI evidence
+`15f754a`
+(`test: cover mcp direct resource prompt client smoke`; hosted CI evidence
 clean).
-Current implementation checkpoint: MCP client package direct resource/prompt
-smoke (complete; local verification clean; commit and hosted evidence pending).
-Latest implementation checkpoint: MCP consumer active resource/prompt detail
+Current implementation checkpoint: MCP client package direct WAMP helper smoke
+(complete locally; full local verification clean; hosted evidence pending).
+Latest implementation checkpoint: MCP client package direct resource/prompt
+smoke (complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP consumer active resource/prompt detail
 auth smoke (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer active resource/prompt auth
 smoke (complete; hosted CI evidence clean).
@@ -263,6 +268,16 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP client package direct WAMP helper smoke is complete locally. The
+    generated client-only consumer package smoke now proves direct JSON WAMP
+    API, WAMP meta, and pub/sub helper tool calls for
+    `connectanum.api.list`, `connectanum.api.describe`, `wamp.session.count`,
+    `connectanum.pubsub.subscribe`, `connectanum.pubsub.publish`,
+    `connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe` all omit
+    `MCP-Session-Id` after a Streamable session has been initialized.
+    Pre-change `bin/test-fast`, focused checks, post-change `bin/test-fast`,
+    and full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`;
+    commit and hosted evidence are pending.
   - MCP client package direct resource/prompt smoke is complete locally. The
     generated client-only consumer package smoke now proves direct JSON
     resource and prompt helpers cover `resources/list`, `resources/read`,
@@ -275,7 +290,17 @@ order.
     `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_client_package_smoke'`
     with isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-08
     with isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-08 with
-    isolated `TMPDIR`. Commit and hosted evidence are pending.
+    isolated `TMPDIR`. Commit `15f754a`
+    (`test: cover mcp direct resource prompt client smoke`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-08. Hosted GitHub
+    `CI` run `25547973357` for `15f754a` completed successfully on
+    2026-05-08 with `Fast Checks` and `Full Verify` green.
+    Deployment-chain audit passed on 2026-05-08 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports only operator-side gaps: branch protection is absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP consumer active resource/prompt detail auth smoke is complete with
     local and hosted verification. The generated router-hosted consumer package
     smoke now proves Streamable `resources/read`,

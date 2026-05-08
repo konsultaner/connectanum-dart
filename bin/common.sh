@@ -701,6 +701,26 @@ Future<void> _smokeWampHelpers(
     'direct JSON WAMP API list helper failed',
   );
 
+  final directDescription = await client.describeWampApi(
+    _procedureName,
+    id: 'direct-api-describe',
+    kind: 'procedure',
+    directJson: true,
+  );
+  _expect(
+    directDescription['uri'] == _procedureName,
+    'direct JSON WAMP API describe helper failed',
+  );
+
+  final directSessionCount = await client.countWampSessions(
+    id: 'direct-session-count',
+    directJson: true,
+  );
+  _expect(
+    directSessionCount.argumentsKeywords['count'] == _sessionCount,
+    'direct JSON WAMP session meta helper failed',
+  );
+
   final directSubscription = await client.subscribeWampTopic(
     _topic,
     id: 'direct-subscribe',
@@ -734,9 +754,22 @@ Future<void> _smokeWampHelpers(
     directJson: true,
   );
 
+  const expectedDirectWampToolNames = <String>{
+    'connectanum.api.list',
+    'connectanum.api.describe',
+    'wamp.session.count',
+    'connectanum.pubsub.subscribe',
+    'connectanum.pubsub.publish',
+    'connectanum.pubsub.poll',
+    'connectanum.pubsub.unsubscribe',
+  };
+  final missingDirectWampToolNames = expectedDirectWampToolNames.difference(
+    endpoint.directToolNamesWithoutSession,
+  );
   _expect(
-    endpoint.directMethodsWithoutSession.contains('connectanum.tool.call'),
-    'direct JSON WAMP helpers included Streamable session state',
+    missingDirectWampToolNames.isEmpty,
+    'direct JSON WAMP helper tool calls included Streamable session state '
+    'for ${missingDirectWampToolNames.join(', ')}',
   );
 }
 
@@ -748,6 +781,7 @@ final class _AgentMcpEndpoint {
   final HttpServer _server;
   late final StreamSubscription<HttpRequest> _subscription;
   final directMethodsWithoutSession = <String>{};
+  final directToolNamesWithoutSession = <String>{};
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   var sawDirectRequestWithoutSession = false;
@@ -813,7 +847,7 @@ final class _AgentMcpEndpoint {
     final message = _jsonMapFrom(jsonDecode(body), label: 'request');
     final method = message['method'] as String?;
     final id = message['id'];
-    _recordDirectRequest(method, request);
+    _recordDirectRequest(method, request, message);
 
     switch (method) {
       case 'initialize':
@@ -881,9 +915,22 @@ final class _AgentMcpEndpoint {
     }
   }
 
-  void _recordDirectRequest(String? method, HttpRequest request) {
+  void _recordDirectRequest(
+    String? method,
+    HttpRequest request,
+    Map<String, Object?> message,
+  ) {
     if (method != null && request.headers.value('MCP-Session-Id') == null) {
       directMethodsWithoutSession.add(method);
+      if (method == 'connectanum.tool.call') {
+        final params = message['params'];
+        if (params is Map) {
+          final name = params['name'];
+          if (name is String) {
+            directToolNamesWithoutSession.add(name);
+          }
+        }
+      }
     }
   }
 

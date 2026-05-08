@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Package Direct Resource Prompt Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -67,7 +67,17 @@ without requiring router or private project assumptions.
   on 2026-05-08 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
-- Commit and hosted evidence are pending.
+- Pushed implementation commit `15f754a`
+  (`test: cover mcp direct resource prompt client smoke`) to
+  `origin/add-router` and `github/add-router` on 2026-05-08.
+- GitHub CI run `25547973357` passed on 2026-05-08: `Fast Checks` passed in
+  6m02s and `Full Verify` passed in 8m15s.
+- Deployment-chain audit passed with latest clean CI and relevant Dart package
+  publish dry-run evidence on 2026-05-08.
+- Strict deployment-chain audit still fails only the known operator-owned gaps:
+  no branch protection, `.github/workflows/router-image.yml` not discoverable
+  from the default branch, and `ghcr.io/konsultaner/connectanum-router` not
+  visible.
 
 ## Decision Log
 
@@ -78,6 +88,7 @@ without requiring router or private project assumptions.
 
 ## Handoff
 
-Implementation passed focused syntax/generated client-only smoke checks,
-post-change `bin/test-fast`, and full local `bin/verify` with isolated
-`TMPDIR`. Commit and hosted evidence are pending.
+Complete. Implementation passed focused syntax/generated client-only smoke
+checks, post-change `bin/test-fast`, full local `bin/verify`, hosted GitHub
+CI, and the normal deployment-chain audit. Strict audit remains blocked only
+on the known operator-owned GitHub deployment gaps.
