@@ -5,9 +5,12 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: `d56b456`
 (`chore: require konsultaner codebase workflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-08-mcp-consumer-direct-tool-api-smoke.md`
+`docs/exec-plans/2026-05-08-mcp-consumer-direct-batch-tool-alias-smoke.md`
 (complete locally; full local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-08-mcp-consumer-direct-tool-api-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-08-mcp-client-package-direct-generic-tool-method-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -71,13 +74,15 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`54621c8`
-(`test: cover mcp direct generic tool client smoke`; hosted CI evidence
+`a27172e`
+(`test: cover router mcp direct tool api smoke`; hosted CI evidence
 clean).
-Current implementation checkpoint: MCP consumer direct tool API smoke (complete
-locally; full local verification clean; hosted evidence pending).
-Latest implementation checkpoint: MCP client package direct generic tool method
-smoke
+Current implementation checkpoint: MCP consumer direct batch tool alias smoke
+(complete locally; full local verification clean; hosted evidence pending).
+Latest implementation checkpoint: MCP consumer direct tool API smoke
+(complete; hosted CI evidence clean).
+Previous implementation checkpoint: MCP client package direct generic tool
+method smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP client package direct WAMP meta helper smoke
 (complete; hosted CI evidence clean).
@@ -284,8 +289,22 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer direct tool API smoke is complete locally after a clean
-    pre-change baseline. The generated router-hosted consumer package smoke
+  - MCP consumer direct batch tool alias smoke is complete locally after a
+    clean pre-change baseline. The generated router-hosted consumer package
+    smoke now proves direct JSON-RPC batches can call the plural
+    `connectanum.tools.call` alias before and after Streamable initialization,
+    including batch error isolation, without changing Streamable session/cursor
+    state. Pre-change `bin/test-fast` passed on 2026-05-08 with isolated
+    `TMPDIR`. Focused `bash -n bin/common.sh bin/test-fast bin/test-all` and
+    `git diff --check` passed on 2026-05-08. Focused generated router-hosted
+    consumer package smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`)
+    passed on 2026-05-08 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-08 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-08 with isolated `TMPDIR`. Commit and hosted evidence
+    are pending.
+  - MCP consumer direct tool API smoke is complete with local and hosted
+    verification. The generated router-hosted consumer package smoke
     now proves real router-provided MCP endpoints support
     `callConnectanumToolDirect`, `connectanum.tools.call`, and dotted
     application tool-name direct method calls work before and after Streamable
@@ -296,8 +315,18 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_consumer_package_smoke'`)
     passed on 2026-05-08 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-08 with isolated `TMPDIR`. Full local `bin/verify`
-    passed on 2026-05-08 with isolated `TMPDIR`. Commit and hosted evidence
-    are pending.
+    passed on 2026-05-08 with isolated `TMPDIR`. Commit `a27172e`
+    (`test: cover router mcp direct tool api smoke`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-08. Hosted GitHub
+    `CI` run `25557107785` for `a27172e` completed successfully on
+    2026-05-08 with `Fast Checks` (6m0s) and `Full Verify` (8m26s) green.
+    Deployment-chain audit passed on 2026-05-08 with clean latest CI and a
+    relevant clean Dart package publish dry-run (`25485027779`, no
+    publish-sensitive changes since that run). Strict deployment audit still
+    reports operator-side gaps: branch protection and required status checks
+    are absent, `.github/workflows/router-image.yml` is not discoverable from
+    the default branch, and `ghcr.io/konsultaner/connectanum-router` is not
+    visible.
   - MCP client package direct generic tool method smoke is complete with local
     and hosted verification. The generated client-only consumer
     package smoke now proves `callConnectanumToolDirect`,

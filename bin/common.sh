@@ -3733,6 +3733,7 @@ Future<void> _smokeDirectJsonBatch(
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
   final taskId = 'T-$label-direct-batch';
+  final aliasTaskId = 'T-$label-direct-batch-tools-alias';
   final promptTaskId = 'T-$label-direct-batch-prompt';
   final responses = await client.postBatch(
     [
@@ -3747,6 +3748,15 @@ Future<void> _smokeDirectJsonBatch(
         'id': '$label-direct-batch-call',
         'method': _procedure,
         'params': {'taskId': taskId},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-tools-alias',
+        'method': 'connectanum.tools.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': aliasTaskId, 'note': _headerWrappedNote},
+        },
       },
       {
         'jsonrpc': '2.0',
@@ -3775,8 +3785,8 @@ Future<void> _smokeDirectJsonBatch(
     streamable: false,
     includeSession: false,
   );
-  if (responses == null || responses.length != 4) {
-    throw StateError('Direct JSON batch did not return four responses.');
+  if (responses == null || responses.length != 5) {
+    throw StateError('Direct JSON batch did not return five responses.');
   }
   if (responses[0]['id'] != '$label-direct-batch-api' ||
       !jsonEncode(responses[0]).contains(_procedure)) {
@@ -3786,12 +3796,19 @@ Future<void> _smokeDirectJsonBatch(
       !jsonEncode(responses[1]).contains(taskId)) {
     throw StateError('Direct JSON batch procedure call response was invalid.');
   }
-  if (responses[2]['id'] != '$label-direct-batch-resources' ||
-      !jsonEncode(responses[2]).contains(_resourceUri)) {
+  if (responses[2]['id'] != '$label-direct-batch-tools-alias' ||
+      !jsonEncode(responses[2]).contains(aliasTaskId) ||
+      !jsonEncode(responses[2]).contains(_headerWrappedNote)) {
+    throw StateError(
+      'Direct JSON batch plural tool alias response was invalid.',
+    );
+  }
+  if (responses[3]['id'] != '$label-direct-batch-resources' ||
+      !jsonEncode(responses[3]).contains(_resourceUri)) {
     throw StateError('Direct JSON batch resources/list response was invalid.');
   }
-  if (responses[3]['id'] != '$label-direct-batch-prompt' ||
-      !jsonEncode(responses[3]).contains(promptTaskId)) {
+  if (responses[4]['id'] != '$label-direct-batch-prompt' ||
+      !jsonEncode(responses[4]).contains(promptTaskId)) {
     throw StateError('Direct JSON batch prompts/get response was invalid.');
   }
   await _smokeDirectJsonBatchErrorIsolation(client, label: label);
@@ -3880,6 +3897,7 @@ Future<void> _smokeDirectJsonBatchErrorIsolation(
   required String label,
 }) async {
   final taskId = 'T-$label-direct-batch-error-ok';
+  final aliasTaskId = 'T-$label-direct-batch-error-alias-ok';
   final missingTool = 'missing.$label.direct.batch';
   final responses = await client.postBatch(
     [
@@ -3909,6 +3927,15 @@ Future<void> _smokeDirectJsonBatchErrorIsolation(
       },
       {
         'jsonrpc': '2.0',
+        'id': '$label-direct-batch-error-tools-alias',
+        'method': 'connectanum.tools.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': aliasTaskId, 'note': _headerWrappedNote},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
         'method': 'connectanum.tool.call',
         'params': {
           'name': _procedure,
@@ -3921,9 +3948,9 @@ Future<void> _smokeDirectJsonBatchErrorIsolation(
     streamable: false,
     includeSession: false,
   );
-  if (responses == null || responses.length != 3) {
+  if (responses == null || responses.length != 4) {
     throw StateError(
-      'Direct JSON batch error smoke did not return three responses.',
+      'Direct JSON batch error smoke did not return four responses.',
     );
   }
   if (responses[0]['id'] != '$label-direct-batch-error-api' ||
@@ -3939,6 +3966,13 @@ Future<void> _smokeDirectJsonBatchErrorIsolation(
   if (responses[2]['id'] != '$label-direct-batch-error-call' ||
       !jsonEncode(responses[2]).contains(taskId)) {
     throw StateError('Direct JSON batch error smoke lost success response.');
+  }
+  if (responses[3]['id'] != '$label-direct-batch-error-tools-alias' ||
+      !jsonEncode(responses[3]).contains(aliasTaskId) ||
+      !jsonEncode(responses[3]).contains(_headerWrappedNote)) {
+    throw StateError(
+      'Direct JSON batch error smoke lost plural alias success response.',
+    );
   }
 }
 
