@@ -429,6 +429,7 @@ const _topic = 'agent.events';
 const _subscriptionHandlePrefix = 'agent-subscription';
 const _registrationId = 101;
 const _subscriptionId = 202;
+const _wampSessionId = 404;
 const _sessionCount = 1;
 const _publicationId = 303;
 
@@ -721,6 +722,8 @@ Future<void> _smokeWampHelpers(
     'direct JSON WAMP session meta helper failed',
   );
 
+  await _smokeDirectWampMetaHelpers(client);
+
   final directSubscription = await client.subscribeWampTopic(
     _topic,
     id: 'direct-subscribe',
@@ -758,6 +761,20 @@ Future<void> _smokeWampHelpers(
     'connectanum.api.list',
     'connectanum.api.describe',
     'wamp.session.count',
+    'wamp.session.list',
+    'wamp.session.get',
+    'wamp.registration.list',
+    'wamp.registration.lookup',
+    'wamp.registration.match',
+    'wamp.registration.get',
+    'wamp.registration.list_callees',
+    'wamp.registration.count_callees',
+    'wamp.subscription.list',
+    'wamp.subscription.lookup',
+    'wamp.subscription.match',
+    'wamp.subscription.get',
+    'wamp.subscription.list_subscribers',
+    'wamp.subscription.count_subscribers',
     'connectanum.pubsub.subscribe',
     'connectanum.pubsub.publish',
     'connectanum.pubsub.poll',
@@ -770,6 +787,153 @@ Future<void> _smokeWampHelpers(
     missingDirectWampToolNames.isEmpty,
     'direct JSON WAMP helper tool calls included Streamable session state '
     'for ${missingDirectWampToolNames.join(', ')}',
+  );
+}
+
+Future<void> _smokeDirectWampMetaHelpers(
+  McpStreamableHttpClient client,
+) async {
+  final sessions = await client.listWampSessions(
+    id: 'direct-session-list',
+    directJson: true,
+  );
+  _expect(
+    _jsonListContains(sessions.argumentsKeywords['session_ids'], _wampSessionId),
+    'direct JSON WAMP session list helper failed',
+  );
+
+  final session = await client.getWampSession(
+    _wampSessionId,
+    id: 'direct-session-get',
+    directJson: true,
+  );
+  final sessionDetails = _jsonMapFrom(
+    session.argumentsKeywords['details'],
+    label: 'direct WAMP session details',
+  );
+  _expect(
+    sessionDetails['session'] == _wampSessionId,
+    'direct JSON WAMP session get helper failed',
+  );
+
+  final registrations = await client.listWampRegistrations(
+    id: 'direct-registration-list',
+    directJson: true,
+  );
+  _expect(
+    _jsonListContains(registrations.argumentsKeywords['exact'], _registrationId),
+    'direct JSON WAMP registration list helper failed',
+  );
+
+  final lookupRegistration = await client.lookupWampRegistration(
+    _procedureName,
+    id: 'direct-registration-lookup',
+    match: 'exact',
+    directJson: true,
+  );
+  _expect(
+    lookupRegistration.arguments.single == _registrationId,
+    'direct JSON WAMP registration lookup helper failed',
+  );
+
+  final matchingRegistration = await client.matchWampRegistration(
+    _procedureName,
+    id: 'direct-registration-match',
+    directJson: true,
+  );
+  _expect(
+    matchingRegistration.arguments.single == _registrationId,
+    'direct JSON WAMP registration match helper failed',
+  );
+
+  final registration = await client.getWampRegistration(
+    _registrationId,
+    id: 'direct-registration-get',
+    directJson: true,
+  );
+  _expect(
+    registration.argumentsKeywords['uri'] == _procedureName,
+    'direct JSON WAMP registration get helper failed',
+  );
+
+  final callees = await client.listWampRegistrationCallees(
+    _registrationId,
+    id: 'direct-registration-callees',
+    directJson: true,
+  );
+  _expect(
+    callees.arguments.single == _wampSessionId,
+    'direct JSON WAMP registration callee list helper failed',
+  );
+
+  final calleeCount = await client.countWampRegistrationCallees(
+    _registrationId,
+    id: 'direct-registration-callee-count',
+    directJson: true,
+  );
+  _expect(
+    calleeCount.arguments.single == 1,
+    'direct JSON WAMP registration callee count helper failed',
+  );
+
+  final subscriptions = await client.listWampSubscriptions(
+    id: 'direct-subscription-list',
+    directJson: true,
+  );
+  _expect(
+    _jsonListContains(subscriptions.argumentsKeywords['exact'], _subscriptionId),
+    'direct JSON WAMP subscription list helper failed',
+  );
+
+  final lookupSubscription = await client.lookupWampSubscription(
+    _topic,
+    id: 'direct-subscription-lookup',
+    match: 'exact',
+    directJson: true,
+  );
+  _expect(
+    lookupSubscription.arguments.single == _subscriptionId,
+    'direct JSON WAMP subscription lookup helper failed',
+  );
+
+  final matchingSubscription = await client.matchWampSubscription(
+    _topic,
+    id: 'direct-subscription-match',
+    directJson: true,
+  );
+  _expect(
+    matchingSubscription.arguments.single == _subscriptionId,
+    'direct JSON WAMP subscription match helper failed',
+  );
+
+  final subscription = await client.getWampSubscription(
+    _subscriptionId,
+    id: 'direct-subscription-get',
+    directJson: true,
+  );
+  _expect(
+    subscription.argumentsKeywords['uri'] == _topic,
+    'direct JSON WAMP subscription get helper failed',
+  );
+
+  final subscribers = await client.listWampSubscriptionSubscribers(
+    _subscriptionId,
+    id: 'direct-subscription-subscribers',
+    directJson: true,
+  );
+  _expect(
+    subscribers.arguments.single == _wampSessionId,
+    'direct JSON WAMP subscription subscriber list helper failed',
+  );
+
+  final subscriberCount = await client.countWampSubscriptionSubscribers(
+    _subscriptionId,
+    id: 'direct-subscription-subscriber-count',
+    directJson: true,
+  );
+  _expect(
+    subscriberCount.arguments.single == 1,
+    'direct JSON WAMP subscription subscriber count helper failed',
   );
 }
 
@@ -961,6 +1125,20 @@ final class _AgentMcpEndpoint {
           _toolDefinition('connectanum.pubsub.poll'),
           _toolDefinition('connectanum.pubsub.unsubscribe'),
           _toolDefinition('wamp.session.count'),
+          _toolDefinition('wamp.session.list'),
+          _toolDefinition('wamp.session.get'),
+          _toolDefinition('wamp.registration.list'),
+          _toolDefinition('wamp.registration.lookup'),
+          _toolDefinition('wamp.registration.match'),
+          _toolDefinition('wamp.registration.get'),
+          _toolDefinition('wamp.registration.list_callees'),
+          _toolDefinition('wamp.registration.count_callees'),
+          _toolDefinition('wamp.subscription.list'),
+          _toolDefinition('wamp.subscription.lookup'),
+          _toolDefinition('wamp.subscription.match'),
+          _toolDefinition('wamp.subscription.get'),
+          _toolDefinition('wamp.subscription.list_subscribers'),
+          _toolDefinition('wamp.subscription.count_subscribers'),
         ],
       },
     };
@@ -1031,6 +1209,88 @@ final class _AgentMcpEndpoint {
           'arguments': <Object?>[_sessionCount],
           'argumentsKeywords': <String, Object?>{'count': _sessionCount},
         };
+      case 'wamp.session.list':
+        return <String, Object?>{
+          'arguments': const <Object?>[],
+          'argumentsKeywords': <String, Object?>{
+            'session_ids': <Object?>[_wampSessionId],
+          },
+        };
+      case 'wamp.session.get':
+        return <String, Object?>{
+          'arguments': const <Object?>[],
+          'argumentsKeywords': <String, Object?>{
+            'details': <String, Object?>{
+              'session': _firstArgument(arguments) ?? _wampSessionId,
+              'authid': 'consumer-agent',
+              'authrole': 'agent',
+            },
+          },
+        };
+      case 'wamp.registration.list':
+        return <String, Object?>{
+          'arguments': const <Object?>[],
+          'argumentsKeywords': <String, Object?>{
+            'exact': <Object?>[_registrationId],
+          },
+        };
+      case 'wamp.registration.lookup':
+      case 'wamp.registration.match':
+        return <String, Object?>{
+          'arguments': <Object?>[_registrationId],
+          'argumentsKeywords': const <String, Object?>{},
+        };
+      case 'wamp.registration.get':
+        return <String, Object?>{
+          'arguments': const <Object?>[],
+          'argumentsKeywords': <String, Object?>{
+            'id': _firstArgument(arguments) ?? _registrationId,
+            'uri': _procedureName,
+            'match': 'exact',
+          },
+        };
+      case 'wamp.registration.list_callees':
+        return <String, Object?>{
+          'arguments': <Object?>[_wampSessionId],
+          'argumentsKeywords': const <String, Object?>{},
+        };
+      case 'wamp.registration.count_callees':
+        return <String, Object?>{
+          'arguments': const <Object?>[1],
+          'argumentsKeywords': const <String, Object?>{},
+        };
+      case 'wamp.subscription.list':
+        return <String, Object?>{
+          'arguments': const <Object?>[],
+          'argumentsKeywords': <String, Object?>{
+            'exact': <Object?>[_subscriptionId],
+          },
+        };
+      case 'wamp.subscription.lookup':
+      case 'wamp.subscription.match':
+        return <String, Object?>{
+          'arguments': <Object?>[_subscriptionId],
+          'argumentsKeywords': const <String, Object?>{},
+        };
+      case 'wamp.subscription.get':
+        return <String, Object?>{
+          'arguments': const <Object?>[],
+          'argumentsKeywords': <String, Object?>{
+            'id': _firstArgument(arguments) ?? _subscriptionId,
+            'uri': _topic,
+            'match': 'exact',
+          },
+        };
+      case 'wamp.subscription.list_subscribers':
+        return <String, Object?>{
+          'arguments': <Object?>[_wampSessionId],
+          'argumentsKeywords': const <String, Object?>{},
+        };
+      case 'wamp.subscription.count_subscribers':
+        return <String, Object?>{
+          'arguments': const <Object?>[1],
+          'argumentsKeywords': const <String, Object?>{},
+        };
       case 'connectanum.pubsub.subscribe':
         return _subscribeStructuredContent(arguments);
       case 'connectanum.pubsub.publish':
@@ -1045,6 +1305,11 @@ final class _AgentMcpEndpoint {
           'arguments': arguments,
         };
     }
+  }
+
+  Object? _firstArgument(Map<String, Object?> arguments) {
+    final values = arguments['arguments'];
+    return values is List && values.isNotEmpty ? values.first : null;
   }
 
   Map<String, Object?> _apiListStructuredContent() {
@@ -1287,6 +1552,10 @@ Map<String, Object?> _jsonMapFrom(Object? value, {required String label}) {
     return value.map((key, value) => MapEntry(key as String, value));
   }
   throw StateError('$label was not a JSON object.');
+}
+
+bool _jsonListContains(Object? value, Object? expected) {
+  return value is List && value.contains(expected);
 }
 
 void _expect(bool condition, String message) {

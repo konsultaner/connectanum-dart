@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Package Direct WAMP Helper Smoke
 
-Status: complete locally; full local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -69,7 +69,17 @@ Streamable session headers or relying on router/private project assumptions.
   on 2026-05-08 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
-- Commit and hosted evidence are pending.
+- Pushed implementation commit `be335d8`
+  (`test: cover mcp direct wamp helper client smoke`) to `origin/add-router`
+  and `github/add-router` on 2026-05-08.
+- GitHub CI run `25550173165` passed on 2026-05-08: `Fast Checks` passed in
+  5m57s and `Full Verify` passed in 8m45s.
+- Deployment-chain audit passed with latest clean CI and relevant Dart package
+  publish dry-run evidence on 2026-05-08.
+- Strict deployment-chain audit still fails only the known operator-owned gaps:
+  no branch protection, `.github/workflows/router-image.yml` not discoverable
+  from the default branch, and `ghcr.io/konsultaner/connectanum-router` not
+  visible.
 
 ## Decision Log
 
@@ -81,6 +91,7 @@ Streamable session headers or relying on router/private project assumptions.
 
 ## Handoff
 
-Implementation passed focused syntax/generated client-only smoke checks,
-post-change `bin/test-fast`, and full local `bin/verify`; commit and hosted
-evidence are pending.
+Complete. Implementation passed focused syntax/generated client-only smoke
+checks, post-change `bin/test-fast`, full local `bin/verify`, hosted GitHub
+CI, and the normal deployment-chain audit. Strict audit remains blocked only
+on the known operator-owned GitHub deployment gaps.
