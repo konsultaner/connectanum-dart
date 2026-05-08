@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Generic Streamable Registration Session Meta Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-08
 Last updated: 2026-05-08
@@ -65,6 +65,18 @@ typed helper APIs or private project assumptions.
   on 2026-05-08 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-08 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-08 with isolated `TMPDIR`.
+- Commit `3b28363`
+  (`test: cover mcp generic streamable registration meta`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-08.
+- Hosted GitHub `CI` run `25570306015` for `3b28363` completed successfully
+  on 2026-05-08 with `Fast Checks` (5m57s) and `Full Verify` (8m39s) green.
+- Deployment-chain audit passed on 2026-05-08 with clean latest CI and a
+  relevant clean Dart package publish dry-run (`25485027779`, no
+  publish-sensitive changes since that run).
+- Strict deployment audit still reports operator-side gaps: branch protection
+  and required status checks are absent, `.github/workflows/router-image.yml`
+  is not discoverable from the default branch, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -76,5 +88,6 @@ typed helper APIs or private project assumptions.
 
 ## Handoff
 
-Implementation and local verification are clean. Push and hosted evidence are
-pending.
+Implementation, hosted GitHub CI, and the standard deployment-chain audit are
+clean. Remaining strict deployment audit findings are release-operations gaps
+outside this implementation slice.

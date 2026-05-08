@@ -2688,7 +2688,11 @@ Future<void> _smokeDirectJson(
   }
 
   await _smokeDirectToolApi(client, label: label);
-  await _smokeGenericDirectJsonRpcAccess(client, label: label);
+  await _smokeGenericDirectJsonRpcAccess(
+    client,
+    serviceSession,
+    label: label,
+  );
   await _smokeGenericDirectJsonRpcPubSub(
     client,
     serviceSession,
@@ -2869,7 +2873,8 @@ Map<String, Object?> _jsonRpcResult(
 }
 
 Future<void> _smokeGenericDirectJsonRpcAccess(
-  McpStreamableHttpClient client, {
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
   required String label,
 }) async {
   final previousSessionId = client.sessionId;
@@ -2881,9 +2886,13 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     streamable: false,
     includeSession: false,
   );
+  final toolsJson = jsonEncode(tools['result']);
   if (tools['id'] != toolsId ||
-      !jsonEncode(tools['result']).contains(_procedure)) {
-    throw StateError('Generic direct JSON-RPC tools/list missed $_procedure.');
+      !toolsJson.contains(_procedure) ||
+      !toolsJson.contains('wamp.session.count')) {
+    throw StateError(
+      'Generic direct JSON-RPC tools/list missed router tools.',
+    );
   }
 
   final taskId = 'T-$label-generic-direct-tool-call';
@@ -2940,9 +2949,280 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     throw StateError('Generic direct JSON-RPC API describe missed $_procedure.');
   }
 
+  await _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
+    client,
+    serviceSession,
+    label: label,
+  );
+
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Generic direct JSON-RPC access changed session state.');
+  }
+}
+
+Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final sessionCountId = '$label-generic-direct-session-count';
+  final sessionCount = await client.request(
+    'wamp.session.count',
+    id: sessionCountId,
+    streamable: false,
+    includeSession: false,
+  );
+  final sessionCountContent = _jsonRpcStructuredContent(
+    sessionCount,
+    id: sessionCountId,
+    label: 'Generic direct JSON-RPC WAMP session count',
+  );
+  final sessionCountKeywords = _jsonObjectFrom(
+    sessionCountContent['argumentsKeywords'],
+    label: 'Generic direct JSON-RPC WAMP session count kwargs',
+  );
+  final visibleSessionCount = sessionCountKeywords['count'];
+  if (visibleSessionCount is! int) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP session count missed count metadata.',
+    );
+  }
+
+  final sessionListId = '$label-generic-direct-session-list';
+  final sessionList = await client.request(
+    'wamp.session.list',
+    id: sessionListId,
+    streamable: false,
+    includeSession: false,
+  );
+  final sessionListContent = _jsonRpcStructuredContent(
+    sessionList,
+    id: sessionListId,
+    label: 'Generic direct JSON-RPC WAMP session list',
+  );
+  final sessionListKeywords = _jsonObjectFrom(
+    sessionListContent['argumentsKeywords'],
+    label: 'Generic direct JSON-RPC WAMP session list kwargs',
+  );
+  final sessionIds = _integerMetaIdsFromValue(
+    sessionListKeywords['session_ids'],
+    'generic direct session list',
+  );
+  if (sessionIds.contains(serviceSession.sessionId)) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP session list leaked service session.',
+    );
+  }
+  if (sessionIds.length != visibleSessionCount) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP session count did not match list.',
+    );
+  }
+  if (sessionIds.isEmpty) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP session list missed visible sessions.',
+    );
+  }
+
+  final visibleSessionId = sessionIds.first;
+  final sessionGetId = '$label-generic-direct-session-get';
+  final sessionGet = await client.request(
+    'wamp.session.get',
+    id: sessionGetId,
+    params: {'id': visibleSessionId},
+    streamable: false,
+    includeSession: false,
+  );
+  final sessionGetContent = _jsonRpcStructuredContent(
+    sessionGet,
+    id: sessionGetId,
+    label: 'Generic direct JSON-RPC WAMP session get',
+  );
+  final sessionGetKeywords = _jsonObjectFrom(
+    sessionGetContent['argumentsKeywords'],
+    label: 'Generic direct JSON-RPC WAMP session get kwargs',
+  );
+  final sessionDetails = _jsonObjectFrom(
+    sessionGetKeywords['details'],
+    label: 'Generic direct JSON-RPC WAMP session details',
+  );
+  if (sessionDetails['id'] != visibleSessionId) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP session get missed visible session.',
+    );
+  }
+
+  final registrationLookupId = '$label-generic-direct-registration-lookup';
+  final registrationLookup = await client.request(
+    'wamp.registration.lookup',
+    id: registrationLookupId,
+    params: {'uri': _procedure},
+    streamable: false,
+    includeSession: false,
+  );
+  final registrationLookupContent = _jsonRpcStructuredContent(
+    registrationLookup,
+    id: registrationLookupId,
+    label: 'Generic direct JSON-RPC WAMP registration lookup',
+  );
+  final registrationLookupArguments = registrationLookupContent['arguments'];
+  if (registrationLookupArguments is! List) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration lookup missed arguments.',
+    );
+  }
+  final registrationId = _singleMetaId(
+    registrationLookupArguments.cast<Object?>(),
+    'generic direct registration lookup',
+  );
+  if (registrationId <= 0) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration lookup returned '
+      'invalid id $registrationId.',
+    );
+  }
+
+  final registrationMatchId = '$label-generic-direct-registration-match';
+  final registrationMatch = await client.request(
+    'wamp.registration.match',
+    id: registrationMatchId,
+    params: {'uri': _procedure},
+    streamable: false,
+    includeSession: false,
+  );
+  final registrationMatchContent = _jsonRpcStructuredContent(
+    registrationMatch,
+    id: registrationMatchId,
+    label: 'Generic direct JSON-RPC WAMP registration match',
+  );
+  final registrationMatchArguments = registrationMatchContent['arguments'];
+  if (registrationMatchArguments is! List) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration match missed arguments.',
+    );
+  }
+  final matchingRegistrationId = _singleMetaId(
+    registrationMatchArguments.cast<Object?>(),
+    'generic direct registration match',
+  );
+  if (matchingRegistrationId != registrationId) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration match did not agree '
+      'with lookup.',
+    );
+  }
+
+  final registrationListId = '$label-generic-direct-registration-list';
+  final registrationList = await client.request(
+    'wamp.registration.list',
+    id: registrationListId,
+    streamable: false,
+    includeSession: false,
+  );
+  final registrationListContent = _jsonRpcStructuredContent(
+    registrationList,
+    id: registrationListId,
+    label: 'Generic direct JSON-RPC WAMP registration list',
+  );
+  final registrationListKeywords = _jsonObjectFrom(
+    registrationListContent['argumentsKeywords'],
+    label: 'Generic direct JSON-RPC WAMP registration list kwargs',
+  );
+  final exactRegistrationIds = _integerMetaIdsFromValue(
+    registrationListKeywords['exact'],
+    'generic direct registration list exact',
+  );
+  if (!exactRegistrationIds.contains(registrationId)) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration list missed $_procedure.',
+    );
+  }
+
+  final registrationGetId = '$label-generic-direct-registration-get';
+  final registrationGet = await client.request(
+    'wamp.registration.get',
+    id: registrationGetId,
+    params: {'id': registrationId},
+    streamable: false,
+    includeSession: false,
+  );
+  final registrationGetContent = _jsonRpcStructuredContent(
+    registrationGet,
+    id: registrationGetId,
+    label: 'Generic direct JSON-RPC WAMP registration get',
+  );
+  final registrationGetKeywords = _jsonObjectFrom(
+    registrationGetContent['argumentsKeywords'],
+    label: 'Generic direct JSON-RPC WAMP registration get kwargs',
+  );
+  if (registrationGetKeywords['uri'] != _procedure) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration get missed $_procedure.',
+    );
+  }
+
+  final registrationCalleesId = '$label-generic-direct-registration-callees';
+  final registrationCallees = await client.request(
+    'wamp.registration.list_callees',
+    id: registrationCalleesId,
+    params: {'id': registrationId},
+    streamable: false,
+    includeSession: false,
+  );
+  final registrationCalleesContent = _jsonRpcStructuredContent(
+    registrationCallees,
+    id: registrationCalleesId,
+    label: 'Generic direct JSON-RPC WAMP registration callees',
+  );
+  final registrationCalleeArguments = registrationCalleesContent['arguments'];
+  if (registrationCalleeArguments is! List) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration callees missed arguments.',
+    );
+  }
+  final calleeIds = _integerMetaIds(
+    registrationCalleeArguments.cast<Object?>(),
+    'generic direct registration callees',
+  );
+  if (calleeIds.contains(serviceSession.sessionId) || calleeIds.isNotEmpty) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration callees leaked '
+      'internal sessions.',
+    );
+  }
+
+  final registrationCalleeCountId =
+      '$label-generic-direct-registration-callee-count';
+  final registrationCalleeCount = await client.request(
+    'wamp.registration.count_callees',
+    id: registrationCalleeCountId,
+    params: {'id': registrationId},
+    streamable: false,
+    includeSession: false,
+  );
+  final registrationCalleeCountContent = _jsonRpcStructuredContent(
+    registrationCalleeCount,
+    id: registrationCalleeCountId,
+    label: 'Generic direct JSON-RPC WAMP registration callee count',
+  );
+  final registrationCalleeCountArguments =
+      registrationCalleeCountContent['arguments'];
+  if (registrationCalleeCountArguments is! List) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration callee count missed '
+      'arguments.',
+    );
+  }
+  final calleeCount = _singleMetaId(
+    registrationCalleeCountArguments.cast<Object?>(),
+    'generic direct registration callee count',
+  );
+  if (calleeCount != 0) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP registration callee count leaked '
+      'internal sessions.',
+    );
   }
 }
 
@@ -3185,6 +3465,12 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
   }
 
   try {
+    await _smokeGenericDirectJsonRpcWampSubscriptionMeta(
+      client,
+      serviceSession,
+      label: label,
+    );
+
     final publishId = '$label-generic-direct-pubsub-publish';
     final publishResponse = _jsonObjectFrom(
       await client.post(
@@ -3256,6 +3542,188 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
       client.lastEventId != previousEventId) {
     throw StateError(
       'Generic direct JSON-RPC pub/sub changed Streamable state.',
+    );
+  }
+}
+
+Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final subscriptionLookupId = '$label-generic-direct-subscription-lookup';
+  final subscriptionLookup = await client.request(
+    'wamp.subscription.lookup',
+    id: subscriptionLookupId,
+    params: {'topic': _topic},
+    streamable: false,
+    includeSession: false,
+  );
+  final subscriptionLookupContent = _jsonRpcStructuredContent(
+    subscriptionLookup,
+    id: subscriptionLookupId,
+    label: 'Generic direct JSON-RPC WAMP subscription lookup',
+  );
+  final subscriptionLookupArguments = subscriptionLookupContent['arguments'];
+  if (subscriptionLookupArguments is! List) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription lookup missed arguments.',
+    );
+  }
+  final subscriptionId = _singleMetaId(
+    subscriptionLookupArguments.cast<Object?>(),
+    'generic direct subscription lookup',
+  );
+  if (subscriptionId <= 0) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription lookup returned invalid id '
+      '$subscriptionId.',
+    );
+  }
+
+  final subscriptionMatchId = '$label-generic-direct-subscription-match';
+  final subscriptionMatch = await client.request(
+    'wamp.subscription.match',
+    id: subscriptionMatchId,
+    params: {'topic': _topic},
+    streamable: false,
+    includeSession: false,
+  );
+  final subscriptionMatchContent = _jsonRpcStructuredContent(
+    subscriptionMatch,
+    id: subscriptionMatchId,
+    label: 'Generic direct JSON-RPC WAMP subscription match',
+  );
+  final subscriptionMatchArguments = subscriptionMatchContent['arguments'];
+  if (subscriptionMatchArguments is! List) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription match missed arguments.',
+    );
+  }
+  final matchedSubscriptionIds = _integerMetaIds(
+    subscriptionMatchArguments.cast<Object?>(),
+    'generic direct subscription match',
+  );
+  if (!matchedSubscriptionIds.contains(subscriptionId)) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription match missed $_topic.',
+    );
+  }
+
+  final subscriptionListId = '$label-generic-direct-subscription-list';
+  final subscriptionList = await client.request(
+    'wamp.subscription.list',
+    id: subscriptionListId,
+    streamable: false,
+    includeSession: false,
+  );
+  final subscriptionListContent = _jsonRpcStructuredContent(
+    subscriptionList,
+    id: subscriptionListId,
+    label: 'Generic direct JSON-RPC WAMP subscription list',
+  );
+  final subscriptionListKeywords = _jsonObjectFrom(
+    subscriptionListContent['argumentsKeywords'],
+    label: 'Generic direct JSON-RPC WAMP subscription list kwargs',
+  );
+  final exactSubscriptionIds = _integerMetaIdsFromValue(
+    subscriptionListKeywords['exact'],
+    'generic direct subscription list exact',
+  );
+  if (!exactSubscriptionIds.contains(subscriptionId)) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription list missed $_topic.',
+    );
+  }
+
+  final subscriptionGetId = '$label-generic-direct-subscription-get';
+  final subscriptionGet = await client.request(
+    'wamp.subscription.get',
+    id: subscriptionGetId,
+    params: {'id': subscriptionId},
+    streamable: false,
+    includeSession: false,
+  );
+  final subscriptionGetContent = _jsonRpcStructuredContent(
+    subscriptionGet,
+    id: subscriptionGetId,
+    label: 'Generic direct JSON-RPC WAMP subscription get',
+  );
+  final subscriptionGetKeywords = _jsonObjectFrom(
+    subscriptionGetContent['argumentsKeywords'],
+    label: 'Generic direct JSON-RPC WAMP subscription get kwargs',
+  );
+  if (!jsonEncode(subscriptionGetKeywords).contains(_topic)) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription get missed $_topic.',
+    );
+  }
+
+  final subscribersId = '$label-generic-direct-subscription-subscribers';
+  final subscribers = await client.request(
+    'wamp.subscription.list_subscribers',
+    id: subscribersId,
+    params: {'id': subscriptionId},
+    streamable: false,
+    includeSession: false,
+  );
+  final subscribersContent = _jsonRpcStructuredContent(
+    subscribers,
+    id: subscribersId,
+    label: 'Generic direct JSON-RPC WAMP subscription subscribers',
+  );
+  final subscriberArguments = subscribersContent['arguments'];
+  if (subscriberArguments is! List) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription subscribers missed '
+      'arguments.',
+    );
+  }
+  final subscriberIds = _integerMetaIds(
+    subscriberArguments.cast<Object?>(),
+    'generic direct subscription subscribers',
+  );
+  if (subscriberIds.isEmpty) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription subscribers was empty.',
+    );
+  }
+  if (subscriberIds.contains(serviceSession.sessionId)) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription subscribers leaked service '
+      'session.',
+    );
+  }
+
+  final subscriberCountId =
+      '$label-generic-direct-subscription-subscriber-count';
+  final subscriberCount = await client.request(
+    'wamp.subscription.count_subscribers',
+    id: subscriberCountId,
+    params: {'id': subscriptionId},
+    streamable: false,
+    includeSession: false,
+  );
+  final subscriberCountContent = _jsonRpcStructuredContent(
+    subscriberCount,
+    id: subscriberCountId,
+    label: 'Generic direct JSON-RPC WAMP subscription subscriber count',
+  );
+  final subscriberCountArguments = subscriberCountContent['arguments'];
+  if (subscriberCountArguments is! List) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription subscriber count missed '
+      'arguments.',
+    );
+  }
+  final subscriberTotal = _singleMetaId(
+    subscriberCountArguments.cast<Object?>(),
+    'generic direct subscription subscriber count',
+  );
+  if (subscriberTotal != subscriberIds.length) {
+    throw StateError(
+      'Generic direct JSON-RPC WAMP subscription subscriber count did not '
+      'match visible sessions.',
     );
   }
 }
@@ -4355,6 +4823,7 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
   );
   await _smokeGenericDirectJsonRpcAccess(
     client,
+    serviceSession,
     label: '$label-after-streamable',
   );
   await _smokeGenericDirectJsonRpcPubSub(
