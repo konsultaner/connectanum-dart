@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Streamable Session Reuse Isolation Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -42,6 +42,20 @@ original secure session.
   `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`.
+- Commit `d86a82b` (`test: cover mcp consumer session reuse isolation`) was
+  pushed to `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25613768490` completed successfully for `d86a82b` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25612812164` remains
+  clean/relevant for `d86a82b`; it completed successfully at `3f9c761`, and the
+  audit confirmed no publish-sensitive package inputs changed in `d86a82b`.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI and clean
+  Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -52,5 +66,6 @@ original secure session.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit/push and hosted
-CI/deployment-chain evidence remain.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.

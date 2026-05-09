@@ -3251,6 +3251,10 @@ const _ticketAuthId = 'consumer-user';
 const _ticketSecret = 'consumer-ticket';
 const _otherTicketAuthId = 'consumer-other-user';
 const _otherTicketSecret = 'consumer-other-ticket';
+const _wampCraAuthId = 'consumer-cra-user';
+const _wampCraSecret = 'consumer-cra-secret';
+const _scramAuthId = 'consumer-scram-user';
+const _scramSecret = 'consumer-scram-secret';
 const _topic = 'consumer.events.task';
 const _batchTopic = 'consumer.events.batch';
 const _procedure = 'consumer.task.lookup';
@@ -3366,6 +3370,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       grant.accessToken,
       otherGrant.accessToken,
     );
+    await _smokeChallengeHttpAuthMcpGrants(binding);
     await _smokeSecureMcpRefreshAndRevocation(
       binding,
       serviceSession,
@@ -3386,6 +3391,14 @@ RouterSettings _consumerRouterSettings() {
   final realm = RealmSettingsBuilder(_realm)
     ..addAuthMethod('anonymous')
     ..addAuthMethod('ticket', options: const {'authenticator': 'ticket-demo'})
+    ..addAuthMethod(
+      'wampcra',
+      options: const {'authenticator': 'cra-demo'},
+    )
+    ..addAuthMethod(
+      'scram',
+      options: const {'authenticator': 'scram-demo'},
+    )
     ..addRoleFromBuilder(
       RoleSettingsBuilder('anonymous')
         ..addPermissionFromBuilder(
@@ -3649,7 +3662,7 @@ RouterSettings _consumerRouterSettings() {
         ..addSessionProfileFromBuilder(
           SessionProfileSettingsBuilder('mcp-ticket')
             ..setRealm(_realm)
-            ..setAuthMethods(const ['ticket']),
+            ..setAuthMethods(const ['ticket', 'wampcra', 'scram']),
         )
         ..addAuthenticator(
           'ticket-demo',
@@ -3666,6 +3679,42 @@ RouterSettings _consumerRouterSettings() {
                   'ticket': _otherTicketSecret,
                   'role': 'member',
                   'provider': 'consumer-local',
+                },
+              },
+            },
+          ),
+        )
+        ..addAuthenticator(
+          'cra-demo',
+          const AuthenticatorDefinition(
+            type: 'wampcra',
+            options: {
+              'secrets': {
+                _wampCraAuthId: {
+                  'secret': _wampCraSecret,
+                  'salt': 'consumer-cra-salt',
+                  'iterations': 1000,
+                  'keylen': 32,
+                  'role': 'member',
+                  'provider': 'consumer-cra',
+                  'challenge': {'scope': 'consumer-mcp'},
+                },
+              },
+            },
+          ),
+        )
+        ..addAuthenticator(
+          'scram-demo',
+          const AuthenticatorDefinition(
+            type: 'scram',
+            options: {
+              'secrets': {
+                _scramAuthId: {
+                  'secret': _scramSecret,
+                  'salt': 'CgsMDQ4PEBESExQVFhcYGQ==',
+                  'iterations': 4096,
+                  'role': 'member',
+                  'provider': 'consumer-scram',
                 },
               },
             },
@@ -3879,6 +3928,159 @@ Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
     );
   } finally {
     authClient.close(force: true);
+  }
+}
+
+Future<ConnectanumHttpAuthGrant> _issueWampCraHttpGrant(
+  RouterBinding binding,
+) async {
+  final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
+  try {
+    return await authClient.issueWampCraToken(
+      realm: _realm,
+      authId: _wampCraAuthId,
+      secret: _wampCraSecret,
+    );
+  } finally {
+    authClient.close(force: true);
+  }
+}
+
+Future<ConnectanumHttpAuthGrant> _issueScramHttpGrant(
+  RouterBinding binding,
+) async {
+  final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
+  try {
+    return await authClient.issueScramToken(
+      realm: _realm,
+      authId: _scramAuthId,
+      secret: _scramSecret,
+    );
+  } finally {
+    authClient.close(force: true);
+  }
+}
+
+Future<void> _smokeChallengeHttpAuthMcpGrants(
+  RouterBinding binding,
+) async {
+  final wampCraGrant = await _issueWampCraHttpGrant(binding);
+  _expectHttpAuthGrant(
+    wampCraGrant,
+    authId: _wampCraAuthId,
+    authMethod: 'wampcra',
+    authProvider: 'consumer-cra',
+  );
+  await _smokeSecureMcpGrant(
+    binding,
+    wampCraGrant,
+    label: 'secure-wampcra',
+  );
+
+  final scramGrant = await _issueScramHttpGrant(binding);
+  _expectHttpAuthGrant(
+    scramGrant,
+    authId: _scramAuthId,
+    authMethod: 'scram',
+    authProvider: 'consumer-scram',
+  );
+  await _smokeSecureMcpGrant(
+    binding,
+    scramGrant,
+    label: 'secure-scram',
+  );
+}
+
+void _expectHttpAuthGrant(
+  ConnectanumHttpAuthGrant grant, {
+  required String authId,
+  required String authMethod,
+  required String authProvider,
+}) {
+  if (grant.realm != _realm ||
+      grant.authId != authId ||
+      grant.authRole != 'member' ||
+      grant.authMethod != authMethod ||
+      grant.authProvider != authProvider) {
+    throw StateError(
+      'HTTP auth bridge grant for $authMethod returned unexpected '
+      'principal metadata.',
+    );
+  }
+  if (grant.accessToken.isEmpty ||
+      grant.tokenType.toLowerCase() != 'bearer' ||
+      grant.refreshToken == null ||
+      grant.refreshToken!.isEmpty) {
+    throw StateError('HTTP auth bridge grant for $authMethod is incomplete.');
+  }
+}
+
+Future<void> _smokeSecureMcpGrant(
+  RouterBinding binding,
+  ConnectanumHttpAuthGrant grant, {
+  required String label,
+}) async {
+  final directClient = McpStreamableHttpClient.withBearerToken(
+    _mcpEndpoint(binding, secure: true),
+    grant.accessToken,
+  );
+  McpStreamableHttpClient? streamableClient;
+  try {
+    final tools = await directClient.listConnectanumToolsDirect(
+      id: '$label-direct-tools',
+    );
+    if (!tools.tools.any((tool) => tool['name'] == _procedure)) {
+      throw StateError('Secure direct MCP grant $label missed $_procedure.');
+    }
+    final directResult = await directClient.callConnectanumToolDirect(
+      _procedure,
+      id: '$label-direct-call',
+      arguments: {
+        'taskId': 'T-$label-direct',
+        'note': _headerWrappedNote,
+      },
+    );
+    _expectDirectToolPayload(
+      directResult,
+      taskId: 'T-$label-direct',
+      label: '$label direct grant',
+    );
+    if (directClient.sessionId != null || directClient.lastEventId != null) {
+      throw StateError('Secure direct MCP grant $label captured session state.');
+    }
+
+    streamableClient = await _openSecureStreamableSession(
+      binding,
+      grant.accessToken,
+      label: label,
+    );
+    final streamableTools = await streamableClient.listTools(
+      id: '$label-streamable-tools',
+    );
+    if (!streamableTools.tools.any((tool) => tool['name'] == _procedure)) {
+      throw StateError(
+        'Secure Streamable MCP grant $label missed $_procedure.',
+      );
+    }
+    final streamableResult = await streamableClient.callTool(
+      _procedure,
+      id: '$label-streamable-call',
+      arguments: {
+        'taskId': 'T-$label-streamable',
+        'note': _headerWrappedNote,
+      },
+    );
+    final streamableResultJson = jsonEncode(streamableResult);
+    if (!streamableResultJson.contains('T-$label-streamable') ||
+        !streamableResultJson.contains(_headerWrappedNote)) {
+      throw StateError(
+        'Secure Streamable MCP grant $label returned unexpected payload.',
+      );
+    }
+    await streamableClient.deleteSession();
+  } finally {
+    directClient.close();
+    streamableClient?.close();
   }
 }
 
