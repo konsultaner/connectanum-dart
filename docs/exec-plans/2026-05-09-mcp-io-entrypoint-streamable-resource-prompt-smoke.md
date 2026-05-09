@@ -1,6 +1,6 @@
 # Exec Plan: MCP IO Entrypoint Streamable Resource/Prompt Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -42,6 +42,18 @@ through private package internals.
   passed on 2026-05-09 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `92abba9` (`test: cover mcp io streamable resources`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25603294674` completed successfully for `92abba9`
+  on 2026-05-09 with `Fast Checks` and `Full Verify` green.
+- Hosted `Dart Package Publish Dry Run` run `25603294668` completed
+  successfully for `92abba9` on 2026-05-09.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence.
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -52,5 +64,6 @@ through private package internals.
 
 ## Handoff
 
-Implementation and full local workspace verification are complete.
-Commit/push and hosted CI/deployment-chain evidence remain.
+Implementation, full local workspace verification, push, hosted CI evidence,
+and required deployment-chain audit evidence are complete. Remaining strict
+audit findings are operator-side release controls.

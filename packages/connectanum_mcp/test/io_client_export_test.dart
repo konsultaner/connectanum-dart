@@ -59,7 +59,7 @@ void main() {
   test(
     'IO entrypoint re-exports Streamable resource and prompt helpers',
     () async {
-      final endpoint = await _StreamableResourcePromptEndpoint.bind();
+      final endpoint = await _StreamableMcpEndpoint.bind();
       addTearDown(endpoint.close);
 
       final client = McpStreamableHttpClient(endpoint.uri);
@@ -174,10 +174,186 @@ void main() {
       expect(endpoint.requests[5].accept, 'application/json');
     },
   );
+
+  test('IO entrypoint re-exports Streamable pubsub helpers', () async {
+    final endpoint = await _StreamableMcpEndpoint.bind();
+    addTearDown(endpoint.close);
+
+    final client = McpStreamableHttpClient(endpoint.uri);
+    addTearDown(() => client.close(force: true));
+
+    await client.initialize(id: 'io-pubsub-init');
+    expect(client.sessionId, 'io-session-1');
+
+    final streamableSubscription = await client.subscribeWampTopic(
+      _ioTopic,
+      id: 'io-streamable-subscribe',
+      queueLimit: 5,
+    );
+    expect(streamableSubscription.handle, _ioSubscriptionHandle);
+    expect(streamableSubscription.topic, _ioTopic);
+    expect(streamableSubscription.subscriptionId, 17);
+    expect(streamableSubscription.queueLimit, 5);
+    expect(client.lastEventId, 'io-session-1:post:1');
+
+    final streamablePublication = await client.publishWampEvent(
+      _ioTopic,
+      id: 'io-streamable-publish',
+      argumentsKeywords: const <String, Object?>{'message': 'streamable'},
+      acknowledge: true,
+    );
+    expect(streamablePublication.topic, _ioTopic);
+    expect(streamablePublication.acknowledged, isTrue);
+    expect(streamablePublication.publicationId, 42);
+    expect(client.lastEventId, 'io-session-1:post:2');
+
+    final streamableBatch = await client.pollWampEvents(
+      streamableSubscription.handle,
+      id: 'io-streamable-poll',
+      limit: 2,
+    );
+    expect(streamableBatch.handle, streamableSubscription.handle);
+    expect(streamableBatch.topic, _ioTopic);
+    expect(streamableBatch.events.single['argumentsKeywords'], {
+      'message': 'streamable',
+    });
+    expect(streamableBatch.dropped, 0);
+    expect(streamableBatch.remaining, 0);
+    expect(client.lastEventId, 'io-session-1:post:3');
+
+    final streamableUnsubscribe = await client.unsubscribeWampTopic(
+      streamableSubscription.handle,
+      id: 'io-streamable-unsubscribe',
+    );
+    expect(streamableUnsubscribe.handle, streamableSubscription.handle);
+    expect(streamableUnsubscribe.topic, _ioTopic);
+    expect(streamableUnsubscribe.unsubscribed, isTrue);
+    expect(client.lastEventId, 'io-session-1:post:4');
+
+    final sessionId = client.sessionId;
+    final lastEventId = client.lastEventId;
+
+    final directSubscription = await client.subscribeWampTopic(
+      _ioTopic,
+      id: 'io-direct-subscribe',
+      queueLimit: 3,
+      directJson: true,
+    );
+    expect(directSubscription.handle, _ioSubscriptionHandle);
+
+    final directPublication = await client.publishWampEvent(
+      _ioTopic,
+      id: 'io-direct-publish',
+      argumentsKeywords: const <String, Object?>{'message': 'direct'},
+      acknowledge: true,
+      directJson: true,
+    );
+    expect(directPublication.acknowledged, isTrue);
+
+    final directBatch = await client.pollWampEvents(
+      directSubscription.handle,
+      id: 'io-direct-poll',
+      directJson: true,
+    );
+    expect(directBatch.events.single['argumentsKeywords'], {
+      'message': 'streamable',
+    });
+
+    final directUnsubscribe = await client.unsubscribeWampTopic(
+      directSubscription.handle,
+      id: 'io-direct-unsubscribe',
+      directJson: true,
+    );
+    expect(directUnsubscribe.unsubscribed, isTrue);
+
+    final rawBatch = await client.postBatch(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-batch-subscribe',
+          'method': 'tools/call',
+          'params': <String, Object?>{
+            'name': 'connectanum.pubsub.subscribe',
+            'arguments': <String, Object?>{'topic': _ioTopic, 'queueLimit': 2},
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-batch-publish',
+          'method': 'tools/call',
+          'params': <String, Object?>{
+            'name': 'connectanum.pubsub.publish',
+            'arguments': <String, Object?>{
+              'topic': _ioTopic,
+              'argumentsKeywords': <String, Object?>{'message': 'batch'},
+              'acknowledge': true,
+            },
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-batch-missing-poll',
+          'method': 'tools/call',
+          'params': <String, Object?>{
+            'name': 'connectanum.pubsub.poll',
+            'arguments': <String, Object?>{'handle': 'missing-subscription'},
+          },
+        },
+      ],
+      streamable: false,
+      includeSession: false,
+    );
+
+    expect(rawBatch, hasLength(3));
+    expect(
+      _jsonMapFrom(
+        _jsonRpcResult(
+          rawBatch![0],
+          id: 'io-batch-subscribe',
+        )['structuredContent'],
+        label: 'batch subscribe content',
+      )['handle'],
+      _ioSubscriptionHandle,
+    );
+    expect(
+      _jsonMapFrom(
+        _jsonRpcResult(
+          rawBatch[1],
+          id: 'io-batch-publish',
+        )['structuredContent'],
+        label: 'batch publish content',
+      )['acknowledged'],
+      isTrue,
+    );
+    final missingPoll = _jsonRpcResult(
+      rawBatch[2],
+      id: 'io-batch-missing-poll',
+    );
+    expect(missingPoll['isError'], isTrue);
+    expect(
+      jsonEncode(missingPoll['content']),
+      contains('missing-subscription'),
+    );
+
+    expect(client.sessionId, sessionId);
+    expect(client.lastEventId, lastEventId);
+    expect(endpoint.requests, hasLength(10));
+    expect(endpoint.requests[0].sessionId, isNull);
+    for (final request in endpoint.requests.skip(1).take(4)) {
+      expect(request.sessionId, 'io-session-1');
+      expect(request.accept, contains('text/event-stream'));
+    }
+    for (final request in endpoint.requests.skip(5)) {
+      expect(request.sessionId, isNull);
+      expect(request.accept, 'application/json');
+    }
+  });
 }
 
 const String _ioResourceUri = 'app://io-entrypoint/context';
 const String _ioPromptName = 'io.summarize';
+const String _ioTopic = 'app.events.io';
+const String _ioSubscriptionHandle = 'io-sub-1';
 
 final class _DirectWampEndpoint {
   _DirectWampEndpoint._(this._server) {
@@ -277,8 +453,8 @@ final class _SeenRequest {
   }
 }
 
-final class _StreamableResourcePromptEndpoint {
-  _StreamableResourcePromptEndpoint._(this._server) {
+final class _StreamableMcpEndpoint {
+  _StreamableMcpEndpoint._(this._server) {
     _subscription = _server.listen(_handle);
   }
 
@@ -294,9 +470,9 @@ final class _StreamableResourcePromptEndpoint {
     path: '/mcp',
   );
 
-  static Future<_StreamableResourcePromptEndpoint> bind() async {
+  static Future<_StreamableMcpEndpoint> bind() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    return _StreamableResourcePromptEndpoint._(server);
+    return _StreamableMcpEndpoint._(server);
   }
 
   Future<void> close() async {
@@ -427,9 +603,102 @@ final class _StreamableResourcePromptEndpoint {
             },
           ],
         });
+      case 'tools/call':
+        final params = _jsonMapFrom(message['params'], label: 'tool params');
+        return _responseForToolCall(
+          id,
+          params['name'],
+          _jsonMapFrom(params['arguments'], label: 'tool arguments'),
+        );
+      case 'connectanum.tool.call':
+        final params = _jsonMapFrom(
+          message['params'],
+          label: 'direct tool params',
+        );
+        return _responseForToolCall(
+          id,
+          params['name'],
+          _jsonMapFrom(params['arguments'], label: 'direct tool arguments'),
+        );
       default:
         return _error(id, -32601, 'unsupported method');
     }
+  }
+
+  Map<String, Object?> _responseForToolCall(
+    Object? id,
+    Object? toolName,
+    Map<String, Object?> arguments,
+  ) {
+    switch (toolName) {
+      case 'connectanum.pubsub.subscribe':
+        return _toolResult(id, <String, Object?>{
+          'handle': _ioSubscriptionHandle,
+          'topic': arguments['topic'],
+          'subscriptionId': 17,
+          'queueLimit': arguments['queueLimit'],
+        });
+      case 'connectanum.pubsub.publish':
+        return _toolResult(id, <String, Object?>{
+          'topic': arguments['topic'],
+          'acknowledged': true,
+          'publicationId': 42,
+        });
+      case 'connectanum.pubsub.poll':
+        if (arguments['handle'] != _ioSubscriptionHandle) {
+          return _toolError(
+            id,
+            'subscription not found: ${arguments['handle']}',
+          );
+        }
+        return _toolResult(id, <String, Object?>{
+          'handle': arguments['handle'],
+          'topic': _ioTopic,
+          'events': <Object?>[
+            <String, Object?>{
+              'subscriptionId': 17,
+              'publicationId': 42,
+              'topic': _ioTopic,
+              'argumentsKeywords': <String, Object?>{'message': 'streamable'},
+            },
+          ],
+          'dropped': 0,
+          'remaining': 0,
+        });
+      case 'connectanum.pubsub.unsubscribe':
+        return _toolResult(id, <String, Object?>{
+          'handle': arguments['handle'],
+          'topic': _ioTopic,
+          'unsubscribed': true,
+        });
+      default:
+        return _error(id, -32601, 'unsupported tool: $toolName');
+    }
+  }
+
+  Map<String, Object?> _toolResult(
+    Object? id,
+    Map<String, Object?> structuredContent,
+  ) {
+    return _result(id, <String, Object?>{
+      'content': <Object?>[
+        <String, Object?>{
+          'type': 'text',
+          'text': jsonEncode(structuredContent),
+        },
+      ],
+      'structuredContent': structuredContent,
+      'isError': false,
+    });
+  }
+
+  Map<String, Object?> _toolError(Object? id, String message) {
+    return _result(id, <String, Object?>{
+      'content': <Object?>[
+        <String, Object?>{'type': 'text', 'text': message},
+      ],
+      'isError': true,
+    });
   }
 
   bool _shouldWriteSse(HttpRequest request, Object? message) {
