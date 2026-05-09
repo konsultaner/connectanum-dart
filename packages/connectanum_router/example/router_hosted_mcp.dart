@@ -1853,6 +1853,38 @@ Future<void> _smokeDirectJsonBatchWampMeta(
     modeLabel: 'Direct JSON-RPC batch WAMP meta',
   );
 
+  final topicListId = '$label-direct-batch-wamp-topic-list';
+  final topicDescribeId = '$label-direct-batch-wamp-topic-describe';
+  final topics = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': topicListId,
+        'method': 'connectanum.api.list',
+        'params': {'kind': 'topic'},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': topicDescribeId,
+        'method': 'connectanum.api.describe',
+        'params': {'uri': 'example.events.task', 'kind': 'topic'},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (topics == null) {
+    throw StateError('Direct JSON-RPC batch WAMP topic meta returned null.');
+  }
+  _expectWampTopicBatchMetadata(
+    topics,
+    topicListId: topicListId,
+    topicDescribeId: topicDescribeId,
+    topicUri: 'example.events.task',
+    topicDescription: 'Task lifecycle event stream',
+    modeLabel: 'Direct JSON-RPC batch WAMP topic meta',
+  );
+
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError(
@@ -2020,6 +2052,41 @@ Future<void> _smokeStreamableBatchWampMeta(
     modeLabel: 'Streamable MCP batch WAMP meta',
   );
   expectStreamableProgress('details batch');
+
+  final topicListId = '$label-streamable-batch-wamp-topic-list';
+  final topicDescribeId = '$label-streamable-batch-wamp-topic-describe';
+  final topics = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': topicListId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'connectanum.api.list',
+        'arguments': {'kind': 'topic'},
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': topicDescribeId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'connectanum.api.describe',
+        'arguments': {'uri': 'example.events.task', 'kind': 'topic'},
+      },
+    },
+  ]);
+  if (topics == null) {
+    throw StateError('Streamable MCP batch WAMP topic meta returned null.');
+  }
+  _expectWampTopicBatchMetadata(
+    topics,
+    topicListId: topicListId,
+    topicDescribeId: topicDescribeId,
+    topicUri: 'example.events.task',
+    topicDescription: 'Task lifecycle event stream',
+    modeLabel: 'Streamable MCP batch WAMP topic meta',
+  );
+  expectStreamableProgress('topic metadata batch');
 }
 
 List<int> _expectWampRegistrationSessionBatchDiscovery(
@@ -2208,6 +2275,43 @@ void _expectWampRegistrationSessionBatchDetails(
   );
   if (calleeCount != 0) {
     throw StateError('$modeLabel registration callee count leaked sessions.');
+  }
+}
+
+void _expectWampTopicBatchMetadata(
+  List<McpJsonMap> responses, {
+  required String topicListId,
+  required String topicDescribeId,
+  required String topicUri,
+  required String topicDescription,
+  required String modeLabel,
+}) {
+  if (responses.length != 2) {
+    throw StateError('$modeLabel returned ${responses.length}.');
+  }
+
+  final topicListContent = _structuredContentFromBatchResponse(
+    responses[0],
+    id: topicListId,
+    label: '$modeLabel topic list',
+  );
+  final topicListJson = jsonEncode(topicListContent);
+  if (!topicListJson.contains(topicUri) ||
+      !topicListJson.contains(topicDescription)) {
+    throw StateError('$modeLabel topic list missed $topicUri metadata.');
+  }
+
+  final topicDescribeContent = _structuredContentFromBatchResponse(
+    responses[1],
+    id: topicDescribeId,
+    label: '$modeLabel topic describe',
+  );
+  final topicDescribeJson = jsonEncode(topicDescribeContent);
+  if (!topicDescribeJson.contains(topicUri) ||
+      !topicDescribeJson.contains('eventSchema') ||
+      !topicDescribeJson.contains('allowPublish') ||
+      !topicDescribeJson.contains('allowSubscribe')) {
+    throw StateError('$modeLabel topic describe missed $topicUri metadata.');
   }
 }
 
