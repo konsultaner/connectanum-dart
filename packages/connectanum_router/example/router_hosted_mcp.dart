@@ -562,6 +562,7 @@ Future<void> _smokeMcpEndpoint(
     );
   }
   await _smokeDirectJsonBatchPubSub(client, serviceSession, label: label);
+  await _smokeDirectJsonBatchWampMeta(client, serviceSession, label: label);
 
   await client.initialize(
     clientInfo: const {'name': 'router_hosted_mcp_example', 'version': '0.1.0'},
@@ -680,6 +681,8 @@ Future<void> _smokeMcpEndpoint(
       'Streamable MCP resource/prompt batch did not advance SSE state.',
     );
   }
+
+  await _smokeStreamableBatchWampMeta(client, serviceSession, label: label);
 
   final streamableSubscription = await client.subscribeWampTopic(
     'example.events.task',
@@ -832,6 +835,512 @@ Future<void> _smokeDirectJsonToolMetaApi(
       client.lastEventId != previousEventId) {
     throw StateError('Direct JSON-RPC tool/meta API changed Streamable state.');
   }
+}
+
+Future<void> _smokeDirectJsonBatchWampMeta(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final sessionCountId = '$label-direct-batch-wamp-session-count';
+  final sessionListId = '$label-direct-batch-wamp-session-list';
+  final registrationLookupId = '$label-direct-batch-wamp-registration-lookup';
+  final registrationMatchId = '$label-direct-batch-wamp-registration-match';
+  final registrationListId = '$label-direct-batch-wamp-registration-list';
+  final discovery = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': sessionCountId,
+        'method': 'wamp.session.count',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': sessionListId,
+        'method': 'wamp.session.list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': registrationLookupId,
+        'method': 'wamp.registration.lookup',
+        'params': {'uri': 'example.task.lookup'},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': registrationMatchId,
+        'method': 'wamp.registration.match',
+        'params': {'uri': 'example.task.lookup'},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': registrationListId,
+        'method': 'wamp.registration.list',
+        'params': {},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (discovery == null) {
+    throw StateError(
+      'Direct JSON-RPC batch WAMP meta discovery returned null.',
+    );
+  }
+  final ids = _expectWampRegistrationSessionBatchDiscovery(
+    discovery,
+    sessionCountId: sessionCountId,
+    sessionListId: sessionListId,
+    registrationLookupId: registrationLookupId,
+    registrationMatchId: registrationMatchId,
+    registrationListId: registrationListId,
+    serviceSession: serviceSession,
+    modeLabel: 'Direct JSON-RPC batch WAMP meta',
+  );
+
+  final visibleSessionId = ids[0];
+  final registrationId = ids[1];
+  final sessionGetId = '$label-direct-batch-wamp-session-get';
+  final registrationGetId = '$label-direct-batch-wamp-registration-get';
+  final registrationCalleesId = '$label-direct-batch-wamp-registration-callees';
+  final registrationCalleeCountId =
+      '$label-direct-batch-wamp-registration-callee-count';
+  final details = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': sessionGetId,
+        'method': 'wamp.session.get',
+        'params': {'id': visibleSessionId},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': registrationGetId,
+        'method': 'wamp.registration.get',
+        'params': {'id': registrationId},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': registrationCalleesId,
+        'method': 'wamp.registration.list_callees',
+        'params': {'id': registrationId},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': registrationCalleeCountId,
+        'method': 'wamp.registration.count_callees',
+        'params': {'id': registrationId},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (details == null) {
+    throw StateError('Direct JSON-RPC batch WAMP meta details returned null.');
+  }
+  _expectWampRegistrationSessionBatchDetails(
+    details,
+    sessionGetId: sessionGetId,
+    registrationGetId: registrationGetId,
+    registrationCalleesId: registrationCalleesId,
+    registrationCalleeCountId: registrationCalleeCountId,
+    visibleSessionId: visibleSessionId,
+    serviceSession: serviceSession,
+    modeLabel: 'Direct JSON-RPC batch WAMP meta',
+  );
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError(
+      'Direct JSON-RPC batch WAMP meta changed Streamable state.',
+    );
+  }
+}
+
+Future<void> _smokeStreamableBatchWampMeta(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable MCP batch WAMP meta has no session id.');
+  }
+
+  var previousEventId = client.lastEventId;
+  void expectStreamableProgress(String operation) {
+    if (client.sessionId != sessionId) {
+      throw StateError(
+        'Streamable MCP batch WAMP meta $operation changed session id.',
+      );
+    }
+    final eventId = client.lastEventId;
+    if (eventId == null ||
+        !eventId.startsWith('$sessionId:') ||
+        eventId == previousEventId) {
+      throw StateError(
+        'Streamable MCP batch WAMP meta $operation did not advance SSE state.',
+      );
+    }
+    previousEventId = eventId;
+  }
+
+  final sessionCountId = '$label-streamable-batch-wamp-session-count';
+  final sessionListId = '$label-streamable-batch-wamp-session-list';
+  final registrationLookupId =
+      '$label-streamable-batch-wamp-registration-lookup';
+  final registrationMatchId = '$label-streamable-batch-wamp-registration-match';
+  final registrationListId = '$label-streamable-batch-wamp-registration-list';
+  final discovery = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': sessionCountId,
+      'method': 'tools/call',
+      'params': {'name': 'wamp.session.count', 'arguments': {}},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': sessionListId,
+      'method': 'tools/call',
+      'params': {'name': 'wamp.session.list', 'arguments': {}},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': registrationLookupId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.lookup',
+        'arguments': {
+          'arguments': ['example.task.lookup'],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': registrationMatchId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.match',
+        'arguments': {
+          'arguments': ['example.task.lookup'],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': registrationListId,
+      'method': 'tools/call',
+      'params': {'name': 'wamp.registration.list', 'arguments': {}},
+    },
+  ]);
+  if (discovery == null) {
+    throw StateError('Streamable MCP batch WAMP meta discovery returned null.');
+  }
+  final ids = _expectWampRegistrationSessionBatchDiscovery(
+    discovery,
+    sessionCountId: sessionCountId,
+    sessionListId: sessionListId,
+    registrationLookupId: registrationLookupId,
+    registrationMatchId: registrationMatchId,
+    registrationListId: registrationListId,
+    serviceSession: serviceSession,
+    modeLabel: 'Streamable MCP batch WAMP meta',
+  );
+  expectStreamableProgress('discovery batch');
+
+  final visibleSessionId = ids[0];
+  final registrationId = ids[1];
+  final sessionGetId = '$label-streamable-batch-wamp-session-get';
+  final registrationGetId = '$label-streamable-batch-wamp-registration-get';
+  final registrationCalleesId =
+      '$label-streamable-batch-wamp-registration-callees';
+  final registrationCalleeCountId =
+      '$label-streamable-batch-wamp-registration-callee-count';
+  final details = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': sessionGetId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.session.get',
+        'arguments': {
+          'arguments': [visibleSessionId],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': registrationGetId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.get',
+        'arguments': {
+          'arguments': [registrationId],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': registrationCalleesId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.list_callees',
+        'arguments': {
+          'arguments': [registrationId],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': registrationCalleeCountId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.registration.count_callees',
+        'arguments': {
+          'arguments': [registrationId],
+        },
+      },
+    },
+  ]);
+  if (details == null) {
+    throw StateError('Streamable MCP batch WAMP meta details returned null.');
+  }
+  _expectWampRegistrationSessionBatchDetails(
+    details,
+    sessionGetId: sessionGetId,
+    registrationGetId: registrationGetId,
+    registrationCalleesId: registrationCalleesId,
+    registrationCalleeCountId: registrationCalleeCountId,
+    visibleSessionId: visibleSessionId,
+    serviceSession: serviceSession,
+    modeLabel: 'Streamable MCP batch WAMP meta',
+  );
+  expectStreamableProgress('details batch');
+}
+
+List<int> _expectWampRegistrationSessionBatchDiscovery(
+  List<McpJsonMap> responses, {
+  required String sessionCountId,
+  required String sessionListId,
+  required String registrationLookupId,
+  required String registrationMatchId,
+  required String registrationListId,
+  required RouterSession serviceSession,
+  required String modeLabel,
+}) {
+  if (responses.length != 5) {
+    throw StateError('$modeLabel discovery returned ${responses.length}.');
+  }
+
+  final sessionCountContent = _structuredContentFromBatchResponse(
+    responses[0],
+    id: sessionCountId,
+    label: '$modeLabel session count',
+  );
+  final sessionCountKeywords = _jsonObjectFrom(
+    sessionCountContent['argumentsKeywords'],
+    label: '$modeLabel session count kwargs',
+  );
+  final visibleSessionCount = sessionCountKeywords['count'];
+  if (visibleSessionCount is! int) {
+    throw StateError('$modeLabel session count missed count metadata.');
+  }
+
+  final sessionListContent = _structuredContentFromBatchResponse(
+    responses[1],
+    id: sessionListId,
+    label: '$modeLabel session list',
+  );
+  final sessionListKeywords = _jsonObjectFrom(
+    sessionListContent['argumentsKeywords'],
+    label: '$modeLabel session list kwargs',
+  );
+  final sessionIds = _integerMetaIdsFromValue(
+    sessionListKeywords['session_ids'],
+    '$modeLabel session list',
+  );
+  if (sessionIds.contains(serviceSession.sessionId)) {
+    throw StateError('$modeLabel session list leaked service session.');
+  }
+  if (sessionIds.length != visibleSessionCount) {
+    throw StateError('$modeLabel session count did not match list.');
+  }
+  if (sessionIds.isEmpty) {
+    throw StateError('$modeLabel session list missed visible sessions.');
+  }
+
+  final registrationLookupContent = _structuredContentFromBatchResponse(
+    responses[2],
+    id: registrationLookupId,
+    label: '$modeLabel registration lookup',
+  );
+  final registrationLookupArguments = registrationLookupContent['arguments'];
+  if (registrationLookupArguments is! List) {
+    throw StateError('$modeLabel registration lookup missed arguments.');
+  }
+  final registrationId = _singleMetaId(
+    registrationLookupArguments.cast<Object?>(),
+    '$modeLabel registration lookup',
+  );
+  if (registrationId <= 0) {
+    throw StateError(
+      '$modeLabel registration lookup returned invalid id $registrationId.',
+    );
+  }
+
+  final registrationMatchContent = _structuredContentFromBatchResponse(
+    responses[3],
+    id: registrationMatchId,
+    label: '$modeLabel registration match',
+  );
+  final registrationMatchArguments = registrationMatchContent['arguments'];
+  if (registrationMatchArguments is! List) {
+    throw StateError('$modeLabel registration match missed arguments.');
+  }
+  final matchingRegistrationId = _singleMetaId(
+    registrationMatchArguments.cast<Object?>(),
+    '$modeLabel registration match',
+  );
+  if (matchingRegistrationId != registrationId) {
+    throw StateError('$modeLabel registration match disagreed with lookup.');
+  }
+
+  final registrationListContent = _structuredContentFromBatchResponse(
+    responses[4],
+    id: registrationListId,
+    label: '$modeLabel registration list',
+  );
+  final registrationListKeywords = _jsonObjectFrom(
+    registrationListContent['argumentsKeywords'],
+    label: '$modeLabel registration list kwargs',
+  );
+  final exactRegistrationIds = _integerMetaIdsFromValue(
+    registrationListKeywords['exact'],
+    '$modeLabel registration list exact',
+  );
+  if (!exactRegistrationIds.contains(registrationId)) {
+    throw StateError(
+      '$modeLabel registration list missed example.task.lookup.',
+    );
+  }
+
+  return [sessionIds.first, registrationId];
+}
+
+void _expectWampRegistrationSessionBatchDetails(
+  List<McpJsonMap> responses, {
+  required String sessionGetId,
+  required String registrationGetId,
+  required String registrationCalleesId,
+  required String registrationCalleeCountId,
+  required int visibleSessionId,
+  required RouterSession serviceSession,
+  required String modeLabel,
+}) {
+  if (responses.length != 4) {
+    throw StateError('$modeLabel details returned ${responses.length}.');
+  }
+
+  final sessionGetContent = _structuredContentFromBatchResponse(
+    responses[0],
+    id: sessionGetId,
+    label: '$modeLabel session get',
+  );
+  final sessionGetKeywords = _jsonObjectFrom(
+    sessionGetContent['argumentsKeywords'],
+    label: '$modeLabel session get kwargs',
+  );
+  final sessionDetails = _jsonObjectFrom(
+    sessionGetKeywords['details'],
+    label: '$modeLabel session details',
+  );
+  if (sessionDetails['id'] != visibleSessionId) {
+    throw StateError('$modeLabel session get missed visible session.');
+  }
+
+  final registrationGetContent = _structuredContentFromBatchResponse(
+    responses[1],
+    id: registrationGetId,
+    label: '$modeLabel registration get',
+  );
+  final registrationGetKeywords = _jsonObjectFrom(
+    registrationGetContent['argumentsKeywords'],
+    label: '$modeLabel registration get kwargs',
+  );
+  if (registrationGetKeywords['uri'] != 'example.task.lookup') {
+    throw StateError('$modeLabel registration get missed example.task.lookup.');
+  }
+
+  final registrationCalleesContent = _structuredContentFromBatchResponse(
+    responses[2],
+    id: registrationCalleesId,
+    label: '$modeLabel registration callees',
+  );
+  final registrationCalleeArguments = registrationCalleesContent['arguments'];
+  if (registrationCalleeArguments is! List) {
+    throw StateError('$modeLabel registration callees missed arguments.');
+  }
+  final calleeIds = _integerMetaIds(
+    registrationCalleeArguments.cast<Object?>(),
+    '$modeLabel registration callees',
+  );
+  if (calleeIds.contains(serviceSession.sessionId) || calleeIds.isNotEmpty) {
+    throw StateError('$modeLabel registration callees leaked sessions.');
+  }
+
+  final registrationCalleeCountContent = _structuredContentFromBatchResponse(
+    responses[3],
+    id: registrationCalleeCountId,
+    label: '$modeLabel registration callee count',
+  );
+  final registrationCalleeCountArguments =
+      registrationCalleeCountContent['arguments'];
+  if (registrationCalleeCountArguments is! List) {
+    throw StateError('$modeLabel registration callee count missed arguments.');
+  }
+  final calleeCount = _singleMetaId(
+    registrationCalleeCountArguments.cast<Object?>(),
+    '$modeLabel registration callee count',
+  );
+  if (calleeCount != 0) {
+    throw StateError('$modeLabel registration callee count leaked sessions.');
+  }
+}
+
+McpJsonMap _jsonObjectFrom(Object? value, {required String label}) {
+  if (value is! Map) {
+    throw StateError('$label returned ${jsonEncode(value)}.');
+  }
+  return Map<String, Object?>.from(value);
+}
+
+int _singleMetaId(List<Object?> arguments, String label) {
+  if (arguments.length != 1 || arguments.single is! int) {
+    throw StateError('$label returned ${jsonEncode(arguments)}.');
+  }
+  return arguments.single as int;
+}
+
+List<int> _integerMetaIds(List<Object?> arguments, String label) {
+  final ids = <int>[];
+  for (final value in arguments) {
+    if (value is! int) {
+      throw StateError('$label returned ${jsonEncode(arguments)}.');
+    }
+    ids.add(value);
+  }
+  return ids;
+}
+
+List<int> _integerMetaIdsFromValue(Object? value, String label) {
+  if (value is! List) {
+    throw StateError('$label returned ${jsonEncode(value)}.');
+  }
+  return _integerMetaIds(value.cast<Object?>(), label);
 }
 
 Future<void> _smokeDirectJsonBatchPubSub(

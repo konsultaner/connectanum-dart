@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Example Direct Tool/Meta Smoke
 
-Status: complete; local verification clean; commit/hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -61,7 +61,17 @@ an MCP Streamable HTTP session.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - `git diff --check` passed on 2026-05-09.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
-- Commit, push, and hosted GitHub evidence pending.
+- Commit `7c936c9` (`test: cover mcp example direct tool meta`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25586788256` for `7c936c9` completed successfully on
+  2026-05-09 with `Fast Checks` (6m04s) and `Full Verify` (8m36s) green.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI, clean
+  hosted CI logs, and a clean Dart package publish dry-run covering checked-out
+  head (`25586788266`).
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -72,5 +82,7 @@ an MCP Streamable HTTP session.
 
 ## Handoff
 
-Implementation, focused example smoke, fast verification, diff check, and full
-local verification are clean. Commit, push, and hosted evidence remain.
+Implementation, local verification, hosted CI, and standard deployment-chain
+audit evidence are clean for `7c936c9`. Remaining strict audit failures are
+operator-side release controls: branch protection/required checks,
+default-branch router workflow visibility, and GHCR router package visibility.
