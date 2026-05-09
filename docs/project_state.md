@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `d1679a9`
-(`test: cover mcp pubsub queue overflow`; CI clean)
+Last reviewed branch checkpoint: `2563553`
+(`test: cover mcp streamable lifecycle example`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-router-hosted-mcp-example-streamable-lifecycle-smoke.md`
+`docs/exec-plans/2026-05-09-mcp-client-package-streamable-lifecycle-smoke.md`
 (complete; local verification clean).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-09-router-hosted-mcp-example-streamable-lifecycle-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-09-mcp-pubsub-queue-overflow-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -140,11 +143,13 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`d1679a9`
-(`test: cover mcp pubsub queue overflow`; hosted CI evidence clean).
-Current implementation checkpoint: router-hosted MCP example Streamable
-lifecycle smoke
+`2563553`
+(`test: cover mcp streamable lifecycle example`; hosted CI evidence clean).
+Current implementation checkpoint: MCP client-only Streamable lifecycle smoke
 (complete; local verification clean).
+Previous implementation checkpoint: router-hosted MCP example Streamable
+lifecycle smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP pub/sub queue overflow smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP batch WAMP topic metadata smoke
@@ -409,8 +414,23 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Router-hosted MCP example Streamable lifecycle smoke is complete with clean
-    local verification. The public example now adds a Streamable HTTP lifecycle
+  - MCP client-only Streamable lifecycle smoke is complete with clean local
+    verification. The generated `run_mcp_client_package_smoke` package now
+    proves that a neutral consumer application using
+    `package:connectanum_mcp/connectanum_mcp_io.dart` can poll GET/SSE events,
+    resume with `Last-Event-ID` without replay, reject invalid resume cursors
+    without losing the active session, delete the session, clear stale-session
+    `404` state, reinitialize, and list tools again against a minimal
+    Streamable HTTP endpoint. Pre-change `bin/test-fast` passed on 2026-05-09
+    with isolated `TMPDIR`. Focused generated client-only consumer package
+    smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_client_package_smoke'`)
+    passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-09 with isolated `TMPDIR`. Commit, push, and hosted
+    deployment-chain evidence are pending.
+  - Router-hosted MCP example Streamable lifecycle smoke is complete with
+    hosted CI evidence. The public example now adds a Streamable HTTP lifecycle
     helper that registers a dynamic WAMP procedure after MCP initialization,
     polls GET/SSE for `notifications/tools/list_changed`, verifies resume
     cursors do not replay consumed events, verifies invalid `Last-Event-ID`
@@ -422,8 +442,21 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`)
     passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
-    passed on 2026-05-09 with isolated `TMPDIR`. Commit, push, and hosted
-    deployment-chain evidence are pending.
+    passed on 2026-05-09 with isolated `TMPDIR`. Commit `2563553`
+    (`test: cover mcp streamable lifecycle example`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-09. Hosted GitHub
+    `CI` run `25597333837` for `2563553` completed successfully on
+    2026-05-09 with `Fast Checks` (4m17s) and `Full Verify` (5m57s) green.
+    Hosted GitHub `WAMP Profile Benchmarks` run `25597333824` for `2563553`
+    completed successfully on 2026-05-09 with `Linux WAMP profile gates`
+    (7m18s) green. Hosted GitHub `Dart Package Publish Dry Run` run
+    `25597333839` for `2563553` completed successfully on 2026-05-09 with
+    `Publish Dry Run` green. Deployment-chain audit passed on 2026-05-09 with
+    clean latest CI and clean relevant Dart package publish dry-run evidence.
+    Strict deployment audit still reports operator-side release gaps: branch
+    protection and required status checks are absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP pub/sub queue overflow smoke is complete with hosted CI evidence.
     Generated consumer package and runnable public example smokes now prove
     lifecycle-free direct JSON and initialized Streamable HTTP subscriptions

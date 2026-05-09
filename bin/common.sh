@@ -432,6 +432,7 @@ const _subscriptionId = 202;
 const _wampSessionId = 404;
 const _sessionCount = 1;
 const _publicationId = 303;
+const _firstEventId = 'agent-session:get:1';
 
 Future<void> main() async {
   final endpoint = await _AgentMcpEndpoint.bind();
@@ -499,16 +500,7 @@ Future<void> main() async {
     await _smokeDirectToolApi(client, endpoint);
     await _smokeResourcesAndPrompts(client, endpoint);
     await _smokeWampHelpers(client, endpoint);
-
-    final events = await client.poll();
-    _expect(
-      events.single.jsonData?['method'] == 'notifications/tools/list_changed',
-      'GET/SSE poll did not return a tools/list_changed notification',
-    );
-
-    await client.deleteSession();
-    _expect(client.sessionId == null, 'DELETE did not clear session state');
-    _expect(endpoint.sessionDeleted, 'mock endpoint did not receive DELETE');
+    await _smokeStreamableSessionLifecycle(client, endpoint);
 
     print('MCP client-only consumer package smoke completed.');
   } finally {
@@ -998,6 +990,127 @@ Future<void> _smokeDirectWampMetaHelpers(
   );
 }
 
+Future<void> _smokeStreamableSessionLifecycle(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final events = await client.poll();
+  _expect(
+    events.single.jsonData?['method'] == 'notifications/tools/list_changed',
+    'GET/SSE poll did not return a tools/list_changed notification',
+  );
+  final eventId = client.lastEventId;
+  if (eventId == null || eventId != _firstEventId) {
+    throw StateError('GET/SSE poll did not capture the expected event id.');
+  }
+
+  final resumedEvents = await client.poll(lastEventId: eventId);
+  _expect(
+    resumedEvents.isEmpty,
+    'Last-Event-ID resume replayed a consumed notification',
+  );
+  _expect(
+    client.lastEventId == eventId,
+    'Last-Event-ID resume changed the client cursor',
+  );
+
+  await _expectInvalidLastEventIdRejectedWithoutSessionLoss(client, eventId);
+
+  await client.deleteSession();
+  _expect(
+    client.sessionId == null && client.lastEventId == null,
+    'DELETE did not clear session state',
+  );
+  _expect(endpoint.sessionDeleted, 'mock endpoint did not receive DELETE');
+
+  client.sessionId = _sessionId;
+  client.lastEventId = eventId;
+  try {
+    await client.listTools(id: 'stale-session-tools');
+    throw StateError('Deleted Streamable MCP session remained usable.');
+  } on McpStreamableHttpException catch (error) {
+    _expect(
+      error.statusCode == HttpStatus.notFound,
+      'stale session returned ${error.statusCode}, expected 404',
+    );
+    _expect(
+      error.body.contains('unknown session'),
+      'stale session error did not explain the unknown session',
+    );
+  }
+  _expect(
+    client.sessionId == null && client.lastEventId == null,
+    '404 did not clear stale Streamable session state',
+  );
+
+  final recovered = await client.initialize(
+    id: 'reinitialize',
+    clientInfo: const <String, Object?>{
+      'name': 'consumer-agent-smoke',
+      'version': '0.1.0',
+    },
+  );
+  _expect(
+    recovered['id'] == 'reinitialize' && client.sessionId == _sessionId,
+    'reinitialize after stale-session clearing failed',
+  );
+  await client.notifyInitialized();
+  final recoveredTools = await client.listTools(
+    id: 'tools-after-reinitialize',
+    streamable: false,
+  );
+  _expect(
+    recoveredTools.tools.any((tool) => tool['name'] == _toolName),
+    'reinitialized session could not list tools',
+  );
+  await client.deleteSession();
+  _expect(
+    client.sessionId == null && client.lastEventId == null,
+    'reinitialized DELETE did not clear session state',
+  );
+}
+
+Future<void> _expectInvalidLastEventIdRejectedWithoutSessionLoss(
+  McpStreamableHttpClient client,
+  String eventId,
+) async {
+  final sessionId = client.sessionId;
+  if (sessionId != _sessionId) {
+    throw StateError('invalid Last-Event-ID smoke has no active session.');
+  }
+
+  try {
+    await client.poll(lastEventId: '$sessionId:missing:1');
+    throw StateError('Streamable MCP accepted an unknown Last-Event-ID.');
+  } on McpStreamableHttpException catch (error) {
+    _expect(
+      error.statusCode == HttpStatus.badRequest,
+      'invalid Last-Event-ID returned ${error.statusCode}, expected 400',
+    );
+    _expect(
+      error.body.contains('Last-Event-ID'),
+      'invalid Last-Event-ID error did not identify the rejected cursor',
+    );
+  }
+
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'invalid Last-Event-ID changed active session state',
+  );
+  final tools = await client.listTools(
+    id: 'tools-after-invalid-last-event-id',
+    streamable: false,
+  );
+  _expect(
+    tools.tools.any((tool) => tool['name'] == _toolName),
+    'session failed after invalid Last-Event-ID rejection',
+  );
+  _expect(
+    client.sessionId == sessionId,
+    'invalid Last-Event-ID recovery lost the session id',
+  );
+}
+
 final class _AgentMcpEndpoint {
   _AgentMcpEndpoint._(this._server) {
     _subscription = _server.listen(_handle);
@@ -1011,6 +1124,7 @@ final class _AgentMcpEndpoint {
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
+  var _sessionActive = false;
 
   Uri get uri => Uri(
     scheme: 'http',
@@ -1038,13 +1152,26 @@ final class _AgentMcpEndpoint {
 
     if (request.method == 'GET') {
       if (!_hasSession(request)) {
-        await _writeError(request, HttpStatus.badRequest, 'missing session');
+        await _writeSessionError(request);
+        return;
+      }
+      final lastEventId = request.headers.value('Last-Event-ID');
+      if (lastEventId != null) {
+        if (lastEventId == _firstEventId) {
+          await _writeEmptySse(request);
+          return;
+        }
+        await _writeError(
+          request,
+          HttpStatus.badRequest,
+          'unknown Last-Event-ID',
+        );
         return;
       }
       await _writeSse(request, <String, Object?>{
         'jsonrpc': '2.0',
         'method': 'notifications/tools/list_changed',
-      });
+      }, id: _firstEventId);
       return;
     }
 
@@ -1053,6 +1180,7 @@ final class _AgentMcpEndpoint {
         await _writeError(request, HttpStatus.notFound, 'unknown session');
         return;
       }
+      _sessionActive = false;
       sessionDeleted = true;
       request.response.statusCode = HttpStatus.noContent;
       await request.response.close();
@@ -1076,6 +1204,8 @@ final class _AgentMcpEndpoint {
 
     switch (method) {
       case 'initialize':
+        _sessionActive = true;
+        sessionDeleted = false;
         request.response.headers
           ..set('MCP-Session-Id', _sessionId)
           ..set('MCP-Protocol-Version', _protocolVersion);
@@ -1095,20 +1225,20 @@ final class _AgentMcpEndpoint {
         });
       case 'notifications/initialized':
         if (!_hasSession(request)) {
-          await _writeError(request, HttpStatus.badRequest, 'missing session');
+          await _writeSessionError(request);
           return;
         }
         request.response.statusCode = HttpStatus.accepted;
         await request.response.close();
       case 'tools/list':
         if (!_hasSession(request)) {
-          await _writeError(request, HttpStatus.badRequest, 'missing session');
+          await _writeSessionError(request);
           return;
         }
         await _writeJson(request, _toolListResponse(id));
       case 'tools/call':
         if (!_hasSession(request)) {
-          await _writeError(request, HttpStatus.badRequest, 'missing session');
+          await _writeSessionError(request);
           return;
         }
         await _writeJson(request, _toolCallResponse(id, message));
@@ -1166,7 +1296,16 @@ final class _AgentMcpEndpoint {
   }
 
   bool _hasSession(HttpRequest request) {
-    return request.headers.value('MCP-Session-Id') == _sessionId;
+    return request.headers.value('MCP-Session-Id') == _sessionId &&
+        _sessionActive;
+  }
+
+  Future<void> _writeSessionError(HttpRequest request) async {
+    if (request.headers.value('MCP-Session-Id') == _sessionId) {
+      await _writeError(request, HttpStatus.notFound, 'unknown session');
+      return;
+    }
+    await _writeError(request, HttpStatus.badRequest, 'missing session');
   }
 
   Map<String, Object?> _toolListResponse(Object? id) {
@@ -1607,16 +1746,26 @@ final class _AgentMcpEndpoint {
 
   Future<void> _writeSse(
     HttpRequest request,
-    Map<String, Object?> message,
-  ) async {
+    Map<String, Object?> message, {
+    required String id,
+  }) async {
     request.response.headers.contentType = ContentType(
       'text',
       'event-stream',
       charset: 'utf-8',
     );
-    request.response.write('id: agent-event-1\n');
+    request.response.write('id: $id\n');
     request.response.write('event: message\n');
     request.response.write('data: ${jsonEncode(message)}\n\n');
+    await request.response.close();
+  }
+
+  Future<void> _writeEmptySse(HttpRequest request) async {
+    request.response.headers.contentType = ContentType(
+      'text',
+      'event-stream',
+      charset: 'utf-8',
+    );
     await request.response.close();
   }
 
