@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Package Batch Resource/Prompt Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -45,6 +45,19 @@ or losing Streamable HTTP session state.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_client_package_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `e04d911` (`test: cover mcp client batch resources`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25602314946` for `e04d911` completed successfully
+  on 2026-05-09 with `Fast Checks` and `Full Verify` green.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence. The latest relevant
+  `Dart Package Publish Dry Run` remains run `25597333839` for `2563553`;
+  it is still relevant because no publish-sensitive paths changed since that
+  run.
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -58,5 +71,6 @@ or losing Streamable HTTP session state.
 
 ## Handoff
 
-Implementation and full local workspace verification are complete.
-Commit/push and hosted CI/deployment-chain evidence remain.
+Implementation, local verification, push, and hosted CI/deployment-chain
+evidence are complete. Remaining strict audit findings are operator-side
+release gaps, not regressions from this smoke-test change.

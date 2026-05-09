@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `75d1b3f`
-(`test: cover mcp client batch pubsub`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `e04d911`
+(`test: cover mcp client batch resources`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-mcp-client-package-batch-resource-prompt-smoke.md`
+`docs/exec-plans/2026-05-09-mcp-io-entrypoint-streamable-resource-prompt-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-09-mcp-client-package-batch-resource-prompt-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-09-mcp-client-package-batch-pubsub-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -155,11 +158,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`75d1b3f`
-(`test: cover mcp client batch pubsub`; hosted CI evidence clean).
-Current implementation checkpoint: MCP client package batch resource/prompt
+`e04d911`
+(`test: cover mcp client batch resources`; hosted CI evidence clean).
+Current implementation checkpoint: MCP IO entrypoint Streamable resource/prompt
 smoke
 (complete; local verification clean; hosted evidence pending).
+Previous implementation checkpoint: MCP client package batch resource/prompt
+smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP client package batch pub/sub smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP client package batch error isolation
@@ -437,6 +443,20 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP IO entrypoint Streamable resource/prompt smoke is implemented locally.
+    The checked-in `packages/connectanum_mcp/test/io_client_export_test.dart`
+    now proves that a neutral consumer application importing only
+    `package:connectanum_mcp/connectanum_mcp_io.dart` can initialize a public
+    `McpStreamableHttpClient` session, consume POST/SSE resource and prompt
+    responses, issue lifecycle-free direct JSON resource and prompt helper
+    calls without `MCP-Session-Id`, and use direct JSON `postBatch(...)` for
+    resource/prompt success plus JSON-RPC error isolation while the active
+    Streamable session id and SSE cursor remain unchanged. Pre-change
+    `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`. Focused
+    `dart test packages/connectanum_mcp/test/io_client_export_test.dart`
+    passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-09 with isolated `TMPDIR`.
   - MCP client package batch resource/prompt smoke is implemented locally. The
     generated `run_mcp_client_package_smoke` package now proves that a neutral
     consumer application using
@@ -453,7 +473,19 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_client_package_smoke'`)
     passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
-    passed on 2026-05-09 with isolated `TMPDIR`.
+    passed on 2026-05-09 with isolated `TMPDIR`. Commit `e04d911`
+    (`test: cover mcp client batch resources`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-09. Hosted GitHub
+    `CI` run `25602314946` for `e04d911` completed successfully on
+    2026-05-09 with `Fast Checks` and `Full Verify` green.
+    Deployment-chain audit passed on 2026-05-09 with clean latest CI and
+    clean relevant Dart package publish dry-run evidence. The latest relevant
+    `Dart Package Publish Dry Run` remains run `25597333839` for `2563553`;
+    it is still relevant because no publish-sensitive paths changed since
+    that run. Strict deployment audit still reports operator-side release
+    gaps: branch protection and required status checks are absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP client package batch pub/sub smoke is implemented locally. The
     generated `run_mcp_client_package_smoke` package now proves that a neutral
     consumer application using
