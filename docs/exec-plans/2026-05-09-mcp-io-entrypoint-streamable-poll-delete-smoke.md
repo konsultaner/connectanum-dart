@@ -1,6 +1,6 @@
 # Exec Plan: MCP IO Entrypoint Streamable Poll/Delete Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -43,6 +43,19 @@ deletion without reaching through private package internals.
   passed on 2026-05-09 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `360a6b4` (`test: cover mcp io streamable poll delete helpers`) was
+  pushed to `origin/add-router` and `github/add-router` on 2026-05-09.
+- GitHub `CI` run `25608972599` completed successfully for `360a6b4` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25608972598` completed
+  successfully for `360a6b4`.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -53,5 +66,6 @@ deletion without reaching through private package internals.
 
 ## Handoff
 
-Implementation and full local verification are complete. Commit/push and hosted
-CI/deployment-chain evidence remain.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.

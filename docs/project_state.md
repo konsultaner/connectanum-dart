@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `8e9e5c6`
-(`test: cover mcp io standard wamp meta helpers`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `360a6b4`
+(`test: cover mcp io streamable poll delete helpers`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-mcp-io-entrypoint-streamable-poll-delete-smoke.md`
+`docs/exec-plans/2026-05-09-mcp-io-entrypoint-registration-meta-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-09-mcp-io-entrypoint-streamable-poll-delete-smoke.md`
+`docs/exec-plans/2026-05-09-mcp-io-entrypoint-registration-meta-smoke.md`
 (complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-09-mcp-io-entrypoint-streamable-poll-delete-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-09-mcp-io-entrypoint-standard-wamp-meta-smoke.md`
 (complete; hosted CI evidence clean).
@@ -176,11 +179,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`8e9e5c6`
-(`test: cover mcp io standard wamp meta helpers`; hosted CI evidence clean).
-Current implementation checkpoint: MCP IO entrypoint Streamable poll/delete
+`360a6b4`
+(`test: cover mcp io streamable poll delete helpers`; hosted CI evidence clean).
+Current implementation checkpoint: MCP IO entrypoint WAMP registration meta
 smoke
 (complete; local verification clean; hosted evidence pending).
+Previous implementation checkpoint: MCP IO entrypoint Streamable poll/delete
+smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP IO entrypoint standard WAMP meta smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP IO entrypoint direct tool/meta smoke
@@ -472,8 +478,24 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP IO entrypoint Streamable poll/delete smoke is implemented locally with
+  - MCP IO entrypoint WAMP registration meta smoke is implemented locally with
     full local verification clean. The checked-in
+    `packages/connectanum_mcp/test/io_client_export_test.dart` now proves that
+    a neutral consumer application importing only
+    `package:connectanum_mcp/connectanum_mcp_io.dart` can use
+    `listWampRegistrations`, `lookupWampRegistration`,
+    `matchWampRegistration`, `getWampRegistration`,
+    `listWampRegistrationCallees`, and `countWampRegistrationCallees` over
+    lifecycle-free direct JSON `connectanum.tool.call` POSTs. The smoke asserts
+    helper tool names, JSON accept headers, no `MCP-Session-Id`, and direct
+    lookup/get/callee-count argument shapes. Pre-change `bin/test-fast` passed
+    on 2026-05-09 with isolated `TMPDIR`. Focused
+    `dart test packages/connectanum_mcp/test/io_client_export_test.dart` passed
+    on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast` and full
+    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`. Commit/push
+    and hosted evidence remain.
+  - MCP IO entrypoint Streamable poll/delete smoke is complete with hosted CI
+    evidence. The checked-in
     `packages/connectanum_mcp/test/io_client_export_test.dart` now proves that
     a neutral consumer application importing only
     `package:connectanum_mcp/connectanum_mcp_io.dart` can initialize a
@@ -486,8 +508,17 @@ order.
     isolated `TMPDIR`. Focused
     `dart test packages/connectanum_mcp/test/io_client_export_test.dart` passed
     on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast` and full
-    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`. Commit/push
-    and hosted evidence remain.
+    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`. Commit
+    `360a6b4` (`test: cover mcp io streamable poll delete helpers`) is pushed
+    to both remotes. GitHub `CI` run `25608972599` completed successfully for
+    `360a6b4` with `Fast Checks` and `Full Verify` green. Dart Package Publish
+    Dry Run `25608972598` completed successfully for `360a6b4`. The
+    deployment-chain audit passed with clean latest CI and package publish
+    dry-run evidence. Strict audit still reports only known operator-side
+    release-hardening gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP IO entrypoint standard WAMP meta smoke is complete with hosted CI
     evidence. The checked-in
     `packages/connectanum_mcp/test/io_client_export_test.dart` now proves that

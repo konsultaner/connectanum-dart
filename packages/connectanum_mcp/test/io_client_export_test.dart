@@ -289,6 +289,113 @@ void main() {
     },
   );
 
+  test(
+    'IO entrypoint re-exports direct WAMP registration meta helpers',
+    () async {
+      final endpoint = await _DirectWampEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      final registrations = await client.listWampRegistrations(
+        id: 'io-direct-registration-list',
+        directJson: true,
+      );
+      expect(registrations.procedure, 'wamp.registration.list');
+      expect(registrations.argumentsKeywords['exact'], [11]);
+
+      final lookup = await client.lookupWampRegistration(
+        'app.echo',
+        id: 'io-direct-registration-lookup',
+        match: 'exact',
+        directJson: true,
+      );
+      expect(lookup.arguments, [11]);
+
+      final match = await client.matchWampRegistration(
+        'app.echo',
+        id: 'io-direct-registration-match-helper',
+        directJson: true,
+      );
+      expect(match.arguments, [11]);
+
+      final registration = await client.getWampRegistration(
+        11,
+        id: 'io-direct-registration-get',
+        directJson: true,
+      );
+      expect(registration.argumentsKeywords['uri'], 'app.echo');
+      expect(registration.argumentsKeywords['match'], 'exact');
+
+      final callees = await client.listWampRegistrationCallees(
+        11,
+        id: 'io-direct-registration-callees',
+        directJson: true,
+      );
+      expect(callees.arguments, [101]);
+
+      final calleeCount = await client.countWampRegistrationCallees(
+        11,
+        id: 'io-direct-registration-callee-count',
+        directJson: true,
+      );
+      expect(calleeCount.arguments, [1]);
+
+      expect(client.sessionId, isNull);
+      expect(endpoint.requests, hasLength(6));
+      for (final request in endpoint.requests) {
+        expect(request.accept, 'application/json');
+        expect(request.sessionId, isNull);
+        expect(request.body['method'], 'connectanum.tool.call');
+      }
+
+      final helperParams = [
+        for (final request in endpoint.requests)
+          _jsonMapFrom(
+            request.body['params'],
+            label: 'registration meta params',
+          ),
+      ];
+      expect(helperParams.map((params) => params['name']), [
+        'wamp.registration.list',
+        'wamp.registration.lookup',
+        'wamp.registration.match',
+        'wamp.registration.get',
+        'wamp.registration.list_callees',
+        'wamp.registration.count_callees',
+      ]);
+      expect(
+        _jsonMapFrom(
+          helperParams[1]['arguments'],
+          label: 'registration lookup arguments',
+        ),
+        {
+          'arguments': ['app.echo'],
+          'argumentsKeywords': {'match': 'exact'},
+        },
+      );
+      expect(
+        _jsonMapFrom(
+          helperParams[3]['arguments'],
+          label: 'registration get arguments',
+        ),
+        {
+          'arguments': [11],
+        },
+      );
+      expect(
+        _jsonMapFrom(
+          helperParams[5]['arguments'],
+          label: 'registration callee count arguments',
+        ),
+        {
+          'arguments': [11],
+        },
+      );
+    },
+  );
+
   test('IO entrypoint re-exports HTTP auth helpers for MCP sessions', () async {
     final endpoint = await _AuthBackedMcpEndpoint.bind();
     addTearDown(endpoint.close);
@@ -861,6 +968,54 @@ final class _DirectWampEndpoint {
                   'authrole': 'agent',
                 },
               },
+            );
+            return;
+          case 'wamp.registration.list':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.registration.list',
+              argumentsKeywords: const <String, Object?>{
+                'exact': <Object?>[11],
+                'prefix': <Object?>[],
+                'wildcard': <Object?>[],
+              },
+            );
+            return;
+          case 'wamp.registration.lookup':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.registration.lookup',
+              arguments: const <Object?>[11],
+            );
+            return;
+          case 'wamp.registration.get':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.registration.get',
+              argumentsKeywords: const <String, Object?>{
+                'id': 11,
+                'uri': 'app.echo',
+                'match': 'exact',
+              },
+            );
+            return;
+          case 'wamp.registration.list_callees':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.registration.list_callees',
+              arguments: const <Object?>[101],
+            );
+            return;
+          case 'wamp.registration.count_callees':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.registration.count_callees',
+              arguments: const <Object?>[1],
             );
             return;
           case 'wamp.subscription.match':
