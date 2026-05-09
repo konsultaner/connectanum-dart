@@ -180,6 +180,115 @@ void main() {
     },
   );
 
+  test(
+    'IO entrypoint re-exports direct WAMP session and subscription meta helpers',
+    () async {
+      final endpoint = await _DirectWampEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      final sessionCount = await client.countWampSessions(
+        id: 'io-direct-session-count',
+        directJson: true,
+      );
+      expect(sessionCount.procedure, 'wamp.session.count');
+      expect(sessionCount.argumentsKeywords['count'], 2);
+
+      final sessions = await client.listWampSessions(
+        id: 'io-direct-session-list',
+        directJson: true,
+      );
+      expect(sessions.argumentsKeywords['session_ids'], [101, 102]);
+
+      final session = await client.getWampSession(
+        101,
+        id: 'io-direct-session-get',
+        directJson: true,
+      );
+      expect(session.argumentsKeywords['details'], {
+        'session': 101,
+        'authid': 'io-user',
+        'authrole': 'agent',
+      });
+
+      final subscription = await client.matchWampSubscription(
+        _ioTopic,
+        id: 'io-direct-subscription-match',
+        directJson: true,
+      );
+      expect(subscription.procedure, 'wamp.subscription.match');
+      expect(subscription.arguments, [17]);
+
+      final subscriptionDetails = await client.getWampSubscription(
+        17,
+        id: 'io-direct-subscription-get',
+        directJson: true,
+      );
+      expect(subscriptionDetails.argumentsKeywords['details'], {
+        'id': 17,
+        'topic': _ioTopic,
+      });
+
+      final subscriberCount = await client.countWampSubscriptionSubscribers(
+        17,
+        id: 'io-direct-subscription-subscriber-count',
+        directJson: true,
+      );
+      expect(subscriberCount.argumentsKeywords['count'], 1);
+
+      expect(client.sessionId, isNull);
+      expect(endpoint.requests, hasLength(6));
+      for (final request in endpoint.requests) {
+        expect(request.accept, 'application/json');
+        expect(request.sessionId, isNull);
+        expect(request.body['method'], 'connectanum.tool.call');
+      }
+
+      final helperParams = [
+        for (final request in endpoint.requests)
+          _jsonMapFrom(request.body['params'], label: 'WAMP meta params'),
+      ];
+      expect(helperParams.map((params) => params['name']), [
+        'wamp.session.count',
+        'wamp.session.list',
+        'wamp.session.get',
+        'wamp.subscription.match',
+        'wamp.subscription.get',
+        'wamp.subscription.count_subscribers',
+      ]);
+
+      expect(
+        _jsonMapFrom(
+          helperParams[2]['arguments'],
+          label: 'session get arguments',
+        ),
+        {
+          'arguments': [101],
+        },
+      );
+      expect(
+        _jsonMapFrom(
+          helperParams[3]['arguments'],
+          label: 'subscription match arguments',
+        ),
+        {
+          'arguments': [_ioTopic],
+        },
+      );
+      expect(
+        _jsonMapFrom(
+          helperParams[5]['arguments'],
+          label: 'subscription subscriber count arguments',
+        ),
+        {
+          'arguments': [17],
+        },
+      );
+    },
+  );
+
   test('IO entrypoint re-exports HTTP auth helpers for MCP sessions', () async {
     final endpoint = await _AuthBackedMcpEndpoint.bind();
     addTearDown(endpoint.close);
@@ -650,6 +759,69 @@ final class _DirectWampEndpoint {
               jsonBody['id'],
               request,
               'wamp.registration.match',
+              arguments: const <Object?>[11],
+            );
+            return;
+          case 'wamp.session.count':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.session.count',
+              argumentsKeywords: const <String, Object?>{'count': 2},
+            );
+            return;
+          case 'wamp.session.list':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.session.list',
+              argumentsKeywords: const <String, Object?>{
+                'session_ids': <Object?>[101, 102],
+              },
+            );
+            return;
+          case 'wamp.session.get':
+            final metaArgumentsValue = arguments['arguments'];
+            final metaArguments = metaArgumentsValue is List
+                ? List<Object?>.unmodifiable(metaArgumentsValue)
+                : const <Object?>[];
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.session.get',
+              argumentsKeywords: <String, Object?>{
+                'details': <String, Object?>{
+                  'session': metaArguments.isEmpty ? null : metaArguments.first,
+                  'authid': 'io-user',
+                  'authrole': 'agent',
+                },
+              },
+            );
+            return;
+          case 'wamp.subscription.match':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.subscription.match',
+              arguments: const <Object?>[17],
+            );
+            return;
+          case 'wamp.subscription.get':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.subscription.get',
+              argumentsKeywords: <String, Object?>{
+                'details': <String, Object?>{'id': 17, 'topic': _ioTopic},
+              },
+            );
+            return;
+          case 'wamp.subscription.count_subscribers':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.subscription.count_subscribers',
+              argumentsKeywords: const <String, Object?>{'count': 1},
             );
             return;
           case 'app.echo':
@@ -670,6 +842,7 @@ final class _DirectWampEndpoint {
           jsonBody['id'],
           request,
           'wamp.registration.match',
+          arguments: const <Object?>[11],
         );
         return;
     }
@@ -708,11 +881,14 @@ final class _DirectWampEndpoint {
   Future<void> _writeWampMetaResult(
     Object? id,
     HttpRequest request,
-    String procedure,
-  ) async {
+    String procedure, {
+    List<Object?> arguments = const <Object?>[],
+    Map<String, Object?> argumentsKeywords = const <String, Object?>{},
+  }) async {
     await _writeToolResult(id, request, <String, Object?>{
       'procedure': procedure,
-      'arguments': <Object?>[11],
+      if (arguments.isNotEmpty) 'arguments': arguments,
+      if (argumentsKeywords.isNotEmpty) 'argumentsKeywords': argumentsKeywords,
     });
   }
 

@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `7b84641`
-(`test: cover mcp io auth session helpers`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `2fce640`
+(`test: cover mcp io direct tool meta helpers`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-mcp-io-entrypoint-direct-tool-meta-smoke.md`
+`docs/exec-plans/2026-05-09-mcp-io-entrypoint-standard-wamp-meta-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-09-mcp-io-entrypoint-direct-tool-meta-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-09-mcp-io-entrypoint-auth-session-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -167,10 +170,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`7b84641`
-(`test: cover mcp io auth session helpers`; hosted CI evidence clean).
-Current implementation checkpoint: MCP IO entrypoint direct tool/meta smoke
+`2fce640`
+(`test: cover mcp io direct tool meta helpers`; hosted CI evidence clean).
+Current implementation checkpoint: MCP IO entrypoint standard WAMP meta smoke
 (complete; local verification clean; hosted evidence pending).
+Previous implementation checkpoint: MCP IO entrypoint direct tool/meta smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP IO entrypoint auth/session smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP IO entrypoint Streamable pub/sub smoke
@@ -458,8 +463,25 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP IO entrypoint direct tool/meta smoke is implemented locally with full
+  - MCP IO entrypoint standard WAMP meta smoke is implemented locally with full
     local verification clean. The checked-in
+    `packages/connectanum_mcp/test/io_client_export_test.dart` now proves that
+    a neutral consumer application importing only
+    `package:connectanum_mcp/connectanum_mcp_io.dart` can use
+    `countWampSessions`, `listWampSessions`, `getWampSession`,
+    `matchWampSubscription`, `getWampSubscription`, and
+    `countWampSubscriptionSubscribers` over lifecycle-free direct JSON
+    `connectanum.tool.call` POSTs. The smoke asserts request methods, tool
+    names, JSON accept headers, and the absence of `MCP-Session-Id` so the
+    package boundary covers standard WAMP session/subscription metadata, not
+    only registration matching. Pre-change `bin/test-fast` passed on
+    2026-05-09 with isolated `TMPDIR`. Focused
+    `dart test packages/connectanum_mcp/test/io_client_export_test.dart` passed
+    on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast` and full
+    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`. Commit/push
+    and hosted evidence remain.
+  - MCP IO entrypoint direct tool/meta smoke is complete with hosted CI
+    evidence. The checked-in
     `packages/connectanum_mcp/test/io_client_export_test.dart` now proves that
     a neutral consumer application importing only
     `package:connectanum_mcp/connectanum_mcp_io.dart` can use
@@ -473,8 +495,17 @@ order.
     isolated `TMPDIR`. Focused
     `dart test packages/connectanum_mcp/test/io_client_export_test.dart` passed
     on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast` and full
-    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
-    Commit/push and hosted evidence remain.
+    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`. Commit
+    `2fce640` (`test: cover mcp io direct tool meta helpers`) is pushed to both
+    remotes. GitHub `CI` run `25606879743` completed successfully for
+    `2fce640` with `Fast Checks` and `Full Verify` green. Dart Package Publish
+    Dry Run `25606879738` completed successfully for `2fce640`. The
+    deployment-chain audit passed with clean latest CI and package publish
+    dry-run evidence. Strict audit still reports only known operator-side
+    release-hardening gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP IO entrypoint auth/session smoke is implemented locally with focused
     verification. The checked-in
     `packages/connectanum_mcp/test/io_client_export_test.dart` now proves that
