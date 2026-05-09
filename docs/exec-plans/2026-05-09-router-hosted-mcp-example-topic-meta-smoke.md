@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Example Topic Meta Smoke
 
-Status: complete; local verification clean
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -39,6 +39,21 @@ direct JSON and initialized Streamable HTTP MCP requests.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `a87e872` (`test: cover mcp example topic metadata`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25593496115` for `a87e872` completed successfully
+  on 2026-05-09 with `Fast Checks` (4m22s) and `Full Verify` (5m47s) green.
+- Hosted `WAMP Profile Benchmarks` run `25593496111` completed successfully on
+  2026-05-09 with `Linux WAMP profile gates` green (10m03s).
+- Hosted `Dart Package Publish Dry Run` run `25593496098` completed
+  successfully on 2026-05-09 with `Publish Dry Run` green and covering the
+  checked-out head.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence.
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -48,5 +63,7 @@ direct JSON and initialized Streamable HTTP MCP requests.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, and hosted
-deployment-chain evidence are pending.
+Implementation, local verification, hosted CI, WAMP profile, and standard
+deployment-chain audit evidence are clean for `a87e872`. Remaining strict audit
+failures are operator-side release controls: branch protection/required checks,
+default-branch router workflow visibility, and GHCR router package visibility.

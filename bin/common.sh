@@ -1937,6 +1937,20 @@ RouterSettings _consumerRouterSettings() {
                     'topic': _topic,
                     'title': 'Consumer task events',
                     'description': 'Events emitted by consumer task tools.',
+                    'event_json_schema': {
+                      'type': 'object',
+                      'properties': {
+                        'taskId': {'type': 'string'},
+                      },
+                    },
+                    'metadata': {
+                      'short_description':
+                          'Consumer task lifecycle event stream',
+                      'domain': 'consumer',
+                      'entity': 'task',
+                      'verbs': ['publish', 'subscribe'],
+                      'tags': ['safe', 'smoke', 'event'],
+                    },
                   },
                   {
                     'topic': _batchTopic,
@@ -2009,6 +2023,20 @@ RouterSettings _consumerRouterSettings() {
                     'topic': _topic,
                     'title': 'Consumer task events',
                     'description': 'Events emitted by consumer task tools.',
+                    'event_json_schema': {
+                      'type': 'object',
+                      'properties': {
+                        'taskId': {'type': 'string'},
+                      },
+                    },
+                    'metadata': {
+                      'short_description':
+                          'Consumer task lifecycle event stream',
+                      'domain': 'consumer',
+                      'entity': 'task',
+                      'verbs': ['publish', 'subscribe'],
+                      'tags': ['safe', 'smoke', 'event'],
+                    },
                   },
                   {
                     'topic': _batchTopic,
@@ -7126,8 +7154,24 @@ Future<void> _smokeWampMetaDiscovery(
     kind: 'topic',
     directJson: directJson,
   );
-  if (!jsonEncode(topicCatalog).contains(_topic)) {
+  final topicCatalogJson = jsonEncode(topicCatalog);
+  if (!topicCatalogJson.contains(_topic) ||
+      !topicCatalogJson.contains('Consumer task lifecycle event stream')) {
     throw StateError('WAMP API topic catalog did not expose $_topic.');
+  }
+
+  final topicDescription = await client.describeWampApi(
+    _topic,
+    id: '$label-$mode-api-topic-describe',
+    kind: 'topic',
+    directJson: directJson,
+  );
+  final topicDescriptionJson = jsonEncode(topicDescription);
+  if (!topicDescriptionJson.contains(_topic) ||
+      !topicDescriptionJson.contains('eventSchema') ||
+      !topicDescriptionJson.contains('allowPublish') ||
+      !topicDescriptionJson.contains('allowSubscribe')) {
+    throw StateError('WAMP API topic describe missed $_topic metadata.');
   }
 
   final registrationMatch = await client.matchWampRegistration(
