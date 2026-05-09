@@ -500,6 +500,7 @@ Future<void> main() async {
     await _smokeGenericJsonRpcApi(client, endpoint);
     await _smokeGenericJsonRpcBatchErrors(client);
     await _smokeGenericJsonRpcBatchPubSub(client, endpoint);
+    await _smokeGenericJsonRpcBatchResourcesAndPrompts(client, endpoint);
     await _smokeDirectToolApi(client, endpoint);
     await _smokeResourcesAndPrompts(client, endpoint);
     await _smokeWampHelpers(client, endpoint);
@@ -1143,6 +1144,295 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
     missingDirectPubSubToolNames.isEmpty,
     'generic direct JSON batch pub/sub included Streamable session state for '
     '${missingDirectPubSubToolNames.join(', ')}',
+  );
+}
+
+Future<void> _smokeGenericJsonRpcBatchResourcesAndPrompts(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final sessionId = client.sessionId;
+  final eventId = client.lastEventId;
+
+  final directTaskId = 'T-direct-batch-resource-prompt';
+  final directDetailBatch = await client.postBatch(
+    <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-resource-read',
+        'method': 'resources/read',
+        'params': <String, Object?>{'uri': _resourceUri},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-resource-templates',
+        'method': 'resources/templates/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-prompts',
+        'method': 'prompts/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-prompt-get',
+        'method': 'prompts/get',
+        'params': <String, Object?>{
+          'name': _promptName,
+          'arguments': <String, Object?>{'taskId': directTaskId},
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    directDetailBatch != null && directDetailBatch.length == 4,
+    'generic direct JSON batch resource/prompt details did not return four '
+    'responses',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directDetailBatch![0],
+        id: 'generic-direct-batch-resource-read',
+        label: 'generic direct batch resources/read',
+      )['contents'],
+    ).contains('agent context is available'),
+    'generic direct JSON batch resources/read missed route context',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directDetailBatch[1],
+        id: 'generic-direct-batch-resource-templates',
+        label: 'generic direct batch resources/templates/list',
+      )['resourceTemplates'],
+    ).contains(_resourceTemplateUri),
+    'generic direct JSON batch resources/templates/list missed template',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directDetailBatch[2],
+        id: 'generic-direct-batch-prompts',
+        label: 'generic direct batch prompts/list',
+      )['prompts'],
+    ).contains(_promptName),
+    'generic direct JSON batch prompts/list missed prompt',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directDetailBatch[3],
+        id: 'generic-direct-batch-prompt-get',
+        label: 'generic direct batch prompts/get',
+      ),
+    ).contains(directTaskId),
+    'generic direct JSON batch prompts/get did not substitute task id',
+  );
+
+  final missingResourceUri = 'agent://missing/resource';
+  final missingPromptName = 'missing-agent-prompt';
+  final directErrorBatch = await client.postBatch(
+    <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-resource-error',
+        'method': 'resources/read',
+        'params': <String, Object?>{'uri': missingResourceUri},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-prompt-error',
+        'method': 'prompts/get',
+        'params': <String, Object?>{
+          'name': missingPromptName,
+          'arguments': <String, Object?>{},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-resource-error-recovery',
+        'method': 'resources/list',
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    directErrorBatch != null && directErrorBatch.length == 3,
+    'generic direct JSON batch resource/prompt errors did not return three '
+    'responses',
+  );
+  _expectJsonRpcError(
+    directErrorBatch![0],
+    id: 'generic-direct-batch-resource-error',
+    messageSubstring: missingResourceUri,
+    label: 'generic direct batch missing resource',
+  );
+  _expectJsonRpcError(
+    directErrorBatch[1],
+    id: 'generic-direct-batch-prompt-error',
+    messageSubstring: missingPromptName,
+    label: 'generic direct batch missing prompt',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directErrorBatch[2],
+        id: 'generic-direct-batch-resource-error-recovery',
+        label: 'generic direct batch resource error recovery',
+      )['resources'],
+    ).contains(_resourceUri),
+    'generic direct JSON batch resource/prompt recovery failed',
+  );
+
+  final streamableTaskId = 'T-streamable-batch-resource-prompt';
+  final streamableDetailBatch = await client.postBatch(
+    <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-resource-read',
+        'method': 'resources/read',
+        'params': <String, Object?>{'uri': _resourceUri},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-resource-templates',
+        'method': 'resources/templates/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-prompts',
+        'method': 'prompts/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-prompt-get',
+        'method': 'prompts/get',
+        'params': <String, Object?>{
+          'name': _promptName,
+          'arguments': <String, Object?>{'taskId': streamableTaskId},
+        },
+      },
+    ],
+  );
+  _expect(
+    streamableDetailBatch != null && streamableDetailBatch.length == 4,
+    'generic Streamable batch resource/prompt details did not return four '
+    'responses',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        streamableDetailBatch![0],
+        id: 'generic-streamable-batch-resource-read',
+        label: 'generic Streamable batch resources/read',
+      )['contents'],
+    ).contains('agent context is available'),
+    'generic Streamable batch resources/read missed route context',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        streamableDetailBatch[1],
+        id: 'generic-streamable-batch-resource-templates',
+        label: 'generic Streamable batch resources/templates/list',
+      )['resourceTemplates'],
+    ).contains(_resourceTemplateUri),
+    'generic Streamable batch resources/templates/list missed template',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        streamableDetailBatch[2],
+        id: 'generic-streamable-batch-prompts',
+        label: 'generic Streamable batch prompts/list',
+      )['prompts'],
+    ).contains(_promptName),
+    'generic Streamable batch prompts/list missed prompt',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        streamableDetailBatch[3],
+        id: 'generic-streamable-batch-prompt-get',
+        label: 'generic Streamable batch prompts/get',
+      ),
+    ).contains(streamableTaskId),
+    'generic Streamable batch prompts/get did not substitute task id',
+  );
+
+  final streamableErrorBatch = await client.postBatch(
+    <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-resource-error',
+        'method': 'resources/read',
+        'params': <String, Object?>{'uri': missingResourceUri},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-prompt-error',
+        'method': 'prompts/get',
+        'params': <String, Object?>{
+          'name': missingPromptName,
+          'arguments': <String, Object?>{},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-resource-error-recovery',
+        'method': 'ping',
+      },
+    ],
+  );
+  _expect(
+    streamableErrorBatch != null && streamableErrorBatch.length == 3,
+    'generic Streamable batch resource/prompt errors did not return three '
+    'responses',
+  );
+  _expectJsonRpcError(
+    streamableErrorBatch![0],
+    id: 'generic-streamable-batch-resource-error',
+    messageSubstring: missingResourceUri,
+    label: 'generic Streamable batch missing resource',
+  );
+  _expectJsonRpcError(
+    streamableErrorBatch[1],
+    id: 'generic-streamable-batch-prompt-error',
+    messageSubstring: missingPromptName,
+    label: 'generic Streamable batch missing prompt',
+  );
+  _expect(
+    _jsonRpcResult(
+      streamableErrorBatch[2],
+      id: 'generic-streamable-batch-resource-error-recovery',
+      label: 'generic Streamable batch resource/prompt error recovery',
+    ).isEmpty,
+    'generic Streamable batch resource/prompt error recovery failed',
+  );
+
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'generic batch resource/prompt calls changed Streamable session state',
+  );
+  const expectedDirectResourcePromptMethods = <String>{
+    'resources/read',
+    'resources/templates/list',
+    'prompts/list',
+    'prompts/get',
+    'resources/list',
+  };
+  final missingDirectResourcePromptMethods =
+      expectedDirectResourcePromptMethods.difference(
+    endpoint.directMethodsWithoutSession,
+  );
+  _expect(
+    missingDirectResourcePromptMethods.isEmpty,
+    'generic direct JSON batch resource/prompt calls included Streamable '
+    'session state for ${missingDirectResourcePromptMethods.join(', ')}',
   );
 }
 
@@ -2401,6 +2691,9 @@ final class _AgentMcpEndpoint {
     Map<String, Object?> message,
   ) {
     final params = _jsonMapFrom(message['params'], label: 'resource params');
+    if (params['uri'] != _resourceUri) {
+      return _jsonRpcError(id, -32004, 'Resource not found: ${params['uri']}');
+    }
     return <String, Object?>{
       'jsonrpc': '2.0',
       'id': id,
@@ -2459,6 +2752,9 @@ final class _AgentMcpEndpoint {
     Map<String, Object?> message,
   ) {
     final params = _jsonMapFrom(message['params'], label: 'prompt params');
+    if (params['name'] != _promptName) {
+      return _jsonRpcError(id, -32004, 'Prompt not found: ${params['name']}');
+    }
     final arguments = _jsonMapFrom(params['arguments'], label: 'prompt args');
     final taskId = arguments['taskId'];
     return <String, Object?>{
