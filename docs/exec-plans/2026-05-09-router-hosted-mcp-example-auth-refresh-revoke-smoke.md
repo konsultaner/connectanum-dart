@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Example Auth Refresh/Revoke Smoke
 
-Status: complete; local verification clean
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -41,6 +41,21 @@ bearer-protected MCP route.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `1e40a1a` (`test: cover mcp example auth refresh`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25592499292` for `1e40a1a` completed successfully
+  on 2026-05-09 with `Fast Checks` (4m19s) and `Full Verify` (6m02s) green.
+- Hosted `WAMP Profile Benchmarks` run `25592499289` completed successfully on
+  2026-05-09 with `Linux WAMP profile gates` green (8m01s).
+- Hosted `Dart Package Publish Dry Run` run `25592499290` completed
+  successfully on 2026-05-09 with `Publish Dry Run` green and covering the
+  checked-out head.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence.
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -51,5 +66,7 @@ bearer-protected MCP route.
 
 ## Handoff
 
-Local verification is clean. Commit, push, and hosted deployment-chain evidence
-are pending.
+Implementation, local verification, hosted CI, WAMP profile, and standard
+deployment-chain audit evidence are clean for `1e40a1a`. Remaining strict audit
+failures are operator-side release controls: branch protection/required checks,
+default-branch router workflow visibility, and GHCR router package visibility.

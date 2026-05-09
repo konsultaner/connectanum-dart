@@ -157,6 +157,19 @@ RouterSettings _buildSettings() {
         'topic': 'example.events.task',
         'title': 'Task events',
         'description': 'Events emitted by task procedures.',
+        'event_json_schema': {
+          'type': 'object',
+          'properties': {
+            'taskId': {'type': 'string'},
+          },
+        },
+        'metadata': {
+          'short_description': 'Task lifecycle event stream',
+          'domain': 'example',
+          'entity': 'task',
+          'verbs': ['publish', 'subscribe'],
+          'tags': ['safe', 'demo', 'event'],
+        },
       },
     ],
     'resources': [
@@ -794,6 +807,7 @@ Future<void> _smokeMcpEndpoint(
   );
   print('[$label] Direct JSON-RPC result: ${jsonEncode(directResult)}');
   await _smokeDirectJsonToolMetaApi(client, label: label);
+  await _smokeDirectJsonTopicMetaApi(client, label: label);
   await _smokeDirectJsonErrorRecovery(client, label: label);
 
   final directResources = await client.listResources(
@@ -1043,6 +1057,7 @@ Future<void> _smokeMcpEndpoint(
   }
 
   await _smokeStreamableBatchWampMeta(client, serviceSession, label: label);
+  await _smokeStreamableTopicMetaApi(client, label: label);
 
   final streamableSubscription = await client.subscribeWampTopic(
     'example.events.task',
@@ -1194,6 +1209,96 @@ Future<void> _smokeDirectJsonToolMetaApi(
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Direct JSON-RPC tool/meta API changed Streamable state.');
+  }
+}
+
+Future<void> _smokeDirectJsonTopicMetaApi(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final topicList = await client.listWampApi(
+    id: '$label-direct-topic-api-list',
+    kind: 'topic',
+    directJson: true,
+  );
+  final topicListJson = jsonEncode(topicList);
+  if (!topicListJson.contains('example.events.task') ||
+      !topicListJson.contains('Task lifecycle event stream')) {
+    throw StateError('Direct JSON-RPC topic API list missed topic metadata.');
+  }
+
+  final topicDescription = await client.describeWampApi(
+    'example.events.task',
+    id: '$label-direct-topic-api-describe',
+    kind: 'topic',
+    directJson: true,
+  );
+  final topicDescriptionJson = jsonEncode(topicDescription);
+  if (!topicDescriptionJson.contains('example.events.task') ||
+      !topicDescriptionJson.contains('eventSchema') ||
+      !topicDescriptionJson.contains('allowPublish') ||
+      !topicDescriptionJson.contains('allowSubscribe')) {
+    throw StateError(
+      'Direct JSON-RPC topic API describe missed topic capabilities.',
+    );
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError(
+      'Direct JSON-RPC topic metadata changed Streamable state.',
+    );
+  }
+}
+
+Future<void> _smokeStreamableTopicMetaApi(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null) {
+    throw StateError('Streamable topic metadata smoke has no session id.');
+  }
+  final previousEventId = client.lastEventId;
+
+  final topicList = await client.listWampApi(
+    id: '$label-streamable-topic-api-list',
+    kind: 'topic',
+  );
+  final topicListJson = jsonEncode(topicList);
+  if (!topicListJson.contains('example.events.task') ||
+      !topicListJson.contains('Task lifecycle event stream')) {
+    throw StateError('Streamable MCP topic API list missed topic metadata.');
+  }
+
+  final topicDescription = await client.describeWampApi(
+    'example.events.task',
+    id: '$label-streamable-topic-api-describe',
+    kind: 'topic',
+  );
+  final topicDescriptionJson = jsonEncode(topicDescription);
+  if (!topicDescriptionJson.contains('example.events.task') ||
+      !topicDescriptionJson.contains('eventSchema') ||
+      !topicDescriptionJson.contains('allowPublish') ||
+      !topicDescriptionJson.contains('allowSubscribe')) {
+    throw StateError(
+      'Streamable MCP topic API describe missed topic capabilities.',
+    );
+  }
+
+  if (client.sessionId != sessionId) {
+    throw StateError('Streamable MCP topic metadata changed session id.');
+  }
+  final nextEventId = client.lastEventId;
+  if (nextEventId == null ||
+      nextEventId == previousEventId ||
+      !nextEventId.startsWith('$sessionId:')) {
+    throw StateError(
+      'Streamable MCP topic metadata did not advance SSE state.',
+    );
   }
 }
 
