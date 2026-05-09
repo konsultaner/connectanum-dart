@@ -484,6 +484,71 @@ void main() {
     },
   );
 
+  test(
+    'IO entrypoint re-exports Streamable notification polling and session deletion',
+    () async {
+      final endpoint = await _StreamableMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize(id: 'io-notification-init');
+      expect(client.sessionId, 'io-session-1');
+
+      await client.notifyInitialized();
+
+      final firstEvents = await client.poll();
+      expect(firstEvents, hasLength(1));
+      expect(firstEvents.single.id, 'io-session-1:get:1');
+      expect(firstEvents.single.event, 'message');
+      expect(firstEvents.single.retryMs, 1000);
+      final firstPayload = _jsonMapFrom(
+        firstEvents.single.jsonValue,
+        label: 'first notification',
+      );
+      expect(firstPayload['method'], 'notifications/tools/list_changed');
+      expect(client.lastEventId, 'io-session-1:get:1');
+
+      final resumedEvents = await client.poll(
+        lastEventId: firstEvents.single.id,
+      );
+      expect(resumedEvents.single.id, 'io-session-1:get:2');
+      final resumedPayload = _jsonMapFrom(
+        resumedEvents.single.jsonValue,
+        label: 'resumed notification',
+      );
+      expect(resumedPayload['method'], 'notifications/resources/list_changed');
+      expect(client.lastEventId, 'io-session-1:get:2');
+
+      await client.deleteSession();
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+
+      expect(endpoint.requests, hasLength(5));
+      expect(endpoint.requests.map((request) => request.method), [
+        'POST',
+        'POST',
+        'GET',
+        'GET',
+        'DELETE',
+      ]);
+      expect(endpoint.requests[0].sessionId, isNull);
+      expect(endpoint.requests[0].body, isA<Map<Object?, Object?>>());
+      expect(endpoint.requests[1].sessionId, 'io-session-1');
+      expect(endpoint.requests[1].body, isA<Map<Object?, Object?>>());
+      expect(endpoint.requests[1].accept, contains('text/event-stream'));
+      expect(endpoint.requests[2].accept, 'text/event-stream');
+      expect(endpoint.requests[2].sessionId, 'io-session-1');
+      expect(endpoint.requests[2].lastEventId, isNull);
+      expect(endpoint.requests[3].accept, 'text/event-stream');
+      expect(endpoint.requests[3].sessionId, 'io-session-1');
+      expect(endpoint.requests[3].lastEventId, 'io-session-1:get:1');
+      expect(endpoint.requests[4].accept, 'application/json');
+      expect(endpoint.requests[4].sessionId, 'io-session-1');
+    },
+  );
+
   test('IO entrypoint re-exports Streamable pubsub helpers', () async {
     final endpoint = await _StreamableMcpEndpoint.bind();
     addTearDown(endpoint.close);
@@ -1154,6 +1219,35 @@ final class _StreamableMcpEndpoint {
   }
 
   Future<void> _handle(HttpRequest request) async {
+    if (request.method == 'GET') {
+      requests.add(_StreamableSeenRequest.from(request, null));
+      final eventId = request.headers.value('Last-Event-ID') == null
+          ? 'io-session-1:get:1'
+          : 'io-session-1:get:2';
+      final method = eventId.endsWith(':1')
+          ? 'notifications/tools/list_changed'
+          : 'notifications/resources/list_changed';
+      await _writeSseEvent(
+        request,
+        id: eventId,
+        event: 'message',
+        retryMs: 1000,
+        data: <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': method,
+          'params': <String, Object?>{'source': 'io-entrypoint'},
+        },
+      );
+      return;
+    }
+
+    if (request.method == 'DELETE') {
+      requests.add(_StreamableSeenRequest.from(request, null));
+      request.response.statusCode = HttpStatus.noContent;
+      await request.response.close();
+      return;
+    }
+
     final body = await utf8.decoder.bind(request).join();
     final message = jsonDecode(body);
     requests.add(_StreamableSeenRequest.from(request, message));
@@ -1391,13 +1485,33 @@ final class _StreamableMcpEndpoint {
 
   Future<void> _writeSse(HttpRequest request, Map<String, Object?> body) async {
     _eventCounter += 1;
+    await _writeSseEvent(
+      request,
+      id: 'io-session-1:post:$_eventCounter',
+      data: body,
+    );
+  }
+
+  Future<void> _writeSseEvent(
+    HttpRequest request, {
+    required String id,
+    String? event,
+    int? retryMs,
+    required Object? data,
+  }) async {
     request.response.headers.contentType = ContentType(
       'text',
       'event-stream',
       charset: 'utf-8',
     );
-    request.response.writeln('id: io-session-1:post:$_eventCounter');
-    request.response.writeln('data: ${jsonEncode(body)}');
+    request.response.writeln('id: $id');
+    if (event != null) {
+      request.response.writeln('event: $event');
+    }
+    if (retryMs != null) {
+      request.response.writeln('retry: $retryMs');
+    }
+    request.response.writeln('data: ${jsonEncode(data)}');
     request.response.writeln();
     await request.response.close();
   }
@@ -1415,19 +1529,25 @@ final class _StreamableMcpEndpoint {
 
 final class _StreamableSeenRequest {
   const _StreamableSeenRequest({
+    required this.method,
     required this.accept,
     required this.sessionId,
+    required this.lastEventId,
     required this.body,
   });
 
+  final String method;
   final String? accept;
   final String? sessionId;
+  final String? lastEventId;
   final Object? body;
 
   factory _StreamableSeenRequest.from(HttpRequest request, Object? body) {
     return _StreamableSeenRequest(
+      method: request.method,
       accept: request.headers.value(HttpHeaders.acceptHeader),
       sessionId: request.headers.value('MCP-Session-Id'),
+      lastEventId: request.headers.value('Last-Event-ID'),
       body: body,
     );
   }
