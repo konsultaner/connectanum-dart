@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Example Error Recovery Smoke
 
-Status: complete; local verification clean; commit and hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -42,6 +42,21 @@ Streamable HTTP MCP session state.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `95d504c` (`test: cover mcp example error recovery`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25590602479` for `95d504c` completed successfully on
+  2026-05-09 with `Fast Checks` (4m25s) and `Full Verify` (6m00s) green.
+- Hosted `WAMP Profile Benchmarks` run `25590602485` completed successfully on
+  2026-05-09 with `Linux WAMP profile gates` green (7m44s).
+- Hosted `Dart Package Publish Dry Run` run `25590602515` completed
+  successfully on 2026-05-09 with `Publish Dry Run` green and covering the
+  checked-out head.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence.
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -51,5 +66,7 @@ Streamable HTTP MCP session state.
 
 ## Handoff
 
-Implementation, focused example smoke, fast verification, and full local
-verification are clean. Commit, push, and hosted evidence remain pending.
+Implementation, local verification, hosted CI, WAMP profile, and standard
+deployment-chain audit evidence are clean for `95d504c`. Remaining strict audit
+failures are operator-side release controls: branch protection/required checks,
+default-branch router workflow visibility, and GHCR router package visibility.

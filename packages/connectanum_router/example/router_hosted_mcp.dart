@@ -13,6 +13,11 @@ const String _publicMcpPath = '/mcp';
 const String _secureMcpPath = '/mcp/secure';
 const String _ticketAuthId = 'mcp-user';
 const String _ticketSecret = 'mcp-demo-ticket';
+const List<String> _supportedOlderProtocolVersions = [
+  '2025-03-26',
+  '2025-06-18',
+];
+const String _unsupportedProtocolVersion = '2099-01-01';
 
 Future<void> main(List<String> args) async {
   final smokeAndExit = args.contains('--smoke-and-exit');
@@ -65,6 +70,7 @@ Future<void> main(List<String> args) async {
 
   try {
     await _registerExampleApi(serviceSession);
+    await _smokeMcpProtocolVersionCompatibility(binding, label: 'public');
     await _smokeMcpEndpoint(
       publicMcpClient,
       label: 'public',
@@ -73,6 +79,12 @@ Future<void> main(List<String> args) async {
 
     await _assertSecureMcpRequiresBearer(binding);
     final bearerToken = await _issueTicketHttpToken(binding);
+    await _smokeMcpProtocolVersionCompatibility(
+      binding,
+      label: 'secure',
+      secure: true,
+      bearerToken: bearerToken,
+    );
     secureMcpClient = McpStreamableHttpClient.withBearerToken(
       _mcpEndpoint(binding, secure: true),
       bearerToken,
@@ -411,6 +423,122 @@ Future<String> _issueTicketHttpToken(RouterBinding binding) async {
     return grant.accessToken;
   } finally {
     authClient.close(force: true);
+  }
+}
+
+McpStreamableHttpClient _protocolVersionClient(
+  Uri endpoint, {
+  required String defaultProtocolVersion,
+  String? bearerToken,
+}) {
+  final token = bearerToken;
+  if (token == null) {
+    return McpStreamableHttpClient(
+      endpoint,
+      defaultProtocolVersion: defaultProtocolVersion,
+    );
+  }
+  return McpStreamableHttpClient.withBearerToken(
+    endpoint,
+    token,
+    defaultProtocolVersion: defaultProtocolVersion,
+  );
+}
+
+Future<void> _smokeMcpProtocolVersionCompatibility(
+  RouterBinding binding, {
+  required String label,
+  bool secure = false,
+  String? bearerToken,
+}) async {
+  final endpoint = _mcpEndpoint(binding, secure: secure);
+  for (final version in _supportedOlderProtocolVersions) {
+    await _smokeSupportedMcpProtocolVersion(
+      endpoint,
+      version,
+      label: label,
+      bearerToken: bearerToken,
+    );
+  }
+  await _assertUnsupportedMcpProtocolVersionRejected(
+    endpoint,
+    label: label,
+    bearerToken: bearerToken,
+  );
+}
+
+Future<void> _smokeSupportedMcpProtocolVersion(
+  Uri endpoint,
+  String protocolVersion, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final client = _protocolVersionClient(
+    endpoint,
+    defaultProtocolVersion: protocolVersion,
+    bearerToken: bearerToken,
+  );
+  try {
+    final initializeId = '$label-$protocolVersion-initialize';
+    final initialize = await client.initialize(id: initializeId);
+    if (initialize['id'] != initializeId) {
+      throw StateError(
+        'MCP $label initialize with $protocolVersion returned the wrong id.',
+      );
+    }
+    final sessionId = client.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError(
+        'MCP $label initialize with $protocolVersion did not set a session id.',
+      );
+    }
+    if (client.protocolVersion !=
+        McpStreamableHttpClient.latestProtocolVersion) {
+      throw StateError(
+        'MCP $label did not negotiate $protocolVersion to '
+        '${McpStreamableHttpClient.latestProtocolVersion}.',
+      );
+    }
+    await client.notifyInitialized();
+    final ping = await client.ping(id: '$label-$protocolVersion-ping');
+    if (ping.isNotEmpty) {
+      throw StateError('MCP $label ping with $protocolVersion returned data.');
+    }
+    await client.deleteSession();
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError(
+        'MCP $label deleteSession with $protocolVersion left session state.',
+      );
+    }
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _assertUnsupportedMcpProtocolVersionRejected(
+  Uri endpoint, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final client = _protocolVersionClient(
+    endpoint,
+    defaultProtocolVersion: _unsupportedProtocolVersion,
+    bearerToken: bearerToken,
+  );
+  try {
+    await client.initialize(id: '$label-unsupported-protocol-initialize');
+    throw StateError('MCP $label accepted an unsupported protocol version.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.badRequest) {
+      rethrow;
+    }
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError(
+        'MCP $label unsupported protocol rejection left session state.',
+      );
+    }
+  } finally {
+    client.close(force: true);
   }
 }
 
