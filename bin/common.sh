@@ -3249,6 +3249,8 @@ const _publicMcpPath = '/mcp';
 const _secureMcpPath = '/mcp/secure';
 const _ticketAuthId = 'consumer-user';
 const _ticketSecret = 'consumer-ticket';
+const _otherTicketAuthId = 'consumer-other-user';
+const _otherTicketSecret = 'consumer-other-ticket';
 const _topic = 'consumer.events.task';
 const _batchTopic = 'consumer.events.batch';
 const _procedure = 'consumer.task.lookup';
@@ -3344,6 +3346,11 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
 
     await _assertSecureMcpRequiresBearer(binding);
     final grant = await _issueTicketHttpGrant(binding);
+    final otherGrant = await _issueTicketHttpGrant(
+      binding,
+      authId: _otherTicketAuthId,
+      ticket: _otherTicketSecret,
+    );
     secureClient = McpStreamableHttpClient.withBearerToken(
       _mcpEndpoint(binding, secure: true),
       grant.accessToken,
@@ -3353,6 +3360,11 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       secureClient,
       serviceSession,
       label: 'secure',
+    );
+    await _smokeStreamableSessionReuseIsolation(
+      binding,
+      grant.accessToken,
+      otherGrant.accessToken,
     );
     await _smokeSecureMcpRefreshAndRevocation(
       binding,
@@ -3650,6 +3662,11 @@ RouterSettings _consumerRouterSettings() {
                   'role': 'member',
                   'provider': 'consumer-local',
                 },
+                _otherTicketAuthId: {
+                  'ticket': _otherTicketSecret,
+                  'role': 'member',
+                  'provider': 'consumer-local',
+                },
               },
             },
           ),
@@ -3849,17 +3866,134 @@ Future<void> _assertSecureMcpRejectsBearer(
 }
 
 Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
-  RouterBinding binding,
-) async {
+  RouterBinding binding, {
+  String authId = _ticketAuthId,
+  String ticket = _ticketSecret,
+}) async {
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   try {
     return await authClient.issueTicketToken(
       realm: _realm,
-      authId: _ticketAuthId,
-      ticket: _ticketSecret,
+      authId: authId,
+      ticket: ticket,
     );
   } finally {
     authClient.close(force: true);
+  }
+}
+
+Future<void> _smokeStreamableSessionReuseIsolation(
+  RouterBinding binding,
+  String primaryToken,
+  String otherToken,
+) async {
+  final primaryClient = await _openSecureStreamableSession(
+    binding,
+    primaryToken,
+    label: 'secure-reuse-primary',
+  );
+  final otherPrincipalClient = McpStreamableHttpClient.withBearerToken(
+    _mcpEndpoint(binding, secure: true),
+    otherToken,
+  );
+  final publicRouteClient = McpStreamableHttpClient(_mcpEndpoint(binding));
+  final publicRouteDeleteClient = McpStreamableHttpClient(
+    _mcpEndpoint(binding),
+  );
+
+  try {
+    final primaryTools = await primaryClient.listTools(
+      id: 'secure-reuse-primary-tools',
+    );
+    if (!primaryTools.tools.any((tool) => tool['name'] == _procedure)) {
+      throw StateError(
+        'Primary secure Streamable MCP session missed $_procedure.',
+      );
+    }
+
+    final sessionId = primaryClient.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError('Primary secure Streamable MCP session has no id.');
+    }
+    final lastEventId = primaryClient.lastEventId;
+
+    otherPrincipalClient.sessionId = sessionId;
+    otherPrincipalClient.lastEventId = lastEventId;
+    await _assertStreamableSessionReuseRejected(
+      otherPrincipalClient,
+      () async {
+        await otherPrincipalClient.listTools(
+          id: 'secure-reuse-other-principal-tools',
+        );
+      },
+      label: 'other bearer principal',
+    );
+
+    publicRouteClient.sessionId = sessionId;
+    publicRouteClient.lastEventId = lastEventId;
+    await _assertStreamableSessionReuseRejected(
+      publicRouteClient,
+      () async {
+        await publicRouteClient.poll();
+      },
+      label: 'public route poll',
+    );
+
+    publicRouteDeleteClient.sessionId = sessionId;
+    publicRouteDeleteClient.lastEventId = lastEventId;
+    await _assertStreamableSessionReuseRejected(
+      publicRouteDeleteClient,
+      () async {
+        await publicRouteDeleteClient.deleteSession();
+      },
+      label: 'public route delete',
+    );
+
+    final primaryRecoveryTools = await primaryClient.listTools(
+      id: 'secure-reuse-primary-after-rejected-reuse',
+    );
+    if (!primaryRecoveryTools.tools.any((tool) => tool['name'] == _procedure)) {
+      throw StateError(
+        'Primary secure Streamable MCP session did not survive rejected reuse.',
+      );
+    }
+    if (primaryClient.sessionId != sessionId) {
+      throw StateError(
+        'Rejected Streamable MCP session reuse changed the primary session id.',
+      );
+    }
+
+    await primaryClient.deleteSession();
+  } finally {
+    primaryClient.close();
+    otherPrincipalClient.close();
+    publicRouteClient.close();
+    publicRouteDeleteClient.close();
+  }
+}
+
+Future<void> _assertStreamableSessionReuseRejected(
+  McpStreamableHttpClient client,
+  Future<void> Function() request, {
+  required String label,
+}) async {
+  try {
+    await request();
+    throw StateError('Streamable MCP accepted stale session reuse via $label.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.notFound) {
+      throw StateError(
+        'Streamable MCP stale session reuse via $label returned '
+        '${error.statusCode} instead of ${HttpStatus.notFound}.',
+      );
+    }
+  }
+
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Streamable MCP stale session reuse via $label did not clear '
+      'client session state.',
+    );
   }
 }
 

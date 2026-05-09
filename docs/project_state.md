@@ -1,13 +1,16 @@
 # Project State
 
-Last updated: 2026-05-09
+Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `82cb660`
-(`test: cover router mcp direct batch errors`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `3f9c761`
+(`test: cover router mcp streamable batch errors`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-router-hosted-mcp-streamable-batch-error-isolation-smoke.md`
+`docs/exec-plans/2026-05-10-mcp-consumer-streamable-session-reuse-isolation-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-09-router-hosted-mcp-streamable-batch-error-isolation-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-09-router-hosted-mcp-direct-batch-error-isolation-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -185,11 +188,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`82cb660`
-(`test: cover router mcp direct batch errors`; hosted CI evidence clean).
-Current implementation checkpoint: router-hosted MCP Streamable HTTP batch
-error-isolation smoke
+`3f9c761`
+(`test: cover router mcp streamable batch errors`; hosted CI evidence clean).
+Current implementation checkpoint: MCP consumer Streamable session reuse
+isolation smoke
 (complete; local verification clean; hosted evidence pending).
+Previous implementation checkpoint: router-hosted MCP Streamable HTTP batch
+error-isolation smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: router-hosted MCP direct JSON batch
 error-isolation smoke
 (complete; hosted CI evidence clean).
@@ -492,8 +498,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer Streamable session reuse isolation smoke is complete locally.
+    The generated neutral consumer package
+    smoke in `bin/common.sh` now issues a second ticket-authenticated principal,
+    opens a bearer-protected Streamable MCP session with the primary token,
+    attempts to reuse that session id with the secondary bearer token and
+    across the public route through GET/DELETE requests, asserts the rejected
+    stale-session attempts return HTTP 404 and clear stale client-side session
+    state, and proves the original primary secure session remains usable.
+    Pre-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
+    Focused `run_mcp_consumer_package_smoke` passed on 2026-05-10 with isolated
+    `TMPDIR`. Post-change `bin/test-fast` and full local `bin/verify` passed on
+    2026-05-10 with isolated `TMPDIR`. Commit/push and hosted evidence are
+    pending.
   - Router-hosted MCP Streamable HTTP batch error-isolation smoke is
-    implemented locally with full verification clean. The checked-in
+    complete with hosted CI evidence. The checked-in
     `packages/connectanum_router/test/router_integration_native_test.dart`
     Streamable HTTP batch route smoke now sends a mixed batch through both
     public and bearer-protected router-provided MCP endpoints with a successful
@@ -506,8 +525,17 @@ order.
     `dart test packages/connectanum_router/test/router_integration_native_test.dart --name "serves Streamable HTTP batch responses on router MCP routes"`
     passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify` passed
-    on 2026-05-09 with isolated `TMPDIR`. Commit/push and hosted evidence are
-    pending.
+    on 2026-05-09 with isolated `TMPDIR`. Commit `3f9c761`
+    (`test: cover router mcp streamable batch errors`) is pushed to both
+    remotes. GitHub `CI` run `25612812180` completed successfully for
+    `3f9c761` with `Fast Checks` and `Full Verify` green. GitHub
+    `Dart Package Publish Dry Run` run `25612812164` completed successfully for
+    `3f9c761` and is clean/relevant. The deployment-chain audit passed with
+    clean latest CI and clean Dart package publish dry-run evidence. Strict
+    audit still reports only known operator-side release-hardening gaps: branch
+    protection/required checks are absent, `.github/workflows/router-image.yml`
+    is not yet visible from the default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - Router-hosted MCP direct JSON batch error-isolation smoke is complete with
     hosted CI evidence. The checked-in
     `packages/connectanum_router/test/router_integration_native_test.dart`

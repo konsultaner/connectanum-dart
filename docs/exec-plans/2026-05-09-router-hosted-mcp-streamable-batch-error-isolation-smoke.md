@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Streamable Batch Error Isolation Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -41,6 +41,19 @@ bearer-protected router-provided MCP endpoints.
   passed on 2026-05-09 with isolated `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `3f9c761` (`test: cover router mcp streamable batch errors`) was
+  pushed to `origin/add-router` and `github/add-router` on 2026-05-09.
+- GitHub `CI` run `25612812180` completed successfully for `3f9c761` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25612812164` completed
+  successfully for `3f9c761` and is clean/relevant.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -51,5 +64,6 @@ bearer-protected router-provided MCP endpoints.
 
 ## Handoff
 
-Implementation and full local verification are complete. Commit/push and
-hosted CI/deployment-chain evidence remain.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.
