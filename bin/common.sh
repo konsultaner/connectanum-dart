@@ -499,6 +499,7 @@ Future<void> main() async {
 
     await _smokeGenericJsonRpcApi(client, endpoint);
     await _smokeGenericJsonRpcBatchErrors(client);
+    await _smokeGenericJsonRpcBatchPubSub(client, endpoint);
     await _smokeDirectToolApi(client, endpoint);
     await _smokeResourcesAndPrompts(client, endpoint);
     await _smokeWampHelpers(client, endpoint);
@@ -826,6 +827,322 @@ Future<void> _smokeGenericJsonRpcBatchErrors(
   _expect(
     client.sessionId == sessionId && client.lastEventId == eventId,
     'generic batch errors changed Streamable session state',
+  );
+}
+
+Future<void> _smokeGenericJsonRpcBatchPubSub(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final sessionId = client.sessionId;
+  final eventId = client.lastEventId;
+
+  final directSubscribeBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-pubsub-subscribe',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': <String, Object?>{
+            'topic': _topic,
+            'queueLimit': 2,
+          },
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-pubsub-tools',
+        'method': 'connectanum.tools.list',
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    directSubscribeBatch != null && directSubscribeBatch.length == 2,
+    'generic direct JSON batch pub/sub subscribe did not return two responses',
+  );
+  final directSubscribe = _toolStructuredContentFromJsonRpc(
+    directSubscribeBatch![0],
+    id: 'generic-direct-batch-pubsub-subscribe',
+    label: 'generic direct batch pub/sub subscribe',
+  );
+  final directHandle = directSubscribe['handle'];
+  _expect(
+    directHandle is String && directHandle.isNotEmpty,
+    'generic direct JSON batch pub/sub subscribe returned $directHandle',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directSubscribeBatch[1],
+        id: 'generic-direct-batch-pubsub-tools',
+        label: 'generic direct batch pub/sub tools/list',
+      )['tools'],
+    ).contains('connectanum.pubsub.publish'),
+    'generic direct JSON batch pub/sub tools/list missed pub/sub helpers',
+  );
+
+  final directPublishPollBatch = await client.postBatch(
+    <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-pubsub-publish',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'name': 'connectanum.pubsub.publish',
+          'arguments': <String, Object?>{
+            'topic': _topic,
+            'argumentsKeywords': <String, Object?>{'text': 'direct batch'},
+            'acknowledge': true,
+          },
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-pubsub-poll',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'name': 'connectanum.pubsub.poll',
+          'arguments': <String, Object?>{
+            'handle': directHandle,
+          },
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    directPublishPollBatch != null && directPublishPollBatch.length == 2,
+    'generic direct JSON batch pub/sub publish/poll did not return two responses',
+  );
+  final directPublish = _toolStructuredContentFromJsonRpc(
+    directPublishPollBatch![0],
+    id: 'generic-direct-batch-pubsub-publish',
+    label: 'generic direct batch pub/sub publish',
+  );
+  _expect(
+    directPublish['acknowledged'] == true,
+    'generic direct JSON batch pub/sub publish was not acknowledged',
+  );
+  final directPoll = _toolStructuredContentFromJsonRpc(
+    directPublishPollBatch[1],
+    id: 'generic-direct-batch-pubsub-poll',
+    label: 'generic direct batch pub/sub poll',
+  );
+  _expect(
+    jsonEncode(directPoll['events']).contains('direct batch'),
+    'generic direct JSON batch pub/sub poll missed the published event',
+  );
+
+  final directUnsubscribeBatch = await client.postBatch(
+    <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-pubsub-unsubscribe',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': <String, Object?>{
+            'handle': directHandle,
+          },
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-pubsub-tools-after-unsubscribe',
+        'method': 'connectanum.tools.list',
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    directUnsubscribeBatch != null && directUnsubscribeBatch.length == 2,
+    'generic direct JSON batch pub/sub unsubscribe did not return two responses',
+  );
+  final directUnsubscribe = _toolStructuredContentFromJsonRpc(
+    directUnsubscribeBatch![0],
+    id: 'generic-direct-batch-pubsub-unsubscribe',
+    label: 'generic direct batch pub/sub unsubscribe',
+  );
+  _expect(
+    directUnsubscribe['unsubscribed'] == true,
+    'generic direct JSON batch pub/sub unsubscribe failed',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directUnsubscribeBatch[1],
+        id: 'generic-direct-batch-pubsub-tools-after-unsubscribe',
+        label: 'generic direct batch pub/sub post-unsubscribe tools/list',
+      )['tools'],
+    ).contains('connectanum.pubsub.unsubscribe'),
+    'generic direct JSON batch pub/sub post-unsubscribe tools/list failed',
+  );
+
+  final streamableSubscribeBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-pubsub-subscribe',
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': <String, Object?>{
+            'topic': _topic,
+            'queueLimit': 2,
+          },
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-pubsub-tools',
+        'method': 'tools/list',
+      },
+    ],
+  );
+  _expect(
+    streamableSubscribeBatch != null && streamableSubscribeBatch.length == 2,
+    'generic Streamable batch pub/sub subscribe did not return two responses',
+  );
+  final streamableSubscribe = _toolStructuredContentFromJsonRpc(
+    streamableSubscribeBatch![0],
+    id: 'generic-streamable-batch-pubsub-subscribe',
+    label: 'generic Streamable batch pub/sub subscribe',
+  );
+  final streamableHandle = streamableSubscribe['handle'];
+  _expect(
+    streamableHandle is String && streamableHandle.isNotEmpty,
+    'generic Streamable batch pub/sub subscribe returned $streamableHandle',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        streamableSubscribeBatch[1],
+        id: 'generic-streamable-batch-pubsub-tools',
+        label: 'generic Streamable batch pub/sub tools/list',
+      )['tools'],
+    ).contains('connectanum.pubsub.publish'),
+    'generic Streamable batch pub/sub tools/list missed pub/sub helpers',
+  );
+
+  final streamablePublishPollBatch = await client.postBatch(
+    <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-pubsub-publish',
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': 'connectanum.pubsub.publish',
+          'arguments': <String, Object?>{
+            'topic': _topic,
+            'argumentsKeywords': <String, Object?>{'text': 'streamable batch'},
+            'acknowledge': true,
+          },
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-pubsub-poll',
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': 'connectanum.pubsub.poll',
+          'arguments': <String, Object?>{
+            'handle': streamableHandle,
+          },
+        },
+      },
+    ],
+  );
+  _expect(
+    streamablePublishPollBatch != null &&
+        streamablePublishPollBatch.length == 2,
+    'generic Streamable batch pub/sub publish/poll did not return two responses',
+  );
+  final streamablePublish = _toolStructuredContentFromJsonRpc(
+    streamablePublishPollBatch![0],
+    id: 'generic-streamable-batch-pubsub-publish',
+    label: 'generic Streamable batch pub/sub publish',
+  );
+  _expect(
+    streamablePublish['acknowledged'] == true,
+    'generic Streamable batch pub/sub publish was not acknowledged',
+  );
+  final streamablePoll = _toolStructuredContentFromJsonRpc(
+    streamablePublishPollBatch[1],
+    id: 'generic-streamable-batch-pubsub-poll',
+    label: 'generic Streamable batch pub/sub poll',
+  );
+  _expect(
+    jsonEncode(streamablePoll['events']).contains('streamable batch'),
+    'generic Streamable batch pub/sub poll missed the published event',
+  );
+
+  final streamableUnsubscribeBatch = await client.postBatch(
+    <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-pubsub-unsubscribe',
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': <String, Object?>{
+            'handle': streamableHandle,
+          },
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-pubsub-ping',
+        'method': 'ping',
+      },
+    ],
+  );
+  _expect(
+    streamableUnsubscribeBatch != null &&
+        streamableUnsubscribeBatch.length == 2,
+    'generic Streamable batch pub/sub unsubscribe did not return two responses',
+  );
+  final streamableUnsubscribe = _toolStructuredContentFromJsonRpc(
+    streamableUnsubscribeBatch![0],
+    id: 'generic-streamable-batch-pubsub-unsubscribe',
+    label: 'generic Streamable batch pub/sub unsubscribe',
+  );
+  _expect(
+    streamableUnsubscribe['unsubscribed'] == true,
+    'generic Streamable batch pub/sub unsubscribe failed',
+  );
+  _expect(
+    _jsonRpcResult(
+      streamableUnsubscribeBatch[1],
+      id: 'generic-streamable-batch-pubsub-ping',
+      label: 'generic Streamable batch pub/sub post-unsubscribe ping',
+    ).isEmpty,
+    'generic Streamable batch pub/sub post-unsubscribe ping failed',
+  );
+
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'generic batch pub/sub changed Streamable session state',
+  );
+  const expectedDirectPubSubToolNames = <String>{
+    'connectanum.pubsub.subscribe',
+    'connectanum.pubsub.publish',
+    'connectanum.pubsub.poll',
+    'connectanum.pubsub.unsubscribe',
+  };
+  final missingDirectPubSubToolNames =
+      expectedDirectPubSubToolNames.difference(
+    endpoint.directToolNamesWithoutSession,
+  );
+  _expect(
+    missingDirectPubSubToolNames.isEmpty,
+    'generic direct JSON batch pub/sub included Streamable session state for '
+    '${missingDirectPubSubToolNames.join(', ')}',
   );
 }
 
@@ -2233,6 +2550,18 @@ void _expectJsonRpcError(
   _expect(
     jsonEncode(error).contains(messageSubstring),
     '$label error did not mention $messageSubstring.',
+  );
+}
+
+Map<String, Object?> _toolStructuredContentFromJsonRpc(
+  Map<String, Object?> response, {
+  required Object? id,
+  required String label,
+}) {
+  final result = _jsonRpcResult(response, id: id, label: label);
+  return _jsonMapFrom(
+    result['structuredContent'],
+    label: '$label structured content',
   );
 }
 
