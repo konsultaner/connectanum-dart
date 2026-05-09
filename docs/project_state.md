@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `cb88045`
-(`test: cover mcp batch topic metadata`; CI clean)
+Last reviewed branch checkpoint: `d1679a9`
+(`test: cover mcp pubsub queue overflow`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-mcp-pubsub-queue-overflow-smoke.md`
+`docs/exec-plans/2026-05-09-router-hosted-mcp-example-streamable-lifecycle-smoke.md`
 (complete; local verification clean).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-09-mcp-pubsub-queue-overflow-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-09-mcp-batch-topic-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -137,10 +140,13 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`cb88045`
-(`test: cover mcp batch topic metadata`; hosted CI evidence clean).
-Current implementation checkpoint: MCP pub/sub queue overflow smoke
+`d1679a9`
+(`test: cover mcp pubsub queue overflow`; hosted CI evidence clean).
+Current implementation checkpoint: router-hosted MCP example Streamable
+lifecycle smoke
 (complete; local verification clean).
+Previous implementation checkpoint: MCP pub/sub queue overflow smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP batch WAMP topic metadata smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP generated consumer package WAMP topic
@@ -403,20 +409,48 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP pub/sub queue overflow smoke is complete with clean local
-    verification. Generated consumer package and runnable public example
-    smokes now prove lifecycle-free direct JSON and initialized Streamable HTTP
-    subscriptions handle bounded queue overflow: a `queueLimit: 1` MCP-created
-    WAMP subscription drops older buffered events, retains the newest service
-    event, reports a non-zero dropped count, and preserves the expected MCP
-    session semantics. Pre-change `bin/test-fast` passed on 2026-05-09 with
-    isolated `TMPDIR`. Focused router-hosted MCP example plus generated
-    consumer package smoke
-    (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke; run_mcp_consumer_package_smoke'`)
+  - Router-hosted MCP example Streamable lifecycle smoke is complete with clean
+    local verification. The public example now adds a Streamable HTTP lifecycle
+    helper that registers a dynamic WAMP procedure after MCP initialization,
+    polls GET/SSE for `notifications/tools/list_changed`, verifies resume
+    cursors do not replay consumed events, verifies invalid `Last-Event-ID`
+    returns `400` without clearing the active session, deletes the session,
+    verifies stale-session `404` clearing, and reinitializes. The helper runs
+    against both public and bearer-protected router-hosted MCP endpoints.
+    Pre-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
+    Focused router-hosted MCP example smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`)
     passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
     passed on 2026-05-09 with isolated `TMPDIR`. Commit, push, and hosted
     deployment-chain evidence are pending.
+  - MCP pub/sub queue overflow smoke is complete with hosted CI evidence.
+    Generated consumer package and runnable public example smokes now prove
+    lifecycle-free direct JSON and initialized Streamable HTTP subscriptions
+    handle bounded queue overflow: a `queueLimit: 1` MCP-created WAMP
+    subscription drops older buffered events, retains the newest service event,
+    reports a non-zero dropped count, and preserves the expected MCP session
+    semantics. Pre-change `bin/test-fast` passed on 2026-05-09 with isolated
+    `TMPDIR`. Focused router-hosted MCP example plus generated consumer package
+    smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke; run_mcp_consumer_package_smoke'`)
+    passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-09 with isolated `TMPDIR`. Commit `d1679a9`
+    (`test: cover mcp pubsub queue overflow`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-09. Hosted GitHub
+    `CI` run `25596433388` for `d1679a9` completed successfully on
+    2026-05-09 with `Fast Checks` (4m20s) and `Full Verify` (5m35s) green.
+    Hosted GitHub `WAMP Profile Benchmarks` run `25596433375` for `d1679a9`
+    completed successfully on 2026-05-09 with `Linux WAMP profile gates`
+    (8m02s) green. Hosted GitHub `Dart Package Publish Dry Run` run
+    `25596433396` for `d1679a9` completed successfully on 2026-05-09 with
+    `Publish Dry Run` green. Deployment-chain audit passed on 2026-05-09 with
+    clean latest CI and clean relevant Dart package publish dry-run evidence.
+    Strict deployment audit still reports operator-side release gaps: branch
+    protection and required status checks are absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - MCP batch WAMP topic metadata smoke is complete with hosted CI evidence.
     Generated consumer package and runnable public example batch WAMP metadata
     smokes now prove direct JSON batches and initialized Streamable HTTP

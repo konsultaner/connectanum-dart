@@ -1,6 +1,6 @@
 # Exec Plan: MCP Pub/Sub Queue Overflow Smoke
 
-Status: complete; local verification clean
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -42,6 +42,21 @@ reports dropped and remaining counts through the public client helper surface.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke; run_mcp_consumer_package_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `d1679a9` (`test: cover mcp pubsub queue overflow`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25596433388` for `d1679a9` completed successfully on
+  2026-05-09 with `Fast Checks` (4m20s) and `Full Verify` (5m35s) green.
+- Hosted GitHub `WAMP Profile Benchmarks` run `25596433375` for `d1679a9`
+  completed successfully on 2026-05-09 with `Linux WAMP profile gates` (8m02s)
+  green.
+- Hosted GitHub `Dart Package Publish Dry Run` run `25596433396` for
+  `d1679a9` completed successfully on 2026-05-09 with `Publish Dry Run` green.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence.
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -51,5 +66,6 @@ reports dropped and remaining counts through the public client helper surface.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, and hosted
-deployment-chain evidence are pending.
+Implementation, local verification, push, and hosted deployment-chain evidence
+are complete. Remaining strict-audit findings are operator-side release gaps
+outside this MCP queue-overflow smoke slice.

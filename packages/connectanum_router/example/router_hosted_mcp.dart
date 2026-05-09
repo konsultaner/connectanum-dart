@@ -1127,6 +1127,172 @@ Future<void> _smokeMcpEndpoint(
   if (!jsonEncode(streamablePrompt).contains('T-$label-streamable')) {
     throw StateError('Streamable MCP prompt did not render taskId.');
   }
+
+  await _smokeStreamableSessionLifecycle(client, serviceSession, label: label);
+}
+
+Future<void> _smokeStreamableSessionLifecycle(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable MCP $label session did not capture an id.');
+  }
+
+  final dynamicProcedure = 'example.task.dynamic.$label';
+  final registration = await serviceSession.register(
+    dynamicProcedure,
+    options: RegisterOptions(
+      custom: {
+        '_ai_meta_data': {
+          'short_description': 'Dynamic $label task lookup',
+          'description':
+              'Procedure registered after MCP initialization to verify '
+              'Streamable HTTP GET/SSE polling.',
+          'read_only_hint': true,
+          'destructive_hint': false,
+          'idempotent_hint': true,
+          'open_world_hint': false,
+        },
+      },
+    ),
+  );
+  registration.onInvoke((invocation) {
+    invocation.respondWith(
+      argumentsKeywords: {
+        'label': label,
+        'source': 'router-hosted-mcp-example',
+      },
+    );
+  });
+
+  final events = await _pollStreamableSessionEventsUntil(client, label: label);
+  final hasToolListChanged = events.any(
+    (event) => event.jsonData?['method'] == 'notifications/tools/list_changed',
+  );
+  if (!hasToolListChanged) {
+    throw StateError(
+      'Streamable MCP $label GET/SSE poll did not receive tools/list_changed.',
+    );
+  }
+  final eventId = client.lastEventId;
+  if (eventId == null || eventId.isEmpty) {
+    throw StateError('Streamable MCP $label GET/SSE poll missed event id.');
+  }
+
+  final resumedEvents = await client.poll(lastEventId: eventId);
+  if (resumedEvents.any(
+    (event) =>
+        event.id == eventId ||
+        event.jsonData?['method'] == 'notifications/tools/list_changed',
+  )) {
+    throw StateError('Streamable MCP $label Last-Event-ID replayed an event.');
+  }
+
+  final eventIdAfterResume = client.lastEventId;
+  if (eventIdAfterResume == null || eventIdAfterResume.isEmpty) {
+    throw StateError('Streamable MCP $label resume lost SSE cursor.');
+  }
+  await _assertInvalidLastEventIdRejectedWithoutSessionLoss(
+    client,
+    label: label,
+    sessionId: sessionId,
+    eventId: eventIdAfterResume,
+  );
+
+  await client.deleteSession();
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError('Streamable MCP $label DELETE left session state.');
+  }
+
+  client.sessionId = sessionId;
+  client.lastEventId = eventId;
+  try {
+    await client.listTools(id: '$label-stale-session-tools');
+    throw StateError('Deleted Streamable MCP $label session remained usable.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.notFound) {
+      rethrow;
+    }
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError('Streamable MCP $label 404 did not clear session state.');
+  }
+
+  final recovered = await client.initialize(id: '$label-reinitialize');
+  if (recovered['id'] != '$label-reinitialize' || client.sessionId == null) {
+    throw StateError('Streamable MCP $label reinitialize after 404 failed.');
+  }
+  await client.notifyInitialized();
+  await client.deleteSession();
+}
+
+Future<void> _assertInvalidLastEventIdRejectedWithoutSessionLoss(
+  McpStreamableHttpClient client, {
+  required String label,
+  required String sessionId,
+  required String eventId,
+}) async {
+  try {
+    await client.poll(lastEventId: '$sessionId:missing:1');
+    throw StateError(
+      'Streamable MCP $label accepted an unknown Last-Event-ID.',
+    );
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.badRequest) {
+      throw StateError(
+        'Streamable MCP $label invalid Last-Event-ID returned '
+        '${error.statusCode} instead of ${HttpStatus.badRequest}.',
+      );
+    }
+    if (!error.body.contains('Last-Event-ID')) {
+      throw StateError(
+        'Streamable MCP $label invalid Last-Event-ID error did not explain '
+        'the resume cursor problem.',
+      );
+    }
+  }
+
+  if (client.sessionId != sessionId || client.lastEventId != eventId) {
+    throw StateError(
+      'Streamable MCP $label invalid Last-Event-ID changed session state.',
+    );
+  }
+
+  final tools = await client.listTools(
+    id: '$label-after-invalid-last-event-id-tools',
+  );
+  final names = {for (final tool in tools.tools) tool['name'] as String};
+  if (!names.contains('example.task.lookup')) {
+    throw StateError(
+      'Streamable MCP $label session failed after invalid Last-Event-ID.',
+    );
+  }
+  if (client.sessionId != sessionId) {
+    throw StateError(
+      'Streamable MCP $label invalid Last-Event-ID recovery lost session id.',
+    );
+  }
+}
+
+Future<List<McpSseEvent>> _pollStreamableSessionEventsUntil(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    final events = await client.poll();
+    if (events.any(
+      (event) =>
+          event.jsonData?['method'] == 'notifications/tools/list_changed',
+    )) {
+      return events;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError('Timed out waiting for $label Streamable MCP SSE event.');
 }
 
 Future<void> _smokeDirectJsonToolMetaApi(
