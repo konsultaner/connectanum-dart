@@ -382,6 +382,297 @@ run_router_hosted_mcp_example_smoke() {
   dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
 }
 
+run_mcp_server_package_smoke() (
+  local smoke_dir
+
+  require_command dart
+
+  smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-server-smoke.XXXXXX")"
+  trap "rm -rf '$smoke_dir'" EXIT
+
+  mkdir -p "$smoke_dir/bin"
+  cat >"$smoke_dir/pubspec.yaml" <<EOF
+name: connectanum_mcp_server_smoke
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+dependencies:
+  connectanum_mcp: any
+dependency_overrides:
+  connectanum_core:
+    path: "$ROOT_DIR/packages/connectanum_core"
+  connectanum_client:
+    path: "$ROOT_DIR/packages/connectanum_client"
+  connectanum_mcp:
+    path: "$ROOT_DIR/packages/connectanum_mcp"
+EOF
+
+  cat >"$smoke_dir/bin/main.dart" <<'DART'
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:connectanum_mcp/connectanum_mcp.dart';
+
+const _toolName = 'consumer.echo';
+const _resourceUri = 'consumer://mcp/context';
+const _resourceTemplateUri = 'consumer://mcp/task/{taskId}';
+const _promptName = 'consumer.summary';
+
+Future<void> main() async {
+  await _smokeServerHandleMessage();
+  await _smokeStdioTransport();
+  print('MCP server-only consumer package smoke completed.');
+}
+
+Future<void> _smokeServerHandleMessage() async {
+  final server = _server();
+  final initialize = _jsonObjectFrom(
+    await server.handleMessage({
+      'jsonrpc': '2.0',
+      'id': 'init',
+      'method': 'initialize',
+      'params': {
+        'protocolVersion': mcpLatestProtocolVersion,
+        'capabilities': {},
+        'clientInfo': {'name': 'consumer-server-smoke', 'version': '0.1.0'},
+      },
+    }),
+    label: 'initialize response',
+  );
+  final initializeResult = _jsonObjectFrom(
+    initialize['result'],
+    label: 'initialize result',
+  );
+  _expect(initialize['id'] == 'init', 'initialize id mismatch');
+  _expect(
+    initializeResult['protocolVersion'] == mcpLatestProtocolVersion,
+    'initialize protocol mismatch',
+  );
+  _expect(
+    jsonEncode(initializeResult['capabilities']).contains('tools'),
+    'initialize did not advertise tools',
+  );
+
+  final initialized = await server.handleMessage({
+    'jsonrpc': '2.0',
+    'method': 'notifications/initialized',
+  });
+  _expect(initialized == null, 'initialized notification returned a response');
+  _expect(
+    server.state == McpServerState.initialized,
+    'server did not enter initialized state',
+  );
+
+  final batch = _jsonListFrom(
+    await server.handleMessage([
+      {'jsonrpc': '2.0', 'id': 'tools', 'method': 'tools/list'},
+      {
+        'jsonrpc': '2.0',
+        'id': 'call',
+        'method': 'tools/call',
+        'params': {
+          'name': _toolName,
+          'arguments': {'text': 'ready'},
+        },
+      },
+      {'jsonrpc': '2.0', 'id': 'resources', 'method': 'resources/list'},
+      {
+        'jsonrpc': '2.0',
+        'id': 'templates',
+        'method': 'resources/templates/list',
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'read',
+        'method': 'resources/read',
+        'params': {'uri': _resourceUri},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'prompt',
+        'method': 'prompts/get',
+        'params': {
+          'name': _promptName,
+          'arguments': {'text': 'ready'},
+        },
+      },
+      {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+    ]),
+    label: 'server batch response',
+  );
+  _expect(batch.length == 6, 'batch returned unexpected response count');
+  _expect(jsonEncode(batch[0]).contains(_toolName), 'tools/list missed tool');
+  _expect(jsonEncode(batch[1]).contains('ready'), 'tools/call missed echo');
+  _expect(
+    jsonEncode(batch[2]).contains(_resourceUri),
+    'resources/list missed resource',
+  );
+  _expect(
+    jsonEncode(batch[3]).contains(_resourceTemplateUri),
+    'resources/templates/list missed template',
+  );
+  _expect(
+    jsonEncode(batch[4]).contains('consumer package context'),
+    'resources/read missed content',
+  );
+  _expect(
+    jsonEncode(batch[5]).contains('Summarize consumer text: ready'),
+    'prompts/get missed prompt content',
+  );
+
+  server.shutdown();
+  _expect(server.state == McpServerState.closed, 'server did not close');
+}
+
+Future<void> _smokeStdioTransport() async {
+  final output = StringBuffer();
+  final transport = McpStdioTransport(
+    server: _server(),
+    input: Stream.value(
+      utf8.encode(
+        '${jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 'stdio-init',
+          'method': 'initialize',
+          'params': {'protocolVersion': mcpLatestProtocolVersion},
+        })}\n'
+        '${jsonEncode({'jsonrpc': '2.0', 'method': 'notifications/initialized'})}\n'
+        '${jsonEncode([
+          {'jsonrpc': '2.0', 'id': 'stdio-tools', 'method': 'tools/list'},
+          {'jsonrpc': '2.0', 'id': 'stdio-prompts', 'method': 'prompts/list'},
+          {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+        ])}\n',
+      ),
+    ),
+    output: output,
+    shutdownServerOnDone: false,
+  );
+
+  await transport.run();
+  final lines = const LineSplitter().convert(output.toString());
+  _expect(lines.length == 2, 'stdio transport emitted unexpected lines');
+  final initialize = _jsonObjectFrom(
+    jsonDecode(lines.first),
+    label: 'stdio initialize response',
+  );
+  _expect(initialize['id'] == 'stdio-init', 'stdio initialize id mismatch');
+  final batch = _jsonListFrom(
+    jsonDecode(lines.last),
+    label: 'stdio batch response',
+  );
+  _expect(batch.length == 2, 'stdio batch returned unexpected response count');
+  _expect(jsonEncode(batch[0]).contains(_toolName), 'stdio tools missed tool');
+  _expect(
+    jsonEncode(batch[1]).contains(_promptName),
+    'stdio prompts missed prompt',
+  );
+}
+
+McpServer _server() => McpServer(
+  serverInfo: const McpServerInfo(
+    name: 'consumer-mcp-server',
+    version: '0.1.0',
+  ),
+  tools: [
+    McpTool(
+      name: _toolName,
+      description: 'Echoes consumer text.',
+      handler: (request) {
+        final text = request.arguments['text'] as String? ?? '';
+        return McpToolResult.text(
+          text,
+          structuredContent: {'echo': text},
+        );
+      },
+    ),
+  ],
+  resources: [
+    McpResource(
+      uri: _resourceUri,
+      name: 'consumer-mcp-context',
+      title: 'Consumer MCP context',
+      description: 'Static context exposed by the consumer MCP server.',
+      mimeType: 'application/json',
+      read: (request) => [
+        McpTextResourceContent(
+          uri: request.uri,
+          mimeType: 'application/json',
+          text: '{"source":"consumer package context"}',
+        ),
+      ],
+    ),
+  ],
+  resourceTemplates: [
+    McpResourceTemplate(
+      uriTemplate: _resourceTemplateUri,
+      name: 'consumer-task',
+      title: 'Consumer task',
+      description: 'Template for consumer task context.',
+      mimeType: 'application/json',
+    ),
+  ],
+  prompts: [
+    McpPrompt(
+      name: _promptName,
+      title: 'Consumer Summary',
+      description: 'Builds a consumer prompt.',
+      arguments: [
+        McpPromptArgument(
+          name: 'text',
+          description: 'Text to summarize.',
+          required: true,
+        ),
+      ],
+      handler: (request) {
+        final text = request.arguments['text'] ?? '';
+        return McpPromptResult.text(
+          'Summarize consumer text: $text',
+          description: 'Consumer prompt for $text.',
+        );
+      },
+    ),
+  ],
+);
+
+Map<String, Object?> _jsonObjectFrom(Object? value, {required String label}) {
+  if (value is Map<Object?, Object?>) {
+    return value.map((key, value) {
+      if (key is! String) {
+        throw StateError('$label contained a non-string key.');
+      }
+      return MapEntry(key, value);
+    });
+  }
+  throw StateError('$label was not a JSON object.');
+}
+
+List<Object?> _jsonListFrom(Object? value, {required String label}) {
+  if (value is List<Object?>) {
+    return value;
+  }
+  throw StateError('$label was not a JSON list.');
+}
+
+void _expect(bool condition, String message) {
+  if (!condition) {
+    throw StateError(message);
+  }
+}
+DART
+
+  printf 'Running MCP server-only consumer package smoke from %s.\n' "$smoke_dir"
+  (
+    cd "$smoke_dir"
+    dart pub get
+    dart analyze
+    dart run bin/main.dart
+  )
+)
+
 run_mcp_client_package_smoke() (
   local smoke_dir
 
