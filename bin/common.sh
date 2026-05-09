@@ -498,6 +498,7 @@ Future<void> main() async {
     );
 
     await _smokeGenericJsonRpcApi(client, endpoint);
+    await _smokeGenericJsonRpcBatchErrors(client);
     await _smokeDirectToolApi(client, endpoint);
     await _smokeResourcesAndPrompts(client, endpoint);
     await _smokeWampHelpers(client, endpoint);
@@ -675,6 +676,156 @@ Future<void> _smokeGenericJsonRpcApi(
     missingDirectMethods.isEmpty,
     'generic direct JSON APIs included Streamable session state for '
     '${missingDirectMethods.join(', ')}',
+  );
+}
+
+Future<void> _smokeGenericJsonRpcBatchErrors(
+  McpStreamableHttpClient client,
+) async {
+  final sessionId = client.sessionId;
+  final eventId = client.lastEventId;
+
+  const missingDirectTool = 'missing.generic.direct.batch';
+  final directBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-error-tools',
+        'method': 'connectanum.tools.list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-error-missing',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'name': missingDirectTool,
+          'arguments': <String, Object?>{},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-error-call',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'name': _toolName,
+          'arguments': <String, Object?>{'text': 'direct after error'},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': _toolName,
+        'params': <String, Object?>{'text': 'direct notification'},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    directBatch != null && directBatch.length == 3,
+    'generic direct JSON batch error smoke returned invalid size',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directBatch![0],
+        id: 'generic-direct-batch-error-tools',
+        label: 'generic direct batch error tools/list',
+      )['tools'],
+    ).contains(_toolName),
+    'generic direct JSON batch error smoke lost tools response',
+  );
+  _expectJsonRpcError(
+    directBatch[1],
+    id: 'generic-direct-batch-error-missing',
+    messageSubstring: missingDirectTool,
+    label: 'generic direct batch missing tool',
+  );
+  _expect(
+    _toolEchoText(
+          _jsonRpcResult(
+            directBatch[2],
+            id: 'generic-direct-batch-error-call',
+            label: 'generic direct batch success after error',
+          ),
+          label: 'generic direct batch success after error',
+        ) ==
+        'direct after error',
+    'generic direct JSON batch error smoke lost success response',
+  );
+
+  const missingStreamableTool = 'missing.generic.streamable.batch';
+  final streamableBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-error-tools',
+        'method': 'tools/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-error-missing',
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': missingStreamableTool,
+          'arguments': <String, Object?>{},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-streamable-batch-error-ping',
+        'method': 'ping',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': <String, Object?>{},
+      },
+    ],
+  );
+  _expect(
+    streamableBatch != null && streamableBatch.length == 3,
+    'generic Streamable batch error smoke returned invalid size',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        streamableBatch![0],
+        id: 'generic-streamable-batch-error-tools',
+        label: 'generic Streamable batch error tools/list',
+      )['tools'],
+    ).contains(_toolName),
+    'generic Streamable batch error smoke lost tools response',
+  );
+  _expectJsonRpcError(
+    streamableBatch[1],
+    id: 'generic-streamable-batch-error-missing',
+    messageSubstring: missingStreamableTool,
+    label: 'generic Streamable batch missing tool',
+  );
+  _expect(
+    _jsonRpcResult(
+      streamableBatch[2],
+      id: 'generic-streamable-batch-error-ping',
+      label: 'generic Streamable batch ping after error',
+    ).isEmpty,
+    'generic Streamable batch error smoke lost ping response',
+  );
+
+  final recovery = await client.request(
+    'ping',
+    id: 'generic-batch-error-recovery-ping',
+  );
+  _expect(
+    _jsonRpcResult(
+      recovery,
+      id: 'generic-batch-error-recovery-ping',
+      label: 'generic batch error recovery ping',
+    ).isEmpty,
+    'generic batch errors left Streamable session unusable',
+  );
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'generic batch errors changed Streamable session state',
   );
 }
 
@@ -1478,13 +1629,16 @@ final class _AgentMcpEndpoint {
     final method = message['method'] as String?;
     final id = message['id'];
     _recordDirectRequest(method, request, message);
+    if (id == null) {
+      return null;
+    }
     if (_batchMethodRequiresSession(method) && !_hasSession(request)) {
       return _jsonRpcError(id, -32001, 'missing or unknown session');
     }
 
     switch (method) {
       case 'notifications/initialized':
-        return id == null ? null : _jsonRpcResultResponse(id);
+        return _jsonRpcResultResponse(id);
       case 'ping':
         return _pingResponse(id);
       case 'tools/list':
@@ -1635,6 +1789,9 @@ final class _AgentMcpEndpoint {
     final params = _jsonMapFrom(message['params'], label: 'tool params');
     final name = params['name'] as String?;
     final arguments = _jsonMapFrom(params['arguments'], label: 'arguments');
+    if (name != null && name.startsWith('missing.')) {
+      return _jsonRpcError(id, -32004, 'Tool not found: $name');
+    }
     if (name != _toolName) {
       return _structuredToolResponse(id, _wampToolStructuredContent(name, arguments));
     }
@@ -2058,6 +2215,25 @@ Map<String, Object?> _jsonRpcResult(
 }) {
   _expect(response['id'] == id, '$label returned unexpected id.');
   return _jsonMapFrom(response['result'], label: '$label result');
+}
+
+void _expectJsonRpcError(
+  Map<String, Object?> response, {
+  required Object? id,
+  required String messageSubstring,
+  required String label,
+}) {
+  _expect(response['id'] == id, '$label returned unexpected id.');
+  _expect(
+    !response.containsKey('result'),
+    '$label unexpectedly contained a result.',
+  );
+  final error = response['error'];
+  _expect(error is Map, '$label did not contain a JSON-RPC error.');
+  _expect(
+    jsonEncode(error).contains(messageSubstring),
+    '$label error did not mention $messageSubstring.',
+  );
 }
 
 Map<String, Object?> _jsonMapFrom(Object? value, {required String label}) {
