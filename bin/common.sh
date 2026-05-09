@@ -497,6 +497,7 @@ Future<void> main() async {
       'direct JSON request included Streamable HTTP session state',
     );
 
+    await _smokeGenericJsonRpcApi(client, endpoint);
     await _smokeDirectToolApi(client, endpoint);
     await _smokeResourcesAndPrompts(client, endpoint);
     await _smokeWampHelpers(client, endpoint);
@@ -507,6 +508,174 @@ Future<void> main() async {
     client.close(force: true);
     await endpoint.close();
   }
+}
+
+Future<void> _smokeGenericJsonRpcApi(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final sessionId = client.sessionId;
+  final eventId = client.lastEventId;
+
+  final ping = await client.request('ping', id: 'streamable-generic-ping');
+  _expect(
+    _jsonRpcResult(
+      ping,
+      id: 'streamable-generic-ping',
+      label: 'streamable generic ping',
+    ).isEmpty,
+    'generic Streamable ping failed',
+  );
+
+  final directTools = await client.request(
+    'connectanum.tools.list',
+    id: 'generic-direct-tools',
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directTools,
+        id: 'generic-direct-tools',
+        label: 'generic direct tools/list',
+      )['tools'],
+    ).contains(_toolName),
+    'generic direct JSON tools/list missed $_toolName',
+  );
+
+  final directToolCall = await client.request(
+    'connectanum.tool.call',
+    id: 'generic-direct-tool-call',
+    params: const <String, Object?>{
+      'name': _toolName,
+      'arguments': <String, Object?>{'text': 'generic direct'},
+    },
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    _toolEchoText(
+          _jsonRpcResult(
+            directToolCall,
+            id: 'generic-direct-tool-call',
+            label: 'generic direct tool call',
+          ),
+          label: 'generic direct tool call',
+        ) ==
+        'generic direct',
+    'generic direct JSON tool call failed',
+  );
+
+  final directBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-tools',
+        'method': 'connectanum.tools.list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-tool-call',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'name': _toolName,
+          'arguments': <String, Object?>{'text': 'generic batch'},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'generic-direct-batch-dotted-tool',
+        'method': _toolName,
+        'params': <String, Object?>{'text': 'generic dotted batch'},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    directBatch != null && directBatch.length == 3,
+    'generic direct JSON batch did not return three responses',
+  );
+  _expect(
+    _toolEchoText(
+          _jsonRpcResult(
+            directBatch![1],
+            id: 'generic-direct-batch-tool-call',
+            label: 'generic direct batch tool call',
+          ),
+          label: 'generic direct batch tool call',
+        ) ==
+        'generic batch',
+    'generic direct JSON batch tool call failed',
+  );
+  _expect(
+    _toolEchoText(
+          _jsonRpcResult(
+            directBatch[2],
+            id: 'generic-direct-batch-dotted-tool',
+            label: 'generic direct batch dotted tool',
+          ),
+          label: 'generic direct batch dotted tool',
+        ) ==
+        'generic dotted batch',
+    'generic direct JSON batch dotted tool call failed',
+  );
+
+  final streamableBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'streamable-batch-ping',
+        'method': 'ping',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'streamable-batch-tools',
+        'method': 'tools/list',
+      },
+    ],
+  );
+  _expect(
+    streamableBatch != null && streamableBatch.length == 2,
+    'generic Streamable batch did not return two responses',
+  );
+  _expect(
+    _jsonRpcResult(
+      streamableBatch![0],
+      id: 'streamable-batch-ping',
+      label: 'streamable batch ping',
+    ).isEmpty,
+    'generic Streamable batch ping failed',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        streamableBatch[1],
+        id: 'streamable-batch-tools',
+        label: 'streamable batch tools/list',
+      )['tools'],
+    ).contains(_toolName),
+    'generic Streamable batch tools/list missed $_toolName',
+  );
+
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'generic direct JSON or batch APIs changed Streamable session state',
+  );
+  const expectedDirectMethods = <String>{
+    'connectanum.tools.list',
+    'connectanum.tool.call',
+    _toolName,
+  };
+  final missingDirectMethods = expectedDirectMethods.difference(
+    endpoint.directMethodsWithoutSession,
+  );
+  _expect(
+    missingDirectMethods.isEmpty,
+    'generic direct JSON APIs included Streamable session state for '
+    '${missingDirectMethods.join(', ')}',
+  );
 }
 
 Future<void> _smokeDirectToolApi(
@@ -1197,7 +1366,13 @@ final class _AgentMcpEndpoint {
     }
 
     final body = await utf8.decoder.bind(request).join();
-    final message = _jsonMapFrom(jsonDecode(body), label: 'request');
+    final decoded = jsonDecode(body);
+    if (decoded is List) {
+      await _handleBatch(request, decoded.cast<Object?>());
+      return;
+    }
+
+    final message = _jsonMapFrom(decoded, label: 'request');
     final method = message['method'] as String?;
     final id = message['id'];
     _recordDirectRequest(method, request, message);
@@ -1230,6 +1405,12 @@ final class _AgentMcpEndpoint {
         }
         request.response.statusCode = HttpStatus.accepted;
         await request.response.close();
+      case 'ping':
+        if (!_hasSession(request)) {
+          await _writeSessionError(request);
+          return;
+        }
+        await _writeJson(request, _pingResponse(id));
       case 'tools/list':
         if (!_hasSession(request)) {
           await _writeSessionError(request);
@@ -1275,6 +1456,73 @@ final class _AgentMcpEndpoint {
     }
   }
 
+  Future<void> _handleBatch(
+    HttpRequest request,
+    List<Object?> messages,
+  ) async {
+    final responses = <Map<String, Object?>>[];
+    for (final item in messages) {
+      final message = _jsonMapFrom(item, label: 'batch request item');
+      final response = _batchResponse(request, message);
+      if (response != null) {
+        responses.add(response);
+      }
+    }
+    await _writeJson(request, responses);
+  }
+
+  Map<String, Object?>? _batchResponse(
+    HttpRequest request,
+    Map<String, Object?> message,
+  ) {
+    final method = message['method'] as String?;
+    final id = message['id'];
+    _recordDirectRequest(method, request, message);
+    if (_batchMethodRequiresSession(method) && !_hasSession(request)) {
+      return _jsonRpcError(id, -32001, 'missing or unknown session');
+    }
+
+    switch (method) {
+      case 'notifications/initialized':
+        return id == null ? null : _jsonRpcResultResponse(id);
+      case 'ping':
+        return _pingResponse(id);
+      case 'tools/list':
+        return _toolListResponse(id);
+      case 'tools/call':
+        return _toolCallResponse(id, message);
+      case 'connectanum.tools.list':
+        sawDirectRequestWithoutSession =
+            request.headers.value('MCP-Session-Id') == null;
+        return _toolListResponse(id);
+      case 'connectanum.tool.call':
+      case 'connectanum.tools.call':
+        return _toolCallResponse(id, message);
+      case 'resources/list':
+        return _resourceListResponse(id);
+      case 'resources/read':
+        return _resourceReadResponse(id, message);
+      case 'resources/templates/list':
+        return _resourceTemplateListResponse(id);
+      case 'prompts/list':
+        return _promptListResponse(id);
+      case 'prompts/get':
+        return _promptGetResponse(id, message);
+      default:
+        if (method == _toolName) {
+          return _directToolMethodResponse(id, message);
+        }
+        return _jsonRpcError(id, -32601, 'unsupported method');
+    }
+  }
+
+  bool _batchMethodRequiresSession(String? method) {
+    return method == 'notifications/initialized' ||
+        method == 'ping' ||
+        method == 'tools/list' ||
+        method == 'tools/call';
+  }
+
   void _recordDirectRequest(
     String? method,
     HttpRequest request,
@@ -1306,6 +1554,28 @@ final class _AgentMcpEndpoint {
       return;
     }
     await _writeError(request, HttpStatus.badRequest, 'missing session');
+  }
+
+  Map<String, Object?> _pingResponse(Object? id) => _jsonRpcResultResponse(id);
+
+  Map<String, Object?> _jsonRpcResultResponse(Object? id) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{},
+    };
+  }
+
+  Map<String, Object?> _jsonRpcError(
+    Object? id,
+    int code,
+    String message,
+  ) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'error': <String, Object?>{'code': code, 'message': message},
+    };
   }
 
   Map<String, Object?> _toolListResponse(Object? id) {
@@ -1737,7 +2007,7 @@ final class _AgentMcpEndpoint {
 
   Future<void> _writeJson(
     HttpRequest request,
-    Map<String, Object?> body,
+    Object? body,
   ) async {
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode(body));
@@ -1779,6 +2049,15 @@ final class _AgentMcpEndpoint {
       'error': <String, Object?>{'message': message},
     });
   }
+}
+
+Map<String, Object?> _jsonRpcResult(
+  Map<String, Object?> response, {
+  required Object? id,
+  required String label,
+}) {
+  _expect(response['id'] == id, '$label returned unexpected id.');
+  return _jsonMapFrom(response['result'], label: '$label result');
 }
 
 Map<String, Object?> _jsonMapFrom(Object? value, {required String label}) {

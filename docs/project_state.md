@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `2563553`
-(`test: cover mcp streamable lifecycle example`; CI clean)
+Last reviewed branch checkpoint: `4647a8d`
+(`test: cover mcp client streamable lifecycle`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-mcp-client-package-streamable-lifecycle-smoke.md`
+`docs/exec-plans/2026-05-09-mcp-client-package-generic-batch-smoke.md`
 (complete; local verification clean).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-09-mcp-client-package-streamable-lifecycle-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-09-router-hosted-mcp-example-streamable-lifecycle-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -143,10 +146,13 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`2563553`
-(`test: cover mcp streamable lifecycle example`; hosted CI evidence clean).
-Current implementation checkpoint: MCP client-only Streamable lifecycle smoke
+`4647a8d`
+(`test: cover mcp client streamable lifecycle`; hosted CI evidence clean).
+Current implementation checkpoint: MCP client package generic JSON-RPC and
+batch smoke
 (complete; local verification clean).
+Previous implementation checkpoint: MCP client-only Streamable lifecycle smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: router-hosted MCP example Streamable
 lifecycle smoke
 (complete; hosted CI evidence clean).
@@ -414,8 +420,26 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP client-only Streamable lifecycle smoke is complete with clean local
-    verification. The generated `run_mcp_client_package_smoke` package now
+  - MCP client package generic JSON-RPC and batch smoke is complete with local
+    verification clean. The generated
+    `run_mcp_client_package_smoke` package now proves that a neutral consumer
+    application using `package:connectanum_mcp/connectanum_mcp_io.dart` can use
+    public generic `request(...)` calls for direct JSON tool listing/calling
+    without Streamable session headers, public generic direct JSON
+    `postBatch(...)` calls for tool listing, tool calls, and dotted tool-name
+    calls without Streamable session headers, and Streamable `postBatch(...)`
+    calls for `ping` plus `tools/list` while preserving the active session id
+    and SSE cursor. The neutral fake endpoint now handles the minimal JSON-RPC
+    batch and `ping` responses needed to prove that public package-boundary
+    behavior. Pre-change `bin/test-fast` passed on 2026-05-09 with isolated
+    `TMPDIR`. Focused generated client-only consumer package smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_client_package_smoke'`)
+    passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-09 with isolated `TMPDIR`. Commit, push, and hosted
+    deployment-chain evidence remain pending.
+  - MCP client-only Streamable lifecycle smoke is complete with hosted CI
+    evidence. The generated `run_mcp_client_package_smoke` package now
     proves that a neutral consumer application using
     `package:connectanum_mcp/connectanum_mcp_io.dart` can poll GET/SSE events,
     resume with `Last-Event-ID` without replay, reject invalid resume cursors
@@ -427,8 +451,19 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_mcp_client_package_smoke'`)
     passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
-    passed on 2026-05-09 with isolated `TMPDIR`. Commit, push, and hosted
-    deployment-chain evidence are pending.
+    passed on 2026-05-09 with isolated `TMPDIR`. Commit `4647a8d`
+    (`test: cover mcp client streamable lifecycle`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-09. Hosted GitHub
+    `CI` run `25598397391` for `4647a8d` completed successfully on
+    2026-05-09 with `Fast Checks` (4m18s) and `Full Verify` (5m56s) green.
+    Deployment-chain audit passed on 2026-05-09 with clean latest CI and
+    clean relevant Dart package publish dry-run evidence. The latest relevant
+    `Dart Package Publish Dry Run` remains run `25597333839` for `2563553`;
+    it is still relevant because no publish-sensitive paths changed since
+    that run. Strict deployment audit still reports operator-side release
+    gaps: branch protection and required status checks are absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - Router-hosted MCP example Streamable lifecycle smoke is complete with
     hosted CI evidence. The public example now adds a Streamable HTTP lifecycle
     helper that registers a dynamic WAMP procedure after MCP initialization,
