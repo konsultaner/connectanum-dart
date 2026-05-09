@@ -1311,6 +1311,355 @@ void _expectWampRegistrationSessionBatchDetails(
   }
 }
 
+Future<void> _smokeDirectJsonBatchWampSubscriptionMeta(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+  required String topic,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final subscriptionLookupId = '$label-direct-batch-wamp-subscription-lookup';
+  final subscriptionMatchId = '$label-direct-batch-wamp-subscription-match';
+  final subscriptionListId = '$label-direct-batch-wamp-subscription-list';
+  final discovery = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': subscriptionLookupId,
+        'method': 'wamp.subscription.lookup',
+        'params': {'topic': topic},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': subscriptionMatchId,
+        'method': 'wamp.subscription.match',
+        'params': {'topic': topic},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': subscriptionListId,
+        'method': 'wamp.subscription.list',
+        'params': {},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (discovery == null) {
+    throw StateError(
+      'Direct JSON-RPC batch WAMP subscription meta discovery returned null.',
+    );
+  }
+  final subscriptionId = _expectWampSubscriptionBatchDiscovery(
+    discovery,
+    subscriptionLookupId: subscriptionLookupId,
+    subscriptionMatchId: subscriptionMatchId,
+    subscriptionListId: subscriptionListId,
+    topic: topic,
+    modeLabel: 'Direct JSON-RPC batch WAMP subscription meta',
+  );
+
+  final subscriptionGetId = '$label-direct-batch-wamp-subscription-get';
+  final subscribersId = '$label-direct-batch-wamp-subscription-subscribers';
+  final subscriberCountId =
+      '$label-direct-batch-wamp-subscription-subscriber-count';
+  final details = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': subscriptionGetId,
+        'method': 'wamp.subscription.get',
+        'params': {'id': subscriptionId},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': subscribersId,
+        'method': 'wamp.subscription.list_subscribers',
+        'params': {'id': subscriptionId},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': subscriberCountId,
+        'method': 'wamp.subscription.count_subscribers',
+        'params': {'id': subscriptionId},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (details == null) {
+    throw StateError(
+      'Direct JSON-RPC batch WAMP subscription meta details returned null.',
+    );
+  }
+  _expectWampSubscriptionBatchDetails(
+    details,
+    subscriptionGetId: subscriptionGetId,
+    subscribersId: subscribersId,
+    subscriberCountId: subscriberCountId,
+    serviceSession: serviceSession,
+    topic: topic,
+    modeLabel: 'Direct JSON-RPC batch WAMP subscription meta',
+  );
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError(
+      'Direct JSON-RPC batch WAMP subscription meta changed Streamable state.',
+    );
+  }
+}
+
+Future<void> _smokeStreamableBatchWampSubscriptionMeta(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+  required String topic,
+  required void Function(String operation) expectProgress,
+}) async {
+  final subscriptionLookupId =
+      '$label-streamable-batch-wamp-subscription-lookup';
+  final subscriptionMatchId = '$label-streamable-batch-wamp-subscription-match';
+  final subscriptionListId = '$label-streamable-batch-wamp-subscription-list';
+  final discovery = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': subscriptionLookupId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.subscription.lookup',
+        'arguments': {
+          'arguments': [topic],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': subscriptionMatchId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.subscription.match',
+        'arguments': {
+          'arguments': [topic],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': subscriptionListId,
+      'method': 'tools/call',
+      'params': {'name': 'wamp.subscription.list', 'arguments': {}},
+    },
+  ]);
+  if (discovery == null) {
+    throw StateError(
+      'Streamable MCP batch WAMP subscription meta discovery returned null.',
+    );
+  }
+  final subscriptionId = _expectWampSubscriptionBatchDiscovery(
+    discovery,
+    subscriptionLookupId: subscriptionLookupId,
+    subscriptionMatchId: subscriptionMatchId,
+    subscriptionListId: subscriptionListId,
+    topic: topic,
+    modeLabel: 'Streamable MCP batch WAMP subscription meta',
+  );
+  expectProgress('subscription meta discovery batch');
+
+  final subscriptionGetId = '$label-streamable-batch-wamp-subscription-get';
+  final subscribersId = '$label-streamable-batch-wamp-subscription-subscribers';
+  final subscriberCountId =
+      '$label-streamable-batch-wamp-subscription-subscriber-count';
+  final details = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': subscriptionGetId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.subscription.get',
+        'arguments': {
+          'arguments': [subscriptionId],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': subscribersId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.subscription.list_subscribers',
+        'arguments': {
+          'arguments': [subscriptionId],
+        },
+      },
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': subscriberCountId,
+      'method': 'tools/call',
+      'params': {
+        'name': 'wamp.subscription.count_subscribers',
+        'arguments': {
+          'arguments': [subscriptionId],
+        },
+      },
+    },
+  ]);
+  if (details == null) {
+    throw StateError(
+      'Streamable MCP batch WAMP subscription meta details returned null.',
+    );
+  }
+  _expectWampSubscriptionBatchDetails(
+    details,
+    subscriptionGetId: subscriptionGetId,
+    subscribersId: subscribersId,
+    subscriberCountId: subscriberCountId,
+    serviceSession: serviceSession,
+    topic: topic,
+    modeLabel: 'Streamable MCP batch WAMP subscription meta',
+  );
+  expectProgress('subscription meta details batch');
+}
+
+int _expectWampSubscriptionBatchDiscovery(
+  List<McpJsonMap> responses, {
+  required String subscriptionLookupId,
+  required String subscriptionMatchId,
+  required String subscriptionListId,
+  required String topic,
+  required String modeLabel,
+}) {
+  if (responses.length != 3) {
+    throw StateError('$modeLabel discovery returned ${responses.length}.');
+  }
+
+  final subscriptionLookupContent = _structuredContentFromBatchResponse(
+    responses[0],
+    id: subscriptionLookupId,
+    label: '$modeLabel subscription lookup',
+  );
+  final subscriptionLookupArguments = subscriptionLookupContent['arguments'];
+  if (subscriptionLookupArguments is! List) {
+    throw StateError('$modeLabel subscription lookup missed arguments.');
+  }
+  final subscriptionId = _singleMetaId(
+    subscriptionLookupArguments.cast<Object?>(),
+    '$modeLabel subscription lookup',
+  );
+  if (subscriptionId <= 0) {
+    throw StateError(
+      '$modeLabel subscription lookup returned invalid id $subscriptionId.',
+    );
+  }
+
+  final subscriptionMatchContent = _structuredContentFromBatchResponse(
+    responses[1],
+    id: subscriptionMatchId,
+    label: '$modeLabel subscription match',
+  );
+  final subscriptionMatchArguments = subscriptionMatchContent['arguments'];
+  if (subscriptionMatchArguments is! List) {
+    throw StateError('$modeLabel subscription match missed arguments.');
+  }
+  final matchedSubscriptionIds = _integerMetaIds(
+    subscriptionMatchArguments.cast<Object?>(),
+    '$modeLabel subscription match',
+  );
+  if (!matchedSubscriptionIds.contains(subscriptionId)) {
+    throw StateError('$modeLabel subscription match missed $topic.');
+  }
+
+  final subscriptionListContent = _structuredContentFromBatchResponse(
+    responses[2],
+    id: subscriptionListId,
+    label: '$modeLabel subscription list',
+  );
+  final subscriptionListKeywords = _jsonObjectFrom(
+    subscriptionListContent['argumentsKeywords'],
+    label: '$modeLabel subscription list kwargs',
+  );
+  final exactSubscriptionIds = _integerMetaIdsFromValue(
+    subscriptionListKeywords['exact'],
+    '$modeLabel subscription list exact',
+  );
+  if (!exactSubscriptionIds.contains(subscriptionId)) {
+    throw StateError('$modeLabel subscription list missed $topic.');
+  }
+
+  return subscriptionId;
+}
+
+void _expectWampSubscriptionBatchDetails(
+  List<McpJsonMap> responses, {
+  required String subscriptionGetId,
+  required String subscribersId,
+  required String subscriberCountId,
+  required RouterSession serviceSession,
+  required String topic,
+  required String modeLabel,
+}) {
+  if (responses.length != 3) {
+    throw StateError('$modeLabel details returned ${responses.length}.');
+  }
+
+  final subscriptionGetContent = _structuredContentFromBatchResponse(
+    responses[0],
+    id: subscriptionGetId,
+    label: '$modeLabel subscription get',
+  );
+  final subscriptionGetKeywords = _jsonObjectFrom(
+    subscriptionGetContent['argumentsKeywords'],
+    label: '$modeLabel subscription get kwargs',
+  );
+  if (!jsonEncode(subscriptionGetKeywords).contains(topic)) {
+    throw StateError('$modeLabel subscription get missed $topic.');
+  }
+
+  final subscribersContent = _structuredContentFromBatchResponse(
+    responses[1],
+    id: subscribersId,
+    label: '$modeLabel subscription subscribers',
+  );
+  final subscriberArguments = subscribersContent['arguments'];
+  if (subscriberArguments is! List) {
+    throw StateError('$modeLabel subscription subscribers missed arguments.');
+  }
+  final subscriberIds = _integerMetaIds(
+    subscriberArguments.cast<Object?>(),
+    '$modeLabel subscription subscribers',
+  );
+  if (subscriberIds.isEmpty) {
+    throw StateError('$modeLabel subscription subscribers was empty.');
+  }
+  if (subscriberIds.contains(serviceSession.sessionId)) {
+    throw StateError('$modeLabel subscription subscribers leaked sessions.');
+  }
+
+  final subscriberCountContent = _structuredContentFromBatchResponse(
+    responses[2],
+    id: subscriberCountId,
+    label: '$modeLabel subscription subscriber count',
+  );
+  final subscriberCountArguments = subscriberCountContent['arguments'];
+  if (subscriberCountArguments is! List) {
+    throw StateError(
+      '$modeLabel subscription subscriber count missed arguments.',
+    );
+  }
+  final subscriberTotal = _singleMetaId(
+    subscriberCountArguments.cast<Object?>(),
+    '$modeLabel subscription subscriber count',
+  );
+  if (subscriberTotal != subscriberIds.length) {
+    throw StateError(
+      '$modeLabel subscription subscriber count did not match visible sessions.',
+    );
+  }
+}
+
 McpJsonMap _jsonObjectFrom(Object? value, {required String label}) {
   if (value is! Map) {
     throw StateError('$label returned ${jsonEncode(value)}.');
@@ -1397,6 +1746,12 @@ Future<void> _smokeDirectJsonBatchPubSub(
         !jsonEncode(subscribeBatch[1]).contains('example.task.lookup')) {
       throw StateError('Direct JSON-RPC batch pub/sub API list was invalid.');
     }
+    await _smokeDirectJsonBatchWampSubscriptionMeta(
+      client,
+      serviceSession,
+      label: label,
+      topic: 'example.events.task',
+    );
 
     final publishId = '$label-direct-batch-pubsub-publish';
     final apiDescribeId = '$label-direct-batch-pubsub-api-describe';
@@ -1646,6 +2001,13 @@ Future<void> _smokeStreamableBatchPubSub(
       throw StateError('Streamable MCP batch pub/sub API list was invalid.');
     }
     expectStreamableProgress('subscribe batch');
+    await _smokeStreamableBatchWampSubscriptionMeta(
+      client,
+      serviceSession,
+      label: label,
+      topic: 'example.events.task',
+      expectProgress: expectStreamableProgress,
+    );
 
     final publishId = '$label-streamable-batch-pubsub-publish';
     final apiDescribeId = '$label-streamable-batch-pubsub-api-describe';
