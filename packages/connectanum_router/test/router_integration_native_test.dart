@@ -1901,6 +1901,42 @@ void main() {
           expect(responses[1]['id'], equals('$label-batch-call'));
           expect(jsonEncode(responses[1]), contains('T-$label-batch'));
           expect(client.lastEventId, startsWith('${client.sessionId}:'));
+
+          final sessionId = client.sessionId;
+          expect(sessionId, isNotNull);
+          final previousEventId = client.lastEventId;
+          final errorResponses = await client.postBatch([
+            {
+              'jsonrpc': '2.0',
+              'id': '$label-batch-error-tools',
+              'method': 'tools/list',
+              'params': {},
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': '$label-batch-error-unknown',
+              'method': 'consumer.unknown.method',
+              'params': {},
+            },
+            {
+              'jsonrpc': '2.0',
+              'method': 'notifications/initialized',
+              'params': {},
+            },
+          ]);
+          expect(errorResponses, isNotNull);
+          expect(errorResponses, hasLength(2));
+          expect(errorResponses![0]['id'], equals('$label-batch-error-tools'));
+          expect(jsonEncode(errorResponses[0]), contains('app.safe.lookup'));
+          expect(errorResponses[1]['id'], equals('$label-batch-error-unknown'));
+          expect((errorResponses[1]['error'] as Map)['code'], equals(-32601));
+          expect(
+            jsonEncode(errorResponses[1]['error']),
+            contains('Unknown MCP method'),
+          );
+          expect(client.sessionId, equals(sessionId));
+          expect(client.lastEventId, startsWith('$sessionId:'));
+          expect(client.lastEventId, isNot(equals(previousEventId)));
         }
 
         final publicClient = McpStreamableHttpClient(
