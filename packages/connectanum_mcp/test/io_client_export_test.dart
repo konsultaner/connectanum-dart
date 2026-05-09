@@ -56,6 +56,82 @@ void main() {
     },
   );
 
+  test('IO entrypoint re-exports HTTP auth helpers for MCP sessions', () async {
+    final endpoint = await _AuthBackedMcpEndpoint.bind();
+    addTearDown(endpoint.close);
+
+    final authClient = ConnectanumHttpAuthClient(endpoint.authUri);
+    addTearDown(() => authClient.close(force: true));
+
+    final grant = await authClient.issueTicketToken(
+      realm: _ioAuthRealm,
+      authId: _ioAuthId,
+      ticket: _ioTicketSecret,
+    );
+    expect(grant.accessToken, _ioAccessToken);
+    expect(grant.refreshToken, _ioRefreshToken);
+    expect(grant.realm, _ioAuthRealm);
+    expect(grant.authId, _ioAuthId);
+    expect(grant.authRole, _ioAuthRole);
+    expect(grant.authMethod, 'ticket');
+
+    final mcpClient = McpStreamableHttpClient.withBearerToken(
+      endpoint.mcpUri,
+      grant.accessToken,
+    );
+    addTearDown(() => mcpClient.close(force: true));
+
+    final initialize = await mcpClient.initialize(id: 'io-auth-init');
+    expect(
+      _jsonMapFrom(
+        initialize['result'],
+        label: 'authenticated initialize result',
+      )['protocolVersion'],
+      mcpLatestProtocolVersion,
+    );
+    expect(mcpClient.sessionId, _ioAuthSessionId);
+
+    final ping = await mcpClient.ping(id: 'io-auth-ping');
+    expect(ping, isEmpty);
+
+    final refreshed = await authClient.refreshToken(grant.refreshToken!);
+    expect(refreshed.accessToken, _ioRefreshedAccessToken);
+    expect(refreshed.refreshToken, _ioRefreshedRefreshToken);
+
+    await authClient.revokeToken(
+      refreshed.refreshToken!,
+      tokenTypeHint: 'refresh_token',
+    );
+
+    expect(endpoint.authRequests, hasLength(4));
+    expect(endpoint.authRequests[0].body, {
+      'realm': _ioAuthRealm,
+      'authmethod': 'ticket',
+      'authid': _ioAuthId,
+    });
+    expect(endpoint.authRequests[1].body, {
+      'state': _ioAuthState,
+      'signature': _ioTicketSecret,
+    });
+    expect(endpoint.authRequests[2].body, {
+      'grant_type': 'refresh_token',
+      'refresh_token': _ioRefreshToken,
+    });
+    expect(endpoint.authRequests[3].body, {
+      'grant_type': 'revoke',
+      'token': _ioRefreshedRefreshToken,
+      'token_type_hint': 'refresh_token',
+    });
+
+    expect(endpoint.mcpRequests, hasLength(2));
+    expect(endpoint.mcpRequests[0].authorization, 'Bearer $_ioAccessToken');
+    expect(endpoint.mcpRequests[0].sessionId, isNull);
+    expect(endpoint.mcpRequests[0].body['method'], 'initialize');
+    expect(endpoint.mcpRequests[1].authorization, 'Bearer $_ioAccessToken');
+    expect(endpoint.mcpRequests[1].sessionId, _ioAuthSessionId);
+    expect(endpoint.mcpRequests[1].body['method'], 'ping');
+  });
+
   test(
     'IO entrypoint re-exports Streamable resource and prompt helpers',
     () async {
@@ -354,6 +430,16 @@ const String _ioResourceUri = 'app://io-entrypoint/context';
 const String _ioPromptName = 'io.summarize';
 const String _ioTopic = 'app.events.io';
 const String _ioSubscriptionHandle = 'io-sub-1';
+const String _ioAuthRealm = 'realm1';
+const String _ioAuthId = 'consumer-1';
+const String _ioAuthRole = 'member';
+const String _ioTicketSecret = 'io-ticket-secret';
+const String _ioAccessToken = 'io-access-token-1';
+const String _ioRefreshToken = 'io-refresh-token-1';
+const String _ioRefreshedAccessToken = 'io-access-token-2';
+const String _ioRefreshedRefreshToken = 'io-refresh-token-2';
+const String _ioAuthState = 'io-state-1';
+const String _ioAuthSessionId = 'io-auth-session-1';
 
 final class _DirectWampEndpoint {
   _DirectWampEndpoint._(this._server) {
@@ -430,6 +516,210 @@ final class _DirectWampEndpoint {
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode(body));
     await request.response.close();
+  }
+}
+
+final class _AuthBackedMcpEndpoint {
+  _AuthBackedMcpEndpoint._(this._server) {
+    _subscription = _server.listen(_handle);
+  }
+
+  final HttpServer _server;
+  final authRequests = <_SeenAuthRequest>[];
+  final mcpRequests = <_SeenAuthorizedMcpRequest>[];
+  late final StreamSubscription<HttpRequest> _subscription;
+
+  Uri get authUri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/auth',
+  );
+
+  Uri get mcpUri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/mcp',
+  );
+
+  static Future<_AuthBackedMcpEndpoint> bind() async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    return _AuthBackedMcpEndpoint._(server);
+  }
+
+  Future<void> close() async {
+    await _subscription.cancel();
+    await _server.close(force: true);
+  }
+
+  Future<void> _handle(HttpRequest request) async {
+    switch (request.uri.path) {
+      case '/auth':
+        await _handleAuth(request);
+        return;
+      case '/mcp':
+        await _handleMcp(request);
+        return;
+      default:
+        request.response.statusCode = HttpStatus.notFound;
+        await request.response.close();
+    }
+  }
+
+  Future<void> _handleAuth(HttpRequest request) async {
+    final body = await utf8.decoder.bind(request).join();
+    final jsonBody = _jsonMapFrom(jsonDecode(body), label: 'auth request');
+    authRequests.add(_SeenAuthRequest.from(request, jsonBody));
+
+    switch (jsonBody['grant_type']) {
+      case 'refresh_token':
+        expect(jsonBody['refresh_token'], _ioRefreshToken);
+        await _writeJson(request, <String, Object?>{
+          'status': 'ok',
+          'token_type': 'Bearer',
+          'access_token': _ioRefreshedAccessToken,
+          'refresh_token': _ioRefreshedRefreshToken,
+          'realm': _ioAuthRealm,
+          'authid': _ioAuthId,
+          'authrole': _ioAuthRole,
+          'authmethod': 'ticket',
+        });
+        return;
+      case 'revoke':
+        expect(jsonBody['token'], _ioRefreshedRefreshToken);
+        await _writeJson(request, const <String, Object?>{'status': 'revoked'});
+        return;
+      case null:
+        if (!jsonBody.containsKey('state')) {
+          expect(jsonBody['realm'], _ioAuthRealm);
+          expect(jsonBody['authmethod'], 'ticket');
+          expect(jsonBody['authid'], _ioAuthId);
+          await _writeJson(request, const <String, Object?>{
+            'state': _ioAuthState,
+            'challenge': <String, Object?>{},
+          }, statusCode: HttpStatus.unauthorized);
+          return;
+        }
+        expect(jsonBody['state'], _ioAuthState);
+        expect(jsonBody['signature'], _ioTicketSecret);
+        await _writeJson(request, <String, Object?>{
+          'status': 'ok',
+          'token_type': 'Bearer',
+          'access_token': _ioAccessToken,
+          'refresh_token': _ioRefreshToken,
+          'realm': _ioAuthRealm,
+          'authid': _ioAuthId,
+          'authrole': _ioAuthRole,
+          'authmethod': 'ticket',
+          'authprovider': 'consumer-local',
+          'expires_in': 60,
+          'refresh_token_expires_in': 600,
+        });
+        return;
+      default:
+        request.response.statusCode = HttpStatus.badRequest;
+        await request.response.close();
+        return;
+    }
+  }
+
+  Future<void> _handleMcp(HttpRequest request) async {
+    final body = await utf8.decoder.bind(request).join();
+    final jsonBody = _jsonMapFrom(jsonDecode(body), label: 'mcp request');
+    mcpRequests.add(_SeenAuthorizedMcpRequest.from(request, jsonBody));
+
+    if (request.headers.value(HttpHeaders.authorizationHeader) !=
+        'Bearer $_ioAccessToken') {
+      await _writeJson(request, const <String, Object?>{
+        'error': <String, Object?>{'code': 401, 'message': 'unauthorized'},
+      }, statusCode: HttpStatus.unauthorized);
+      return;
+    }
+
+    switch (jsonBody['method']) {
+      case 'initialize':
+        request.response.headers.set('MCP-Session-Id', _ioAuthSessionId);
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': jsonBody['id'],
+          'result': <String, Object?>{
+            'protocolVersion': mcpLatestProtocolVersion,
+            'capabilities': <String, Object?>{'tools': <String, Object?>{}},
+            'serverInfo': <String, Object?>{
+              'name': 'io-auth-fake',
+              'version': '1.0.0',
+            },
+          },
+        });
+        return;
+      case 'ping':
+        expect(request.headers.value('MCP-Session-Id'), _ioAuthSessionId);
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': jsonBody['id'],
+          'result': <String, Object?>{},
+        });
+        return;
+      default:
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': jsonBody['id'],
+          'error': <String, Object?>{
+            'code': -32601,
+            'message': 'unsupported method',
+          },
+        });
+        return;
+    }
+  }
+
+  Future<void> _writeJson(
+    HttpRequest request,
+    Map<String, Object?> body, {
+    int statusCode = HttpStatus.ok,
+  }) async {
+    request.response.statusCode = statusCode;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode(body));
+    await request.response.close();
+  }
+}
+
+final class _SeenAuthRequest {
+  const _SeenAuthRequest(this.method, this.body);
+
+  final String method;
+  final Map<String, Object?> body;
+
+  factory _SeenAuthRequest.from(
+    HttpRequest request,
+    Map<String, Object?> body,
+  ) {
+    return _SeenAuthRequest(request.method, body);
+  }
+}
+
+final class _SeenAuthorizedMcpRequest {
+  const _SeenAuthorizedMcpRequest({
+    required this.authorization,
+    required this.sessionId,
+    required this.body,
+  });
+
+  final String? authorization;
+  final String? sessionId;
+  final Map<String, Object?> body;
+
+  factory _SeenAuthorizedMcpRequest.from(
+    HttpRequest request,
+    Map<String, Object?> body,
+  ) {
+    return _SeenAuthorizedMcpRequest(
+      authorization: request.headers.value(HttpHeaders.authorizationHeader),
+      sessionId: request.headers.value('MCP-Session-Id'),
+      body: body,
+    );
   }
 }
 
