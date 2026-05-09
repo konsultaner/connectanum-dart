@@ -56,6 +56,130 @@ void main() {
     },
   );
 
+  test(
+    'IO entrypoint re-exports direct Connectanum tool and meta helpers',
+    () async {
+      final endpoint = await _DirectWampEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      final tools = await client.listConnectanumToolsDirect(
+        id: 'io-direct-tools',
+      );
+      expect(tools.nextCursor, isNull);
+      expect(
+        tools.tools.map((tool) => tool['name']),
+        containsAll(['app.echo', 'wamp.registration.match']),
+      );
+
+      final toolResult = await client.callConnectanumToolDirect(
+        'app.echo',
+        id: 'io-direct-tool-call',
+        arguments: const <String, Object?>{'message': 'tool'},
+      );
+      expect(toolResult['isError'], isFalse);
+      expect(toolResult['structuredContent'], {
+        'echo': {'message': 'tool'},
+      });
+
+      final methodResult = await client.callConnectanumMethodDirect(
+        'app.echo',
+        id: 'io-direct-method-call',
+        params: const <String, Object?>{'message': 'method'},
+      );
+      expect(methodResult['structuredContent'], {
+        'echo': {'message': 'method'},
+      });
+
+      final rawMeta = await client.callConnectanumMethodDirect(
+        'wamp.registration.match',
+        id: 'io-direct-meta-method',
+        params: const <String, Object?>{
+          'arguments': <Object?>['app.echo'],
+        },
+      );
+      expect(rawMeta['structuredContent'], {
+        'procedure': 'wamp.registration.match',
+        'arguments': [11],
+      });
+
+      final apiDescription = await client.describeWampApi(
+        'app.echo',
+        id: 'io-direct-api-describe',
+        kind: 'procedure',
+        directJson: true,
+      );
+      expect(apiDescription['procedure'], 'app.echo');
+      expect(apiDescription['title'], 'Echo');
+
+      final registration = await client.matchWampRegistration(
+        'app.echo',
+        id: 'io-direct-registration-match',
+        directJson: true,
+      );
+      expect(registration.procedure, 'wamp.registration.match');
+      expect(registration.arguments, [11]);
+
+      expect(client.sessionId, isNull);
+      expect(endpoint.requests, hasLength(6));
+      for (final request in endpoint.requests) {
+        expect(request.accept, 'application/json');
+        expect(request.sessionId, isNull);
+      }
+      expect(endpoint.requests.map((request) => request.body['method']), [
+        'connectanum.tools.list',
+        'connectanum.tool.call',
+        'app.echo',
+        'wamp.registration.match',
+        'connectanum.tool.call',
+        'connectanum.tool.call',
+      ]);
+
+      final toolCallParams = _jsonMapFrom(
+        endpoint.requests[1].body['params'],
+        label: 'direct tool call params',
+      );
+      expect(toolCallParams['name'], 'app.echo');
+      expect(
+        _jsonMapFrom(
+          toolCallParams['arguments'],
+          label: 'direct tool call arguments',
+        ),
+        {'message': 'tool'},
+      );
+
+      final apiDescribeParams = _jsonMapFrom(
+        endpoint.requests[4].body['params'],
+        label: 'direct API describe params',
+      );
+      expect(apiDescribeParams['name'], 'connectanum.api.describe');
+      expect(
+        _jsonMapFrom(
+          apiDescribeParams['arguments'],
+          label: 'direct API describe arguments',
+        ),
+        {'uri': 'app.echo', 'kind': 'procedure'},
+      );
+
+      final metaHelperParams = _jsonMapFrom(
+        endpoint.requests[5].body['params'],
+        label: 'direct meta helper params',
+      );
+      expect(metaHelperParams['name'], 'wamp.registration.match');
+      expect(
+        _jsonMapFrom(
+          metaHelperParams['arguments'],
+          label: 'direct meta helper arguments',
+        ),
+        {
+          'arguments': ['app.echo'],
+        },
+      );
+    },
+  );
+
   test('IO entrypoint re-exports HTTP auth helpers for MCP sessions', () async {
     final endpoint = await _AuthBackedMcpEndpoint.bind();
     addTearDown(endpoint.close);
@@ -478,34 +602,117 @@ final class _DirectWampEndpoint {
       return;
     }
 
-    final params = _jsonMapFrom(jsonBody['params'], label: 'params');
-    if (jsonBody['method'] != 'connectanum.tool.call' ||
-        params['name'] != 'connectanum.api.list') {
-      await _writeJson(request, <String, Object?>{
-        'jsonrpc': '2.0',
-        'id': jsonBody['id'],
-        'error': <String, Object?>{
-          'code': -32601,
-          'message': 'unsupported method',
-        },
-      });
-      return;
+    switch (jsonBody['method']) {
+      case 'connectanum.tools.list':
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': jsonBody['id'],
+          'result': <String, Object?>{
+            'tools': <Object?>[
+              <String, Object?>{
+                'name': 'app.echo',
+                'description': 'Echoes arguments.',
+                'inputSchema': <String, Object?>{'type': 'object'},
+              },
+              <String, Object?>{
+                'name': 'wamp.registration.match',
+                'description': 'Matches a visible WAMP registration.',
+                'inputSchema': <String, Object?>{'type': 'object'},
+              },
+            ],
+          },
+        });
+        return;
+      case 'connectanum.tool.call':
+        final params = _jsonMapFrom(jsonBody['params'], label: 'params');
+        final toolName = params['name'];
+        final arguments = _jsonMapFrom(
+          params['arguments'],
+          label: 'tool arguments',
+        );
+        switch (toolName) {
+          case 'connectanum.api.list':
+            await _writeToolResult(jsonBody['id'], request, <String, Object?>{
+              'procedures': <Object?>[
+                <String, Object?>{'procedure': 'app.echo', 'title': 'Echo'},
+              ],
+            });
+            return;
+          case 'connectanum.api.describe':
+            await _writeToolResult(jsonBody['id'], request, <String, Object?>{
+              'procedure': arguments['uri'],
+              'title': 'Echo',
+              'kind': arguments['kind'],
+            });
+            return;
+          case 'wamp.registration.match':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.registration.match',
+            );
+            return;
+          case 'app.echo':
+            await _writeToolResult(jsonBody['id'], request, <String, Object?>{
+              'echo': arguments,
+            });
+            return;
+        }
+        break;
+      case 'app.echo':
+        final params = _jsonMapFrom(jsonBody['params'], label: 'echo params');
+        await _writeToolResult(jsonBody['id'], request, <String, Object?>{
+          'echo': params,
+        });
+        return;
+      case 'wamp.registration.match':
+        await _writeWampMetaResult(
+          jsonBody['id'],
+          request,
+          'wamp.registration.match',
+        );
+        return;
     }
 
     await _writeJson(request, <String, Object?>{
       'jsonrpc': '2.0',
       'id': jsonBody['id'],
+      'error': <String, Object?>{
+        'code': -32601,
+        'message': 'unsupported method',
+      },
+    });
+  }
+
+  Future<void> _writeToolResult(
+    Object? id,
+    HttpRequest request,
+    Map<String, Object?> structuredContent,
+  ) async {
+    await _writeJson(request, <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
       'result': <String, Object?>{
         'content': <Object?>[
-          <String, Object?>{'type': 'text', 'text': 'ok'},
+          <String, Object?>{
+            'type': 'text',
+            'text': jsonEncode(structuredContent),
+          },
         ],
-        'structuredContent': <String, Object?>{
-          'procedures': <Object?>[
-            <String, Object?>{'procedure': 'app.echo', 'title': 'Echo'},
-          ],
-        },
+        'structuredContent': structuredContent,
         'isError': false,
       },
+    });
+  }
+
+  Future<void> _writeWampMetaResult(
+    Object? id,
+    HttpRequest request,
+    String procedure,
+  ) async {
+    await _writeToolResult(id, request, <String, Object?>{
+      'procedure': procedure,
+      'arguments': <Object?>[11],
     });
   }
 
