@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `f34fc86`
-(`test: cover mcp example batch wamp meta`; CI clean)
+Last reviewed branch checkpoint: `2b9d060`
+(`test: cover mcp example subscription meta`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-router-hosted-mcp-example-subscription-meta-smoke.md`
+`docs/exec-plans/2026-05-09-router-hosted-mcp-example-error-recovery-smoke.md`
 (complete; local verification clean; commit and hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-09-router-hosted-mcp-example-subscription-meta-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-09-router-hosted-mcp-example-batch-wamp-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -116,12 +119,15 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`f34fc86`
-(`test: cover mcp example batch wamp meta`; hosted CI evidence clean).
-Current implementation checkpoint: router-hosted MCP example batch WAMP
-subscription meta smoke plus workspace hook user defines
+`2b9d060`
+(`test: cover mcp example subscription meta`; hosted CI evidence clean).
+Current implementation checkpoint: router-hosted MCP example JSON-RPC
+error/recovery smoke
 (complete; local verification clean; commit and hosted evidence pending).
 Latest implementation checkpoint: router-hosted MCP example batch WAMP
+subscription meta smoke plus workspace hook user defines
+(complete; hosted CI evidence clean).
+Previous implementation checkpoint: router-hosted MCP example batch WAMP
 session/registration meta smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: router-hosted MCP example direct tool/meta
@@ -363,6 +369,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - Router-hosted MCP example error/recovery smoke is in progress with focused
+    example verification. The runnable public example now proves consumer
+    applications can recover from missing tool, resource, and prompt errors on
+    both the public and bearer-protected MCP routes. Direct JSON checks cover
+    single errors plus batch error isolation with neighboring successful
+    responses and assert the Streamable HTTP session id/SSE cursor stay
+    unchanged. Initialized Streamable HTTP checks cover single errors plus
+    batch error isolation and assert the session id stays stable while the SSE
+    cursor advances. Pre-change `bin/test-fast` passed on 2026-05-09 with
+    isolated `TMPDIR`. Focused router-hosted MCP example smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`)
+    passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
+    passed on 2026-05-09 with isolated `TMPDIR`. Commit, push, and hosted
+    evidence are pending.
   - Router-hosted MCP example batch WAMP subscription metadata smoke has local
     verification. The root workspace pubspec now sets
     `CONNECTANUM_SKIP_NATIVE_BUILD: true` for the client and router hooks under
@@ -386,7 +407,20 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`)
     passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify`
     passed on 2026-05-09 with isolated `TMPDIR`. `git diff --check` passed on
-    2026-05-09. Commit, push, and hosted evidence are pending.
+    2026-05-09. Commit `2b9d060` (`test: cover mcp example subscription meta`)
+    was pushed to `origin/add-router` and `github/add-router` on 2026-05-09.
+    Hosted GitHub `CI` run `25589519273` for `2b9d060` completed
+    successfully on 2026-05-09 with `Fast Checks` (4m22s) and `Full Verify`
+    (5m51s) green. Hosted `WAMP Profile Benchmarks` run `25589519288`
+    completed successfully on 2026-05-09 with `Linux WAMP profile gates`
+    green (8m20s). Hosted `Dart Package Publish Dry Run` run `25589519295`
+    completed successfully on 2026-05-09 with `Publish Dry Run` green and
+    covering checked-out head. Deployment-chain audit passed on 2026-05-09
+    with clean latest CI and clean relevant Dart package publish dry-run
+    evidence. Strict deployment audit still reports operator-side release
+    gaps: branch protection and required status checks are absent,
+    `.github/workflows/router-image.yml` is not discoverable from the default
+    branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
   - Router-hosted MCP example batch WAMP session/registration meta smoke has
     pre-change and focused example verification. The runnable public example
     now proves consumer applications can batch `wamp.session.count`,
@@ -7665,11 +7699,10 @@ order.
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md` after the
-  router-hosted MCP auth/catalog correction closed cleanly. Keep hosted GitHub
-  CI clean first, then refresh deployment-chain audit evidence and continue
-  public/release readiness work that does not require operator-owned publish or
-  repository-setting decisions.
+  `docs/exec-plans/2026-05-09-router-hosted-mcp-example-error-recovery-smoke.md`.
+  Keep hosted GitHub CI clean first, then continue router-hosted MCP
+  downstream application readiness work that does not require operator-owned
+  publish or repository-setting decisions.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub
@@ -7678,7 +7711,7 @@ order.
 - Most recent deployment-chain checkpoint plan:
   `docs/exec-plans/2026-04-28-github-deployment-chain-readiness.md`
 - Most recent completed product-readiness plan:
-  `docs/exec-plans/2026-05-03-router-hosted-mcp-auth-meta-api.md`
+  `docs/exec-plans/2026-05-09-router-hosted-mcp-example-subscription-meta-smoke.md`
 - Supporting research notes:
   - `docs/mcp_integration_research.md`
   - `docs/dart_package_publishing.md`

@@ -1,6 +1,6 @@
 # Exec Plan: Router-Hosted MCP Example Subscription Meta Smoke
 
-Status: complete; local verification clean; commit and hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -47,7 +47,21 @@ subscription is active.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
 - `git diff --check` passed on 2026-05-09.
-- Commit, push, and hosted evidence are pending.
+- Commit `2b9d060` (`test: cover mcp example subscription meta`) was pushed
+  to `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25589519273` for `2b9d060` completed successfully on
+  2026-05-09 with `Fast Checks` (4m22s) and `Full Verify` (5m51s) green.
+- Hosted `WAMP Profile Benchmarks` run `25589519288` completed successfully on
+  2026-05-09 with `Linux WAMP profile gates` green (8m20s).
+- Hosted `Dart Package Publish Dry Run` run `25589519295` completed
+  successfully on 2026-05-09 with `Publish Dry Run` green and covering the
+  checked-out head.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence.
+- Strict deployment audit still reports operator-side release gaps: branch
+  protection and required status checks are absent,
+  `.github/workflows/router-image.yml` is not discoverable from the default
+  branch, and `ghcr.io/konsultaner/connectanum-router` is not visible.
 
 ## Decision Log
 
@@ -60,5 +74,7 @@ subscription is active.
 
 ## Handoff
 
-Implementation, focused example smoke, fast verification, diff check, and full
-local verification are clean. Commit, push, and hosted evidence remain.
+Implementation, local verification, hosted CI, WAMP profile, and standard
+deployment-chain audit evidence are clean for `2b9d060`. Remaining strict audit
+failures are operator-side release controls: branch protection/required checks,
+default-branch router workflow visibility, and GHCR router package visibility.

@@ -436,6 +436,7 @@ Future<void> _smokeMcpEndpoint(
   );
   print('[$label] Direct JSON-RPC result: ${jsonEncode(directResult)}');
   await _smokeDirectJsonToolMetaApi(client, label: label);
+  await _smokeDirectJsonErrorRecovery(client, label: label);
 
   final directResources = await client.listResources(
     id: '$label-direct-resources',
@@ -585,6 +586,7 @@ Future<void> _smokeMcpEndpoint(
     arguments: {'taskId': 'T-$label-streamable'},
   );
   print('[$label] Streamable MCP tool result: ${jsonEncode(streamableResult)}');
+  await _smokeStreamableErrorRecovery(client, label: label);
 
   final streamableBatch = await client.postBatch([
     {
@@ -834,6 +836,441 @@ Future<void> _smokeDirectJsonToolMetaApi(
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Direct JSON-RPC tool/meta API changed Streamable state.');
+  }
+}
+
+Future<void> _smokeDirectJsonErrorRecovery(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final missingTool = 'missing.$label.direct.single';
+  final errorId = '$label-direct-error-missing';
+  try {
+    await client.callConnectanumToolDirect(
+      missingTool,
+      id: errorId,
+      arguments: {},
+    );
+    throw StateError('Direct JSON-RPC accepted missing tool $missingTool.');
+  } on McpJsonRpcException catch (error) {
+    _expectMcpJsonRpcException(
+      error,
+      id: errorId,
+      method: 'connectanum.tool.call',
+      messageSubstring: missingTool,
+      label: 'Direct JSON-RPC missing tool',
+    );
+  }
+
+  final missingResourceUri = 'app://example/missing/$label/direct';
+  final resourceErrorId = '$label-direct-resource-error';
+  final resourceError = await client.request(
+    'resources/read',
+    id: resourceErrorId,
+    params: {'uri': missingResourceUri},
+    streamable: false,
+    includeSession: false,
+  );
+  _expectJsonRpcError(
+    resourceError,
+    id: resourceErrorId,
+    messageSubstring: missingResourceUri,
+    label: 'Direct JSON-RPC missing resource',
+  );
+
+  final missingPromptName = 'missing-$label-direct-prompt';
+  final promptErrorId = '$label-direct-prompt-error';
+  final promptError = _jsonObjectFrom(
+    await client.post(
+      {
+        'jsonrpc': '2.0',
+        'id': promptErrorId,
+        'method': 'prompts/get',
+        'params': {'name': missingPromptName, 'arguments': {}},
+      },
+      streamable: false,
+      includeSession: false,
+    ),
+    label: 'Direct JSON-RPC missing prompt response',
+  );
+  _expectJsonRpcError(
+    promptError,
+    id: promptErrorId,
+    messageSubstring: missingPromptName,
+    label: 'Direct JSON-RPC missing prompt',
+  );
+
+  await _smokeDirectJsonBatchErrorIsolation(client, label: label);
+
+  final recoveryTools = await client.listConnectanumToolsDirect(
+    id: '$label-direct-error-recovery-tools',
+  );
+  final recoveryToolNames = {
+    for (final tool in recoveryTools.tools) tool['name'] as String,
+  };
+  if (!recoveryToolNames.contains('example.task.lookup')) {
+    throw StateError('Direct JSON-RPC error recovery missed tool catalog.');
+  }
+
+  final recoveryResources = await client.request(
+    'resources/list',
+    id: '$label-direct-resource-error-recovery',
+    streamable: false,
+    includeSession: false,
+  );
+  if (!jsonEncode(recoveryResources).contains('app://example/context')) {
+    throw StateError('Direct JSON-RPC resource error recovery missed context.');
+  }
+
+  final recoveryPrompts = await client.request(
+    'prompts/list',
+    id: '$label-direct-prompt-error-recovery',
+    streamable: false,
+    includeSession: false,
+  );
+  if (!jsonEncode(recoveryPrompts).contains('summarize-task')) {
+    throw StateError('Direct JSON-RPC prompt error recovery missed prompt.');
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct JSON-RPC errors changed Streamable state.');
+  }
+}
+
+Future<void> _smokeDirectJsonBatchErrorIsolation(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final taskId = 'T-$label-direct-batch-error-ok';
+  final aliasTaskId = 'T-$label-direct-batch-error-alias-ok';
+  final missingTool = 'missing.$label.direct.batch';
+  final responses = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-error-api',
+        'method': 'connectanum.api.list',
+        'params': {'kind': 'procedure'},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-error-missing',
+        'method': 'connectanum.tool.call',
+        'params': {'name': missingTool, 'arguments': {}},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-error-call',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': 'example.task.lookup',
+          'arguments': {'taskId': taskId},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-error-tools-alias',
+        'method': 'connectanum.tools.call',
+        'params': {
+          'name': 'example.task.lookup',
+          'arguments': {'taskId': aliasTaskId},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': 'example.task.lookup',
+          'arguments': {'taskId': 'T-$label-direct-batch-notification'},
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (responses == null || responses.length != 4) {
+    throw StateError(
+      'Direct JSON-RPC batch error smoke returned invalid size.',
+    );
+  }
+  if (responses[0]['id'] != '$label-direct-batch-error-api' ||
+      !jsonEncode(responses[0]).contains('example.task.lookup')) {
+    throw StateError('Direct JSON-RPC batch error smoke lost API response.');
+  }
+  _expectJsonRpcError(
+    responses[1],
+    id: '$label-direct-batch-error-missing',
+    messageSubstring: missingTool,
+    label: 'Direct JSON-RPC batch missing tool',
+  );
+  if (responses[2]['id'] != '$label-direct-batch-error-call' ||
+      !jsonEncode(responses[2]).contains(taskId)) {
+    throw StateError(
+      'Direct JSON-RPC batch error smoke lost success response.',
+    );
+  }
+  if (responses[3]['id'] != '$label-direct-batch-error-tools-alias' ||
+      !jsonEncode(responses[3]).contains(aliasTaskId)) {
+    throw StateError('Direct JSON-RPC batch error smoke lost alias response.');
+  }
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct JSON-RPC batch errors changed Streamable state.');
+  }
+}
+
+Future<void> _smokeStreamableErrorRecovery(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP error smoke has no initialized session id.',
+    );
+  }
+
+  var previousEventId = client.lastEventId;
+  final missingTool = 'missing.$label.streamable.single';
+  final errorId = '$label-streamable-error-missing';
+  try {
+    await client.callTool(missingTool, id: errorId, arguments: {});
+    throw StateError('Streamable MCP accepted missing tool $missingTool.');
+  } on McpJsonRpcException catch (error) {
+    _expectMcpJsonRpcException(
+      error,
+      id: errorId,
+      method: 'tools/call',
+      messageSubstring: missingTool,
+      label: 'Streamable MCP missing tool',
+    );
+  }
+  previousEventId = _expectStreamableEventProgress(
+    client,
+    sessionId: sessionId,
+    previousEventId: previousEventId,
+    label: 'Streamable MCP missing tool',
+  );
+
+  final recoveryTools = await client.listTools(
+    id: '$label-streamable-error-recovery-tools',
+  );
+  final recoveryToolNames = {
+    for (final tool in recoveryTools.tools) tool['name'] as String,
+  };
+  if (!recoveryToolNames.contains('example.task.lookup')) {
+    throw StateError('Streamable MCP tool error recovery missed catalog.');
+  }
+  previousEventId = _expectStreamableEventProgress(
+    client,
+    sessionId: sessionId,
+    previousEventId: previousEventId,
+    label: 'Streamable MCP tool recovery',
+  );
+
+  final missingResourceUri = 'app://example/missing/$label/streamable';
+  final resourceErrorId = '$label-streamable-resource-error';
+  try {
+    await client.readResource(missingResourceUri, id: resourceErrorId);
+    throw StateError('Streamable MCP accepted missing resource.');
+  } on McpJsonRpcException catch (error) {
+    _expectMcpJsonRpcException(
+      error,
+      id: resourceErrorId,
+      method: 'resources/read',
+      messageSubstring: missingResourceUri,
+      label: 'Streamable MCP missing resource',
+    );
+  }
+  previousEventId = _expectStreamableEventProgress(
+    client,
+    sessionId: sessionId,
+    previousEventId: previousEventId,
+    label: 'Streamable MCP missing resource',
+  );
+
+  final missingPromptName = 'missing-$label-streamable-prompt';
+  final promptErrorId = '$label-streamable-prompt-error';
+  try {
+    await client.getPrompt(missingPromptName, id: promptErrorId, arguments: {});
+    throw StateError('Streamable MCP accepted missing prompt.');
+  } on McpJsonRpcException catch (error) {
+    _expectMcpJsonRpcException(
+      error,
+      id: promptErrorId,
+      method: 'prompts/get',
+      messageSubstring: missingPromptName,
+      label: 'Streamable MCP missing prompt',
+    );
+  }
+  previousEventId = _expectStreamableEventProgress(
+    client,
+    sessionId: sessionId,
+    previousEventId: previousEventId,
+    label: 'Streamable MCP missing prompt',
+  );
+
+  await _smokeStreamableBatchErrorIsolation(
+    client,
+    label: label,
+    previousEventId: previousEventId,
+  );
+  previousEventId = client.lastEventId;
+
+  final recoveryResources = await client.listResources(
+    id: '$label-streamable-resource-error-recovery',
+  );
+  if (!recoveryResources.resources.any(
+    (resource) => resource['uri'] == 'app://example/context',
+  )) {
+    throw StateError('Streamable MCP resource error recovery missed context.');
+  }
+  previousEventId = _expectStreamableEventProgress(
+    client,
+    sessionId: sessionId,
+    previousEventId: previousEventId,
+    label: 'Streamable MCP resource recovery',
+  );
+
+  final recoveryPrompts = await client.listPrompts(
+    id: '$label-streamable-prompt-error-recovery',
+  );
+  if (!recoveryPrompts.prompts.any(
+    (prompt) => prompt['name'] == 'summarize-task',
+  )) {
+    throw StateError('Streamable MCP prompt error recovery missed prompt.');
+  }
+  _expectStreamableEventProgress(
+    client,
+    sessionId: sessionId,
+    previousEventId: previousEventId,
+    label: 'Streamable MCP prompt recovery',
+  );
+}
+
+Future<void> _smokeStreamableBatchErrorIsolation(
+  McpStreamableHttpClient client, {
+  required String label,
+  required String? previousEventId,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP batch error smoke has no initialized session id.',
+    );
+  }
+
+  final missingTool = 'missing.$label.streamable.batch';
+  final promptTaskId = 'T-$label-streamable-batch-error-prompt';
+  final responses = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-error-tools',
+      'method': 'tools/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-error-missing',
+      'method': 'tools/call',
+      'params': {'name': missingTool, 'arguments': {}},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-error-prompt',
+      'method': 'prompts/get',
+      'params': {
+        'name': 'summarize-task',
+        'arguments': {'taskId': promptTaskId},
+      },
+    },
+    {'jsonrpc': '2.0', 'method': 'notifications/initialized', 'params': {}},
+  ]);
+  if (responses == null || responses.length != 3) {
+    throw StateError('Streamable MCP batch error smoke returned invalid size.');
+  }
+  if (responses[0]['id'] != '$label-streamable-batch-error-tools' ||
+      !jsonEncode(responses[0]).contains('example.task.lookup')) {
+    throw StateError('Streamable MCP batch error smoke lost tools response.');
+  }
+  _expectJsonRpcError(
+    responses[1],
+    id: '$label-streamable-batch-error-missing',
+    messageSubstring: missingTool,
+    label: 'Streamable MCP batch missing tool',
+  );
+  if (responses[2]['id'] != '$label-streamable-batch-error-prompt' ||
+      !jsonEncode(responses[2]).contains(promptTaskId)) {
+    throw StateError('Streamable MCP batch error smoke lost prompt response.');
+  }
+  _expectStreamableEventProgress(
+    client,
+    sessionId: sessionId,
+    previousEventId: previousEventId,
+    label: 'Streamable MCP batch error smoke',
+  );
+}
+
+String _expectStreamableEventProgress(
+  McpStreamableHttpClient client, {
+  required String sessionId,
+  required String? previousEventId,
+  required String label,
+}) {
+  if (client.sessionId != sessionId) {
+    throw StateError('$label changed Streamable session id.');
+  }
+  final eventId = client.lastEventId;
+  if (eventId == null ||
+      !eventId.startsWith('$sessionId:') ||
+      eventId == previousEventId) {
+    throw StateError('$label did not advance Streamable SSE state.');
+  }
+  return eventId;
+}
+
+void _expectJsonRpcError(
+  Map<String, Object?> response, {
+  required Object id,
+  required String messageSubstring,
+  required String label,
+}) {
+  if (response['id'] != id) {
+    throw StateError('$label response id was invalid.');
+  }
+  final error = response['error'];
+  if (error is! Map) {
+    throw StateError('$label did not return a JSON-RPC error.');
+  }
+  final encodedError = jsonEncode(error);
+  if (!encodedError.contains(messageSubstring)) {
+    throw StateError('$label error message was invalid: ${jsonEncode(error)}');
+  }
+}
+
+void _expectMcpJsonRpcException(
+  McpJsonRpcException error, {
+  required Object id,
+  required String method,
+  required String messageSubstring,
+  required String label,
+}) {
+  if (error.id != id) {
+    throw StateError('$label exception id was invalid.');
+  }
+  if (error.method != method) {
+    throw StateError('$label exception method was ${error.method}.');
+  }
+  final encodedError = jsonEncode(error.error);
+  if (!encodedError.contains(messageSubstring)) {
+    throw StateError(
+      '$label exception message was invalid: ${jsonEncode(error.error)}',
+    );
   }
 }
 
