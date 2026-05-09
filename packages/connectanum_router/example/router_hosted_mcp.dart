@@ -435,6 +435,7 @@ Future<void> _smokeMcpEndpoint(
     params: {'taskId': 'T-$label-direct'},
   );
   print('[$label] Direct JSON-RPC result: ${jsonEncode(directResult)}');
+  await _smokeDirectJsonToolMetaApi(client, label: label);
 
   final directResources = await client.listResources(
     id: '$label-direct-resources',
@@ -735,6 +736,101 @@ Future<void> _smokeMcpEndpoint(
   );
   if (!jsonEncode(streamablePrompt).contains('T-$label-streamable')) {
     throw StateError('Streamable MCP prompt did not render taskId.');
+  }
+}
+
+Future<void> _smokeDirectJsonToolMetaApi(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final helperTaskId = 'T-$label-direct-tool-helper';
+  final helperResult = await client.callConnectanumToolDirect(
+    'example.task.lookup',
+    id: '$label-direct-tool-helper',
+    arguments: {'taskId': helperTaskId},
+  );
+  if (!jsonEncode(helperResult).contains(helperTaskId)) {
+    throw StateError('Direct JSON-RPC tool helper did not return task id.');
+  }
+
+  final pluralAliasTaskId = 'T-$label-direct-tools-call-alias';
+  final pluralAliasResult = await client.callConnectanumMethodDirect(
+    'connectanum.tools.call',
+    id: '$label-direct-tools-call-alias',
+    params: {
+      'name': 'example.task.lookup',
+      'arguments': {'taskId': pluralAliasTaskId},
+    },
+  );
+  if (!jsonEncode(pluralAliasResult).contains(pluralAliasTaskId)) {
+    throw StateError('Direct JSON-RPC plural tool alias failed.');
+  }
+
+  final toolListId = '$label-direct-generic-tools-list';
+  final toolList = await client.request(
+    'connectanum.tools.list',
+    id: toolListId,
+    streamable: false,
+    includeSession: false,
+  );
+  if (toolList['id'] != toolListId ||
+      !jsonEncode(toolList['result']).contains('example.task.lookup')) {
+    throw StateError('Direct JSON-RPC generic tools/list missed tool.');
+  }
+
+  final singularAliasTaskId = 'T-$label-direct-tool-call-alias';
+  final singularAliasId = '$label-direct-tool-call-alias';
+  final singularAlias = await client.post(
+    {
+      'jsonrpc': '2.0',
+      'id': singularAliasId,
+      'method': 'connectanum.tool.call',
+      'params': {
+        'name': 'example.task.lookup',
+        'arguments': {'taskId': singularAliasTaskId},
+      },
+    },
+    streamable: false,
+    includeSession: false,
+  );
+  if (singularAlias == null ||
+      singularAlias['id'] != singularAliasId ||
+      !jsonEncode(singularAlias).contains(singularAliasTaskId)) {
+    throw StateError('Direct JSON-RPC singular tool alias failed.');
+  }
+
+  final apiListId = '$label-direct-generic-api-list';
+  final apiList = await client.request(
+    'connectanum.api.list',
+    id: apiListId,
+    params: {'kind': 'procedure'},
+    streamable: false,
+    includeSession: false,
+  );
+  if (apiList['id'] != apiListId ||
+      !jsonEncode(apiList['result']).contains('example.task.lookup')) {
+    throw StateError('Direct JSON-RPC generic API list missed procedure.');
+  }
+
+  final apiDescribeId = '$label-direct-generic-api-describe';
+  final apiDescribe = await client.request(
+    'connectanum.api.describe',
+    id: apiDescribeId,
+    params: {'uri': 'example.task.lookup', 'kind': 'procedure'},
+    streamable: false,
+    includeSession: false,
+  );
+  if (apiDescribe['id'] != apiDescribeId ||
+      !jsonEncode(apiDescribe['result']).contains('example.task.lookup')) {
+    throw StateError('Direct JSON-RPC generic API describe missed procedure.');
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct JSON-RPC tool/meta API changed Streamable state.');
   }
 }
 

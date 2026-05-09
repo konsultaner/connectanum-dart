@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `87050c8`
-(`test: cover mcp example batch resources`; CI clean)
+Last reviewed branch checkpoint: `7162b1c`
+(`test: cover mcp example batch pubsub`; CI clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-router-hosted-mcp-example-batch-pubsub-smoke.md`
+`docs/exec-plans/2026-05-09-router-hosted-mcp-example-direct-tool-meta-smoke.md`
 (complete; local verification clean; commit/hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-09-router-hosted-mcp-example-batch-pubsub-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-09-router-hosted-mcp-example-batch-resource-prompt-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -107,12 +110,15 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`87050c8`
-(`test: cover mcp example batch resources`; hosted CI evidence clean).
-Current implementation checkpoint: router-hosted MCP example batch
-pub/sub smoke
+`7162b1c`
+(`test: cover mcp example batch pubsub`; hosted CI evidence clean).
+Current implementation checkpoint: router-hosted MCP example direct tool/meta
+API smoke
 (complete; local verification clean; commit/hosted evidence pending).
 Latest implementation checkpoint: router-hosted MCP example batch
+pub/sub smoke
+(complete; hosted CI evidence clean).
+Previous implementation checkpoint: router-hosted MCP example batch
 resource/prompt smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer batch resource/prompt smoke
@@ -345,6 +351,19 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - Router-hosted MCP example direct tool/meta API smoke has local
+    verification. The runnable public example now proves
+    consumer applications can call `callConnectanumToolDirect`, the
+    `connectanum.tools.call` and `connectanum.tool.call` direct JSON aliases,
+    `connectanum.tools.list`, `connectanum.api.list`, and
+    `connectanum.api.describe` without starting or mutating an MCP Streamable
+    HTTP session. Pre-change `bin/test-fast` passed on 2026-05-09 with
+    isolated `TMPDIR`. Focused router-hosted MCP example smoke
+    (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`)
+    passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-09 with isolated `TMPDIR`. `git diff --check` and full
+    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`. Commit,
+    push, and hosted evidence are pending.
   - Router-hosted MCP example batch pub/sub smoke has pre-change and focused
     example verification. The runnable public example now proves consumer
     applications can batch `connectanum.pubsub.subscribe`,
@@ -360,8 +379,18 @@ order.
     (`bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke'`)
     passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
     passed on 2026-05-09 with isolated `TMPDIR`. `git diff --check` and full
-    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`. Commit,
-    push, and hosted evidence are pending.
+    local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`. Commit
+    `7162b1c` (`test: cover mcp example batch pubsub`) was pushed to
+    `origin/add-router` and `github/add-router` on 2026-05-09. Hosted GitHub
+    `CI` run `25585415804` for `7162b1c` completed successfully on 2026-05-09
+    with `Fast Checks` (6m12s) and `Full Verify` (8m32s) green.
+    Deployment-chain audit passed on 2026-05-09 with clean latest CI, clean
+    hosted CI logs, and a clean Dart package publish dry-run covering
+    checked-out head (`25585415814`). Strict deployment audit still reports
+    operator-side release gaps: branch protection and required status checks
+    are absent, `.github/workflows/router-image.yml` is not discoverable from
+    the default branch, and `ghcr.io/konsultaner/connectanum-router` is not
+    visible.
   - Router-hosted MCP example batch resource/prompt smoke is complete with
     local and hosted verification. The runnable public example now proves
     consumer applications can batch `resources/read`,
