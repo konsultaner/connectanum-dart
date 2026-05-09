@@ -78,7 +78,8 @@ Future<void> main(List<String> args) async {
     );
 
     await _assertSecureMcpRequiresBearer(binding);
-    final bearerToken = await _issueTicketHttpToken(binding);
+    final grant = await _issueTicketHttpGrant(binding);
+    final bearerToken = grant.accessToken;
     await _smokeMcpProtocolVersionCompatibility(
       binding,
       label: 'secure',
@@ -94,6 +95,7 @@ Future<void> main(List<String> args) async {
       label: 'secure',
       serviceSession: serviceSession,
     );
+    await _smokeSecureMcpRefreshAndRevocation(binding, grant);
 
     final endpoint = _mcpEndpoint(binding);
     final secureEndpoint = _mcpEndpoint(binding, secure: true);
@@ -264,6 +266,7 @@ RouterSettings _buildSettings() {
                 'allow_insecure_transport': true,
                 'token_ttl_ms': 60000,
                 'refresh_token_ttl_ms': 300000,
+                'rotate_refresh_tokens': true,
               },
             ),
           ),
@@ -412,16 +415,243 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
   }
 }
 
-Future<String> _issueTicketHttpToken(RouterBinding binding) async {
+Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
+  RouterBinding binding,
+) async {
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   try {
-    final grant = await authClient.issueTicketToken(
+    return await authClient.issueTicketToken(
       realm: _realm,
       authId: _ticketAuthId,
       ticket: _ticketSecret,
     );
-    return grant.accessToken;
   } finally {
+    authClient.close(force: true);
+  }
+}
+
+Future<void> _assertSecureMcpRejectsBearer(
+  RouterBinding binding,
+  String bearerToken, {
+  required String acceptedMessage,
+}) async {
+  final client = McpStreamableHttpClient.withBearerToken(
+    _mcpEndpoint(binding, secure: true),
+    bearerToken,
+  );
+  try {
+    await client.listConnectanumToolsDirect(id: 'secure-rejected-bearer-tools');
+    throw StateError(acceptedMessage);
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'Bearer-protected MCP endpoint returned ${error.statusCode} '
+        'instead of ${HttpStatus.unauthorized} for a rejected token.',
+      );
+    }
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _assertTicketRefreshRejected(
+  RouterBinding binding,
+  String refreshToken, {
+  required String acceptedMessage,
+}) async {
+  final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
+  try {
+    await authClient.refreshToken(refreshToken);
+    throw StateError(acceptedMessage);
+  } on ConnectanumHttpAuthException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'HTTP auth bridge returned ${error.statusCode} instead of '
+        '${HttpStatus.unauthorized} for a rejected refresh token.',
+      );
+    }
+  } finally {
+    authClient.close(force: true);
+  }
+}
+
+Future<McpStreamableHttpClient> _openSecureMcpSession(
+  RouterBinding binding,
+  String bearerToken, {
+  required String label,
+}) async {
+  final client = McpStreamableHttpClient.withBearerToken(
+    _mcpEndpoint(binding, secure: true),
+    bearerToken,
+  );
+  try {
+    await client.initialize(id: '$label-active-session-initialize');
+    await client.notifyInitialized();
+    final sessionId = client.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError('Secure Streamable MCP session did not initialize.');
+    }
+    return client;
+  } catch (_) {
+    client.close(force: true);
+    rethrow;
+  }
+}
+
+Future<void> _assertActiveStreamableSessionRejectsBearer(
+  McpStreamableHttpClient client, {
+  required String label,
+  required String acceptedMessage,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Secure Streamable MCP rejection smoke has no session.');
+  }
+  final lastEventId = client.lastEventId;
+
+  client.sessionId = sessionId;
+  client.lastEventId = lastEventId;
+  try {
+    await client.listTools(id: '$label-rejected-session-tools');
+    throw StateError(acceptedMessage);
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'Active Streamable MCP request returned ${error.statusCode} '
+        'instead of ${HttpStatus.unauthorized} for a rejected token.',
+      );
+    }
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Active Streamable MCP request did not clear rejected session state.',
+    );
+  }
+}
+
+Future<void> _smokeSecureMcpRefreshedBearer(
+  RouterBinding binding,
+  String bearerToken,
+) async {
+  final client = McpStreamableHttpClient.withBearerToken(
+    _mcpEndpoint(binding, secure: true),
+    bearerToken,
+  );
+  try {
+    final directTools = await client.listConnectanumToolsDirect(
+      id: 'secure-refreshed-direct-tools',
+    );
+    if (!directTools.tools.any(
+      (tool) => tool['name'] == 'example.task.lookup',
+    )) {
+      throw StateError('Refreshed bearer did not expose direct MCP tools.');
+    }
+
+    await client.initialize(id: 'secure-refreshed-initialize');
+    await client.notifyInitialized();
+    final streamableTools = await client.listTools(
+      id: 'secure-refreshed-tools',
+    );
+    if (!streamableTools.tools.any(
+      (tool) => tool['name'] == 'example.task.lookup',
+    )) {
+      throw StateError('Refreshed bearer did not expose Streamable MCP tools.');
+    }
+    await client.deleteSession();
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError('Refreshed bearer session cleanup left session state.');
+    }
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _smokeSecureMcpRefreshAndRevocation(
+  RouterBinding binding,
+  ConnectanumHttpAuthGrant grant,
+) async {
+  final refreshToken = grant.refreshToken;
+  if (refreshToken == null || refreshToken.isEmpty) {
+    throw StateError('HTTP auth bridge did not issue a refresh token.');
+  }
+
+  final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
+  McpStreamableHttpClient? rotatedSessionClient;
+  McpStreamableHttpClient? revokedSessionClient;
+  try {
+    rotatedSessionClient = await _openSecureMcpSession(
+      binding,
+      grant.accessToken,
+      label: 'secure-rotated',
+    );
+
+    final refreshed = await authClient.refreshToken(refreshToken);
+    if (refreshed.accessToken == grant.accessToken) {
+      throw StateError('HTTP auth bridge refresh reused the access token.');
+    }
+    final rotatedRefreshToken = refreshed.refreshToken;
+    if (rotatedRefreshToken == null || rotatedRefreshToken.isEmpty) {
+      throw StateError(
+        'HTTP auth bridge refresh did not rotate refresh token.',
+      );
+    }
+    if (rotatedRefreshToken == refreshToken) {
+      throw StateError('HTTP auth bridge refresh reused the refresh token.');
+    }
+
+    await _assertActiveStreamableSessionRejectsBearer(
+      rotatedSessionClient,
+      label: 'secure-rotated',
+      acceptedMessage:
+          'Streamable MCP session accepted a rotated access token.',
+    );
+    rotatedSessionClient.close(force: true);
+    rotatedSessionClient = null;
+    await _assertSecureMcpRejectsBearer(
+      binding,
+      grant.accessToken,
+      acceptedMessage:
+          'Bearer-protected MCP endpoint accepted a rotated access token.',
+    );
+    await _assertTicketRefreshRejected(
+      binding,
+      refreshToken,
+      acceptedMessage: 'HTTP auth bridge accepted a rotated refresh token.',
+    );
+
+    await _smokeSecureMcpRefreshedBearer(binding, refreshed.accessToken);
+
+    revokedSessionClient = await _openSecureMcpSession(
+      binding,
+      refreshed.accessToken,
+      label: 'secure-revoked',
+    );
+    await authClient.revokeToken(
+      rotatedRefreshToken,
+      tokenTypeHint: 'refresh_token',
+    );
+    await _assertActiveStreamableSessionRejectsBearer(
+      revokedSessionClient,
+      label: 'secure-revoked',
+      acceptedMessage:
+          'Streamable MCP session accepted a revoked access token.',
+    );
+    revokedSessionClient.close(force: true);
+    revokedSessionClient = null;
+    await _assertSecureMcpRejectsBearer(
+      binding,
+      refreshed.accessToken,
+      acceptedMessage:
+          'Bearer-protected MCP endpoint accepted a revoked access token.',
+    );
+    await _assertTicketRefreshRejected(
+      binding,
+      rotatedRefreshToken,
+      acceptedMessage: 'HTTP auth bridge accepted a revoked refresh token.',
+    );
+  } finally {
+    rotatedSessionClient?.close(force: true);
+    revokedSessionClient?.close(force: true);
     authClient.close(force: true);
   }
 }
