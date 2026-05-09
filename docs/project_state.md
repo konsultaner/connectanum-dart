@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: `f4bb186`
-(`test: cover mcp io registration meta helpers`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `c5de8cb`
+(`test: add mcp server package smoke`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-09-mcp-server-package-smoke.md`
+`docs/exec-plans/2026-05-09-router-hosted-mcp-direct-batch-error-isolation-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-09-mcp-server-package-smoke.md`
+`docs/exec-plans/2026-05-09-router-hosted-mcp-direct-batch-error-isolation-smoke.md`
 (complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-09-mcp-server-package-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-09-mcp-io-entrypoint-registration-meta-smoke.md`
 (complete; hosted CI evidence clean).
@@ -182,10 +185,13 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`f4bb186`
-(`test: cover mcp io registration meta helpers`; hosted CI evidence clean).
-Current implementation checkpoint: MCP server-only consumer package smoke
+`c5de8cb`
+(`test: add mcp server package smoke`; hosted CI evidence clean).
+Current implementation checkpoint: router-hosted MCP direct JSON batch
+error-isolation smoke
 (complete; local verification clean; hosted evidence pending).
+Previous implementation checkpoint: MCP server-only consumer package smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP IO entrypoint WAMP registration meta
 smoke
 (complete; hosted CI evidence clean).
@@ -483,8 +489,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP server-only consumer package smoke is complete with local verification
-    clean; hosted evidence is pending. `run_mcp_server_package_smoke` in
+  - Router-hosted MCP direct JSON batch error-isolation smoke is implemented
+    with full local verification clean; hosted evidence is pending. The checked-in
+    `packages/connectanum_router/test/router_integration_native_test.dart`
+    public `/mcp/public` smoke now sends a direct JSON batch with a valid
+    `connectanum.api.list` request, an unknown MCP method request, and a
+    notification-only `connectanum.tool.call`. The regression asserts HTTP 200,
+    the successful catalog response, the failed sibling request's `-32601`
+    unknown-method error, and no response for the notification. Pre-change
+    `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`. Focused
+    `dart test packages/connectanum_router/test/router_integration_native_test.dart --name "smoke tests MCP router RPC pubsub and route security"`
+    passed on 2026-05-09 with isolated `TMPDIR`. Post-change `bin/test-fast`
+    passed on 2026-05-09 with isolated `TMPDIR`. Full local `bin/verify` passed
+    on 2026-05-09 with isolated `TMPDIR`.
+  - MCP server-only consumer package smoke is complete with hosted CI evidence.
+    `run_mcp_server_package_smoke` in
     `bin/common.sh` now generates a neutral consumer package that depends on
     `connectanum_mcp`, imports only
     `package:connectanum_mcp/connectanum_mcp.dart`, and hosts a public MCP
@@ -497,7 +516,17 @@ order.
     `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`. Focused
     `run_mcp_server_package_smoke` passed on 2026-05-09 with isolated
     `TMPDIR`. Post-change `bin/test-fast` and full local `bin/verify` passed on
-    2026-05-09 with isolated `TMPDIR`.
+    2026-05-09 with isolated `TMPDIR`. Commit `c5de8cb`
+    (`test: add mcp server package smoke`) is pushed to both remotes. GitHub
+    `CI` run `25611002819` completed successfully for `c5de8cb` with
+    `Fast Checks` and `Full Verify` green. Dart Package Publish Dry Run
+    `25609860588` remains clean and relevant because no publish-sensitive paths
+    changed since `f4bb186`. The deployment-chain audit passed with clean
+    latest CI and package publish dry-run evidence. Strict audit still reports
+    only known operator-side release-hardening gaps: branch protection/required
+    checks are absent, `.github/workflows/router-image.yml` is not yet visible
+    from the default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP IO entrypoint WAMP registration meta smoke is complete with hosted CI
     evidence. The checked-in
     `packages/connectanum_mcp/test/io_client_export_test.dart` now proves that

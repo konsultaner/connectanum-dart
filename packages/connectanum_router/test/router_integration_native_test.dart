@@ -2528,6 +2528,53 @@ void main() {
         contains('T-batch-prompt'),
       );
 
+      final directBatchWithError = await _postJsonValue(
+        client,
+        listener.port,
+        '/mcp/public',
+        [
+          {
+            'jsonrpc': '2.0',
+            'id': 'batch-ok',
+            'method': 'connectanum.api.list',
+            'params': {'kind': 'procedure'},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'batch-unknown',
+            'method': 'consumer.unknown.method',
+            'params': {},
+          },
+          {
+            'jsonrpc': '2.0',
+            'method': 'connectanum.tool.call',
+            'params': {
+              'name': 'app.safe.lookup',
+              'arguments': {'taskId': 'T-batch-notification'},
+            },
+          },
+        ],
+      );
+      expect(directBatchWithError.statusCode, equals(HttpStatus.ok));
+      expect(directBatchWithError.json, isA<List<Object?>>());
+      final directBatchWithErrorResponses = (directBatchWithError.json as List)
+          .cast<Map<String, Object?>>();
+      expect(directBatchWithErrorResponses, hasLength(2));
+      expect(directBatchWithErrorResponses[0]['id'], equals('batch-ok'));
+      expect(
+        jsonEncode(directBatchWithErrorResponses[0]['result']),
+        contains('app.safe.lookup'),
+      );
+      expect(directBatchWithErrorResponses[1]['id'], equals('batch-unknown'));
+      expect(
+        (directBatchWithErrorResponses[1]['error'] as Map)['code'],
+        equals(-32601),
+      );
+      expect(
+        jsonEncode(directBatchWithErrorResponses[1]['error']),
+        contains('Unknown MCP method'),
+      );
+
       final nestedBatch = await _postJsonValue(
         client,
         listener.port,
