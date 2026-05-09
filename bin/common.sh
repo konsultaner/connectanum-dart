@@ -2799,6 +2799,12 @@ Future<void> _smokeDirectJson(
       directJson: true,
     );
   }
+  await _smokeMcpPubSubQueueOverflow(
+    client,
+    serviceSession,
+    label: label,
+    directJson: true,
+  );
 
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Direct JSON MCP helpers captured Streamable state.');
@@ -5187,6 +5193,12 @@ Future<void> _smokeStreamableMcp(
       id: '$label-streamable-unsubscribe',
     );
   }
+  await _smokeMcpPubSubQueueOverflow(
+    client,
+    serviceSession,
+    label: label,
+    directJson: false,
+  );
 
   await _smokeStreamableSessionLifecycle(
     client,
@@ -7513,6 +7525,79 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   throw StateError('Timed out waiting for MCP pub/sub event.');
+}
+
+Future<void> _smokeMcpPubSubQueueOverflow(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+  required bool directJson,
+}
+) async {
+  final mode = directJson ? 'Direct JSON' : 'Streamable MCP';
+  final suffix = directJson ? 'direct' : 'streamable';
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final subscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-$suffix-overflow-subscribe',
+    queueLimit: 1,
+    directJson: directJson,
+  );
+  try {
+    final taskIds = [
+      'T-$label-$suffix-overflow-first',
+      'T-$label-$suffix-overflow-second',
+      'T-$label-$suffix-overflow-third',
+    ];
+    for (final taskId in taskIds) {
+      await serviceSession.publish(
+        _topic,
+        argumentsKeywords: {'taskId': taskId},
+        options: PublishOptions(acknowledge: true),
+      );
+    }
+
+    final overflowEvents = await _pollMcpEventsUntil(
+      client,
+      subscription.handle,
+      directJson: directJson,
+    );
+    final encodedEvents = jsonEncode(overflowEvents.events);
+    if (overflowEvents.handle != subscription.handle ||
+        overflowEvents.topic != _topic ||
+        overflowEvents.events.length != 1 ||
+        overflowEvents.dropped < 2 ||
+        overflowEvents.remaining != 0 ||
+        !encodedEvents.contains(taskIds.last) ||
+        encodedEvents.contains(taskIds.first) ||
+        encodedEvents.contains(taskIds[1])) {
+      throw StateError(
+        '$mode pub/sub queue overflow did not retain only the newest event.',
+      );
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      subscription.handle,
+      id: '$label-$suffix-overflow-unsubscribe',
+      directJson: directJson,
+    );
+  }
+
+  if (directJson) {
+    if (client.sessionId != previousSessionId ||
+        client.lastEventId != previousEventId) {
+      throw StateError(
+        'Direct JSON pub/sub queue overflow changed Streamable state.',
+      );
+    }
+  } else if (client.sessionId != previousSessionId ||
+      client.lastEventId == previousEventId) {
+    throw StateError(
+      'Streamable MCP pub/sub queue overflow did not preserve session state '
+      'and advance SSE state.',
+    );
+  }
 }
 
 Future<void> _smokeStreamableSessionLifecycle(

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Batch Topic Meta Smoke
 
-Status: complete; local verification clean
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-09
 Last updated: 2026-05-09
@@ -43,6 +43,21 @@ and publish/subscribe capabilities, without relying on single-request helpers.
   `bash -lc 'source bin/common.sh; cd_repo_root; run_router_hosted_mcp_example_smoke; run_mcp_consumer_package_smoke'`.
 - Post-change `bin/test-fast` passed on 2026-05-09 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-09 with isolated `TMPDIR`.
+- Commit `cb88045` (`test: cover mcp batch topic metadata`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-09.
+- Hosted GitHub `CI` run `25595463999` for `cb88045` completed successfully on
+  2026-05-09 with `Fast Checks` (4m14s) and `Full Verify` (5m59s) green.
+- Hosted GitHub `WAMP Profile Benchmarks` run `25595464000` for `cb88045`
+  completed successfully on 2026-05-09 with `Linux WAMP profile gates`
+  (7m44s) green.
+- Hosted GitHub `Dart Package Publish Dry Run` run `25595464002` for
+  `cb88045` completed successfully on 2026-05-09 with `Publish Dry Run` green.
+- Deployment-chain audit passed on 2026-05-09 with clean latest CI and clean
+  relevant Dart package publish dry-run evidence. Strict deployment audit still
+  reports operator-side release gaps: branch protection and required status
+  checks are absent, `.github/workflows/router-image.yml` is not discoverable
+  from the default branch, and `ghcr.io/konsultaner/connectanum-router` is not
+  visible.
 
 ## Decision Log
 
@@ -52,5 +67,6 @@ and publish/subscribe capabilities, without relying on single-request helpers.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, and hosted
-deployment-chain evidence are pending.
+Implementation, local verification, push, and hosted deployment-chain evidence
+are complete. Remaining strict-audit findings are release-ops gates outside
+this implementation slice.
