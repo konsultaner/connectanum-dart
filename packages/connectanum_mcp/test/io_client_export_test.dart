@@ -37,6 +37,9 @@ void main() {
         id: 'io-entrypoint-api-list',
         kind: 'procedure',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-entrypoint-api-list',
+        },
       );
 
       expect(catalog['procedures'], hasLength(1));
@@ -46,6 +49,7 @@ void main() {
       final request = endpoint.requests.single;
       expect(request.accept, 'application/json');
       expect(request.sessionId, isNull);
+      expect(request.consumerTrace, 'io-entrypoint-api-list');
       expect(request.body['method'], 'connectanum.tool.call');
 
       final params = _jsonMapFrom(request.body['params'], label: 'tool params');
@@ -122,6 +126,9 @@ void main() {
         id: 'io-direct-api-describe',
         kind: 'procedure',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-api-describe',
+        },
       );
       expect(apiDescription['procedure'], 'app.echo');
       expect(apiDescription['title'], 'Echo');
@@ -130,6 +137,9 @@ void main() {
         'app.echo',
         id: 'io-direct-registration-match',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-registration-match',
+        },
       );
       expect(registration.procedure, 'wamp.registration.match');
       expect(registration.arguments, [11]);
@@ -152,6 +162,11 @@ void main() {
       expect(endpoint.requests[1].consumerTrace, 'io-direct-tool-call');
       expect(endpoint.requests[2].consumerTrace, 'io-direct-method-call');
       expect(endpoint.requests[3].consumerTrace, 'io-direct-meta-method');
+      expect(endpoint.requests[4].consumerTrace, 'io-direct-api-describe');
+      expect(
+        endpoint.requests[5].consumerTrace,
+        'io-direct-registration-match',
+      );
 
       final toolCallParams = _jsonMapFrom(
         endpoint.requests[1].body['params'],
@@ -208,6 +223,9 @@ void main() {
       final sessionCount = await client.countWampSessions(
         id: 'io-direct-session-count',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-session-count',
+        },
       );
       expect(sessionCount.procedure, 'wamp.session.count');
       expect(sessionCount.argumentsKeywords['count'], 2);
@@ -215,6 +233,9 @@ void main() {
       final sessions = await client.listWampSessions(
         id: 'io-direct-session-list',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-session-list',
+        },
       );
       expect(sessions.argumentsKeywords['session_ids'], [101, 102]);
 
@@ -222,6 +243,9 @@ void main() {
         101,
         id: 'io-direct-session-get',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-session-get',
+        },
       );
       expect(session.argumentsKeywords['details'], {
         'session': 101,
@@ -233,6 +257,9 @@ void main() {
         _ioTopic,
         id: 'io-direct-subscription-match',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-subscription-match',
+        },
       );
       expect(subscription.procedure, 'wamp.subscription.match');
       expect(subscription.arguments, [17]);
@@ -241,6 +268,9 @@ void main() {
         17,
         id: 'io-direct-subscription-get',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-subscription-get',
+        },
       );
       expect(subscriptionDetails.argumentsKeywords['details'], {
         'id': 17,
@@ -251,6 +281,9 @@ void main() {
         17,
         id: 'io-direct-subscription-subscriber-count',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-subscription-subscriber-count',
+        },
       );
       expect(subscriberCount.argumentsKeywords['count'], 1);
 
@@ -273,6 +306,14 @@ void main() {
         'wamp.subscription.match',
         'wamp.subscription.get',
         'wamp.subscription.count_subscribers',
+      ]);
+      expect(endpoint.requests.map((request) => request.consumerTrace), [
+        'io-direct-session-count',
+        'io-direct-session-list',
+        'io-direct-session-get',
+        'io-direct-subscription-match',
+        'io-direct-subscription-get',
+        'io-direct-subscription-subscriber-count',
       ]);
 
       expect(
@@ -317,6 +358,9 @@ void main() {
       final registrations = await client.listWampRegistrations(
         id: 'io-direct-registration-list',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-registration-list',
+        },
       );
       expect(registrations.procedure, 'wamp.registration.list');
       expect(registrations.argumentsKeywords['exact'], [11]);
@@ -326,6 +370,9 @@ void main() {
         id: 'io-direct-registration-lookup',
         match: 'exact',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-registration-lookup',
+        },
       );
       expect(lookup.arguments, [11]);
 
@@ -333,6 +380,9 @@ void main() {
         'app.echo',
         id: 'io-direct-registration-match-helper',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-registration-match-helper',
+        },
       );
       expect(match.arguments, [11]);
 
@@ -340,6 +390,9 @@ void main() {
         11,
         id: 'io-direct-registration-get',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-registration-get',
+        },
       );
       expect(registration.argumentsKeywords['uri'], 'app.echo');
       expect(registration.argumentsKeywords['match'], 'exact');
@@ -348,6 +401,9 @@ void main() {
         11,
         id: 'io-direct-registration-callees',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-registration-callees',
+        },
       );
       expect(callees.arguments, [101]);
 
@@ -355,6 +411,9 @@ void main() {
         11,
         id: 'io-direct-registration-callee-count',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-registration-callee-count',
+        },
       );
       expect(calleeCount.arguments, [1]);
 
@@ -380,6 +439,14 @@ void main() {
         'wamp.registration.get',
         'wamp.registration.list_callees',
         'wamp.registration.count_callees',
+      ]);
+      expect(endpoint.requests.map((request) => request.consumerTrace), [
+        'io-direct-registration-list',
+        'io-direct-registration-lookup',
+        'io-direct-registration-match-helper',
+        'io-direct-registration-get',
+        'io-direct-registration-callees',
+        'io-direct-registration-callee-count',
       ]);
       expect(
         _jsonMapFrom(
@@ -721,6 +788,9 @@ void main() {
       _ioTopic,
       id: 'io-streamable-subscribe',
       queueLimit: 5,
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-subscribe',
+      },
     );
     expect(streamableSubscription.handle, _ioSubscriptionHandle);
     expect(streamableSubscription.topic, _ioTopic);
@@ -733,6 +803,9 @@ void main() {
       id: 'io-streamable-publish',
       argumentsKeywords: const <String, Object?>{'message': 'streamable'},
       acknowledge: true,
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-publish',
+      },
     );
     expect(streamablePublication.topic, _ioTopic);
     expect(streamablePublication.acknowledged, isTrue);
@@ -743,6 +816,7 @@ void main() {
       streamableSubscription.handle,
       id: 'io-streamable-poll',
       limit: 2,
+      headers: const <String, String>{'x-consumer-trace': 'io-streamable-poll'},
     );
     expect(streamableBatch.handle, streamableSubscription.handle);
     expect(streamableBatch.topic, _ioTopic);
@@ -756,6 +830,9 @@ void main() {
     final streamableUnsubscribe = await client.unsubscribeWampTopic(
       streamableSubscription.handle,
       id: 'io-streamable-unsubscribe',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-unsubscribe',
+      },
     );
     expect(streamableUnsubscribe.handle, streamableSubscription.handle);
     expect(streamableUnsubscribe.topic, _ioTopic);
@@ -770,6 +847,9 @@ void main() {
       id: 'io-direct-subscribe',
       queueLimit: 3,
       directJson: true,
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-direct-subscribe',
+      },
     );
     expect(directSubscription.handle, _ioSubscriptionHandle);
 
@@ -779,6 +859,7 @@ void main() {
       argumentsKeywords: const <String, Object?>{'message': 'direct'},
       acknowledge: true,
       directJson: true,
+      headers: const <String, String>{'x-consumer-trace': 'io-direct-publish'},
     );
     expect(directPublication.acknowledged, isTrue);
 
@@ -786,6 +867,7 @@ void main() {
       directSubscription.handle,
       id: 'io-direct-poll',
       directJson: true,
+      headers: const <String, String>{'x-consumer-trace': 'io-direct-poll'},
     );
     expect(directBatch.events.single['argumentsKeywords'], {
       'message': 'streamable',
@@ -795,6 +877,9 @@ void main() {
       directSubscription.handle,
       id: 'io-direct-unsubscribe',
       directJson: true,
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-direct-unsubscribe',
+      },
     );
     expect(directUnsubscribe.unsubscribed, isTrue);
 
@@ -879,6 +964,19 @@ void main() {
       expect(request.sessionId, isNull);
       expect(request.accept, 'application/json');
     }
+    expect(
+      endpoint.requests.skip(1).take(8).map((request) => request.consumerTrace),
+      [
+        'io-streamable-subscribe',
+        'io-streamable-publish',
+        'io-streamable-poll',
+        'io-streamable-unsubscribe',
+        'io-direct-subscribe',
+        'io-direct-publish',
+        'io-direct-poll',
+        'io-direct-unsubscribe',
+      ],
+    );
   });
 }
 

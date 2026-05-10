@@ -663,6 +663,7 @@ void main() {
         id: 'wamp-api-list',
         kind: 'topic',
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'wamp-api-list'},
       );
       expect(catalog['topics'], hasLength(1));
       expect(
@@ -675,6 +676,9 @@ void main() {
         id: 'wamp-api-describe',
         kind: 'topic',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'wamp-api-describe',
+        },
       );
       expect(topic['topic'], 'app.events.audit');
 
@@ -684,6 +688,7 @@ void main() {
         queueLimit: 3,
         options: const <String, Object?>{'match': 'exact'},
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'wamp-subscribe'},
       );
       expect(subscription.handle, 'wamp-sub-1');
       expect(subscription.topic, 'app.events.audit');
@@ -696,6 +701,7 @@ void main() {
         argumentsKeywords: const <String, Object?>{'message': 'hello'},
         acknowledge: true,
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'wamp-publish'},
       );
       expect(publication.topic, 'app.events.audit');
       expect(publication.publicationId, 42);
@@ -706,6 +712,7 @@ void main() {
         id: 'wamp-poll',
         limit: 2,
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'wamp-poll'},
       );
       expect(batch.handle, subscription.handle);
       expect(batch.topic, 'app.events.audit');
@@ -718,6 +725,7 @@ void main() {
         subscription.handle,
         id: 'wamp-unsubscribe',
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'wamp-unsubscribe'},
       );
       expect(unsubscribe.handle, subscription.handle);
       expect(unsubscribe.topic, 'app.events.audit');
@@ -728,6 +736,7 @@ void main() {
           'app.secure.audit',
           id: 'wamp-denied',
           streamable: false,
+          headers: const <String, String>{'x-consumer-trace': 'wamp-denied'},
         ),
         throwsA(
           isA<McpStreamableWampToolException>()
@@ -742,6 +751,18 @@ void main() {
                 'not authorized for topic',
               ),
         ),
+      );
+      expect(
+        endpoint.requests.skip(2).map((request) => request.consumerTrace),
+        [
+          'wamp-api-list',
+          'wamp-api-describe',
+          'wamp-subscribe',
+          'wamp-publish',
+          'wamp-poll',
+          'wamp-unsubscribe',
+          'wamp-denied',
+        ],
       );
     });
 
@@ -758,6 +779,9 @@ void main() {
           id: 'direct-helper-api-list',
           kind: 'topic',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-helper-api-list',
+          },
         );
         expect(catalog['topics'], hasLength(1));
 
@@ -766,6 +790,9 @@ void main() {
           id: 'direct-helper-subscribe',
           queueLimit: 3,
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-helper-subscribe',
+          },
         );
         expect(subscription.handle, 'wamp-sub-1');
 
@@ -775,6 +802,9 @@ void main() {
           argumentsKeywords: const <String, Object?>{'message': 'hello'},
           acknowledge: true,
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-helper-publish',
+          },
         );
         expect(publication.acknowledged, isTrue);
 
@@ -782,6 +812,9 @@ void main() {
           subscription.handle,
           id: 'direct-helper-poll',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-helper-poll',
+          },
         );
         expect(batch.events.single['argumentsKeywords'], {'message': 'hello'});
 
@@ -789,6 +822,9 @@ void main() {
           'app.echo',
           id: 'direct-helper-registration-match',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-helper-registration-match',
+          },
         );
         expect(registration.arguments, [11]);
 
@@ -796,6 +832,9 @@ void main() {
           subscription.handle,
           id: 'direct-helper-unsubscribe',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-helper-unsubscribe',
+          },
         );
         expect(unsubscribe.unsubscribed, isTrue);
 
@@ -806,6 +845,14 @@ void main() {
           expect(request.sessionId, isNull);
           expect(request.body, containsPair('method', 'connectanum.tool.call'));
         }
+        expect(endpoint.requests.map((request) => request.consumerTrace), [
+          'direct-helper-api-list',
+          'direct-helper-subscribe',
+          'direct-helper-publish',
+          'direct-helper-poll',
+          'direct-helper-registration-match',
+          'direct-helper-unsubscribe',
+        ]);
         final firstParams = _jsonMapFrom(
           (endpoint.requests.first.body as Map)['params'],
           label: 'direct helper first params',
@@ -841,6 +888,9 @@ void main() {
           id: 'direct-active-api-list',
           kind: 'topic',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-active-api-list',
+          },
         );
         expect(catalog['topics'], hasLength(1));
 
@@ -849,6 +899,9 @@ void main() {
           id: 'direct-active-api-describe',
           kind: 'topic',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-active-api-describe',
+          },
         );
         expect(topic['topic'], 'app.events.audit');
 
@@ -857,6 +910,9 @@ void main() {
           id: 'direct-active-subscribe',
           queueLimit: 3,
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-active-subscribe',
+          },
         );
         expect(subscription.handle, 'wamp-sub-1');
 
@@ -866,6 +922,9 @@ void main() {
           argumentsKeywords: const <String, Object?>{'message': 'hello'},
           acknowledge: true,
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-active-publish',
+          },
         );
         expect(publication.acknowledged, isTrue);
 
@@ -873,6 +932,9 @@ void main() {
           subscription.handle,
           id: 'direct-active-poll',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-active-poll',
+          },
         );
         expect(batch.events.single['argumentsKeywords'], {'message': 'hello'});
 
@@ -880,6 +942,9 @@ void main() {
           'app.echo',
           id: 'direct-active-registration-match',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-active-registration-match',
+          },
         );
         expect(registration.arguments, [11]);
 
@@ -887,6 +952,9 @@ void main() {
           subscription.handle,
           id: 'direct-active-unsubscribe',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-active-unsubscribe',
+          },
         );
         expect(unsubscribe.unsubscribed, isTrue);
 
@@ -900,6 +968,15 @@ void main() {
           expect(request.mcpMethod, 'connectanum.tool.call');
           expect(request.body, containsPair('method', 'connectanum.tool.call'));
         }
+        expect(endpoint.requests.map((request) => request.consumerTrace), [
+          'direct-active-api-list',
+          'direct-active-api-describe',
+          'direct-active-subscribe',
+          'direct-active-publish',
+          'direct-active-poll',
+          'direct-active-registration-match',
+          'direct-active-unsubscribe',
+        ]);
         expect(
           endpoint.requests.map(
             (request) => _jsonMapFrom(
@@ -1105,6 +1182,9 @@ void main() {
         'wamp.registration.list',
         id: 'wamp-registration-list',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'wamp-registration-list',
+        },
       );
       expect(registrations.procedure, 'wamp.registration.list');
       expect(registrations.arguments, isEmpty);
@@ -1115,6 +1195,9 @@ void main() {
         id: 'wamp-registration-match',
         arguments: const <Object?>['app.echo'],
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'wamp-registration-match',
+        },
       );
       expect(registrationMatch.arguments, [11]);
       expect(registrationMatch.argumentsKeywords, isEmpty);
@@ -1124,6 +1207,9 @@ void main() {
         id: 'wamp-registration-get',
         argumentsKeywords: const <String, Object?>{'id': 11},
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'wamp-registration-get',
+        },
       );
       expect(registrationDetails.argumentsKeywords['uri'], 'app.echo');
       expect(registrationDetails.argumentsKeywords['match'], 'exact');
@@ -1133,6 +1219,9 @@ void main() {
         id: 'wamp-subscription-lookup',
         argumentsKeywords: const <String, Object?>{'topic': 'app.events.audit'},
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'wamp-subscription-lookup',
+        },
       );
       expect(subscriptions.arguments, [7]);
 
@@ -1141,10 +1230,23 @@ void main() {
         id: 'wamp-subscription-count',
         arguments: const <Object?>[7],
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'wamp-subscription-count',
+        },
       );
       expect(subscribers.arguments, [1]);
 
       expect(endpoint.requests.last.sessionId, 'session-1');
+      expect(
+        endpoint.requests.skip(2).map((request) => request.consumerTrace),
+        [
+          'wamp-registration-list',
+          'wamp-registration-match',
+          'wamp-registration-get',
+          'wamp-subscription-lookup',
+          'wamp-subscription-count',
+        ],
+      );
       expect(endpoint.requests.last.body, {
         'jsonrpc': '2.0',
         'id': 'wamp-subscription-count',
@@ -1171,6 +1273,7 @@ void main() {
       final sessionCount = await client.countWampSessions(
         id: 'session-count',
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'session-count'},
       );
       expect(sessionCount.procedure, 'wamp.session.count');
       expect(sessionCount.argumentsKeywords['count'], 2);
@@ -1178,6 +1281,7 @@ void main() {
       final sessions = await client.listWampSessions(
         id: 'session-list',
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'session-list'},
       );
       expect(sessions.argumentsKeywords['session_ids'], [101, 102]);
 
@@ -1185,6 +1289,7 @@ void main() {
         101,
         id: 'session-get',
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'session-get'},
       );
       expect(session.argumentsKeywords['details'], {
         'session': 101,
@@ -1194,6 +1299,9 @@ void main() {
       final registrations = await client.listWampRegistrations(
         id: 'registration-list',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'registration-list',
+        },
       );
       expect(registrations.argumentsKeywords['exact'], [11]);
 
@@ -1202,6 +1310,9 @@ void main() {
         id: 'registration-lookup',
         match: 'exact',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'registration-lookup',
+        },
       );
       expect(lookup.arguments, [11]);
 
@@ -1209,6 +1320,9 @@ void main() {
         'app.echo',
         id: 'registration-match-helper',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'registration-match-helper',
+        },
       );
       expect(match.arguments, [11]);
 
@@ -1216,6 +1330,9 @@ void main() {
         11,
         id: 'registration-get-helper',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'registration-get-helper',
+        },
       );
       expect(registration.argumentsKeywords['uri'], 'app.echo');
 
@@ -1223,6 +1340,9 @@ void main() {
         11,
         id: 'registration-callees',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'registration-callees',
+        },
       );
       expect(callees.arguments, [101]);
 
@@ -1230,12 +1350,18 @@ void main() {
         11,
         id: 'registration-callee-count',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'registration-callee-count',
+        },
       );
       expect(calleeCount.arguments, [1]);
 
       final subscriptions = await client.listWampSubscriptions(
         id: 'subscription-list',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'subscription-list',
+        },
       );
       expect(subscriptions.argumentsKeywords['exact'], [7]);
 
@@ -1244,6 +1370,9 @@ void main() {
         id: 'subscription-lookup-helper',
         match: 'exact',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'subscription-lookup-helper',
+        },
       );
       expect(lookupSubscription.arguments, [7]);
 
@@ -1251,6 +1380,9 @@ void main() {
         'app.events.audit.created',
         id: 'subscription-match',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'subscription-match',
+        },
       );
       expect(matchingSubscriptions.arguments, [7]);
 
@@ -1258,6 +1390,7 @@ void main() {
         7,
         id: 'subscription-get',
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'subscription-get'},
       );
       expect(subscription.argumentsKeywords['uri'], 'app.events.audit');
 
@@ -1265,6 +1398,9 @@ void main() {
         7,
         id: 'subscription-subscribers',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'subscription-subscribers',
+        },
       );
       expect(subscribers.arguments, [102]);
 
@@ -1272,10 +1408,33 @@ void main() {
         7,
         id: 'subscription-subscriber-count',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'subscription-subscriber-count',
+        },
       );
       expect(subscriberCount.arguments, [1]);
 
       expect(endpoint.requests.last.sessionId, 'session-1');
+      expect(
+        endpoint.requests.skip(2).map((request) => request.consumerTrace),
+        [
+          'session-count',
+          'session-list',
+          'session-get',
+          'registration-list',
+          'registration-lookup',
+          'registration-match-helper',
+          'registration-get-helper',
+          'registration-callees',
+          'registration-callee-count',
+          'subscription-list',
+          'subscription-lookup-helper',
+          'subscription-match',
+          'subscription-get',
+          'subscription-subscribers',
+          'subscription-subscriber-count',
+        ],
+      );
       expect(endpoint.requests.last.body, {
         'jsonrpc': '2.0',
         'id': 'subscription-subscriber-count',

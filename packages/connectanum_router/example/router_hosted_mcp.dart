@@ -912,6 +912,7 @@ Future<void> _smokeMcpEndpoint(
     id: '$label-direct-subscribe',
     queueLimit: 4,
     directJson: true,
+    headers: <String, String>{'x-consumer-trace': '$label-direct-subscribe'},
   );
   try {
     final directPublication = await client.publishWampEvent(
@@ -920,6 +921,7 @@ Future<void> _smokeMcpEndpoint(
       argumentsKeywords: {'taskId': 'T-$label-direct-publish'},
       acknowledge: true,
       directJson: true,
+      headers: <String, String>{'x-consumer-trace': '$label-direct-publish'},
     );
     if (!directPublication.acknowledged) {
       throw StateError('Direct JSON-RPC pub/sub publish was not acknowledged.');
@@ -935,6 +937,7 @@ Future<void> _smokeMcpEndpoint(
       directSubscription.handle,
       label: '$label direct JSON',
       directJson: true,
+      headers: <String, String>{'x-consumer-trace': '$label-direct-poll'},
     );
     if (!jsonEncode(directEvents.events).contains('T-$label-direct-service')) {
       throw StateError('Direct JSON-RPC pub/sub poll did not receive event.');
@@ -944,6 +947,9 @@ Future<void> _smokeMcpEndpoint(
       directSubscription.handle,
       id: '$label-direct-unsubscribe',
       directJson: true,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-direct-unsubscribe',
+      },
     );
   }
   await _smokeMcpPubSubQueueOverflow(
@@ -1092,6 +1098,9 @@ Future<void> _smokeMcpEndpoint(
     'example.events.task',
     id: '$label-streamable-subscribe',
     queueLimit: 4,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-subscribe',
+    },
   );
   try {
     final streamablePublication = await client.publishWampEvent(
@@ -1099,6 +1108,9 @@ Future<void> _smokeMcpEndpoint(
       id: '$label-streamable-publish',
       argumentsKeywords: {'taskId': 'T-$label-streamable-publish'},
       acknowledge: true,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-streamable-publish',
+      },
     );
     if (!streamablePublication.acknowledged) {
       throw StateError('Streamable MCP pub/sub publish was not acknowledged.');
@@ -1113,6 +1125,7 @@ Future<void> _smokeMcpEndpoint(
       client,
       streamableSubscription.handle,
       label: '$label Streamable',
+      headers: <String, String>{'x-consumer-trace': '$label-streamable-poll'},
     );
     if (!jsonEncode(
       streamableEvents.events,
@@ -1123,6 +1136,9 @@ Future<void> _smokeMcpEndpoint(
     await client.unsubscribeWampTopic(
       streamableSubscription.handle,
       id: '$label-streamable-unsubscribe',
+      headers: <String, String>{
+        'x-consumer-trace': '$label-streamable-unsubscribe',
+      },
     );
   }
   await _smokeMcpPubSubQueueOverflow(
@@ -1453,6 +1469,9 @@ Future<void> _smokeDirectJsonTopicMetaApi(
     id: '$label-direct-topic-api-list',
     kind: 'topic',
     directJson: true,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-topic-api-list',
+    },
   );
   final topicListJson = jsonEncode(topicList);
   if (!topicListJson.contains('example.events.task') ||
@@ -1465,6 +1484,9 @@ Future<void> _smokeDirectJsonTopicMetaApi(
     id: '$label-direct-topic-api-describe',
     kind: 'topic',
     directJson: true,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-topic-api-describe',
+    },
   );
   final topicDescriptionJson = jsonEncode(topicDescription);
   if (!topicDescriptionJson.contains('example.events.task') ||
@@ -1497,6 +1519,9 @@ Future<void> _smokeStreamableTopicMetaApi(
   final topicList = await client.listWampApi(
     id: '$label-streamable-topic-api-list',
     kind: 'topic',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-topic-api-list',
+    },
   );
   final topicListJson = jsonEncode(topicList);
   if (!topicListJson.contains('example.events.task') ||
@@ -1508,6 +1533,9 @@ Future<void> _smokeStreamableTopicMetaApi(
     'example.events.task',
     id: '$label-streamable-topic-api-describe',
     kind: 'topic',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-topic-api-describe',
+    },
   );
   final topicDescriptionJson = jsonEncode(topicDescription);
   if (!topicDescriptionJson.contains('example.events.task') ||
@@ -3445,12 +3473,14 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
   String handle, {
   required String label,
   bool directJson = false,
+  Map<String, String> headers = const <String, String>{},
 }) async {
   for (var attempt = 0; attempt < 20; attempt++) {
     final batch = await client.pollWampEvents(
       handle,
       id: '$label-poll-$attempt',
       directJson: directJson,
+      headers: headers,
     );
     if (batch.events.isNotEmpty) {
       return batch;
@@ -3475,6 +3505,9 @@ Future<void> _smokeMcpPubSubQueueOverflow(
     id: '$label-$suffix-overflow-subscribe',
     queueLimit: 1,
     directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$suffix-overflow-subscribe',
+    },
   );
   try {
     final taskIds = [
@@ -3495,6 +3528,9 @@ Future<void> _smokeMcpPubSubQueueOverflow(
       subscription.handle,
       label: '$label $mode overflow',
       directJson: directJson,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-$suffix-overflow-poll',
+      },
     );
     final encodedEvents = jsonEncode(overflowEvents.events);
     if (overflowEvents.handle != subscription.handle ||
@@ -3514,6 +3550,9 @@ Future<void> _smokeMcpPubSubQueueOverflow(
       subscription.handle,
       id: '$label-$suffix-overflow-unsubscribe',
       directJson: directJson,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-$suffix-overflow-unsubscribe',
+      },
     );
   }
 

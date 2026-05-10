@@ -2150,7 +2150,12 @@ Future<void> _smokeWampHelpers(
   McpStreamableHttpClient client,
   _AgentMcpEndpoint endpoint,
 ) async {
-  final api = await client.listWampApi(id: 'streamable-api-list');
+  final api = await client.listWampApi(
+    id: 'streamable-api-list',
+    headers: const <String, String>{
+      'x-consumer-trace': 'streamable-api-list',
+    },
+  );
   _expect(
     jsonEncode(api).contains(_procedureName) && jsonEncode(api).contains(_topic),
     'streamable WAMP API list helper failed',
@@ -2161,6 +2166,9 @@ Future<void> _smokeWampHelpers(
     _procedureName,
     id: 'streamable-api-describe',
     kind: 'procedure',
+    headers: const <String, String>{
+      'x-consumer-trace': 'streamable-api-describe',
+    },
   );
   _expect(
     described['uri'] == _procedureName,
@@ -2169,6 +2177,9 @@ Future<void> _smokeWampHelpers(
 
   final sessionCount = await client.countWampSessions(
     id: 'streamable-session-count',
+    headers: const <String, String>{
+      'x-consumer-trace': 'streamable-session-count',
+    },
   );
   _expect(
     sessionCount.argumentsKeywords['count'] == _sessionCount,
@@ -2179,6 +2190,9 @@ Future<void> _smokeWampHelpers(
     _topic,
     id: 'streamable-subscribe',
     queueLimit: 5,
+    headers: const <String, String>{
+      'x-consumer-trace': 'streamable-subscribe',
+    },
   );
   _expect(
     streamableSubscription.topic == _topic,
@@ -2190,6 +2204,9 @@ Future<void> _smokeWampHelpers(
     id: 'streamable-publish',
     argumentsKeywords: const <String, Object?>{'text': 'streamable'},
     acknowledge: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'streamable-publish',
+    },
   );
   _expect(
     streamablePublication.acknowledged &&
@@ -2200,6 +2217,7 @@ Future<void> _smokeWampHelpers(
   final streamableEvents = await client.pollWampEvents(
     streamableSubscription.handle,
     id: 'streamable-poll',
+    headers: const <String, String>{'x-consumer-trace': 'streamable-poll'},
   );
   _expect(
     jsonEncode(streamableEvents.events).contains('streamable'),
@@ -2209,6 +2227,9 @@ Future<void> _smokeWampHelpers(
   final streamableUnsubscribe = await client.unsubscribeWampTopic(
     streamableSubscription.handle,
     id: 'streamable-unsubscribe',
+    headers: const <String, String>{
+      'x-consumer-trace': 'streamable-unsubscribe',
+    },
   );
   _expect(
     streamableUnsubscribe.unsubscribed,
@@ -2218,6 +2239,7 @@ Future<void> _smokeWampHelpers(
   final directApi = await client.listWampApi(
     id: 'direct-api-list',
     directJson: true,
+    headers: const <String, String>{'x-consumer-trace': 'direct-api-list'},
   );
   _expect(
     jsonEncode(directApi).contains(_procedureName),
@@ -2233,6 +2255,9 @@ Future<void> _smokeWampHelpers(
     id: 'direct-api-describe',
     kind: 'procedure',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-api-describe',
+    },
   );
   _expect(
     directDescription['uri'] == _procedureName,
@@ -2242,6 +2267,9 @@ Future<void> _smokeWampHelpers(
   final directSessionCount = await client.countWampSessions(
     id: 'direct-session-count',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-session-count',
+    },
   );
   _expect(
     directSessionCount.argumentsKeywords['count'] == _sessionCount,
@@ -2254,6 +2282,7 @@ Future<void> _smokeWampHelpers(
     _topic,
     id: 'direct-subscribe',
     directJson: true,
+    headers: const <String, String>{'x-consumer-trace': 'direct-subscribe'},
   );
   final directPublication = await client.publishWampEvent(
     _topic,
@@ -2261,6 +2290,7 @@ Future<void> _smokeWampHelpers(
     argumentsKeywords: const <String, Object?>{'text': 'direct'},
     acknowledge: true,
     directJson: true,
+    headers: const <String, String>{'x-consumer-trace': 'direct-publish'},
   );
   _expect(
     directPublication.acknowledged,
@@ -2271,6 +2301,7 @@ Future<void> _smokeWampHelpers(
     directSubscription.handle,
     id: 'direct-poll',
     directJson: true,
+    headers: const <String, String>{'x-consumer-trace': 'direct-poll'},
   );
   _expect(
     jsonEncode(directEvents.events).contains('direct'),
@@ -2281,6 +2312,7 @@ Future<void> _smokeWampHelpers(
     directSubscription.handle,
     id: 'direct-unsubscribe',
     directJson: true,
+    headers: const <String, String>{'x-consumer-trace': 'direct-unsubscribe'},
   );
 
   const expectedDirectWampToolNames = <String>{
@@ -2314,6 +2346,49 @@ Future<void> _smokeWampHelpers(
     'direct JSON WAMP helper tool calls included Streamable session state '
     'for ${missingDirectWampToolNames.join(', ')}',
   );
+  _expect(
+    endpoint.streamableTraceHeadersWithSession.containsAll(
+      const <String>{
+        'POST:streamable-api-list',
+        'POST:streamable-api-describe',
+        'POST:streamable-session-count',
+        'POST:streamable-subscribe',
+        'POST:streamable-publish',
+        'POST:streamable-poll',
+        'POST:streamable-unsubscribe',
+      },
+    ),
+    'Streamable WAMP helpers did not forward custom headers with session state',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.containsAll(
+      const <String>{
+        'direct-api-list',
+        'direct-api-describe',
+        'direct-session-count',
+        'direct-session-list',
+        'direct-session-get',
+        'direct-registration-list',
+        'direct-registration-lookup',
+        'direct-registration-match',
+        'direct-registration-get',
+        'direct-registration-callees',
+        'direct-registration-callee-count',
+        'direct-subscription-list',
+        'direct-subscription-lookup',
+        'direct-subscription-match',
+        'direct-subscription-get',
+        'direct-subscription-subscribers',
+        'direct-subscription-subscriber-count',
+        'direct-subscribe',
+        'direct-publish',
+        'direct-poll',
+        'direct-unsubscribe',
+      },
+    ),
+    'direct JSON WAMP helpers did not forward custom headers without session '
+    'state',
+  );
 }
 
 Future<void> _smokeDirectWampMetaHelpers(
@@ -2322,6 +2397,7 @@ Future<void> _smokeDirectWampMetaHelpers(
   final sessions = await client.listWampSessions(
     id: 'direct-session-list',
     directJson: true,
+    headers: const <String, String>{'x-consumer-trace': 'direct-session-list'},
   );
   _expect(
     _jsonListContains(sessions.argumentsKeywords['session_ids'], _wampSessionId),
@@ -2332,6 +2408,7 @@ Future<void> _smokeDirectWampMetaHelpers(
     _wampSessionId,
     id: 'direct-session-get',
     directJson: true,
+    headers: const <String, String>{'x-consumer-trace': 'direct-session-get'},
   );
   final sessionDetails = _jsonMapFrom(
     session.argumentsKeywords['details'],
@@ -2345,6 +2422,9 @@ Future<void> _smokeDirectWampMetaHelpers(
   final registrations = await client.listWampRegistrations(
     id: 'direct-registration-list',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-registration-list',
+    },
   );
   _expect(
     _jsonListContains(registrations.argumentsKeywords['exact'], _registrationId),
@@ -2356,6 +2436,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     id: 'direct-registration-lookup',
     match: 'exact',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-registration-lookup',
+    },
   );
   _expect(
     lookupRegistration.arguments.single == _registrationId,
@@ -2366,6 +2449,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     _procedureName,
     id: 'direct-registration-match',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-registration-match',
+    },
   );
   _expect(
     matchingRegistration.arguments.single == _registrationId,
@@ -2376,6 +2462,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     _registrationId,
     id: 'direct-registration-get',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-registration-get',
+    },
   );
   _expect(
     registration.argumentsKeywords['uri'] == _procedureName,
@@ -2386,6 +2475,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     _registrationId,
     id: 'direct-registration-callees',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-registration-callees',
+    },
   );
   _expect(
     callees.arguments.single == _wampSessionId,
@@ -2396,6 +2488,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     _registrationId,
     id: 'direct-registration-callee-count',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-registration-callee-count',
+    },
   );
   _expect(
     calleeCount.arguments.single == 1,
@@ -2405,6 +2500,9 @@ Future<void> _smokeDirectWampMetaHelpers(
   final subscriptions = await client.listWampSubscriptions(
     id: 'direct-subscription-list',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-subscription-list',
+    },
   );
   _expect(
     _jsonListContains(subscriptions.argumentsKeywords['exact'], _subscriptionId),
@@ -2416,6 +2514,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     id: 'direct-subscription-lookup',
     match: 'exact',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-subscription-lookup',
+    },
   );
   _expect(
     lookupSubscription.arguments.single == _subscriptionId,
@@ -2426,6 +2527,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     _topic,
     id: 'direct-subscription-match',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-subscription-match',
+    },
   );
   _expect(
     matchingSubscription.arguments.single == _subscriptionId,
@@ -2436,6 +2540,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     _subscriptionId,
     id: 'direct-subscription-get',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-subscription-get',
+    },
   );
   _expect(
     subscription.argumentsKeywords['uri'] == _topic,
@@ -2446,6 +2553,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     _subscriptionId,
     id: 'direct-subscription-subscribers',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-subscription-subscribers',
+    },
   );
   _expect(
     subscribers.arguments.single == _wampSessionId,
@@ -2456,6 +2566,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     _subscriptionId,
     id: 'direct-subscription-subscriber-count',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-subscription-subscriber-count',
+    },
   );
   _expect(
     subscriberCount.arguments.single == 1,
@@ -10078,6 +10191,7 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
   McpStreamableHttpClient client,
   String subscriptionHandle, {
   bool directJson = false,
+  Map<String, String> headers = const <String, String>{},
 }
 ) async {
   final deadline = DateTime.now().add(const Duration(seconds: 5));
@@ -10087,6 +10201,7 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
       id: 'streamable-poll-${DateTime.now().microsecondsSinceEpoch}',
       limit: 4,
       directJson: directJson,
+      headers: headers,
     );
     if (events.events.isNotEmpty) {
       return events;
@@ -10112,6 +10227,9 @@ Future<void> _smokeMcpPubSubQueueOverflow(
     id: '$label-$suffix-overflow-subscribe',
     queueLimit: 1,
     directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$suffix-overflow-subscribe',
+    },
   );
   try {
     final taskIds = [
@@ -10131,6 +10249,9 @@ Future<void> _smokeMcpPubSubQueueOverflow(
       client,
       subscription.handle,
       directJson: directJson,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-$suffix-overflow-poll',
+      },
     );
     final encodedEvents = jsonEncode(overflowEvents.events);
     if (overflowEvents.handle != subscription.handle ||
@@ -10150,6 +10271,9 @@ Future<void> _smokeMcpPubSubQueueOverflow(
       subscription.handle,
       id: '$label-$suffix-overflow-unsubscribe',
       directJson: directJson,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-$suffix-overflow-unsubscribe',
+      },
     );
   }
 
