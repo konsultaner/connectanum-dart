@@ -79,16 +79,15 @@ Future<void> main(List<String> args) async {
 
     await _assertSecureMcpRequiresBearer(binding);
     final grant = await _issueTicketHttpGrant(binding);
-    final bearerToken = grant.accessToken;
     await _smokeMcpProtocolVersionCompatibility(
       binding,
       label: 'secure',
       secure: true,
-      bearerToken: bearerToken,
+      authGrant: grant,
     );
-    secureMcpClient = McpStreamableHttpClient.withBearerToken(
+    secureMcpClient = McpStreamableHttpClient.withAuthGrant(
       _mcpEndpoint(binding, secure: true),
-      bearerToken,
+      grant,
     );
     await _smokeMcpEndpoint(
       secureMcpClient,
@@ -490,12 +489,12 @@ Future<void> _assertTicketRefreshRejected(
 
 Future<McpStreamableHttpClient> _openSecureMcpSession(
   RouterBinding binding,
-  String bearerToken, {
+  ConnectanumHttpAuthGrant grant, {
   required String label,
 }) async {
-  final client = McpStreamableHttpClient.withBearerToken(
+  final client = McpStreamableHttpClient.withAuthGrant(
     _mcpEndpoint(binding, secure: true),
-    bearerToken,
+    grant,
   );
   try {
     await client.initialize(id: '$label-active-session-initialize');
@@ -542,13 +541,13 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   }
 }
 
-Future<void> _smokeSecureMcpRefreshedBearer(
+Future<void> _smokeSecureMcpRefreshedGrant(
   RouterBinding binding,
-  String bearerToken,
+  ConnectanumHttpAuthGrant grant,
 ) async {
-  final client = McpStreamableHttpClient.withBearerToken(
+  final client = McpStreamableHttpClient.withAuthGrant(
     _mcpEndpoint(binding, secure: true),
-    bearerToken,
+    grant,
   );
   try {
     final directTools = await client.listConnectanumToolsDirect(
@@ -594,7 +593,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
   try {
     rotatedSessionClient = await _openSecureMcpSession(
       binding,
-      grant.accessToken,
+      grant,
       label: 'secure-rotated',
     );
 
@@ -632,11 +631,11 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       acceptedMessage: 'HTTP auth bridge accepted a rotated refresh token.',
     );
 
-    await _smokeSecureMcpRefreshedBearer(binding, refreshed.accessToken);
+    await _smokeSecureMcpRefreshedGrant(binding, refreshed);
 
     revokedSessionClient = await _openSecureMcpSession(
       binding,
-      refreshed.accessToken,
+      refreshed,
       label: 'secure-revoked',
     );
     await authClient.revokeToken(
@@ -672,18 +671,18 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
 McpStreamableHttpClient _protocolVersionClient(
   Uri endpoint, {
   required String defaultProtocolVersion,
-  String? bearerToken,
+  ConnectanumHttpAuthGrant? authGrant,
 }) {
-  final token = bearerToken;
-  if (token == null) {
+  final grant = authGrant;
+  if (grant == null) {
     return McpStreamableHttpClient(
       endpoint,
       defaultProtocolVersion: defaultProtocolVersion,
     );
   }
-  return McpStreamableHttpClient.withBearerToken(
+  return McpStreamableHttpClient.withAuthGrant(
     endpoint,
-    token,
+    grant,
     defaultProtocolVersion: defaultProtocolVersion,
   );
 }
@@ -692,7 +691,7 @@ Future<void> _smokeMcpProtocolVersionCompatibility(
   RouterBinding binding, {
   required String label,
   bool secure = false,
-  String? bearerToken,
+  ConnectanumHttpAuthGrant? authGrant,
 }) async {
   final endpoint = _mcpEndpoint(binding, secure: secure);
   for (final version in _supportedOlderProtocolVersions) {
@@ -700,13 +699,13 @@ Future<void> _smokeMcpProtocolVersionCompatibility(
       endpoint,
       version,
       label: label,
-      bearerToken: bearerToken,
+      authGrant: authGrant,
     );
   }
   await _assertUnsupportedMcpProtocolVersionRejected(
     endpoint,
     label: label,
-    bearerToken: bearerToken,
+    authGrant: authGrant,
   );
 }
 
@@ -714,12 +713,12 @@ Future<void> _smokeSupportedMcpProtocolVersion(
   Uri endpoint,
   String protocolVersion, {
   required String label,
-  String? bearerToken,
+  ConnectanumHttpAuthGrant? authGrant,
 }) async {
   final client = _protocolVersionClient(
     endpoint,
     defaultProtocolVersion: protocolVersion,
-    bearerToken: bearerToken,
+    authGrant: authGrant,
   );
   try {
     final initializeId = '$label-$protocolVersion-initialize';
@@ -766,12 +765,12 @@ Future<void> _smokeSupportedMcpProtocolVersion(
 Future<void> _assertUnsupportedMcpProtocolVersionRejected(
   Uri endpoint, {
   required String label,
-  String? bearerToken,
+  ConnectanumHttpAuthGrant? authGrant,
 }) async {
   final client = _protocolVersionClient(
     endpoint,
     defaultProtocolVersion: _unsupportedProtocolVersion,
-    bearerToken: bearerToken,
+    authGrant: authGrant,
   );
   try {
     await client.initialize(id: '$label-unsupported-protocol-initialize');

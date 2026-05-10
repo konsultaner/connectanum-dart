@@ -1,6 +1,6 @@
 # Exec Plan: MCP Auth Grant Streamable Client Smoke
 
-Status: complete locally; hosted CI and deployment-chain evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -48,6 +48,22 @@ revoke token validation on the HTTP auth bridge client.
   `withAuthGrant`.
 - Post-change `bin/test-fast` passed on 2026-05-10.
 - Full local `bin/verify` passed on 2026-05-10.
+- Commit `2ace2a8` (`feat: wire mcp auth grants into streamable clients`) was
+  pushed to `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25632291307` completed successfully for `2ace2a8` with
+  `Fast Checks` (4m27s) and `Full Verify` (6m17s) green, and the hosted CI log
+  scan was clean.
+- GitHub `Dart Package Publish Dry Run` run `25632291310` completed
+  successfully for `2ace2a8` and covers the checked-out head.
+- GitHub `WAMP Profile Benchmarks` run `25632291313` completed successfully
+  for `2ace2a8` with `Linux WAMP profile gates` green (7m53s).
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI, clean
+  hosted CI logs, and clean Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -61,6 +77,6 @@ revoke token validation on the HTTP auth bridge client.
 
 ## Handoff
 
-Implementation, focused local smoke evidence, post-change `bin/test-fast`, and
-full local `bin/verify` are complete. Push and hosted deployment-chain evidence
-remain pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side
+release-hardening work.
