@@ -1162,6 +1162,79 @@ void main() {
       expect(endpoint.requests.last.sessionId, isNull);
       expect(endpoint.requests.last.lastEventId, isNull);
 
+      final batch = await client.postBatch(
+        [
+          {
+            'jsonrpc': '2.0',
+            'id': 'direct-response-session-batch',
+            'method': 'connectanum.tools.list',
+          },
+          {
+            'jsonrpc': '2.0',
+            'method': 'notifications/progress',
+            'params': <String, Object?>{
+              'progressToken': 'direct-response-session-batch',
+              'progress': 1,
+            },
+          },
+        ],
+        streamable: false,
+        includeSession: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'direct-response-session-batch',
+          'x-test-response-session-id': 'direct-batch-session-ignored',
+        },
+      );
+      expect(batch, hasLength(1));
+      expect(batch?.single['id'], 'direct-response-session-batch');
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+
+      await client.notification(
+        'notifications/progress',
+        params: const <String, Object?>{
+          'progressToken': 'direct-response-session-notification',
+          'progress': 1,
+        },
+        streamable: false,
+        includeSession: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'direct-response-session-notification',
+          'x-test-response-session-id': 'direct-notification-session-ignored',
+        },
+      );
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+
+      final notificationBatch = await client.postBatch(
+        [
+          {
+            'jsonrpc': '2.0',
+            'method': 'notifications/progress',
+            'params': <String, Object?>{
+              'progressToken': 'direct-response-session-notification-batch',
+              'progress': 1,
+            },
+          },
+        ],
+        streamable: false,
+        includeSession: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'direct-response-session-notification-batch',
+          'x-test-response-session-id':
+              'direct-notification-batch-session-ignored',
+        },
+      );
+      expect(notificationBatch, isNull);
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+
       final ping = await client.ping(id: 'session-header-still-usable');
       expect(ping, isEmpty);
       expect(client.sessionId, sessionId);
@@ -1728,6 +1801,7 @@ final class _FakeMcpEndpoint {
       ];
       if (responses.isEmpty) {
         request.response.statusCode = HttpStatus.accepted;
+        _applyTestResponseHeaders(request);
         await request.response.close();
         return;
       }
@@ -1774,6 +1848,7 @@ final class _FakeMcpEndpoint {
 
     if (method is String && method.startsWith('notifications/')) {
       request.response.statusCode = HttpStatus.accepted;
+      _applyTestResponseHeaders(request);
       await request.response.close();
       return;
     }

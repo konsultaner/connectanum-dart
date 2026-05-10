@@ -2,12 +2,19 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `86b94a5`
-(`fix: preserve mcp direct json session state`; hosted CI evidence clean)
+Last reviewed branch checkpoint: local implementation commit
+(`test: cover mcp direct json response header variants`; local verification
+clean, hosted evidence pending)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-direct-json-response-header-session-smoke.md`
-(complete; full local verification clean, hosted CI pending).
+`docs/exec-plans/2026-05-10-mcp-direct-json-batch-notification-response-header-smoke.md`
+(complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-direct-json-batch-notification-response-header-smoke.md`
+(complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-direct-json-response-header-session-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-direct-json-http-error-session-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -233,11 +240,11 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`86b94a5`
-(`fix: preserve mcp direct json session state`; hosted CI evidence clean).
+`a426fcf`
+(`fix: isolate mcp direct json response headers`; hosted CI evidence clean).
 Current implementation checkpoint: MCP direct JSON response-header session
 isolation smoke
-(complete; full local verification clean, hosted CI pending).
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP direct JSON HTTP-error session smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP WAMP helper header smoke
@@ -575,21 +582,49 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP direct JSON batch/notification response-header session smoke is
+    complete through full local verification. The focused client regression and
+    neutral generated client-package smoke now inject `MCP-Session-Id` response
+    headers on direct JSON batch responses, direct single notification
+    `202 Accepted` responses, and notification-only batch `202 Accepted`
+    responses while an active Streamable HTTP session exists; the client keeps
+    the Streamable session id and SSE resume cursor unchanged and sends those
+    direct JSON calls without Streamable session headers. Focused `dart test
+    packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r
+    expanded --plain-name "keeps direct JSON response session headers
+    lifecycle-free"` passed, the full
+    `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
+    suite passed, `bash -n bin/common.sh` passed, focused
+    `run_mcp_client_package_smoke` passed, post-change `bin/test-fast` passed,
+    and full local `bin/verify` passed on 2026-05-10. The local implementation
+    commit (`test: cover mcp direct json response header variants`) is ready to
+    push; hosted evidence is pending.
   - MCP direct JSON response-header session isolation smoke is complete through
-    full local verification; hosted evidence is pending. Direct JSON MCP calls
-    now ignore `MCP-Session-Id` response headers when they are lifecycle-free,
-    so a direct JSON success or forced HTTP error cannot replace or clear an
-    active Streamable HTTP session id or SSE resume cursor. Streamable
-    `initialize` and session-bound Streamable requests still capture MCP session
-    headers and keep the session-aware HTTP error path. A focused fail-first
-    regression reproduced the old response-header overwrite, the focused
-    regression now passes, the full
+    full local and hosted verification. Direct JSON MCP calls now ignore
+    `MCP-Session-Id` response headers when they are lifecycle-free, so a direct
+    JSON success or forced HTTP error cannot replace or clear an active
+    Streamable HTTP session id or SSE resume cursor. Streamable `initialize`
+    and session-bound Streamable requests still capture MCP session headers and
+    keep the session-aware HTTP error path. A focused fail-first regression
+    reproduced the old response-header overwrite, the focused regression now
+    passes, the full
     `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
     suite passes, and the neutral generated client-package smoke now injects
     response session headers on direct JSON success and direct HTTP-error
     probes without private application assumptions. Full local `bin/verify`
-    passed on 2026-05-10. Push, hosted CI, and deployment-chain audit evidence
-    are pending.
+    passed on 2026-05-10. Commit `a426fcf`
+    (`fix: isolate mcp direct json response headers`) is pushed to both
+    remotes. GitHub `CI` run `25627974549` completed successfully for
+    `a426fcf` with `Fast Checks` and `Full Verify` green. GitHub
+    `Dart Package Publish Dry Run` run `25627974556` completed successfully for
+    `a426fcf`, and the audit confirmed it covers the checked-out head. GitHub
+    `WAMP Profile Benchmarks` run `25627974555` completed successfully for
+    `a426fcf`. The deployment-chain audit passed with clean latest CI and clean
+    Dart package publish dry-run evidence. The audit still reports only known
+    operator-side release-hardening gaps: branch protection/required checks are
+    absent, `.github/workflows/router-image.yml` is not yet visible from the
+    default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP direct JSON HTTP-error session smoke is complete through full local and
     hosted verification. Direct JSON MCP requests remain lifecycle-free even
     when a consumer also has an active

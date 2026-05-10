@@ -1103,6 +1103,116 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
     'direct JSON response session header did not stay lifecycle-free',
   );
 
+  const responseSessionBatchTrace = 'direct-response-session-batch-header';
+  final responseSessionBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': responseSessionBatchTrace,
+        'method': 'connectanum.tools.list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/progress',
+        'params': <String, Object?>{
+          'progressToken': responseSessionBatchTrace,
+          'progress': 1,
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+    headers: const <String, String>{
+      'x-consumer-trace': responseSessionBatchTrace,
+      'x-test-response-session-id': 'direct-batch-session-header-ignored',
+    },
+  );
+  _expect(
+    responseSessionBatch != null &&
+        responseSessionBatch.length == 1 &&
+        responseSessionBatch.single['id'] == responseSessionBatchTrace,
+    'direct JSON batch response-session smoke returned an unexpected result.',
+  );
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'direct JSON batch response session header changed Streamable session '
+    'state',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.contains(
+      responseSessionBatchTrace,
+    ),
+    'direct JSON batch response session header did not stay lifecycle-free',
+  );
+
+  const responseSessionNotificationTrace =
+      'direct-response-session-notification-header';
+  await client.notification(
+    'notifications/progress',
+    params: const <String, Object?>{
+      'progressToken': responseSessionNotificationTrace,
+      'progress': 1,
+    },
+    streamable: false,
+    includeSession: false,
+    headers: const <String, String>{
+      'x-consumer-trace': responseSessionNotificationTrace,
+      'x-test-response-session-id':
+          'direct-notification-session-header-ignored',
+    },
+  );
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'direct JSON notification response session header changed Streamable '
+    'session state',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.contains(
+      responseSessionNotificationTrace,
+    ),
+    'direct JSON notification response session header did not stay '
+    'lifecycle-free',
+  );
+
+  const responseSessionNotificationBatchTrace =
+      'direct-response-session-notification-batch-header';
+  final responseSessionNotificationBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/progress',
+        'params': <String, Object?>{
+          'progressToken': responseSessionNotificationBatchTrace,
+          'progress': 1,
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+    headers: const <String, String>{
+      'x-consumer-trace': responseSessionNotificationBatchTrace,
+      'x-test-response-session-id':
+          'direct-notification-batch-session-header-ignored',
+    },
+  );
+  _expect(
+    responseSessionNotificationBatch == null,
+    'direct JSON notification-only batch response-session smoke returned '
+    'a response body.',
+  );
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'direct JSON notification-only batch response session header changed '
+    'Streamable session state',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.contains(
+      responseSessionNotificationBatchTrace,
+    ),
+    'direct JSON notification-only batch response session header did not stay '
+    'lifecycle-free',
+  );
+
   for (final statusCode in const <int>[
     HttpStatus.unauthorized,
     HttpStatus.forbidden,
@@ -2929,6 +3039,7 @@ final class _AgentMcpEndpoint {
         return;
       }
       request.response.statusCode = HttpStatus.accepted;
+      _applyTestResponseHeaders(request);
       await request.response.close();
       return;
     }
@@ -3026,6 +3137,7 @@ final class _AgentMcpEndpoint {
     }
     if (responses.isEmpty) {
       request.response.statusCode = HttpStatus.accepted;
+      _applyTestResponseHeaders(request);
       await request.response.close();
       return;
     }
@@ -3599,14 +3711,18 @@ final class _AgentMcpEndpoint {
     Object? body,
   ) async {
     request.response.headers.contentType = ContentType.json;
+    _applyTestResponseHeaders(request);
+    request.response.write(jsonEncode(body));
+    await request.response.close();
+  }
+
+  void _applyTestResponseHeaders(HttpRequest request) {
     final responseSessionId = request.headers.value(
       'x-test-response-session-id',
     );
     if (responseSessionId != null) {
       request.response.headers.set('MCP-Session-Id', responseSessionId);
     }
-    request.response.write(jsonEncode(body));
-    await request.response.close();
   }
 
   Future<void> _writeSse(
