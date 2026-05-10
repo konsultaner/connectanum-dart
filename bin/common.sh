@@ -711,6 +711,14 @@ import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 
 const _sessionId = 'agent-session';
 const _protocolVersion = McpStreamableHttpClient.latestProtocolVersion;
+const _authState = 'agent-auth-state';
+const _authRealm = 'agent.realm';
+const _authId = 'consumer-agent';
+const _authRole = 'agent';
+const _authProvider = 'client-smoke';
+const _ticketSecret = 'agent-ticket';
+const _accessToken = 'agent-token';
+const _refreshToken = 'agent-refresh-token';
 const _toolName = 'agent.echo';
 const _procedureName = 'agent.lookup';
 const _resourceUri = 'wamp://agent/readme';
@@ -727,22 +735,54 @@ const _firstEventId = 'agent-session:get:1';
 
 Future<void> main() async {
   final endpoint = await _AgentMcpEndpoint.bind();
-  final client = McpStreamableHttpClient.withAuthGrant(
-    endpoint.uri,
-    const ConnectanumHttpAuthGrant(
-      accessToken: 'agent-token',
-      tokenType: 'Bearer',
-      refreshToken: 'agent-refresh-token',
-      realm: 'agent.realm',
-      authId: 'consumer-agent',
-      authRole: 'agent',
-      authMethod: 'ticket',
-      authProvider: 'client-smoke',
-      details: <String, Object?>{'scope': 'mcp'},
-    ),
-  );
+  ConnectanumHttpAuthClient? authClient;
+  McpStreamableHttpClient? client;
 
   try {
+    authClient = ConnectanumHttpAuthClient(
+      endpoint.authUri,
+      headers: const <String, String>{
+        'x-consumer-default': 'client-auth-default',
+      },
+    );
+    final grant = await authClient.issueTicketToken(
+      realm: _authRealm,
+      authId: _authId,
+      ticket: _ticketSecret,
+      headers: const <String, String>{'x-consumer-trace': 'auth-issue'},
+    );
+    _expect(
+      grant.accessToken == _accessToken,
+      'auth grant access token mismatch',
+    );
+    _expect(
+      grant.refreshToken == _refreshToken,
+      'auth grant refresh token mismatch',
+    );
+    _expect(grant.realm == _authRealm, 'auth grant realm mismatch');
+    _expect(grant.authId == _authId, 'auth grant authid mismatch');
+    _expect(grant.authRole == _authRole, 'auth grant authrole mismatch');
+    _expect(grant.authMethod == 'ticket', 'auth grant method mismatch');
+    _expect(grant.authProvider == _authProvider, 'auth grant provider mismatch');
+    _expect(
+      endpoint.authRequestBodies.length == 2,
+      'auth client did not complete challenge and token requests',
+    );
+    _expect(
+      endpoint.authTraceHeaders.length == 2 &&
+          endpoint.authTraceHeaders.every((trace) => trace == 'auth-issue'),
+      'auth client did not forward per-call trace headers',
+    );
+    _expect(
+      endpoint.authDefaultHeaders.length == 2 &&
+          endpoint.authDefaultHeaders.every(
+            (trace) => trace == 'client-auth-default',
+          ),
+      'auth client did not forward default auth headers',
+    );
+
+    client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
+
     final initialize = await client.initialize(
       clientInfo: const <String, Object?>{
         'name': 'consumer-agent-smoke',
@@ -832,7 +872,8 @@ Future<void> main() async {
 
     print('MCP client-only consumer package smoke completed.');
   } finally {
-    client.close(force: true);
+    client?.close(force: true);
+    authClient?.close(force: true);
     await endpoint.close();
   }
 }
@@ -3001,6 +3042,9 @@ final class _AgentMcpEndpoint {
   final directTraceHeadersWithoutSession = <String>{};
   final streamableTraceHeadersWithoutSession = <String>{};
   final streamableTraceHeadersWithSession = <String>{};
+  final authRequestBodies = <Map<String, Object?>>[];
+  final authTraceHeaders = <String>[];
+  final authDefaultHeaders = <String>[];
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   var sawDirectRequestWithoutSession = false;
@@ -3014,6 +3058,13 @@ final class _AgentMcpEndpoint {
     path: '/mcp',
   );
 
+  Uri get authUri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/auth',
+  );
+
   static Future<_AgentMcpEndpoint> bind() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     return _AgentMcpEndpoint._(server);
@@ -3025,8 +3076,18 @@ final class _AgentMcpEndpoint {
   }
 
   Future<void> _handle(HttpRequest request) async {
+    if (request.uri.path == '/auth') {
+      await _handleAuth(request);
+      return;
+    }
+
+    if (request.uri.path != '/mcp') {
+      await _writeError(request, HttpStatus.notFound, 'unknown endpoint');
+      return;
+    }
+
     if (request.headers.value(HttpHeaders.authorizationHeader) !=
-        'Bearer agent-token') {
+        'Bearer $_accessToken') {
       await _writeError(request, HttpStatus.unauthorized, 'missing bearer');
       return;
     }
@@ -3193,6 +3254,66 @@ final class _AgentMcpEndpoint {
           },
         });
     }
+  }
+
+  Future<void> _handleAuth(HttpRequest request) async {
+    if (request.method != 'POST') {
+      await _writeError(
+        request,
+        HttpStatus.methodNotAllowed,
+        'unsupported auth method',
+      );
+      return;
+    }
+    _expect(
+      request.headers.value(HttpHeaders.acceptHeader) == 'application/json',
+      'auth client did not request JSON responses',
+    );
+    _expect(
+      request.headers.contentType?.mimeType == 'application/json',
+      'auth client did not send JSON requests',
+    );
+    final trace = request.headers.value('x-consumer-trace');
+    if (trace != null) {
+      authTraceHeaders.add(trace);
+    }
+    final defaultTrace = request.headers.value('x-consumer-default');
+    if (defaultTrace != null) {
+      authDefaultHeaders.add(defaultTrace);
+    }
+
+    final body = await utf8.decoder.bind(request).join();
+    final message = _jsonMapFrom(jsonDecode(body), label: 'auth request');
+    authRequestBodies.add(message);
+
+    if (!message.containsKey('state')) {
+      _expect(message['realm'] == _authRealm, 'auth request realm mismatch');
+      _expect(message['authmethod'] == 'ticket', 'auth request method mismatch');
+      _expect(message['authid'] == _authId, 'auth request authid mismatch');
+      request.response.statusCode = HttpStatus.unauthorized;
+      await _writeJson(request, const <String, Object?>{
+        'state': _authState,
+        'challenge': <String, Object?>{},
+      });
+      return;
+    }
+
+    _expect(message['state'] == _authState, 'auth token state mismatch');
+    _expect(message['signature'] == _ticketSecret, 'auth ticket mismatch');
+    await _writeJson(request, const <String, Object?>{
+      'status': 'ok',
+      'token_type': 'Bearer',
+      'access_token': _accessToken,
+      'refresh_token': _refreshToken,
+      'realm': _authRealm,
+      'authid': _authId,
+      'authrole': _authRole,
+      'authmethod': 'ticket',
+      'authprovider': _authProvider,
+      'expires_in': 60,
+      'refresh_token_expires_in': 600,
+      'details': <String, Object?>{'scope': 'mcp'},
+    });
   }
 
   Future<void> _handleBatch(
