@@ -3350,6 +3350,12 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
 
     await _assertSecureMcpRequiresBearer(binding);
     final grant = await _issueTicketHttpGrant(binding);
+    _expectHttpAuthGrant(
+      grant,
+      authId: _ticketAuthId,
+      authMethod: 'ticket',
+      authProvider: 'consumer-local',
+    );
     final otherGrant = await _issueTicketHttpGrant(
       binding,
       authId: _otherTicketAuthId,
@@ -3370,11 +3376,12 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       grant.accessToken,
       otherGrant.accessToken,
     );
-    await _smokeChallengeHttpAuthMcpGrants(binding);
+    await _smokeChallengeHttpAuthMcpGrants(binding, serviceSession);
     await _smokeSecureMcpRefreshAndRevocation(
       binding,
       serviceSession,
       grant,
+      label: 'secure-ticket-lifecycle',
     );
     print('Consumer package router-hosted MCP smoke completed.');
   } finally {
@@ -3963,6 +3970,7 @@ Future<ConnectanumHttpAuthGrant> _issueScramHttpGrant(
 
 Future<void> _smokeChallengeHttpAuthMcpGrants(
   RouterBinding binding,
+  RouterSession serviceSession,
 ) async {
   await _expectRejectedChallengeHttpAuthGrant(
     binding,
@@ -3980,6 +3988,12 @@ Future<void> _smokeChallengeHttpAuthMcpGrants(
     wampCraGrant,
     label: 'secure-wampcra',
   );
+  await _smokeSecureMcpRefreshAndRevocation(
+    binding,
+    serviceSession,
+    wampCraGrant,
+    label: 'secure-wampcra-lifecycle',
+  );
 
   await _expectRejectedChallengeHttpAuthGrant(
     binding,
@@ -3996,6 +4010,12 @@ Future<void> _smokeChallengeHttpAuthMcpGrants(
     binding,
     scramGrant,
     label: 'secure-scram',
+  );
+  await _smokeSecureMcpRefreshAndRevocation(
+    binding,
+    serviceSession,
+    scramGrant,
+    label: 'secure-scram-lifecycle',
   );
 }
 
@@ -4249,7 +4269,7 @@ Future<void> _assertStreamableSessionReuseRejected(
   }
 }
 
-Future<void> _assertTicketRefreshRejected(
+Future<void> _assertHttpRefreshRejected(
   RouterBinding binding,
   String refreshToken, {
   required String acceptedMessage,
@@ -4273,8 +4293,9 @@ Future<void> _assertTicketRefreshRejected(
 Future<void> _smokeSecureMcpRefreshAndRevocation(
   RouterBinding binding,
   RouterSession serviceSession,
-  ConnectanumHttpAuthGrant grant,
-) async {
+  ConnectanumHttpAuthGrant grant, {
+  required String label,
+}) async {
   final refreshToken = grant.refreshToken;
   if (refreshToken == null || refreshToken.isEmpty) {
     throw StateError('HTTP auth bridge did not issue a refresh token.');
@@ -4288,26 +4309,33 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     rotatedSessionClient = await _openSecureStreamableSession(
       binding,
       grant.accessToken,
-      label: 'secure-rotated',
+      label: '$label-rotated',
     );
 
     final refreshed = await authClient.refreshToken(refreshToken);
+    _expectRefreshedHttpAuthGrant(refreshed, grant, label: label);
     if (refreshed.accessToken == grant.accessToken) {
-      throw StateError('HTTP auth bridge refresh reused the access token.');
+      throw StateError(
+        'HTTP auth bridge refresh for $label reused the access token.',
+      );
     }
     final rotatedRefreshToken = refreshed.refreshToken;
     if (rotatedRefreshToken == null || rotatedRefreshToken.isEmpty) {
-      throw StateError('HTTP auth bridge refresh did not rotate refresh token.');
+      throw StateError(
+        'HTTP auth bridge refresh for $label did not rotate refresh token.',
+      );
     }
     if (rotatedRefreshToken == refreshToken) {
-      throw StateError('HTTP auth bridge refresh reused the refresh token.');
+      throw StateError(
+        'HTTP auth bridge refresh for $label reused the refresh token.',
+      );
     }
 
     await _assertActiveStreamableSessionRejectsBearer(
       rotatedSessionClient,
-      label: 'secure-rotated',
+      label: '$label-rotated',
       acceptedMessage:
-          'Streamable MCP session accepted a rotated access token.',
+          'Streamable MCP session accepted a rotated $label access token.',
     );
     rotatedSessionClient.close();
     rotatedSessionClient = null;
@@ -4315,12 +4343,13 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       binding,
       grant.accessToken,
       acceptedMessage:
-          'Bearer-protected MCP endpoint accepted a rotated access token.',
+          'Bearer-protected MCP endpoint accepted a rotated $label access token.',
     );
-    await _assertTicketRefreshRejected(
+    await _assertHttpRefreshRejected(
       binding,
       refreshToken,
-      acceptedMessage: 'HTTP auth bridge accepted a rotated refresh token.',
+      acceptedMessage:
+          'HTTP auth bridge accepted a rotated $label refresh token.',
     );
 
     refreshedClient = McpStreamableHttpClient.withBearerToken(
@@ -4330,18 +4359,18 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     await _smokeDirectJson(
       refreshedClient,
       serviceSession,
-      label: 'secure-refreshed',
+      label: '$label-refreshed',
     );
     await _smokeStreamableMcp(
       refreshedClient,
       serviceSession,
-      label: 'secure-refreshed',
+      label: '$label-refreshed',
     );
 
     revokedSessionClient = await _openSecureStreamableSession(
       binding,
       refreshed.accessToken,
-      label: 'secure-revoked',
+      label: '$label-revoked',
     );
     await authClient.revokeToken(
       rotatedRefreshToken,
@@ -4349,9 +4378,9 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     );
     await _assertActiveStreamableSessionRejectsBearer(
       revokedSessionClient,
-      label: 'secure-revoked',
+      label: '$label-revoked',
       acceptedMessage:
-          'Streamable MCP session accepted a revoked access token.',
+          'Streamable MCP session accepted a revoked $label access token.',
     );
     revokedSessionClient.close();
     revokedSessionClient = null;
@@ -4359,18 +4388,42 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       binding,
       refreshed.accessToken,
       acceptedMessage:
-          'Bearer-protected MCP endpoint accepted a revoked access token.',
+          'Bearer-protected MCP endpoint accepted a revoked $label access token.',
     );
-    await _assertTicketRefreshRejected(
+    await _assertHttpRefreshRejected(
       binding,
       rotatedRefreshToken,
-      acceptedMessage: 'HTTP auth bridge accepted a revoked refresh token.',
+      acceptedMessage:
+          'HTTP auth bridge accepted a revoked $label refresh token.',
     );
   } finally {
     rotatedSessionClient?.close();
     refreshedClient?.close();
     revokedSessionClient?.close();
     authClient.close(force: true);
+  }
+}
+
+void _expectRefreshedHttpAuthGrant(
+  ConnectanumHttpAuthGrant refreshed,
+  ConnectanumHttpAuthGrant original, {
+  required String label,
+}) {
+  if (refreshed.realm != original.realm ||
+      refreshed.authId != original.authId ||
+      refreshed.authRole != original.authRole ||
+      refreshed.authMethod != original.authMethod ||
+      refreshed.authProvider != original.authProvider) {
+    throw StateError(
+      'HTTP auth bridge refresh for $label returned unexpected principal '
+      'metadata.',
+    );
+  }
+  if (refreshed.accessToken.isEmpty ||
+      refreshed.tokenType.toLowerCase() != 'bearer' ||
+      refreshed.refreshToken == null ||
+      refreshed.refreshToken!.isEmpty) {
+    throw StateError('HTTP auth bridge refresh for $label is incomplete.');
   }
 }
 

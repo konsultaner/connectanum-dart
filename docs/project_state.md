@@ -2,12 +2,15 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `853063e`
-(`test: cover mcp consumer challenge auth`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `64ab570`
+(`test: cover mcp consumer challenge auth rejection`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-consumer-challenge-auth-rejection-smoke.md`
+`docs/exec-plans/2026-05-10-mcp-consumer-challenge-auth-lifecycle-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-consumer-challenge-auth-rejection-smoke.md`
+(complete; hosted CI evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-consumer-challenge-auth-smoke.md`
 (complete; hosted CI evidence clean).
 Previous completed exec plan:
@@ -194,10 +197,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`853063e`
-(`test: cover mcp consumer challenge auth`; hosted CI evidence clean).
-Current implementation checkpoint: MCP consumer challenge-auth rejection smoke
+`64ab570`
+(`test: cover mcp consumer challenge auth rejection`; hosted CI evidence clean).
+Current implementation checkpoint: MCP consumer challenge-auth lifecycle smoke
 (complete; local verification clean; hosted evidence pending).
+Previous implementation checkpoint: MCP consumer challenge-auth rejection smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer challenge-auth secure MCP smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer Streamable session reuse
@@ -508,7 +513,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer challenge-auth rejection smoke is complete locally.
+  - MCP consumer challenge-auth lifecycle smoke is complete locally through fast
+    regression. The generated neutral consumer package smoke in `bin/common.sh`
+    now runs the HTTP auth bridge refresh/revoke lifecycle for ticket,
+    WAMP-CRA, and SCRAM grants through public `ConnectanumHttpAuthClient`
+    helpers. Each refreshed grant must preserve principal metadata, rotate both
+    access and refresh tokens, invalidate the old active Streamable MCP session
+    and old direct bearer token, keep the refreshed direct JSON and Streamable
+    MCP paths usable, revoke the rotated refresh token, and reject revoked
+    direct/Streamable bearer use plus revoked refresh. Pre-change
+    `bin/test-fast`, `bash -n bin/common.sh`, focused
+    `run_mcp_consumer_package_smoke`, post-change `bin/test-fast`, and full
+    local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`.
+    Commit/push and hosted deployment-chain evidence are pending.
+  - MCP consumer challenge-auth rejection smoke is complete with hosted CI
+    evidence.
     The generated neutral consumer package smoke in `bin/common.sh` now tries
     invalid WAMP-CRA and SCRAM secrets through the public
     `ConnectanumHttpAuthClient.issueWampCraToken` and
@@ -520,8 +539,19 @@ order.
     MCP direct JSON and Streamable HTTP tool calls. Pre-change `bin/test-fast`,
     `bash -n bin/common.sh`, focused `run_mcp_consumer_package_smoke`,
     post-change `bin/test-fast`, and full local `bin/verify` passed on
-    2026-05-10 with isolated `TMPDIR`. Commit/push and hosted
-    deployment-chain evidence are pending.
+    2026-05-10 with isolated `TMPDIR`. Commit `64ab570`
+    (`test: cover mcp consumer challenge auth rejection`) is pushed to both
+    remotes. GitHub `CI` run `25615480764` completed successfully for
+    `64ab570` with `Fast Checks` and `Full Verify` green. GitHub
+    `Dart Package Publish Dry Run` run `25612812164` remains clean/relevant for
+    `64ab570`; it completed successfully at `3f9c761`, and the audit confirmed
+    no publish-sensitive package inputs changed in `64ab570`. The
+    deployment-chain audit passed with clean latest CI and clean Dart package
+    publish dry-run evidence. Strict audit still reports only known
+    operator-side release-hardening gaps: branch protection/required checks are
+    absent, `.github/workflows/router-image.yml` is not yet visible from the
+    default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP consumer challenge-auth secure MCP smoke is complete with hosted CI
     evidence.
     The generated neutral consumer package smoke in `bin/common.sh` now

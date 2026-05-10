@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Challenge Auth Rejection Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -43,7 +43,20 @@ router-hosted MCP endpoints.
   `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`.
-- Hosted CI/deployment-chain evidence pending after push.
+- Commit `64ab570` (`test: cover mcp consumer challenge auth rejection`) was
+  pushed to `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25615480764` completed successfully for `64ab570` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25612812164` remains
+  clean/relevant for `64ab570`; it completed successfully at `3f9c761`, and the
+  audit confirmed no publish-sensitive package inputs changed in `64ab570`.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI and clean
+  Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -53,5 +66,6 @@ router-hosted MCP endpoints.
 
 ## Handoff
 
-Implementation and full local verification are complete. Push and hosted
-deployment-chain evidence are pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.
