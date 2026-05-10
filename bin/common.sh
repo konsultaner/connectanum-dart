@@ -4085,8 +4085,8 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
     );
     await _smokeStreamableSessionReuseIsolation(
       binding,
-      grant.accessToken,
-      otherGrant.accessToken,
+      grant,
+      otherGrant,
     );
     await _smokeChallengeHttpAuthMcpGrants(binding, serviceSession);
     await _smokeSecureMcpRefreshAndRevocation(
@@ -4848,7 +4848,7 @@ Future<void> _smokeSecureMcpGrant(
 
     streamableClient = await _openSecureStreamableSession(
       binding,
-      grant.accessToken,
+      grant,
       label: label,
     );
     final streamableTools = await streamableClient.listTools(
@@ -4883,17 +4883,17 @@ Future<void> _smokeSecureMcpGrant(
 
 Future<void> _smokeStreamableSessionReuseIsolation(
   RouterBinding binding,
-  String primaryToken,
-  String otherToken,
+  ConnectanumHttpAuthGrant primaryGrant,
+  ConnectanumHttpAuthGrant otherGrant,
 ) async {
   final primaryClient = await _openSecureStreamableSession(
     binding,
-    primaryToken,
+    primaryGrant,
     label: 'secure-reuse-primary',
   );
   final otherPrincipalClient = McpStreamableHttpClient.withBearerToken(
     _mcpEndpoint(binding, secure: true),
-    otherToken,
+    otherGrant.accessToken,
   );
   final publicRouteClient = McpStreamableHttpClient(_mcpEndpoint(binding));
   final publicRouteDeleteClient = McpStreamableHttpClient(
@@ -5040,7 +5040,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
   try {
     rotatedSessionClient = await _openSecureStreamableSession(
       binding,
-      grant.accessToken,
+      grant,
       label: '$label-rotated',
     );
 
@@ -5106,7 +5106,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
 
     revokedSessionClient = await _openSecureStreamableSession(
       binding,
-      refreshed.accessToken,
+      refreshed,
       label: '$label-revoked',
     );
     await authClient.revokeToken(
@@ -5169,12 +5169,12 @@ void _expectRefreshedHttpAuthGrant(
 
 Future<McpStreamableHttpClient> _openSecureStreamableSession(
   RouterBinding binding,
-  String bearerToken, {
+  ConnectanumHttpAuthGrant grant, {
   required String label,
 }) async {
-  final client = McpStreamableHttpClient.withBearerToken(
+  final client = McpStreamableHttpClient.withAuthGrant(
     _mcpEndpoint(binding, secure: true),
-    bearerToken,
+    grant,
   );
   try {
     await client.initialize(id: '$label-active-session-initialize');

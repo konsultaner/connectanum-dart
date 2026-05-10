@@ -2,13 +2,16 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `2ace2a8`
-(`feat: wire mcp auth grants into streamable clients`; MCP auth-grant
-Streamable client smoke hosted CI and deployment-chain evidence clean)
+Last reviewed branch checkpoint: `30b834a`
+(`test: use mcp auth grants in router example`; MCP router-hosted example
+auth-grant smoke hosted CI and deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-example-auth-grant-smoke.md`
-(local verification complete; push and hosted evidence pending).
+`docs/exec-plans/2026-05-10-mcp-consumer-package-auth-grant-smoke.md`
+(full local verification complete; push and hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-example-auth-grant-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-auth-grant-streamable-client-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -249,11 +252,13 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`2ace2a8`
-(`feat: wire mcp auth grants into streamable clients`; hosted CI and
+`30b834a`
+(`test: use mcp auth grants in router example`; hosted CI and
 deployment-chain evidence clean).
-Current implementation checkpoint: MCP router-hosted example auth-grant smoke
-(local verification complete; push and hosted evidence pending).
+Current implementation checkpoint: MCP generated consumer package auth-grant
+smoke (full local verification complete; push and hosted evidence pending).
+Previous implementation checkpoint: MCP router-hosted example auth-grant smoke
+(complete; hosted CI and deployment-chain evidence clean).
 Previous implementation checkpoint: MCP auth-grant Streamable client smoke
 (complete; hosted CI and deployment-chain evidence clean).
 Previous implementation checkpoint: MCP HTTP auth per-call header smoke
@@ -603,16 +608,40 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP router-hosted example auth-grant smoke is locally complete. The public
-    router-hosted MCP example now uses
+  - MCP generated consumer package auth-grant smoke has full local verification
+    complete. The generated neutral consumer package smoke now opens successful
+    secure Streamable HTTP MCP sessions with
+    `McpStreamableHttpClient.withAuthGrant` wherever a complete
+    `ConnectanumHttpAuthGrant` is available, including the primary
+    cross-principal session reuse isolation session and HTTP auth
+    refresh/revoke active-session setup. Raw bearer clients remain only for
+    intentionally rejected-token and cross-principal reuse probes. Pre-change
+    `bin/test-fast`, the focused neutral generated consumer package smoke,
+    post-change `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-10. Push and hosted deployment-chain evidence remain pending.
+  - MCP router-hosted example auth-grant smoke is complete through full local
+    and hosted verification. The public router-hosted MCP example now uses
     `McpStreamableHttpClient.withAuthGrant` wherever a full HTTP auth bridge
     grant is available in successful secure direct JSON, Streamable HTTP,
     protocol-version, refresh, and revoke flows. Raw bearer clients remain only
     for negative rotated/revoked-token probes. Pre-change `bin/test-fast`, the
     focused router-hosted MCP example smoke, the focused neutral generated
     consumer package smoke, post-change `bin/test-fast`, and full local
-    `bin/verify` passed on 2026-05-10. Push and hosted deployment-chain evidence
-    remain pending.
+    `bin/verify` all passed on 2026-05-10. Commit `30b834a` (`test: use mcp
+    auth grants in router example`) is pushed to both remotes. GitHub `CI` run
+    `25633616482` completed successfully for `30b834a` with `Fast Checks`
+    (4m26s) and `Full Verify` (6m07s) green, and the hosted CI log scan was
+    clean. GitHub `Dart Package Publish Dry Run` run `25633616452` completed
+    successfully for `30b834a` and covers the checked-out head. GitHub
+    `WAMP Profile Benchmarks` run `25633616456` completed successfully for
+    `30b834a` with `Linux WAMP profile gates` green (7m56s). The
+    deployment-chain audit passed with clean latest CI, clean hosted CI logs,
+    and clean Dart package publish dry-run evidence. The strict audit still
+    reports only known operator-side release-hardening gaps: branch
+    protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP auth-grant Streamable client smoke is complete through full local and
     hosted verification. The focused slice adds
     `McpStreamableHttpClient.withAuthGrant` for HTTP auth bridge grants,
