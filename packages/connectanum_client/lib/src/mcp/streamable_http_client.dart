@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'http_auth_client.dart';
+
 typedef McpJsonMap = Map<String, Object?>;
 
 const _acceptJson = 'application/json';
@@ -49,6 +51,22 @@ final class McpStreamableHttpClient {
          closeHttpClient: closeHttpClient,
        );
 
+  /// Creates a client for MCP HTTP endpoints using an HTTP auth bridge grant.
+  McpStreamableHttpClient.withAuthGrant(
+    Uri endpoint,
+    ConnectanumHttpAuthGrant grant, {
+    HttpClient? httpClient,
+    Map<String, String> headers = const <String, String>{},
+    String defaultProtocolVersion = latestProtocolVersion,
+    bool closeHttpClient = false,
+  }) : this(
+         endpoint,
+         httpClient: httpClient,
+         headers: _headersWithAuthGrant(headers, grant),
+         defaultProtocolVersion: defaultProtocolVersion,
+         closeHttpClient: closeHttpClient,
+       );
+
   final Uri endpoint;
   final Map<String, String> headers;
   final String defaultProtocolVersion;
@@ -78,6 +96,21 @@ final class McpStreamableHttpClient {
       ...headers,
       HttpHeaders.authorizationHeader: 'Bearer $token',
     };
+  }
+
+  static Map<String, String> _headersWithAuthGrant(
+    Map<String, String> headers,
+    ConnectanumHttpAuthGrant grant,
+  ) {
+    final tokenType = grant.tokenType.trim();
+    if (tokenType.toLowerCase() != 'bearer') {
+      throw ArgumentError.value(
+        grant.tokenType,
+        'grant.tokenType',
+        'Only Bearer HTTP auth grants can authorize MCP HTTP clients.',
+      );
+    }
+    return _headersWithBearerToken(headers, grant.accessToken);
   }
 
   Future<McpJsonMap> initialize({

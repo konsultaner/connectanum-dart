@@ -158,9 +158,9 @@ void main() {
       final client = ConnectanumHttpAuthClient(endpoint.uri);
       addTearDown(() => client.close(force: true));
 
-      final refreshed = await client.refreshToken('refresh-token-1');
+      final refreshed = await client.refreshToken(' refresh-token-1 ');
       await client.revokeToken(
-        refreshed.refreshToken!,
+        ' ${refreshed.refreshToken!} ',
         tokenTypeHint: 'refresh_token',
       );
 
@@ -176,6 +176,22 @@ void main() {
         'token_type_hint': 'refresh_token',
       });
     });
+
+    test(
+      'rejects empty refresh and revoke tokens before sending requests',
+      () async {
+        final endpoint = await _FakeHttpAuthEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = ConnectanumHttpAuthClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(client.refreshToken('  '), throwsArgumentError);
+        await expectLater(client.revokeToken('\t'), throwsArgumentError);
+
+        expect(endpoint.requests, isEmpty);
+      },
+    );
 
     test('throws typed exceptions for rejected auth requests', () async {
       final endpoint = await _FakeHttpAuthEndpoint.bind(failChallenge: true);

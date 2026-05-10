@@ -121,11 +121,9 @@ final class ConnectanumHttpAuthClient {
     String refreshToken, {
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final token = _nonEmptyToken(refreshToken, 'refreshToken');
     final grant = await _postJsonObject(
-      <String, Object?>{
-        'grant_type': 'refresh_token',
-        'refresh_token': refreshToken,
-      },
+      <String, Object?>{'grant_type': 'refresh_token', 'refresh_token': token},
       expectedStatus: HttpStatus.ok,
       label: 'HTTP auth refresh request',
       extraHeaders: headers,
@@ -138,10 +136,11 @@ final class ConnectanumHttpAuthClient {
     String? tokenTypeHint,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final revokeToken = _nonEmptyToken(token, 'token');
     await _postJsonObject(
       <String, Object?>{
         'grant_type': 'revoke',
-        'token': token,
+        'token': revokeToken,
         if (tokenTypeHint != null && tokenTypeHint.isNotEmpty)
           'token_type_hint': tokenTypeHint,
       },
@@ -232,6 +231,14 @@ final class ConnectanumHttpAuthClient {
       return value;
     }
     throw FormatException('HTTP auth response is missing "$key".');
+  }
+
+  static String _nonEmptyToken(String token, String name) {
+    final value = token.trim();
+    if (value.isNotEmpty) {
+      return value;
+    }
+    throw ArgumentError.value(token, name, '$name must not be empty.');
   }
 }
 

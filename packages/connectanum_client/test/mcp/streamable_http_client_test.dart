@@ -325,6 +325,42 @@ void main() {
       );
     });
 
+    test('creates bearer clients from HTTP auth grants', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient.withAuthGrant(
+        endpoint.uri,
+        const ConnectanumHttpAuthGrant(
+          accessToken: ' grant-token ',
+          tokenType: 'bearer',
+        ),
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer stale-token',
+          'x-consumer-trace': 'grant-session',
+        },
+      );
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize(id: 'grant-initialize');
+
+      expect(endpoint.requests.single.authorization, 'Bearer grant-token');
+      expect(endpoint.requests.single.consumerTrace, 'grant-session');
+    });
+
+    test('rejects non-bearer HTTP auth grants', () {
+      expect(
+        () => McpStreamableHttpClient.withAuthGrant(
+          Uri.parse('http://127.0.0.1/mcp'),
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'grant-token',
+            tokenType: 'mac',
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('lists and calls tools through typed helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);

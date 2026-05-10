@@ -4073,9 +4073,9 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       authId: _otherTicketAuthId,
       ticket: _otherTicketSecret,
     );
-    secureClient = McpStreamableHttpClient.withBearerToken(
+    secureClient = McpStreamableHttpClient.withAuthGrant(
       _mcpEndpoint(binding, secure: true),
-      grant.accessToken,
+      grant,
     );
     await _smokeDirectJson(secureClient, serviceSession, label: 'secure');
     await _smokeStreamableMcp(
@@ -4817,9 +4817,9 @@ Future<void> _smokeSecureMcpGrant(
   ConnectanumHttpAuthGrant grant, {
   required String label,
 }) async {
-  final directClient = McpStreamableHttpClient.withBearerToken(
+  final directClient = McpStreamableHttpClient.withAuthGrant(
     _mcpEndpoint(binding, secure: true),
-    grant.accessToken,
+    grant,
   );
   McpStreamableHttpClient? streamableClient;
   try {
@@ -5089,9 +5089,9 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
           'HTTP auth bridge accepted a rotated $label refresh token.',
     );
 
-    refreshedClient = McpStreamableHttpClient.withBearerToken(
+    refreshedClient = McpStreamableHttpClient.withAuthGrant(
       _mcpEndpoint(binding, secure: true),
-      refreshed.accessToken,
+      refreshed,
     );
     await _smokeDirectJson(
       refreshedClient,

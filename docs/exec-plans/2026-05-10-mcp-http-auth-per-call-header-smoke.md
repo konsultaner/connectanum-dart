@@ -1,6 +1,6 @@
 # Exec Plan: MCP HTTP Auth Per-Call Header Smoke
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -49,6 +49,22 @@ neutral generated consumer package smoke.
   consumer use of per-call HTTP auth headers.
 - Post-change `bin/test-fast` passed on 2026-05-10.
 - Full local `bin/verify` passed on 2026-05-10.
+- Commit `ad3e957` (`feat: add per-call mcp auth headers`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25631109320` completed successfully for `ad3e957` with
+  `Fast Checks` (4m34s) and `Full Verify` (6m35s) green, and the hosted CI log
+  scan was clean.
+- GitHub `Dart Package Publish Dry Run` run `25631109324` completed
+  successfully for `ad3e957` and covers the checked-out head.
+- GitHub `WAMP Profile Benchmarks` run `25631109346` completed successfully
+  for `ad3e957` with `Linux WAMP profile gates` green (8m15s).
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI, clean
+  hosted CI logs, and clean Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -62,5 +78,6 @@ neutral generated consumer package smoke.
 
 ## Handoff
 
-Implementation and local verification are complete. Push and hosted
-CI/deployment-chain evidence remain.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side
+release-hardening work.

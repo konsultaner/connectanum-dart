@@ -502,9 +502,9 @@ void main() {
     expect(grant.authRole, _ioAuthRole);
     expect(grant.authMethod, 'ticket');
 
-    final mcpClient = McpStreamableHttpClient.withBearerToken(
+    final mcpClient = McpStreamableHttpClient.withAuthGrant(
       endpoint.mcpUri,
-      grant.accessToken,
+      grant,
     );
     addTearDown(() => mcpClient.close(force: true));
 
