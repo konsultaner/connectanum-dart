@@ -727,9 +727,19 @@ const _firstEventId = 'agent-session:get:1';
 
 Future<void> main() async {
   final endpoint = await _AgentMcpEndpoint.bind();
-  final client = McpStreamableHttpClient.withBearerToken(
+  final client = McpStreamableHttpClient.withAuthGrant(
     endpoint.uri,
-    'agent-token',
+    const ConnectanumHttpAuthGrant(
+      accessToken: 'agent-token',
+      tokenType: 'Bearer',
+      refreshToken: 'agent-refresh-token',
+      realm: 'agent.realm',
+      authId: 'consumer-agent',
+      authRole: 'agent',
+      authMethod: 'ticket',
+      authProvider: 'client-smoke',
+      details: <String, Object?>{'scope': 'mcp'},
+    ),
   );
 
   try {

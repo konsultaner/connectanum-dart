@@ -1,6 +1,6 @@
 # Exec Plan: MCP Router Native Auth Grant Smoke
 
-Status: full local verification complete; push and hosted evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -51,6 +51,22 @@ assertions.
   passed on 2026-05-10.
 - Post-change `bin/test-fast` passed on 2026-05-10.
 - Full local `bin/verify` passed on 2026-05-10.
+- Commit `90a27ca` (`test: use auth grants in router mcp integration`) is
+  pushed to both remotes.
+- GitHub `CI` run `25635686770` completed successfully for `90a27ca` with
+  `Fast Checks` (4m19s) and `Full Verify` (6m11s) green; the hosted CI log
+  scan was clean.
+- GitHub `Dart Package Publish Dry Run` run `25635686773` completed
+  successfully for `90a27ca` with `Publish Dry Run` (20s) green and covers the
+  checked-out head.
+- GitHub `WAMP Profile Benchmarks` run `25635686778` completed successfully for
+  `90a27ca` with `Linux WAMP profile gates` (7m55s) green.
+- Deployment-chain audit passed with clean latest CI, clean hosted CI logs, and
+  a clean relevant Dart package publish dry-run. Strict audit still reports
+  only known operator-side release-hardening gaps: branch protection/required
+  checks are absent, `.github/workflows/router-image.yml` is not yet visible
+  from the default branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -60,5 +76,5 @@ assertions.
 
 ## Handoff
 
-Implementation and full local verification are complete. Push and hosted
-deployment-chain evidence remain pending.
+Implementation, full local verification, hosted CI, WAMP benchmark, package
+publish dry-run, and deployment-chain evidence are complete for this slice.

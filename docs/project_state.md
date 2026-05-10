@@ -2,13 +2,16 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `9700601`
-(`test: use auth grants in mcp consumer smoke`; MCP generated consumer package
+Last reviewed branch checkpoint: `90a27ca`
+(`test: use auth grants in router mcp integration`; MCP router-native
 auth-grant smoke hosted CI and deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-router-native-auth-grant-smoke.md`
+`docs/exec-plans/2026-05-10-mcp-client-package-auth-grant-smoke.md`
 (full local verification complete; push and hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-router-native-auth-grant-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-consumer-package-auth-grant-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -255,11 +258,14 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`9700601`
-(`test: use auth grants in mcp consumer smoke`; hosted CI and
+`90a27ca`
+(`test: use auth grants in router mcp integration`; hosted CI and
 deployment-chain evidence clean).
-Current implementation checkpoint: MCP router-native auth-grant smoke
-(full local verification complete; push and hosted evidence pending).
+Current implementation checkpoint: MCP client-only consumer package auth-grant
+smoke (focused, fast, and full local verification complete; push and hosted
+evidence pending).
+Previous implementation checkpoint: MCP router-native auth-grant smoke
+(complete; hosted CI and deployment-chain evidence clean).
 Previous implementation checkpoint: MCP generated consumer package auth-grant
 smoke (complete; hosted CI and deployment-chain evidence clean).
 Previous implementation checkpoint: MCP router-hosted example auth-grant smoke
@@ -613,15 +619,45 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP router-native auth-grant smoke is active. Pre-change `bin/test-fast`
-    passed on 2026-05-10. The current implementation slice moves successful
-    secure router-native Streamable HTTP MCP clients to
+  - MCP client-only consumer package auth-grant smoke is active. The
+    standalone generated MCP client package smoke now creates its successful
+    secure Streamable HTTP client with
+    `McpStreamableHttpClient.withAuthGrant` and a full
+    `ConnectanumHttpAuthGrant`, while the fake endpoint still asserts the
+    expected bearer `Authorization` header. Pre-change `bin/test-fast`, focused
+    `bash -n bin/common.sh`, focused
+    `bash -lc 'source bin/common.sh; run_mcp_client_package_smoke'`,
+    post-change `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-10. The first verify attempt hit a stale native runtime lock from
+    its own leftover test process tree; after clearing that lock, the clean
+    verify rerun completed successfully. Push and hosted deployment-chain
+    evidence remain pending.
+  - MCP router-native auth-grant smoke is complete through full local and
+    hosted verification. The implementation slice moved successful secure
+    router-native Streamable HTTP MCP clients to
     `McpStreamableHttpClient.withAuthGrant` backed by
     `ConnectanumHttpAuthGrant`, while preserving explicit bearer headers for
     direct HTTP assertions and rejected-principal session isolation probes.
+    It also updates the public MCP README protected-route guidance to prefer
+    HTTP auth bridge grants for successful secure Streamable clients.
+    Pre-change `bin/test-fast` passed on 2026-05-10.
     Focused `dart test packages/connectanum_router/test/router_integration_native_test.dart -p vm`,
     post-change `bin/test-fast`, and full local `bin/verify` passed on
-    2026-05-10. Push and hosted deployment-chain evidence remain pending.
+    2026-05-10. Commit `90a27ca` (`test: use auth grants in router mcp
+    integration`) is pushed to both remotes. GitHub `CI` run `25635686770`
+    completed successfully for `90a27ca` with `Fast Checks` (4m19s) and
+    `Full Verify` (6m11s) green, and the hosted CI log scan was clean.
+    GitHub `Dart Package Publish Dry Run` run `25635686773` completed
+    successfully for `90a27ca` with `Publish Dry Run` (20s) green and covers
+    the checked-out head. GitHub `WAMP Profile Benchmarks` run `25635686778`
+    completed successfully for `90a27ca` with `Linux WAMP profile gates`
+    (7m55s) green. The deployment-chain audit passed with clean latest CI,
+    clean hosted CI logs, and a clean relevant Dart package publish dry-run.
+    The strict audit still reports only known operator-side release-hardening
+    gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP generated consumer package auth-grant smoke is complete through full
     local and hosted verification. The generated neutral consumer package smoke
     now opens successful secure Streamable HTTP MCP sessions with
