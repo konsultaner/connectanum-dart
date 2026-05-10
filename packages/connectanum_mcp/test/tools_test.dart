@@ -68,6 +68,27 @@ void main() {
       expect(second.containsKey('nextCursor'), isFalse);
     });
 
+    test('tools/list returns deterministic name ordering', () async {
+      final server = McpServer(
+        serverInfo: const McpServerInfo(
+          name: 'connectanum-test',
+          version: '0.1.0',
+        ),
+        tools: [_tool('gamma'), _tool('alpha'), _tool('beta')],
+      );
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 19,
+        'method': 'tools/list',
+        'params': {},
+      });
+
+      final result = response?['result'] as Map<String, Object?>;
+      expect(_toolNames(result), ['alpha', 'beta', 'gamma']);
+    });
+
     test('tools/list rejects invalid cursors', () async {
       final server = McpServer(
         serverInfo: const McpServerInfo(

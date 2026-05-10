@@ -344,7 +344,10 @@ class McpToolRegistry {
   List<McpTool> list({String? cursor}) => listPage(cursor: cursor).tools;
 
   McpToolListPage listPage({String? cursor}) {
-    final tools = List<McpTool>.unmodifiable(_tools.values);
+    final tools = List<McpTool>.unmodifiable(
+      _tools.values.toList(growable: false)
+        ..sort((left, right) => left.name.compareTo(right.name)),
+    );
     final pageSize = this.pageSize;
     if (pageSize == null) {
       if (cursor != null) {

@@ -4682,7 +4682,15 @@ Future<void> _smokeDirectJson(
   final tools = await client.listConnectanumToolsDirect(
     id: '$label-direct-tools',
   );
-  final names = {for (final tool in tools.tools) tool['name'] as String};
+  final toolNames = _toolNamesFromCatalog(
+    tools.tools,
+    label: 'Direct JSON tool catalog',
+  );
+  _expectSortedUniqueNames(
+    toolNames,
+    label: 'Direct JSON tool catalog',
+  );
+  final names = toolNames.toSet();
   if (!names.contains(_procedure)) {
     throw StateError('Direct JSON tool catalog did not expose $_procedure.');
   }
@@ -4831,6 +4839,39 @@ void _expectDirectToolPayload(
   if (!resultJson.contains(taskId) ||
       !resultJson.contains(_headerWrappedNote)) {
     throw StateError('$label did not return expected payload.');
+  }
+}
+
+List<String> _toolNamesFromCatalog(Object? value, {required String label}) {
+  if (value is! Iterable) {
+    throw StateError('$label was not a JSON array.');
+  }
+  final names = <String>[];
+  for (final tool in value) {
+    if (tool is! Map) {
+      throw StateError('$label contained a non-object tool.');
+    }
+    final name = tool['name'];
+    if (name is! String || name.isEmpty) {
+      throw StateError('$label contained a tool without a name.');
+    }
+    names.add(name);
+  }
+  return names;
+}
+
+void _expectSortedUniqueNames(List<String> names, {required String label}) {
+  final seen = <String>{};
+  for (final name in names) {
+    if (!seen.add(name)) {
+      throw StateError('$label contained duplicate tool name $name.');
+    }
+  }
+  final sorted = [...names]..sort();
+  for (var index = 0; index < names.length; index += 1) {
+    if (names[index] != sorted[index]) {
+      throw StateError('$label was not sorted by tool name.');
+    }
   }
 }
 
@@ -6047,6 +6088,14 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
     tools,
     id: toolsId,
     label: 'Generic Streamable JSON-RPC tools/list',
+  );
+  final toolNames = _toolNamesFromCatalog(
+    toolsResult['tools'],
+    label: 'Generic Streamable JSON-RPC tool catalog',
+  );
+  _expectSortedUniqueNames(
+    toolNames,
+    label: 'Generic Streamable JSON-RPC tool catalog',
   );
   final toolsJson = jsonEncode(toolsResult['tools']);
   if (!toolsJson.contains(_procedure) ||
