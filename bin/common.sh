@@ -1080,6 +1080,29 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
   }
   final eventId = client.lastEventId;
 
+  const responseSessionTrace = 'direct-response-session-header';
+  final responseSessionResult = await client.callConnectanumMethodDirect(
+    _toolName,
+    id: responseSessionTrace,
+    params: const <String, Object?>{'message': 'success'},
+    headers: const <String, String>{
+      'x-consumer-trace': responseSessionTrace,
+      'x-test-response-session-id': 'direct-session-header-ignored',
+    },
+  );
+  _expect(
+    responseSessionResult['isError'] == false,
+    'direct JSON response-session smoke returned an error result.',
+  );
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'direct JSON response session header changed Streamable session state',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.contains(responseSessionTrace),
+    'direct JSON response session header did not stay lifecycle-free',
+  );
+
   for (final statusCode in const <int>[
     HttpStatus.unauthorized,
     HttpStatus.forbidden,
@@ -1094,6 +1117,7 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
         headers: <String, String>{
           'x-consumer-trace': trace,
           'x-test-force-status': '$statusCode',
+          'x-test-response-session-id': 'direct-error-session-$statusCode',
         },
       );
       throw StateError('direct JSON HTTP-error smoke accepted $statusCode.');
@@ -3575,6 +3599,12 @@ final class _AgentMcpEndpoint {
     Object? body,
   ) async {
     request.response.headers.contentType = ContentType.json;
+    final responseSessionId = request.headers.value(
+      'x-test-response-session-id',
+    );
+    if (responseSessionId != null) {
+      request.response.headers.set('MCP-Session-Id', responseSessionId);
+    }
     request.response.write(jsonEncode(body));
     await request.response.close();
   }

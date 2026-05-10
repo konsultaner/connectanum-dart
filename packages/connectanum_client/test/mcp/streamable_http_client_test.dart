@@ -1109,6 +1109,66 @@ void main() {
       },
     );
 
+    test('keeps direct JSON response session headers lifecycle-free', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+      final sessionId = client.sessionId;
+      final eventId = client.lastEventId;
+      expect(sessionId, 'session-1');
+      endpoint.requests.clear();
+
+      final result = await client.callConnectanumMethodDirect(
+        'app.direct.response-session',
+        id: 'direct-response-session-success',
+        params: const <String, Object?>{'message': 'success'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'direct-response-session-success',
+          'x-test-response-session-id': 'direct-session-ignored',
+        },
+      );
+      expect(result['isError'], isFalse);
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+
+      await expectLater(
+        client.callConnectanumMethodDirect(
+          'app.direct.response-session-error',
+          id: 'direct-response-session-error',
+          params: const <String, Object?>{'message': 'error'},
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-response-session-error',
+            'x-test-force-status': '${HttpStatus.unauthorized}',
+            'x-test-response-session-id': 'direct-error-session-ignored',
+          },
+        ),
+        throwsA(
+          isA<McpStreamableHttpException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            HttpStatus.unauthorized,
+          ),
+        ),
+      );
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+
+      final ping = await client.ping(id: 'session-header-still-usable');
+      expect(ping, isEmpty);
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, sessionId);
+    });
+
     test(
       'treats notification-only batches as accepted without lifecycle changes',
       () async {
@@ -1620,6 +1680,7 @@ final class _FakeMcpEndpoint {
       request.response.statusCode =
           statusCode ?? HttpStatus.internalServerError;
       request.response.headers.contentType = ContentType.json;
+      _applyTestResponseHeaders(request);
       request.response.write(
         jsonEncode(<String, Object?>{
           'error': <String, Object?>{
@@ -2279,6 +2340,18 @@ final class _FakeMcpEndpoint {
     });
   }
 
+  void _applyTestResponseHeaders(HttpRequest request, {String? sessionId}) {
+    request.response.headers.set(
+      _headerProtocolVersion,
+      McpStreamableHttpClient.latestProtocolVersion,
+    );
+    final responseSessionId =
+        sessionId ?? request.headers.value('x-test-response-session-id');
+    if (responseSessionId != null) {
+      request.response.headers.set(_headerSessionId, responseSessionId);
+    }
+  }
+
   void _writeJson(HttpRequest request, McpJsonMap body, {String? sessionId}) {
     _writeJsonValue(request, body, sessionId: sessionId);
   }
@@ -2286,13 +2359,7 @@ final class _FakeMcpEndpoint {
   void _writeJsonValue(HttpRequest request, Object? body, {String? sessionId}) {
     request.response.statusCode = HttpStatus.ok;
     request.response.headers.contentType = ContentType.json;
-    request.response.headers.set(
-      _headerProtocolVersion,
-      McpStreamableHttpClient.latestProtocolVersion,
-    );
-    if (sessionId != null) {
-      request.response.headers.set(_headerSessionId, sessionId);
-    }
+    _applyTestResponseHeaders(request, sessionId: sessionId);
     request.response.write(jsonEncode(body));
     unawaited(request.response.close());
   }

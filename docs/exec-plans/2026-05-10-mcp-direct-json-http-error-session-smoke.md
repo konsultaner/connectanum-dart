@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct JSON HTTP-Error Session Smoke
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -48,7 +48,21 @@ appropriate.
   direct JSON auth failures with the lifecycle-free session contract.
 - Post-change `bin/test-fast` passed on 2026-05-10.
 - Full local `bin/verify` passed on 2026-05-10.
-- Commit, push, and hosted evidence are pending.
+- Commit `86b94a5` (`fix: preserve mcp direct json session state`) was pushed
+  to `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25626971782` completed successfully for `86b94a5` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25626971768` completed
+  successfully for `86b94a5`; the deployment-chain audit confirmed the dry run
+  covers the checked-out head.
+- GitHub `WAMP Profile Benchmarks` run `25626971771` completed successfully for
+  `86b94a5`.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI and clean
+  Dart package publish dry-run evidence. The audit still reports the known
+  operator-side release-hardening gaps: branch protection/required status
+  checks are absent, `.github/workflows/router-image.yml` is not yet visible
+  from the default branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -60,5 +74,6 @@ appropriate.
 
 ## Handoff
 
-Implementation and full local verification are complete. Commit, push, and
-hosted CI/deployment-chain evidence remain pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Audit findings are the known operator-side
+release-hardening gaps.
