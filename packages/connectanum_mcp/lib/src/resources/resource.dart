@@ -288,7 +288,10 @@ class McpResourceRegistry {
   }
 
   McpResourceListPage listPage({String? cursor}) {
-    final resources = List<McpResource>.unmodifiable(_resources.values);
+    final resources = List<McpResource>.unmodifiable(
+      _resources.values.toList(growable: false)
+        ..sort((left, right) => left.uri.compareTo(right.uri)),
+    );
     final pageSize = this.pageSize;
     if (pageSize == null) {
       if (cursor != null) {
@@ -321,7 +324,10 @@ class McpResourceRegistry {
   }
 
   McpResourceTemplateListPage listTemplatePage({String? cursor}) {
-    final templates = List<McpResourceTemplate>.unmodifiable(_templates.values);
+    final templates = List<McpResourceTemplate>.unmodifiable(
+      _templates.values.toList(growable: false)
+        ..sort((left, right) => left.uriTemplate.compareTo(right.uriTemplate)),
+    );
     final pageSize = templatePageSize;
     if (pageSize == null) {
       if (cursor != null) {

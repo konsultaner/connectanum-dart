@@ -4843,34 +4843,57 @@ void _expectDirectToolPayload(
 }
 
 List<String> _toolNamesFromCatalog(Object? value, {required String label}) {
+  return _catalogStringFieldValues(value, field: 'name', label: label);
+}
+
+List<String> _catalogStringFieldValues(
+  Object? value, {
+  required String field,
+  required String label,
+}) {
   if (value is! Iterable) {
     throw StateError('$label was not a JSON array.');
   }
-  final names = <String>[];
-  for (final tool in value) {
-    if (tool is! Map) {
-      throw StateError('$label contained a non-object tool.');
+  final values = <String>[];
+  for (final item in value) {
+    if (item is! Map) {
+      throw StateError('$label contained a non-object item.');
     }
-    final name = tool['name'];
-    if (name is! String || name.isEmpty) {
-      throw StateError('$label contained a tool without a name.');
+    final fieldValue = item[field];
+    if (fieldValue is! String || fieldValue.isEmpty) {
+      throw StateError('$label contained an item without $field.');
     }
-    names.add(name);
+    values.add(fieldValue);
   }
-  return names;
+  return values;
 }
 
-void _expectSortedUniqueNames(List<String> names, {required String label}) {
+void _expectSortedUniqueNames(
+  List<String> names, {
+  required String label,
+}) {
+  _expectSortedUniqueCatalogValues(
+    names,
+    label: label,
+    fieldDescription: 'tool name',
+  );
+}
+
+void _expectSortedUniqueCatalogValues(
+  List<String> values, {
+  required String label,
+  required String fieldDescription,
+}) {
   final seen = <String>{};
-  for (final name in names) {
-    if (!seen.add(name)) {
-      throw StateError('$label contained duplicate tool name $name.');
+  for (final value in values) {
+    if (!seen.add(value)) {
+      throw StateError('$label contained duplicate $fieldDescription $value.');
     }
   }
-  final sorted = [...names]..sort();
-  for (var index = 0; index < names.length; index += 1) {
-    if (names[index] != sorted[index]) {
-      throw StateError('$label was not sorted by tool name.');
+  final sorted = [...values]..sort();
+  for (var index = 0; index < values.length; index += 1) {
+    if (values[index] != sorted[index]) {
+      throw StateError('$label was not sorted by $fieldDescription.');
     }
   }
 }
@@ -5292,7 +5315,17 @@ Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
     id: resourcesId,
     label: 'Generic direct JSON-RPC resources/list',
   );
-  if (!jsonEncode(resourcesResult['resources']).contains(_resourceUri)) {
+  final resourceUris = _catalogStringFieldValues(
+    resourcesResult['resources'],
+    field: 'uri',
+    label: 'Generic direct JSON-RPC resource catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    resourceUris,
+    label: 'Generic direct JSON-RPC resource catalog',
+    fieldDescription: 'resource URI',
+  );
+  if (!resourceUris.contains(_resourceUri)) {
     throw StateError(
       'Generic direct JSON-RPC resources/list missed $_resourceUri.',
     );
@@ -5331,9 +5364,17 @@ Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
     id: templatesId,
     label: 'Generic direct JSON-RPC resources/templates/list',
   );
-  if (!jsonEncode(
+  final templateUris = _catalogStringFieldValues(
     templatesResult['resourceTemplates'],
-  ).contains(_resourceTemplateUri)) {
+    field: 'uriTemplate',
+    label: 'Generic direct JSON-RPC resource template catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    templateUris,
+    label: 'Generic direct JSON-RPC resource template catalog',
+    fieldDescription: 'resource template URI',
+  );
+  if (!templateUris.contains(_resourceTemplateUri)) {
     throw StateError(
       'Generic direct JSON-RPC resources/templates/list missed '
       '$_resourceTemplateUri.',
@@ -5352,7 +5393,17 @@ Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
     id: promptsId,
     label: 'Generic direct JSON-RPC prompts/list',
   );
-  if (!jsonEncode(promptsResult['prompts']).contains(_promptName)) {
+  final promptNames = _catalogStringFieldValues(
+    promptsResult['prompts'],
+    field: 'name',
+    label: 'Generic direct JSON-RPC prompt catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    promptNames,
+    label: 'Generic direct JSON-RPC prompt catalog',
+    fieldDescription: 'prompt name',
+  );
+  if (!promptNames.contains(_promptName)) {
     throw StateError(
       'Generic direct JSON-RPC prompts/list missed $_promptName.',
     );
@@ -6526,7 +6577,17 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
     id: resourcesId,
     label: 'Generic Streamable JSON-RPC resources/list',
   );
-  if (!jsonEncode(resourcesResult['resources']).contains(_resourceUri)) {
+  final resourceUris = _catalogStringFieldValues(
+    resourcesResult['resources'],
+    field: 'uri',
+    label: 'Generic Streamable JSON-RPC resource catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    resourceUris,
+    label: 'Generic Streamable JSON-RPC resource catalog',
+    fieldDescription: 'resource URI',
+  );
+  if (!resourceUris.contains(_resourceUri)) {
     throw StateError(
       'Generic Streamable JSON-RPC resources/list missed $_resourceUri.',
     );
@@ -6563,9 +6624,17 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
     id: templatesId,
     label: 'Generic Streamable JSON-RPC resources/templates/list',
   );
-  if (!jsonEncode(
+  final templateUris = _catalogStringFieldValues(
     templatesResult['resourceTemplates'],
-  ).contains(_resourceTemplateUri)) {
+    field: 'uriTemplate',
+    label: 'Generic Streamable JSON-RPC resource template catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    templateUris,
+    label: 'Generic Streamable JSON-RPC resource template catalog',
+    fieldDescription: 'resource template URI',
+  );
+  if (!templateUris.contains(_resourceTemplateUri)) {
     throw StateError(
       'Generic Streamable JSON-RPC resources/templates/list missed '
       '$_resourceTemplateUri.',
@@ -6580,7 +6649,17 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
     id: promptsId,
     label: 'Generic Streamable JSON-RPC prompts/list',
   );
-  if (!jsonEncode(promptsResult['prompts']).contains(_promptName)) {
+  final promptNames = _catalogStringFieldValues(
+    promptsResult['prompts'],
+    field: 'name',
+    label: 'Generic Streamable JSON-RPC prompt catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    promptNames,
+    label: 'Generic Streamable JSON-RPC prompt catalog',
+    fieldDescription: 'prompt name',
+  );
+  if (!promptNames.contains(_promptName)) {
     throw StateError(
       'Generic Streamable JSON-RPC prompts/list missed $_promptName.',
     );

@@ -99,6 +99,31 @@ void main() {
       expect(second.containsKey('nextCursor'), isFalse);
     });
 
+    test('resources/list returns deterministic URI ordering', () async {
+      final server = McpServer(
+        serverInfo: const McpServerInfo(
+          name: 'connectanum-test',
+          version: '0.1.0',
+        ),
+        resources: [
+          _resource('app://resource/gamma', 'gamma'),
+          _resource('app://resource/alpha', 'alpha'),
+          _resource('app://resource/beta', 'beta'),
+        ],
+      );
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 19,
+        'method': 'resources/list',
+        'params': {},
+      });
+
+      final result = response?['result'] as Map<String, Object?>;
+      expect(_resourceNames(result), ['alpha', 'beta', 'gamma']);
+    });
+
     test('resources/list rejects stale cursors', () async {
       final server = McpServer(
         serverInfo: const McpServerInfo(
@@ -256,6 +281,43 @@ void main() {
       ]);
       expect(second.containsKey('nextCursor'), isFalse);
     });
+
+    test(
+      'resources/templates/list returns deterministic URI template ordering',
+      () async {
+        final server = McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          resourceTemplates: [
+            McpResourceTemplate(
+              uriTemplate: 'app://templates/gamma/{id}',
+              name: 'gamma',
+            ),
+            McpResourceTemplate(
+              uriTemplate: 'app://templates/alpha/{id}',
+              name: 'alpha',
+            ),
+            McpResourceTemplate(
+              uriTemplate: 'app://templates/beta/{id}',
+              name: 'beta',
+            ),
+          ],
+        );
+        await _initializeAndStart(server);
+
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 20,
+          'method': 'resources/templates/list',
+          'params': {},
+        });
+
+        final result = response?['result'] as Map<String, Object?>;
+        expect(_resourceTemplateNames(result), ['alpha', 'beta', 'gamma']);
+      },
+    );
   });
 }
 
@@ -296,6 +358,14 @@ List<String> _resourceNames(Map<String, Object?> listResult) {
   return [
     for (final resource in resources)
       (resource as Map<String, Object?>)['name']! as String,
+  ];
+}
+
+List<String> _resourceTemplateNames(Map<String, Object?> listResult) {
+  final templates = listResult['resourceTemplates'] as List<Object?>;
+  return [
+    for (final template in templates)
+      (template as Map<String, Object?>)['name']! as String,
   ];
 }
 

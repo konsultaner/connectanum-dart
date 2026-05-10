@@ -91,6 +91,27 @@ void main() {
       expect(second.containsKey('nextCursor'), isFalse);
     });
 
+    test('prompts/list returns deterministic name ordering', () async {
+      final server = McpServer(
+        serverInfo: const McpServerInfo(
+          name: 'connectanum-test',
+          version: '0.1.0',
+        ),
+        prompts: [_prompt('gamma'), _prompt('alpha'), _prompt('beta')],
+      );
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 19,
+        'method': 'prompts/list',
+        'params': {},
+      });
+
+      final result = response?['result'] as Map<String, Object?>;
+      expect(_promptNames(result), ['alpha', 'beta', 'gamma']);
+    });
+
     test('prompts/list rejects stale cursors', () async {
       final server = McpServer(
         serverInfo: const McpServerInfo(

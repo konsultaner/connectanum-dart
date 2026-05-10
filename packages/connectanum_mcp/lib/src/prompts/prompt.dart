@@ -198,7 +198,10 @@ class McpPromptRegistry {
   List<McpPrompt> list({String? cursor}) => listPage(cursor: cursor).prompts;
 
   McpPromptListPage listPage({String? cursor}) {
-    final prompts = List<McpPrompt>.unmodifiable(_prompts.values);
+    final prompts = List<McpPrompt>.unmodifiable(
+      _prompts.values.toList(growable: false)
+        ..sort((left, right) => left.name.compareTo(right.name)),
+    );
     final pageSize = this.pageSize;
     if (pageSize == null) {
       if (cursor != null) {
