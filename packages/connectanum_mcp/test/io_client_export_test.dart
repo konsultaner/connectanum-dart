@@ -600,10 +600,15 @@ void main() {
       final client = McpStreamableHttpClient(endpoint.uri);
       addTearDown(() => client.close(force: true));
 
-      await client.initialize(id: 'io-notification-init');
+      await client.initialize(
+        id: 'io-notification-init',
+        headers: const <String, String>{'x-consumer-trace': 'io-initialize'},
+      );
       expect(client.sessionId, 'io-session-1');
 
-      await client.notifyInitialized();
+      await client.notifyInitialized(
+        headers: const <String, String>{'x-consumer-trace': 'io-initialized'},
+      );
 
       final firstEvents = await client.poll(
         headers: const <String, String>{'x-consumer-trace': 'io-poll'},
@@ -647,9 +652,11 @@ void main() {
       ]);
       expect(endpoint.requests[0].sessionId, isNull);
       expect(endpoint.requests[0].body, isA<Map<Object?, Object?>>());
+      expect(endpoint.requests[0].consumerTrace, 'io-initialize');
       expect(endpoint.requests[1].sessionId, 'io-session-1');
       expect(endpoint.requests[1].body, isA<Map<Object?, Object?>>());
       expect(endpoint.requests[1].accept, contains('text/event-stream'));
+      expect(endpoint.requests[1].consumerTrace, 'io-initialized');
       expect(endpoint.requests[2].accept, 'text/event-stream');
       expect(endpoint.requests[2].sessionId, 'io-session-1');
       expect(endpoint.requests[2].lastEventId, isNull);

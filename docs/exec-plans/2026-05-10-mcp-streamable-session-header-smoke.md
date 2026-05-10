@@ -1,6 +1,6 @@
 # Exec Plan: MCP Streamable Session Header Smoke
 
-Status: complete; local verification clean, hosted evidence pending after push
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -42,8 +42,22 @@ consumer smokes.
 - Focused `run_mcp_consumer_package_smoke` passed.
 - Post-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`.
-- Hosted deployment-chain evidence is pending until the implementation commit is
-  pushed.
+- Commit `020980a` (`test: cover mcp streamable session headers`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25622672504` completed successfully for `020980a` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25622672496` completed
+  successfully for `020980a`; the deployment-chain audit confirmed the dry run
+  covers the checked-out head.
+- GitHub `WAMP Profile Benchmarks` run `25622672501` completed successfully for
+  `020980a`.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI, clean CI
+  log scan, and clean Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -54,6 +68,6 @@ consumer smokes.
 
 ## Handoff
 
-Implementation and full local verification are complete. Push and hosted
-deployment-chain evidence still need to be collected for the implementation
-commit.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.

@@ -945,8 +945,13 @@ Future<void> _smokeMcpEndpoint(
 
   await client.initialize(
     clientInfo: const {'name': 'router_hosted_mcp_example', 'version': '0.1.0'},
+    headers: <String, String>{'x-consumer-trace': '$label-streamable-init'},
   );
-  await client.notifyInitialized();
+  await client.notifyInitialized(
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-initialized',
+    },
+  );
 
   final streamableTools = await client.listTools(id: 'example-tools-list');
   final streamableToolNames = {
@@ -1230,11 +1235,20 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('Streamable MCP $label 404 did not clear session state.');
   }
 
-  final recovered = await client.initialize(id: '$label-reinitialize');
+  final recovered = await client.initialize(
+    id: '$label-reinitialize',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-reinitialize',
+    },
+  );
   if (recovered['id'] != '$label-reinitialize' || client.sessionId == null) {
     throw StateError('Streamable MCP $label reinitialize after 404 failed.');
   }
-  await client.notifyInitialized();
+  await client.notifyInitialized(
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-reinitialized',
+    },
+  );
   await client.deleteSession(
     headers: <String, String>{
       'x-consumer-trace': '$label-streamable-recovered-delete',

@@ -88,25 +88,32 @@ final class McpStreamableHttpClient {
       'version': '2.2.6',
     },
     String? protocolVersion,
+    Map<String, String> headers = const <String, String>{},
   }) async {
-    final response = await post(<String, Object?>{
-      'jsonrpc': '2.0',
-      'id': id,
-      'method': 'initialize',
-      'params': <String, Object?>{
-        'protocolVersion': protocolVersion ?? this.protocolVersion,
-        'capabilities': capabilities,
-        'clientInfo': clientInfo,
+    final response = await post(
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id,
+        'method': 'initialize',
+        'params': <String, Object?>{
+          'protocolVersion': protocolVersion ?? this.protocolVersion,
+          'capabilities': capabilities,
+          'clientInfo': clientInfo,
+        },
       },
-    }, includeSession: false);
+      includeSession: false,
+      headers: headers,
+    );
     if (response == null) {
       throw const FormatException('initialize did not return a JSON-RPC body');
     }
     return response;
   }
 
-  Future<void> notifyInitialized() async {
-    await notification('notifications/initialized');
+  Future<void> notifyInitialized({
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    await notification('notifications/initialized', headers: headers);
   }
 
   Future<McpJsonMap> request(

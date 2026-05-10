@@ -2,14 +2,14 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `508b47d`
-(`test: cover mcp direct batch headers`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `020980a`
+(`test: cover mcp streamable session headers`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-streamable-session-header-smoke.md`
-(complete; local verification clean, hosted evidence pending after push).
+`docs/exec-plans/2026-05-10-mcp-streamable-initialize-header-smoke.md`
+(complete; full local verification passed; hosted evidence pending).
 Latest completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-streamable-session-header-smoke.md`
-(complete; local verification clean, hosted evidence pending after push).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-direct-batch-header-smoke.md`
 (complete; hosted CI evidence clean).
@@ -221,10 +221,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`508b47d`
-(`test: cover mcp direct batch headers`; hosted CI evidence clean).
-Current implementation checkpoint: MCP Streamable session lifecycle header smoke
-(complete; local verification clean, hosted evidence pending after push).
+`020980a`
+(`test: cover mcp streamable session headers`; hosted CI evidence clean).
+Current implementation checkpoint: MCP Streamable initialize header smoke
+(complete; full local verification passed; hosted evidence pending).
+Previous implementation checkpoint: MCP Streamable session lifecycle header smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP direct batch header smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP direct notification helper smoke
@@ -552,6 +554,28 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP Streamable initialize header smoke is complete through full local
+    verification. Pre-change `bin/test-fast` passed on 2026-05-10.
+    `McpStreamableHttpClient.initialize` and `notifyInitialized` now accept
+    optional per-call `headers`, completing the helper-level Streamable session
+    header surface with `request`, `post`, `notification`, `postBatch`, `poll`,
+    and `deleteSession`. Package coverage pins initialization headers without
+    an active MCP session and initialized-notification headers with the active
+    session. The `connectanum_mcp` IO entrypoint test proves the re-exported
+    public API forwards those headers, and generated neutral client/consumer
+    package smokes compile and run the same calls against fake and router-hosted
+    MCP endpoints. `dart format
+    packages/connectanum_client/lib/src/mcp/streamable_http_client.dart
+    packages/connectanum_client/test/mcp/streamable_http_client_test.dart
+    packages/connectanum_mcp/test/io_client_export_test.dart
+    packages/connectanum_router/example/router_hosted_mcp.dart`, `bash -n
+    bin/common.sh`, focused `dart test
+    packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+    focused `dart test packages/connectanum_mcp/test/io_client_export_test.dart`,
+    focused `run_mcp_client_package_smoke`, and focused
+    `run_mcp_consumer_package_smoke` passed on 2026-05-10. Post-change
+    `bin/test-fast` and full local `bin/verify` passed on 2026-05-10. Commit,
+    push, and hosted evidence are pending.
   - MCP Streamable session lifecycle header smoke is complete through full
     local verification. Pre-change `bin/test-fast` passed on 2026-05-10 with
     isolated `TMPDIR`. `McpStreamableHttpClient.poll` and `deleteSession` now
@@ -571,8 +595,19 @@ order.
     focused `dart test packages/connectanum_mcp/test/io_client_export_test.dart`,
     focused `run_mcp_client_package_smoke`, focused
     `run_mcp_consumer_package_smoke`, post-change `bin/test-fast`, and full
-    local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`. Push and
-    hosted CI/deployment-chain evidence are pending.
+    local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`. Commit
+    `020980a` (`test: cover mcp streamable session headers`) is pushed to both
+    remotes. GitHub `CI` run `25622672504` completed successfully for
+    `020980a` with `Fast Checks` and `Full Verify` green. GitHub
+    `Dart Package Publish Dry Run` run `25622672496` completed successfully for
+    `020980a`, and the audit confirmed it covers the checked-out head. GitHub
+    `WAMP Profile Benchmarks` run `25622672501` completed successfully for
+    `020980a`. The deployment-chain audit passed with clean latest CI, clean CI
+    log scan, and clean Dart package publish dry-run evidence. Strict audit
+    still reports only known operator-side release-hardening gaps: branch
+    protection/required checks are absent, `.github/workflows/router-image.yml`
+    is not yet visible from the default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP direct batch header smoke is complete through full local verification.
     Pre-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
     `McpStreamableHttpClient.postBatch` now accepts per-call `headers`, matching

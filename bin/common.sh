@@ -738,6 +738,9 @@ Future<void> main() async {
         'name': 'consumer-agent-smoke',
         'version': '0.1.0',
       },
+      headers: const <String, String>{
+        'x-consumer-trace': 'streamable-initialize',
+      },
     );
     _expect(client.sessionId == _sessionId, 'initialize did not capture session');
     final initializeResult = _jsonMapFrom(
@@ -749,7 +752,11 @@ Future<void> main() async {
       'initialize returned an unexpected protocol version',
     );
 
-    await client.notifyInitialized();
+    await client.notifyInitialized(
+      headers: const <String, String>{
+        'x-consumer-trace': 'streamable-initialized',
+      },
+    );
 
     final tools = await client.listTools(
       id: 'tools-json',
@@ -2390,14 +2397,21 @@ Future<void> _smokeStreamableSessionLifecycle(
   );
   _expect(endpoint.sessionDeleted, 'mock endpoint did not receive DELETE');
   _expect(
+    endpoint.streamableTraceHeadersWithoutSession.contains(
+      'POST:streamable-initialize',
+    ),
+    'Streamable initialize did not forward custom trace headers',
+  );
+  _expect(
     endpoint.streamableTraceHeadersWithSession.containsAll(
       const <String>{
+        'POST:streamable-initialized',
         'GET:streamable-poll',
         'GET:streamable-resume',
         'DELETE:streamable-delete',
       },
     ),
-    'Streamable GET/DELETE did not forward custom trace headers with session',
+    'Streamable session requests did not forward custom trace headers',
   );
 
   client.sessionId = _sessionId;
@@ -2426,12 +2440,19 @@ Future<void> _smokeStreamableSessionLifecycle(
       'name': 'consumer-agent-smoke',
       'version': '0.1.0',
     },
+    headers: const <String, String>{
+      'x-consumer-trace': 'streamable-reinitialize',
+    },
   );
   _expect(
     recovered['id'] == 'reinitialize' && client.sessionId == _sessionId,
     'reinitialize after stale-session clearing failed',
   );
-  await client.notifyInitialized();
+  await client.notifyInitialized(
+    headers: const <String, String>{
+      'x-consumer-trace': 'streamable-reinitialized',
+    },
+  );
   final recoveredTools = await client.listTools(
     id: 'tools-after-reinitialize',
     streamable: false,
@@ -2498,6 +2519,7 @@ final class _AgentMcpEndpoint {
   final directMethodsWithoutSession = <String>{};
   final directToolNamesWithoutSession = <String>{};
   final directTraceHeadersWithoutSession = <String>{};
+  final streamableTraceHeadersWithoutSession = <String>{};
   final streamableTraceHeadersWithSession = <String>{};
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
@@ -2588,9 +2610,12 @@ final class _AgentMcpEndpoint {
     final method = message['method'] as String?;
     final id = message['id'];
     _recordDirectRequest(method, request, message);
+    final accept = request.headers.value(HttpHeaders.acceptHeader) ?? '';
+    if (accept.contains('text/event-stream')) {
+      _recordStreamableTrace('POST', request);
+    }
 
     if (method != null && method.startsWith('notifications/')) {
-      final accept = request.headers.value(HttpHeaders.acceptHeader) ?? '';
       if (accept.contains('text/event-stream') && !_hasSession(request)) {
         await _writeSessionError(request);
         return;
@@ -2780,7 +2805,12 @@ final class _AgentMcpEndpoint {
 
   void _recordStreamableTrace(String method, HttpRequest request) {
     final trace = request.headers.value('x-consumer-trace');
-    if (trace != null) {
+    if (trace == null) {
+      return;
+    }
+    if (request.headers.value('MCP-Session-Id') == null) {
+      streamableTraceHeadersWithoutSession.add('$method:$trace');
+    } else {
       streamableTraceHeadersWithSession.add('$method:$trace');
     }
   }
@@ -7486,6 +7516,9 @@ Future<void> _smokeStreamableMcp(
       'name': 'connectanum_consumer_package_smoke',
       'version': '0.1.0',
     },
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-initialize',
+    },
   );
   final initializeJson = jsonEncode(initializeResult);
   if (!initializeJson.contains('resources') ||
@@ -7494,7 +7527,11 @@ Future<void> _smokeStreamableMcp(
       'Streamable MCP initialize did not advertise resources and prompts.',
     );
   }
-  await client.notifyInitialized();
+  await client.notifyInitialized(
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-initialized',
+    },
+  );
 
   final sessionId = client.sessionId;
   if (sessionId == null || sessionId.isEmpty) {
@@ -10084,11 +10121,20 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('Streamable MCP 404 did not clear stale session state.');
   }
 
-  final recovered = await client.initialize(id: '$label-reinitialize');
+  final recovered = await client.initialize(
+    id: '$label-reinitialize',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-reinitialize',
+    },
+  );
   if (recovered['id'] != '$label-reinitialize' || client.sessionId == null) {
     throw StateError('Streamable MCP reinitialize after 404 failed.');
   }
-  await client.notifyInitialized();
+  await client.notifyInitialized(
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-reinitialized',
+    },
+  );
   await client.deleteSession(
     headers: <String, String>{
       'x-consumer-trace': '$label-streamable-recovered-delete',

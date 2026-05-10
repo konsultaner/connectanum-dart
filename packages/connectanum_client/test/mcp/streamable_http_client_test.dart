@@ -24,6 +24,9 @@ void main() {
             'name': 'consumer-test',
             'version': '1.0.0',
           },
+          headers: const <String, String>{
+            'x-consumer-trace': 'streamable-initialize',
+          },
         );
 
         expect(client.sessionId, 'session-1');
@@ -33,7 +36,11 @@ void main() {
         );
         expect(initialize['id'], 'initialize');
 
-        await client.notifyInitialized();
+        await client.notifyInitialized(
+          headers: const <String, String>{
+            'x-consumer-trace': 'streamable-initialized',
+          },
+        );
 
         final tools = await client.request('tools/list', id: 'tools-sse');
         expect(tools['id'], 'tools-sse');
@@ -90,10 +97,12 @@ void main() {
         expect(endpoint.requests[0].accept, contains('text/event-stream'));
         expect(endpoint.requests[0].mcpMethod, 'initialize');
         expect(endpoint.requests[0].mcpName, isNull);
+        expect(endpoint.requests[0].consumerTrace, 'streamable-initialize');
         expect(endpoint.requests[0].contentLength, greaterThan(0));
         expect(endpoint.requests[0].transferEncoding, isNull);
         expect(endpoint.requests[1].sessionId, 'session-1');
         expect(endpoint.requests[1].mcpMethod, 'notifications/initialized');
+        expect(endpoint.requests[1].consumerTrace, 'streamable-initialized');
         expect(endpoint.requests[2].sessionId, 'session-1');
         expect(endpoint.requests[2].mcpMethod, 'tools/list');
         expect(endpoint.requests[3].lastEventId, 'session-1:post:2');
