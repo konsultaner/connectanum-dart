@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `c2e8b31`
-(`test: cover mcp typed helper headers`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `b60bd77`
+(`test: cover mcp wamp helper headers`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-wamp-helper-header-smoke.md`
+`docs/exec-plans/2026-05-10-mcp-direct-json-http-error-session-smoke.md`
 (complete locally; hosted evidence pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-10-mcp-wamp-helper-header-smoke.md`
+`docs/exec-plans/2026-05-10-mcp-direct-json-http-error-session-smoke.md`
 (complete locally; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-wamp-helper-header-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-typed-helper-header-smoke.md`
 (complete; hosted CI evidence clean).
@@ -230,10 +233,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`c2e8b31`
-(`test: cover mcp typed helper headers`; hosted CI evidence clean).
-Current implementation checkpoint: MCP WAMP helper header smoke
+`b60bd77`
+(`test: cover mcp wamp helper headers`; hosted CI evidence clean).
+Current implementation checkpoint: MCP direct JSON HTTP-error session smoke
 (complete locally; hosted evidence pending).
+Previous implementation checkpoint: MCP WAMP helper header smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP typed helper header smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP Streamable initialize header smoke
@@ -567,8 +572,26 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP WAMP helper header smoke is complete through full local verification;
-    hosted evidence is pending. WAMP API list/describe helpers, generic WAMP
+  - MCP direct JSON HTTP-error session smoke is complete through full local
+    verification; hosted evidence is pending. Direct JSON MCP requests remain
+    lifecycle-free even when a consumer also has an active
+    Streamable HTTP session: direct JSON HTTP `401`, `403`, and `404` failures
+    now throw typed `McpStreamableHttpException`s without clearing the cached
+    Streamable session id or SSE cursor. Session-bound Streamable requests and
+    Streamable `initialize` still use the session-clearing error path. A focused
+    fail-first regression reproduced the old direct JSON `401` session clear,
+    the focused regression now passes, the full
+    `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
+    suite passes, and the generated neutral client-package smoke now forces the
+    same direct HTTP-error path without private application assumptions. The
+    generated consumer package smoke now preserves Streamable session state for
+    protected direct JSON auth failures while continuing to require
+    session-bound Streamable failures to clear stale state. Focused
+    `run_mcp_client_package_smoke`, focused `run_mcp_consumer_package_smoke`,
+    post-change `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-10. Commit, push, and hosted evidence are pending.
+  - MCP WAMP helper header smoke is complete through full local and hosted
+    verification. WAMP API list/describe helpers, generic WAMP
     meta procedure calls, standard WAMP meta convenience helpers, and WAMP
     pub/sub subscribe/publish/poll/unsubscribe helpers now accept optional
     per-call `headers`. The shared `_callStructuredTool(...)` dispatcher
@@ -586,7 +609,21 @@ order.
     focused `dart test packages/connectanum_mcp/test/io_client_export_test.dart`,
     focused `run_mcp_client_package_smoke`, focused
     `run_mcp_consumer_package_smoke`, post-change `bin/test-fast`, and full
-    local `bin/verify` passed on 2026-05-10.
+    local `bin/verify` passed on 2026-05-10. Commit `b60bd77`
+    (`test: cover mcp wamp helper headers`) is pushed to both remotes. GitHub
+    `CI` run `25625714931` completed successfully for `b60bd77` with
+    `Fast Checks` and `Full Verify` green. GitHub
+    `Dart Package Publish Dry Run` run `25625714942` completed successfully for
+    `b60bd77`, and the audit confirmed it covers the checked-out head. GitHub
+    `WAMP Profile Benchmarks` run `25625714945` completed successfully for
+    `b60bd77`. The deployment-chain audit passed with clean latest CI and clean
+    Dart package publish dry-run evidence. Strict audit still reports only
+    known operator-side release-hardening gaps: branch protection/required
+    checks are absent, `.github/workflows/router-image.yml` is not yet visible
+    from the default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
+    A final local `bin/verify` rerun after hosted-evidence notes also passed on
+    2026-05-10.
   - MCP typed helper header smoke is complete through full local and hosted
     verification. `McpStreamableHttpClient.ping`, typed tools, direct
     Connectanum JSON helpers, resources, and prompts now accept optional

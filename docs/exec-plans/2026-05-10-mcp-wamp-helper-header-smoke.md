@@ -1,6 +1,6 @@
 # Exec Plan: MCP WAMP Helper Header Smoke
 
-Status: complete locally; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -47,6 +47,24 @@ JSON calls.
 - Focused `run_mcp_consumer_package_smoke` passed.
 - Post-change `bin/test-fast` passed on 2026-05-10.
 - Full local `bin/verify` passed on 2026-05-10.
+- Commit `b60bd77` (`test: cover mcp wamp helper headers`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25625714931` completed successfully for `b60bd77` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25625714942` completed
+  successfully for `b60bd77`; the deployment-chain audit confirmed the dry run
+  covers the checked-out head.
+- GitHub `WAMP Profile Benchmarks` run `25625714945` completed successfully for
+  `b60bd77`.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI and clean
+  Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
+- A final local `bin/verify` rerun after hosted-evidence notes also passed on
+  2026-05-10.
 
 ## Decision Log
 
@@ -57,6 +75,6 @@ JSON calls.
 
 ## Handoff
 
-Implementation and full local verification are complete. Commit, push, hosted
-CI, publish dry-run, benchmark, and deployment-chain audit evidence are still
-pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.

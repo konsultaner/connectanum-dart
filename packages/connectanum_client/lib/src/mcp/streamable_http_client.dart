@@ -474,7 +474,15 @@ final class McpStreamableHttpClient {
     final response = await request.close();
     _captureSessionHeaders(response);
     final body = await _readBody(response);
-    _throwIfHttpErrorForSession(response, body);
+    final clearSessionOnHttpError =
+        includeSession ||
+        (streamable &&
+            _requestMethodForStandardHeaders(message) == 'initialize');
+    if (clearSessionOnHttpError) {
+      _throwIfHttpErrorForSession(response, body);
+    } else {
+      _throwIfHttpError(response, body);
+    }
 
     if (response.statusCode == HttpStatus.accepted ||
         response.statusCode == HttpStatus.noContent ||

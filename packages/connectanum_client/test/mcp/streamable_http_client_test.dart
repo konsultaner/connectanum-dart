@@ -1053,6 +1053,63 @@ void main() {
     );
 
     test(
+      'keeps active Streamable session state after direct JSON HTTP failures',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        final eventId = client.lastEventId;
+        expect(sessionId, 'session-1');
+        endpoint.requests.clear();
+
+        for (final statusCode in const <int>[
+          HttpStatus.unauthorized,
+          HttpStatus.forbidden,
+          HttpStatus.notFound,
+        ]) {
+          await expectLater(
+            client.callConnectanumMethodDirect(
+              'app.direct.error',
+              id: 'direct-error-$statusCode',
+              params: <String, Object?>{'statusCode': statusCode},
+              headers: <String, String>{
+                'x-consumer-trace': 'direct-error-$statusCode',
+                'x-test-force-status': '$statusCode',
+              },
+            ),
+            throwsA(
+              isA<McpStreamableHttpException>().having(
+                (error) => error.statusCode,
+                'statusCode',
+                statusCode,
+              ),
+            ),
+          );
+          expect(client.sessionId, sessionId);
+          expect(client.lastEventId, eventId);
+          expect(endpoint.requests.last.sessionId, isNull);
+          expect(endpoint.requests.last.lastEventId, isNull);
+          expect(
+            endpoint.requests.last.consumerTrace,
+            'direct-error-$statusCode',
+          );
+        }
+
+        final ping = await client.ping(id: 'session-still-usable');
+        expect(ping, isEmpty);
+        expect(client.sessionId, sessionId);
+        expect(client.lastEventId, eventId);
+        expect(endpoint.requests.last.sessionId, sessionId);
+      },
+    );
+
+    test(
       'treats notification-only batches as accepted without lifecycle changes',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -1551,6 +1608,24 @@ final class _FakeMcpEndpoint {
       request.response.write(
         jsonEncode(<String, Object?>{
           'error': <String, Object?>{'message': message},
+        }),
+      );
+      await request.response.close();
+      return;
+    }
+
+    final forcedStatus = request.headers.value('x-test-force-status');
+    if (forcedStatus != null) {
+      final statusCode = int.tryParse(forcedStatus);
+      request.response.statusCode =
+          statusCode ?? HttpStatus.internalServerError;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(<String, Object?>{
+          'error': <String, Object?>{
+            'message': 'forced test HTTP status',
+            'statusCode': request.response.statusCode,
+          },
         }),
       );
       await request.response.close();

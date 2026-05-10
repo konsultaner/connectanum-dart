@@ -810,6 +810,7 @@ Future<void> main() async {
     );
 
     await _smokeGenericJsonRpcApi(client, endpoint);
+    await _smokeDirectJsonHttpErrorsPreserveSession(client, endpoint);
     await _smokeGenericJsonRpcBatchErrors(client);
     await _smokeGenericJsonRpcBatchPubSub(client, endpoint);
     await _smokeGenericJsonRpcBatchResourcesAndPrompts(client, endpoint);
@@ -1066,6 +1067,60 @@ Future<void> _smokeGenericJsonRpcApi(
     missingDirectMethods.isEmpty,
     'generic direct JSON APIs included Streamable session state for '
     '${missingDirectMethods.join(', ')}',
+  );
+}
+
+Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('direct HTTP-error smoke has no Streamable session.');
+  }
+  final eventId = client.lastEventId;
+
+  for (final statusCode in const <int>[
+    HttpStatus.unauthorized,
+    HttpStatus.forbidden,
+    HttpStatus.notFound,
+  ]) {
+    final trace = 'direct-http-error-$statusCode';
+    try {
+      await client.callConnectanumMethodDirect(
+        'agent.direct.http-error',
+        id: trace,
+        params: <String, Object?>{'statusCode': statusCode},
+        headers: <String, String>{
+          'x-consumer-trace': trace,
+          'x-test-force-status': '$statusCode',
+        },
+      );
+      throw StateError('direct JSON HTTP-error smoke accepted $statusCode.');
+    } on McpStreamableHttpException catch (error) {
+      if (error.statusCode != statusCode) {
+        throw StateError(
+          'direct JSON HTTP-error smoke returned ${error.statusCode} '
+          'instead of $statusCode.',
+        );
+      }
+    }
+
+    _expect(
+      client.sessionId == sessionId && client.lastEventId == eventId,
+      'direct JSON HTTP $statusCode changed Streamable session state',
+    );
+    _expect(
+      endpoint.directTraceHeadersWithoutSession.contains(trace),
+      'direct JSON HTTP $statusCode did not stay lifecycle-free',
+    );
+  }
+
+  final ping = await client.ping(id: 'direct-http-error-recovery');
+  _expect(ping.isEmpty, 'Streamable ping failed after direct HTTP errors');
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'direct JSON HTTP-error recovery changed Streamable session state',
   );
 }
 
@@ -2832,6 +2887,16 @@ final class _AgentMcpEndpoint {
     final accept = request.headers.value(HttpHeaders.acceptHeader) ?? '';
     if (accept.contains('text/event-stream')) {
       _recordStreamableTrace('POST', request);
+    }
+
+    final forcedStatus = request.headers.value('x-test-force-status');
+    if (forcedStatus != null) {
+      await _writeError(
+        request,
+        int.tryParse(forcedStatus) ?? HttpStatus.internalServerError,
+        'forced test HTTP status',
+      );
+      return;
     }
 
     if (method != null && method.startsWith('notifications/')) {
@@ -4900,7 +4965,7 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   }
   final lastEventId = client.lastEventId;
 
-  await _assertActiveStreamableRequestRejectsBearer(
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
     client,
     () async {
       await client.postBatch(
@@ -4926,7 +4991,7 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
     method: 'direct JSON batch connectanum.api.list',
     acceptedMessage: acceptedMessage,
   );
-  await _assertActiveStreamableRequestRejectsBearer(
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
     client,
     () async {
       await client.request(
@@ -5083,6 +5148,34 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
     method: 'DELETE session',
     acceptedMessage: acceptedMessage,
   );
+}
+
+Future<void> _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+  McpStreamableHttpClient client,
+  Future<void> Function() request, {
+  required String sessionId,
+  String? lastEventId,
+  required String method,
+  required String acceptedMessage,
+}) async {
+  client.sessionId = sessionId;
+  client.lastEventId = lastEventId;
+  try {
+    await request();
+    throw StateError('$acceptedMessage $method succeeded.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'Active direct JSON MCP $method returned ${error.statusCode} '
+        'instead of ${HttpStatus.unauthorized} for a rejected token.',
+      );
+    }
+  }
+  if (client.sessionId != sessionId || client.lastEventId != lastEventId) {
+    throw StateError(
+      'Active direct JSON MCP $method changed Streamable session state.',
+    );
+  }
 }
 
 Future<void> _assertActiveStreamableRequestRejectsBearer(
