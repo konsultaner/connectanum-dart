@@ -4644,6 +4644,9 @@ Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
       realm: _realm,
       authId: authId,
       ticket: ticket,
+      headers: const <String, String>{
+        'x-consumer-trace': 'ticket-auth-grant',
+      },
     );
   } finally {
     authClient.close(force: true);
@@ -4659,6 +4662,9 @@ Future<ConnectanumHttpAuthGrant> _issueWampCraHttpGrant(
       realm: _realm,
       authId: _wampCraAuthId,
       secret: _wampCraSecret,
+      headers: const <String, String>{
+        'x-consumer-trace': 'wampcra-auth-grant',
+      },
     );
   } finally {
     authClient.close(force: true);
@@ -4674,6 +4680,9 @@ Future<ConnectanumHttpAuthGrant> _issueScramHttpGrant(
       realm: _realm,
       authId: _scramAuthId,
       secret: _scramSecret,
+      headers: const <String, String>{
+        'x-consumer-trace': 'scram-auth-grant',
+      },
     );
   } finally {
     authClient.close(force: true);
@@ -4742,12 +4751,18 @@ Future<void> _expectRejectedChallengeHttpAuthGrant(
         realm: _realm,
         authId: _wampCraAuthId,
         secret: 'wrong-$_wampCraSecret',
+        headers: const <String, String>{
+          'x-consumer-trace': 'wampcra-auth-rejection',
+        },
       );
     } else if (authMethod == 'scram') {
       await authClient.issueScramToken(
         realm: _realm,
         authId: _scramAuthId,
         secret: 'wrong-$_scramSecret',
+        headers: const <String, String>{
+          'x-consumer-trace': 'scram-auth-rejection',
+        },
       );
     } else {
       throw ArgumentError.value(authMethod, 'authMethod');
@@ -4988,7 +5003,12 @@ Future<void> _assertHttpRefreshRejected(
 }) async {
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   try {
-    await authClient.refreshToken(refreshToken);
+    await authClient.refreshToken(
+      refreshToken,
+      headers: const <String, String>{
+        'x-consumer-trace': 'refresh-rejection',
+      },
+    );
     throw StateError(acceptedMessage);
   } on ConnectanumHttpAuthException catch (error) {
     if (error.statusCode != HttpStatus.unauthorized) {
@@ -5024,7 +5044,12 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       label: '$label-rotated',
     );
 
-    final refreshed = await authClient.refreshToken(refreshToken);
+    final refreshed = await authClient.refreshToken(
+      refreshToken,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-refresh',
+      },
+    );
     _expectRefreshedHttpAuthGrant(refreshed, grant, label: label);
     if (refreshed.accessToken == grant.accessToken) {
       throw StateError(
@@ -5087,6 +5112,9 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     await authClient.revokeToken(
       rotatedRefreshToken,
       tokenTypeHint: 'refresh_token',
+      headers: <String, String>{
+        'x-consumer-trace': '$label-revoke',
+      },
     );
     await _assertActiveStreamableSessionRejectsBearer(
       revokedSessionClient,

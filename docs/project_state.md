@@ -2,13 +2,16 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `72b6240`
-(`test: cover mcp direct json response header variants`; hosted CI and
+Last reviewed branch checkpoint: `1ee7109`
+(`fix: keep mcp protocol headers client-owned`; hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-controlled-request-header-smoke.md`
+`docs/exec-plans/2026-05-10-mcp-http-auth-per-call-header-smoke.md`
 (complete locally; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-controlled-request-header-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-direct-json-batch-notification-response-header-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -240,11 +243,15 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`72b6240`
-(`test: cover mcp direct json response header variants`; hosted CI and
+`1ee7109`
+(`fix: keep mcp protocol headers client-owned`; hosted CI and
 deployment-chain evidence clean).
-Current implementation checkpoint: MCP controlled request header smoke
-(complete locally; hosted evidence pending).
+Current implementation checkpoint: MCP HTTP auth per-call header smoke
+(complete locally; hosted evidence pending; focused auth, IO entrypoint,
+generated consumer smoke, post-change `bin/test-fast`, and full `bin/verify`
+passed locally on 2026-05-10).
+Previous implementation checkpoint: MCP controlled request header smoke
+(complete; hosted CI and deployment-chain evidence clean).
 Previous implementation checkpoint: MCP direct JSON batch/notification
 response-header session smoke
 (complete; hosted CI and deployment-chain evidence clean).
@@ -588,6 +595,14 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP HTTP auth per-call header smoke is complete locally and pending push
+    plus hosted evidence. `ConnectanumHttpAuthClient` now accepts per-call
+    headers on ticket, WAMP-CRA, SCRAM, generic authenticate, refresh, and
+    revoke calls. Constructor-wide headers apply first, per-call metadata
+    applies second, and the auth client keeps JSON framing headers
+    authoritative. Focused auth-client coverage, the MCP IO entrypoint smoke,
+    the neutral generated consumer package smoke, post-change `bin/test-fast`,
+    and full local `bin/verify` all passed on 2026-05-10.
   - MCP direct JSON batch/notification response-header session smoke is
     complete through full local and hosted verification. The focused client regression and
     neutral generated client-package smoke now inject `MCP-Session-Id` response

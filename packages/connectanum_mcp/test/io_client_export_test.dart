@@ -483,13 +483,17 @@ void main() {
     final endpoint = await _AuthBackedMcpEndpoint.bind();
     addTearDown(endpoint.close);
 
-    final authClient = ConnectanumHttpAuthClient(endpoint.authUri);
+    final authClient = ConnectanumHttpAuthClient(
+      endpoint.authUri,
+      headers: const <String, String>{'x-consumer-default': 'io-auth-default'},
+    );
     addTearDown(() => authClient.close(force: true));
 
     final grant = await authClient.issueTicketToken(
       realm: _ioAuthRealm,
       authId: _ioAuthId,
       ticket: _ioTicketSecret,
+      headers: const <String, String>{'x-consumer-trace': 'io-auth-issue'},
     );
     expect(grant.accessToken, _ioAccessToken);
     expect(grant.refreshToken, _ioRefreshToken);
@@ -520,13 +524,17 @@ void main() {
     );
     expect(ping, isEmpty);
 
-    final refreshed = await authClient.refreshToken(grant.refreshToken!);
+    final refreshed = await authClient.refreshToken(
+      grant.refreshToken!,
+      headers: const <String, String>{'x-consumer-trace': 'io-auth-refresh'},
+    );
     expect(refreshed.accessToken, _ioRefreshedAccessToken);
     expect(refreshed.refreshToken, _ioRefreshedRefreshToken);
 
     await authClient.revokeToken(
       refreshed.refreshToken!,
       tokenTypeHint: 'refresh_token',
+      headers: const <String, String>{'x-consumer-trace': 'io-auth-revoke'},
     );
 
     expect(endpoint.authRequests, hasLength(4));
@@ -548,6 +556,14 @@ void main() {
       'token': _ioRefreshedRefreshToken,
       'token_type_hint': 'refresh_token',
     });
+    expect(endpoint.authRequests[0].defaultTrace, 'io-auth-default');
+    expect(endpoint.authRequests[1].defaultTrace, 'io-auth-default');
+    expect(endpoint.authRequests[2].defaultTrace, 'io-auth-default');
+    expect(endpoint.authRequests[3].defaultTrace, 'io-auth-default');
+    expect(endpoint.authRequests[0].consumerTrace, 'io-auth-issue');
+    expect(endpoint.authRequests[1].consumerTrace, 'io-auth-issue');
+    expect(endpoint.authRequests[2].consumerTrace, 'io-auth-refresh');
+    expect(endpoint.authRequests[3].consumerTrace, 'io-auth-revoke');
 
     expect(endpoint.mcpRequests, hasLength(2));
     expect(endpoint.mcpRequests[0].authorization, 'Bearer $_ioAccessToken');
@@ -1439,16 +1455,28 @@ final class _AuthBackedMcpEndpoint {
 }
 
 final class _SeenAuthRequest {
-  const _SeenAuthRequest(this.method, this.body);
+  const _SeenAuthRequest({
+    required this.method,
+    required this.consumerTrace,
+    required this.defaultTrace,
+    required this.body,
+  });
 
   final String method;
+  final String? consumerTrace;
+  final String? defaultTrace;
   final Map<String, Object?> body;
 
   factory _SeenAuthRequest.from(
     HttpRequest request,
     Map<String, Object?> body,
   ) {
-    return _SeenAuthRequest(request.method, body);
+    return _SeenAuthRequest(
+      method: request.method,
+      consumerTrace: request.headers.value('x-consumer-trace'),
+      defaultTrace: request.headers.value('x-consumer-default'),
+      body: body,
+    );
   }
 }
 

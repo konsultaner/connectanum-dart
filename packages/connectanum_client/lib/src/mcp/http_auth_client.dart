@@ -27,12 +27,14 @@ final class ConnectanumHttpAuthClient {
     required String realm,
     required String authId,
     required String ticket,
+    Map<String, String> headers = const <String, String>{},
   }) {
     return authenticate(
       realm: realm,
       authId: authId,
       authentication: TicketAuthentication(ticket),
       authMethod: 'ticket',
+      headers: headers,
     );
   }
 
@@ -40,12 +42,14 @@ final class ConnectanumHttpAuthClient {
     required String realm,
     required String authId,
     required String secret,
+    Map<String, String> headers = const <String, String>{},
   }) {
     return authenticate(
       realm: realm,
       authId: authId,
       authentication: CraAuthentication(secret),
       authMethod: 'wampcra',
+      headers: headers,
     );
   }
 
@@ -53,12 +57,14 @@ final class ConnectanumHttpAuthClient {
     required String realm,
     required String authId,
     required String secret,
+    Map<String, String> headers = const <String, String>{},
   }) {
     return authenticate(
       realm: realm,
       authId: authId,
       authentication: ScramAuthentication(secret),
       authMethod: 'scram',
+      headers: headers,
     );
   }
 
@@ -68,6 +74,7 @@ final class ConnectanumHttpAuthClient {
     required AbstractAuthentication authentication,
     String? authMethod,
     Map<String, Object?> authextra = const <String, Object?>{},
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final method = _httpAuthMethodName(authMethod ?? authentication.getName());
     final details = Details.forHello()
@@ -89,6 +96,7 @@ final class ConnectanumHttpAuthClient {
       startBody,
       expectedStatus: HttpStatus.unauthorized,
       label: 'HTTP auth challenge',
+      extraHeaders: headers,
     );
     final state = _nonEmptyString(challenge['state'], 'state');
     final authenticate = await authentication.challenge(
@@ -104,11 +112,15 @@ final class ConnectanumHttpAuthClient {
       },
       expectedStatus: HttpStatus.ok,
       label: 'HTTP auth token request',
+      extraHeaders: headers,
     );
     return ConnectanumHttpAuthGrant.fromJson(grant);
   }
 
-  Future<ConnectanumHttpAuthGrant> refreshToken(String refreshToken) async {
+  Future<ConnectanumHttpAuthGrant> refreshToken(
+    String refreshToken, {
+    Map<String, String> headers = const <String, String>{},
+  }) async {
     final grant = await _postJsonObject(
       <String, Object?>{
         'grant_type': 'refresh_token',
@@ -116,11 +128,16 @@ final class ConnectanumHttpAuthClient {
       },
       expectedStatus: HttpStatus.ok,
       label: 'HTTP auth refresh request',
+      extraHeaders: headers,
     );
     return ConnectanumHttpAuthGrant.fromJson(grant);
   }
 
-  Future<void> revokeToken(String token, {String? tokenTypeHint}) async {
+  Future<void> revokeToken(
+    String token, {
+    String? tokenTypeHint,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
     await _postJsonObject(
       <String, Object?>{
         'grant_type': 'revoke',
@@ -130,6 +147,7 @@ final class ConnectanumHttpAuthClient {
       },
       expectedStatus: HttpStatus.ok,
       label: 'HTTP auth revoke request',
+      extraHeaders: headers,
     );
   }
 
@@ -143,11 +161,20 @@ final class ConnectanumHttpAuthClient {
     Map<String, Object?> payload, {
     required int expectedStatus,
     required String label,
+    Map<String, String> extraHeaders = const <String, String>{},
   }) async {
     final request = await _httpClient.postUrl(endpoint);
-    for (final header in headers.entries) {
-      request.headers.set(header.key, header.value);
+    void applyConsumerHeaders(Map<String, String> source) {
+      for (final header in source.entries) {
+        if (_isControlledHttpAuthRequestHeader(header.key)) {
+          continue;
+        }
+        request.headers.set(header.key, header.value);
+      }
     }
+
+    applyConsumerHeaders(headers);
+    applyConsumerHeaders(extraHeaders);
     request.headers.contentType = ContentType.json;
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     final bodyBytes = utf8.encode(jsonEncode(payload));
@@ -206,6 +233,13 @@ final class ConnectanumHttpAuthClient {
     }
     throw FormatException('HTTP auth response is missing "$key".');
   }
+}
+
+bool _isControlledHttpAuthRequestHeader(String name) {
+  final normalized = name.toLowerCase();
+  return normalized == HttpHeaders.acceptHeader ||
+      normalized == HttpHeaders.contentTypeHeader ||
+      normalized == HttpHeaders.contentLengthHeader;
 }
 
 final class ConnectanumHttpAuthGrant {

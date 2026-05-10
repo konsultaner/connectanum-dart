@@ -43,6 +43,59 @@ void main() {
       });
     });
 
+    test(
+      'forwards per-call headers while owning JSON request headers',
+      () async {
+        final endpoint = await _FakeHttpAuthEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = ConnectanumHttpAuthClient(
+          endpoint.uri,
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'text/plain',
+            HttpHeaders.contentTypeHeader: 'text/plain',
+            HttpHeaders.contentLengthHeader: '999',
+            'x-consumer-default': 'auth-default',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final grant = await client.issueTicketToken(
+          realm: 'realm1',
+          authId: 'user-1',
+          ticket: 'ticket-secret',
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'text/plain',
+            HttpHeaders.contentTypeHeader: 'text/plain',
+            'x-consumer-trace': 'issue-grant',
+          },
+        );
+        final refreshed = await client.refreshToken(
+          grant.refreshToken!,
+          headers: const <String, String>{'x-consumer-trace': 'refresh-grant'},
+        );
+        await client.revokeToken(
+          refreshed.refreshToken!,
+          tokenTypeHint: 'refresh_token',
+          headers: const <String, String>{'x-consumer-trace': 'revoke-grant'},
+        );
+
+        expect(endpoint.requests, hasLength(4));
+        expect(
+          endpoint.requests.map((request) => request.defaultTrace),
+          everyElement('auth-default'),
+        );
+        expect(endpoint.requests[0].consumerTrace, 'issue-grant');
+        expect(endpoint.requests[1].consumerTrace, 'issue-grant');
+        expect(endpoint.requests[2].consumerTrace, 'refresh-grant');
+        expect(endpoint.requests[3].consumerTrace, 'revoke-grant');
+        for (final request in endpoint.requests) {
+          expect(request.accept, 'application/json');
+          expect(request.contentType, 'application/json');
+        }
+      },
+    );
+
     test('uses WAMP-CRA challenge details from the bridge response', () async {
       final endpoint = await _FakeHttpAuthEndpoint.bind(
         authMethod: 'wampcra',
@@ -197,7 +250,7 @@ final class _FakeHttpAuthEndpoint {
   Future<void> _handle(HttpRequest request) async {
     final bodyText = await utf8.decoder.bind(request).join();
     final body = Map<String, Object?>.from(jsonDecode(bodyText) as Map);
-    requests.add(_SeenAuthRequest(request.method, body));
+    requests.add(_SeenAuthRequest.from(request, body));
 
     switch (body['grant_type']) {
       case 'refresh_token':
@@ -262,10 +315,35 @@ final class _FakeHttpAuthEndpoint {
 }
 
 final class _SeenAuthRequest {
-  _SeenAuthRequest(this.method, this.body);
+  _SeenAuthRequest({
+    required this.method,
+    required this.accept,
+    required this.contentType,
+    required this.consumerTrace,
+    required this.defaultTrace,
+    required this.body,
+  });
 
   final String method;
+  final String? accept;
+  final String? contentType;
+  final String? consumerTrace;
+  final String? defaultTrace;
   final Map<String, Object?> body;
+
+  factory _SeenAuthRequest.from(
+    HttpRequest request,
+    Map<String, Object?> body,
+  ) {
+    return _SeenAuthRequest(
+      method: request.method,
+      accept: request.headers.value(HttpHeaders.acceptHeader),
+      contentType: request.headers.contentType?.mimeType,
+      consumerTrace: request.headers.value('x-consumer-trace'),
+      defaultTrace: request.headers.value('x-consumer-default'),
+      body: body,
+    );
+  }
 }
 
 final class _NoopAuthentication extends AbstractAuthentication {
