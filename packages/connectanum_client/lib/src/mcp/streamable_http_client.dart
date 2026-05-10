@@ -357,12 +357,19 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: 'prompts/get');
   }
 
-  Future<void> notification(String method, {McpJsonMap? params}) async {
-    await post(<String, Object?>{
-      'jsonrpc': '2.0',
-      'method': method,
-      'params': ?params,
-    });
+  Future<void> notification(
+    String method, {
+    McpJsonMap? params,
+    bool streamable = true,
+    bool includeSession = true,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    await post(
+      <String, Object?>{'jsonrpc': '2.0', 'method': method, 'params': ?params},
+      streamable: streamable,
+      includeSession: includeSession,
+      headers: headers,
+    );
   }
 
   Future<McpJsonMap?> post(

@@ -996,13 +996,28 @@ Future<void> _smokeGenericJsonRpcApi(
     'generic Streamable notification-only batch returned a response',
   );
 
+  await client.notification(
+    'notifications/progress',
+    params: const <String, Object?>{
+      'progressToken': 'generic-direct-single-notification',
+      'progress': 1,
+    },
+    streamable: false,
+    includeSession: false,
+  );
+  await client.notification(
+    'notifications/tools/list_changed',
+    params: const <String, Object?>{},
+  );
+
   _expect(
     client.sessionId == sessionId && client.lastEventId == eventId,
-    'generic direct JSON or batch APIs changed Streamable session state',
+    'generic direct JSON, notification, or batch APIs changed Streamable session state',
   );
   const expectedDirectMethods = <String>{
     'connectanum.tools.list',
     'connectanum.tool.call',
+    'notifications/progress',
     _toolName,
   };
   final missingDirectMethods = expectedDirectMethods.difference(
@@ -2534,6 +2549,17 @@ final class _AgentMcpEndpoint {
     final method = message['method'] as String?;
     final id = message['id'];
     _recordDirectRequest(method, request, message);
+
+    if (method != null && method.startsWith('notifications/')) {
+      final accept = request.headers.value(HttpHeaders.acceptHeader) ?? '';
+      if (accept.contains('text/event-stream') && !_hasSession(request)) {
+        await _writeSessionError(request);
+        return;
+      }
+      request.response.statusCode = HttpStatus.accepted;
+      await request.response.close();
+      return;
+    }
 
     switch (method) {
       case 'initialize':
@@ -5198,6 +5224,16 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     );
   }
 
+  await client.notification(
+    'notifications/progress',
+    params: const <String, Object?>{
+      'progressToken': 'generic-direct-single-notification',
+      'progress': 1,
+    },
+    streamable: false,
+    includeSession: false,
+  );
+
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Generic direct JSON-RPC access changed session state.');
@@ -6328,6 +6364,15 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
   if (client.sessionId != sessionId || client.lastEventId != previousEventId) {
     throw StateError(
       'Generic Streamable JSON-RPC notification-only batch changed session state.',
+    );
+  }
+  await client.notification(
+    'notifications/tools/list_changed',
+    params: const <String, Object?>{},
+  );
+  if (client.sessionId != sessionId || client.lastEventId != previousEventId) {
+    throw StateError(
+      'Generic Streamable JSON-RPC notification changed session state.',
     );
   }
 
