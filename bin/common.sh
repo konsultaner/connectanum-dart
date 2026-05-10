@@ -810,6 +810,7 @@ Future<void> main() async {
     );
 
     await _smokeGenericJsonRpcApi(client, endpoint);
+    await _smokeControlledMcpRequestHeaders(client, endpoint);
     await _smokeDirectJsonHttpErrorsPreserveSession(client, endpoint);
     await _smokeGenericJsonRpcBatchErrors(client);
     await _smokeGenericJsonRpcBatchPubSub(client, endpoint);
@@ -1256,6 +1257,67 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
     client.sessionId == sessionId && client.lastEventId == eventId,
     'direct JSON HTTP-error recovery changed Streamable session state',
   );
+}
+
+Future<void> _smokeControlledMcpRequestHeaders(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('controlled MCP header smoke has no Streamable session.');
+  }
+  final eventId = client.lastEventId;
+
+  const directTrace = 'controlled-direct-mcp-headers';
+  final directResult = await client.callConnectanumMethodDirect(
+    _toolName,
+    id: directTrace,
+    params: const <String, Object?>{'message': 'controlled headers'},
+    headers: const <String, String>{
+      HttpHeaders.acceptHeader: 'text/plain',
+      'MCP-Protocol-Version': '2099-01-01',
+      'MCP-Session-Id': 'caller-direct-session',
+      'Last-Event-ID': 'caller-direct-event',
+      'x-consumer-trace': directTrace,
+    },
+  );
+  _expect(
+    directResult['isError'] == false,
+    'controlled MCP header direct JSON smoke returned an error result.',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.contains(directTrace),
+    'controlled MCP header direct JSON smoke forwarded caller session state',
+  );
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'controlled MCP header direct JSON smoke changed Streamable session state',
+  );
+
+  const pollTrace = 'controlled-poll-mcp-headers';
+  client.lastEventId = null;
+  final events = await client.poll(
+    headers: const <String, String>{
+      HttpHeaders.acceptHeader: 'application/json',
+      'MCP-Session-Id': 'caller-poll-session',
+      'Last-Event-ID': 'caller-poll-event',
+      'x-consumer-trace': pollTrace,
+    },
+  );
+  _expect(
+    events.single.jsonData?['method'] == 'notifications/tools/list_changed',
+    'controlled MCP header poll smoke did not return the expected event',
+  );
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == _firstEventId,
+    'controlled MCP header poll smoke changed the active session id',
+  );
+  _expect(
+    endpoint.streamableTraceHeadersWithSession.contains('GET:$pollTrace'),
+    'controlled MCP header poll smoke did not use the owned Streamable session',
+  );
+  client.lastEventId = eventId;
 }
 
 Future<void> _smokeGenericJsonRpcBatchErrors(

@@ -567,12 +567,17 @@ final class McpStreamableHttpClient {
   }) {
     request.headers.set(HttpHeaders.acceptHeader, accept);
     request.headers.set(_headerProtocolVersion, protocolVersion);
-    for (final entry in headers.entries) {
-      request.headers.set(entry.key, entry.value);
+    void applyConsumerHeaders(Map<String, String> source) {
+      for (final entry in source.entries) {
+        if (_isControlledMcpRequestHeader(entry.key)) {
+          continue;
+        }
+        request.headers.set(entry.key, entry.value);
+      }
     }
-    for (final entry in extraHeaders.entries) {
-      request.headers.set(entry.key, entry.value);
-    }
+
+    applyConsumerHeaders(headers);
+    applyConsumerHeaders(extraHeaders);
     final session = includeSession ? sessionId : null;
     if (session != null) {
       request.headers.set(_headerSessionId, session);
@@ -682,6 +687,14 @@ final class McpStreamableHttpClient {
     }
     return headers;
   }
+}
+
+bool _isControlledMcpRequestHeader(String name) {
+  final normalized = name.toLowerCase();
+  return normalized == HttpHeaders.acceptHeader ||
+      normalized == _headerProtocolVersion.toLowerCase() ||
+      normalized == _headerSessionId.toLowerCase() ||
+      normalized == _headerLastEventId.toLowerCase();
 }
 
 final class _McpToolHeaderParameter {

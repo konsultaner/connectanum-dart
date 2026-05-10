@@ -2,15 +2,15 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: local implementation commit
-(`test: cover mcp direct json response header variants`; local verification
-clean, hosted evidence pending)
+Last reviewed branch checkpoint: `72b6240`
+(`test: cover mcp direct json response header variants`; hosted CI and
+deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-direct-json-batch-notification-response-header-smoke.md`
-(complete; local verification clean; hosted evidence pending).
+`docs/exec-plans/2026-05-10-mcp-controlled-request-header-smoke.md`
+(complete locally; hosted evidence pending).
 Latest completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-direct-json-batch-notification-response-header-smoke.md`
-(complete; local verification clean; hosted evidence pending).
+(complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-direct-json-response-header-session-smoke.md`
 (complete; hosted CI evidence clean).
@@ -240,9 +240,15 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`a426fcf`
-(`fix: isolate mcp direct json response headers`; hosted CI evidence clean).
-Current implementation checkpoint: MCP direct JSON response-header session
+`72b6240`
+(`test: cover mcp direct json response header variants`; hosted CI and
+deployment-chain evidence clean).
+Current implementation checkpoint: MCP controlled request header smoke
+(complete locally; hosted evidence pending).
+Previous implementation checkpoint: MCP direct JSON batch/notification
+response-header session smoke
+(complete; hosted CI and deployment-chain evidence clean).
+Previous implementation checkpoint: MCP direct JSON response-header session
 isolation smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP direct JSON HTTP-error session smoke
@@ -583,7 +589,7 @@ order.
 
 - Current autonomous focus:
   - MCP direct JSON batch/notification response-header session smoke is
-    complete through full local verification. The focused client regression and
+    complete through full local and hosted verification. The focused client regression and
     neutral generated client-package smoke now inject `MCP-Session-Id` response
     headers on direct JSON batch responses, direct single notification
     `202 Accepted` responses, and notification-only batch `202 Accepted`
@@ -596,9 +602,20 @@ order.
     `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
     suite passed, `bash -n bin/common.sh` passed, focused
     `run_mcp_client_package_smoke` passed, post-change `bin/test-fast` passed,
-    and full local `bin/verify` passed on 2026-05-10. The local implementation
-    commit (`test: cover mcp direct json response header variants`) is ready to
-    push; hosted evidence is pending.
+    and full local `bin/verify` passed on 2026-05-10. Commit `72b6240`
+    (`test: cover mcp direct json response header variants`) is pushed to both
+    remotes. GitHub `CI` run `25628970062` completed successfully for
+    `72b6240` with `Fast Checks` and `Full Verify` green, and the hosted CI
+    log scan was clean. GitHub `Dart Package Publish Dry Run` run
+    `25628970072` completed successfully for `72b6240` and covers the checked
+    out head. GitHub `WAMP Profile Benchmarks` run `25628970064` completed
+    successfully for `72b6240`. The deployment-chain audit passed with clean
+    latest CI, clean hosted CI logs, and clean Dart package publish dry-run
+    evidence. The strict audit still reports only known operator-side
+    release-hardening gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP direct JSON response-header session isolation smoke is complete through
     full local and hosted verification. Direct JSON MCP calls now ignore
     `MCP-Session-Id` response headers when they are lifecycle-free, so a direct

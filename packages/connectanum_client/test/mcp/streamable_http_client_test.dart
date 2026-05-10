@@ -129,6 +129,104 @@ void main() {
     );
 
     test(
+      'owns MCP protocol and session headers despite caller headers',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(
+          endpoint.uri,
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'text/plain',
+            _headerProtocolVersion: '2099-01-01',
+            _headerSessionId: 'default-stale-session',
+            'Last-Event-ID': 'default-stale-event',
+            'x-consumer-default': 'kept',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'text/plain',
+            _headerProtocolVersion: '2099-02-01',
+            _headerSessionId: 'initialize-stale-session',
+            'Last-Event-ID': 'initialize-stale-event',
+            'x-consumer-trace': 'controlled-initialize',
+          },
+        );
+        expect(client.sessionId, 'session-1');
+        expect(endpoint.requests.last.accept, contains('text/event-stream'));
+        expect(
+          endpoint.requests.last.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
+        expect(endpoint.requests.last.sessionId, isNull);
+        expect(endpoint.requests.last.lastEventId, isNull);
+
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        expect(sessionId, 'session-1');
+        endpoint.requests.clear();
+
+        final direct = await client.callConnectanumMethodDirect(
+          'app.direct.controlled-headers',
+          id: 'controlled-direct',
+          params: const <String, Object?>{'message': 'direct'},
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'text/plain',
+            _headerProtocolVersion: '2099-03-01',
+            _headerSessionId: 'direct-stale-session',
+            'Last-Event-ID': 'direct-stale-event',
+            'x-consumer-trace': 'controlled-direct',
+          },
+        );
+        expect(direct['isError'], isFalse);
+        expect(endpoint.requests.last.accept, 'application/json');
+        expect(
+          endpoint.requests.last.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
+        expect(endpoint.requests.last.sessionId, isNull);
+        expect(endpoint.requests.last.lastEventId, isNull);
+        expect(endpoint.requests.last.consumerTrace, 'controlled-direct');
+
+        final streamable = await client.ping(
+          id: 'controlled-streamable',
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'text/plain',
+            _headerProtocolVersion: '2099-04-01',
+            _headerSessionId: 'streamable-stale-session',
+            'Last-Event-ID': 'streamable-stale-event',
+            'x-consumer-trace': 'controlled-streamable',
+          },
+        );
+        expect(streamable, isEmpty);
+        expect(endpoint.requests.last.accept, contains('text/event-stream'));
+        expect(
+          endpoint.requests.last.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
+        expect(endpoint.requests.last.sessionId, sessionId);
+        expect(endpoint.requests.last.lastEventId, isNull);
+
+        final events = await client.poll(
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'application/json',
+            _headerSessionId: 'poll-stale-session',
+            'Last-Event-ID': 'poll-stale-event',
+            'x-consumer-trace': 'controlled-poll',
+          },
+        );
+        expect(events, hasLength(1));
+        expect(endpoint.requests.last.accept, 'text/event-stream');
+        expect(endpoint.requests.last.sessionId, sessionId);
+        expect(endpoint.requests.last.lastEventId, isNull);
+        expect(endpoint.requests.last.consumerTrace, 'controlled-poll');
+      },
+    );
+
+    test(
       'clears stale Streamable HTTP session state after session failures',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -2480,6 +2578,7 @@ final class _SeenRequest {
   const _SeenRequest({
     required this.method,
     required this.accept,
+    required this.protocolVersion,
     required this.authorization,
     required this.sessionId,
     required this.lastEventId,
@@ -2494,6 +2593,7 @@ final class _SeenRequest {
 
   final String method;
   final String? accept;
+  final String? protocolVersion;
   final String? authorization;
   final String? sessionId;
   final String? lastEventId;
@@ -2509,6 +2609,7 @@ final class _SeenRequest {
     return _SeenRequest(
       method: request.method,
       accept: request.headers.value(HttpHeaders.acceptHeader),
+      protocolVersion: request.headers.value(_headerProtocolVersion),
       authorization: request.headers.value(HttpHeaders.authorizationHeader),
       sessionId: request.headers.value(_headerSessionId),
       lastEventId: request.headers.value('Last-Event-ID'),

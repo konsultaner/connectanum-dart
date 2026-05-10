@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct JSON Batch And Notification Response Header Smoke
 
-Status: complete; local verification clean
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -46,9 +46,21 @@ session id or SSE resume cursor.
   generated-smoke batch and notification response-header probes.
 - Post-change `bin/test-fast` passed on 2026-05-10.
 - Full local `bin/verify` passed on 2026-05-10.
-- The local implementation commit
-  (`test: cover mcp direct json response header variants`) is ready to push to
-  `origin/add-router` and `github/add-router`.
+- Commit `72b6240` (`test: cover mcp direct json response header variants`)
+  was pushed to `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25628970062` completed successfully for `72b6240` with
+  `Fast Checks` and `Full Verify` green, and the hosted CI log scan was clean.
+- GitHub `Dart Package Publish Dry Run` run `25628970072` completed
+  successfully for `72b6240` and covers the checked-out head.
+- GitHub `WAMP Profile Benchmarks` run `25628970064` completed successfully
+  for `72b6240`.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI, clean
+  hosted CI logs, and clean Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -62,5 +74,6 @@ session id or SSE resume cursor.
 
 ## Handoff
 
-Implementation and full local verification are complete. Hosted GitHub evidence
-is pending push.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side
+release-hardening work.
