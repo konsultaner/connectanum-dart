@@ -323,17 +323,20 @@ class McpWampApi {
       if (metadata.isNotEmpty) 'metadata': mcpWampJsonCompatible(metadata),
     };
     if (includeProcedures) {
-      result['procedures'] = [
+      final visibleProcedures = [
         for (final procedure in procedures)
-          if (tag == null || procedure.metadata.tags.contains(tag))
-            procedure.toJson(),
+          if (tag == null || procedure.metadata.tags.contains(tag)) procedure,
+      ]..sort((left, right) => left.procedure.compareTo(right.procedure));
+      result['procedures'] = [
+        for (final procedure in visibleProcedures) procedure.toJson(),
       ];
     }
     if (includeTopics) {
-      result['topics'] = [
+      final visibleTopics = [
         for (final topic in topics)
-          if (tag == null || topic.metadata.tags.contains(tag)) topic.toJson(),
-      ];
+          if (tag == null || topic.metadata.tags.contains(tag)) topic,
+      ]..sort((left, right) => left.topic.compareTo(right.topic));
+      result['topics'] = [for (final topic in visibleTopics) topic.toJson()];
     }
     return _jsonToolResult(result);
   }

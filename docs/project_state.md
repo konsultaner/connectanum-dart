@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `0ce6929`
-(`test: cover deterministic mcp tool catalogs`; hosted CI evidence clean)
+Last reviewed branch checkpoint: `c92f6bc`
+(`test: cover deterministic mcp resource catalogs`; hosted CI evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-deterministic-resource-prompt-catalog-smoke.md`
+`docs/exec-plans/2026-05-10-mcp-deterministic-wamp-api-catalog-smoke.md`
 (complete; local verification clean; hosted evidence pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-10-mcp-deterministic-resource-prompt-catalog-smoke.md`
+`docs/exec-plans/2026-05-10-mcp-deterministic-wamp-api-catalog-smoke.md`
 (complete; local verification clean; hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-deterministic-resource-prompt-catalog-smoke.md`
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-deterministic-tool-catalog-smoke.md`
 (complete; hosted CI evidence clean).
@@ -206,11 +209,13 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`0ce6929`
-(`test: cover deterministic mcp tool catalogs`; hosted CI evidence clean).
-Current implementation checkpoint: MCP deterministic resource/prompt catalog
-smoke
+`c92f6bc`
+(`test: cover deterministic mcp resource catalogs`; hosted CI evidence clean).
+Current implementation checkpoint: MCP deterministic WAMP API catalog smoke
 (complete; local verification clean; hosted evidence pending).
+Previous implementation checkpoint: MCP deterministic resource/prompt catalog
+smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP deterministic tool catalog smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP consumer challenge-auth lifecycle smoke
@@ -527,6 +532,23 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP deterministic WAMP API catalog smoke is complete through focused local
+    verification. `connectanum.api.list` now sorts procedure metadata by
+    procedure URI and topic metadata by topic URI before returning structured
+    content. Package-level coverage pins deterministic WAMP API metadata
+    ordering, and the generated neutral consumer package smoke asserts sorted
+    unique WAMP API procedure/topic catalogs for typed Streamable helpers,
+    typed direct JSON helpers, generic direct JSON-RPC access, and generic
+    Streamable JSON-RPC access against a real router-hosted MCP endpoint.
+    Pre-change `bin/test-fast`,
+    `dart format packages/connectanum_mcp/lib/src/tools/wamp_api.dart
+    packages/connectanum_mcp/test/wamp_api_test.dart`, `bash -n bin/common.sh`,
+    focused `dart test packages/connectanum_mcp/test/wamp_api_test.dart`, and
+    focused `run_mcp_consumer_package_smoke` passed on 2026-05-10 with
+    isolated `TMPDIR`. Post-change `bin/test-fast` passed on 2026-05-10 with
+    isolated `TMPDIR`. Full local `bin/verify` passed on 2026-05-10 with
+    isolated `TMPDIR`. Commit/push and hosted deployment-chain evidence are
+    pending.
   - MCP deterministic resource/prompt catalog smoke is complete through full
     local verification. `McpResourceRegistry.listPage()` now sorts resources by
     URI, `McpResourceRegistry.listTemplatePage()` sorts templates by URI
@@ -544,7 +566,17 @@ order.
     packages/connectanum_mcp/test/prompts_test.dart`, focused
     `run_mcp_consumer_package_smoke`, post-change `bin/test-fast`, and full
     local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`.
-    Commit/push and hosted deployment-chain evidence are pending.
+    Commit `c92f6bc` (`test: cover deterministic mcp resource catalogs`) is
+    pushed to both remotes. GitHub `CI` run `25618101175` completed
+    successfully for `c92f6bc` with `Fast Checks` and `Full Verify` green.
+    GitHub `Dart Package Publish Dry Run` run `25618101186` completed
+    successfully for `c92f6bc`, and the audit confirmed it covers the
+    checked-out head. The deployment-chain audit passed with clean latest CI
+    and clean Dart package publish dry-run evidence. Strict audit still reports
+    only known operator-side release-hardening gaps: branch protection/required
+    checks are absent, `.github/workflows/router-image.yml` is not yet visible
+    from the default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP deterministic tool catalog smoke is complete with hosted CI evidence.
     `McpToolRegistry.listPage()` now sorts tools by name before pagination so
     `tools/list` has a stable consumer-facing order even when router-hosted MCP

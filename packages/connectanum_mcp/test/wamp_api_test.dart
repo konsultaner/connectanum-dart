@@ -95,6 +95,43 @@ void main() {
       expect(procedures.single['metadata'], containsPair('domain', 'demo'));
     });
 
+    test('connectanum.api.list returns deterministic URI ordering', () async {
+      final api = McpWampApi(
+        procedures: [
+          McpWampProcedure(procedure: 'app.gamma', allowCall: false),
+          McpWampProcedure(procedure: 'app.alpha', allowCall: false),
+          McpWampProcedure(procedure: 'app.beta', allowCall: false),
+        ],
+        topics: [
+          McpWampTopic(topic: 'app.topic.gamma'),
+          McpWampTopic(topic: 'app.topic.alpha'),
+          McpWampTopic(topic: 'app.topic.beta'),
+        ],
+      );
+      final server = _server(api.toTools(includePubSubTools: false));
+      await _initializeAndStart(server);
+
+      final metaResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 13,
+        'method': 'tools/call',
+        'params': {'name': 'connectanum.api.list', 'arguments': {}},
+      });
+
+      final metaResult = metaResponse?['result'] as Map<String, Object?>;
+      final metadata = metaResult['structuredContent'] as Map<String, Object?>;
+      expect(_catalogUris(metadata['procedures']), [
+        'app.alpha',
+        'app.beta',
+        'app.gamma',
+      ]);
+      expect(_catalogUris(metadata['topics']), [
+        'app.topic.alpha',
+        'app.topic.beta',
+        'app.topic.gamma',
+      ]);
+    });
+
     test('maps WAMP safety metadata to MCP tool annotations', () async {
       final api = McpWampApi(
         procedures: [
@@ -417,6 +454,14 @@ McpServer _server(List<McpTool> tools) => McpServer(
   serverInfo: const McpServerInfo(name: 'connectanum-wamp-api', version: '0.1'),
   tools: tools,
 );
+
+List<String> _catalogUris(Object? catalog) {
+  final entries = catalog as List<Object?>;
+  return [
+    for (final entry in entries)
+      (entry as Map<String, Object?>)['uri']! as String,
+  ];
+}
 
 Future<void> _initializeAndStart(McpServer server) async {
   await server.handleMessage({

@@ -1896,6 +1896,67 @@ Future<void> _smokeResourcesAndPrompts(
   );
 }
 
+void _expectSortedUniqueWampApiCatalog(
+  Map<String, Object?> catalog, {
+  required String label,
+}) {
+  final procedureUris = _wampApiCatalogUris(
+    catalog['procedures'],
+    label: '$label procedure catalog',
+  );
+  _expectSortedUniqueStrings(
+    procedureUris,
+    label: '$label procedure catalog',
+    fieldDescription: 'procedure URI',
+  );
+  final topicUris = _wampApiCatalogUris(
+    catalog['topics'],
+    label: '$label topic catalog',
+  );
+  _expectSortedUniqueStrings(
+    topicUris,
+    label: '$label topic catalog',
+    fieldDescription: 'topic URI',
+  );
+}
+
+List<String> _wampApiCatalogUris(Object? value, {required String label}) {
+  if (value is! Iterable) {
+    throw StateError('$label was not a JSON array.');
+  }
+  final uris = <String>[];
+  for (final item in value) {
+    if (item is! Map) {
+      throw StateError('$label contained a non-object item.');
+    }
+    final uri = item['uri'];
+    if (uri is! String || uri.isEmpty) {
+      throw StateError('$label contained an item without a URI.');
+    }
+    uris.add(uri);
+  }
+  return uris;
+}
+
+void _expectSortedUniqueStrings(
+  List<String> values, {
+  required String label,
+  required String fieldDescription,
+}) {
+  final seen = <String>{};
+  for (final value in values) {
+    if (!seen.add(value)) {
+      throw StateError('$label contained duplicate $fieldDescription $value.');
+    }
+  }
+  final sorted = [...values]..sort();
+  for (var index = 0; index < values.length; index += 1) {
+    if (values[index] != sorted[index]) {
+      throw StateError('$label was not sorted by $fieldDescription.');
+    }
+  }
+}
+
 Future<void> _smokeWampHelpers(
   McpStreamableHttpClient client,
   _AgentMcpEndpoint endpoint,
@@ -1905,6 +1966,7 @@ Future<void> _smokeWampHelpers(
     jsonEncode(api).contains(_procedureName) && jsonEncode(api).contains(_topic),
     'streamable WAMP API list helper failed',
   );
+  _expectSortedUniqueWampApiCatalog(api, label: 'streamable WAMP API helper');
 
   final described = await client.describeWampApi(
     _procedureName,
@@ -1971,6 +2033,10 @@ Future<void> _smokeWampHelpers(
   _expect(
     jsonEncode(directApi).contains(_procedureName),
     'direct JSON WAMP API list helper failed',
+  );
+  _expectSortedUniqueWampApiCatalog(
+    directApi,
+    label: 'direct JSON WAMP API helper',
   );
 
   final directDescription = await client.describeWampApi(
@@ -4898,6 +4964,36 @@ void _expectSortedUniqueCatalogValues(
   }
 }
 
+void _expectSortedUniqueWampApiCatalog(
+  Map<String, Object?> catalog, {
+  required String label,
+  bool includeTopics = true,
+}) {
+  final procedureUris = _catalogStringFieldValues(
+    catalog['procedures'],
+    field: 'uri',
+    label: '$label procedure catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    procedureUris,
+    label: '$label procedure catalog',
+    fieldDescription: 'procedure URI',
+  );
+  if (!includeTopics) {
+    return;
+  }
+  final topicUris = _catalogStringFieldValues(
+    catalog['topics'],
+    field: 'uri',
+    label: '$label topic catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    topicUris,
+    label: '$label topic catalog',
+    fieldDescription: 'topic URI',
+  );
+}
+
 Map<String, Object?> _jsonObjectFrom(Object? value, {required String label}) {
   if (value is Map<Object?, Object?>) {
     return value.map((key, value) {
@@ -5005,6 +5101,10 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
       !apiCatalogJson.contains(_topic)) {
     throw StateError('Generic direct JSON-RPC API list missed catalog items.');
   }
+  _expectSortedUniqueWampApiCatalog(
+    apiCatalog,
+    label: 'Generic direct JSON-RPC API list',
+  );
 
   final describeId = '$label-generic-direct-api-describe';
   final describe = await client.request(
@@ -6212,6 +6312,11 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       'Generic Streamable JSON-RPC API list missed $_procedure.',
     );
   }
+  _expectSortedUniqueWampApiCatalog(
+    apiContent,
+    label: 'Generic Streamable JSON-RPC API list',
+    includeTopics: false,
+  );
   expectStreamableProgress('WAMP API list');
 
   final apiDescribeId = '$label-generic-streamable-api-describe';

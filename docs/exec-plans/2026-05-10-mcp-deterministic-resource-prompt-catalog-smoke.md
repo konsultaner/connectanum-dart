@@ -1,6 +1,6 @@
 # Exec Plan: MCP Deterministic Resource Prompt Catalog Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -51,6 +51,20 @@ tests and the generated neutral consumer-package smoke.
   `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`.
+- Commit `c92f6bc` (`test: cover deterministic mcp resource catalogs`) was
+  pushed to `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25618101175` completed successfully for `c92f6bc` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25618101186` completed
+  successfully for `c92f6bc`; the deployment-chain audit confirmed the dry run
+  covers the checked-out head.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI and clean
+  Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -61,5 +75,6 @@ tests and the generated neutral consumer-package smoke.
 
 ## Handoff
 
-Implementation and full local verification are complete. Push and hosted
-deployment-chain evidence are pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.
