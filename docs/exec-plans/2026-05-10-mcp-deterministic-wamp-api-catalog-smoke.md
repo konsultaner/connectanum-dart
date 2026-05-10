@@ -1,6 +1,6 @@
 # Exec Plan: MCP Deterministic WAMP API Catalog Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -47,6 +47,20 @@ through package tests and the generated neutral consumer-package smoke.
   `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`.
+- Commit `eb8724a` (`test: cover deterministic mcp wamp api catalogs`) was
+  pushed to `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25619083686` completed successfully for `eb8724a` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25619083679` completed
+  successfully for `eb8724a`; the deployment-chain audit confirmed the dry run
+  covers the checked-out head.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI and clean
+  Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -56,6 +70,6 @@ through package tests and the generated neutral consumer-package smoke.
 
 ## Handoff
 
-Implementation, focused verification, post-change fast regression, and full
-local verification are complete. Push and hosted deployment-chain evidence are
-pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.

@@ -873,6 +873,70 @@ void main() {
       },
     );
 
+    test(
+      'treats notification-only batches as accepted without lifecycle changes',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        final eventId = client.lastEventId;
+        expect(sessionId, 'session-1');
+        endpoint.requests.clear();
+
+        final directBatch = await client.postBatch(
+          [
+            {
+              'jsonrpc': '2.0',
+              'method': 'notifications/initialized',
+              'params': <String, Object?>{},
+            },
+            {
+              'jsonrpc': '2.0',
+              'method': 'notifications/progress',
+              'params': <String, Object?>{
+                'progressToken': 'direct-notification-batch',
+                'progress': 1,
+              },
+            },
+          ],
+          streamable: false,
+          includeSession: false,
+        );
+        final streamableBatch = await client.postBatch([
+          {
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+            'params': <String, Object?>{},
+          },
+          {
+            'jsonrpc': '2.0',
+            'method': 'notifications/tools/list_changed',
+            'params': <String, Object?>{},
+          },
+        ]);
+
+        expect(directBatch, isNull);
+        expect(streamableBatch, isNull);
+        expect(client.sessionId, sessionId);
+        expect(client.lastEventId, eventId);
+        expect(endpoint.requests, hasLength(2));
+        expect(endpoint.requests[0].accept, 'application/json');
+        expect(endpoint.requests[0].sessionId, isNull);
+        expect(endpoint.requests[0].lastEventId, isNull);
+        expect(endpoint.requests[0].body, isA<List>());
+        expect(endpoint.requests[1].accept, contains('text/event-stream'));
+        expect(endpoint.requests[1].sessionId, sessionId);
+        expect(endpoint.requests[1].lastEventId, eventId);
+        expect(endpoint.requests[1].body, isA<List>());
+      },
+    );
+
     test('uses Connectanum WAMP meta procedure helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -1213,6 +1277,11 @@ final class _FakeMcpEndpoint {
               'result': <String, Object?>{'tools': <Object?>[]},
             },
       ];
+      if (responses.isEmpty) {
+        request.response.statusCode = HttpStatus.accepted;
+        await request.response.close();
+        return;
+      }
       if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
         'text/event-stream',
       )) {

@@ -953,6 +953,49 @@ Future<void> _smokeGenericJsonRpcApi(
     'generic Streamable batch tools/list missed $_toolName',
   );
 
+  final directNotificationBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': <String, Object?>{},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/progress',
+        'params': <String, Object?>{
+          'progressToken': 'generic-direct-notification-batch',
+          'progress': 1,
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  _expect(
+    directNotificationBatch == null,
+    'generic direct JSON notification-only batch returned a response',
+  );
+
+  final streamableNotificationBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': <String, Object?>{},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/tools/list_changed',
+        'params': <String, Object?>{},
+      },
+    ],
+  );
+  _expect(
+    streamableNotificationBatch == null,
+    'generic Streamable notification-only batch returned a response',
+  );
+
   _expect(
     client.sessionId == sessionId && client.lastEventId == eventId,
     'generic direct JSON or batch APIs changed Streamable session state',
@@ -2582,6 +2625,11 @@ final class _AgentMcpEndpoint {
       if (response != null) {
         responses.add(response);
       }
+    }
+    if (responses.isEmpty) {
+      request.response.statusCode = HttpStatus.accepted;
+      await request.response.close();
+      return;
     }
     await _writeJson(request, responses);
   }
@@ -5125,6 +5173,31 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     label: label,
   );
 
+  final notificationBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': <String, Object?>{},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/progress',
+        'params': <String, Object?>{
+          'progressToken': 'generic-direct-notification-batch',
+          'progress': 1,
+        },
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (notificationBatch != null) {
+    throw StateError(
+      'Generic direct JSON-RPC notification-only batch returned a response.',
+    );
+  }
+
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Generic direct JSON-RPC access changed session state.');
@@ -6231,6 +6304,31 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       );
     }
     previousEventId = eventId;
+  }
+
+  final notificationBatch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': <String, Object?>{},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/tools/list_changed',
+        'params': <String, Object?>{},
+      },
+    ],
+  );
+  if (notificationBatch != null) {
+    throw StateError(
+      'Generic Streamable JSON-RPC notification-only batch returned a response.',
+    );
+  }
+  if (client.sessionId != sessionId || client.lastEventId != previousEventId) {
+    throw StateError(
+      'Generic Streamable JSON-RPC notification-only batch changed session state.',
+    );
   }
 
   final toolsId = '$label-generic-streamable-tools';
