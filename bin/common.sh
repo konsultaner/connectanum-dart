@@ -886,6 +886,9 @@ Future<void> _smokeGenericJsonRpcApi(
     ],
     streamable: false,
     includeSession: false,
+    headers: const <String, String>{
+      'x-consumer-trace': 'generic-direct-batch',
+    },
   );
   _expect(
     directBatch != null && directBatch.length == 3,
@@ -971,6 +974,9 @@ Future<void> _smokeGenericJsonRpcApi(
     ],
     streamable: false,
     includeSession: false,
+    headers: const <String, String>{
+      'x-consumer-trace': 'generic-direct-notification-batch',
+    },
   );
   _expect(
     directNotificationBatch == null,
@@ -1013,6 +1019,18 @@ Future<void> _smokeGenericJsonRpcApi(
   _expect(
     client.sessionId == sessionId && client.lastEventId == eventId,
     'generic direct JSON, notification, or batch APIs changed Streamable session state',
+  );
+  const expectedDirectTraceHeaders = <String>{
+    'generic-direct-batch',
+    'generic-direct-notification-batch',
+  };
+  final missingDirectTraceHeaders = expectedDirectTraceHeaders.difference(
+    endpoint.directTraceHeadersWithoutSession,
+  );
+  _expect(
+    missingDirectTraceHeaders.isEmpty,
+    'generic direct JSON batches did not forward custom headers without '
+    'session state for ${missingDirectTraceHeaders.join(', ')}',
   );
   const expectedDirectMethods = <String>{
     'connectanum.tools.list',
@@ -2462,6 +2480,7 @@ final class _AgentMcpEndpoint {
   late final StreamSubscription<HttpRequest> _subscription;
   final directMethodsWithoutSession = <String>{};
   final directToolNamesWithoutSession = <String>{};
+  final directTraceHeadersWithoutSession = <String>{};
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   var sawDirectRequestWithoutSession = false;
@@ -2721,6 +2740,10 @@ final class _AgentMcpEndpoint {
     Map<String, Object?> message,
   ) {
     if (method != null && request.headers.value('MCP-Session-Id') == null) {
+      final trace = request.headers.value('x-consumer-trace');
+      if (trace != null) {
+        directTraceHeadersWithoutSession.add(trace);
+      }
       directMethodsWithoutSession.add(method);
       if (method == 'connectanum.tool.call' ||
           method == 'connectanum.tools.call') {
@@ -5217,6 +5240,9 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     ],
     streamable: false,
     includeSession: false,
+    headers: const <String, String>{
+      'x-consumer-trace': 'router-direct-notification-batch',
+    },
   );
   if (notificationBatch != null) {
     throw StateError(

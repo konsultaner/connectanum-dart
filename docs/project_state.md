@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: `d33e43e`
-(`test: cover mcp notification-only batches`; hosted CI evidence clean)
+Last reviewed branch checkpoint: MCP direct batch header smoke
+(local verification clean; hosted evidence pending after push)
 Active exec plan:
-`docs/exec-plans/2026-05-10-mcp-direct-notification-helper-smoke.md`
-(complete; local verification clean).
+`docs/exec-plans/2026-05-10-mcp-direct-batch-header-smoke.md`
+(complete; local verification clean, hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-10-mcp-direct-batch-header-smoke.md`
+(complete; local verification clean, hosted evidence pending).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-direct-notification-helper-smoke.md`
-(complete; local verification clean).
+(complete; hosted CI evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-notification-only-batch-smoke.md`
 (complete; hosted CI evidence clean).
@@ -215,10 +218,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`d33e43e`
-(`test: cover mcp notification-only batches`; hosted CI evidence clean).
-Current implementation checkpoint: MCP direct notification helper smoke
-(complete; local verification clean).
+pending push for the MCP direct batch header smoke; previous pushed checkpoint
+is `7e9226f` (`test: cover mcp direct notifications`; hosted CI evidence clean).
+Current implementation checkpoint: MCP direct batch header smoke
+(complete; local verification clean, hosted evidence pending).
+Previous implementation checkpoint: MCP direct notification helper smoke
+(complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP notification-only batch smoke
 (complete; hosted CI evidence clean).
 Previous implementation checkpoint: MCP deterministic WAMP API catalog smoke
@@ -542,6 +547,24 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP direct batch header smoke is complete through full local verification.
+    Pre-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
+    `McpStreamableHttpClient.postBatch` now accepts per-call `headers`, matching
+    the direct JSON-RPC header controls already exposed by `post`, `request`,
+    and `notification`. Package coverage pins a direct JSON-RPC batch with an
+    active Streamable session as session-free while forwarding a neutral
+    consumer header. Generated neutral client-only package smokes assert direct
+    batch and notification-only batch headers are forwarded without
+    `MCP-Session-Id`, and router-hosted consumer smoke coverage compiles and
+    runs the same public API against a real MCP endpoint. `dart format
+    packages/connectanum_client/lib/src/mcp/streamable_http_client.dart
+    packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+    `bash -n bin/common.sh`, focused `dart test
+    packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+    focused `run_mcp_client_package_smoke`, focused
+    `run_mcp_consumer_package_smoke`, post-change `bin/test-fast`, and full
+    local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`. Push and
+    hosted CI/deployment-chain evidence are pending.
   - MCP direct notification helper smoke is complete through full local
     verification. Pre-change
     `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
@@ -559,8 +582,19 @@ order.
     packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
     focused `run_mcp_client_package_smoke`, focused
     `run_mcp_consumer_package_smoke`, post-change `bin/test-fast`, and full
-    local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`. Push and
-    hosted CI/deployment-chain evidence are pending.
+    local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`. Commit
+    `7e9226f` (`test: cover mcp direct notifications`) is pushed to both
+    remotes. GitHub `CI` run `25620848947` completed successfully for
+    `7e9226f` with `Fast Checks` and `Full Verify` green. GitHub
+    `Dart Package Publish Dry Run` run `25620848943` completed successfully for
+    `7e9226f`, and the audit confirmed it covers the checked-out head. GitHub
+    `WAMP Profile Benchmarks` run `25620848945` completed successfully for
+    `7e9226f`. The deployment-chain audit passed with clean latest CI, clean CI
+    log scan, and clean Dart package publish dry-run evidence. Strict audit
+    still reports only known operator-side release-hardening gaps: branch
+    protection/required checks are absent, `.github/workflows/router-image.yml`
+    is not yet visible from the default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP notification-only batch smoke is complete through full local
     verification. Public fake MCP smoke endpoints now mirror the real
     router-hosted MCP endpoint by returning `202 Accepted` when a JSON-RPC

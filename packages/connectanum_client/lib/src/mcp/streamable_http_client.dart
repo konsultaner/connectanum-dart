@@ -394,11 +394,13 @@ final class McpStreamableHttpClient {
     List<McpJsonMap> messages, {
     bool streamable = true,
     bool includeSession = true,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await _postPayload(
       messages,
       streamable: streamable,
       includeSession: includeSession,
+      extraHeaders: headers,
     );
     if (response == null) {
       return null;

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Direct Notification Helper Smoke
 
-Status: complete; local verification clean
+Status: complete; hosted CI evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -62,7 +62,22 @@ private project assumptions or accidental Streamable session mutation.
   `TMPDIR`.
 - Post-change `bin/test-fast` passed on 2026-05-10 with isolated `TMPDIR`.
 - Full local `bin/verify` passed on 2026-05-10 with isolated `TMPDIR`.
-- Pending: hosted CI/deployment-chain evidence after push
+- Commit `7e9226f` (`test: cover mcp direct notifications`) was pushed to
+  `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25620848947` completed successfully for `7e9226f` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `Dart Package Publish Dry Run` run `25620848943` completed
+  successfully for `7e9226f`; the deployment-chain audit confirmed the dry run
+  covers the checked-out head.
+- GitHub `WAMP Profile Benchmarks` run `25620848945` completed successfully
+  for `7e9226f`.
+- Deployment-chain audit passed on 2026-05-10 with clean latest CI, clean CI
+  log scan, and clean Dart package publish dry-run evidence.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -72,5 +87,6 @@ private project assumptions or accidental Streamable session mutation.
 
 ## Handoff
 
-Implementation and full local verification are complete. Push and hosted
-deployment-chain evidence are pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side release-hardening
+work.

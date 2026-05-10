@@ -858,6 +858,9 @@ void main() {
           ],
           streamable: false,
           includeSession: false,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-batch-smoke',
+          },
         );
 
         expect(batch, hasLength(1));
@@ -868,6 +871,7 @@ void main() {
         expect(endpoint.requests.single.accept, 'application/json');
         expect(endpoint.requests.single.sessionId, isNull);
         expect(endpoint.requests.single.lastEventId, isNull);
+        expect(endpoint.requests.single.consumerTrace, 'direct-batch-smoke');
         expect(endpoint.requests.single.mcpMethod, isNull);
         expect(endpoint.requests.single.body, isA<List>());
       },
@@ -2007,6 +2011,7 @@ final class _SeenRequest {
     required this.lastEventId,
     required this.mcpMethod,
     required this.mcpName,
+    required this.consumerTrace,
     required this.mcpParameterHeaders,
     required this.contentLength,
     required this.transferEncoding,
@@ -2020,6 +2025,7 @@ final class _SeenRequest {
   final String? lastEventId;
   final String? mcpMethod;
   final String? mcpName;
+  final String? consumerTrace;
   final Map<String, String> mcpParameterHeaders;
   final int contentLength;
   final String? transferEncoding;
@@ -2034,6 +2040,7 @@ final class _SeenRequest {
       lastEventId: request.headers.value('Last-Event-ID'),
       mcpMethod: request.headers.value(_headerMethod),
       mcpName: request.headers.value(_headerName),
+      consumerTrace: request.headers.value('x-consumer-trace'),
       mcpParameterHeaders: _mcpParameterHeadersFrom(request),
       contentLength: request.headers.contentLength,
       transferEncoding: request.headers.value(
