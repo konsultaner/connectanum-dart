@@ -3964,6 +3964,10 @@ Future<ConnectanumHttpAuthGrant> _issueScramHttpGrant(
 Future<void> _smokeChallengeHttpAuthMcpGrants(
   RouterBinding binding,
 ) async {
+  await _expectRejectedChallengeHttpAuthGrant(
+    binding,
+    authMethod: 'wampcra',
+  );
   final wampCraGrant = await _issueWampCraHttpGrant(binding);
   _expectHttpAuthGrant(
     wampCraGrant,
@@ -3977,6 +3981,10 @@ Future<void> _smokeChallengeHttpAuthMcpGrants(
     label: 'secure-wampcra',
   );
 
+  await _expectRejectedChallengeHttpAuthGrant(
+    binding,
+    authMethod: 'scram',
+  );
   final scramGrant = await _issueScramHttpGrant(binding);
   _expectHttpAuthGrant(
     scramGrant,
@@ -3989,6 +3997,48 @@ Future<void> _smokeChallengeHttpAuthMcpGrants(
     scramGrant,
     label: 'secure-scram',
   );
+}
+
+Future<void> _expectRejectedChallengeHttpAuthGrant(
+  RouterBinding binding, {
+  required String authMethod,
+}) async {
+  final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
+  try {
+    if (authMethod == 'wampcra') {
+      await authClient.issueWampCraToken(
+        realm: _realm,
+        authId: _wampCraAuthId,
+        secret: 'wrong-$_wampCraSecret',
+      );
+    } else if (authMethod == 'scram') {
+      await authClient.issueScramToken(
+        realm: _realm,
+        authId: _scramAuthId,
+        secret: 'wrong-$_scramSecret',
+      );
+    } else {
+      throw ArgumentError.value(authMethod, 'authMethod');
+    }
+  } on ConnectanumHttpAuthException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'HTTP auth bridge rejected $authMethod with ${error.statusCode} '
+        'instead of ${HttpStatus.unauthorized}.',
+      );
+    }
+    final errorText = jsonEncode(error.error ?? error.body);
+    if (errorText.contains('access_token') ||
+        errorText.contains('refresh_token')) {
+      throw StateError(
+        'HTTP auth bridge rejection for $authMethod leaked token material.',
+      );
+    }
+    return;
+  } finally {
+    authClient.close(force: true);
+  }
+  throw StateError('HTTP auth bridge accepted invalid $authMethod credentials.');
 }
 
 void _expectHttpAuthGrant(
