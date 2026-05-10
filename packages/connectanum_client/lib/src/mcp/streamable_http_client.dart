@@ -141,8 +141,17 @@ final class McpStreamableHttpClient {
     return response;
   }
 
-  Future<McpJsonMap> ping({Object? id, bool streamable = true}) async {
-    final response = await request('ping', id: id, streamable: streamable);
+  Future<McpJsonMap> ping({
+    Object? id,
+    bool streamable = true,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final response = await request(
+      'ping',
+      id: id,
+      streamable: streamable,
+      headers: headers,
+    );
     return _jsonRpcResultFrom(response, method: 'ping');
   }
 
@@ -150,12 +159,14 @@ final class McpStreamableHttpClient {
     Object? id,
     String? cursor,
     bool streamable = true,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
       'tools/list',
       id: id,
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: streamable,
+      headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'tools/list');
     final tools = _rememberToolHeaderParameters(
@@ -177,14 +188,18 @@ final class McpStreamableHttpClient {
     Object? id,
     McpJsonMap arguments = const <String, Object?>{},
     bool streamable = true,
+    Map<String, String> headers = const <String, String>{},
   }) async {
-    final headers = _mcpToolParameterHeaders(name, arguments);
+    final parameterHeaders = _mcpToolParameterHeaders(name, arguments);
+    final requestHeaders = parameterHeaders.isEmpty
+        ? headers
+        : <String, String>{...headers, ...parameterHeaders};
     final response = await request(
       'tools/call',
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: streamable,
-      headers: headers,
+      headers: requestHeaders,
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
   }
@@ -192,6 +207,7 @@ final class McpStreamableHttpClient {
   Future<McpStreamableToolListPage> listConnectanumToolsDirect({
     Object? id,
     String? cursor,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     const method = 'connectanum.tools.list';
     final response = await request(
@@ -200,6 +216,7 @@ final class McpStreamableHttpClient {
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: false,
       includeSession: false,
+      headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: method);
     final tools = _rememberToolHeaderParameters(
@@ -220,6 +237,7 @@ final class McpStreamableHttpClient {
     String name, {
     Object? id,
     McpJsonMap arguments = const <String, Object?>{},
+    Map<String, String> headers = const <String, String>{},
   }) async {
     const method = 'connectanum.tool.call';
     final response = await request(
@@ -228,6 +246,7 @@ final class McpStreamableHttpClient {
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: false,
       includeSession: false,
+      headers: headers,
     );
     return _jsonRpcResultFrom(response, method: method);
   }
@@ -236,6 +255,7 @@ final class McpStreamableHttpClient {
     String method, {
     Object? id,
     McpJsonMap params = const <String, Object?>{},
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
       method,
@@ -243,6 +263,7 @@ final class McpStreamableHttpClient {
       params: params,
       streamable: false,
       includeSession: false,
+      headers: headers,
     );
     return _jsonRpcResultFrom(response, method: method);
   }
@@ -252,6 +273,7 @@ final class McpStreamableHttpClient {
     String? cursor,
     bool streamable = true,
     bool directJson = false,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
       'resources/list',
@@ -259,6 +281,7 @@ final class McpStreamableHttpClient {
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'resources/list');
     return McpStreamableResourceListPage(
@@ -277,6 +300,7 @@ final class McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
       'resources/read',
@@ -284,6 +308,7 @@ final class McpStreamableHttpClient {
       params: <String, Object?>{'uri': uri},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'resources/read');
     return _jsonMapListFrom(
@@ -299,6 +324,7 @@ final class McpStreamableHttpClient {
     String? cursor,
     bool streamable = true,
     bool directJson = false,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
       'resources/templates/list',
@@ -306,6 +332,7 @@ final class McpStreamableHttpClient {
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      headers: headers,
     );
     final result = _jsonRpcResultFrom(
       response,
@@ -327,6 +354,7 @@ final class McpStreamableHttpClient {
     String? cursor,
     bool streamable = true,
     bool directJson = false,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
       'prompts/list',
@@ -334,6 +362,7 @@ final class McpStreamableHttpClient {
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'prompts/list');
     return McpStreamablePromptListPage(
@@ -353,6 +382,7 @@ final class McpStreamableHttpClient {
     Map<String, String> arguments = const <String, String>{},
     bool streamable = true,
     bool directJson = false,
+    Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
       'prompts/get',
@@ -360,6 +390,7 @@ final class McpStreamableHttpClient {
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      headers: headers,
     );
     return _jsonRpcResultFrom(response, method: 'prompts/get');
   }

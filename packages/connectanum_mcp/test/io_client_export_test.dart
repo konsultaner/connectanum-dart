@@ -67,6 +67,9 @@ void main() {
 
       final tools = await client.listConnectanumToolsDirect(
         id: 'io-direct-tools',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-tools-list',
+        },
       );
       expect(tools.nextCursor, isNull);
       expect(
@@ -78,6 +81,9 @@ void main() {
         'app.echo',
         id: 'io-direct-tool-call',
         arguments: const <String, Object?>{'message': 'tool'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-tool-call',
+        },
       );
       expect(toolResult['isError'], isFalse);
       expect(toolResult['structuredContent'], {
@@ -88,6 +94,9 @@ void main() {
         'app.echo',
         id: 'io-direct-method-call',
         params: const <String, Object?>{'message': 'method'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-method-call',
+        },
       );
       expect(methodResult['structuredContent'], {
         'echo': {'message': 'method'},
@@ -98,6 +107,9 @@ void main() {
         id: 'io-direct-meta-method',
         params: const <String, Object?>{
           'arguments': <Object?>['app.echo'],
+        },
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-meta-method',
         },
       );
       expect(rawMeta['structuredContent'], {
@@ -136,6 +148,10 @@ void main() {
         'connectanum.tool.call',
         'connectanum.tool.call',
       ]);
+      expect(endpoint.requests[0].consumerTrace, 'io-direct-tools-list');
+      expect(endpoint.requests[1].consumerTrace, 'io-direct-tool-call');
+      expect(endpoint.requests[2].consumerTrace, 'io-direct-method-call');
+      expect(endpoint.requests[3].consumerTrace, 'io-direct-meta-method');
 
       final toolCallParams = _jsonMapFrom(
         endpoint.requests[1].body['params'],
@@ -431,7 +447,10 @@ void main() {
     );
     expect(mcpClient.sessionId, _ioAuthSessionId);
 
-    final ping = await mcpClient.ping(id: 'io-auth-ping');
+    final ping = await mcpClient.ping(
+      id: 'io-auth-ping',
+      headers: const <String, String>{'x-consumer-trace': 'io-auth-ping'},
+    );
     expect(ping, isEmpty);
 
     final refreshed = await authClient.refreshToken(grant.refreshToken!);
@@ -470,6 +489,7 @@ void main() {
     expect(endpoint.mcpRequests[1].authorization, 'Bearer $_ioAccessToken');
     expect(endpoint.mcpRequests[1].sessionId, _ioAuthSessionId);
     expect(endpoint.mcpRequests[1].body['method'], 'ping');
+    expect(endpoint.mcpRequests[1].consumerTrace, 'io-auth-ping');
   });
 
   test(
@@ -494,6 +514,9 @@ void main() {
       final streamableContents = await client.readResource(
         _ioResourceUri,
         id: 'io-streamable-resource-read',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-streamable-resource-read',
+        },
       );
       expect(streamableContents.single['text'], contains('IO entrypoint'));
       expect(client.lastEventId, 'io-session-1:post:1');
@@ -502,6 +525,9 @@ void main() {
         _ioPromptName,
         id: 'io-streamable-prompt-get',
         arguments: const <String, String>{'taskId': 'T-streamable'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-streamable-prompt-get',
+        },
       );
       expect(
         jsonEncode(streamablePrompt['messages']),
@@ -515,6 +541,9 @@ void main() {
       final directResources = await client.listResources(
         id: 'io-direct-resources',
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-resources-list',
+        },
       );
       expect(directResources.resources.single['uri'], _ioResourceUri);
 
@@ -523,6 +552,9 @@ void main() {
         id: 'io-direct-prompt-get',
         arguments: const <String, String>{'taskId': 'T-direct'},
         directJson: true,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-prompt-get',
+        },
       );
       expect(jsonEncode(directPrompt['messages']), contains('T-direct'));
 
@@ -588,6 +620,10 @@ void main() {
       expect(endpoint.requests[3].accept, 'application/json');
       expect(endpoint.requests[4].accept, 'application/json');
       expect(endpoint.requests[5].accept, 'application/json');
+      expect(endpoint.requests[1].consumerTrace, 'io-streamable-resource-read');
+      expect(endpoint.requests[2].consumerTrace, 'io-streamable-prompt-get');
+      expect(endpoint.requests[3].consumerTrace, 'io-direct-resources-list');
+      expect(endpoint.requests[4].consumerTrace, 'io-direct-prompt-get');
     },
   );
 
@@ -1322,11 +1358,13 @@ final class _SeenAuthorizedMcpRequest {
   const _SeenAuthorizedMcpRequest({
     required this.authorization,
     required this.sessionId,
+    required this.consumerTrace,
     required this.body,
   });
 
   final String? authorization;
   final String? sessionId;
+  final String? consumerTrace;
   final Map<String, Object?> body;
 
   factory _SeenAuthorizedMcpRequest.from(
@@ -1336,6 +1374,7 @@ final class _SeenAuthorizedMcpRequest {
     return _SeenAuthorizedMcpRequest(
       authorization: request.headers.value(HttpHeaders.authorizationHeader),
       sessionId: request.headers.value('MCP-Session-Id'),
+      consumerTrace: request.headers.value('x-consumer-trace'),
       body: body,
     );
   }
@@ -1345,17 +1384,20 @@ final class _SeenRequest {
   const _SeenRequest({
     required this.accept,
     required this.sessionId,
+    required this.consumerTrace,
     required this.body,
   });
 
   final String? accept;
   final String? sessionId;
+  final String? consumerTrace;
   final Map<String, Object?> body;
 
   factory _SeenRequest.from(HttpRequest request, Map<String, Object?> body) {
     return _SeenRequest(
       accept: request.headers.value(HttpHeaders.acceptHeader),
       sessionId: request.headers.value('MCP-Session-Id'),
+      consumerTrace: request.headers.value('x-consumer-trace'),
       body: body,
     );
   }

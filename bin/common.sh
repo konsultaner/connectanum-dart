@@ -761,6 +761,9 @@ Future<void> main() async {
     final tools = await client.listTools(
       id: 'tools-json',
       streamable: false,
+      headers: const <String, String>{
+        'x-consumer-trace': 'typed-tools-json',
+      },
     );
     _expect(
       tools.tools.any((tool) => tool['name'] == _toolName),
@@ -772,6 +775,9 @@ Future<void> main() async {
       id: 'call-json',
       arguments: const <String, Object?>{'text': 'ready'},
       streamable: false,
+      headers: const <String, String>{
+        'x-consumer-trace': 'typed-tool-json',
+      },
     );
     final structuredContent = _jsonMapFrom(
       toolResult['structuredContent'],
@@ -785,6 +791,9 @@ Future<void> main() async {
 
     final directTools = await client.listConnectanumToolsDirect(
       id: 'direct-tools',
+      headers: const <String, String>{
+        'x-consumer-trace': 'direct-tools-list',
+      },
     );
     _expect(
       directTools.tools.any((tool) => tool['name'] == _toolName),
@@ -793,6 +802,11 @@ Future<void> main() async {
     _expect(
       endpoint.sawDirectRequestWithoutSession,
       'direct JSON request included Streamable HTTP session state',
+    );
+    _expect(
+      endpoint.directTraceHeadersWithoutSession.contains('direct-tools-list'),
+      'direct JSON tools helper did not forward custom headers without '
+      'Streamable session state',
     );
 
     await _smokeGenericJsonRpcApi(client, endpoint);
@@ -1818,6 +1832,9 @@ Future<void> _smokeDirectToolApi(
     _toolName,
     id: 'direct-tool-call',
     arguments: const <String, Object?>{'text': 'direct tool'},
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-tool-call',
+    },
   );
   _expect(
     _toolEchoText(directToolCall, label: 'direct tool call') == 'direct tool',
@@ -1831,6 +1848,9 @@ Future<void> _smokeDirectToolApi(
       'name': _toolName,
       'arguments': <String, Object?>{'text': 'direct alias'},
     },
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-tools-call-alias',
+    },
   );
   _expect(
     _toolEchoText(aliasToolCall, label: 'direct tools.call alias') ==
@@ -1842,6 +1862,9 @@ Future<void> _smokeDirectToolApi(
     _toolName,
     id: 'direct-dotted-tool-call',
     params: const <String, Object?>{'text': 'direct dotted'},
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-dotted-tool-call',
+    },
   );
   _expect(
     _toolEchoText(dottedToolCall, label: 'direct dotted tool') ==
@@ -1868,13 +1891,33 @@ Future<void> _smokeDirectToolApi(
     'direct JSON generic tool call did not capture the tool name without '
     'Streamable session state',
   );
+  const expectedDirectToolApiTraceHeaders = <String>{
+    'direct-tools-list',
+    'direct-tool-call',
+    'direct-tools-call-alias',
+    'direct-dotted-tool-call',
+  };
+  final missingDirectToolApiTraceHeaders =
+      expectedDirectToolApiTraceHeaders.difference(
+    endpoint.directTraceHeadersWithoutSession,
+  );
+  _expect(
+    missingDirectToolApiTraceHeaders.isEmpty,
+    'direct JSON generic tool API did not forward custom headers without '
+    'session state for ${missingDirectToolApiTraceHeaders.join(', ')}',
+  );
 }
 
 Future<void> _smokeResourcesAndPrompts(
   McpStreamableHttpClient client,
   _AgentMcpEndpoint endpoint,
 ) async {
-  final resources = await client.listResources(id: 'streamable-resources');
+  final resources = await client.listResources(
+    id: 'streamable-resources',
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-resources',
+    },
+  );
   _expect(
     resources.resources.single['uri'] == _resourceUri,
     'streamable resources/list failed',
@@ -1883,6 +1926,9 @@ Future<void> _smokeResourcesAndPrompts(
   final readResource = await client.readResource(
     _resourceUri,
     id: 'streamable-resource-read',
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-resource-read',
+    },
   );
   _expect(
     readResource.single['text'] == 'agent context is available',
@@ -1891,13 +1937,21 @@ Future<void> _smokeResourcesAndPrompts(
 
   final templates = await client.listResourceTemplates(
     id: 'streamable-resource-templates',
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-templates',
+    },
   );
   _expect(
     templates.resourceTemplates.single['uriTemplate'] == _resourceTemplateUri,
     'streamable resources/templates/list failed',
   );
 
-  final prompts = await client.listPrompts(id: 'streamable-prompts');
+  final prompts = await client.listPrompts(
+    id: 'streamable-prompts',
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-prompts',
+    },
+  );
   _expect(
     prompts.prompts.single['name'] == _promptName,
     'streamable prompts/list failed',
@@ -1907,6 +1961,9 @@ Future<void> _smokeResourcesAndPrompts(
     _promptName,
     id: 'streamable-prompt-get',
     arguments: const <String, String>{'taskId': 'T-streamable'},
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-prompt-get',
+    },
   );
   _expect(
     jsonEncode(prompt).contains('T-streamable'),
@@ -1916,6 +1973,9 @@ Future<void> _smokeResourcesAndPrompts(
   final directResources = await client.listResources(
     id: 'direct-resources',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-direct-resources',
+    },
   );
   _expect(
     directResources.resources.single['uri'] == _resourceUri,
@@ -1926,6 +1986,9 @@ Future<void> _smokeResourcesAndPrompts(
     _resourceUri,
     id: 'direct-resource-read',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-direct-resource-read',
+    },
   );
   _expect(
     directReadResource.single['text'] == 'agent context is available',
@@ -1935,6 +1998,9 @@ Future<void> _smokeResourcesAndPrompts(
   final directTemplates = await client.listResourceTemplates(
     id: 'direct-resource-templates',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-direct-templates',
+    },
   );
   _expect(
     directTemplates.resourceTemplates.single['uriTemplate'] ==
@@ -1945,6 +2011,9 @@ Future<void> _smokeResourcesAndPrompts(
   final directPrompts = await client.listPrompts(
     id: 'direct-prompts',
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-direct-prompts',
+    },
   );
   _expect(
     directPrompts.prompts.single['name'] == _promptName,
@@ -1956,6 +2025,9 @@ Future<void> _smokeResourcesAndPrompts(
     id: 'direct-prompt-get',
     arguments: const <String, String>{'taskId': 'T-direct'},
     directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-direct-prompt-get',
+    },
   );
   _expect(
     jsonEncode(directPrompt).contains('T-direct'),
@@ -1976,6 +2048,40 @@ Future<void> _smokeResourcesAndPrompts(
     missingDirectResourcePromptMethods.isEmpty,
     'direct JSON resource/prompt helpers included Streamable session state '
     'for ${missingDirectResourcePromptMethods.join(', ')}',
+  );
+  const expectedStreamableResourcePromptTraceHeaders = <String>{
+    'POST:resource-prompts-streamable-resources',
+    'POST:resource-prompts-streamable-resource-read',
+    'POST:resource-prompts-streamable-templates',
+    'POST:resource-prompts-streamable-prompts',
+    'POST:resource-prompts-streamable-prompt-get',
+  };
+  final missingStreamableResourcePromptTraceHeaders =
+      expectedStreamableResourcePromptTraceHeaders.difference(
+    endpoint.streamableTraceHeadersWithSession,
+  );
+  _expect(
+    missingStreamableResourcePromptTraceHeaders.isEmpty,
+    'Streamable resource/prompt helpers did not forward custom headers with '
+    'session state for '
+    '${missingStreamableResourcePromptTraceHeaders.join(', ')}',
+  );
+  const expectedDirectResourcePromptTraceHeaders = <String>{
+    'resource-prompts-direct-resources',
+    'resource-prompts-direct-resource-read',
+    'resource-prompts-direct-templates',
+    'resource-prompts-direct-prompts',
+    'resource-prompts-direct-prompt-get',
+  };
+  final missingDirectResourcePromptTraceHeaders =
+      expectedDirectResourcePromptTraceHeaders.difference(
+    endpoint.directTraceHeadersWithoutSession,
+  );
+  _expect(
+    missingDirectResourcePromptTraceHeaders.isEmpty,
+    'direct JSON resource/prompt helpers did not forward custom headers '
+    'without session state for '
+    '${missingDirectResourcePromptTraceHeaders.join(', ')}',
   );
 }
 
@@ -4901,6 +5007,9 @@ Future<void> _smokeDirectJson(
 }) async {
   final tools = await client.listConnectanumToolsDirect(
     id: '$label-direct-tools',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-tools',
+    },
   );
   final toolNames = _toolNamesFromCatalog(
     tools.tools,
@@ -5010,6 +5119,9 @@ Future<void> _smokeDirectToolApi(
     _procedure,
     id: '$label-direct-tool-helper',
     arguments: {'taskId': helperTaskId, 'note': _headerWrappedNote},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-tool-helper',
+    },
   );
   _expectDirectToolPayload(
     helperResult,
@@ -5025,6 +5137,9 @@ Future<void> _smokeDirectToolApi(
       'name': _procedure,
       'arguments': {'taskId': aliasTaskId, 'note': _headerWrappedNote},
     },
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-tools-call-alias',
+    },
   );
   _expectDirectToolPayload(
     aliasResult,
@@ -5037,6 +5152,9 @@ Future<void> _smokeDirectToolApi(
     _procedure,
     id: '$label-direct-dotted-method',
     params: {'taskId': dottedTaskId, 'note': _headerWrappedNote},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-dotted-method',
+    },
   );
   _expectDirectToolPayload(
     dottedResult,
@@ -7540,6 +7658,9 @@ Future<void> _smokeStreamableMcp(
   final eventIdBeforeDirectCatalog = client.lastEventId;
   final directCatalog = await client.listConnectanumToolsDirect(
     id: '$label-direct-catalog-for-streamable',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-catalog-for-streamable',
+    },
   );
   final directCatalogNames = {
     for (final tool in directCatalog.tools) tool['name'] as String,
@@ -7571,6 +7692,9 @@ Future<void> _smokeStreamableMcp(
       'taskId': 'T-$label-streamable-direct-catalog',
       'note': _headerWrappedNote,
     },
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-direct-catalog-call',
+    },
   );
   final resultJson = jsonEncode(result);
   if (!resultJson.contains('T-$label-streamable-direct-catalog') ||
@@ -7578,7 +7702,12 @@ Future<void> _smokeStreamableMcp(
     throw StateError('Streamable MCP tool call returned unexpected payload.');
   }
 
-  final tools = await client.listTools(id: '$label-streamable-tools');
+  final tools = await client.listTools(
+    id: '$label-streamable-tools',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-tools',
+    },
+  );
   final names = {for (final tool in tools.tools) tool['name'] as String};
   if (!names.contains(_procedure)) {
     throw StateError('Streamable MCP tool catalog did not expose $_procedure.');
@@ -9609,6 +9738,9 @@ Future<void> _smokeResourcesAndPrompts(
   final resources = await client.listResources(
     id: '$label-$mode-resources',
     directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$mode-resources',
+    },
   );
   final resourceUris = {
     for (final resource in resources.resources) resource['uri'],
@@ -9621,6 +9753,9 @@ Future<void> _smokeResourcesAndPrompts(
     _resourceUri,
     id: '$label-$mode-resource-read',
     directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$mode-resource-read',
+    },
   );
   if (!jsonEncode(contents).contains(
     'Consumer package router-hosted MCP context document.',
@@ -9631,6 +9766,9 @@ Future<void> _smokeResourcesAndPrompts(
   final templates = await client.listResourceTemplates(
     id: '$label-$mode-resource-templates',
     directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$mode-resource-templates',
+    },
   );
   final templateUris = {
     for (final template in templates.resourceTemplates)
@@ -9645,6 +9783,9 @@ Future<void> _smokeResourcesAndPrompts(
   final prompts = await client.listPrompts(
     id: '$label-$mode-prompts',
     directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$mode-prompts',
+    },
   );
   final promptNames = {for (final prompt in prompts.prompts) prompt['name']};
   if (!promptNames.contains(_promptName)) {
@@ -9657,6 +9798,9 @@ Future<void> _smokeResourcesAndPrompts(
     id: '$label-$mode-prompt',
     arguments: {'taskId': taskId},
     directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$mode-prompt',
+    },
   );
   if (!jsonEncode(prompt).contains(taskId)) {
     throw StateError('MCP prompts/get did not substitute $taskId.');

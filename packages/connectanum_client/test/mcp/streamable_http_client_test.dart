@@ -66,7 +66,13 @@ void main() {
         );
         expect(jsonTools['id'], 'tools-json');
 
-        final ping = await client.ping(id: 'ping-json', streamable: false);
+        final ping = await client.ping(
+          id: 'ping-json',
+          streamable: false,
+          headers: const <String, String>{
+            'x-consumer-trace': 'ping-json-helper',
+          },
+        );
         expect(ping, isEmpty);
 
         final streamableBatch = await client.postBatch([
@@ -112,6 +118,7 @@ void main() {
         expect(endpoint.requests[5].accept, 'application/json');
         expect(endpoint.requests[5].body, containsPair('method', 'ping'));
         expect(endpoint.requests[5].mcpMethod, 'ping');
+        expect(endpoint.requests[5].consumerTrace, 'ping-json-helper');
         expect(endpoint.requests[6].accept, contains('text/event-stream'));
         expect(endpoint.requests[6].mcpMethod, isNull);
         expect(endpoint.requests[7].accept, 'application/json');
@@ -233,6 +240,7 @@ void main() {
       final page = await client.listTools(
         id: 'tools-helper',
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'typed-tools-list'},
       );
       expect(page.nextCursor, isNull);
       expect(page.tools, hasLength(1));
@@ -249,6 +257,7 @@ void main() {
           'wrapper': '=?base64?Zm9v?=',
         },
         streamable: false,
+        headers: const <String, String>{'x-consumer-trace': 'typed-tool-call'},
       );
       expect(result['isError'], isFalse);
       expect(result['structuredContent'], {
@@ -277,8 +286,10 @@ void main() {
 
       expect(endpoint.requests[2].mcpMethod, 'tools/list');
       expect(endpoint.requests[2].mcpName, isNull);
+      expect(endpoint.requests[2].consumerTrace, 'typed-tools-list');
       expect(endpoint.requests[3].mcpMethod, 'tools/call');
       expect(endpoint.requests[3].mcpName, 'app.echo');
+      expect(endpoint.requests[3].consumerTrace, 'typed-tool-call');
       expect(endpoint.requests[3].mcpParameterHeaders, {
         'mcp-param-message': 'hello',
         'mcp-param-attempt': '2',
@@ -303,6 +314,9 @@ void main() {
 
         final page = await client.listConnectanumToolsDirect(
           id: 'direct-tools',
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-tools-list',
+          },
         );
         expect(page.nextCursor, isNull);
         expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
@@ -311,6 +325,9 @@ void main() {
           'app.echo',
           id: 'direct-call',
           arguments: {'message': 'direct'},
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-tool-call',
+          },
         );
         expect(toolResult['isError'], isFalse);
         expect(toolResult['structuredContent'], {
@@ -321,6 +338,9 @@ void main() {
           'app.echo',
           id: 'direct-dotted',
           params: {'message': 'dotted'},
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-dotted-method',
+          },
         );
         expect(methodResult['isError'], isFalse);
         expect(methodResult['structuredContent'], {
@@ -332,6 +352,9 @@ void main() {
           id: 'direct-meta',
           params: {
             'arguments': ['app.echo'],
+          },
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-meta-method',
           },
         );
         expect(metaResult['structuredContent'], {
@@ -346,8 +369,12 @@ void main() {
           expect(request.mcpMethod, isNotEmpty);
         }
         expect(endpoint.requests[0].mcpMethod, 'connectanum.tools.list');
+        expect(endpoint.requests[0].consumerTrace, 'direct-tools-list');
         expect(endpoint.requests[1].mcpMethod, 'connectanum.tool.call');
         expect(endpoint.requests[1].mcpName, isNull);
+        expect(endpoint.requests[1].consumerTrace, 'direct-tool-call');
+        expect(endpoint.requests[2].consumerTrace, 'direct-dotted-method');
+        expect(endpoint.requests[3].consumerTrace, 'direct-meta-method');
         expect(
           endpoint.requests.first.body,
           containsPair('method', 'connectanum.tools.list'),
@@ -433,6 +460,9 @@ void main() {
       final resources = await client.listResources(
         id: 'resources-helper',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'resources-list-helper',
+        },
       );
       expect(resources.nextCursor, isNull);
       expect(resources.resources, hasLength(1));
@@ -442,6 +472,9 @@ void main() {
         'wamp://app/readme',
         id: 'resource-read',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'resource-read-helper',
+        },
       );
       expect(contents, hasLength(1));
       expect(contents.single['text'], 'hello resource');
@@ -449,6 +482,9 @@ void main() {
       final templates = await client.listResourceTemplates(
         id: 'resource-templates-helper',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'resource-templates-helper',
+        },
       );
       expect(templates.nextCursor, isNull);
       expect(templates.resourceTemplates, hasLength(1));
@@ -460,6 +496,9 @@ void main() {
       final prompts = await client.listPrompts(
         id: 'prompts-helper',
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'prompts-list-helper',
+        },
       );
       expect(prompts.nextCursor, isNull);
       expect(prompts.prompts, hasLength(1));
@@ -470,6 +509,9 @@ void main() {
         id: 'prompt-get',
         arguments: {'topic': 'mcp'},
         streamable: false,
+        headers: const <String, String>{
+          'x-consumer-trace': 'prompt-get-helper',
+        },
       );
       expect(prompt['description'], 'Summarizes a topic.');
       expect(prompt['messages'], hasLength(1));
@@ -490,8 +532,13 @@ void main() {
 
       expect(endpoint.requests[3].mcpMethod, 'resources/read');
       expect(endpoint.requests[3].mcpName, 'wamp://app/readme');
+      expect(endpoint.requests[2].consumerTrace, 'resources-list-helper');
+      expect(endpoint.requests[3].consumerTrace, 'resource-read-helper');
+      expect(endpoint.requests[4].consumerTrace, 'resource-templates-helper');
+      expect(endpoint.requests[5].consumerTrace, 'prompts-list-helper');
       expect(endpoint.requests[6].mcpMethod, 'prompts/get');
       expect(endpoint.requests[6].mcpName, 'summarize');
+      expect(endpoint.requests[6].consumerTrace, 'prompt-get-helper');
       expect(endpoint.requests[7].mcpMethod, 'prompts/get');
       expect(endpoint.requests[7].mcpName, 'missing');
     });
@@ -513,6 +560,9 @@ void main() {
         final resources = await client.listResources(
           id: 'direct-resources-helper',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-resources-list-helper',
+          },
         );
         expect(resources.resources.single['uri'], 'wamp://app/readme');
 
@@ -520,12 +570,18 @@ void main() {
           'wamp://app/readme',
           id: 'direct-resource-read',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-resource-read-helper',
+          },
         );
         expect(contents.single['text'], 'hello resource');
 
         final templates = await client.listResourceTemplates(
           id: 'direct-resource-templates-helper',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-resource-templates-helper',
+          },
         );
         expect(
           templates.resourceTemplates.single['uriTemplate'],
@@ -535,6 +591,9 @@ void main() {
         final prompts = await client.listPrompts(
           id: 'direct-prompts-helper',
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-prompts-list-helper',
+          },
         );
         expect(prompts.prompts.single['name'], 'summarize');
 
@@ -543,6 +602,9 @@ void main() {
           id: 'direct-prompt-get',
           arguments: {'topic': 'mcp'},
           directJson: true,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-prompt-get-helper',
+          },
         );
         expect(prompt['messages'], hasLength(1));
 
@@ -565,8 +627,25 @@ void main() {
         }
         expect(endpoint.requests[1].mcpMethod, 'resources/read');
         expect(endpoint.requests[1].mcpName, 'wamp://app/readme');
+        expect(
+          endpoint.requests[0].consumerTrace,
+          'direct-resources-list-helper',
+        );
+        expect(
+          endpoint.requests[1].consumerTrace,
+          'direct-resource-read-helper',
+        );
+        expect(
+          endpoint.requests[2].consumerTrace,
+          'direct-resource-templates-helper',
+        );
+        expect(
+          endpoint.requests[3].consumerTrace,
+          'direct-prompts-list-helper',
+        );
         expect(endpoint.requests[4].mcpMethod, 'prompts/get');
         expect(endpoint.requests[4].mcpName, 'summarize');
+        expect(endpoint.requests[4].consumerTrace, 'direct-prompt-get-helper');
       },
     );
 

@@ -743,7 +743,12 @@ Future<void> _smokeSupportedMcpProtocolVersion(
       );
     }
     await client.notifyInitialized();
-    final ping = await client.ping(id: '$label-$protocolVersion-ping');
+    final ping = await client.ping(
+      id: '$label-$protocolVersion-ping',
+      headers: <String, String>{
+        'x-consumer-trace': '$label-$protocolVersion-ping',
+      },
+    );
     if (ping.isNotEmpty) {
       throw StateError('MCP $label ping with $protocolVersion returned data.');
     }
@@ -792,6 +797,7 @@ Future<void> _smokeMcpEndpoint(
 }) async {
   final directTools = await client.listConnectanumToolsDirect(
     id: '$label-direct-tools',
+    headers: <String, String>{'x-consumer-trace': '$label-direct-tools'},
   );
   final directToolNames = {
     for (final tool in directTools.tools) tool['name'] as String,
@@ -804,6 +810,7 @@ Future<void> _smokeMcpEndpoint(
     'example.task.lookup',
     id: '$label-direct-call',
     params: {'taskId': 'T-$label-direct'},
+    headers: <String, String>{'x-consumer-trace': '$label-direct-call'},
   );
   print('[$label] Direct JSON-RPC result: ${jsonEncode(directResult)}');
   await _smokeDirectJsonToolMetaApi(client, label: label);
@@ -813,6 +820,7 @@ Future<void> _smokeMcpEndpoint(
   final directResources = await client.listResources(
     id: '$label-direct-resources',
     directJson: true,
+    headers: <String, String>{'x-consumer-trace': '$label-direct-resources'},
   );
   if (!directResources.resources.any(
     (resource) => resource['uri'] == 'app://example/context',
@@ -824,6 +832,9 @@ Future<void> _smokeMcpEndpoint(
     'app://example/context',
     id: '$label-direct-resource-read',
     directJson: true,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-resource-read',
+    },
   );
   if (!jsonEncode(directResource).contains('Router-hosted MCP example')) {
     throw StateError('Direct JSON-RPC resources/read did not return context.');
@@ -834,6 +845,7 @@ Future<void> _smokeMcpEndpoint(
     id: '$label-direct-prompt',
     arguments: {'taskId': 'T-$label-direct'},
     directJson: true,
+    headers: <String, String>{'x-consumer-trace': '$label-direct-prompt'},
   );
   if (!jsonEncode(directPrompt).contains('T-$label-direct')) {
     throw StateError('Direct JSON-RPC prompts/get did not render taskId.');
@@ -953,7 +965,10 @@ Future<void> _smokeMcpEndpoint(
     },
   );
 
-  final streamableTools = await client.listTools(id: 'example-tools-list');
+  final streamableTools = await client.listTools(
+    id: 'example-tools-list',
+    headers: <String, String>{'x-consumer-trace': '$label-streamable-tools'},
+  );
   final streamableToolNames = {
     for (final tool in streamableTools.tools) tool['name'] as String,
   };
@@ -967,6 +982,9 @@ Future<void> _smokeMcpEndpoint(
     'example.task.lookup',
     id: '$label-tools-call',
     arguments: {'taskId': 'T-$label-streamable'},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-tool-call',
+    },
   );
   print('[$label] Streamable MCP tool result: ${jsonEncode(streamableResult)}');
   await _smokeStreamableErrorRecovery(client, label: label);
@@ -1117,6 +1135,9 @@ Future<void> _smokeMcpEndpoint(
 
   final streamableTemplates = await client.listResourceTemplates(
     id: '$label-template-list',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-template-list',
+    },
   );
   if (!streamableTemplates.resourceTemplates.any(
     (template) => template['uriTemplate'] == 'app://example/tasks/{taskId}',
@@ -1128,6 +1149,9 @@ Future<void> _smokeMcpEndpoint(
     'summarize-task',
     id: '$label-prompt-get',
     arguments: {'taskId': 'T-$label-streamable'},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-prompt-get',
+    },
   );
   if (!jsonEncode(streamablePrompt).contains('T-$label-streamable')) {
     throw StateError('Streamable MCP prompt did not render taskId.');
