@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Package Auth Grant Smoke
 
-Status: full local verification complete; push and hosted evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-10
@@ -47,6 +47,20 @@ access-token strings where a complete HTTP auth bridge grant is available.
   passed on 2026-05-10.
 - Post-change `bin/test-fast` passed on 2026-05-10.
 - Full local `bin/verify` passed on 2026-05-10.
+- Commit `9700601` (`test: use auth grants in mcp consumer smoke`) was pushed
+  to `origin/add-router` and `github/add-router` on 2026-05-10.
+- GitHub `CI` run `25634626705` completed successfully for `9700601` with
+  `Fast Checks` (4m20s) and `Full Verify` (6m05s) green, and the hosted CI log
+  scan was clean.
+- The deployment-chain audit passed on 2026-05-10 with clean latest CI and
+  clean hosted CI logs. The latest Dart package publish dry-run remains clean
+  and relevant because no publish-sensitive paths changed since
+  `30b834a`.
+- Strict deployment-chain audit still reports only known operator-side
+  release-hardening gaps: branch protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -57,5 +71,6 @@ access-token strings where a complete HTTP auth bridge grant is available.
 
 ## Handoff
 
-Implementation and full local verification are complete. Push and hosted
-deployment-chain evidence remain pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side
+release-hardening work.

@@ -1675,25 +1675,25 @@ void main() {
         final httpClient = HttpClient();
         addTearDown(() => httpClient.close(force: true));
 
-        final primaryToken = await _issueTicketHttpToken(
+        final primaryGrant = await _issueTicketHttpGrant(
           httpClient,
           listener.port,
           authId: 'user-1',
         );
-        final otherToken = await _issueTicketHttpToken(
+        final otherGrant = await _issueTicketHttpGrant(
           httpClient,
           listener.port,
           authId: 'user-2',
         );
 
-        final primaryMcpClient = McpStreamableHttpClient.withBearerToken(
+        final primaryMcpClient = McpStreamableHttpClient.withAuthGrant(
           Uri(
             scheme: 'http',
             host: '127.0.0.1',
             port: listener.port,
             path: '/mcp/secure',
           ),
-          primaryToken,
+          primaryGrant,
         );
         addTearDown(() => primaryMcpClient.close(force: true));
 
@@ -1723,7 +1723,7 @@ void main() {
           },
           headers: {
             ...toolsHeaders,
-            HttpHeaders.authorizationHeader: 'Bearer $otherToken',
+            HttpHeaders.authorizationHeader: 'Bearer ${otherGrant.accessToken}',
           },
         );
         expect(reuseWithOtherPrincipal.statusCode, equals(HttpStatus.notFound));
@@ -1752,7 +1752,7 @@ void main() {
           headers: {
             ...sessionHeaders,
             HttpHeaders.acceptHeader: 'text/event-stream',
-            HttpHeaders.authorizationHeader: 'Bearer $otherToken',
+            HttpHeaders.authorizationHeader: 'Bearer ${otherGrant.accessToken}',
           },
         );
         expect(pollWithOtherPrincipal.statusCode, equals(HttpStatus.notFound));
@@ -1763,7 +1763,7 @@ void main() {
           '/mcp/secure',
           headers: {
             ...sessionHeaders,
-            HttpHeaders.authorizationHeader: 'Bearer $otherToken',
+            HttpHeaders.authorizationHeader: 'Bearer ${otherGrant.accessToken}',
           },
         );
         expect(
@@ -1950,15 +1950,15 @@ void main() {
         addTearDown(() => publicClient.close(force: true));
         await expectStreamableBatch(publicClient, 'public');
 
-        final token = await _issueTicketHttpToken(httpClient, listener.port);
-        final secureClient = McpStreamableHttpClient.withBearerToken(
+        final grant = await _issueTicketHttpGrant(httpClient, listener.port);
+        final secureClient = McpStreamableHttpClient.withAuthGrant(
           Uri(
             scheme: 'http',
             host: '127.0.0.1',
             port: listener.port,
             path: '/mcp/secure',
           ),
-          token,
+          grant,
         );
         addTearDown(() => secureClient.close(force: true));
         await expectStreamableBatch(secureClient, 'secure');
@@ -2958,16 +2958,16 @@ void main() {
         equals(HttpStatus.unauthorized),
       );
 
-      final token = await _issueTicketHttpToken(client, listener.port);
-      final authHeaders = {'authorization': 'Bearer $token'};
-      final directSecureMcpClient = McpStreamableHttpClient.withBearerToken(
+      final grant = await _issueTicketHttpGrant(client, listener.port);
+      final authHeaders = {'authorization': 'Bearer ${grant.accessToken}'};
+      final directSecureMcpClient = McpStreamableHttpClient.withAuthGrant(
         Uri(
           scheme: 'http',
           host: '127.0.0.1',
           port: listener.port,
           path: '/mcp/secure',
         ),
-        token,
+        grant,
       );
       addTearDown(() => directSecureMcpClient.close(force: true));
 
@@ -3282,14 +3282,14 @@ void main() {
         equals('T-3'),
       );
 
-      final secureStreamableClient = McpStreamableHttpClient.withBearerToken(
+      final secureStreamableClient = McpStreamableHttpClient.withAuthGrant(
         Uri(
           scheme: 'http',
           host: '127.0.0.1',
           port: listener.port,
           path: '/mcp/secure',
         ),
-        token,
+        grant,
       );
       addTearDown(() => secureStreamableClient.close(force: true));
 
@@ -5384,7 +5384,7 @@ Future<Map<String, Object?>> _pollStreamableMcpUntilEvents(
   fail('Timed out waiting for Streamable MCP subscription events for $handle');
 }
 
-Future<String> _issueTicketHttpToken(
+Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
   HttpClient client,
   int port, {
   String realm = 'realm1',
@@ -5412,7 +5412,7 @@ Future<String> _issueTicketHttpToken(
   expect(success.statusCode, equals(HttpStatus.ok), reason: success.body);
   final successJson = success.json;
   expect(successJson, isNotNull);
-  return successJson!['access_token'] as String;
+  return ConnectanumHttpAuthGrant.fromJson(successJson!);
 }
 
 int _parseContentLength(String headers) {
