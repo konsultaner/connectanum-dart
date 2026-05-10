@@ -450,12 +450,16 @@ final class McpStreamableHttpClient {
     return _jsonValueFromBody(body);
   }
 
-  Future<List<McpSseEvent>> poll({String? lastEventId}) async {
+  Future<List<McpSseEvent>> poll({
+    String? lastEventId,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
     final request = await _httpClient.getUrl(endpoint);
     _applyHeaders(
       request,
       accept: _acceptSse,
       lastEventId: lastEventId ?? this.lastEventId,
+      extraHeaders: headers,
     );
 
     final response = await request.close();
@@ -474,9 +478,11 @@ final class McpStreamableHttpClient {
     return events;
   }
 
-  Future<void> deleteSession() async {
+  Future<void> deleteSession({
+    Map<String, String> headers = const <String, String>{},
+  }) async {
     final request = await _httpClient.deleteUrl(endpoint);
-    _applyHeaders(request, accept: _acceptJson);
+    _applyHeaders(request, accept: _acceptJson, extraHeaders: headers);
 
     final response = await request.close();
     final body = await _readBody(response);

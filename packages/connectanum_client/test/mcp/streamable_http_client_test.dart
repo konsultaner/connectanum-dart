@@ -39,7 +39,11 @@ void main() {
         expect(tools['id'], 'tools-sse');
         expect(client.lastEventId, 'session-1:post:2');
 
-        final pollEvents = await client.poll();
+        final pollEvents = await client.poll(
+          headers: const <String, String>{
+            'x-consumer-trace': 'streamable-poll',
+          },
+        );
         expect(pollEvents, hasLength(1));
         expect(pollEvents.single.id, 'session-1:get:1');
         expect(
@@ -73,7 +77,11 @@ void main() {
         expect(jsonBatch, hasLength(1));
         expect(jsonBatch?.single['id'], 'batch-json');
 
-        await client.deleteSession();
+        await client.deleteSession(
+          headers: const <String, String>{
+            'x-consumer-trace': 'streamable-delete',
+          },
+        );
         expect(client.sessionId, isNull);
         expect(client.lastEventId, isNull);
 
@@ -89,6 +97,7 @@ void main() {
         expect(endpoint.requests[2].sessionId, 'session-1');
         expect(endpoint.requests[2].mcpMethod, 'tools/list');
         expect(endpoint.requests[3].lastEventId, 'session-1:post:2');
+        expect(endpoint.requests[3].consumerTrace, 'streamable-poll');
         expect(endpoint.requests[4].accept, 'application/json');
         expect(endpoint.requests[4].mcpMethod, 'tools/list');
         expect(endpoint.requests[5].accept, 'application/json');
@@ -99,6 +108,7 @@ void main() {
         expect(endpoint.requests[7].accept, 'application/json');
         expect(endpoint.requests[7].mcpMethod, isNull);
         expect(endpoint.requests[8].method, 'DELETE');
+        expect(endpoint.requests[8].consumerTrace, 'streamable-delete');
       },
     );
 

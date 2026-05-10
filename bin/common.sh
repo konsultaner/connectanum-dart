@@ -2354,7 +2354,9 @@ Future<void> _smokeStreamableSessionLifecycle(
   McpStreamableHttpClient client,
   _AgentMcpEndpoint endpoint,
 ) async {
-  final events = await client.poll();
+  final events = await client.poll(
+    headers: const <String, String>{'x-consumer-trace': 'streamable-poll'},
+  );
   _expect(
     events.single.jsonData?['method'] == 'notifications/tools/list_changed',
     'GET/SSE poll did not return a tools/list_changed notification',
@@ -2364,7 +2366,10 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('GET/SSE poll did not capture the expected event id.');
   }
 
-  final resumedEvents = await client.poll(lastEventId: eventId);
+  final resumedEvents = await client.poll(
+    lastEventId: eventId,
+    headers: const <String, String>{'x-consumer-trace': 'streamable-resume'},
+  );
   _expect(
     resumedEvents.isEmpty,
     'Last-Event-ID resume replayed a consumed notification',
@@ -2376,12 +2381,24 @@ Future<void> _smokeStreamableSessionLifecycle(
 
   await _expectInvalidLastEventIdRejectedWithoutSessionLoss(client, eventId);
 
-  await client.deleteSession();
+  await client.deleteSession(
+    headers: const <String, String>{'x-consumer-trace': 'streamable-delete'},
+  );
   _expect(
     client.sessionId == null && client.lastEventId == null,
     'DELETE did not clear session state',
   );
   _expect(endpoint.sessionDeleted, 'mock endpoint did not receive DELETE');
+  _expect(
+    endpoint.streamableTraceHeadersWithSession.containsAll(
+      const <String>{
+        'GET:streamable-poll',
+        'GET:streamable-resume',
+        'DELETE:streamable-delete',
+      },
+    ),
+    'Streamable GET/DELETE did not forward custom trace headers with session',
+  );
 
   client.sessionId = _sessionId;
   client.lastEventId = eventId;
@@ -2481,6 +2498,7 @@ final class _AgentMcpEndpoint {
   final directMethodsWithoutSession = <String>{};
   final directToolNamesWithoutSession = <String>{};
   final directTraceHeadersWithoutSession = <String>{};
+  final streamableTraceHeadersWithSession = <String>{};
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   var sawDirectRequestWithoutSession = false;
@@ -2516,6 +2534,7 @@ final class _AgentMcpEndpoint {
         await _writeSessionError(request);
         return;
       }
+      _recordStreamableTrace('GET', request);
       final lastEventId = request.headers.value('Last-Event-ID');
       if (lastEventId != null) {
         if (lastEventId == _firstEventId) {
@@ -2541,6 +2560,7 @@ final class _AgentMcpEndpoint {
         await _writeError(request, HttpStatus.notFound, 'unknown session');
         return;
       }
+      _recordStreamableTrace('DELETE', request);
       _sessionActive = false;
       sessionDeleted = true;
       request.response.statusCode = HttpStatus.noContent;
@@ -2755,6 +2775,13 @@ final class _AgentMcpEndpoint {
           }
         }
       }
+    }
+  }
+
+  void _recordStreamableTrace(String method, HttpRequest request) {
+    final trace = request.headers.value('x-consumer-trace');
+    if (trace != null) {
+      streamableTraceHeadersWithSession.add('$method:$trace');
     }
   }
 
@@ -9995,7 +10022,11 @@ Future<void> _smokeStreamableSessionLifecycle(
     );
   });
 
-  final events = await _pollStreamableSessionEventsUntil(client, label: label);
+  final events = await _pollStreamableSessionEventsUntil(
+    client,
+    label: label,
+    headers: <String, String>{'x-consumer-trace': '$label-streamable-poll'},
+  );
   final hasToolListChanged = events.any(
     (event) => event.jsonData?['method'] == 'notifications/tools/list_changed',
   );
@@ -10009,7 +10040,10 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('Streamable MCP GET/SSE poll did not capture event id.');
   }
 
-  final resumedEvents = await client.poll(lastEventId: eventId);
+  final resumedEvents = await client.poll(
+    lastEventId: eventId,
+    headers: <String, String>{'x-consumer-trace': '$label-streamable-resume'},
+  );
   if (resumedEvents.any(
     (event) =>
         event.id == eventId ||
@@ -10029,7 +10063,9 @@ Future<void> _smokeStreamableSessionLifecycle(
     eventId: eventIdAfterResume,
   );
 
-  await client.deleteSession();
+  await client.deleteSession(
+    headers: <String, String>{'x-consumer-trace': '$label-streamable-delete'},
+  );
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Streamable MCP DELETE did not clear session state.');
   }
@@ -10053,7 +10089,11 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('Streamable MCP reinitialize after 404 failed.');
   }
   await client.notifyInitialized();
-  await client.deleteSession();
+  await client.deleteSession(
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-recovered-delete',
+    },
+  );
 }
 
 Future<void> _assertInvalidLastEventIdRejectedWithoutSessionLoss(
@@ -10105,10 +10145,11 @@ Future<void> _assertInvalidLastEventIdRejectedWithoutSessionLoss(
 Future<List<McpSseEvent>> _pollStreamableSessionEventsUntil(
   McpStreamableHttpClient client, {
   required String label,
+  Map<String, String> headers = const <String, String>{},
 }) async {
   final deadline = DateTime.now().add(const Duration(seconds: 5));
   while (DateTime.now().isBefore(deadline)) {
-    final events = await client.poll();
+    final events = await client.poll(headers: headers);
     if (events.any(
       (event) =>
           event.jsonData?['method'] == 'notifications/tools/list_changed',

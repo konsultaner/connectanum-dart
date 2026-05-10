@@ -1168,7 +1168,11 @@ Future<void> _smokeStreamableSessionLifecycle(
     );
   });
 
-  final events = await _pollStreamableSessionEventsUntil(client, label: label);
+  final events = await _pollStreamableSessionEventsUntil(
+    client,
+    label: label,
+    headers: <String, String>{'x-consumer-trace': '$label-streamable-poll'},
+  );
   final hasToolListChanged = events.any(
     (event) => event.jsonData?['method'] == 'notifications/tools/list_changed',
   );
@@ -1182,7 +1186,10 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('Streamable MCP $label GET/SSE poll missed event id.');
   }
 
-  final resumedEvents = await client.poll(lastEventId: eventId);
+  final resumedEvents = await client.poll(
+    lastEventId: eventId,
+    headers: <String, String>{'x-consumer-trace': '$label-streamable-resume'},
+  );
   if (resumedEvents.any(
     (event) =>
         event.id == eventId ||
@@ -1202,7 +1209,9 @@ Future<void> _smokeStreamableSessionLifecycle(
     eventId: eventIdAfterResume,
   );
 
-  await client.deleteSession();
+  await client.deleteSession(
+    headers: <String, String>{'x-consumer-trace': '$label-streamable-delete'},
+  );
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Streamable MCP $label DELETE left session state.');
   }
@@ -1226,7 +1235,11 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('Streamable MCP $label reinitialize after 404 failed.');
   }
   await client.notifyInitialized();
-  await client.deleteSession();
+  await client.deleteSession(
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-recovered-delete',
+    },
+  );
 }
 
 Future<void> _assertInvalidLastEventIdRejectedWithoutSessionLoss(
@@ -1280,10 +1293,11 @@ Future<void> _assertInvalidLastEventIdRejectedWithoutSessionLoss(
 Future<List<McpSseEvent>> _pollStreamableSessionEventsUntil(
   McpStreamableHttpClient client, {
   required String label,
+  Map<String, String> headers = const <String, String>{},
 }) async {
   final deadline = DateTime.now().add(const Duration(seconds: 5));
   while (DateTime.now().isBefore(deadline)) {
-    final events = await client.poll();
+    final events = await client.poll(headers: headers);
     if (events.any(
       (event) =>
           event.jsonData?['method'] == 'notifications/tools/list_changed',

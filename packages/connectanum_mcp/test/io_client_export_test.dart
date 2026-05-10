@@ -605,7 +605,9 @@ void main() {
 
       await client.notifyInitialized();
 
-      final firstEvents = await client.poll();
+      final firstEvents = await client.poll(
+        headers: const <String, String>{'x-consumer-trace': 'io-poll'},
+      );
       expect(firstEvents, hasLength(1));
       expect(firstEvents.single.id, 'io-session-1:get:1');
       expect(firstEvents.single.event, 'message');
@@ -619,6 +621,7 @@ void main() {
 
       final resumedEvents = await client.poll(
         lastEventId: firstEvents.single.id,
+        headers: const <String, String>{'x-consumer-trace': 'io-resume'},
       );
       expect(resumedEvents.single.id, 'io-session-1:get:2');
       final resumedPayload = _jsonMapFrom(
@@ -628,7 +631,9 @@ void main() {
       expect(resumedPayload['method'], 'notifications/resources/list_changed');
       expect(client.lastEventId, 'io-session-1:get:2');
 
-      await client.deleteSession();
+      await client.deleteSession(
+        headers: const <String, String>{'x-consumer-trace': 'io-delete'},
+      );
       expect(client.sessionId, isNull);
       expect(client.lastEventId, isNull);
 
@@ -648,11 +653,14 @@ void main() {
       expect(endpoint.requests[2].accept, 'text/event-stream');
       expect(endpoint.requests[2].sessionId, 'io-session-1');
       expect(endpoint.requests[2].lastEventId, isNull);
+      expect(endpoint.requests[2].consumerTrace, 'io-poll');
       expect(endpoint.requests[3].accept, 'text/event-stream');
       expect(endpoint.requests[3].sessionId, 'io-session-1');
       expect(endpoint.requests[3].lastEventId, 'io-session-1:get:1');
+      expect(endpoint.requests[3].consumerTrace, 'io-resume');
       expect(endpoint.requests[4].accept, 'application/json');
       expect(endpoint.requests[4].sessionId, 'io-session-1');
+      expect(endpoint.requests[4].consumerTrace, 'io-delete');
     },
   );
 
@@ -1688,6 +1696,7 @@ final class _StreamableSeenRequest {
     required this.accept,
     required this.sessionId,
     required this.lastEventId,
+    required this.consumerTrace,
     required this.body,
   });
 
@@ -1695,6 +1704,7 @@ final class _StreamableSeenRequest {
   final String? accept;
   final String? sessionId;
   final String? lastEventId;
+  final String? consumerTrace;
   final Object? body;
 
   factory _StreamableSeenRequest.from(HttpRequest request, Object? body) {
@@ -1703,6 +1713,7 @@ final class _StreamableSeenRequest {
       accept: request.headers.value(HttpHeaders.acceptHeader),
       sessionId: request.headers.value('MCP-Session-Id'),
       lastEventId: request.headers.value('Last-Event-ID'),
+      consumerTrace: request.headers.value('x-consumer-trace'),
       body: body,
     );
   }
