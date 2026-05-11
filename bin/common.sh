@@ -5543,15 +5543,10 @@ Future<void> _smokeStreamableSessionReuseIsolation(
     }
     final lastEventId = primaryClient.lastEventId;
 
-    otherPrincipalClient.sessionId = sessionId;
-    otherPrincipalClient.lastEventId = lastEventId;
-    await _assertStreamableSessionReuseRejected(
+    await _assertStreamableSessionReuseRejectedAcrossMethods(
       otherPrincipalClient,
-      () async {
-        await otherPrincipalClient.listTools(
-          id: 'secure-reuse-other-principal-tools',
-        );
-      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
       label: 'other bearer principal',
     );
 
@@ -5625,6 +5620,178 @@ Future<void> _smokeStreamableSessionReuseIsolation(
     bearerlessSecureDeleteClient.close();
     unknownBearerClient.close();
   }
+}
+
+Future<void> _assertStreamableSessionReuseRejectedAcrossMethods(
+  McpStreamableHttpClient client, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+}) async {
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.postBatch([
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-session-batch-tools',
+          'method': 'tools/list',
+          'params': {},
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-session-batch-resources',
+          'method': 'resources/list',
+          'params': {},
+        },
+      ]);
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label batch tools/resources',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.postBatch([
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-session-batch-api-list',
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.api.list',
+            'arguments': {'kind': 'topic'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-session-batch-pubsub-subscribe',
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.subscribe',
+            'arguments': {'topic': _topic, 'queueLimit': 1},
+          },
+        },
+      ]);
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label batch WAMP meta/pubsub',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.notifyInitialized();
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label notification',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.listTools(id: '$label-tools');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label tools/list',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.callTool(
+        _procedure,
+        id: '$label-tool-call',
+        arguments: {'taskId': 'T-$label-tool-call'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label tools/call',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.listResources(id: '$label-resources');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label resources/list',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.readResource(_resourceUri, id: '$label-resource-read');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label resources/read',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.listResourceTemplates(id: '$label-resource-templates');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label resources/templates/list',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.listPrompts(id: '$label-prompts');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label prompts/list',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.getPrompt(
+        _promptName,
+        id: '$label-prompt-get',
+        arguments: {'taskId': 'T-$label-prompt-get'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label prompts/get',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.poll();
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label poll',
+  );
+  await _assertStreamableSessionReuseRejectedWithSession(
+    client,
+    () async {
+      await client.deleteSession();
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label delete',
+  );
+}
+
+Future<void> _assertStreamableSessionReuseRejectedWithSession(
+  McpStreamableHttpClient client,
+  Future<void> Function() request, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+}) async {
+  client.sessionId = sessionId;
+  client.lastEventId = lastEventId;
+  await _assertStreamableSessionReuseRejected(
+    client,
+    request,
+    label: label,
+  );
 }
 
 Future<void> _assertStreamableSessionReuseRejected(
