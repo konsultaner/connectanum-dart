@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Secure Active Missing-Bearer Streamable Matrix Smoke
 
-Status: complete locally; hosted CI and deployment-chain evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-11
 Last updated: 2026-05-11
@@ -65,8 +65,19 @@ application would exercise.
   2026-05-11.
 - Post-change `bin/test-fast` passed on 2026-05-11.
 - Full local `bin/verify` passed on 2026-05-11.
-- Hosted CI and deployment-chain evidence are pending until the implementation
-  commit is pushed.
+- Commit `0c21cd5` (`test: cover active missing mcp bearer matrix`) was pushed
+  to both configured remotes on 2026-05-11.
+- GitHub Actions `CI` run `25692740916` passed on `0c21cd5`: `Fast Checks`
+  completed successfully at 2026-05-11T19:40:07Z and `Full Verify` completed
+  successfully at 2026-05-11T19:45:27Z.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed on 2026-05-11. The audit found latest CI clean, latest CI log scan
+  clean, and Dart Package Publish Dry Run `25635686773` still relevant because
+  no publish-sensitive paths changed since that dry-run head.
+- Strict deployment-chain audit still fails only known operator-side
+  release-hardening gaps: branch protection/required checks are not configured,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch, and the router GHCR package is not visible.
 
 ## Decision Log
 
@@ -78,6 +89,6 @@ application would exercise.
 
 ## Handoff
 
-Implementation is locally complete and ready to push after bundling with the
-project-state update. Hosted CI and deployment-chain evidence still need to be
-collected after the commit lands on the branch.
+Implementation is complete and pushed. Local verification, hosted CI, hosted log
+scan, and the non-strict deployment-chain audit are clean for `0c21cd5`. The
+only remaining strict-audit gaps are operator-side release-hardening items.

@@ -5516,9 +5516,6 @@ Future<void> _smokeStreamableSessionReuseIsolation(
     otherGrant.accessToken,
   );
   final publicRouteClient = McpStreamableHttpClient(_mcpEndpoint(binding));
-  final publicRouteDeleteClient = McpStreamableHttpClient(
-    _mcpEndpoint(binding),
-  );
   final bearerlessSecureClient = McpStreamableHttpClient(
     _mcpEndpoint(binding, secure: true),
   );
@@ -5547,24 +5544,11 @@ Future<void> _smokeStreamableSessionReuseIsolation(
       label: 'other bearer principal',
     );
 
-    publicRouteClient.sessionId = sessionId;
-    publicRouteClient.lastEventId = lastEventId;
-    await _assertStreamableSessionReuseRejected(
+    await _assertStreamableSessionReuseRejectedAcrossMethods(
       publicRouteClient,
-      () async {
-        await publicRouteClient.poll();
-      },
-      label: 'public route poll',
-    );
-
-    publicRouteDeleteClient.sessionId = sessionId;
-    publicRouteDeleteClient.lastEventId = lastEventId;
-    await _assertStreamableSessionReuseRejected(
-      publicRouteDeleteClient,
-      () async {
-        await publicRouteDeleteClient.deleteSession();
-      },
-      label: 'public route delete',
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: 'public route',
     );
 
     await _assertStreamableSessionReuseRequiresBearerAcrossMethods(
@@ -5599,7 +5583,6 @@ Future<void> _smokeStreamableSessionReuseIsolation(
     primaryClient.close();
     otherPrincipalClient.close();
     publicRouteClient.close();
-    publicRouteDeleteClient.close();
     bearerlessSecureClient.close();
     unknownBearerClient.close();
   }
