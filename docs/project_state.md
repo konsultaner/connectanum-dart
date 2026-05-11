@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-11
 Current branch: `add-router`
-Last reviewed branch checkpoint: `d2c8e19`
-(`test: cover secure mcp session method auth`; MCP consumer package secure
-router-hosted Streamable session-method missing-bearer smoke hosted CI and
+Last reviewed branch checkpoint: `3ca481c`
+(`test: cover secure mcp meta pubsub auth`; MCP consumer package secure
+router-hosted WAMP meta/pub-sub missing-bearer smoke hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-11-mcp-consumer-secure-missing-bearer-wamp-meta-pubsub-smoke.md`
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-active-bearer-wamp-meta-pubsub-smoke.md`
 (complete locally; push and hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-missing-bearer-wamp-meta-pubsub-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-11-mcp-consumer-secure-session-method-missing-bearer-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -289,15 +292,19 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`d2c8e19`
-(`test: cover secure mcp session method auth`; hosted CI and deployment-chain
+`3ca481c`
+(`test: cover secure mcp meta pubsub auth`; hosted CI and deployment-chain
 evidence clean).
 Current implementation checkpoint: MCP consumer package secure router-hosted
+WAMP meta/pub-sub missing-bearer smoke coverage (complete; hosted CI and
+deployment-chain evidence clean).
+Current implementation focus: generated consumer smoke coverage for stale or
+revoked bearer tokens on active secure Streamable MCP sessions when calling
+WAMP meta API and pub/sub paths (complete locally; push and hosted evidence
+pending).
+Previous implementation checkpoint: MCP consumer package secure router-hosted
 Streamable session-method missing-bearer smoke coverage (complete; hosted CI and
 deployment-chain evidence clean).
-Current implementation focus: generated consumer smoke coverage for secure
-router-hosted WAMP meta API and pub/sub calls without bearer credentials
-(complete locally; push and hosted evidence pending).
 Previous implementation checkpoint: MCP consumer package secure router-hosted
 missing-bearer direct JSON, batch, and Streamable HTTP smoke coverage (complete;
 hosted CI and deployment-chain evidence clean).
@@ -678,9 +685,34 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer package secure router-hosted active-bearer WAMP meta/pub-sub
+    rejected-token smoke is complete locally; push and hosted evidence are
+    pending. The target is the neutral generated consumer package smoke: secure
+    router-hosted MCP must reject stale or revoked bearer credentials for direct
+    JSON `connectanum.pubsub.subscribe`, direct JSON batches that mix WAMP
+    meta/pub-sub methods, and Streamable HTTP batches that call WAMP
+    meta/pub-sub tools through `tools/call`. Direct JSON rejections must
+    preserve the caller's active Streamable session state; Streamable HTTP
+    rejections must clear the rejected caller's session state. Pre-change
+    `bin/test-fast`, focused `bash -n bin/common.sh`, focused
+    `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+    post-change `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-11.
   - MCP consumer package secure router-hosted WAMP meta/pub-sub missing-bearer
-    smoke is complete locally; push and hosted evidence are pending. The target
-    is the neutral generated consumer package smoke:
+    smoke is complete. Commit `3ca481c`
+    (`test: cover secure mcp meta pubsub auth`) is pushed to both remotes.
+    GitHub `CI` run `25676940340` completed successfully for `3ca481c` with
+    `Fast Checks` and `Full Verify` green, and the hosted CI log scan was
+    clean. GitHub `Dart Package Publish Dry Run` run `25635686773` remains
+    clean and relevant because no publish-sensitive package inputs changed
+    after `90a27ca`. The deployment-chain audit passed with clean latest CI,
+    clean hosted CI logs, and a clean relevant Dart package publish dry-run.
+    The strict audit still reports only known operator-side release-hardening
+    gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
+    The target was the neutral generated consumer package smoke:
     secure router-hosted MCP must reject missing bearer credentials for direct
     JSON `connectanum.api.list`, direct JSON `connectanum.pubsub.subscribe`,
     direct JSON batches that mix WAMP meta/pub-sub methods, and Streamable HTTP

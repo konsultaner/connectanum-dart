@@ -5865,6 +5865,49 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
     method: 'direct JSON connectanum.api.list',
     acceptedMessage: acceptedMessage,
   );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.request(
+        'connectanum.pubsub.subscribe',
+        id: '$label-rejected-direct-pubsub-subscribe',
+        params: {'topic': _topic, 'queueLimit': 1},
+        streamable: false,
+        includeSession: false,
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON connectanum.pubsub.subscribe',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.postBatch(
+        [
+          {
+            'jsonrpc': '2.0',
+            'id': '$label-rejected-direct-batch-api-list',
+            'method': 'connectanum.api.list',
+            'params': {'kind': 'topic'},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': '$label-rejected-direct-batch-pubsub-subscribe',
+            'method': 'connectanum.pubsub.subscribe',
+            'params': {'topic': _topic, 'queueLimit': 1},
+          },
+        ],
+        streamable: false,
+        includeSession: false,
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON batch WAMP meta/pubsub',
+    acceptedMessage: acceptedMessage,
+  );
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
@@ -5891,6 +5934,35 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
     sessionId: sessionId,
     lastEventId: lastEventId,
     method: 'POST batch tools/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveStreamableRequestRejectsBearer(
+    client,
+    () async {
+      await client.postBatch([
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-rejected-session-batch-api-list',
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.api.list',
+            'arguments': {'kind': 'topic'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-rejected-session-batch-pubsub-subscribe',
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.subscribe',
+            'arguments': {'topic': _topic, 'queueLimit': 1},
+          },
+        },
+      ]);
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'POST batch WAMP meta/pubsub tools',
     acceptedMessage: acceptedMessage,
   );
   await _assertActiveStreamableRequestRejectsBearer(
