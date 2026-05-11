@@ -4965,17 +4965,82 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
 Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
   final client = McpStreamableHttpClient(_mcpEndpoint(binding, secure: true));
   try {
-    await client.listConnectanumToolsDirect(id: 'secure-unauthenticated-tools');
-    throw StateError('Bearer-protected MCP endpoint accepted no credentials.');
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON connectanum.tools.list',
+      operation: () async {
+        await client.listConnectanumToolsDirect(
+          id: 'secure-unauthenticated-tools',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON batch connectanum.tools.list',
+      operation: () async {
+        await client.postBatch(
+          [
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-tools',
+              'method': 'connectanum.tools.list',
+              'params': {},
+            },
+          ],
+          streamable: false,
+          includeSession: false,
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'Streamable initialize',
+      operation: () async {
+        await client.initialize(id: 'secure-unauthenticated-initialize');
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'Streamable batch tools/list',
+      operation: () async {
+        await client.postBatch([
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-streamable-batch-tools',
+            'method': 'tools/list',
+            'params': {},
+          },
+        ]);
+      },
+    );
+  } finally {
+    client.close();
+  }
+}
+
+Future<void> _expectSecureMcpUnauthorized(
+  McpStreamableHttpClient client, {
+  required String label,
+  required Future<void> Function() operation,
+}) async {
+  try {
+    await operation();
+    throw StateError(
+      'Bearer-protected MCP endpoint accepted no credentials for $label.',
+    );
   } on McpStreamableHttpException catch (error) {
     if (error.statusCode != HttpStatus.unauthorized) {
       throw StateError(
         'Bearer-protected MCP endpoint returned ${error.statusCode} '
-        'instead of ${HttpStatus.unauthorized}.',
+        'instead of ${HttpStatus.unauthorized} for $label.',
       );
     }
-  } finally {
-    client.close();
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Bearer-protected MCP endpoint captured Streamable state after '
+      'rejecting $label.',
+    );
   }
 }
 
