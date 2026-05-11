@@ -2,13 +2,16 @@
 
 Last updated: 2026-05-11
 Current branch: `add-router`
-Last reviewed branch checkpoint: `3e00cb1`
-(`test: follow mcp catalog cursors in client smoke`; MCP client-only consumer
-package catalog pagination smoke hosted CI and deployment-chain evidence clean)
+Last reviewed branch checkpoint: `4e00460`
+(`test: page router mcp consumer catalogs`; MCP consumer package router-hosted
+catalog pagination smoke hosted CI and deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-11-mcp-consumer-router-catalog-pagination-smoke.md`
+`docs/exec-plans/2026-05-11-mcp-consumer-router-tool-catalog-pagination-smoke.md`
 (full local verification complete; push and hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-11-mcp-consumer-router-catalog-pagination-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-10-mcp-client-package-catalog-pagination-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -267,10 +270,12 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`3e00cb1`
-(`test: follow mcp catalog cursors in client smoke`; hosted CI and
+`4e00460`
+(`test: page router mcp consumer catalogs`; hosted CI and
 deployment-chain evidence clean).
 Current implementation checkpoint: MCP consumer package router-hosted catalog
+pagination smoke (complete; hosted CI and deployment-chain evidence clean).
+Current implementation focus: MCP consumer package router-hosted tool catalog
 pagination smoke (full local verification complete; push and hosted evidence
 pending).
 Previous implementation checkpoint: MCP client-only consumer package
@@ -636,8 +641,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer package router-hosted catalog pagination smoke is active. The
-    generated router-hosted MCP consumer smoke now configures deterministic
+  - MCP consumer package router-hosted tool catalog pagination smoke is active.
+    The generated router-hosted MCP consumer smoke now forces public and
+    bearer-protected tool catalogs to paginate with opaque cursors, and
+    generated app checks follow those cursors through both initialized
+    Streamable `tools/list`, typed helper catalogs, generic JSON-RPC
+    `tools/list`, lifecycle-free direct JSON `connectanum.tools.list`, and
+    generic direct JSON-RPC `connectanum.tools.list`. Batch `tools/list` checks
+    now assert a valid paginated first page while neighboring `tools/call`
+    responses prove the registered consumer procedure remains callable.
+    Pre-change `bin/test-fast`, focused `bash -n bin/common.sh`, focused
+    `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+    post-change `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-11. Push and hosted deployment-chain evidence remain pending.
+  - MCP consumer package router-hosted catalog pagination smoke is complete.
+    The generated router-hosted MCP consumer smoke now configures deterministic
     second-page resource, resource template, and prompt catalog entries on the
     real router-provided MCP endpoints, forces opaque cursors with page size
     one, and follows those cursors through public
@@ -646,7 +664,18 @@ order.
     focused `bash -n bin/common.sh`, focused
     `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
     post-change `bin/test-fast`, and full local `bin/verify` passed on
-    2026-05-11. Push and hosted deployment-chain evidence remain pending.
+    2026-05-11. Commit `4e00460` (`test: page router mcp consumer catalogs`)
+    is pushed to both remotes. GitHub `CI` run `25660013309` completed
+    successfully for `4e00460` with `Fast Checks` and `Full Verify` green, and
+    the hosted CI log scan was clean. GitHub `Dart Package Publish Dry Run` run
+    `25635686773` remains clean and relevant because no publish-sensitive
+    package inputs changed after `90a27ca`. The deployment-chain audit passed
+    with clean latest CI, clean hosted CI logs, and a clean relevant Dart
+    package publish dry-run. The strict audit still reports only known
+    operator-side release-hardening gaps: branch protection/required checks are
+    absent, `.github/workflows/router-image.yml` is not yet visible from the
+    default branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP client-only consumer package catalog pagination smoke is complete
     through full local and hosted verification. The standalone generated MCP
     client package smoke now exposes deterministic fake cursor pages for tools,

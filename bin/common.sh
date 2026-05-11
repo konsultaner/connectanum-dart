@@ -4577,6 +4577,7 @@ RouterSettings _consumerRouterSettings() {
               options: {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
+                'tool_list_page_size': 1,
                 'resource_list_page_size': 1,
                 'resource_template_list_page_size': 1,
                 'prompt_list_page_size': 1,
@@ -4700,6 +4701,7 @@ RouterSettings _consumerRouterSettings() {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
                 'allow_insecure_transport': true,
+                'tool_list_page_size': 1,
                 'resource_list_page_size': 1,
                 'resource_template_list_page_size': 1,
                 'prompt_list_page_size': 1,
@@ -5281,12 +5283,11 @@ Future<void> _smokeSecureMcpGrant(
   );
   McpStreamableHttpClient? streamableClient;
   try {
-    final tools = await directClient.listConnectanumToolsDirect(
-      id: '$label-direct-tools',
+    await _expectPagedToolCatalog(
+      directClient,
+      label: '$label-direct-grant',
+      directJson: true,
     );
-    if (!tools.tools.any((tool) => tool['name'] == _procedure)) {
-      throw StateError('Secure direct MCP grant $label missed $_procedure.');
-    }
     final directResult = await directClient.callConnectanumToolDirect(
       _procedure,
       id: '$label-direct-call',
@@ -5309,14 +5310,11 @@ Future<void> _smokeSecureMcpGrant(
       grant,
       label: label,
     );
-    final streamableTools = await streamableClient.listTools(
-      id: '$label-streamable-tools',
+    await _expectPagedToolCatalog(
+      streamableClient,
+      label: '$label-streamable-grant',
+      directJson: false,
     );
-    if (!streamableTools.tools.any((tool) => tool['name'] == _procedure)) {
-      throw StateError(
-        'Secure Streamable MCP grant $label missed $_procedure.',
-      );
-    }
     final streamableResult = await streamableClient.callTool(
       _procedure,
       id: '$label-streamable-call',
@@ -5359,14 +5357,11 @@ Future<void> _smokeStreamableSessionReuseIsolation(
   );
 
   try {
-    final primaryTools = await primaryClient.listTools(
-      id: 'secure-reuse-primary-tools',
+    await _expectPagedToolCatalog(
+      primaryClient,
+      label: 'secure-reuse-primary',
+      directJson: false,
     );
-    if (!primaryTools.tools.any((tool) => tool['name'] == _procedure)) {
-      throw StateError(
-        'Primary secure Streamable MCP session missed $_procedure.',
-      );
-    }
 
     final sessionId = primaryClient.sessionId;
     if (sessionId == null || sessionId.isEmpty) {
@@ -5406,14 +5401,11 @@ Future<void> _smokeStreamableSessionReuseIsolation(
       label: 'public route delete',
     );
 
-    final primaryRecoveryTools = await primaryClient.listTools(
-      id: 'secure-reuse-primary-after-rejected-reuse',
+    await _expectPagedToolCatalog(
+      primaryClient,
+      label: 'secure-reuse-primary-after-rejected-reuse',
+      directJson: false,
     );
-    if (!primaryRecoveryTools.tools.any((tool) => tool['name'] == _procedure)) {
-      throw StateError(
-        'Primary secure Streamable MCP session did not survive rejected reuse.',
-      );
-    }
     if (primaryClient.sessionId != sessionId) {
       throw StateError(
         'Rejected Streamable MCP session reuse changed the primary session id.',
@@ -5905,24 +5897,11 @@ Future<void> _smokeDirectJson(
   RouterSession serviceSession, {
   required String label,
 }) async {
-  final tools = await client.listConnectanumToolsDirect(
-    id: '$label-direct-tools',
-    headers: <String, String>{
-      'x-consumer-trace': '$label-direct-tools',
-    },
+  await _expectPagedToolCatalog(
+    client,
+    label: label,
+    directJson: true,
   );
-  final toolNames = _toolNamesFromCatalog(
-    tools.tools,
-    label: 'Direct JSON tool catalog',
-  );
-  _expectSortedUniqueNames(
-    toolNames,
-    label: 'Direct JSON tool catalog',
-  );
-  final names = toolNames.toSet();
-  if (!names.contains(_procedure)) {
-    throw StateError('Direct JSON tool catalog did not expose $_procedure.');
-  }
 
   await _smokeDirectToolApi(client, label: label);
   await _smokeGenericDirectJsonRpcAccess(
@@ -6004,6 +5983,156 @@ Future<void> _smokeDirectJson(
 
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Direct JSON MCP helpers captured Streamable state.');
+  }
+}
+
+Future<List<String>> _expectPagedToolCatalog(
+  McpStreamableHttpClient client, {
+  required String label,
+  required bool directJson,
+}) async {
+  final mode = directJson ? 'direct' : 'streamable';
+  final names = <String>[];
+  String? cursor;
+  var pageCount = 0;
+
+  do {
+    pageCount += 1;
+    if (pageCount > 128) {
+      throw StateError('$mode MCP tool catalog pagination did not terminate.');
+    }
+    final pageLabel = '$label-$mode-tools-page-$pageCount';
+    final page = directJson
+        ? await client.listConnectanumToolsDirect(
+            id: pageLabel,
+            cursor: cursor,
+            headers: <String, String>{
+              'x-consumer-trace': pageLabel,
+            },
+          )
+        : await client.listTools(
+            id: pageLabel,
+            cursor: cursor,
+            headers: <String, String>{
+              'x-consumer-trace': pageLabel,
+            },
+          );
+    final pageNames = _toolNamesFromCatalog(
+      page.tools,
+      label: '$mode MCP tool catalog page $pageCount',
+    );
+    if (pageNames.isEmpty) {
+      throw StateError('$mode MCP tool catalog returned an empty page.');
+    }
+    names.addAll(pageNames);
+    cursor = page.nextCursor;
+    if (cursor != null && cursor.isEmpty) {
+      throw StateError('$mode MCP tool catalog returned an empty cursor.');
+    }
+  } while (cursor != null);
+
+  if (pageCount < 2) {
+    throw StateError('$mode MCP tool catalog did not expose a cursor.');
+  }
+  _expectSortedUniqueNames(
+    names,
+    label: '$mode MCP tool catalog',
+  );
+  if (!names.contains(_procedure)) {
+    throw StateError('$mode MCP tool catalog did not expose $_procedure.');
+  }
+  if (!names.contains('connectanum.api.list') ||
+      !names.contains('connectanum.pubsub.subscribe')) {
+    throw StateError(
+      '$mode MCP tool catalog did not expose Connectanum meta/pubsub tools.',
+    );
+  }
+  return names;
+}
+
+Future<List<String>> _expectGenericToolCatalog(
+  McpStreamableHttpClient client, {
+  required String label,
+  required bool directJson,
+  void Function(String operation)? expectStreamableProgress,
+}) async {
+  final mode = directJson ? 'generic direct' : 'generic streamable';
+  final method = directJson ? 'connectanum.tools.list' : 'tools/list';
+  final names = <String>[];
+  String? cursor;
+  var pageCount = 0;
+
+  do {
+    pageCount += 1;
+    if (pageCount > 128) {
+      throw StateError('$mode MCP tool catalog pagination did not terminate.');
+    }
+    final pageLabel = '$label-tools-page-$pageCount';
+    final params = <String, Object?>{
+      if (cursor != null) 'cursor': cursor,
+    };
+    final response = directJson
+        ? await client.request(
+            method,
+            id: pageLabel,
+            params: params,
+            streamable: false,
+            includeSession: false,
+          )
+        : await client.request(method, id: pageLabel, params: params);
+    final result = _jsonRpcResult(
+      response,
+      id: pageLabel,
+      label: '$mode MCP tool catalog page $pageCount',
+    );
+    final pageNames = _toolNamesFromCatalog(
+      result['tools'],
+      label: '$mode MCP tool catalog page $pageCount',
+    );
+    if (pageNames.isEmpty) {
+      throw StateError('$mode MCP tool catalog returned an empty page.');
+    }
+    names.addAll(pageNames);
+    cursor = result['nextCursor'] as String?;
+    if (cursor != null && cursor.isEmpty) {
+      throw StateError('$mode MCP tool catalog returned an empty cursor.');
+    }
+    expectStreamableProgress?.call('tools/list page $pageCount');
+  } while (cursor != null);
+
+  if (pageCount < 2) {
+    throw StateError('$mode MCP tool catalog did not expose a cursor.');
+  }
+  _expectSortedUniqueNames(names, label: '$mode MCP tool catalog');
+  if (!names.contains(_procedure)) {
+    throw StateError('$mode MCP tool catalog did not expose $_procedure.');
+  }
+  if (!names.contains('connectanum.api.list') ||
+      !names.contains('connectanum.pubsub.subscribe')) {
+    throw StateError(
+      '$mode MCP tool catalog did not expose Connectanum meta/pubsub tools.',
+    );
+  }
+  return names;
+}
+
+void _expectPaginatedToolListHead(
+  Map<String, Object?> response, {
+  required Object id,
+  required String label,
+}) {
+  final result = _jsonRpcResult(response, id: id, label: label);
+  final names = _toolNamesFromCatalog(
+    result['tools'],
+    label: '$label catalog page',
+  );
+  if (names.isEmpty) {
+    throw StateError('$label returned an empty tool page.');
+  }
+  _expectSortedUniqueNames(names, label: '$label catalog page');
+  final cursor = result['nextCursor'];
+  if (cursor is! String || cursor.isEmpty) {
+    throw StateError('$label did not return a non-empty cursor.');
   }
 }
 
@@ -6217,21 +6346,11 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
 }) async {
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
-  final toolsId = '$label-generic-direct-tools';
-  final tools = await client.request(
-    'connectanum.tools.list',
-    id: toolsId,
-    streamable: false,
-    includeSession: false,
+  await _expectGenericToolCatalog(
+    client,
+    label: '$label-generic-direct',
+    directJson: true,
   );
-  final toolsJson = jsonEncode(tools['result']);
-  if (tools['id'] != toolsId ||
-      !toolsJson.contains(_procedure) ||
-      !toolsJson.contains('wamp.session.count')) {
-    throw StateError(
-      'Generic direct JSON-RPC tools/list missed router tools.',
-    );
-  }
 
   final taskId = 'T-$label-generic-direct-tool-call';
   final toolCallId = '$label-generic-direct-tool-call';
@@ -7477,29 +7596,12 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
     );
   }
 
-  final toolsId = '$label-generic-streamable-tools';
-  final tools = await client.request('tools/list', id: toolsId);
-  final toolsResult = _jsonRpcResult(
-    tools,
-    id: toolsId,
-    label: 'Generic Streamable JSON-RPC tools/list',
+  await _expectGenericToolCatalog(
+    client,
+    label: '$label-generic-streamable',
+    directJson: false,
+    expectStreamableProgress: expectStreamableProgress,
   );
-  final toolNames = _toolNamesFromCatalog(
-    toolsResult['tools'],
-    label: 'Generic Streamable JSON-RPC tool catalog',
-  );
-  _expectSortedUniqueNames(
-    toolNames,
-    label: 'Generic Streamable JSON-RPC tool catalog',
-  );
-  final toolsJson = jsonEncode(toolsResult['tools']);
-  if (!toolsJson.contains(_procedure) ||
-      !toolsJson.contains('connectanum.pubsub.subscribe')) {
-    throw StateError(
-      'Generic Streamable JSON-RPC tools/list missed router tools.',
-    );
-  }
-  expectStreamableProgress('tools/list');
 
   final taskId = 'T-$label-generic-streamable-tool-call';
   final toolCallId = '$label-generic-streamable-tool-call';
@@ -8556,18 +8658,11 @@ Future<void> _smokeStreamableMcp(
     throw StateError('Streamable MCP initialize did not capture a session id.');
   }
   final eventIdBeforeDirectCatalog = client.lastEventId;
-  final directCatalog = await client.listConnectanumToolsDirect(
-    id: '$label-direct-catalog-for-streamable',
-    headers: <String, String>{
-      'x-consumer-trace': '$label-direct-catalog-for-streamable',
-    },
+  await _expectPagedToolCatalog(
+    client,
+    label: '$label-after-streamable',
+    directJson: true,
   );
-  final directCatalogNames = {
-    for (final tool in directCatalog.tools) tool['name'] as String,
-  };
-  if (!directCatalogNames.contains(_procedure)) {
-    throw StateError('Direct JSON tool catalog did not expose $_procedure.');
-  }
   if (client.sessionId != sessionId ||
       client.lastEventId != eventIdBeforeDirectCatalog) {
     throw StateError(
@@ -8602,16 +8697,11 @@ Future<void> _smokeStreamableMcp(
     throw StateError('Streamable MCP tool call returned unexpected payload.');
   }
 
-  final tools = await client.listTools(
-    id: '$label-streamable-tools',
-    headers: <String, String>{
-      'x-consumer-trace': '$label-streamable-tools',
-    },
+  await _expectPagedToolCatalog(
+    client,
+    label: label,
+    directJson: false,
   );
-  final names = {for (final tool in tools.tools) tool['name'] as String};
-  if (!names.contains(_procedure)) {
-    throw StateError('Streamable MCP tool catalog did not expose $_procedure.');
-  }
 
   await _smokeGenericStreamableJsonRpcAccess(
     client,
@@ -8789,13 +8879,11 @@ Future<void> _smokeDirectJsonSingleError(
     throw StateError('Direct JSON single error changed Streamable state.');
   }
 
-  final tools = await client.listConnectanumToolsDirect(
-    id: '$label-direct-error-recovery-tools',
+  await _expectPagedToolCatalog(
+    client,
+    label: '$label-direct-error-recovery',
+    directJson: true,
   );
-  final names = {for (final tool in tools.tools) tool['name'] as String};
-  if (!names.contains(_procedure)) {
-    throw StateError('Direct JSON recovery tool catalog missed $_procedure.');
-  }
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Direct JSON error recovery changed Streamable state.');
@@ -8841,13 +8929,11 @@ Future<void> _smokeStreamableSingleError(
     );
   }
 
-  final tools = await client.listTools(id: '$label-streamable-error-recovery');
-  final names = {for (final tool in tools.tools) tool['name'] as String};
-  if (!names.contains(_procedure)) {
-    throw StateError(
-      'Streamable MCP single error recovery missed $_procedure.',
-    );
-  }
+  await _expectPagedToolCatalog(
+    client,
+    label: '$label-streamable-error-recovery',
+    directJson: false,
+  );
   if (client.sessionId != sessionId) {
     throw StateError(
       'Streamable MCP single error recovery changed session id.',
@@ -9354,10 +9440,11 @@ Future<void> _smokeStreamableBatch(
   if (responses == null || responses.length != 4) {
     throw StateError('Streamable MCP batch did not return four responses.');
   }
-  if (responses[0]['id'] != '$label-streamable-batch-tools' ||
-      !jsonEncode(responses[0]).contains(_procedure)) {
-    throw StateError('Streamable MCP batch tools/list response was invalid.');
-  }
+  _expectPaginatedToolListHead(
+    responses[0],
+    id: '$label-streamable-batch-tools',
+    label: 'Streamable MCP batch tools/list',
+  );
   if (responses[1]['id'] != '$label-streamable-batch-call' ||
       !jsonEncode(responses[1]).contains(taskId)) {
     throw StateError('Streamable MCP batch tools/call response was invalid.');
@@ -10563,10 +10650,11 @@ Future<void> _smokeStreamableBatchErrorIsolation(
       'Streamable MCP batch error smoke did not return three responses.',
     );
   }
-  if (responses[0]['id'] != '$label-streamable-batch-error-tools' ||
-      !jsonEncode(responses[0]).contains(_procedure)) {
-    throw StateError('Streamable MCP batch error smoke lost tools response.');
-  }
+  _expectPaginatedToolListHead(
+    responses[0],
+    id: '$label-streamable-batch-error-tools',
+    label: 'Streamable MCP batch error tools/list',
+  );
   _expectJsonRpcError(
     responses[1],
     id: '$label-streamable-batch-error-missing',
@@ -11289,15 +11377,11 @@ Future<void> _assertInvalidLastEventIdRejectedWithoutSessionLoss(
     );
   }
 
-  final tools = await client.listTools(
-    id: '$label-after-invalid-last-event-id-tools',
+  await _expectPagedToolCatalog(
+    client,
+    label: '$label-after-invalid-last-event-id',
+    directJson: false,
   );
-  final names = {for (final tool in tools.tools) tool['name'] as String};
-  if (!names.contains(_procedure)) {
-    throw StateError(
-      'Streamable MCP session failed after invalid Last-Event-ID rejection.',
-    );
-  }
   if (client.sessionId != sessionId) {
     throw StateError(
       'Streamable MCP invalid Last-Event-ID recovery lost session id.',
