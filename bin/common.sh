@@ -6209,6 +6209,70 @@ void _expectPaginatedToolListHead(
   }
 }
 
+String _expectPaginatedCatalogHead(
+  Map<String, Object?> response, {
+  required Object id,
+  required String label,
+  required String resultKey,
+  required String field,
+  required String fieldDescription,
+  required String expectedPrimary,
+}) {
+  final result = _jsonRpcResult(response, id: id, label: label);
+  final values = _catalogStringFieldValues(
+    result[resultKey],
+    field: field,
+    label: '$label catalog page',
+  );
+  if (values.isEmpty) {
+    throw StateError('$label returned an empty catalog page.');
+  }
+  _expectSortedUniqueCatalogValues(
+    values,
+    label: '$label catalog page',
+    fieldDescription: fieldDescription,
+  );
+  if (!values.contains(expectedPrimary)) {
+    throw StateError('$label did not expose $expectedPrimary.');
+  }
+  final cursor = result['nextCursor'];
+  if (cursor is! String || cursor.isEmpty) {
+    throw StateError('$label did not return a non-empty cursor.');
+  }
+  return cursor;
+}
+
+void _expectCatalogCursorPage(
+  Map<String, Object?> response, {
+  required Object id,
+  required String label,
+  required String resultKey,
+  required String field,
+  required String fieldDescription,
+  required String expectedPaged,
+}) {
+  final result = _jsonRpcResult(response, id: id, label: label);
+  final values = _catalogStringFieldValues(
+    result[resultKey],
+    field: field,
+    label: '$label catalog cursor page',
+  );
+  if (values.isEmpty) {
+    throw StateError('$label returned an empty cursor page.');
+  }
+  _expectSortedUniqueCatalogValues(
+    values,
+    label: '$label catalog cursor page',
+    fieldDescription: fieldDescription,
+  );
+  if (!values.contains(expectedPaged)) {
+    throw StateError('$label did not expose $expectedPaged.');
+  }
+  if (result['nextCursor'] != null) {
+    throw StateError('$label returned an unexpected extra cursor.');
+  }
+}
+
 Future<void> _smokeDirectToolApi(
   McpStreamableHttpClient client, {
   required String label,
@@ -9140,15 +9204,24 @@ Future<void> _smokeDirectJsonBatch(
       'Direct JSON batch plural tool alias response was invalid.',
     );
   }
-  if (responses[3]['id'] != '$label-direct-batch-resources' ||
-      !jsonEncode(responses[3]).contains(_resourceUri)) {
-    throw StateError('Direct JSON batch resources/list response was invalid.');
-  }
+  final resourceCursor = _expectPaginatedCatalogHead(
+    responses[3],
+    id: '$label-direct-batch-resources',
+    label: 'Direct JSON batch resources/list',
+    resultKey: 'resources',
+    field: 'uri',
+    fieldDescription: 'resource URIs',
+    expectedPrimary: _resourceUri,
+  );
   if (responses[4]['id'] != '$label-direct-batch-prompt' ||
       !jsonEncode(responses[4]).contains(promptTaskId)) {
     throw StateError('Direct JSON batch prompts/get response was invalid.');
   }
-  await _smokeDirectJsonBatchResourcePromptDetails(client, label: label);
+  await _smokeDirectJsonBatchResourcePromptDetails(
+    client,
+    label: label,
+    resourceCursor: resourceCursor,
+  );
   await _smokeDirectJsonBatchErrorIsolation(client, label: label);
   await _smokeDirectJsonBatchWampMeta(
     client,
@@ -9164,6 +9237,7 @@ Future<void> _smokeDirectJsonBatch(
 Future<void> _smokeDirectJsonBatchResourcePromptDetails(
   McpStreamableHttpClient client, {
   required String label,
+  required String resourceCursor,
 }) async {
   final detailBatch = await client.postBatch(
     [
@@ -9209,28 +9283,82 @@ Future<void> _smokeDirectJsonBatchResourcePromptDetails(
     );
   }
 
-  final templates = _jsonRpcResult(
+  final templateCursor = _expectPaginatedCatalogHead(
     detailBatch[1],
     id: '$label-direct-batch-resource-templates',
     label: 'Direct JSON batch resources/templates/list',
+    resultKey: 'resourceTemplates',
+    field: 'uriTemplate',
+    fieldDescription: 'resource template URIs',
+    expectedPrimary: _resourceTemplateUri,
   );
-  if (!jsonEncode(
-    templates['resourceTemplates'],
-  ).contains(_resourceTemplateUri)) {
-    throw StateError(
-      'Direct JSON batch resources/templates/list missed '
-      '$_resourceTemplateUri.',
-    );
-  }
-
-  final prompts = _jsonRpcResult(
+  final promptCursor = _expectPaginatedCatalogHead(
     detailBatch[2],
     id: '$label-direct-batch-prompts',
     label: 'Direct JSON batch prompts/list',
+    resultKey: 'prompts',
+    field: 'name',
+    fieldDescription: 'prompt names',
+    expectedPrimary: _promptName,
   );
-  if (!jsonEncode(prompts['prompts']).contains(_promptName)) {
-    throw StateError('Direct JSON batch prompts/list missed $_promptName.');
+
+  final cursorBatch = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-resources-cursor',
+        'method': 'resources/list',
+        'params': {'cursor': resourceCursor},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-resource-templates-cursor',
+        'method': 'resources/templates/list',
+        'params': {'cursor': templateCursor},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-prompts-cursor',
+        'method': 'prompts/list',
+        'params': {'cursor': promptCursor},
+      },
+    ],
+    streamable: false,
+    includeSession: false,
+  );
+  if (cursorBatch == null || cursorBatch.length != 3) {
+    throw StateError(
+      'Direct JSON batch resource/prompt cursor pages did not return three '
+      'responses.',
+    );
   }
+  _expectCatalogCursorPage(
+    cursorBatch[0],
+    id: '$label-direct-batch-resources-cursor',
+    label: 'Direct JSON batch resources/list cursor',
+    resultKey: 'resources',
+    field: 'uri',
+    fieldDescription: 'resource URIs',
+    expectedPaged: _pagedResourceUri,
+  );
+  _expectCatalogCursorPage(
+    cursorBatch[1],
+    id: '$label-direct-batch-resource-templates-cursor',
+    label: 'Direct JSON batch resources/templates/list cursor',
+    resultKey: 'resourceTemplates',
+    field: 'uriTemplate',
+    fieldDescription: 'resource template URIs',
+    expectedPaged: _pagedResourceTemplateUri,
+  );
+  _expectCatalogCursorPage(
+    cursorBatch[2],
+    id: '$label-direct-batch-prompts-cursor',
+    label: 'Direct JSON batch prompts/list cursor',
+    resultKey: 'prompts',
+    field: 'name',
+    fieldDescription: 'prompt names',
+    expectedPaged: _pagedPromptName,
+  );
 }
 
 Future<void> _smokeDirectJsonBatchWampMeta(
@@ -9436,10 +9564,15 @@ Future<void> _smokeStreamableBatch(
       !jsonEncode(responses[1]).contains(taskId)) {
     throw StateError('Streamable MCP batch tools/call response was invalid.');
   }
-  if (responses[2]['id'] != '$label-streamable-batch-resources' ||
-      !jsonEncode(responses[2]).contains(_resourceUri)) {
-    throw StateError('Streamable MCP batch resources/list response invalid.');
-  }
+  final resourceCursor = _expectPaginatedCatalogHead(
+    responses[2],
+    id: '$label-streamable-batch-resources',
+    label: 'Streamable MCP batch resources/list',
+    resultKey: 'resources',
+    field: 'uri',
+    fieldDescription: 'resource URIs',
+    expectedPrimary: _resourceUri,
+  );
   if (responses[3]['id'] != '$label-streamable-batch-prompt' ||
       !jsonEncode(responses[3]).contains(promptTaskId)) {
     throw StateError('Streamable MCP batch prompts/get response was invalid.');
@@ -9451,7 +9584,11 @@ Future<void> _smokeStreamableBatch(
     throw StateError('Streamable MCP batch did not update SSE event state.');
   }
 
-  await _smokeStreamableBatchResourcePromptDetails(client, label: label);
+  await _smokeStreamableBatchResourcePromptDetails(
+    client,
+    label: label,
+    resourceCursor: resourceCursor,
+  );
   await _smokeStreamableBatchWampMeta(
     client,
     serviceSession,
@@ -9463,6 +9600,7 @@ Future<void> _smokeStreamableBatch(
 Future<void> _smokeStreamableBatchResourcePromptDetails(
   McpStreamableHttpClient client, {
   required String label,
+  required String resourceCursor,
 }) async {
   final sessionId = client.sessionId;
   if (sessionId == null || sessionId.isEmpty) {
@@ -9471,7 +9609,25 @@ Future<void> _smokeStreamableBatchResourcePromptDetails(
     );
   }
 
-  final previousEventId = client.lastEventId;
+  var previousEventId = client.lastEventId;
+  void expectStreamableProgress(String operation) {
+    if (client.sessionId != sessionId) {
+      throw StateError(
+        'Streamable MCP batch resource/prompt $operation changed session id.',
+      );
+    }
+    final eventId = client.lastEventId;
+    if (eventId == null ||
+        !eventId.startsWith('$sessionId:') ||
+        eventId == previousEventId) {
+      throw StateError(
+        'Streamable MCP batch resource/prompt $operation did not update SSE '
+        'state.',
+      );
+    }
+    previousEventId = eventId;
+  }
+
   final detailBatch = await client.postBatch([
     {
       'jsonrpc': '2.0',
@@ -9512,42 +9668,80 @@ Future<void> _smokeStreamableBatchResourcePromptDetails(
     );
   }
 
-  final templates = _jsonRpcResult(
+  final templateCursor = _expectPaginatedCatalogHead(
     detailBatch[1],
     id: '$label-streamable-batch-resource-templates',
     label: 'Streamable MCP batch resources/templates/list',
+    resultKey: 'resourceTemplates',
+    field: 'uriTemplate',
+    fieldDescription: 'resource template URIs',
+    expectedPrimary: _resourceTemplateUri,
   );
-  if (!jsonEncode(
-    templates['resourceTemplates'],
-  ).contains(_resourceTemplateUri)) {
-    throw StateError(
-      'Streamable MCP batch resources/templates/list missed '
-      '$_resourceTemplateUri.',
-    );
-  }
-
-  final prompts = _jsonRpcResult(
+  final promptCursor = _expectPaginatedCatalogHead(
     detailBatch[2],
     id: '$label-streamable-batch-prompts',
     label: 'Streamable MCP batch prompts/list',
+    resultKey: 'prompts',
+    field: 'name',
+    fieldDescription: 'prompt names',
+    expectedPrimary: _promptName,
   );
-  if (!jsonEncode(prompts['prompts']).contains(_promptName)) {
-    throw StateError('Streamable MCP batch prompts/list missed $_promptName.');
-  }
+  expectStreamableProgress('details batch');
 
-  if (client.sessionId != sessionId) {
+  final cursorBatch = await client.postBatch([
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-resources-cursor',
+      'method': 'resources/list',
+      'params': {'cursor': resourceCursor},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-resource-templates-cursor',
+      'method': 'resources/templates/list',
+      'params': {'cursor': templateCursor},
+    },
+    {
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-batch-prompts-cursor',
+      'method': 'prompts/list',
+      'params': {'cursor': promptCursor},
+    },
+  ]);
+  if (cursorBatch == null || cursorBatch.length != 3) {
     throw StateError(
-      'Streamable MCP batch resource/prompt details changed session id.',
+      'Streamable MCP batch resource/prompt cursor pages did not return three '
+      'responses.',
     );
   }
-  final eventId = client.lastEventId;
-  if (eventId == null ||
-      !eventId.startsWith('$sessionId:') ||
-      eventId == previousEventId) {
-    throw StateError(
-      'Streamable MCP batch resource/prompt details did not update SSE state.',
-    );
-  }
+  _expectCatalogCursorPage(
+    cursorBatch[0],
+    id: '$label-streamable-batch-resources-cursor',
+    label: 'Streamable MCP batch resources/list cursor',
+    resultKey: 'resources',
+    field: 'uri',
+    fieldDescription: 'resource URIs',
+    expectedPaged: _pagedResourceUri,
+  );
+  _expectCatalogCursorPage(
+    cursorBatch[1],
+    id: '$label-streamable-batch-resource-templates-cursor',
+    label: 'Streamable MCP batch resources/templates/list cursor',
+    resultKey: 'resourceTemplates',
+    field: 'uriTemplate',
+    fieldDescription: 'resource template URIs',
+    expectedPaged: _pagedResourceTemplateUri,
+  );
+  _expectCatalogCursorPage(
+    cursorBatch[2],
+    id: '$label-streamable-batch-prompts-cursor',
+    label: 'Streamable MCP batch prompts/list cursor',
+    resultKey: 'prompts',
+    field: 'name',
+    fieldDescription: 'prompt names',
+    expectedPaged: _pagedPromptName,
+  );
+  expectStreamableProgress('cursor batch');
 }
 
 Future<void> _smokeStreamableBatchWampMeta(
