@@ -4994,6 +4994,59 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
     );
     await _expectSecureMcpUnauthorized(
       client,
+      label: 'direct JSON connectanum.api.list',
+      operation: () async {
+        await client.request(
+          'connectanum.api.list',
+          id: 'secure-unauthenticated-api-list',
+          params: const <String, Object?>{'kind': 'topic'},
+          streamable: false,
+          includeSession: false,
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON connectanum.pubsub.subscribe',
+      operation: () async {
+        await client.request(
+          'connectanum.pubsub.subscribe',
+          id: 'secure-unauthenticated-pubsub-subscribe',
+          params: const <String, Object?>{
+            'topic': _topic,
+            'queueLimit': 1,
+          },
+          streamable: false,
+          includeSession: false,
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON batch WAMP meta/pubsub',
+      operation: () async {
+        await client.postBatch(
+          [
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-api-list',
+              'method': 'connectanum.api.list',
+              'params': {'kind': 'topic'},
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-pubsub-subscribe',
+              'method': 'connectanum.pubsub.subscribe',
+              'params': {'topic': _topic, 'queueLimit': 1},
+            },
+          ],
+          streamable: false,
+          includeSession: false,
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
       label: 'Streamable initialize',
       operation: () async {
         await client.initialize(id: 'secure-unauthenticated-initialize');
@@ -5009,6 +5062,32 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
             'id': 'secure-unauthenticated-streamable-batch-tools',
             'method': 'tools/list',
             'params': {},
+          },
+        ]);
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'Streamable batch WAMP meta/pubsub tools',
+      operation: () async {
+        await client.postBatch([
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-streamable-batch-api-list',
+            'method': 'tools/call',
+            'params': {
+              'name': 'connectanum.api.list',
+              'arguments': {'kind': 'topic'},
+            },
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-streamable-batch-pubsub-subscribe',
+            'method': 'tools/call',
+            'params': {
+              'name': 'connectanum.pubsub.subscribe',
+              'arguments': {'topic': _topic, 'queueLimit': 1},
+            },
           },
         ]);
       },
