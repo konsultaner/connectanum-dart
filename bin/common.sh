@@ -720,10 +720,18 @@ const _ticketSecret = 'agent-ticket';
 const _accessToken = 'agent-token';
 const _refreshToken = 'agent-refresh-token';
 const _toolName = 'agent.echo';
+const _pagedToolName = 'agent.followup';
+const _toolCursor = 'agent-tools-page-2';
 const _procedureName = 'agent.lookup';
 const _resourceUri = 'wamp://agent/readme';
+const _pagedResourceUri = 'wamp://agent/next';
+const _resourceCursor = 'agent-resources-page-2';
 const _resourceTemplateUri = 'wamp://agent/task/{taskId}';
+const _pagedResourceTemplateUri = 'wamp://agent/archive/{taskId}';
+const _resourceTemplateCursor = 'agent-resource-templates-page-2';
 const _promptName = 'agent.summary';
+const _pagedPromptName = 'agent.followup_summary';
+const _promptCursor = 'agent-prompts-page-2';
 const _topic = 'agent.events';
 const _subscriptionHandlePrefix = 'agent-subscription';
 const _registrationId = 101;
@@ -819,6 +827,20 @@ Future<void> main() async {
       tools.tools.any((tool) => tool['name'] == _toolName),
       'tools/list failed',
     );
+    _expect(tools.nextCursor == _toolCursor, 'tools/list missed nextCursor');
+    final toolPage = await client.listTools(
+      id: 'tools-json-page-2',
+      cursor: tools.nextCursor,
+      streamable: false,
+      headers: const <String, String>{
+        'x-consumer-trace': 'typed-tools-json-page-2',
+      },
+    );
+    _expect(
+      toolPage.tools.single['name'] == _pagedToolName &&
+          toolPage.nextCursor == null,
+      'tools/list cursor page failed',
+    );
 
     final toolResult = await client.callTool(
       _toolName,
@@ -850,12 +872,35 @@ Future<void> main() async {
       'direct JSON tools/list failed',
     );
     _expect(
+      directTools.nextCursor == _toolCursor,
+      'direct JSON tools/list missed nextCursor',
+    );
+    final directToolPage = await client.listConnectanumToolsDirect(
+      id: 'direct-tools-page-2',
+      cursor: directTools.nextCursor,
+      headers: const <String, String>{
+        'x-consumer-trace': 'direct-tools-list-page-2',
+      },
+    );
+    _expect(
+      directToolPage.tools.single['name'] == _pagedToolName &&
+          directToolPage.nextCursor == null,
+      'direct JSON tools/list cursor page failed',
+    );
+    _expect(
       endpoint.sawDirectRequestWithoutSession,
       'direct JSON request included Streamable HTTP session state',
     );
     _expect(
       endpoint.directTraceHeadersWithoutSession.contains('direct-tools-list'),
       'direct JSON tools helper did not forward custom headers without '
+      'Streamable session state',
+    );
+    _expect(
+      endpoint.directTraceHeadersWithoutSession.contains(
+        'direct-tools-list-page-2',
+      ),
+      'direct JSON tools cursor helper did not forward custom headers without '
       'Streamable session state',
     );
 
@@ -2224,6 +2269,22 @@ Future<void> _smokeResourcesAndPrompts(
     resources.resources.single['uri'] == _resourceUri,
     'streamable resources/list failed',
   );
+  _expect(
+    resources.nextCursor == _resourceCursor,
+    'streamable resources/list missed nextCursor',
+  );
+  final resourcesPage = await client.listResources(
+    id: 'streamable-resources-page-2',
+    cursor: resources.nextCursor,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-resources-page-2',
+    },
+  );
+  _expect(
+    resourcesPage.resources.single['uri'] == _pagedResourceUri &&
+        resourcesPage.nextCursor == null,
+    'streamable resources/list cursor page failed',
+  );
 
   final readResource = await client.readResource(
     _resourceUri,
@@ -2247,6 +2308,23 @@ Future<void> _smokeResourcesAndPrompts(
     templates.resourceTemplates.single['uriTemplate'] == _resourceTemplateUri,
     'streamable resources/templates/list failed',
   );
+  _expect(
+    templates.nextCursor == _resourceTemplateCursor,
+    'streamable resources/templates/list missed nextCursor',
+  );
+  final templatesPage = await client.listResourceTemplates(
+    id: 'streamable-resource-templates-page-2',
+    cursor: templates.nextCursor,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-templates-page-2',
+    },
+  );
+  _expect(
+    templatesPage.resourceTemplates.single['uriTemplate'] ==
+            _pagedResourceTemplateUri &&
+        templatesPage.nextCursor == null,
+    'streamable resources/templates/list cursor page failed',
+  );
 
   final prompts = await client.listPrompts(
     id: 'streamable-prompts',
@@ -2257,6 +2335,22 @@ Future<void> _smokeResourcesAndPrompts(
   _expect(
     prompts.prompts.single['name'] == _promptName,
     'streamable prompts/list failed',
+  );
+  _expect(
+    prompts.nextCursor == _promptCursor,
+    'streamable prompts/list missed nextCursor',
+  );
+  final promptsPage = await client.listPrompts(
+    id: 'streamable-prompts-page-2',
+    cursor: prompts.nextCursor,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-prompts-page-2',
+    },
+  );
+  _expect(
+    promptsPage.prompts.single['name'] == _pagedPromptName &&
+        promptsPage.nextCursor == null,
+    'streamable prompts/list cursor page failed',
   );
 
   final prompt = await client.getPrompt(
@@ -2282,6 +2376,23 @@ Future<void> _smokeResourcesAndPrompts(
   _expect(
     directResources.resources.single['uri'] == _resourceUri,
     'direct JSON resources/list failed',
+  );
+  _expect(
+    directResources.nextCursor == _resourceCursor,
+    'direct JSON resources/list missed nextCursor',
+  );
+  final directResourcesPage = await client.listResources(
+    id: 'direct-resources-page-2',
+    cursor: directResources.nextCursor,
+    directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-direct-resources-page-2',
+    },
+  );
+  _expect(
+    directResourcesPage.resources.single['uri'] == _pagedResourceUri &&
+        directResourcesPage.nextCursor == null,
+    'direct JSON resources/list cursor page failed',
   );
 
   final directReadResource = await client.readResource(
@@ -2309,6 +2420,24 @@ Future<void> _smokeResourcesAndPrompts(
         _resourceTemplateUri,
     'direct JSON resources/templates/list failed',
   );
+  _expect(
+    directTemplates.nextCursor == _resourceTemplateCursor,
+    'direct JSON resources/templates/list missed nextCursor',
+  );
+  final directTemplatesPage = await client.listResourceTemplates(
+    id: 'direct-resource-templates-page-2',
+    cursor: directTemplates.nextCursor,
+    directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-direct-templates-page-2',
+    },
+  );
+  _expect(
+    directTemplatesPage.resourceTemplates.single['uriTemplate'] ==
+            _pagedResourceTemplateUri &&
+        directTemplatesPage.nextCursor == null,
+    'direct JSON resources/templates/list cursor page failed',
+  );
 
   final directPrompts = await client.listPrompts(
     id: 'direct-prompts',
@@ -2320,6 +2449,23 @@ Future<void> _smokeResourcesAndPrompts(
   _expect(
     directPrompts.prompts.single['name'] == _promptName,
     'direct JSON prompts/list failed',
+  );
+  _expect(
+    directPrompts.nextCursor == _promptCursor,
+    'direct JSON prompts/list missed nextCursor',
+  );
+  final directPromptsPage = await client.listPrompts(
+    id: 'direct-prompts-page-2',
+    cursor: directPrompts.nextCursor,
+    directJson: true,
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-direct-prompts-page-2',
+    },
+  );
+  _expect(
+    directPromptsPage.prompts.single['name'] == _pagedPromptName &&
+        directPromptsPage.nextCursor == null,
+    'direct JSON prompts/list cursor page failed',
   );
 
   final directPrompt = await client.getPrompt(
@@ -2353,9 +2499,12 @@ Future<void> _smokeResourcesAndPrompts(
   );
   const expectedStreamableResourcePromptTraceHeaders = <String>{
     'POST:resource-prompts-streamable-resources',
+    'POST:resource-prompts-streamable-resources-page-2',
     'POST:resource-prompts-streamable-resource-read',
     'POST:resource-prompts-streamable-templates',
+    'POST:resource-prompts-streamable-templates-page-2',
     'POST:resource-prompts-streamable-prompts',
+    'POST:resource-prompts-streamable-prompts-page-2',
     'POST:resource-prompts-streamable-prompt-get',
   };
   final missingStreamableResourcePromptTraceHeaders =
@@ -2370,9 +2519,12 @@ Future<void> _smokeResourcesAndPrompts(
   );
   const expectedDirectResourcePromptTraceHeaders = <String>{
     'resource-prompts-direct-resources',
+    'resource-prompts-direct-resources-page-2',
     'resource-prompts-direct-resource-read',
     'resource-prompts-direct-templates',
+    'resource-prompts-direct-templates-page-2',
     'resource-prompts-direct-prompts',
+    'resource-prompts-direct-prompts-page-2',
     'resource-prompts-direct-prompt-get',
   };
   final missingDirectResourcePromptTraceHeaders =
@@ -3216,7 +3368,7 @@ final class _AgentMcpEndpoint {
           await _writeSessionError(request);
           return;
         }
-        await _writeJson(request, _toolListResponse(id));
+        await _writeJson(request, _toolListResponse(id, message));
       case 'tools/call':
         if (!_hasSession(request)) {
           await _writeSessionError(request);
@@ -3226,18 +3378,18 @@ final class _AgentMcpEndpoint {
       case 'connectanum.tools.list':
         sawDirectRequestWithoutSession =
             request.headers.value('MCP-Session-Id') == null;
-        await _writeJson(request, _toolListResponse(id));
+        await _writeJson(request, _toolListResponse(id, message));
       case 'connectanum.tool.call':
       case 'connectanum.tools.call':
         await _writeJson(request, _toolCallResponse(id, message));
       case 'resources/list':
-        await _writeJson(request, _resourceListResponse(id));
+        await _writeJson(request, _resourceListResponse(id, message));
       case 'resources/read':
         await _writeJson(request, _resourceReadResponse(id, message));
       case 'resources/templates/list':
-        await _writeJson(request, _resourceTemplateListResponse(id));
+        await _writeJson(request, _resourceTemplateListResponse(id, message));
       case 'prompts/list':
-        await _writeJson(request, _promptListResponse(id));
+        await _writeJson(request, _promptListResponse(id, message));
       case 'prompts/get':
         await _writeJson(request, _promptGetResponse(id, message));
       default:
@@ -3357,24 +3509,24 @@ final class _AgentMcpEndpoint {
       case 'ping':
         return _pingResponse(id);
       case 'tools/list':
-        return _toolListResponse(id);
+        return _toolListResponse(id, message);
       case 'tools/call':
         return _toolCallResponse(id, message);
       case 'connectanum.tools.list':
         sawDirectRequestWithoutSession =
             request.headers.value('MCP-Session-Id') == null;
-        return _toolListResponse(id);
+        return _toolListResponse(id, message);
       case 'connectanum.tool.call':
       case 'connectanum.tools.call':
         return _toolCallResponse(id, message);
       case 'resources/list':
-        return _resourceListResponse(id);
+        return _resourceListResponse(id, message);
       case 'resources/read':
         return _resourceReadResponse(id, message);
       case 'resources/templates/list':
-        return _resourceTemplateListResponse(id);
+        return _resourceTemplateListResponse(id, message);
       case 'prompts/list':
-        return _promptListResponse(id);
+        return _promptListResponse(id, message);
       case 'prompts/get':
         return _promptGetResponse(id, message);
       default:
@@ -3463,7 +3615,32 @@ final class _AgentMcpEndpoint {
     };
   }
 
-  Map<String, Object?> _toolListResponse(Object? id) {
+  String? _cursorFrom(Map<String, Object?> message) {
+    final params = message['params'];
+    if (params is Map) {
+      final cursor = params['cursor'];
+      if (cursor is String) {
+        return cursor;
+      }
+    }
+    return null;
+  }
+
+  Map<String, Object?> _toolListResponse(
+    Object? id,
+    Map<String, Object?> message,
+  ) {
+    final cursor = _cursorFrom(message);
+    if (cursor == _toolCursor) {
+      return <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id,
+        'result': <String, Object?>{
+          'tools': <Object?>[_toolDefinition(_pagedToolName)],
+        },
+      };
+    }
+    _expect(cursor == null, 'unexpected tools/list cursor $cursor');
     return <String, Object?>{
       'jsonrpc': '2.0',
       'id': id,
@@ -3501,6 +3678,7 @@ final class _AgentMcpEndpoint {
           _toolDefinition('wamp.subscription.list_subscribers'),
           _toolDefinition('wamp.subscription.count_subscribers'),
         ],
+        'nextCursor': _toolCursor,
       },
     };
   }
@@ -3794,7 +3972,27 @@ final class _AgentMcpEndpoint {
     };
   }
 
-  Map<String, Object?> _resourceListResponse(Object? id) {
+  Map<String, Object?> _resourceListResponse(
+    Object? id,
+    Map<String, Object?> message,
+  ) {
+    final cursor = _cursorFrom(message);
+    if (cursor == _resourceCursor) {
+      return <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id,
+        'result': <String, Object?>{
+          'resources': <Object?>[
+            <String, Object?>{
+              'uri': _pagedResourceUri,
+              'name': 'Next agent context',
+              'mimeType': 'text/plain',
+            },
+          ],
+        },
+      };
+    }
+    _expect(cursor == null, 'unexpected resources/list cursor $cursor');
     return <String, Object?>{
       'jsonrpc': '2.0',
       'id': id,
@@ -3806,6 +4004,7 @@ final class _AgentMcpEndpoint {
             'mimeType': 'text/plain',
           },
         ],
+        'nextCursor': _resourceCursor,
       },
     };
   }
@@ -3833,7 +4032,30 @@ final class _AgentMcpEndpoint {
     };
   }
 
-  Map<String, Object?> _resourceTemplateListResponse(Object? id) {
+  Map<String, Object?> _resourceTemplateListResponse(
+    Object? id,
+    Map<String, Object?> message,
+  ) {
+    final cursor = _cursorFrom(message);
+    if (cursor == _resourceTemplateCursor) {
+      return <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id,
+        'result': <String, Object?>{
+          'resourceTemplates': <Object?>[
+            <String, Object?>{
+              'uriTemplate': _pagedResourceTemplateUri,
+              'name': 'Archived agent task context',
+              'mimeType': 'application/json',
+            },
+          ],
+        },
+      };
+    }
+    _expect(
+      cursor == null,
+      'unexpected resources/templates/list cursor $cursor',
+    );
     return <String, Object?>{
       'jsonrpc': '2.0',
       'id': id,
@@ -3845,11 +4067,38 @@ final class _AgentMcpEndpoint {
             'mimeType': 'application/json',
           },
         ],
+        'nextCursor': _resourceTemplateCursor,
       },
     };
   }
 
-  Map<String, Object?> _promptListResponse(Object? id) {
+  Map<String, Object?> _promptListResponse(
+    Object? id,
+    Map<String, Object?> message,
+  ) {
+    final cursor = _cursorFrom(message);
+    if (cursor == _promptCursor) {
+      return <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id,
+        'result': <String, Object?>{
+          'prompts': <Object?>[
+            <String, Object?>{
+              'name': _pagedPromptName,
+              'description': 'Summarizes follow-up agent context.',
+              'arguments': <Object?>[
+                <String, Object?>{
+                  'name': 'taskId',
+                  'description': 'Task id.',
+                  'required': true,
+                },
+              ],
+            },
+          ],
+        },
+      };
+    }
+    _expect(cursor == null, 'unexpected prompts/list cursor $cursor');
     return <String, Object?>{
       'jsonrpc': '2.0',
       'id': id,
@@ -3867,6 +4116,7 @@ final class _AgentMcpEndpoint {
             ],
           },
         ],
+        'nextCursor': _promptCursor,
       },
     };
   }
