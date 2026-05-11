@@ -4360,6 +4360,7 @@ const _pagedPromptName = 'inspect-consumer-task-followup';
 const _headerWrappedNote = '=?base64?Zm9v?=';
 const _supportedOlderProtocolVersions = ['2025-03-26', '2025-06-18'];
 const _unsupportedProtocolVersion = '2099-01-01';
+const _unknownAccessToken = 'consumer-unknown-access-token';
 
 Future<void> main() async {
   final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
@@ -4445,6 +4446,12 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
     );
 
     await _assertSecureMcpRequiresBearer(binding);
+    await _assertSecureMcpRejectsBearer(
+      binding,
+      _unknownAccessToken,
+      acceptedMessage:
+          'Bearer-protected MCP endpoint accepted an unknown access token.',
+    );
     final grant = await _issueTicketHttpGrant(binding);
     _expectHttpAuthGrant(
       grant,

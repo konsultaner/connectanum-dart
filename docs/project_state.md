@@ -2,14 +2,20 @@
 
 Last updated: 2026-05-11
 Current branch: `add-router`
-Last reviewed branch checkpoint: `9895c92`
-(`test: cover active mcp meta pubsub auth`; MCP consumer package secure
-router-hosted active-bearer WAMP meta/pub-sub smoke hosted CI and
+Last reviewed branch checkpoint: `66225d8`
+(`test: cover rejected mcp meta pubsub auth`; MCP consumer package secure
+router-hosted rejected-bearer WAMP meta/pub-sub smoke hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-11-mcp-consumer-secure-rejected-bearer-wamp-meta-pubsub-smoke.md`
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-unknown-bearer-wamp-meta-pubsub-smoke.md`
 (complete locally; push and hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-unknown-bearer-wamp-meta-pubsub-smoke.md`
+(complete locally; push and hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-rejected-bearer-wamp-meta-pubsub-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-11-mcp-consumer-secure-active-bearer-wamp-meta-pubsub-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -295,17 +301,21 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`9895c92`
-(`test: cover active mcp meta pubsub auth`; hosted CI and deployment-chain
+`66225d8`
+(`test: cover rejected mcp meta pubsub auth`; hosted CI and deployment-chain
 evidence clean).
-Current implementation checkpoint: generated consumer smoke coverage for stale or
-revoked bearer tokens on active secure Streamable MCP sessions when calling
+Current implementation checkpoint: generated consumer smoke coverage for an
+unknown raw bearer token on fresh secure MCP clients when calling the direct
+JSON, WAMP meta/pub-sub, and Streamable HTTP route matrix (complete locally;
+push and hosted evidence pending).
+Previous implementation checkpoint: generated consumer smoke coverage for stale
+or revoked bearer tokens on fresh secure MCP clients when calling the direct
+JSON, WAMP meta/pub-sub, and Streamable HTTP route matrix (complete; hosted CI
+and deployment-chain evidence clean).
+Previous implementation checkpoint: generated consumer smoke coverage for stale
+or revoked bearer tokens on active secure Streamable MCP sessions when calling
 WAMP meta API and pub/sub paths (complete; hosted CI and deployment-chain
 evidence clean).
-Current implementation focus: generated consumer smoke coverage for stale or
-revoked bearer tokens on fresh secure MCP clients when calling the direct JSON,
-WAMP meta/pub-sub, and Streamable HTTP route matrix (complete locally; push and
-hosted evidence pending).
 Previous implementation checkpoint: MCP consumer package secure router-hosted
 WAMP meta/pub-sub missing-bearer smoke coverage (complete; hosted CI and
 deployment-chain evidence clean).
@@ -692,16 +702,16 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer package secure router-hosted active-bearer WAMP meta/pub-sub
-    rejected-token smoke is complete locally; push and hosted evidence are
-    pending. The target is the neutral generated consumer package smoke: secure
-    router-hosted MCP must reject stale or revoked bearer credentials for direct
-    JSON `connectanum.pubsub.subscribe`, direct JSON batches that mix WAMP
-    meta/pub-sub methods, and Streamable HTTP batches that call WAMP
-    meta/pub-sub tools through `tools/call`. Direct JSON rejections must
-    preserve the caller's active Streamable session state; Streamable HTTP
-    rejections must clear the rejected caller's session state. Pre-change
-    `bin/test-fast`, focused `bash -n bin/common.sh`, focused
+  - MCP consumer package secure router-hosted unknown-bearer WAMP meta/pub-sub
+    smoke is complete locally; push and hosted evidence are pending. The target
+    is the neutral generated consumer package smoke: secure router-hosted MCP
+    must reject an unknown raw bearer token for direct JSON
+    `connectanum.tools.list`, direct JSON `connectanum.api.list`, direct JSON
+    `connectanum.pubsub.subscribe`, direct JSON batches that mix WAMP
+    meta/pub-sub methods, Streamable `initialize`, and Streamable HTTP batches
+    that call WAMP meta/pub-sub tools through `tools/call`, without populating
+    consumer Streamable session state. Pre-change `bin/test-fast`, focused
+    `bash -n bin/common.sh`, focused
     `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
     post-change `bin/test-fast`, and full local `bin/verify` passed on
     2026-05-11.
