@@ -4352,8 +4352,11 @@ const _topic = 'consumer.events.task';
 const _batchTopic = 'consumer.events.batch';
 const _procedure = 'consumer.task.lookup';
 const _resourceUri = 'consumer://mcp/context';
+const _pagedResourceUri = 'consumer://mcp/context/followup';
 const _resourceTemplateUri = 'consumer://mcp/task/{taskId}';
+const _pagedResourceTemplateUri = 'consumer://mcp/task/{taskId}/followup';
 const _promptName = 'inspect-consumer-task';
+const _pagedPromptName = 'inspect-consumer-task-followup';
 const _headerWrappedNote = '=?base64?Zm9v?=';
 const _supportedOlderProtocolVersions = ['2025-03-26', '2025-06-18'];
 const _unsupportedProtocolVersion = '2099-01-01';
@@ -4574,9 +4577,9 @@ RouterSettings _consumerRouterSettings() {
               options: {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
-                'resource_list_page_size': 10,
-                'resource_template_list_page_size': 10,
-                'prompt_list_page_size': 10,
+                'resource_list_page_size': 1,
+                'resource_template_list_page_size': 1,
+                'prompt_list_page_size': 1,
                 'topics': [
                   {
                     'topic': _topic,
@@ -4615,6 +4618,15 @@ RouterSettings _consumerRouterSettings() {
                     'text':
                         'Consumer package router-hosted MCP context document.',
                   },
+                  {
+                    'uri': _pagedResourceUri,
+                    'name': 'consumer-mcp-followup-context',
+                    'title': 'Consumer MCP follow-up context',
+                    'description':
+                        'Second-page static context for catalog smoke checks.',
+                    'mime_type': 'text/plain',
+                    'text': 'Consumer package follow-up MCP context document.',
+                  },
                 ],
                 'resource_templates': [
                   {
@@ -4623,6 +4635,14 @@ RouterSettings _consumerRouterSettings() {
                     'title': 'Consumer task context',
                     'description':
                         'Template for consumer task context resources.',
+                    'mime_type': 'application/json',
+                  },
+                  {
+                    'uri_template': _pagedResourceTemplateUri,
+                    'name': 'consumer-task-followup-context',
+                    'title': 'Consumer task follow-up context',
+                    'description':
+                        'Second-page template for catalog smoke checks.',
                     'mime_type': 'application/json',
                   },
                 ],
@@ -4643,6 +4663,26 @@ RouterSettings _consumerRouterSettings() {
                         'role': 'user',
                         'text':
                             'Inspect consumer task {{taskId}} using MCP route context.',
+                      },
+                    ],
+                  },
+                  {
+                    'name': _pagedPromptName,
+                    'title': 'Inspect consumer task follow-up',
+                    'description':
+                        'Second-page prompt for catalog smoke checks.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect follow-up consumer task {{taskId}}.',
                       },
                     ],
                   },
@@ -4660,9 +4700,9 @@ RouterSettings _consumerRouterSettings() {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
                 'allow_insecure_transport': true,
-                'resource_list_page_size': 10,
-                'resource_template_list_page_size': 10,
-                'prompt_list_page_size': 10,
+                'resource_list_page_size': 1,
+                'resource_template_list_page_size': 1,
+                'prompt_list_page_size': 1,
                 'topics': [
                   {
                     'topic': _topic,
@@ -4701,6 +4741,15 @@ RouterSettings _consumerRouterSettings() {
                     'text':
                         'Consumer package router-hosted MCP context document.',
                   },
+                  {
+                    'uri': _pagedResourceUri,
+                    'name': 'consumer-mcp-followup-context',
+                    'title': 'Consumer MCP follow-up context',
+                    'description':
+                        'Second-page static context for catalog smoke checks.',
+                    'mime_type': 'text/plain',
+                    'text': 'Consumer package follow-up MCP context document.',
+                  },
                 ],
                 'resource_templates': [
                   {
@@ -4709,6 +4758,14 @@ RouterSettings _consumerRouterSettings() {
                     'title': 'Consumer task context',
                     'description':
                         'Template for consumer task context resources.',
+                    'mime_type': 'application/json',
+                  },
+                  {
+                    'uri_template': _pagedResourceTemplateUri,
+                    'name': 'consumer-task-followup-context',
+                    'title': 'Consumer task follow-up context',
+                    'description':
+                        'Second-page template for catalog smoke checks.',
                     'mime_type': 'application/json',
                   },
                 ],
@@ -4729,6 +4786,26 @@ RouterSettings _consumerRouterSettings() {
                         'role': 'user',
                         'text':
                             'Inspect consumer task {{taskId}} using MCP route context.',
+                      },
+                    ],
+                  },
+                  {
+                    'name': _pagedPromptName,
+                    'title': 'Inspect consumer task follow-up',
+                    'description':
+                        'Second-page prompt for catalog smoke checks.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect follow-up consumer task {{taskId}}.',
                       },
                     ],
                   },
@@ -10571,6 +10648,25 @@ Future<void> _smokeResourcesAndPrompts(
   if (!resourceUris.contains(_resourceUri)) {
     throw StateError('MCP resources/list did not expose $_resourceUri.');
   }
+  final resourceCursor = resources.nextCursor;
+  if (resourceCursor == null || resourceCursor.isEmpty) {
+    throw StateError('MCP resources/list did not expose a catalog cursor.');
+  }
+  final resourcePage = await client.listResources(
+    id: '$label-$mode-resources-page',
+    cursor: resourceCursor,
+    directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$mode-resources-page',
+    },
+  );
+  final pagedResourceUris = {
+    for (final resource in resourcePage.resources) resource['uri'],
+  };
+  if (!pagedResourceUris.contains(_pagedResourceUri) ||
+      resourcePage.nextCursor != null) {
+    throw StateError('MCP resources/list cursor page was invalid.');
+  }
 
   final contents = await client.readResource(
     _resourceUri,
@@ -10602,6 +10698,30 @@ Future<void> _smokeResourcesAndPrompts(
       'MCP resources/templates/list did not expose $_resourceTemplateUri.',
     );
   }
+  final templateCursor = templates.nextCursor;
+  if (templateCursor == null || templateCursor.isEmpty) {
+    throw StateError(
+      'MCP resources/templates/list did not expose a catalog cursor.',
+    );
+  }
+  final templatePage = await client.listResourceTemplates(
+    id: '$label-$mode-resource-templates-page',
+    cursor: templateCursor,
+    directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$mode-resource-templates-page',
+    },
+  );
+  final pagedTemplateUris = {
+    for (final template in templatePage.resourceTemplates)
+      template['uriTemplate'] ?? template['uri_template'],
+  };
+  if (!pagedTemplateUris.contains(_pagedResourceTemplateUri) ||
+      templatePage.nextCursor != null) {
+    throw StateError(
+      'MCP resources/templates/list cursor page was invalid.',
+    );
+  }
 
   final prompts = await client.listPrompts(
     id: '$label-$mode-prompts',
@@ -10613,6 +10733,25 @@ Future<void> _smokeResourcesAndPrompts(
   final promptNames = {for (final prompt in prompts.prompts) prompt['name']};
   if (!promptNames.contains(_promptName)) {
     throw StateError('MCP prompts/list did not expose $_promptName.');
+  }
+  final promptCursor = prompts.nextCursor;
+  if (promptCursor == null || promptCursor.isEmpty) {
+    throw StateError('MCP prompts/list did not expose a catalog cursor.');
+  }
+  final promptPage = await client.listPrompts(
+    id: '$label-$mode-prompts-page',
+    cursor: promptCursor,
+    directJson: directJson,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-$mode-prompts-page',
+    },
+  );
+  final pagedPromptNames = {
+    for (final prompt in promptPage.prompts) prompt['name'],
+  };
+  if (!pagedPromptNames.contains(_pagedPromptName) ||
+      promptPage.nextCursor != null) {
+    throw StateError('MCP prompts/list cursor page was invalid.');
   }
 
   final taskId = 'T-$label-$mode-prompt';

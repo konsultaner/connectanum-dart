@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Package Catalog Pagination Smoke
 
-Status: active; full local verification complete
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-10
 Last updated: 2026-05-11
@@ -49,7 +49,19 @@ lifecycle-free direct JSON requests.
   passed on 2026-05-10.
 - Post-change `bin/test-fast` passed on 2026-05-10.
 - Full local `bin/verify` passed on 2026-05-11.
-- Push and hosted deployment-chain evidence remain pending.
+- Commit `3e00cb1` (`test: follow mcp catalog cursors in client smoke`) is
+  pushed to both remotes. GitHub `CI` run `25658297818` completed
+  successfully for `3e00cb1` with `Fast Checks` and `Full Verify` green, and
+  the hosted CI log scan was clean. GitHub `Dart Package Publish Dry Run` run
+  `25635686773` remains clean and relevant because no publish-sensitive
+  package inputs changed after `90a27ca`.
+- The deployment-chain audit passed with clean latest CI, clean hosted CI logs,
+  and a clean relevant Dart package publish dry-run. The strict audit still
+  reports only known operator-side release-hardening gaps: branch
+  protection/required status checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and
+  `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -60,5 +72,6 @@ lifecycle-free direct JSON requests.
 
 ## Handoff
 
-Implementation plus focused, fast, and full local verification are complete.
-Push and hosted deployment-chain evidence remain pending.
+Implementation, full local verification, push, and hosted CI/deployment-chain
+evidence are complete. Strict audit gaps remain operator-side
+release-hardening items.
