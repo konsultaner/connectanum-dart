@@ -6116,6 +6116,79 @@ Future<List<String>> _expectGenericToolCatalog(
   return names;
 }
 
+Future<List<String>> _expectGenericCatalogPages(
+  McpStreamableHttpClient client, {
+  required String label,
+  required String method,
+  required String resultKey,
+  required String field,
+  required String fieldDescription,
+  required String expectedPrimary,
+  required String expectedPaged,
+  required bool directJson,
+  void Function(String operation)? expectStreamableProgress,
+}) async {
+  final mode = directJson ? 'generic direct' : 'generic streamable';
+  final values = <String>[];
+  String? cursor;
+  var pageCount = 0;
+
+  do {
+    pageCount += 1;
+    if (pageCount > 128) {
+      throw StateError('$mode $method pagination did not terminate.');
+    }
+    final pageLabel = '$label-page-$pageCount';
+    final params = <String, Object?>{
+      if (cursor != null) 'cursor': cursor,
+    };
+    final response = directJson
+        ? await client.request(
+            method,
+            id: pageLabel,
+            params: params,
+            streamable: false,
+            includeSession: false,
+          )
+        : await client.request(method, id: pageLabel, params: params);
+    final result = _jsonRpcResult(
+      response,
+      id: pageLabel,
+      label: '$mode $method page $pageCount',
+    );
+    final pageValues = _catalogStringFieldValues(
+      result[resultKey],
+      field: field,
+      label: '$mode $method page $pageCount',
+    );
+    if (pageValues.isEmpty) {
+      throw StateError('$mode $method returned an empty page.');
+    }
+    values.addAll(pageValues);
+    final nextCursor = result['nextCursor'];
+    if (nextCursor != null && (nextCursor is! String || nextCursor.isEmpty)) {
+      throw StateError('$mode $method returned an invalid cursor.');
+    }
+    cursor = nextCursor as String?;
+    expectStreamableProgress?.call('$method page $pageCount');
+  } while (cursor != null);
+
+  if (pageCount < 2) {
+    throw StateError('$mode $method did not expose a cursor.');
+  }
+  _expectSortedUniqueCatalogValues(
+    values,
+    label: '$mode $method',
+    fieldDescription: fieldDescription,
+  );
+  if (!values.contains(expectedPrimary) || !values.contains(expectedPaged)) {
+    throw StateError(
+      '$mode $method missed expected catalog entries.',
+    );
+  }
+  return values;
+}
+
 void _expectPaginatedToolListHead(
   Map<String, Object?> response, {
   required Object id,
@@ -6732,33 +6805,17 @@ Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
 
-  final resourcesId = '$label-generic-direct-resources';
-  final resources = await client.request(
-    'resources/list',
-    id: resourcesId,
-    streamable: false,
-    includeSession: false,
-  );
-  final resourcesResult = _jsonRpcResult(
-    resources,
-    id: resourcesId,
-    label: 'Generic direct JSON-RPC resources/list',
-  );
-  final resourceUris = _catalogStringFieldValues(
-    resourcesResult['resources'],
+  await _expectGenericCatalogPages(
+    client,
+    label: '$label-generic-direct-resources',
+    method: 'resources/list',
+    resultKey: 'resources',
     field: 'uri',
-    label: 'Generic direct JSON-RPC resource catalog',
-  );
-  _expectSortedUniqueCatalogValues(
-    resourceUris,
-    label: 'Generic direct JSON-RPC resource catalog',
     fieldDescription: 'resource URI',
+    expectedPrimary: _resourceUri,
+    expectedPaged: _pagedResourceUri,
+    directJson: true,
   );
-  if (!resourceUris.contains(_resourceUri)) {
-    throw StateError(
-      'Generic direct JSON-RPC resources/list missed $_resourceUri.',
-    );
-  }
 
   final readId = '$label-generic-direct-resource-read';
   final read = await client.request(
@@ -6781,62 +6838,29 @@ Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
     );
   }
 
-  final templatesId = '$label-generic-direct-resource-templates';
-  final templates = await client.request(
-    'resources/templates/list',
-    id: templatesId,
-    streamable: false,
-    includeSession: false,
-  );
-  final templatesResult = _jsonRpcResult(
-    templates,
-    id: templatesId,
-    label: 'Generic direct JSON-RPC resources/templates/list',
-  );
-  final templateUris = _catalogStringFieldValues(
-    templatesResult['resourceTemplates'],
+  await _expectGenericCatalogPages(
+    client,
+    label: '$label-generic-direct-resource-templates',
+    method: 'resources/templates/list',
+    resultKey: 'resourceTemplates',
     field: 'uriTemplate',
-    label: 'Generic direct JSON-RPC resource template catalog',
-  );
-  _expectSortedUniqueCatalogValues(
-    templateUris,
-    label: 'Generic direct JSON-RPC resource template catalog',
     fieldDescription: 'resource template URI',
+    expectedPrimary: _resourceTemplateUri,
+    expectedPaged: _pagedResourceTemplateUri,
+    directJson: true,
   );
-  if (!templateUris.contains(_resourceTemplateUri)) {
-    throw StateError(
-      'Generic direct JSON-RPC resources/templates/list missed '
-      '$_resourceTemplateUri.',
-    );
-  }
 
-  final promptsId = '$label-generic-direct-prompts';
-  final prompts = await client.request(
-    'prompts/list',
-    id: promptsId,
-    streamable: false,
-    includeSession: false,
-  );
-  final promptsResult = _jsonRpcResult(
-    prompts,
-    id: promptsId,
-    label: 'Generic direct JSON-RPC prompts/list',
-  );
-  final promptNames = _catalogStringFieldValues(
-    promptsResult['prompts'],
+  await _expectGenericCatalogPages(
+    client,
+    label: '$label-generic-direct-prompts',
+    method: 'prompts/list',
+    resultKey: 'prompts',
     field: 'name',
-    label: 'Generic direct JSON-RPC prompt catalog',
-  );
-  _expectSortedUniqueCatalogValues(
-    promptNames,
-    label: 'Generic direct JSON-RPC prompt catalog',
     fieldDescription: 'prompt name',
+    expectedPrimary: _promptName,
+    expectedPaged: _pagedPromptName,
+    directJson: true,
   );
-  if (!promptNames.contains(_promptName)) {
-    throw StateError(
-      'Generic direct JSON-RPC prompts/list missed $_promptName.',
-    );
-  }
 
   final taskId = 'T-$label-generic-direct-prompt';
   final promptId = '$label-generic-direct-prompt-get';
@@ -8021,29 +8045,18 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
   }
   expectStreamableProgress('WAMP registration callee count');
 
-  final resourcesId = '$label-generic-streamable-resources';
-  final resources = await client.request('resources/list', id: resourcesId);
-  final resourcesResult = _jsonRpcResult(
-    resources,
-    id: resourcesId,
-    label: 'Generic Streamable JSON-RPC resources/list',
-  );
-  final resourceUris = _catalogStringFieldValues(
-    resourcesResult['resources'],
+  await _expectGenericCatalogPages(
+    client,
+    label: '$label-generic-streamable-resources',
+    method: 'resources/list',
+    resultKey: 'resources',
     field: 'uri',
-    label: 'Generic Streamable JSON-RPC resource catalog',
-  );
-  _expectSortedUniqueCatalogValues(
-    resourceUris,
-    label: 'Generic Streamable JSON-RPC resource catalog',
     fieldDescription: 'resource URI',
+    expectedPrimary: _resourceUri,
+    expectedPaged: _pagedResourceUri,
+    directJson: false,
+    expectStreamableProgress: expectStreamableProgress,
   );
-  if (!resourceUris.contains(_resourceUri)) {
-    throw StateError(
-      'Generic Streamable JSON-RPC resources/list missed $_resourceUri.',
-    );
-  }
-  expectStreamableProgress('resources/list');
 
   final readId = '$label-generic-streamable-resource-read';
   final read = await client.request(
@@ -8065,57 +8078,31 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
   }
   expectStreamableProgress('resources/read');
 
-  final templatesId = '$label-generic-streamable-resource-templates';
-  final templates = await client.request(
-    'resources/templates/list',
-    id: templatesId,
-  );
-  final templatesResult = _jsonRpcResult(
-    templates,
-    id: templatesId,
-    label: 'Generic Streamable JSON-RPC resources/templates/list',
-  );
-  final templateUris = _catalogStringFieldValues(
-    templatesResult['resourceTemplates'],
+  await _expectGenericCatalogPages(
+    client,
+    label: '$label-generic-streamable-resource-templates',
+    method: 'resources/templates/list',
+    resultKey: 'resourceTemplates',
     field: 'uriTemplate',
-    label: 'Generic Streamable JSON-RPC resource template catalog',
-  );
-  _expectSortedUniqueCatalogValues(
-    templateUris,
-    label: 'Generic Streamable JSON-RPC resource template catalog',
     fieldDescription: 'resource template URI',
+    expectedPrimary: _resourceTemplateUri,
+    expectedPaged: _pagedResourceTemplateUri,
+    directJson: false,
+    expectStreamableProgress: expectStreamableProgress,
   );
-  if (!templateUris.contains(_resourceTemplateUri)) {
-    throw StateError(
-      'Generic Streamable JSON-RPC resources/templates/list missed '
-      '$_resourceTemplateUri.',
-    );
-  }
-  expectStreamableProgress('resources/templates/list');
 
-  final promptsId = '$label-generic-streamable-prompts';
-  final prompts = await client.request('prompts/list', id: promptsId);
-  final promptsResult = _jsonRpcResult(
-    prompts,
-    id: promptsId,
-    label: 'Generic Streamable JSON-RPC prompts/list',
-  );
-  final promptNames = _catalogStringFieldValues(
-    promptsResult['prompts'],
+  await _expectGenericCatalogPages(
+    client,
+    label: '$label-generic-streamable-prompts',
+    method: 'prompts/list',
+    resultKey: 'prompts',
     field: 'name',
-    label: 'Generic Streamable JSON-RPC prompt catalog',
-  );
-  _expectSortedUniqueCatalogValues(
-    promptNames,
-    label: 'Generic Streamable JSON-RPC prompt catalog',
     fieldDescription: 'prompt name',
+    expectedPrimary: _promptName,
+    expectedPaged: _pagedPromptName,
+    directJson: false,
+    expectStreamableProgress: expectStreamableProgress,
   );
-  if (!promptNames.contains(_promptName)) {
-    throw StateError(
-      'Generic Streamable JSON-RPC prompts/list missed $_promptName.',
-    );
-  }
-  expectStreamableProgress('prompts/list');
 
   final promptTaskId = 'T-$label-generic-streamable-prompt';
   final promptId = '$label-generic-streamable-prompt-get';

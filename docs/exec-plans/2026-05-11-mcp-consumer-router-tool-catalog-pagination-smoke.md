@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Router Tool Catalog Pagination Smoke
 
-Status: active; full local verification complete
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-11
 Last updated: 2026-05-11
@@ -61,7 +61,21 @@ router-provided MCP endpoints, including both initialized Streamable HTTP
   focused smoke passed on 2026-05-11.
 - Post-change `bin/test-fast` passed on 2026-05-11.
 - Full local `bin/verify` passed on 2026-05-11.
-- Push and hosted deployment-chain evidence remain pending.
+- Commit `44e5fbc` (`test: page router mcp tool catalogs`) is pushed to both
+  remotes.
+- GitHub `CI` run `25663098863` completed successfully for `44e5fbc` with
+  `Fast Checks` and `Full Verify` green.
+- The hosted CI log scan was clean.
+- GitHub `Dart Package Publish Dry Run` run `25635686773` remains clean and
+  relevant because no publish-sensitive package inputs changed after
+  `90a27ca`.
+- The deployment-chain audit passed with clean latest CI, clean hosted CI logs,
+  and a clean relevant Dart package publish dry-run.
+- The strict audit still reports only known operator-side release-hardening
+  gaps: branch protection/required checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and `ghcr.io/konsultaner/connectanum-router`
+  is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -72,5 +86,8 @@ router-provided MCP endpoints, including both initialized Streamable HTTP
 
 ## Handoff
 
-Implementation plus focused, fast, and full local verification are complete.
-Push and hosted deployment-chain evidence remain pending.
+Implementation plus focused, fast, full local, and hosted verification are
+complete. Remaining gaps are operator-side deployment-chain hardening:
+branch protection/required checks, default-branch visibility for
+`.github/workflows/router-image.yml`, and public visibility for
+`ghcr.io/konsultaner/connectanum-router`.
