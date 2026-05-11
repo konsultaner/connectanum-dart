@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-11
 Current branch: `add-router`
-Last reviewed branch checkpoint: `4d9c786`
-(`test: page router mcp batch tool catalogs`; MCP consumer package
-router-hosted batch tool catalog pagination smoke hosted CI and
+Last reviewed branch checkpoint: `e31f063`
+(`test: cover secure mcp missing bearer batches`; MCP consumer package
+secure router-hosted missing-bearer smoke hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-11-mcp-consumer-secure-missing-bearer-smoke.md`
-(in progress).
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-session-method-missing-bearer-smoke.md`
+(complete locally; push and hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-missing-bearer-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-11-mcp-consumer-router-batch-tool-catalog-pagination-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -283,14 +286,18 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`4d9c786`
-(`test: page router mcp batch tool catalogs`; hosted CI and deployment-chain
+`e31f063`
+(`test: cover secure mcp missing bearer batches`; hosted CI and deployment-chain
 evidence clean).
-Current implementation checkpoint: MCP consumer package router-hosted batch tool
-catalog pagination smoke (complete; hosted CI and deployment-chain evidence
+Current implementation checkpoint: MCP consumer package secure router-hosted
+missing-bearer direct JSON, batch, and Streamable HTTP smoke coverage (complete;
+hosted CI and deployment-chain evidence clean).
+Current implementation focus: generated consumer smoke coverage for secure
+Streamable HTTP GET/SSE poll and DELETE session requests without bearer
+credentials but with a known active MCP session id.
+Previous implementation checkpoint: MCP consumer package router-hosted batch
+tool catalog pagination smoke (complete; hosted CI and deployment-chain evidence
 clean).
-Current implementation focus: MCP consumer package secure router-hosted
-missing-bearer direct JSON, batch, and Streamable HTTP smoke coverage.
 Previous implementation checkpoint: MCP consumer package router-hosted batch
 resource/template/prompt catalog pagination smoke (complete; hosted CI and
 deployment-chain evidence clean).
@@ -665,6 +672,40 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer package secure router-hosted Streamable session-method
+    missing-bearer smoke is complete locally; push and hosted evidence are
+    pending. The target is the neutral generated consumer package smoke: secure
+    router-hosted MCP must reject bearerless Streamable HTTP GET/SSE poll and
+    DELETE session requests with HTTP 401 even when the caller knows an active
+    authenticated MCP session id, clear the rejected caller's Streamable session
+    state, and leave the authenticated owner session usable. Pre-change
+    `bin/test-fast`, focused `bash -n bin/common.sh`, focused
+    `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+    post-change `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-11.
+  - MCP consumer package secure router-hosted missing-bearer smoke is complete.
+    Commit `e31f063`
+    (`test: cover secure mcp missing bearer batches`) is pushed to both remotes.
+    GitHub `CI` run `25671922553` completed successfully for `e31f063` with
+    `Fast Checks` and `Full Verify` green, and the hosted CI log scan was
+    clean. GitHub `Dart Package Publish Dry Run` run `25635686773` remains
+    clean and relevant because no publish-sensitive package inputs changed
+    after `90a27ca`. The deployment-chain audit passed with clean latest CI,
+    clean hosted CI logs, and a clean relevant Dart package publish dry-run.
+    The strict audit still reports only known operator-side release-hardening
+    gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
+    The target was the neutral generated consumer package smoke: secure
+    router-hosted MCP must reject missing bearer credentials for direct JSON
+    `connectanum.tools.list`, direct JSON batch `connectanum.tools.list`,
+    Streamable HTTP `initialize`, and Streamable HTTP batch `tools/list`
+    without populating consumer Streamable session state. Pre-change
+    `bin/test-fast`, focused `bash -n bin/common.sh`, focused
+    `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+    post-change `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-11.
   - MCP consumer package router-hosted batch tool catalog pagination smoke is
     complete. Commit `4d9c786`
     (`test: page router mcp batch tool catalogs`) is pushed to both remotes.

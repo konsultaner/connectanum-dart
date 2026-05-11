@@ -5420,6 +5420,12 @@ Future<void> _smokeStreamableSessionReuseIsolation(
   final publicRouteDeleteClient = McpStreamableHttpClient(
     _mcpEndpoint(binding),
   );
+  final bearerlessSecurePollClient = McpStreamableHttpClient(
+    _mcpEndpoint(binding, secure: true),
+  );
+  final bearerlessSecureDeleteClient = McpStreamableHttpClient(
+    _mcpEndpoint(binding, secure: true),
+  );
 
   try {
     await _expectPagedToolCatalog(
@@ -5466,6 +5472,26 @@ Future<void> _smokeStreamableSessionReuseIsolation(
       label: 'public route delete',
     );
 
+    bearerlessSecurePollClient.sessionId = sessionId;
+    bearerlessSecurePollClient.lastEventId = lastEventId;
+    await _expectSecureMcpUnauthorized(
+      bearerlessSecurePollClient,
+      label: 'secure Streamable GET/SSE poll with reused session',
+      operation: () async {
+        await bearerlessSecurePollClient.poll();
+      },
+    );
+
+    bearerlessSecureDeleteClient.sessionId = sessionId;
+    bearerlessSecureDeleteClient.lastEventId = lastEventId;
+    await _expectSecureMcpUnauthorized(
+      bearerlessSecureDeleteClient,
+      label: 'secure Streamable DELETE session with reused session',
+      operation: () async {
+        await bearerlessSecureDeleteClient.deleteSession();
+      },
+    );
+
     await _expectPagedToolCatalog(
       primaryClient,
       label: 'secure-reuse-primary-after-rejected-reuse',
@@ -5483,6 +5509,8 @@ Future<void> _smokeStreamableSessionReuseIsolation(
     otherPrincipalClient.close();
     publicRouteClient.close();
     publicRouteDeleteClient.close();
+    bearerlessSecurePollClient.close();
+    bearerlessSecureDeleteClient.close();
   }
 }
 

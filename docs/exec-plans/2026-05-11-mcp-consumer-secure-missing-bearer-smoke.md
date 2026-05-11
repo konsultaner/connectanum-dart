@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Secure Missing-Bearer Smoke
 
-Status: local verification complete; hosted CI pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-11
 Last updated: 2026-05-11
@@ -57,6 +57,21 @@ session state.
   passed on 2026-05-11.
 - Post-change `bin/test-fast` passed on 2026-05-11.
 - Full local `bin/verify` passed on 2026-05-11.
+- Commit `e31f063` (`test: cover secure mcp missing bearer batches`) is pushed
+  to both remotes.
+- GitHub `CI` run `25671922553` completed successfully for `e31f063` with
+  `Fast Checks` and `Full Verify` green.
+- The hosted CI log scan was clean.
+- GitHub `Dart Package Publish Dry Run` run `25635686773` remains clean and
+  relevant because no publish-sensitive package inputs changed after
+  `90a27ca`.
+- The deployment-chain audit passed with clean latest CI, clean hosted CI logs,
+  and a clean relevant Dart package publish dry-run.
+- The strict audit still reports only known operator-side release-hardening
+  gaps: branch protection/required checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and `ghcr.io/konsultaner/connectanum-router`
+  is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -67,5 +82,8 @@ session state.
 
 ## Handoff
 
-Implementation plus focused, fast, and full local verification are complete.
-Hosted CI and deployment-chain evidence are pending push.
+Implementation plus focused, fast, full local, and hosted verification are
+complete. Remaining gaps are operator-side deployment-chain hardening:
+branch protection/required checks, default-branch visibility for
+`.github/workflows/router-image.yml`, and public visibility for
+`ghcr.io/konsultaner/connectanum-router`.
