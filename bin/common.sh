@@ -5519,10 +5519,7 @@ Future<void> _smokeStreamableSessionReuseIsolation(
   final publicRouteDeleteClient = McpStreamableHttpClient(
     _mcpEndpoint(binding),
   );
-  final bearerlessSecurePollClient = McpStreamableHttpClient(
-    _mcpEndpoint(binding, secure: true),
-  );
-  final bearerlessSecureDeleteClient = McpStreamableHttpClient(
+  final bearerlessSecureClient = McpStreamableHttpClient(
     _mcpEndpoint(binding, secure: true),
   );
   final unknownBearerClient = McpStreamableHttpClient.withBearerToken(
@@ -5570,24 +5567,11 @@ Future<void> _smokeStreamableSessionReuseIsolation(
       label: 'public route delete',
     );
 
-    bearerlessSecurePollClient.sessionId = sessionId;
-    bearerlessSecurePollClient.lastEventId = lastEventId;
-    await _expectSecureMcpUnauthorized(
-      bearerlessSecurePollClient,
-      label: 'secure Streamable GET/SSE poll with reused session',
-      operation: () async {
-        await bearerlessSecurePollClient.poll();
-      },
-    );
-
-    bearerlessSecureDeleteClient.sessionId = sessionId;
-    bearerlessSecureDeleteClient.lastEventId = lastEventId;
-    await _expectSecureMcpUnauthorized(
-      bearerlessSecureDeleteClient,
-      label: 'secure Streamable DELETE session with reused session',
-      operation: () async {
-        await bearerlessSecureDeleteClient.deleteSession();
-      },
+    await _assertStreamableSessionReuseRequiresBearerAcrossMethods(
+      bearerlessSecureClient,
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: 'secure bearerless reused session',
     );
 
     unknownBearerClient.sessionId = sessionId;
@@ -5616,10 +5600,181 @@ Future<void> _smokeStreamableSessionReuseIsolation(
     otherPrincipalClient.close();
     publicRouteClient.close();
     publicRouteDeleteClient.close();
-    bearerlessSecurePollClient.close();
-    bearerlessSecureDeleteClient.close();
+    bearerlessSecureClient.close();
     unknownBearerClient.close();
   }
+}
+
+Future<void> _assertStreamableSessionReuseRequiresBearerAcrossMethods(
+  McpStreamableHttpClient client, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+}) async {
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.postBatch([
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-session-batch-tools',
+          'method': 'tools/list',
+          'params': {},
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-session-batch-resources',
+          'method': 'resources/list',
+          'params': {},
+        },
+      ]);
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label batch tools/resources',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.postBatch([
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-session-batch-api-list',
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.api.list',
+            'arguments': {'kind': 'topic'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-session-batch-pubsub-subscribe',
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.subscribe',
+            'arguments': {'topic': _topic, 'queueLimit': 1},
+          },
+        },
+      ]);
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label batch WAMP meta/pubsub',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.notifyInitialized();
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label notification',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.listTools(id: '$label-tools');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label tools/list',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.callTool(
+        _procedure,
+        id: '$label-tool-call',
+        arguments: {'taskId': 'T-$label-tool-call'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label tools/call',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.listResources(id: '$label-resources');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label resources/list',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.readResource(_resourceUri, id: '$label-resource-read');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label resources/read',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.listResourceTemplates(id: '$label-resource-templates');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label resources/templates/list',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.listPrompts(id: '$label-prompts');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label prompts/list',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.getPrompt(
+        _promptName,
+        id: '$label-prompt-get',
+        arguments: {'taskId': 'T-$label-prompt-get'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label prompts/get',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.poll();
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label poll',
+  );
+  await _expectSecureMcpUnauthorizedWithSession(
+    client,
+    () async {
+      await client.deleteSession();
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: '$label delete',
+  );
+}
+
+Future<void> _expectSecureMcpUnauthorizedWithSession(
+  McpStreamableHttpClient client,
+  Future<void> Function() operation, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+}) async {
+  client.sessionId = sessionId;
+  client.lastEventId = lastEventId;
+  await _expectSecureMcpUnauthorized(
+    client,
+    label: label,
+    operation: operation,
+  );
 }
 
 Future<void> _assertStreamableSessionReuseRejectedAcrossMethods(
