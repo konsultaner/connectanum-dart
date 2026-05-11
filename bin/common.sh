@@ -6189,24 +6189,100 @@ Future<List<String>> _expectGenericCatalogPages(
   return values;
 }
 
-void _expectPaginatedToolListHead(
+String? _expectToolListPage(
   Map<String, Object?> response, {
   required Object id,
   required String label,
+  required List<String> names,
+  bool requireCursor = false,
 }) {
   final result = _jsonRpcResult(response, id: id, label: label);
-  final names = _toolNamesFromCatalog(
+  final pageNames = _toolNamesFromCatalog(
     result['tools'],
     label: '$label catalog page',
   );
-  if (names.isEmpty) {
+  if (pageNames.isEmpty) {
     throw StateError('$label returned an empty tool page.');
   }
-  _expectSortedUniqueNames(names, label: '$label catalog page');
+  _expectSortedUniqueNames(pageNames, label: '$label catalog page');
+  names.addAll(pageNames);
   final cursor = result['nextCursor'];
-  if (cursor is! String || cursor.isEmpty) {
-    throw StateError('$label did not return a non-empty cursor.');
+  if (cursor != null && (cursor is! String || cursor.isEmpty)) {
+    throw StateError('$label returned an invalid cursor.');
   }
+  if (requireCursor && cursor == null) {
+    throw StateError('$label did not return a cursor.');
+  }
+  return cursor as String?;
+}
+
+Future<List<String>> _expectBatchToolCatalogPages(
+  McpStreamableHttpClient client, {
+  required Map<String, Object?> headResponse,
+  required Object headId,
+  required String label,
+  required String idPrefix,
+  required String method,
+  required bool directJson,
+  void Function(String operation)? expectStreamableProgress,
+}) async {
+  final names = <String>[];
+  var cursor = _expectToolListPage(
+    headResponse,
+    id: headId,
+    label: '$label page 1',
+    names: names,
+    requireCursor: true,
+  );
+  var pageCount = 1;
+
+  while (cursor != null) {
+    pageCount += 1;
+    if (pageCount > 128) {
+      throw StateError('$label pagination did not terminate.');
+    }
+    final pageId = '$idPrefix-page-$pageCount';
+    final pageBatch = await client.postBatch(
+      [
+        {
+          'jsonrpc': '2.0',
+          'id': pageId,
+          'method': method,
+          'params': {'cursor': cursor},
+        },
+      ],
+      streamable: !directJson,
+      includeSession: !directJson,
+      headers: <String, String>{'x-consumer-trace': pageId},
+    );
+    if (pageBatch == null || pageBatch.length != 1) {
+      throw StateError(
+        '$label cursor page $pageCount did not return one response.',
+      );
+    }
+    cursor = _expectToolListPage(
+      pageBatch[0],
+      id: pageId,
+      label: '$label page $pageCount',
+      names: names,
+    );
+    expectStreamableProgress?.call('$method page $pageCount');
+  }
+
+  if (pageCount < 2) {
+    throw StateError('$label did not expose a cursor.');
+  }
+  _expectSortedUniqueNames(names, label: label);
+  if (!names.contains(_procedure)) {
+    throw StateError('$label did not expose $_procedure.');
+  }
+  if (!names.contains('connectanum.api.list') ||
+      !names.contains('connectanum.pubsub.subscribe')) {
+    throw StateError(
+      '$label did not expose Connectanum meta/pubsub tools.',
+    );
+  }
+  return names;
 }
 
 String _expectPaginatedCatalogHead(
@@ -9146,6 +9222,12 @@ Future<void> _smokeDirectJsonBatch(
       },
       {
         'jsonrpc': '2.0',
+        'id': '$label-direct-batch-tools',
+        'method': 'connectanum.tools.list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
         'id': '$label-direct-batch-call',
         'method': _procedure,
         'params': {'taskId': taskId},
@@ -9186,26 +9268,35 @@ Future<void> _smokeDirectJsonBatch(
     streamable: false,
     includeSession: false,
   );
-  if (responses == null || responses.length != 5) {
-    throw StateError('Direct JSON batch did not return five responses.');
+  if (responses == null || responses.length != 6) {
+    throw StateError('Direct JSON batch did not return six responses.');
   }
   if (responses[0]['id'] != '$label-direct-batch-api' ||
       !jsonEncode(responses[0]).contains(_procedure)) {
     throw StateError('Direct JSON batch API catalog response was invalid.');
   }
-  if (responses[1]['id'] != '$label-direct-batch-call' ||
-      !jsonEncode(responses[1]).contains(taskId)) {
+  await _expectBatchToolCatalogPages(
+    client,
+    headResponse: responses[1],
+    headId: '$label-direct-batch-tools',
+    label: 'Direct JSON batch connectanum.tools.list',
+    idPrefix: '$label-direct-batch-tools',
+    method: 'connectanum.tools.list',
+    directJson: true,
+  );
+  if (responses[2]['id'] != '$label-direct-batch-call' ||
+      !jsonEncode(responses[2]).contains(taskId)) {
     throw StateError('Direct JSON batch procedure call response was invalid.');
   }
-  if (responses[2]['id'] != '$label-direct-batch-tools-alias' ||
-      !jsonEncode(responses[2]).contains(aliasTaskId) ||
-      !jsonEncode(responses[2]).contains(_headerWrappedNote)) {
+  if (responses[3]['id'] != '$label-direct-batch-tools-alias' ||
+      !jsonEncode(responses[3]).contains(aliasTaskId) ||
+      !jsonEncode(responses[3]).contains(_headerWrappedNote)) {
     throw StateError(
       'Direct JSON batch plural tool alias response was invalid.',
     );
   }
   final resourceCursor = _expectPaginatedCatalogHead(
-    responses[3],
+    responses[4],
     id: '$label-direct-batch-resources',
     label: 'Direct JSON batch resources/list',
     resultKey: 'resources',
@@ -9213,8 +9304,8 @@ Future<void> _smokeDirectJsonBatch(
     fieldDescription: 'resource URIs',
     expectedPrimary: _resourceUri,
   );
-  if (responses[4]['id'] != '$label-direct-batch-prompt' ||
-      !jsonEncode(responses[4]).contains(promptTaskId)) {
+  if (responses[5]['id'] != '$label-direct-batch-prompt' ||
+      !jsonEncode(responses[5]).contains(promptTaskId)) {
     throw StateError('Direct JSON batch prompts/get response was invalid.');
   }
   await _smokeDirectJsonBatchResourcePromptDetails(
@@ -9516,7 +9607,22 @@ Future<void> _smokeStreamableBatch(
     throw StateError('Streamable MCP batch has no initialized session id.');
   }
 
-  final previousEventId = client.lastEventId;
+  var previousEventId = client.lastEventId;
+  void expectStreamableProgress(String operation) {
+    if (client.sessionId != sessionId) {
+      throw StateError('Streamable MCP batch $operation changed session id.');
+    }
+    final eventId = client.lastEventId;
+    if (eventId == null ||
+        !eventId.startsWith('$sessionId:') ||
+        eventId == previousEventId) {
+      throw StateError(
+        'Streamable MCP batch $operation did not update SSE event state.',
+      );
+    }
+    previousEventId = eventId;
+  }
+
   final taskId = 'T-$label-streamable-batch';
   final promptTaskId = 'T-$label-streamable-batch-prompt';
   final responses = await client.postBatch([
@@ -9555,10 +9661,16 @@ Future<void> _smokeStreamableBatch(
   if (responses == null || responses.length != 4) {
     throw StateError('Streamable MCP batch did not return four responses.');
   }
-  _expectPaginatedToolListHead(
-    responses[0],
-    id: '$label-streamable-batch-tools',
+  expectStreamableProgress('initial batch');
+  await _expectBatchToolCatalogPages(
+    client,
+    headResponse: responses[0],
+    headId: '$label-streamable-batch-tools',
     label: 'Streamable MCP batch tools/list',
+    idPrefix: '$label-streamable-batch-tools',
+    method: 'tools/list',
+    directJson: false,
+    expectStreamableProgress: expectStreamableProgress,
   );
   if (responses[1]['id'] != '$label-streamable-batch-call' ||
       !jsonEncode(responses[1]).contains(taskId)) {
@@ -9576,12 +9688,6 @@ Future<void> _smokeStreamableBatch(
   if (responses[3]['id'] != '$label-streamable-batch-prompt' ||
       !jsonEncode(responses[3]).contains(promptTaskId)) {
     throw StateError('Streamable MCP batch prompts/get response was invalid.');
-  }
-  final eventId = client.lastEventId;
-  if (eventId == null ||
-      !eventId.startsWith('$sessionId:') ||
-      eventId == previousEventId) {
-    throw StateError('Streamable MCP batch did not update SSE event state.');
   }
 
   await _smokeStreamableBatchResourcePromptDetails(
@@ -10796,7 +10902,24 @@ Future<void> _smokeStreamableBatchErrorIsolation(
     );
   }
 
-  final previousEventId = client.lastEventId;
+  var previousEventId = client.lastEventId;
+  void expectStreamableProgress(String operation) {
+    if (client.sessionId != sessionId) {
+      throw StateError(
+        'Streamable MCP batch error smoke $operation changed session id.',
+      );
+    }
+    final eventId = client.lastEventId;
+    if (eventId == null ||
+        !eventId.startsWith('$sessionId:') ||
+        eventId == previousEventId) {
+      throw StateError(
+        'Streamable MCP batch error smoke $operation did not update SSE state.',
+      );
+    }
+    previousEventId = eventId;
+  }
+
   final missingTool = 'missing.$label.streamable.batch';
   final promptTaskId = 'T-$label-streamable-batch-error-prompt';
   final responses = await client.postBatch([
@@ -10831,10 +10954,16 @@ Future<void> _smokeStreamableBatchErrorIsolation(
       'Streamable MCP batch error smoke did not return three responses.',
     );
   }
-  _expectPaginatedToolListHead(
-    responses[0],
-    id: '$label-streamable-batch-error-tools',
+  expectStreamableProgress('initial batch');
+  await _expectBatchToolCatalogPages(
+    client,
+    headResponse: responses[0],
+    headId: '$label-streamable-batch-error-tools',
     label: 'Streamable MCP batch error tools/list',
+    idPrefix: '$label-streamable-batch-error-tools',
+    method: 'tools/list',
+    directJson: false,
+    expectStreamableProgress: expectStreamableProgress,
   );
   _expectJsonRpcError(
     responses[1],
@@ -10845,17 +10974,6 @@ Future<void> _smokeStreamableBatchErrorIsolation(
   if (responses[2]['id'] != '$label-streamable-batch-error-prompt' ||
       !jsonEncode(responses[2]).contains(promptTaskId)) {
     throw StateError('Streamable MCP batch error smoke lost prompt response.');
-  }
-  if (client.sessionId != sessionId) {
-    throw StateError('Streamable MCP batch error smoke changed session id.');
-  }
-  final eventId = client.lastEventId;
-  if (eventId == null ||
-      !eventId.startsWith('$sessionId:') ||
-      eventId == previousEventId) {
-    throw StateError(
-      'Streamable MCP batch error smoke did not update SSE event state.',
-    );
   }
 }
 
