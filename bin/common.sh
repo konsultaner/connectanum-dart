@@ -4965,9 +4965,20 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
 Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
   final client = McpStreamableHttpClient(_mcpEndpoint(binding, secure: true));
   try {
+    await _assertSecureMcpUnauthorizedCoverage(client);
+  } finally {
+    client.close();
+  }
+}
+
+Future<void> _assertSecureMcpUnauthorizedCoverage(
+  McpStreamableHttpClient client, {
+  String? acceptedMessage,
+}) async {
     await _expectSecureMcpUnauthorized(
       client,
       label: 'direct JSON connectanum.tools.list',
+      acceptedMessage: acceptedMessage,
       operation: () async {
         await client.listConnectanumToolsDirect(
           id: 'secure-unauthenticated-tools',
@@ -4977,6 +4988,7 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
     await _expectSecureMcpUnauthorized(
       client,
       label: 'direct JSON batch connectanum.tools.list',
+      acceptedMessage: acceptedMessage,
       operation: () async {
         await client.postBatch(
           [
@@ -4995,6 +5007,7 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
     await _expectSecureMcpUnauthorized(
       client,
       label: 'direct JSON connectanum.api.list',
+      acceptedMessage: acceptedMessage,
       operation: () async {
         await client.request(
           'connectanum.api.list',
@@ -5008,6 +5021,7 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
     await _expectSecureMcpUnauthorized(
       client,
       label: 'direct JSON connectanum.pubsub.subscribe',
+      acceptedMessage: acceptedMessage,
       operation: () async {
         await client.request(
           'connectanum.pubsub.subscribe',
@@ -5024,6 +5038,7 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
     await _expectSecureMcpUnauthorized(
       client,
       label: 'direct JSON batch WAMP meta/pubsub',
+      acceptedMessage: acceptedMessage,
       operation: () async {
         await client.postBatch(
           [
@@ -5048,6 +5063,7 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
     await _expectSecureMcpUnauthorized(
       client,
       label: 'Streamable initialize',
+      acceptedMessage: acceptedMessage,
       operation: () async {
         await client.initialize(id: 'secure-unauthenticated-initialize');
       },
@@ -5055,6 +5071,7 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
     await _expectSecureMcpUnauthorized(
       client,
       label: 'Streamable batch tools/list',
+      acceptedMessage: acceptedMessage,
       operation: () async {
         await client.postBatch([
           {
@@ -5069,6 +5086,7 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
     await _expectSecureMcpUnauthorized(
       client,
       label: 'Streamable batch WAMP meta/pubsub tools',
+      acceptedMessage: acceptedMessage,
       operation: () async {
         await client.postBatch([
           {
@@ -5092,20 +5110,20 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
         ]);
       },
     );
-  } finally {
-    client.close();
-  }
 }
 
 Future<void> _expectSecureMcpUnauthorized(
   McpStreamableHttpClient client, {
   required String label,
+  String? acceptedMessage,
   required Future<void> Function() operation,
 }) async {
   try {
     await operation();
     throw StateError(
-      'Bearer-protected MCP endpoint accepted no credentials for $label.',
+      acceptedMessage == null
+          ? 'Bearer-protected MCP endpoint accepted no credentials for $label.'
+          : '$acceptedMessage ($label).',
     );
   } on McpStreamableHttpException catch (error) {
     if (error.statusCode != HttpStatus.unauthorized) {
@@ -5223,15 +5241,10 @@ Future<void> _assertSecureMcpRejectsBearer(
     bearerToken,
   );
   try {
-    await client.listConnectanumToolsDirect(id: 'secure-rejected-bearer-tools');
-    throw StateError(acceptedMessage);
-  } on McpStreamableHttpException catch (error) {
-    if (error.statusCode != HttpStatus.unauthorized) {
-      throw StateError(
-        'Bearer-protected MCP endpoint returned ${error.statusCode} '
-        'instead of ${HttpStatus.unauthorized} for a rejected token.',
-      );
-    }
+    await _assertSecureMcpUnauthorizedCoverage(
+      client,
+      acceptedMessage: acceptedMessage,
+    );
   } finally {
     client.close();
   }

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Secure Active-Bearer WAMP Meta Pub/Sub Smoke
 
-Status: complete locally; push and hosted evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-11
 Last updated: 2026-05-11
@@ -59,6 +59,19 @@ sessions for WAMP meta API and pub/sub calls, not only tool catalog calls.
   2026-05-11.
 - Post-change `bin/test-fast` passed on 2026-05-11.
 - Full local `bin/verify` passed on 2026-05-11.
+- Commit `9895c92` (`test: cover active mcp meta pubsub auth`) was pushed to
+  both configured remotes on 2026-05-11.
+- GitHub Actions `CI` run `25679802636` passed on `9895c92`: `Fast Checks`
+  completed successfully at 2026-05-11T15:33:51Z and `Full Verify` completed
+  successfully at 2026-05-11T15:39:46Z.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed on 2026-05-11. The audit found latest CI clean, latest CI log scan
+  clean, and Dart Package Publish Dry Run `25635686773` still relevant because
+  no publish-sensitive paths changed since that dry-run head.
+- Strict deployment-chain audit still fails only known operator-side
+  release-hardening gaps: branch protection/required checks are not configured,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch, and the router GHCR package is not visible.
 
 ## Decision Log
 
@@ -70,5 +83,6 @@ sessions for WAMP meta API and pub/sub calls, not only tool catalog calls.
 
 ## Handoff
 
-Implementation and local verification are complete. Push, hosted CI, hosted log
-scan, and deployment-chain evidence still need to be collected.
+Implementation is complete and pushed. Local verification, hosted CI, hosted log
+scan, and the non-strict deployment-chain audit are clean for `9895c92`. The
+only remaining strict-audit gaps are operator-side release-hardening items.

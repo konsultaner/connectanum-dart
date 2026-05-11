@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-11
 Current branch: `add-router`
-Last reviewed branch checkpoint: `3ca481c`
-(`test: cover secure mcp meta pubsub auth`; MCP consumer package secure
-router-hosted WAMP meta/pub-sub missing-bearer smoke hosted CI and
+Last reviewed branch checkpoint: `9895c92`
+(`test: cover active mcp meta pubsub auth`; MCP consumer package secure
+router-hosted active-bearer WAMP meta/pub-sub smoke hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-11-mcp-consumer-secure-active-bearer-wamp-meta-pubsub-smoke.md`
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-rejected-bearer-wamp-meta-pubsub-smoke.md`
 (complete locally; push and hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-11-mcp-consumer-secure-active-bearer-wamp-meta-pubsub-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-11-mcp-consumer-secure-missing-bearer-wamp-meta-pubsub-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -292,16 +295,20 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`3ca481c`
-(`test: cover secure mcp meta pubsub auth`; hosted CI and deployment-chain
+`9895c92`
+(`test: cover active mcp meta pubsub auth`; hosted CI and deployment-chain
 evidence clean).
-Current implementation checkpoint: MCP consumer package secure router-hosted
+Current implementation checkpoint: generated consumer smoke coverage for stale or
+revoked bearer tokens on active secure Streamable MCP sessions when calling
+WAMP meta API and pub/sub paths (complete; hosted CI and deployment-chain
+evidence clean).
+Current implementation focus: generated consumer smoke coverage for stale or
+revoked bearer tokens on fresh secure MCP clients when calling the direct JSON,
+WAMP meta/pub-sub, and Streamable HTTP route matrix (complete locally; push and
+hosted evidence pending).
+Previous implementation checkpoint: MCP consumer package secure router-hosted
 WAMP meta/pub-sub missing-bearer smoke coverage (complete; hosted CI and
 deployment-chain evidence clean).
-Current implementation focus: generated consumer smoke coverage for stale or
-revoked bearer tokens on active secure Streamable MCP sessions when calling
-WAMP meta API and pub/sub paths (complete locally; push and hosted evidence
-pending).
 Previous implementation checkpoint: MCP consumer package secure router-hosted
 Streamable session-method missing-bearer smoke coverage (complete; hosted CI and
 deployment-chain evidence clean).
