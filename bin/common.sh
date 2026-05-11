@@ -5525,6 +5525,10 @@ Future<void> _smokeStreamableSessionReuseIsolation(
   final bearerlessSecureDeleteClient = McpStreamableHttpClient(
     _mcpEndpoint(binding, secure: true),
   );
+  final unknownBearerClient = McpStreamableHttpClient.withBearerToken(
+    _mcpEndpoint(binding, secure: true),
+    _unknownAccessToken,
+  );
 
   try {
     await _expectPagedToolCatalog(
@@ -5591,6 +5595,15 @@ Future<void> _smokeStreamableSessionReuseIsolation(
       },
     );
 
+    unknownBearerClient.sessionId = sessionId;
+    unknownBearerClient.lastEventId = lastEventId;
+    await _assertActiveStreamableSessionRejectsBearer(
+      unknownBearerClient,
+      label: 'secure-reuse-unknown-bearer',
+      acceptedMessage:
+          'Streamable MCP session accepted an unknown access token.',
+    );
+
     await _expectPagedToolCatalog(
       primaryClient,
       label: 'secure-reuse-primary-after-rejected-reuse',
@@ -5610,6 +5623,7 @@ Future<void> _smokeStreamableSessionReuseIsolation(
     publicRouteDeleteClient.close();
     bearerlessSecurePollClient.close();
     bearerlessSecureDeleteClient.close();
+    unknownBearerClient.close();
   }
 }
 
