@@ -2,21 +2,24 @@
 
 Last updated: 2026-05-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: `e35cab0`
-(`fix: allow mcp cors preflight`; MCP consumer package router-hosted
-CORS/preflight smoke hosted CI and
+Last reviewed branch checkpoint: `786904a`
+(`test: cover mcp streamable cors lifecycle`; MCP consumer package
+router-hosted Streamable CORS lifecycle smoke hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-12-mcp-consumer-streamable-cors-lifecycle-smoke.md`
+`docs/exec-plans/2026-05-12-mcp-consumer-raw-named-cors-smoke.md`
 (implementation complete locally; hosted CI and deployment-chain evidence
 pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-12-mcp-consumer-cors-preflight-smoke.md`
+`docs/exec-plans/2026-05-12-mcp-consumer-streamable-cors-lifecycle-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
-`docs/exec-plans/2026-05-12-mcp-consumer-origin-policy-smoke.md`
+`docs/exec-plans/2026-05-12-mcp-consumer-cors-preflight-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Earlier completed exec plan:
+`docs/exec-plans/2026-05-12-mcp-consumer-origin-policy-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-12-mcp-consumer-secure-protocol-version-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -326,10 +329,18 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`e35cab0`
-(`fix: allow mcp cors preflight`; hosted CI and
+`786904a`
+(`test: cover mcp streamable cors lifecycle`; hosted CI and
 deployment-chain evidence clean).
 Current implementation checkpoint: generated consumer smoke coverage for a
+router-hosted MCP raw named CORS readiness slice across public and
+bearer-protected routes (implementation complete locally; hosted CI and
+deployment-chain evidence pending).
+Previous implementation checkpoint: generated consumer smoke coverage for a
+router-hosted MCP Streamable CORS lifecycle readiness slice across public and
+bearer-protected routes (complete; hosted CI and deployment-chain evidence
+clean).
+Previous implementation checkpoint: generated consumer smoke coverage for a
 router-hosted MCP CORS/preflight readiness slice across public and
 bearer-protected routes (complete; hosted CI and deployment-chain evidence
 clean).
@@ -766,21 +777,46 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer package router-hosted raw named CORS smoke is complete
+    locally; hosted evidence is pending until the implementation commit is
+    pushed. The slice extends the neutral
+    generated consumer package smoke to prove browser-like raw direct JSON
+    CORS access to `connectanum.tools.list`, `connectanum.tool.call`,
+    `connectanum.api.list`, and pub/sub subscribe/publish/poll/unsubscribe on
+    public and bearer-protected MCP routes without creating Streamable session
+    state. It also extends raw Streamable HTTP POST/SSE coverage to named
+    `tools/call`, `resources/read`, and `prompts/get` requests using the
+    public `Mcp-Method`, `Mcp-Name`, and concrete `Mcp-Param-*` headers needed
+    by header validation. Pre-change `bin/test-fast`, focused
+    `bash -n bin/common.sh`, and focused `bash -lc 'source bin/common.sh;
+    run_mcp_consumer_package_smoke'`, post-change `bin/test-fast`, and full
+    local `bin/verify` passed on 2026-05-12.
   - MCP consumer package router-hosted Streamable CORS lifecycle smoke is
-    complete locally; hosted evidence is pending until the implementation
-    commit is pushed. The slice extends the neutral generated consumer package
-    smoke to use raw browser-like Streamable HTTP requests with the configured
-    allowed `Origin` on public and bearer-protected MCP routes, checking
-    readable session/protocol headers across initialize, initialized
-    notification, POST/SSE tool listing, GET/SSE notification polling,
-    Last-Event-ID resume, DELETE, and deleted-session rejection. The raw
-    Streamable POST helper also sends the public `Mcp-Method` and `Mcp-Name`
-    headers expected by the router's Streamable HTTP header guard, and the
-    preflight smoke now asserts those headers are allowed. Pre-change
-    `bin/test-fast`, focused `bash -n bin/common.sh`, focused
-    `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
-    post-change `bin/test-fast`, and full local `bin/verify` passed on
-    2026-05-12.
+    complete. Commit `786904a`
+    (`test: cover mcp streamable cors lifecycle`) is pushed to both remotes.
+    GitHub `CI` run `25739082402` completed successfully for `786904a` with
+    `Fast Checks` and `Full Verify` green, and the hosted CI log scan was
+    clean. GitHub `Dart Package Publish Dry Run` run `25735530321` remains
+    clean and relevant from `e35cab0` because no publish-sensitive paths
+    changed. The deployment-chain audit passed with clean latest CI, clean
+    hosted CI logs, and a clean relevant Dart package publish dry-run. The
+    strict audit still reports only known operator-side release-hardening gaps:
+    branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
+    The slice extends the neutral generated consumer package smoke to use raw
+    browser-like Streamable HTTP requests with the configured allowed `Origin`
+    on public and bearer-protected MCP routes, checking readable
+    session/protocol headers across initialize, initialized notification,
+    POST/SSE tool listing, GET/SSE notification polling, Last-Event-ID resume,
+    DELETE, and deleted-session rejection. The raw Streamable POST helper also
+    sends the public `Mcp-Method` and `Mcp-Name` headers expected by the
+    router's Streamable HTTP header guard, and the preflight smoke now asserts
+    those headers are allowed. Pre-change `bin/test-fast`, focused
+    `bash -n bin/common.sh`, focused `bash -lc 'source bin/common.sh;
+    run_mcp_consumer_package_smoke'`, post-change `bin/test-fast`, and full
+    local `bin/verify` passed on 2026-05-12.
   - MCP consumer package router-hosted CORS/preflight smoke is complete. Commit
     `e35cab0` (`fix: allow mcp cors preflight`) is pushed to both remotes.
     GitHub `CI` run `25735530396` completed successfully for `e35cab0` with

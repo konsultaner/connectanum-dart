@@ -5433,11 +5433,13 @@ Future<void> _smokeMcpCorsPreflight(
     await _assertMcpDirectJsonCorsResponse(
       client,
       _mcpEndpoint(binding),
+      serviceSession,
       label: 'public-cors',
     );
     await _assertMcpDirectJsonCorsResponse(
       client,
       _mcpEndpoint(binding, secure: true),
+      serviceSession,
       label: 'secure-cors',
       bearerToken: grant.accessToken,
     );
@@ -5472,7 +5474,8 @@ Future<void> _assertMcpCorsPreflight(
   request.headers.set(
     'Access-Control-Request-Headers',
     'Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id, '
-    'Last-Event-ID, Mcp-Method, Mcp-Name, Mcp-Param-Message',
+    'Last-Event-ID, Mcp-Method, Mcp-Name, Mcp-Param-TaskId, '
+    'Mcp-Param-Note, Mcp-Param-Message',
   );
   final response = await _mcpRawResponseFrom(await request.close());
   if (response.statusCode != expectedStatus) {
@@ -5503,6 +5506,8 @@ Future<void> _assertMcpCorsPreflight(
       'last-event-id',
       'mcp-method',
       'mcp-name',
+      'mcp-param-taskid',
+      'mcp-param-note',
       'mcp-param-message',
     ]) {
       _assertHeaderContains(
@@ -5527,59 +5532,281 @@ Future<void> _assertMcpCorsPreflight(
 
 Future<void> _assertMcpDirectJsonCorsResponse(
   HttpClient client,
-  Uri endpoint, {
+  Uri endpoint,
+  RouterSession serviceSession, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final toolsId = '$label-direct-cors-tools';
+  final toolsResponse = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': toolsId,
+      'method': 'connectanum.tools.list',
+    },
+    label: '$label direct JSON tools/list',
+    bearerToken: bearerToken,
+  );
+  if (toolsResponse['jsonrpc'] != '2.0' || toolsResponse['id'] != toolsId) {
+    throw StateError(
+      'MCP $label direct JSON CORS tools/list returned invalid JSON-RPC.',
+    );
+  }
+  final result = toolsResponse['result'];
+  final toolEntries = result is Map<String, Object?> ? result['tools'] : null;
+  if (toolEntries is! List || toolEntries.isEmpty) {
+    throw StateError('MCP $label direct JSON CORS missed tool catalog.');
+  }
+
+  final toolCallTaskId = 'T-$label-direct-cors-tool-call';
+  final toolCallId = '$label-direct-cors-tool-call';
+  final toolCall = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': toolCallId,
+      'method': 'connectanum.tool.call',
+      'params': {
+        'name': _procedure,
+        'arguments': {
+          'taskId': toolCallTaskId,
+          'note': _headerWrappedNote,
+        },
+      },
+    },
+    label: '$label direct JSON connectanum.tool.call',
+    bearerToken: bearerToken,
+  );
+  final toolCallJson = jsonEncode(toolCall);
+  if (toolCall['id'] != toolCallId ||
+      !toolCallJson.contains(toolCallTaskId) ||
+      !toolCallJson.contains(_headerWrappedNote)) {
+    throw StateError(
+      'MCP $label direct JSON CORS tool call missed procedure result.',
+    );
+  }
+
+  final apiListId = '$label-direct-cors-api-list';
+  final apiList = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': apiListId,
+      'method': 'connectanum.api.list',
+    },
+    label: '$label direct JSON connectanum.api.list',
+    bearerToken: bearerToken,
+  );
+  final apiCatalog = _jsonRpcStructuredContent(
+    apiList,
+    id: apiListId,
+    label: 'MCP $label direct JSON CORS API list',
+  );
+  final apiCatalogJson = jsonEncode(apiCatalog);
+  if (!apiCatalogJson.contains(_procedure) ||
+      !apiCatalogJson.contains(_topic)) {
+    throw StateError(
+      'MCP $label direct JSON CORS API list missed router metadata.',
+    );
+  }
+
+  final subscribeId = '$label-direct-cors-pubsub-subscribe';
+  final subscribe = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': subscribeId,
+      'method': 'connectanum.pubsub.subscribe',
+      'params': {'topic': _topic, 'queueLimit': 4},
+    },
+    label: '$label direct JSON connectanum.pubsub.subscribe',
+    bearerToken: bearerToken,
+  );
+  final subscription = _jsonRpcStructuredContent(
+    subscribe,
+    id: subscribeId,
+    label: 'MCP $label direct JSON CORS pub/sub subscribe',
+  );
+  final handle = subscription['handle'];
+  if (handle is! String ||
+      handle.isEmpty ||
+      subscription['topic'] != _topic ||
+      subscription['queueLimit'] != 4) {
+    throw StateError(
+      'MCP $label direct JSON CORS pub/sub subscribe returned invalid '
+      'content.',
+    );
+  }
+
+  try {
+    final publishId = '$label-direct-cors-pubsub-publish';
+    final publish = await _mcpRawDirectJsonRpc(
+      client,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': publishId,
+        'method': 'connectanum.pubsub.publish',
+        'params': {
+          'topic': _topic,
+          'argumentsKeywords': {
+            'taskId': 'T-$label-direct-cors-pubsub-publish',
+          },
+          'acknowledge': true,
+        },
+      },
+      label: '$label direct JSON connectanum.pubsub.publish',
+      bearerToken: bearerToken,
+    );
+    final publication = _jsonRpcStructuredContent(
+      publish,
+      id: publishId,
+      label: 'MCP $label direct JSON CORS pub/sub publish',
+    );
+    if (publication['topic'] != _topic ||
+        publication['acknowledged'] != true) {
+      throw StateError(
+        'MCP $label direct JSON CORS pub/sub publish returned invalid '
+        'content.',
+      );
+    }
+
+    final serviceTaskId = 'T-$label-direct-cors-pubsub-event';
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': serviceTaskId},
+      options: PublishOptions(acknowledge: true),
+    );
+    await _mcpRawDirectJsonPubSubPollUntil(
+      client,
+      endpoint,
+      handle,
+      label: label,
+      expectedTaskId: serviceTaskId,
+      bearerToken: bearerToken,
+    );
+  } finally {
+    final unsubscribeId = '$label-direct-cors-pubsub-unsubscribe';
+    final unsubscribe = await _mcpRawDirectJsonRpc(
+      client,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': unsubscribeId,
+        'method': 'connectanum.pubsub.unsubscribe',
+        'params': {'handle': handle},
+      },
+      label: '$label direct JSON connectanum.pubsub.unsubscribe',
+      bearerToken: bearerToken,
+    );
+    final unsubscribeContent = _jsonRpcStructuredContent(
+      unsubscribe,
+      id: unsubscribeId,
+      label: 'MCP $label direct JSON CORS pub/sub unsubscribe',
+    );
+    if (unsubscribeContent['handle'] != handle ||
+        unsubscribeContent['topic'] != _topic ||
+        unsubscribeContent['unsubscribed'] != true) {
+      throw StateError(
+        'MCP $label direct JSON CORS pub/sub unsubscribe returned invalid '
+        'content.',
+      );
+    }
+  }
+}
+
+Future<Map<String, Object?>> _mcpRawDirectJsonRpc(
+  HttpClient client,
+  Uri endpoint,
+  Map<String, Object?> message, {
   required String label,
   String? bearerToken,
 }) async {
   final request = await client.postUrl(endpoint);
   request.headers.set('Accept', 'application/json');
-  request.headers.contentType = ContentType.json;
   request.headers.set('Origin', _allowedOrigin);
   if (bearerToken != null) {
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
   }
-  final body = utf8.encode(
-    jsonEncode({
-      'jsonrpc': '2.0',
-      'id': '$label-direct-cors-tools',
-      'method': 'connectanum.tools.list',
-    }),
-  );
+  request.headers.contentType = ContentType.json;
+  final body = utf8.encode(jsonEncode(message));
   request.contentLength = body.length;
   request.add(body);
   final response = await _mcpRawResponseFrom(await request.close());
   if (response.statusCode != HttpStatus.ok) {
-    throw StateError(
-      'MCP $label direct JSON CORS smoke returned ${response.statusCode}.',
-    );
+    throw StateError('MCP $label returned ${response.statusCode}.');
   }
-  _assertCorsAllowed(response, _allowedOrigin, label: '$label direct JSON');
+  _assertCorsAllowed(response, _allowedOrigin, label: label);
   _assertHeaderContains(
     response,
     'access-control-expose-headers',
     'mcp-session-id',
-    label: '$label direct JSON exposed headers',
+    label: '$label exposed headers',
   );
   _assertHeaderContains(
     response,
     'access-control-expose-headers',
     'mcp-protocol-version',
-    label: '$label direct JSON exposed headers',
+    label: '$label exposed headers',
   );
   if (response.header('mcp-session-id') != null) {
-    throw StateError('MCP $label direct JSON CORS created session state.');
+    throw StateError('MCP $label created Streamable session state.');
   }
-  final payload = jsonDecode(response.body);
-  if (payload is! Map<String, Object?> ||
-      payload['jsonrpc'] != '2.0' ||
-      payload['id'] != '$label-direct-cors-tools') {
-    throw StateError('MCP $label direct JSON CORS returned invalid JSON-RPC.');
+  final payload = _jsonObjectFrom(jsonDecode(response.body), label: label);
+  if (payload['jsonrpc'] != '2.0') {
+    throw StateError('MCP $label returned invalid JSON-RPC.');
   }
-  final result = payload['result'];
-  final tools = result is Map<String, Object?> ? result['tools'] : null;
-  if (tools is! List || tools.isEmpty) {
-    throw StateError('MCP $label direct JSON CORS missed tool catalog.');
+  return payload;
+}
+
+Future<void> _mcpRawDirectJsonPubSubPollUntil(
+  HttpClient client,
+  Uri endpoint,
+  String handle, {
+  required String label,
+  required String expectedTaskId,
+  String? bearerToken,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    final pollId =
+        '$label-direct-cors-pubsub-poll-'
+        '${DateTime.now().microsecondsSinceEpoch}';
+    final poll = await _mcpRawDirectJsonRpc(
+      client,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': pollId,
+        'method': 'connectanum.pubsub.poll',
+        'params': {'handle': handle, 'limit': 4},
+      },
+      label: '$label direct JSON connectanum.pubsub.poll',
+      bearerToken: bearerToken,
+    );
+    final eventBatch = _jsonRpcStructuredContent(
+      poll,
+      id: pollId,
+      label: 'MCP $label direct JSON CORS pub/sub poll',
+    );
+    if (eventBatch['handle'] != handle || eventBatch['topic'] != _topic) {
+      throw StateError(
+        'MCP $label direct JSON CORS pub/sub poll returned invalid content.',
+      );
+    }
+    if (jsonEncode(eventBatch['events']).contains(expectedTaskId)) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
   }
+  throw StateError(
+    'Timed out waiting for MCP $label direct JSON CORS pub/sub event.',
+  );
 }
 
 Future<void> _assertMcpStreamableCorsLifecycle(
@@ -5692,6 +5919,14 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     );
   }
 
+  await _assertMcpStreamableCorsNamedMethods(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    label: label,
+    bearerToken: bearerToken,
+  );
+
   final dynamicProcedure = 'consumer.task.cors.${label.replaceAll('-', '.')}';
   final registration = await serviceSession.register(
     dynamicProcedure,
@@ -5797,12 +6032,141 @@ Future<void> _assertMcpStreamableCorsLifecycle(
   );
 }
 
+Future<void> _assertMcpStreamableCorsNamedMethods(
+  HttpClient client,
+  Uri endpoint, {
+  required String sessionId,
+  required String label,
+  String? bearerToken,
+}) async {
+  final toolTaskId = 'T-$label-streamable-cors-tool-call';
+  final toolCallId = '$label-streamable-cors-tool-call';
+  final toolCall = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': toolCallId,
+      'method': 'tools/call',
+      'params': {
+        'name': _procedure,
+        'arguments': {
+          'taskId': toolTaskId,
+          'note': _headerWrappedNote,
+        },
+      },
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    parameterHeaders: {
+      'TaskId': toolTaskId,
+      'Note': _mcpBase64Header(_headerWrappedNote),
+    },
+  );
+  if (toolCall.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS tools/call returned '
+      '${toolCall.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    toolCall,
+    label: '$label Streamable POST/SSE tools/call',
+  );
+  final toolPayload = _mcpSseJsonRpcPayload(
+    toolCall,
+    id: toolCallId,
+    label: '$label Streamable POST/SSE tools/call',
+  );
+  final toolJson = jsonEncode(toolPayload['result']);
+  if (!toolJson.contains(toolTaskId) || !toolJson.contains(_headerWrappedNote)) {
+    throw StateError(
+      'MCP $label Streamable CORS tools/call missed procedure result.',
+    );
+  }
+
+  final resourceId = '$label-streamable-cors-resource-read';
+  final resource = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': resourceId,
+      'method': 'resources/read',
+      'params': {'uri': _resourceUri},
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (resource.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS resources/read returned '
+      '${resource.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    resource,
+    label: '$label Streamable POST/SSE resources/read',
+  );
+  final resourcePayload = _mcpSseJsonRpcPayload(
+    resource,
+    id: resourceId,
+    label: '$label Streamable POST/SSE resources/read',
+  );
+  if (!jsonEncode(resourcePayload['result']).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError(
+      'MCP $label Streamable CORS resources/read missed route context.',
+    );
+  }
+
+  final promptTaskId = 'T-$label-streamable-cors-prompt';
+  final promptId = '$label-streamable-cors-prompt';
+  final prompt = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': promptId,
+      'method': 'prompts/get',
+      'params': {
+        'name': _promptName,
+        'arguments': {'taskId': promptTaskId},
+      },
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (prompt.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS prompts/get returned '
+      '${prompt.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    prompt,
+    label: '$label Streamable POST/SSE prompts/get',
+  );
+  final promptPayload = _mcpSseJsonRpcPayload(
+    prompt,
+    id: promptId,
+    label: '$label Streamable POST/SSE prompts/get',
+  );
+  if (!jsonEncode(promptPayload['result']).contains(promptTaskId)) {
+    throw StateError(
+      'MCP $label Streamable CORS prompts/get did not substitute task id.',
+    );
+  }
+}
+
 Future<_McpRawHttpResponse> _mcpRawJsonPost(
   HttpClient client,
   Uri endpoint,
   Map<String, Object?> message, {
   String? sessionId,
   String? bearerToken,
+  Map<String, String> parameterHeaders = const <String, String>{},
 }) async {
   final request = await client.postUrl(endpoint);
   request.headers.set('Origin', _allowedOrigin);
@@ -5831,6 +6195,9 @@ Future<_McpRawHttpResponse> _mcpRawJsonPost(
   }
   if (sessionId != null) {
     request.headers.set('MCP-Session-Id', sessionId);
+  }
+  for (final entry in parameterHeaders.entries) {
+    request.headers.set('Mcp-Param-${entry.key}', entry.value);
   }
   if (bearerToken != null) {
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
