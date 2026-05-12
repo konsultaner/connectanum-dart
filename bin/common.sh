@@ -6863,6 +6863,20 @@ void _expectMcpDirectJsonToolResultError(
   required String messageSubstring,
   required String label,
 }) {
+  _expectMcpToolResultError(
+    response,
+    id: id,
+    messageSubstring: messageSubstring,
+    label: label,
+  );
+}
+
+void _expectMcpToolResultError(
+  Map<String, Object?> response, {
+  required Object id,
+  required String messageSubstring,
+  required String label,
+}) {
   if (response['id'] != id) {
     throw StateError('$label response id was invalid.');
   }
@@ -7178,6 +7192,15 @@ Future<void> _assertMcpStreamableCorsLifecycle(
   await _assertMcpStreamableCorsNamedMethods(
     client,
     endpoint,
+    sessionId: sessionId,
+    label: label,
+    bearerToken: bearerToken,
+  );
+
+  await _assertMcpStreamableCorsWampTools(
+    client,
+    endpoint,
+    serviceSession,
     sessionId: sessionId,
     label: label,
     bearerToken: bearerToken,
@@ -7851,6 +7874,299 @@ Future<void> _assertMcpStreamableCorsNamedMethods(
       'MCP $label Streamable CORS prompts/get did not substitute task id.',
     );
   }
+}
+
+Future<void> _assertMcpStreamableCorsWampTools(
+  HttpClient client,
+  Uri endpoint,
+  RouterSession serviceSession, {
+  required String sessionId,
+  required String label,
+  String? bearerToken,
+}) async {
+  final apiListId = '$label-streamable-cors-wamp-api-list';
+  final apiList = await _mcpRawStreamableToolCall(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    id: apiListId,
+    name: 'connectanum.api.list',
+    arguments: const <String, Object?>{},
+    label: '$label Streamable WAMP API list',
+    bearerToken: bearerToken,
+  );
+  final apiCatalog = _jsonRpcStructuredContent(
+    apiList,
+    id: apiListId,
+    label: 'MCP $label Streamable CORS WAMP API list',
+  );
+  final apiCatalogJson = jsonEncode(apiCatalog);
+  if (!apiCatalogJson.contains(_procedure) ||
+      !apiCatalogJson.contains(_topic)) {
+    throw StateError(
+      'MCP $label Streamable CORS WAMP API list missed router metadata.',
+    );
+  }
+
+  final apiDescribeId = '$label-streamable-cors-wamp-api-describe';
+  final apiDescribe = await _mcpRawStreamableToolCall(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    id: apiDescribeId,
+    name: 'connectanum.api.describe',
+    arguments: {'uri': _procedure, 'kind': 'procedure'},
+    label: '$label Streamable WAMP API describe',
+    bearerToken: bearerToken,
+  );
+  final apiDescription = _jsonRpcStructuredContent(
+    apiDescribe,
+    id: apiDescribeId,
+    label: 'MCP $label Streamable CORS WAMP API describe',
+  );
+  if (!jsonEncode(apiDescription).contains(_procedure)) {
+    throw StateError(
+      'MCP $label Streamable CORS WAMP API describe missed $_procedure.',
+    );
+  }
+
+  final topicDescribeId = '$label-streamable-cors-wamp-topic-describe';
+  final topicDescribe = await _mcpRawStreamableToolCall(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    id: topicDescribeId,
+    name: 'connectanum.api.describe',
+    arguments: {'uri': _topic, 'kind': 'topic'},
+    label: '$label Streamable WAMP topic describe',
+    bearerToken: bearerToken,
+  );
+  final topicDescription = _jsonRpcStructuredContent(
+    topicDescribe,
+    id: topicDescribeId,
+    label: 'MCP $label Streamable CORS WAMP topic describe',
+  );
+  final topicDescriptionJson = jsonEncode(topicDescription);
+  if (!topicDescriptionJson.contains(_topic) ||
+      !topicDescriptionJson.contains('eventSchema') ||
+      !topicDescriptionJson.contains('allowPublish') ||
+      !topicDescriptionJson.contains('allowSubscribe')) {
+    throw StateError(
+      'MCP $label Streamable CORS WAMP topic describe missed $_topic.',
+    );
+  }
+
+  final missingApiUri = 'missing.$label.streamable-cors-wamp-api';
+  final missingApiId = '$label-streamable-cors-wamp-api-missing';
+  final missingApi = await _mcpRawStreamableToolCall(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    id: missingApiId,
+    name: 'connectanum.api.describe',
+    arguments: {'uri': missingApiUri, 'kind': 'procedure'},
+    label: '$label Streamable WAMP missing API describe',
+    bearerToken: bearerToken,
+  );
+  _expectMcpToolResultError(
+    missingApi,
+    id: missingApiId,
+    messageSubstring: missingApiUri,
+    label: 'MCP $label Streamable CORS missing WAMP API describe',
+  );
+
+  final subscribeId = '$label-streamable-cors-wamp-pubsub-subscribe';
+  final subscribe = await _mcpRawStreamableToolCall(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    id: subscribeId,
+    name: 'connectanum.pubsub.subscribe',
+    arguments: {'topic': _topic, 'queueLimit': 4},
+    label: '$label Streamable WAMP pub/sub subscribe',
+    bearerToken: bearerToken,
+  );
+  final subscription = _jsonRpcStructuredContent(
+    subscribe,
+    id: subscribeId,
+    label: 'MCP $label Streamable CORS WAMP pub/sub subscribe',
+  );
+  final handle = subscription['handle'];
+  if (handle is! String ||
+      handle.isEmpty ||
+      subscription['topic'] != _topic ||
+      subscription['queueLimit'] != 4) {
+    throw StateError(
+      'MCP $label Streamable CORS WAMP pub/sub subscribe returned invalid '
+      'content.',
+    );
+  }
+
+  try {
+    final publishId = '$label-streamable-cors-wamp-pubsub-publish';
+    final publish = await _mcpRawStreamableToolCall(
+      client,
+      endpoint,
+      sessionId: sessionId,
+      id: publishId,
+      name: 'connectanum.pubsub.publish',
+      arguments: {
+        'topic': _topic,
+        'argumentsKeywords': {
+          'taskId': 'T-$label-streamable-cors-wamp-pubsub-publish',
+        },
+        'acknowledge': true,
+      },
+      label: '$label Streamable WAMP pub/sub publish',
+      bearerToken: bearerToken,
+    );
+    final publication = _jsonRpcStructuredContent(
+      publish,
+      id: publishId,
+      label: 'MCP $label Streamable CORS WAMP pub/sub publish',
+    );
+    if (publication['topic'] != _topic ||
+        publication['acknowledged'] != true) {
+      throw StateError(
+        'MCP $label Streamable CORS WAMP pub/sub publish returned invalid '
+        'content.',
+      );
+    }
+
+    final serviceTaskId = 'T-$label-streamable-cors-wamp-pubsub-event';
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': serviceTaskId},
+      options: PublishOptions(acknowledge: true),
+    );
+    await _mcpRawStreamablePubSubPollUntil(
+      client,
+      endpoint,
+      sessionId: sessionId,
+      handle: handle,
+      label: label,
+      expectedTaskId: serviceTaskId,
+      bearerToken: bearerToken,
+    );
+  } finally {
+    final unsubscribeId = '$label-streamable-cors-wamp-pubsub-unsubscribe';
+    final unsubscribe = await _mcpRawStreamableToolCall(
+      client,
+      endpoint,
+      sessionId: sessionId,
+      id: unsubscribeId,
+      name: 'connectanum.pubsub.unsubscribe',
+      arguments: {'handle': handle},
+      label: '$label Streamable WAMP pub/sub unsubscribe',
+      bearerToken: bearerToken,
+    );
+    final unsubscribeContent = _jsonRpcStructuredContent(
+      unsubscribe,
+      id: unsubscribeId,
+      label: 'MCP $label Streamable CORS WAMP pub/sub unsubscribe',
+    );
+    if (unsubscribeContent['handle'] != handle ||
+        unsubscribeContent['topic'] != _topic ||
+        unsubscribeContent['unsubscribed'] != true) {
+      throw StateError(
+        'MCP $label Streamable CORS WAMP pub/sub unsubscribe returned '
+        'invalid content.',
+      );
+    }
+  }
+
+  final missingHandle = '$label-streamable-cors-wamp-pubsub-missing-handle';
+  final missingPollId = '$label-streamable-cors-wamp-pubsub-missing-poll';
+  final missingPoll = await _mcpRawStreamableToolCall(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    id: missingPollId,
+    name: 'connectanum.pubsub.poll',
+    arguments: {'handle': missingHandle, 'limit': 1},
+    label: '$label Streamable WAMP missing pub/sub poll',
+    bearerToken: bearerToken,
+  );
+  _expectMcpToolResultError(
+    missingPoll,
+    id: missingPollId,
+    messageSubstring: missingHandle,
+    label: 'MCP $label Streamable CORS missing WAMP pub/sub poll',
+  );
+}
+
+Future<Map<String, Object?>> _mcpRawStreamableToolCall(
+  HttpClient client,
+  Uri endpoint, {
+  required String sessionId,
+  required String id,
+  required String name,
+  required Map<String, Object?> arguments,
+  required String label,
+  String? bearerToken,
+}) async {
+  final response = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'method': 'tools/call',
+      'params': {'name': name, 'arguments': arguments},
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (response.statusCode != HttpStatus.ok) {
+    throw StateError('MCP $label returned ${response.statusCode}.');
+  }
+  _assertMcpCorsStatefulResponse(response, label: label);
+  return _mcpSseJsonRpcPayload(response, id: id, label: label);
+}
+
+Future<void> _mcpRawStreamablePubSubPollUntil(
+  HttpClient client,
+  Uri endpoint, {
+  required String sessionId,
+  required String handle,
+  required String label,
+  required String expectedTaskId,
+  String? bearerToken,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    final pollId =
+        '$label-streamable-cors-wamp-pubsub-poll-'
+        '${DateTime.now().microsecondsSinceEpoch}';
+    final poll = await _mcpRawStreamableToolCall(
+      client,
+      endpoint,
+      sessionId: sessionId,
+      id: pollId,
+      name: 'connectanum.pubsub.poll',
+      arguments: {'handle': handle, 'limit': 4},
+      label: '$label Streamable WAMP pub/sub poll',
+      bearerToken: bearerToken,
+    );
+    final eventBatch = _jsonRpcStructuredContent(
+      poll,
+      id: pollId,
+      label: 'MCP $label Streamable CORS WAMP pub/sub poll',
+    );
+    if (eventBatch['handle'] != handle || eventBatch['topic'] != _topic) {
+      throw StateError(
+        'MCP $label Streamable CORS WAMP pub/sub poll returned invalid '
+        'content.',
+      );
+    }
+    if (jsonEncode(eventBatch['events']).contains(expectedTaskId)) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError(
+    'Timed out waiting for MCP $label Streamable CORS WAMP pub/sub event.',
+  );
 }
 
 Future<_McpRawHttpResponse> _mcpRawJsonPost(
