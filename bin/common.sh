@@ -5435,11 +5435,22 @@ Future<void> _smokeMcpCorsPreflight(
       _mcpEndpoint(binding),
       label: 'public-cors',
     );
+    await _assertMcpCorsPostBodyErrors(
+      client,
+      _mcpEndpoint(binding),
+      label: 'public-cors',
+    );
     await _assertSecureMcpCorsUnauthorized(
       client,
       _mcpEndpoint(binding, secure: true),
     );
     await _assertMcpCorsMethodNegotiationErrors(
+      client,
+      _mcpEndpoint(binding, secure: true),
+      label: 'secure-cors',
+      bearerToken: grant.accessToken,
+    );
+    await _assertMcpCorsPostBodyErrors(
       client,
       _mcpEndpoint(binding, secure: true),
       label: 'secure-cors',
@@ -5634,6 +5645,46 @@ Future<void> _assertMcpCorsMethodNegotiationErrors(
     label: '$label POST invalid Accept',
     expectNoSession: true,
     bodyContains: 'Accept',
+  );
+}
+
+Future<void> _assertMcpCorsPostBodyErrors(
+  HttpClient client,
+  Uri endpoint, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final unsupported = await _mcpRawPostBody(
+    client,
+    endpoint,
+    body: jsonEncode(<String, Object?>{
+      'jsonrpc': '2.0',
+      'id': '$label-unsupported-content-type',
+      'method': 'connectanum.tools.list',
+    }),
+    contentType: 'text/plain',
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    unsupported,
+    expectedStatus: HttpStatus.unsupportedMediaType,
+    label: '$label POST unsupported Content-Type',
+    expectNoSession: true,
+    bodyContains: 'JSON content type',
+  );
+
+  final malformed = await _mcpRawPostBody(
+    client,
+    endpoint,
+    body: '{"jsonrpc":"2.0","id":"$label-malformed-json",',
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    malformed,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label POST malformed JSON',
+    expectNoSession: true,
+    bodyContains: 'Invalid JSON-RPC message',
   );
 }
 
@@ -6099,6 +6150,14 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     );
   }
 
+  await _assertMcpStreamableCorsPostBodyErrors(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    label: label,
+    bearerToken: bearerToken,
+  );
+
   await _assertMcpStreamableCorsSessionGuardErrors(
     client,
     endpoint,
@@ -6247,6 +6306,77 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     label: '$label Streamable stale-session delete',
     sessionId: sessionId,
     bodyContains: 'Unknown MCP HTTP session',
+  );
+}
+
+Future<void> _assertMcpStreamableCorsPostBodyErrors(
+  HttpClient client,
+  Uri endpoint, {
+  required String sessionId,
+  required String label,
+  String? bearerToken,
+}) async {
+  final unsupported = await _mcpRawPostBody(
+    client,
+    endpoint,
+    body: jsonEncode(<String, Object?>{
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-cors-unsupported-content-type',
+      'method': 'tools/list',
+    }),
+    contentType: 'text/plain',
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    unsupported,
+    expectedStatus: HttpStatus.unsupportedMediaType,
+    label: '$label Streamable unsupported Content-Type',
+    sessionId: sessionId,
+    bodyContains: 'JSON content type',
+  );
+
+  final malformed = await _mcpRawPostBody(
+    client,
+    endpoint,
+    body: '{"jsonrpc":"2.0","id":"$label-streamable-cors-malformed-json",',
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    malformed,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label Streamable malformed JSON',
+    sessionId: sessionId,
+    bodyContains: 'Invalid JSON-RPC message',
+  );
+
+  final recoveryId = '$label-streamable-cors-post-body-recovery';
+  final recovery = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': recoveryId,
+      'method': 'tools/list',
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (recovery.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS POST body recovery returned '
+      '${recovery.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    recovery,
+    label: '$label Streamable POST body recovery',
+  );
+  _mcpSseJsonRpcPayload(
+    recovery,
+    id: recoveryId,
+    label: '$label Streamable POST body recovery',
   );
 }
 
@@ -6784,6 +6914,35 @@ Future<_McpRawHttpResponse> _mcpRawJsonPost(
   final body = utf8.encode(jsonEncode(message));
   request.contentLength = body.length;
   request.add(body);
+  return _mcpRawResponseFrom(await request.close());
+}
+
+Future<_McpRawHttpResponse> _mcpRawPostBody(
+  HttpClient client,
+  Uri endpoint, {
+  required String body,
+  String accept = 'application/json, text/event-stream',
+  String contentType = 'application/json',
+  String? sessionId,
+  String? bearerToken,
+}) async {
+  final request = await client.postUrl(endpoint);
+  request.headers.set('Origin', _allowedOrigin);
+  request.headers.set(HttpHeaders.acceptHeader, accept);
+  request.headers.set(
+    'MCP-Protocol-Version',
+    McpStreamableHttpClient.latestProtocolVersion,
+  );
+  request.headers.set(HttpHeaders.contentTypeHeader, contentType);
+  if (sessionId != null) {
+    request.headers.set('MCP-Session-Id', sessionId);
+  }
+  if (bearerToken != null) {
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
+  }
+  final encodedBody = utf8.encode(body);
+  request.contentLength = encodedBody.length;
+  request.add(encodedBody);
   return _mcpRawResponseFrom(await request.close());
 }
 
