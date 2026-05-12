@@ -4361,6 +4361,8 @@ const _headerWrappedNote = '=?base64?Zm9v?=';
 const _supportedOlderProtocolVersions = ['2025-03-26', '2025-06-18'];
 const _unsupportedProtocolVersion = '2099-01-01';
 const _unknownAccessToken = 'consumer-unknown-access-token';
+const _allowedOrigin = 'https://consumer.example';
+const _disallowedOrigin = 'https://attacker.example';
 
 Future<void> main() async {
   final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
@@ -4465,6 +4467,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       secure: true,
       authGrant: grant,
     );
+    await _smokeMcpOriginPolicy(binding, grant);
     final otherGrant = await _issueTicketHttpGrant(
       binding,
       authId: _otherTicketAuthId,
@@ -4594,6 +4597,7 @@ RouterSettings _consumerRouterSettings() {
                 'resource_list_page_size': 1,
                 'resource_template_list_page_size': 1,
                 'prompt_list_page_size': 1,
+                'allowed_origins': [_allowedOrigin],
                 'topics': [
                   {
                     'topic': _topic,
@@ -4718,6 +4722,7 @@ RouterSettings _consumerRouterSettings() {
                 'resource_list_page_size': 1,
                 'resource_template_list_page_size': 1,
                 'prompt_list_page_size': 1,
+                'allowed_origins': [_allowedOrigin],
                 'topics': [
                   {
                     'topic': _topic,
@@ -5280,6 +5285,116 @@ Future<void> _assertUnsupportedMcpProtocolVersionRejected(
     }
   } finally {
     client.close();
+  }
+}
+
+Future<void> _smokeMcpOriginPolicy(
+  RouterBinding binding,
+  ConnectanumHttpAuthGrant grant,
+) async {
+  final publicAllowedClient = McpStreamableHttpClient(
+    _mcpEndpoint(binding),
+    headers: const <String, String>{'Origin': _allowedOrigin},
+  );
+  final publicDisallowedClient = McpStreamableHttpClient(
+    _mcpEndpoint(binding),
+    headers: const <String, String>{'Origin': _disallowedOrigin},
+  );
+  final secureAllowedClient = McpStreamableHttpClient.withAuthGrant(
+    _mcpEndpoint(binding, secure: true),
+    grant,
+    headers: const <String, String>{'Origin': _allowedOrigin},
+  );
+  final secureDisallowedClient = McpStreamableHttpClient.withAuthGrant(
+    _mcpEndpoint(binding, secure: true),
+    grant,
+    headers: const <String, String>{'Origin': _disallowedOrigin},
+  );
+  try {
+    await _smokeAllowedOriginMcpClient(
+      publicAllowedClient,
+      label: 'public-origin',
+    );
+    await _assertDisallowedOriginRejected(
+      publicDisallowedClient,
+      label: 'public-origin',
+    );
+    await _smokeAllowedOriginMcpClient(
+      secureAllowedClient,
+      label: 'secure-origin',
+    );
+    await _assertDisallowedOriginRejected(
+      secureDisallowedClient,
+      label: 'secure-origin',
+    );
+  } finally {
+    publicAllowedClient.close();
+    publicDisallowedClient.close();
+    secureAllowedClient.close();
+    secureDisallowedClient.close();
+  }
+}
+
+Future<void> _smokeAllowedOriginMcpClient(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final directTools = await client.listConnectanumToolsDirect(
+    id: '$label-direct-tools',
+  );
+  if (directTools.tools.isEmpty) {
+    throw StateError('MCP $label direct tool catalog was empty.');
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'MCP $label direct Origin check created Streamable session state.',
+    );
+  }
+
+  final initializeId = '$label-initialize';
+  final initialize = await client.initialize(id: initializeId);
+  if (initialize['id'] != initializeId) {
+    throw StateError('MCP $label initialize returned unexpected id.');
+  }
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('MCP $label initialize did not create a session.');
+  }
+  await client.notifyInitialized();
+  final streamableTools = await client.listTools(id: '$label-streamable-tools');
+  if (streamableTools.tools.isEmpty) {
+    throw StateError('MCP $label Streamable tool catalog was empty.');
+  }
+  await client.deleteSession();
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError('MCP $label Origin smoke leaked session state.');
+  }
+}
+
+Future<void> _assertDisallowedOriginRejected(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  try {
+    await client.listConnectanumToolsDirect(id: '$label-disallowed-direct');
+    throw StateError('MCP accepted a disallowed $label Origin.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.forbidden) {
+      throw StateError(
+        'MCP disallowed $label Origin returned ${error.statusCode} '
+        'instead of ${HttpStatus.forbidden}.',
+      );
+    }
+    if (!error.body.contains('Origin')) {
+      throw StateError(
+        'MCP disallowed $label Origin error did not identify Origin policy.',
+      );
+    }
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'MCP disallowed $label Origin created Streamable session state.',
+    );
   }
 }
 

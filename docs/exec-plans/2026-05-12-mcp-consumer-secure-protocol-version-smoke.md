@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Secure Protocol Version Smoke
 
-Status: complete locally; hosted CI pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-12
 Last updated: 2026-05-12
@@ -60,8 +60,20 @@ public package APIs.
   2026-05-12.
 - Post-change `bin/test-fast` passed on 2026-05-12.
 - Full local `bin/verify` passed on 2026-05-12.
-- Hosted CI and deployment-chain evidence are pending until the implementation
-  commit is pushed.
+- Commit `8ceac39`
+  (`test: cover secure mcp protocol versions`) was pushed to both configured
+  remotes on 2026-05-12.
+- GitHub Actions `CI` run `25728977893` passed on `8ceac39`: `Fast Checks`
+  completed successfully at 2026-05-12T10:39:26Z and `Full Verify` completed
+  successfully at 2026-05-12T10:45:52Z.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed on 2026-05-12. The audit found latest CI clean, latest CI log scan
+  clean, and Dart Package Publish Dry Run `25635686773` still relevant because
+  no publish-sensitive paths changed since that dry-run head.
+- Strict deployment-chain audit still fails only known operator-side
+  release-hardening gaps: branch protection/required checks are not configured,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch, and the router GHCR package is not visible.
 
 ## Decision Log
 
@@ -73,5 +85,6 @@ public package APIs.
 
 ## Handoff
 
-Implementation is complete locally. Commit, push, hosted CI, and
-deployment-chain evidence remain pending.
+Implementation is complete and pushed. Local verification, hosted CI, hosted
+log scan, and the non-strict deployment-chain audit are clean for `8ceac39`.
+The only remaining strict-audit gaps are operator-side release-hardening items.
