@@ -5468,6 +5468,11 @@ Future<void> _smokeMcpCorsPreflight(
       serviceSession,
       label: 'public-cors',
     );
+    await _assertMcpDirectJsonNotificationCorsResponse(
+      client,
+      _mcpEndpoint(binding),
+      label: 'public-cors',
+    );
     await _assertMcpDirectJsonCorsResponse(
       client,
       _mcpEndpoint(binding, secure: true),
@@ -5479,6 +5484,12 @@ Future<void> _smokeMcpCorsPreflight(
       client,
       _mcpEndpoint(binding, secure: true),
       serviceSession,
+      label: 'secure-cors',
+      bearerToken: grant.accessToken,
+    );
+    await _assertMcpDirectJsonNotificationCorsResponse(
+      client,
+      _mcpEndpoint(binding, secure: true),
       label: 'secure-cors',
       bearerToken: grant.accessToken,
     );
@@ -6478,6 +6489,78 @@ Future<void> _assertMcpDirectJsonBatchCorsResponse(
         '$_topic.',
       );
     }
+  }
+}
+
+Future<void> _assertMcpDirectJsonNotificationCorsResponse(
+  HttpClient client,
+  Uri endpoint, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final single = await _mcpRawDirectJsonRpcResponse(
+    client,
+    endpoint,
+    const <String, Object?>{
+      'jsonrpc': '2.0',
+      'method': 'notifications/initialized',
+      'params': <String, Object?>{},
+    },
+    bearerToken: bearerToken,
+  );
+  _assertMcpDirectJsonNotificationAccepted(
+    single,
+    label: '$label direct JSON notification',
+  );
+
+  final batch = await _mcpRawDirectJsonRpcResponse(
+    client,
+    endpoint,
+    const <Map<String, Object?>>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': <String, Object?>{},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/tools/list_changed',
+        'params': <String, Object?>{},
+      },
+    ],
+    bearerToken: bearerToken,
+  );
+  _assertMcpDirectJsonNotificationAccepted(
+    batch,
+    label: '$label direct JSON notification-only batch',
+  );
+}
+
+void _assertMcpDirectJsonNotificationAccepted(
+  _McpRawHttpResponse response, {
+  required String label,
+}) {
+  if (response.statusCode != HttpStatus.accepted) {
+    throw StateError('MCP $label returned ${response.statusCode}.');
+  }
+  _assertCorsAllowed(response, _allowedOrigin, label: label);
+  _assertHeaderContains(
+    response,
+    'access-control-expose-headers',
+    'mcp-session-id',
+    label: '$label exposed headers',
+  );
+  _assertHeaderContains(
+    response,
+    'access-control-expose-headers',
+    'mcp-protocol-version',
+    label: '$label exposed headers',
+  );
+  if (response.header('mcp-session-id') != null) {
+    throw StateError('MCP $label created Streamable session state.');
+  }
+  if (response.body.trim().isNotEmpty) {
+    throw StateError('MCP $label returned a JSON-RPC response body.');
   }
 }
 
