@@ -2,15 +2,18 @@
 
 Last updated: 2026-05-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: `e2210c3`
-(`test: cover mcp raw named cors access`; MCP consumer package router-hosted
-raw named CORS smoke hosted CI and
+Last reviewed branch checkpoint: `59a8e79`
+(`fix: keep mcp auth failures cors-readable`; MCP consumer package
+router-hosted CORS error/session smoke hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-12-mcp-consumer-cors-error-session-smoke.md`
-(implementation complete locally; hosted CI and deployment-chain evidence
-pending).
+`docs/exec-plans/2026-05-12-mcp-consumer-cors-method-negotiation-smoke.md`
+(implementation and local verification complete; hosted CI and deployment-chain
+evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-12-mcp-consumer-cors-error-session-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-12-mcp-consumer-raw-named-cors-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -332,17 +335,28 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`e2210c3`
-(`test: cover mcp raw named cors access`; hosted CI and
+`59a8e79`
+(`fix: keep mcp auth failures cors-readable`; hosted CI and
 deployment-chain evidence clean).
-Current implementation checkpoint: router-hosted MCP CORS error/session
-readiness is complete locally. MCP routes now bypass native listener-side bearer
+Current implementation checkpoint: router-hosted MCP CORS method-negotiation
+readiness is complete locally. The generated consumer smoke now preflights
+`POST`, `GET`, and `DELETE` against public and bearer-protected MCP routes, and
+checks CORS-readable unsupported-method plus invalid-`Accept` failures without
+creating Streamable session state. Pre-change `bin/test-fast`, focused
+`bash -n bin/common.sh`, and focused `bash -lc 'source bin/common.sh;
+cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`
+passed on 2026-05-12. Full local `bin/verify` passed on 2026-05-12. Hosted CI
+and deployment-chain evidence are pending.
+Previous implementation checkpoint: router-hosted MCP CORS error/session
+readiness is complete and pushed. MCP routes bypass native listener-side bearer
 fast-fail so the Dart binding can apply route-specific MCP CORS policy to auth
 failures, while ordinary protected HTTP routes keep native transport-auth
-coverage. The generated consumer smoke now proves secure missing-bearer direct
-JSON and Streamable initialize failures are CORS-readable and do not create
-session state, and proves Streamable header-validation failures preserve the
-active session.
+coverage. The generated consumer smoke proves secure missing-bearer direct JSON
+and Streamable initialize failures are CORS-readable and do not create session
+state, and proves Streamable header-validation failures preserve the active
+session. Local verification, hosted CI, hosted CI log scan, the Dart package
+publish dry run, the WAMP profile benchmark workflow, and the non-strict
+deployment-chain audit are clean for `59a8e79`.
 Previous implementation checkpoint: generated consumer smoke coverage for a
 router-hosted MCP raw named CORS readiness slice across public and
 bearer-protected routes (complete; hosted CI and deployment-chain evidence
@@ -788,9 +802,21 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer package router-hosted CORS error/session smoke is complete
-    locally; hosted evidence is pending until the implementation commit is
-    pushed. The slice keeps MCP route auth failures in the Dart binding path so
+  - MCP consumer package router-hosted CORS method-negotiation smoke is
+    complete locally. The slice extends the neutral generated consumer package
+    smoke to prove browser-style CORS preflights for `POST`, `GET`, and
+    `DELETE` on public and bearer-protected MCP routes. It also sends raw
+    allowed-origin requests for unsupported `PUT`, invalid GET `Accept`, and
+    invalid POST `Accept`, asserting CORS-readable JSON errors, an `Allow`
+    header for unsupported methods, and no accidental Streamable session state.
+    Pre-change `bin/test-fast`, focused `bash -n bin/common.sh`, and focused
+    `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap;
+    run_mcp_consumer_package_smoke'` passed on 2026-05-12. Full local
+    `bin/verify` passed on 2026-05-12. Hosted CI and deployment-chain evidence
+    are pending.
+  - MCP consumer package router-hosted CORS error/session smoke is complete and
+    pushed in commit `59a8e79` (`fix: keep mcp auth failures cors-readable`).
+    The slice keeps MCP route auth failures in the Dart binding path so
     route-specific MCP CORS policy is available before responding, while
     ordinary protected HTTP routes keep native listener-side transport-auth
     coverage. The generated consumer package smoke now proves secure
@@ -805,7 +831,18 @@ order.
     run_mcp_consumer_package_smoke'`, focused
     `dart test packages/connectanum_router/test/http_route_transport_auth_test.dart`,
     focused `dart analyze packages/connectanum_router`, and full local
-    `bin/verify` passed on 2026-05-12.
+    `bin/verify` passed on 2026-05-12. GitHub `CI` run `25746825371`
+    completed successfully for `59a8e79` with `Fast Checks` and `Full Verify`
+    green, and the hosted CI log scan was clean. GitHub `Dart Package Publish
+    Dry Run` run `25746825383` completed successfully and covers the checked-out
+    head. GitHub `WAMP Profile Benchmarks` run `25746825412` completed
+    successfully. The deployment-chain audit passed with clean latest CI, clean
+    hosted CI logs, and a clean relevant Dart package publish dry-run. The
+    strict audit still reports only known operator-side release-hardening gaps:
+    branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
   - MCP consumer package router-hosted raw named CORS smoke is complete.
     Commit `e2210c3` (`test: cover mcp raw named cors access`) is pushed to
     both remotes. GitHub `CI` run `25742676102` completed successfully for

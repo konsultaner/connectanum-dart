@@ -5406,12 +5406,12 @@ Future<void> _smokeMcpCorsPreflight(
 ) async {
   final client = HttpClient();
   try {
-    await _assertMcpCorsPreflight(
+    await _assertMcpCorsPreflightMethods(
       client,
       _mcpEndpoint(binding),
       label: 'public-cors',
     );
-    await _assertMcpCorsPreflight(
+    await _assertMcpCorsPreflightMethods(
       client,
       _mcpEndpoint(binding, secure: true),
       label: 'secure-cors',
@@ -5430,9 +5430,20 @@ Future<void> _smokeMcpCorsPreflight(
       origin: _disallowedOrigin,
       expectedStatus: HttpStatus.forbidden,
     );
+    await _assertMcpCorsMethodNegotiationErrors(
+      client,
+      _mcpEndpoint(binding),
+      label: 'public-cors',
+    );
     await _assertSecureMcpCorsUnauthorized(
       client,
       _mcpEndpoint(binding, secure: true),
+    );
+    await _assertMcpCorsMethodNegotiationErrors(
+      client,
+      _mcpEndpoint(binding, secure: true),
+      label: 'secure-cors',
+      bearerToken: grant.accessToken,
     );
     await _assertMcpDirectJsonCorsResponse(
       client,
@@ -5465,16 +5476,32 @@ Future<void> _smokeMcpCorsPreflight(
   }
 }
 
+Future<void> _assertMcpCorsPreflightMethods(
+  HttpClient client,
+  Uri endpoint, {
+  required String label,
+}) async {
+  for (final method in const ['POST', 'GET', 'DELETE']) {
+    await _assertMcpCorsPreflight(
+      client,
+      endpoint,
+      label: '$label $method',
+      requestedMethod: method,
+    );
+  }
+}
+
 Future<void> _assertMcpCorsPreflight(
   HttpClient client,
   Uri endpoint, {
   required String label,
+  String requestedMethod = 'POST',
   String origin = _allowedOrigin,
   int expectedStatus = HttpStatus.noContent,
 }) async {
   final request = await client.openUrl('OPTIONS', endpoint);
   request.headers.set('Origin', origin);
-  request.headers.set('Access-Control-Request-Method', 'POST');
+  request.headers.set('Access-Control-Request-Method', requestedMethod);
   request.headers.set(
     'Access-Control-Request-Headers',
     'Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id, '
@@ -5500,6 +5527,18 @@ Future<void> _assertMcpCorsPreflight(
       response,
       'access-control-allow-methods',
       'POST',
+      label: '$label preflight allow methods',
+    );
+    _assertHeaderContains(
+      response,
+      'access-control-allow-methods',
+      'GET',
+      label: '$label preflight allow methods',
+    );
+    _assertHeaderContains(
+      response,
+      'access-control-allow-methods',
+      'DELETE',
       label: '$label preflight allow methods',
     );
     for (final header in const [
@@ -5532,6 +5571,70 @@ Future<void> _assertMcpCorsPreflight(
       throw StateError('MCP $label preflight error did not identify Origin.');
     }
   }
+}
+
+Future<void> _assertMcpCorsMethodNegotiationErrors(
+  HttpClient client,
+  Uri endpoint, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final unsupported = await _mcpRawMcpRequest(
+    client,
+    endpoint,
+    'PUT',
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    unsupported,
+    expectedStatus: HttpStatus.methodNotAllowed,
+    label: '$label unsupported PUT',
+    expectNoSession: true,
+    bodyContains: 'GET, POST, DELETE',
+  );
+  for (final method in const ['GET', 'POST', 'DELETE', 'OPTIONS']) {
+    _assertHeaderContains(
+      unsupported,
+      HttpHeaders.allowHeader,
+      method,
+      label: '$label unsupported PUT allow header',
+    );
+  }
+
+  final getInvalidAccept = await _mcpRawMcpRequest(
+    client,
+    endpoint,
+    'GET',
+    accept: 'application/json',
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    getInvalidAccept,
+    expectedStatus: HttpStatus.notAcceptable,
+    label: '$label GET invalid Accept',
+    expectNoSession: true,
+    bodyContains: 'Accept',
+  );
+
+  final postInvalidAccept = await _mcpRawMcpRequest(
+    client,
+    endpoint,
+    'POST',
+    accept: 'text/plain',
+    bearerToken: bearerToken,
+    jsonBody: const <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': 'cors-post-invalid-accept',
+      'method': 'tools/list',
+    },
+  );
+  _assertMcpCorsErrorResponse(
+    postInvalidAccept,
+    expectedStatus: HttpStatus.notAcceptable,
+    label: '$label POST invalid Accept',
+    expectNoSession: true,
+    bodyContains: 'Accept',
+  );
 }
 
 Future<void> _assertSecureMcpCorsUnauthorized(
@@ -6444,6 +6547,33 @@ Future<_McpRawHttpResponse> _mcpRawJsonPost(
   final body = utf8.encode(jsonEncode(message));
   request.contentLength = body.length;
   request.add(body);
+  return _mcpRawResponseFrom(await request.close());
+}
+
+Future<_McpRawHttpResponse> _mcpRawMcpRequest(
+  HttpClient client,
+  Uri endpoint,
+  String method, {
+  String accept = 'application/json, text/event-stream',
+  String? bearerToken,
+  Map<String, Object?>? jsonBody,
+}) async {
+  final request = await client.openUrl(method, endpoint);
+  request.headers.set('Origin', _allowedOrigin);
+  request.headers.set(HttpHeaders.acceptHeader, accept);
+  request.headers.set(
+    'MCP-Protocol-Version',
+    McpStreamableHttpClient.latestProtocolVersion,
+  );
+  if (bearerToken != null) {
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
+  }
+  if (jsonBody != null) {
+    request.headers.contentType = ContentType.json;
+    final body = utf8.encode(jsonEncode(jsonBody));
+    request.contentLength = body.length;
+    request.add(body);
+  }
   return _mcpRawResponseFrom(await request.close());
 }
 
