@@ -1625,7 +1625,17 @@ class RouterBinding {
         message: 'TLS is required for this route',
       );
     }
+    final bearerlessCorsPreflight =
+        requirements.allowUnauthenticatedCorsPreflight &&
+        request.method.toUpperCase() == 'OPTIONS' &&
+        (_headerValue(request.headers, 'origin')?.trim().isNotEmpty ?? false) &&
+        (_headerValue(
+              request.headers,
+              'access-control-request-method',
+            )?.trim().isNotEmpty ??
+            false);
     if (requirements.requireBearer &&
+        !bearerlessCorsPreflight &&
         _extractBearerToken(request.headers) == null) {
       return _HttpRouteTransportAuthFailure.unauthorized(
         reason: 'unauthorized',

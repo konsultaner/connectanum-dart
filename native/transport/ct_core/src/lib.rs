@@ -4951,6 +4951,7 @@ enum HttpTransportAuthFailure {
 fn evaluate_http_transport_auth_string_headers(
     requirements: &config::HttpRouteTransportAuthRuntime,
     endpoint_config: &config::EndpointRuntimeConfig,
+    method: &str,
     headers: &[(String, String)],
 ) -> Option<HttpTransportAuthFailure> {
     if requirements.require_mtls
@@ -4965,7 +4966,9 @@ fn evaluate_http_transport_auth_string_headers(
     if requirements.require_tls && endpoint_config.tls_mode == config::TlsMode::Disabled {
         return Some(HttpTransportAuthFailure::TlsRequired);
     }
-    if requirements.require_bearer && !has_bearer_header_string(headers) {
+    let bearerless_preflight = requirements.allow_unauthenticated_cors_preflight
+        && is_cors_preflight_string(method, headers);
+    if requirements.require_bearer && !bearerless_preflight && !has_bearer_header_string(headers) {
         return Some(HttpTransportAuthFailure::BearerRequired);
     }
     None
@@ -4974,6 +4977,7 @@ fn evaluate_http_transport_auth_string_headers(
 fn evaluate_http_transport_auth_bytes_headers(
     requirements: &config::HttpRouteTransportAuthRuntime,
     endpoint_config: &config::EndpointRuntimeConfig,
+    method: &str,
     headers: &[(Arc<[u8]>, Arc<[u8]>)],
 ) -> Option<HttpTransportAuthFailure> {
     if requirements.require_mtls
@@ -4988,10 +4992,42 @@ fn evaluate_http_transport_auth_bytes_headers(
     if requirements.require_tls && endpoint_config.tls_mode == config::TlsMode::Disabled {
         return Some(HttpTransportAuthFailure::TlsRequired);
     }
-    if requirements.require_bearer && !has_bearer_header_bytes(headers) {
+    let bearerless_preflight = requirements.allow_unauthenticated_cors_preflight
+        && is_cors_preflight_bytes(method, headers);
+    if requirements.require_bearer && !bearerless_preflight && !has_bearer_header_bytes(headers) {
         return Some(HttpTransportAuthFailure::BearerRequired);
     }
     None
+}
+
+fn is_cors_preflight_string(method: &str, headers: &[(String, String)]) -> bool {
+    method.eq_ignore_ascii_case("OPTIONS")
+        && has_non_empty_header_string(headers, "origin")
+        && has_non_empty_header_string(headers, "access-control-request-method")
+}
+
+fn is_cors_preflight_bytes(method: &str, headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> bool {
+    method.eq_ignore_ascii_case("OPTIONS")
+        && has_non_empty_header_bytes(headers, b"origin")
+        && has_non_empty_header_bytes(headers, b"access-control-request-method")
+}
+
+fn has_non_empty_header_string(headers: &[(String, String)], target: &str) -> bool {
+    headers
+        .iter()
+        .any(|(name, value)| name.eq_ignore_ascii_case(target) && !value.trim().is_empty())
+}
+
+fn has_non_empty_header_bytes(headers: &[(Arc<[u8]>, Arc<[u8]>)], target: &[u8]) -> bool {
+    let target = std::str::from_utf8(target).unwrap_or("");
+    headers.iter().any(|(name, value)| {
+        std::str::from_utf8(name.as_ref())
+            .map(|header_name| header_name.eq_ignore_ascii_case(target))
+            .unwrap_or(false)
+            && std::str::from_utf8(value.as_ref())
+                .map(|header_value| !header_value.trim().is_empty())
+                .unwrap_or(false)
+    })
 }
 
 fn has_bearer_header_string(headers: &[(String, String)]) -> bool {
@@ -5167,6 +5203,7 @@ async fn serve_http_connection(
                 if let Some(failure) = evaluate_http_transport_auth_string_headers(
                     &resolution.transport_auth,
                     &endpoint_config,
+                    &normalized_method,
                     &headers,
                 ) {
                     let response = match failure {
@@ -6130,6 +6167,7 @@ async fn handle_http2_request(
             if let Some(failure) = evaluate_http_transport_auth_bytes_headers(
                 &resolution.transport_auth,
                 &endpoint_config,
+                &normalized_method,
                 &headers,
             ) {
                 return match failure {
@@ -6674,6 +6712,7 @@ async fn process_http3_request(
             if let Some(failure) = evaluate_http_transport_auth_bytes_headers(
                 &resolution.transport_auth,
                 &endpoint_config,
+                &normalized_method,
                 &headers,
             ) {
                 return match failure {

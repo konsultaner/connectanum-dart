@@ -5,11 +5,13 @@ class HttpRouteTransportAuthRequirements {
     this.requireBearer = false,
     this.requireTls = false,
     this.requireMutualTls = false,
+    this.allowUnauthenticatedCorsPreflight = false,
   });
 
   final bool requireBearer;
   final bool requireTls;
   final bool requireMutualTls;
+  final bool allowUnauthenticatedCorsPreflight;
 
   bool get isConfigured => requireBearer || requireTls || requireMutualTls;
 
@@ -21,6 +23,8 @@ class HttpRouteTransportAuthRequirements {
       if (requireBearer) 'require_bearer': true,
       if (requireTls) 'require_tls': true,
       if (requireMutualTls) 'require_mtls': true,
+      if (allowUnauthenticatedCorsPreflight)
+        'allow_unauthenticated_cors_preflight': true,
     };
   }
 }
@@ -51,6 +55,10 @@ HttpRouteTransportAuthRequirements deriveHttpRouteTransportAuth({
   );
   final allowInsecureTransport =
       _boolOption(options['allow_insecure_transport']) ?? false;
+  final explicitAllowUnauthenticatedCorsPreflight = _boolOption(
+    options['allow_unauthenticated_cors_preflight'] ??
+        options['allow_preflight_without_bearer'],
+  );
 
   final methods = sessionProfile?.auth.methods ?? const <String>[];
   final hasHttpProvider =
@@ -67,11 +75,15 @@ HttpRouteTransportAuthRequirements deriveHttpRouteTransportAuth({
       (requireMutualTls ||
           (!allowInsecureTransport &&
               (protectedProfile || action.type == HttpRouteActionType.auth)));
+  final allowUnauthenticatedCorsPreflight =
+      action.type == HttpRouteActionType.mcp &&
+      (explicitAllowUnauthenticatedCorsPreflight ?? true);
 
   return HttpRouteTransportAuthRequirements(
     requireBearer: requireBearer,
     requireTls: requireTls,
     requireMutualTls: requireMutualTls,
+    allowUnauthenticatedCorsPreflight: allowUnauthenticatedCorsPreflight,
   );
 }
 

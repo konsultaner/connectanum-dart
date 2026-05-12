@@ -4468,6 +4468,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       authGrant: grant,
     );
     await _smokeMcpOriginPolicy(binding, grant);
+    await _smokeMcpCorsPreflight(binding, grant);
     final otherGrant = await _issueTicketHttpGrant(
       binding,
       authId: _otherTicketAuthId,
@@ -5396,6 +5397,217 @@ Future<void> _assertDisallowedOriginRejected(
       'MCP disallowed $label Origin created Streamable session state.',
     );
   }
+}
+
+Future<void> _smokeMcpCorsPreflight(
+  RouterBinding binding,
+  ConnectanumHttpAuthGrant grant,
+) async {
+  final client = HttpClient();
+  try {
+    await _assertMcpCorsPreflight(
+      client,
+      _mcpEndpoint(binding),
+      label: 'public-cors',
+    );
+    await _assertMcpCorsPreflight(
+      client,
+      _mcpEndpoint(binding, secure: true),
+      label: 'secure-cors',
+    );
+    await _assertMcpCorsPreflight(
+      client,
+      _mcpEndpoint(binding),
+      label: 'public-disallowed-cors',
+      origin: _disallowedOrigin,
+      expectedStatus: HttpStatus.forbidden,
+    );
+    await _assertMcpCorsPreflight(
+      client,
+      _mcpEndpoint(binding, secure: true),
+      label: 'secure-disallowed-cors',
+      origin: _disallowedOrigin,
+      expectedStatus: HttpStatus.forbidden,
+    );
+    await _assertMcpDirectJsonCorsResponse(
+      client,
+      _mcpEndpoint(binding),
+      label: 'public-cors',
+    );
+    await _assertMcpDirectJsonCorsResponse(
+      client,
+      _mcpEndpoint(binding, secure: true),
+      label: 'secure-cors',
+      bearerToken: grant.accessToken,
+    );
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _assertMcpCorsPreflight(
+  HttpClient client,
+  Uri endpoint, {
+  required String label,
+  String origin = _allowedOrigin,
+  int expectedStatus = HttpStatus.noContent,
+}) async {
+  final request = await client.openUrl('OPTIONS', endpoint);
+  request.headers.set('Origin', origin);
+  request.headers.set('Access-Control-Request-Method', 'POST');
+  request.headers.set(
+    'Access-Control-Request-Headers',
+    'Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id, '
+    'Last-Event-ID, Mcp-Method, Mcp-Name, Mcp-Param-Message',
+  );
+  final response = await _mcpRawResponseFrom(await request.close());
+  if (response.statusCode != expectedStatus) {
+    throw StateError(
+      'MCP $label preflight returned ${response.statusCode} instead of '
+      '$expectedStatus.',
+    );
+  }
+  if (expectedStatus == HttpStatus.noContent) {
+    _assertCorsAllowed(response, origin, label: '$label preflight');
+    _assertHeaderContains(
+      response,
+      'access-control-allow-methods',
+      'OPTIONS',
+      label: '$label preflight allow methods',
+    );
+    _assertHeaderContains(
+      response,
+      'access-control-allow-methods',
+      'POST',
+      label: '$label preflight allow methods',
+    );
+    for (final header in const [
+      'authorization',
+      'content-type',
+      'mcp-protocol-version',
+      'mcp-session-id',
+      'last-event-id',
+      'mcp-param-message',
+    ]) {
+      _assertHeaderContains(
+        response,
+        'access-control-allow-headers',
+        header,
+        label: '$label preflight allow headers',
+      );
+    }
+    if (response.header('mcp-session-id') != null) {
+      throw StateError('MCP $label preflight created session state.');
+    }
+  } else {
+    if (response.header('access-control-allow-origin') != null) {
+      throw StateError('MCP $label preflight exposed disallowed Origin.');
+    }
+    if (!response.body.contains('Origin')) {
+      throw StateError('MCP $label preflight error did not identify Origin.');
+    }
+  }
+}
+
+Future<void> _assertMcpDirectJsonCorsResponse(
+  HttpClient client,
+  Uri endpoint, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final request = await client.postUrl(endpoint);
+  request.headers.set('Accept', 'application/json');
+  request.headers.contentType = ContentType.json;
+  request.headers.set('Origin', _allowedOrigin);
+  if (bearerToken != null) {
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
+  }
+  final body = utf8.encode(
+    jsonEncode({
+      'jsonrpc': '2.0',
+      'id': '$label-direct-cors-tools',
+      'method': 'connectanum.tools.list',
+    }),
+  );
+  request.contentLength = body.length;
+  request.add(body);
+  final response = await _mcpRawResponseFrom(await request.close());
+  if (response.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label direct JSON CORS smoke returned ${response.statusCode}.',
+    );
+  }
+  _assertCorsAllowed(response, _allowedOrigin, label: '$label direct JSON');
+  _assertHeaderContains(
+    response,
+    'access-control-expose-headers',
+    'mcp-session-id',
+    label: '$label direct JSON exposed headers',
+  );
+  _assertHeaderContains(
+    response,
+    'access-control-expose-headers',
+    'mcp-protocol-version',
+    label: '$label direct JSON exposed headers',
+  );
+  if (response.header('mcp-session-id') != null) {
+    throw StateError('MCP $label direct JSON CORS created session state.');
+  }
+  final payload = jsonDecode(response.body);
+  if (payload is! Map<String, Object?> ||
+      payload['jsonrpc'] != '2.0' ||
+      payload['id'] != '$label-direct-cors-tools') {
+    throw StateError('MCP $label direct JSON CORS returned invalid JSON-RPC.');
+  }
+  final result = payload['result'];
+  final tools = result is Map<String, Object?> ? result['tools'] : null;
+  if (tools is! List || tools.isEmpty) {
+    throw StateError('MCP $label direct JSON CORS missed tool catalog.');
+  }
+}
+
+void _assertCorsAllowed(
+  _McpRawHttpResponse response,
+  String origin, {
+  required String label,
+}) {
+  if (response.header('access-control-allow-origin') != origin) {
+    throw StateError('$label did not echo the allowed Origin.');
+  }
+  _assertHeaderContains(response, 'vary', 'origin', label: '$label vary');
+}
+
+void _assertHeaderContains(
+  _McpRawHttpResponse response,
+  String headerName,
+  String expected, {
+  required String label,
+}) {
+  final value = response.header(headerName)?.toLowerCase();
+  if (value == null || !value.contains(expected.toLowerCase())) {
+    throw StateError('$label missing $expected in $headerName.');
+  }
+}
+
+Future<_McpRawHttpResponse> _mcpRawResponseFrom(
+  HttpClientResponse response,
+) async {
+  final headers = <String, List<String>>{};
+  response.headers.forEach((name, values) {
+    headers[name.toLowerCase()] = List<String>.unmodifiable(values);
+  });
+  final body = await utf8.decodeStream(response);
+  return _McpRawHttpResponse(response.statusCode, headers, body);
+}
+
+final class _McpRawHttpResponse {
+  const _McpRawHttpResponse(this.statusCode, this.headers, this.body);
+
+  final int statusCode;
+  final Map<String, List<String>> headers;
+  final String body;
+
+  String? header(String name) => headers[name.toLowerCase()]?.join(', ');
 }
 
 Future<void> _assertSecureMcpRejectsBearer(

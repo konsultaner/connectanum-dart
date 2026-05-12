@@ -472,6 +472,8 @@ pub struct HttpRouteTransportAuthConfig {
     pub require_tls: bool,
     #[serde(default)]
     pub require_mtls: bool,
+    #[serde(default)]
+    pub allow_unauthenticated_cors_preflight: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -516,6 +518,7 @@ pub struct HttpRouteTransportAuthRuntime {
     pub require_bearer: bool,
     pub require_tls: bool,
     pub require_mtls: bool,
+    pub allow_unauthenticated_cors_preflight: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -619,6 +622,7 @@ impl HttpRouteTransportAuthRuntime {
             require_bearer: config.require_bearer,
             require_tls: config.require_tls || config.require_mtls,
             require_mtls: config.require_mtls,
+            allow_unauthenticated_cors_preflight: config.allow_unauthenticated_cors_preflight,
         }
     }
 }

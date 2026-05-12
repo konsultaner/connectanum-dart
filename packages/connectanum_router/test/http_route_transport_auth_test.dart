@@ -24,6 +24,64 @@ void main() {
       expect(requirements.requireBearer, isTrue);
       expect(requirements.requireTls, isTrue);
       expect(requirements.requireMutualTls, isFalse);
+      expect(requirements.allowUnauthenticatedCorsPreflight, isFalse);
+      expect(
+        requirements.toNativeMap(),
+        isNot(contains('allow_unauthenticated_cors_preflight')),
+      );
+    });
+
+    test('mcp routes allow unauthenticated CORS preflight', () {
+      final requirements = deriveHttpRouteTransportAuth(
+        action: const HttpRouteAction(
+          type: HttpRouteActionType.mcp,
+          sessionProfile: 'http-jwt',
+        ),
+        sessionProfile: const SessionProfileSettings(
+          name: 'http-jwt',
+          realm: 'realm1',
+          auth: SessionProfileAuthSettings(
+            methods: ['jwt'],
+            httpProvider: 'edge-jwt',
+          ),
+        ),
+      );
+
+      expect(requirements.requireBearer, isTrue);
+      expect(requirements.requireTls, isTrue);
+      expect(requirements.requireMutualTls, isFalse);
+      expect(requirements.allowUnauthenticatedCorsPreflight, isTrue);
+      expect(
+        requirements.toNativeMap(),
+        containsPair('allow_unauthenticated_cors_preflight', true),
+      );
+    });
+
+    test('mcp routes can opt out of unauthenticated CORS preflight', () {
+      final requirements = deriveHttpRouteTransportAuth(
+        action: const HttpRouteAction(
+          type: HttpRouteActionType.mcp,
+          sessionProfile: 'http-jwt',
+          options: <String, Object?>{
+            'allow_unauthenticated_cors_preflight': false,
+          },
+        ),
+        sessionProfile: const SessionProfileSettings(
+          name: 'http-jwt',
+          realm: 'realm1',
+          auth: SessionProfileAuthSettings(
+            methods: ['jwt'],
+            httpProvider: 'edge-jwt',
+          ),
+        ),
+      );
+
+      expect(requirements.requireBearer, isTrue);
+      expect(requirements.allowUnauthenticatedCorsPreflight, isFalse);
+      expect(
+        requirements.toNativeMap(),
+        isNot(contains('allow_unauthenticated_cors_preflight')),
+      );
     });
 
     test('auth routes require tls but not bearer by default', () {
@@ -42,6 +100,7 @@ void main() {
       expect(requirements.requireBearer, isFalse);
       expect(requirements.requireTls, isTrue);
       expect(requirements.requireMutualTls, isFalse);
+      expect(requirements.allowUnauthenticatedCorsPreflight, isFalse);
     });
 
     test('public profiles remain on the unauthenticated fast path', () {

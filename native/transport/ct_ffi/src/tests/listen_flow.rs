@@ -1529,6 +1529,80 @@ fn http_transport_auth_rejects_bearerless_http1_route() {
 }
 
 #[test]
+fn http_transport_auth_allows_bearerless_cors_preflight_when_configured() {
+    let _guard = super::test_guard();
+    let config = CString::new(
+        r#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["rawsocket","http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/secure","match_kind":"exact","transport_auth":{"require_bearer":true,"allow_unauthenticated_cors_preflight":true},"methods":{"OPTIONS":{"type":"reserved_realm","append_method_suffix":true}}}]}]}"#,
+    )
+    .unwrap();
+    let bytes = config.as_bytes();
+    assert_eq!(
+        ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+
+    let addr = CString::new("127.0.0.1").unwrap();
+    let listener_id = ct_listen(addr.as_ptr(), 0, 128);
+    assert!(listener_id > 0);
+
+    let port = ct_get_local_port(listener_id);
+    assert!(port > 0);
+
+    let client_handle = std::thread::spawn(move || {
+        let rt = TokioRuntime::new().unwrap();
+        rt.block_on(async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            stream
+                .write_all(
+                    b"OPTIONS /secure HTTP/1.1\r\nHost: localhost\r\nOrigin: https://consumer.example\r\nAccess-Control-Request-Method: POST\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).await.unwrap();
+            response
+        })
+    });
+
+    let connection_id = wait_for_connection(listener_id);
+    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
+    let handle = wait_for_http_handshake(connection_id);
+
+    let mut info = CtHttpHandshakeInfo::default();
+    assert_eq!(
+        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+        SUCCESS
+    );
+    unsafe {
+        let method =
+            std::str::from_utf8(std::slice::from_raw_parts(info.method_ptr, info.method_len))
+                .expect("method utf8");
+        assert_eq!(method, "OPTIONS");
+        let path = std::str::from_utf8(std::slice::from_raw_parts(info.path_ptr, info.path_len))
+            .expect("path utf8");
+        assert_eq!(path, "/secure");
+    }
+
+    assert_eq!(
+        ct_http_response_send(handle, 204, std::ptr::null(), 0, std::ptr::null(), 0),
+        SUCCESS
+    );
+    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+
+    let response = client_handle.join().expect("client result");
+    let response_text = String::from_utf8_lossy(&response);
+    assert!(
+        response_text.starts_with("HTTP/1.1 204"),
+        "unexpected response: {}",
+        response_text
+    );
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
 fn http_handshake_streaming_body_round_trip() {
     let _guard = super::test_guard();
     let config = CString::new(

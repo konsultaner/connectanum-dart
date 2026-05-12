@@ -2,17 +2,21 @@
 
 Last updated: 2026-05-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: `8ceac39`
-(`test: cover secure mcp protocol versions`; MCP consumer package secure
-protocol-version compatibility smoke hosted CI and
+Last reviewed branch checkpoint: `6dfcb87`
+(`test: cover mcp origin policy smoke`; MCP consumer package router-hosted
+Origin policy smoke hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-12-mcp-consumer-origin-policy-smoke.md`
-(complete locally; hosted evidence pending).
+`docs/exec-plans/2026-05-12-mcp-consumer-cors-preflight-smoke.md`
+(implementation complete locally; hosted CI and deployment-chain evidence
+pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-12-mcp-consumer-secure-protocol-version-smoke.md`
+`docs/exec-plans/2026-05-12-mcp-consumer-origin-policy-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
+`docs/exec-plans/2026-05-12-mcp-consumer-secure-protocol-version-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Earlier completed exec plan:
 `docs/exec-plans/2026-05-11-mcp-consumer-deleted-session-streamable-matrix-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -319,14 +323,18 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`8ceac39`
-(`test: cover secure mcp protocol versions`; hosted CI and
+`6dfcb87`
+(`test: cover mcp origin policy smoke`; hosted CI and
 deployment-chain evidence clean).
 Current implementation checkpoint: generated consumer smoke coverage for a
+router-hosted MCP CORS/preflight readiness slice across public and
+bearer-protected routes (implementation complete locally; hosted evidence
+pending).
+Previous implementation checkpoint: generated consumer smoke coverage for a
 configured allowed Origin on public and bearer-protected router-hosted MCP
 routes through public client constructors, plus disallowed Origin rejection
-without local Streamable HTTP session state (complete locally; hosted evidence
-pending).
+without local Streamable HTTP session state (complete; hosted CI and
+deployment-chain evidence clean).
 Previous implementation checkpoint: generated consumer smoke coverage for a
 bearer-protected router-hosted MCP route using older supported and unsupported
 Streamable HTTP protocol-version headers through public auth-grant client APIs
@@ -755,7 +763,35 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - MCP consumer package router-hosted Origin policy smoke is complete locally.
+  - MCP consumer package router-hosted CORS/preflight smoke is complete locally;
+    hosted evidence is pending until the implementation commit is pushed. The
+    implementation adds MCP-specific CORS response metadata for configured
+    allowed origins, handles public and bearer-protected CORS preflight before
+    auth/session resolution, and scopes the native listener-side bearer bypass
+    to MCP-derived CORS preflight route config. The generated consumer smoke
+    proves allowed public and secure preflight, disallowed preflight rejection,
+    and actual direct JSON response CORS headers without private application
+    assumptions. Pre-change `bin/test-fast`, focused
+    `dart test packages/connectanum_router/test/http_route_transport_auth_test.dart`,
+    focused `cargo test --manifest-path native/transport/ct_ffi/Cargo.toml
+    --features ffi-test
+    http_transport_auth_allows_bearerless_cors_preflight_when_configured --
+    --nocapture`, focused `bash -lc 'source bin/common.sh;
+    run_mcp_consumer_package_smoke'`, post-change `bin/test-fast`, and full
+    local `bin/verify` passed on 2026-05-12.
+  - MCP consumer package router-hosted Origin policy smoke is complete. Commit
+    `6dfcb87` (`test: cover mcp origin policy smoke`) is pushed to both
+    remotes. GitHub `CI` run `25731613387` completed successfully for
+    `6dfcb87` with `Fast Checks` and `Full Verify` green, and the hosted CI log
+    scan was clean. GitHub `Dart Package Publish Dry Run` run `25635686773`
+    remains clean and relevant because no publish-sensitive package inputs
+    changed after `90a27ca`. The deployment-chain audit passed with clean
+    latest CI, clean hosted CI logs, and a clean relevant Dart package publish
+    dry-run. The strict audit still reports only known operator-side
+    release-hardening gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
     The generated consumer smoke now configures neutral allowed origins on the
     public and secure MCP routes, proves public and auth-grant clients can use
     direct JSON and Streamable HTTP with the allowed `Origin` header, and proves
@@ -764,8 +800,7 @@ order.
     `bash -n bin/common.sh`, focused
     `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
     post-change `bin/test-fast`, and full local `bin/verify` passed on
-    2026-05-12. Commit, push, hosted CI, and deployment-chain evidence are
-    pending.
+    2026-05-12.
   - MCP consumer package secure protocol-version compatibility smoke is
     complete. Commit `8ceac39`
     (`test: cover secure mcp protocol versions`) is pushed to both remotes.
