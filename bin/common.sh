@@ -4468,7 +4468,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       authGrant: grant,
     );
     await _smokeMcpOriginPolicy(binding, grant);
-    await _smokeMcpCorsPreflight(binding, grant);
+    await _smokeMcpCorsPreflight(binding, serviceSession, grant);
     final otherGrant = await _issueTicketHttpGrant(
       binding,
       authId: _otherTicketAuthId,
@@ -5401,6 +5401,7 @@ Future<void> _assertDisallowedOriginRejected(
 
 Future<void> _smokeMcpCorsPreflight(
   RouterBinding binding,
+  RouterSession serviceSession,
   ConnectanumHttpAuthGrant grant,
 ) async {
   final client = HttpClient();
@@ -5437,6 +5438,19 @@ Future<void> _smokeMcpCorsPreflight(
     await _assertMcpDirectJsonCorsResponse(
       client,
       _mcpEndpoint(binding, secure: true),
+      label: 'secure-cors',
+      bearerToken: grant.accessToken,
+    );
+    await _assertMcpStreamableCorsLifecycle(
+      client,
+      _mcpEndpoint(binding),
+      serviceSession,
+      label: 'public-cors',
+    );
+    await _assertMcpStreamableCorsLifecycle(
+      client,
+      _mcpEndpoint(binding, secure: true),
+      serviceSession,
       label: 'secure-cors',
       bearerToken: grant.accessToken,
     );
@@ -5487,6 +5501,8 @@ Future<void> _assertMcpCorsPreflight(
       'mcp-protocol-version',
       'mcp-session-id',
       'last-event-id',
+      'mcp-method',
+      'mcp-name',
       'mcp-param-message',
     ]) {
       _assertHeaderContains(
@@ -5564,6 +5580,397 @@ Future<void> _assertMcpDirectJsonCorsResponse(
   if (tools is! List || tools.isEmpty) {
     throw StateError('MCP $label direct JSON CORS missed tool catalog.');
   }
+}
+
+Future<void> _assertMcpStreamableCorsLifecycle(
+  HttpClient client,
+  Uri endpoint,
+  RouterSession serviceSession, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final initializeId = '$label-streamable-cors-initialize';
+  final initialize = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': initializeId,
+      'method': 'initialize',
+      'params': <String, Object?>{
+        'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+        'capabilities': <String, Object?>{},
+        'clientInfo': <String, Object?>{
+          'name': 'connectanum_consumer_cors_smoke',
+          'version': '0.1.0',
+        },
+      },
+    },
+    bearerToken: bearerToken,
+  );
+  if (initialize.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS initialize returned '
+      '${initialize.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    initialize,
+    label: '$label Streamable initialize',
+  );
+  final sessionId = initialize.header('mcp-session-id');
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'MCP $label Streamable CORS initialize did not expose session id.',
+    );
+  }
+  final initializePayload = _jsonObjectFrom(
+    jsonDecode(initialize.body),
+    label: '$label Streamable initialize response',
+  );
+  if (initializePayload['id'] != initializeId) {
+    throw StateError(
+      'MCP $label Streamable CORS initialize returned wrong id.',
+    );
+  }
+
+  final initialized = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    const <String, Object?>{
+      'jsonrpc': '2.0',
+      'method': 'notifications/initialized',
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (initialized.statusCode != HttpStatus.accepted) {
+    throw StateError(
+      'MCP $label Streamable CORS initialized notification returned '
+      '${initialized.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    initialized,
+    label: '$label Streamable initialized notification',
+  );
+
+  final toolsId = '$label-streamable-cors-tools';
+  final tools = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': toolsId,
+      'method': 'tools/list',
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (tools.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS tools/list returned '
+      '${tools.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    tools,
+    label: '$label Streamable POST/SSE tools/list',
+  );
+  final toolPayload = _mcpSseJsonRpcPayload(
+    tools,
+    id: toolsId,
+    label: '$label Streamable POST/SSE tools/list',
+  );
+  final toolResult = _jsonObjectFrom(
+    toolPayload['result'],
+    label: '$label Streamable POST/SSE tools/list result',
+  );
+  if (toolResult['tools'] is! List) {
+    throw StateError(
+      'MCP $label Streamable CORS tools/list missed tool catalog.',
+    );
+  }
+
+  final dynamicProcedure = 'consumer.task.cors.${label.replaceAll('-', '.')}';
+  final registration = await serviceSession.register(
+    dynamicProcedure,
+    options: RegisterOptions(
+      custom: {
+        '_ai_meta_data': {
+          'short_description': 'CORS $label consumer task',
+          'description':
+              'Procedure registered during raw Streamable HTTP CORS smoke.',
+          'read_only_hint': true,
+          'destructive_hint': false,
+          'idempotent_hint': true,
+          'open_world_hint': false,
+        },
+      },
+    ),
+  );
+  registration.onInvoke((invocation) {
+    invocation.respondWith(
+      argumentsKeywords: {'label': label, 'source': 'consumer-cors-smoke'},
+    );
+  });
+
+  final poll = await _mcpRawPollUntilToolListChanged(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    label: label,
+    bearerToken: bearerToken,
+  );
+  final pollEventId = _mcpFirstSseEventId(
+    poll,
+    label: '$label Streamable GET/SSE poll',
+  );
+  if (pollEventId == null || pollEventId.isEmpty) {
+    throw StateError(
+      'MCP $label Streamable GET/SSE CORS did not expose an event id.',
+    );
+  }
+
+  final resume = await _mcpRawSessionRequest(
+    client,
+    endpoint,
+    'GET',
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    lastEventId: pollEventId,
+  );
+  if (resume.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable Last-Event-ID CORS poll returned '
+      '${resume.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    resume,
+    label: '$label Streamable Last-Event-ID poll',
+  );
+  _assertMcpSseResponse(
+    resume,
+    label: '$label Streamable Last-Event-ID poll',
+  );
+  if (resume.body.contains(pollEventId) ||
+      resume.body.contains('notifications/tools/list_changed')) {
+    throw StateError(
+      'MCP $label Streamable Last-Event-ID CORS poll replayed an old event.',
+    );
+  }
+
+  final deleted = await _mcpRawSessionRequest(
+    client,
+    endpoint,
+    'DELETE',
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (deleted.statusCode != HttpStatus.accepted) {
+    throw StateError(
+      'MCP $label Streamable CORS DELETE returned ${deleted.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    deleted,
+    label: '$label Streamable DELETE',
+  );
+
+  final stalePoll = await _mcpRawSessionRequest(
+    client,
+    endpoint,
+    'GET',
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (stalePoll.statusCode != HttpStatus.notFound) {
+    throw StateError(
+      'MCP $label Streamable CORS stale session returned '
+      '${stalePoll.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    stalePoll,
+    label: '$label Streamable stale-session poll',
+  );
+}
+
+Future<_McpRawHttpResponse> _mcpRawJsonPost(
+  HttpClient client,
+  Uri endpoint,
+  Map<String, Object?> message, {
+  String? sessionId,
+  String? bearerToken,
+}) async {
+  final request = await client.postUrl(endpoint);
+  request.headers.set('Origin', _allowedOrigin);
+  request.headers.set(
+    HttpHeaders.acceptHeader,
+    'application/json, text/event-stream',
+  );
+  request.headers.set(
+    'MCP-Protocol-Version',
+    McpStreamableHttpClient.latestProtocolVersion,
+  );
+  final method = message['method'];
+  if (method is String) {
+    request.headers.set('Mcp-Method', method);
+    final params = message['params'];
+    if (params is Map<Object?, Object?>) {
+      final name = switch (method) {
+        'tools/call' || 'prompts/get' => params['name'],
+        'resources/read' => params['uri'],
+        _ => null,
+      };
+      if (name is String && name.isNotEmpty) {
+        request.headers.set('Mcp-Name', name);
+      }
+    }
+  }
+  if (sessionId != null) {
+    request.headers.set('MCP-Session-Id', sessionId);
+  }
+  if (bearerToken != null) {
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
+  }
+  request.headers.contentType = ContentType.json;
+  final body = utf8.encode(jsonEncode(message));
+  request.contentLength = body.length;
+  request.add(body);
+  return _mcpRawResponseFrom(await request.close());
+}
+
+Future<_McpRawHttpResponse> _mcpRawSessionRequest(
+  HttpClient client,
+  Uri endpoint,
+  String method, {
+  required String sessionId,
+  String? bearerToken,
+  String? lastEventId,
+}) async {
+  final request = await client.openUrl(method, endpoint);
+  request.headers.set('Origin', _allowedOrigin);
+  request.headers.set(
+    HttpHeaders.acceptHeader,
+    method == 'GET' ? 'text/event-stream' : 'application/json, text/event-stream',
+  );
+  request.headers.set(
+    'MCP-Protocol-Version',
+    McpStreamableHttpClient.latestProtocolVersion,
+  );
+  request.headers.set('MCP-Session-Id', sessionId);
+  if (lastEventId != null) {
+    request.headers.set('Last-Event-ID', lastEventId);
+  }
+  if (bearerToken != null) {
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
+  }
+  return _mcpRawResponseFrom(await request.close());
+}
+
+Future<_McpRawHttpResponse> _mcpRawPollUntilToolListChanged(
+  HttpClient client,
+  Uri endpoint, {
+  required String sessionId,
+  required String label,
+  String? bearerToken,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    final response = await _mcpRawSessionRequest(
+      client,
+      endpoint,
+      'GET',
+      sessionId: sessionId,
+      bearerToken: bearerToken,
+    );
+    if (response.statusCode != HttpStatus.ok) {
+      throw StateError(
+        'MCP $label Streamable GET/SSE CORS poll returned '
+        '${response.statusCode}.',
+      );
+    }
+    _assertMcpCorsStatefulResponse(
+      response,
+      label: '$label Streamable GET/SSE poll',
+    );
+    _assertMcpSseResponse(response, label: '$label Streamable GET/SSE poll');
+    if (response.body.contains('notifications/tools/list_changed')) {
+      return response;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError('Timed out waiting for MCP $label Streamable CORS poll.');
+}
+
+void _assertMcpCorsStatefulResponse(
+  _McpRawHttpResponse response, {
+  required String label,
+}) {
+  _assertCorsAllowed(response, _allowedOrigin, label: label);
+  _assertHeaderContains(
+    response,
+    'access-control-expose-headers',
+    'mcp-session-id',
+    label: '$label exposed headers',
+  );
+  _assertHeaderContains(
+    response,
+    'access-control-expose-headers',
+    'mcp-protocol-version',
+    label: '$label exposed headers',
+  );
+  if (response.header('mcp-protocol-version') == null) {
+    throw StateError('$label did not return MCP-Protocol-Version.');
+  }
+}
+
+void _assertMcpSseResponse(
+  _McpRawHttpResponse response, {
+  required String label,
+}) {
+  _assertHeaderContains(
+    response,
+    'content-type',
+    'text/event-stream',
+    label: label,
+  );
+}
+
+Map<String, Object?> _mcpSseJsonRpcPayload(
+  _McpRawHttpResponse response, {
+  required Object? id,
+  required String label,
+}) {
+  _assertMcpSseResponse(response, label: label);
+  final data = response.body
+      .split('\n')
+      .where((line) => line.startsWith('data:'))
+      .map((line) => line.substring('data:'.length).trimLeft())
+      .join('\n');
+  if (data.isEmpty) {
+    throw StateError('$label SSE response did not contain JSON-RPC data.');
+  }
+  final payload = _jsonObjectFrom(jsonDecode(data), label: '$label SSE data');
+  if (payload['id'] != id) {
+    throw StateError('$label SSE response returned wrong id.');
+  }
+  return payload;
+}
+
+String? _mcpFirstSseEventId(
+  _McpRawHttpResponse response, {
+  required String label,
+}) {
+  _assertMcpSseResponse(response, label: label);
+  for (final line in response.body.split('\n')) {
+    if (line.startsWith('id:')) {
+      return line.substring('id:'.length).trim();
+    }
+  }
+  return null;
 }
 
 void _assertCorsAllowed(

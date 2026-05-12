@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer CORS Preflight Smoke
 
-Status: implementation complete locally; hosted evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-12
 Last updated: 2026-05-12
@@ -74,8 +74,21 @@ without requiring bearer credentials or Streamable HTTP session state.
   run_mcp_consumer_package_smoke`) passed on 2026-05-12.
 - Post-change `bin/test-fast` passed on 2026-05-12.
 - Full local `bin/verify` passed on 2026-05-12.
-- Hosted CI and deployment-chain evidence are pending until the implementation
-  commit is pushed.
+- Commit `e35cab0` (`fix: allow mcp cors preflight`) was pushed to both
+  configured remotes on 2026-05-12.
+- GitHub Actions `CI` run `25735530396` passed on `e35cab0`: `Fast Checks`
+  completed successfully at 2026-05-12T12:55:04Z and `Full Verify` completed
+  successfully at 2026-05-12T13:01:33Z.
+- GitHub Actions `Dart Package Publish Dry Run` run `25735530321`,
+  `kTLS Validation` run `25735530322`, and `WAMP Profile Benchmarks` run
+  `25735530337` completed successfully for `e35cab0`.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed on 2026-05-12. The audit found latest CI clean, latest CI log scan
+  clean, and a clean relevant Dart package publish dry-run for `e35cab0`.
+- Strict deployment-chain audit still fails only known operator-side
+  release-hardening gaps: branch protection/required checks are not configured,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch, and the router GHCR package is not visible.
 
 ## Decision Log
 
@@ -91,5 +104,6 @@ without requiring bearer credentials or Streamable HTTP session state.
 
 ## Handoff
 
-Implementation and local verification are complete. Commit, push, hosted CI,
-and deployment-chain evidence remain pending.
+Implementation is complete and pushed. Local verification, hosted CI, hosted
+log scan, and the non-strict deployment-chain audit are clean for `e35cab0`.
+The only remaining strict-audit gaps are operator-side release-hardening items.
