@@ -4437,7 +4437,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
 
   try {
     await _registerConsumerApi(serviceSession);
-    await _smokeMcpProtocolVersionCompatibility(binding);
+    await _smokeMcpProtocolVersionCompatibility(binding, label: 'public');
     await _smokeDirectJson(publicClient, serviceSession, label: 'public');
     await _smokeStreamableMcp(
       publicClient,
@@ -4458,6 +4458,12 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       authId: _ticketAuthId,
       authMethod: 'ticket',
       authProvider: 'consumer-local',
+    );
+    await _smokeMcpProtocolVersionCompatibility(
+      binding,
+      label: 'secure',
+      secure: true,
+      authGrant: grant,
     );
     final otherGrant = await _issueTicketHttpGrant(
       binding,
@@ -5148,53 +5154,88 @@ Future<void> _expectSecureMcpUnauthorized(
   }
 }
 
-Future<void> _smokeMcpProtocolVersionCompatibility(
-  RouterBinding binding,
-) async {
-  for (final version in _supportedOlderProtocolVersions) {
-    await _smokeSupportedMcpProtocolVersion(binding, version);
+McpStreamableHttpClient _protocolVersionClient(
+  Uri endpoint, {
+  required String defaultProtocolVersion,
+  ConnectanumHttpAuthGrant? authGrant,
+}) {
+  final grant = authGrant;
+  if (grant == null) {
+    return McpStreamableHttpClient(
+      endpoint,
+      defaultProtocolVersion: defaultProtocolVersion,
+    );
   }
-  await _assertUnsupportedMcpProtocolVersionRejected(binding);
+  return McpStreamableHttpClient.withAuthGrant(
+    endpoint,
+    grant,
+    defaultProtocolVersion: defaultProtocolVersion,
+  );
+}
+
+Future<void> _smokeMcpProtocolVersionCompatibility(
+  RouterBinding binding, {
+  required String label,
+  bool secure = false,
+  ConnectanumHttpAuthGrant? authGrant,
+}) async {
+  final endpoint = _mcpEndpoint(binding, secure: secure);
+  for (final version in _supportedOlderProtocolVersions) {
+    await _smokeSupportedMcpProtocolVersion(
+      endpoint,
+      version,
+      label: label,
+      authGrant: authGrant,
+    );
+  }
+  await _assertUnsupportedMcpProtocolVersionRejected(
+    endpoint,
+    label: label,
+    authGrant: authGrant,
+  );
 }
 
 Future<void> _smokeSupportedMcpProtocolVersion(
-  RouterBinding binding,
-  String protocolVersion,
-) async {
-  final client = McpStreamableHttpClient(
-    _mcpEndpoint(binding),
+  Uri endpoint,
+  String protocolVersion, {
+  required String label,
+  ConnectanumHttpAuthGrant? authGrant,
+}) async {
+  final client = _protocolVersionClient(
+    endpoint,
     defaultProtocolVersion: protocolVersion,
+    authGrant: authGrant,
   );
   try {
-    final initializeId = 'supported-$protocolVersion-initialize';
+    final initializeId = '$label-supported-$protocolVersion-initialize';
     final initialize = await client.initialize(id: initializeId);
     final returnedInitializeId = initialize['id'];
     if (returnedInitializeId != initializeId) {
       throw StateError(
-        'MCP initialize with protocol $protocolVersion returned '
+        'MCP $label initialize with protocol $protocolVersion returned '
         'unexpected id $returnedInitializeId.',
       );
     }
     final sessionId = client.sessionId;
     if (sessionId == null || sessionId.isEmpty) {
       throw StateError(
-        'MCP initialize with protocol $protocolVersion did not create '
+        'MCP $label initialize with protocol $protocolVersion did not create '
         'a Streamable HTTP session.',
       );
     }
     if (client.protocolVersion !=
         McpStreamableHttpClient.latestProtocolVersion) {
       throw StateError(
-        'MCP initialize with protocol $protocolVersion did not negotiate '
-        'the latest server protocol version.',
+        'MCP $label initialize with protocol $protocolVersion did not '
+        'negotiate the latest server protocol version.',
       );
     }
 
     await client.notifyInitialized();
-    final ping = await client.ping(id: 'supported-$protocolVersion-ping');
+    final ping = await client.ping(id: '$label-supported-$protocolVersion-ping');
     if (ping.isNotEmpty) {
       throw StateError(
-        'MCP ping after protocol $protocolVersion negotiation returned '
+        'MCP $label ping after protocol $protocolVersion negotiation returned '
         'unexpected content.',
       );
     }
@@ -5202,7 +5243,7 @@ Future<void> _smokeSupportedMcpProtocolVersion(
     await client.deleteSession();
     if (client.sessionId != null || client.lastEventId != null) {
       throw StateError(
-        'MCP protocol $protocolVersion compatibility smoke leaked '
+        'MCP $label protocol $protocolVersion compatibility smoke leaked '
         'Streamable session state.',
       );
     }
@@ -5212,25 +5253,29 @@ Future<void> _smokeSupportedMcpProtocolVersion(
 }
 
 Future<void> _assertUnsupportedMcpProtocolVersionRejected(
-  RouterBinding binding,
-) async {
-  final client = McpStreamableHttpClient(
-    _mcpEndpoint(binding),
+  Uri endpoint, {
+  required String label,
+  ConnectanumHttpAuthGrant? authGrant,
+}) async {
+  final client = _protocolVersionClient(
+    endpoint,
     defaultProtocolVersion: _unsupportedProtocolVersion,
+    authGrant: authGrant,
   );
   try {
-    await client.initialize(id: 'unsupported-protocol-initialize');
-    throw StateError('MCP accepted an unsupported protocol version.');
+    await client.initialize(id: '$label-unsupported-protocol-initialize');
+    throw StateError('MCP $label accepted an unsupported protocol version.');
   } on McpStreamableHttpException catch (error) {
     if (error.statusCode != HttpStatus.badRequest) {
       throw StateError(
-        'MCP unsupported protocol version returned ${error.statusCode} '
+        'MCP $label unsupported protocol version returned ${error.statusCode} '
         'instead of ${HttpStatus.badRequest}.',
       );
     }
     if (client.sessionId != null || client.lastEventId != null) {
       throw StateError(
-        'MCP unsupported protocol rejection leaked Streamable session state.',
+        'MCP $label unsupported protocol rejection leaked Streamable '
+        'session state.',
       );
     }
   } finally {

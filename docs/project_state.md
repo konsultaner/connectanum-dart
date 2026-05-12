@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: `ffa38c4`
-(`test: cover public mcp route reuse matrix`; MCP consumer package public-route
-Streamable session reuse matrix smoke hosted CI and
+Last reviewed branch checkpoint: `e2cd92d`
+(`test: cover deleted streamable mcp session matrix`; MCP consumer package
+deleted Streamable session reuse matrix smoke hosted CI and
 deployment-chain evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-11-mcp-consumer-deleted-session-streamable-matrix-smoke.md`
-(complete locally; hosted CI and deployment-chain evidence pending).
+`docs/exec-plans/2026-05-12-mcp-consumer-secure-protocol-version-smoke.md`
+(complete locally; hosted CI pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-11-mcp-consumer-deleted-session-streamable-matrix-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-11-mcp-consumer-public-route-reuse-streamable-matrix-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
@@ -313,14 +316,18 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`ffa38c4`
-(`test: cover public mcp route reuse matrix`; hosted CI and
+`e2cd92d`
+(`test: cover deleted streamable mcp session matrix`; hosted CI and
 deployment-chain evidence clean).
 Current implementation checkpoint: generated consumer smoke coverage for a
+bearer-protected router-hosted MCP route using older supported and unsupported
+Streamable HTTP protocol-version headers through public auth-grant client APIs
+(complete locally; hosted CI pending).
+Previous implementation checkpoint: generated consumer smoke coverage for a
 deleted Streamable MCP session ID when calling the Streamable HTTP route matrix
 for tool/resource batches, WAMP meta/pub-sub calls, notifications, resources,
-prompts, poll, and delete after session deletion (complete locally; hosted CI
-and deployment-chain evidence pending).
+prompts, poll, and delete after session deletion (complete; hosted CI and
+deployment-chain evidence clean).
 Previous implementation checkpoint: generated consumer smoke coverage for a
 public MCP route trying to reuse another client's active secure Streamable MCP
 session ID when calling the Streamable HTTP route matrix for tool/resource
@@ -740,8 +747,33 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - MCP consumer package secure protocol-version compatibility smoke is
+    complete locally. The implementation extends the generated consumer smoke's
+    protocol-version compatibility helper so it can build either public clients
+    or `withAuthGrant` clients with `defaultProtocolVersion`, then runs the
+    older supported protocol-version initialize/ping/delete checks and the
+    unsupported-version HTTP 400 state-leak check against the bearer-protected
+    MCP route after issuing a ticket auth grant. Pre-change `bin/test-fast`,
+    focused `bash -n bin/common.sh`, focused
+    `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+    post-change `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-12. Commit, push, hosted CI, and deployment-chain evidence remain
+    pending.
   - MCP consumer package deleted Streamable session reuse matrix smoke is
-    complete locally. The implementation replaces the generated consumer smoke's
+    complete. Commit `e2cd92d`
+    (`test: cover deleted streamable mcp session matrix`) is pushed to both
+    remotes. GitHub `CI` run `25726259108` completed successfully for
+    `e2cd92d` with `Fast Checks` and `Full Verify` green, and the hosted CI log
+    scan was clean. GitHub `Dart Package Publish Dry Run` run `25635686773`
+    remains clean and relevant because no publish-sensitive package inputs
+    changed after `90a27ca`. The deployment-chain audit passed with clean
+    latest CI, clean hosted CI logs, and a clean relevant Dart package publish
+    dry-run. The strict audit still reports only known operator-side
+    release-hardening gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and
+    `ghcr.io/konsultaner/connectanum-router` is not visible in GitHub Packages.
+    The implementation replaces the generated consumer smoke's
     single deleted-session `tools/list` check with the same stale-session
     Streamable route matrix used for other rejected session reuse paths. After
     successful Streamable initialization, GET/SSE polling, Last-Event-ID resume,
@@ -755,8 +787,7 @@ order.
     2026-05-11. Focused `bash -n bin/common.sh`, focused
     `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
     post-change `bin/test-fast`, and full local `bin/verify` passed on
-    2026-05-12. Commit, push, hosted CI, and deployment-chain evidence are
-    still pending.
+    2026-05-12.
   - MCP consumer package public-route Streamable session reuse matrix smoke is
     complete. Commit `ffa38c4`
     (`test: cover public mcp route reuse matrix`) is pushed to both remotes.
