@@ -5831,6 +5831,179 @@ Future<void> _assertMcpDirectJsonCorsResponse(
     );
   }
 
+  final apiDescribeId = '$label-direct-cors-api-describe';
+  final apiDescribe = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': apiDescribeId,
+      'method': 'connectanum.api.describe',
+      'params': {'uri': _procedure, 'kind': 'procedure'},
+    },
+    label: '$label direct JSON connectanum.api.describe procedure',
+    bearerToken: bearerToken,
+  );
+  final apiDescription = _jsonRpcStructuredContent(
+    apiDescribe,
+    id: apiDescribeId,
+    label: 'MCP $label direct JSON CORS API describe',
+  );
+  if (!jsonEncode(apiDescription).contains(_procedure)) {
+    throw StateError(
+      'MCP $label direct JSON CORS API describe missed $_procedure.',
+    );
+  }
+
+  final topicDescribeId = '$label-direct-cors-topic-describe';
+  final topicDescribe = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': topicDescribeId,
+      'method': 'connectanum.api.describe',
+      'params': {'uri': _topic, 'kind': 'topic'},
+    },
+    label: '$label direct JSON connectanum.api.describe topic',
+    bearerToken: bearerToken,
+  );
+  final topicDescription = _jsonRpcStructuredContent(
+    topicDescribe,
+    id: topicDescribeId,
+    label: 'MCP $label direct JSON CORS topic describe',
+  );
+  final topicDescriptionJson = jsonEncode(topicDescription);
+  if (!topicDescriptionJson.contains(_topic) ||
+      !topicDescriptionJson.contains('eventSchema') ||
+      !topicDescriptionJson.contains('allowPublish') ||
+      !topicDescriptionJson.contains('allowSubscribe')) {
+    throw StateError(
+      'MCP $label direct JSON CORS topic describe missed $_topic metadata.',
+    );
+  }
+
+  final resourcesId = '$label-direct-cors-resources';
+  final resources = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': resourcesId,
+      'method': 'resources/list',
+    },
+    label: '$label direct JSON resources/list',
+    bearerToken: bearerToken,
+  );
+  final resourceResult = _jsonRpcResult(
+    resources,
+    id: resourcesId,
+    label: 'MCP $label direct JSON CORS resources/list',
+  );
+  if (!jsonEncode(resourceResult['resources']).contains(_resourceUri)) {
+    throw StateError(
+      'MCP $label direct JSON CORS resources/list missed $_resourceUri.',
+    );
+  }
+
+  final resourceReadId = '$label-direct-cors-resource-read';
+  final resourceRead = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': resourceReadId,
+      'method': 'resources/read',
+      'params': {'uri': _resourceUri},
+    },
+    label: '$label direct JSON resources/read',
+    bearerToken: bearerToken,
+  );
+  final resourceReadResult = _jsonRpcResult(
+    resourceRead,
+    id: resourceReadId,
+    label: 'MCP $label direct JSON CORS resources/read',
+  );
+  if (!jsonEncode(resourceReadResult['contents']).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError(
+      'MCP $label direct JSON CORS resources/read missed route context.',
+    );
+  }
+
+  final templatesId = '$label-direct-cors-resource-templates';
+  final templates = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': templatesId,
+      'method': 'resources/templates/list',
+    },
+    label: '$label direct JSON resources/templates/list',
+    bearerToken: bearerToken,
+  );
+  final templateResult = _jsonRpcResult(
+    templates,
+    id: templatesId,
+    label: 'MCP $label direct JSON CORS resources/templates/list',
+  );
+  if (!jsonEncode(
+    templateResult['resourceTemplates'],
+  ).contains(_resourceTemplateUri)) {
+    throw StateError(
+      'MCP $label direct JSON CORS resources/templates/list missed '
+      '$_resourceTemplateUri.',
+    );
+  }
+
+  final promptsId = '$label-direct-cors-prompts';
+  final prompts = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': promptsId,
+      'method': 'prompts/list',
+    },
+    label: '$label direct JSON prompts/list',
+    bearerToken: bearerToken,
+  );
+  final promptResult = _jsonRpcResult(
+    prompts,
+    id: promptsId,
+    label: 'MCP $label direct JSON CORS prompts/list',
+  );
+  if (!jsonEncode(promptResult['prompts']).contains(_promptName)) {
+    throw StateError(
+      'MCP $label direct JSON CORS prompts/list missed $_promptName.',
+    );
+  }
+
+  final promptTaskId = 'T-$label-direct-cors-prompt';
+  final promptId = '$label-direct-cors-prompt';
+  final prompt = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': promptId,
+      'method': 'prompts/get',
+      'params': {
+        'name': _promptName,
+        'arguments': {'taskId': promptTaskId},
+      },
+    },
+    label: '$label direct JSON prompts/get',
+    bearerToken: bearerToken,
+  );
+  if (prompt['id'] != promptId || !jsonEncode(prompt).contains(promptTaskId)) {
+    throw StateError(
+      'MCP $label direct JSON CORS prompts/get did not substitute task id.',
+    );
+  }
+
   final subscribeId = '$label-direct-cors-pubsub-subscribe';
   final subscribe = await _mcpRawDirectJsonRpc(
     client,
