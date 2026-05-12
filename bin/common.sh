@@ -5430,6 +5430,10 @@ Future<void> _smokeMcpCorsPreflight(
       origin: _disallowedOrigin,
       expectedStatus: HttpStatus.forbidden,
     );
+    await _assertSecureMcpCorsUnauthorized(
+      client,
+      _mcpEndpoint(binding, secure: true),
+    );
     await _assertMcpDirectJsonCorsResponse(
       client,
       _mcpEndpoint(binding),
@@ -5528,6 +5532,65 @@ Future<void> _assertMcpCorsPreflight(
       throw StateError('MCP $label preflight error did not identify Origin.');
     }
   }
+}
+
+Future<void> _assertSecureMcpCorsUnauthorized(
+  HttpClient client,
+  Uri endpoint,
+) async {
+  final direct = await _mcpRawDirectJsonRpcResponse(
+    client,
+    endpoint,
+    const <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': 'secure-cors-missing-bearer-direct-tools',
+      'method': 'connectanum.tools.list',
+    },
+  );
+  _assertMcpCorsErrorResponse(
+    direct,
+    expectedStatus: HttpStatus.unauthorized,
+    label: 'secure-cors direct JSON missing bearer',
+    expectNoSession: true,
+    bodyContains: 'Bearer token required',
+  );
+  _assertHeaderContains(
+    direct,
+    'www-authenticate',
+    'Bearer',
+    label: 'secure-cors direct JSON missing bearer',
+  );
+
+  final initialize = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': 'secure-cors-missing-bearer-initialize',
+      'method': 'initialize',
+      'params': <String, Object?>{
+        'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+        'capabilities': <String, Object?>{},
+        'clientInfo': <String, Object?>{
+          'name': 'connectanum_consumer_cors_smoke',
+          'version': '0.1.0',
+        },
+      },
+    },
+  );
+  _assertMcpCorsErrorResponse(
+    initialize,
+    expectedStatus: HttpStatus.unauthorized,
+    label: 'secure-cors Streamable initialize missing bearer',
+    expectNoSession: true,
+    bodyContains: 'Bearer token required',
+  );
+  _assertHeaderContains(
+    initialize,
+    'www-authenticate',
+    'Bearer',
+    label: 'secure-cors Streamable initialize missing bearer',
+  );
 }
 
 Future<void> _assertMcpDirectJsonCorsResponse(
@@ -5727,17 +5790,12 @@ Future<Map<String, Object?>> _mcpRawDirectJsonRpc(
   required String label,
   String? bearerToken,
 }) async {
-  final request = await client.postUrl(endpoint);
-  request.headers.set('Accept', 'application/json');
-  request.headers.set('Origin', _allowedOrigin);
-  if (bearerToken != null) {
-    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
-  }
-  request.headers.contentType = ContentType.json;
-  final body = utf8.encode(jsonEncode(message));
-  request.contentLength = body.length;
-  request.add(body);
-  final response = await _mcpRawResponseFrom(await request.close());
+  final response = await _mcpRawDirectJsonRpcResponse(
+    client,
+    endpoint,
+    message,
+    bearerToken: bearerToken,
+  );
   if (response.statusCode != HttpStatus.ok) {
     throw StateError('MCP $label returned ${response.statusCode}.');
   }
@@ -5762,6 +5820,25 @@ Future<Map<String, Object?>> _mcpRawDirectJsonRpc(
     throw StateError('MCP $label returned invalid JSON-RPC.');
   }
   return payload;
+}
+
+Future<_McpRawHttpResponse> _mcpRawDirectJsonRpcResponse(
+  HttpClient client,
+  Uri endpoint,
+  Map<String, Object?> message, {
+  String? bearerToken,
+}) async {
+  final request = await client.postUrl(endpoint);
+  request.headers.set('Accept', 'application/json');
+  request.headers.set('Origin', _allowedOrigin);
+  if (bearerToken != null) {
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
+  }
+  request.headers.contentType = ContentType.json;
+  final body = utf8.encode(jsonEncode(message));
+  request.contentLength = body.length;
+  request.add(body);
+  return _mcpRawResponseFrom(await request.close());
 }
 
 Future<void> _mcpRawDirectJsonPubSubPollUntil(
@@ -5919,6 +5996,14 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     );
   }
 
+  await _assertMcpStreamableCorsHeaderErrors(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    label: label,
+    bearerToken: bearerToken,
+  );
+
   await _assertMcpStreamableCorsNamedMethods(
     client,
     endpoint,
@@ -6029,6 +6114,153 @@ Future<void> _assertMcpStreamableCorsLifecycle(
   _assertMcpCorsStatefulResponse(
     stalePoll,
     label: '$label Streamable stale-session poll',
+  );
+}
+
+Future<void> _assertMcpStreamableCorsHeaderErrors(
+  HttpClient client,
+  Uri endpoint, {
+  required String sessionId,
+  required String label,
+  String? bearerToken,
+}) async {
+  final missingMethodId = '$label-streamable-cors-missing-method';
+  final missingMethod = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': missingMethodId,
+      'method': 'tools/list',
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    includeMethodHeader: false,
+  );
+  _assertMcpCorsErrorResponse(
+    missingMethod,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label Streamable missing Mcp-Method',
+    sessionId: sessionId,
+    bodyContains: 'Mcp-Method',
+  );
+
+  final nameMismatchTaskId = 'T-$label-streamable-cors-name-mismatch';
+  final nameMismatch = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-cors-name-mismatch',
+      'method': 'tools/call',
+      'params': {
+        'name': _procedure,
+        'arguments': {
+          'taskId': nameMismatchTaskId,
+          'note': _headerWrappedNote,
+        },
+      },
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    nameHeader: 'consumer.task.other',
+    parameterHeaders: {
+      'TaskId': nameMismatchTaskId,
+      'Note': _mcpBase64Header(_headerWrappedNote),
+    },
+  );
+  _assertMcpCorsErrorResponse(
+    nameMismatch,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label Streamable mismatched Mcp-Name',
+    sessionId: sessionId,
+    bodyContains: 'Mcp-Name',
+  );
+
+  final missingParamTaskId = 'T-$label-streamable-cors-missing-param';
+  final missingParam = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-cors-missing-param',
+      'method': 'tools/call',
+      'params': {
+        'name': _procedure,
+        'arguments': {
+          'taskId': missingParamTaskId,
+          'note': _headerWrappedNote,
+        },
+      },
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    missingParam,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label Streamable missing Mcp-Param-TaskId',
+    sessionId: sessionId,
+    bodyContains: 'Mcp-Param-TaskId',
+  );
+
+  final invalidNoteTaskId = 'T-$label-streamable-cors-invalid-note';
+  final invalidNote = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-cors-invalid-note',
+      'method': 'tools/call',
+      'params': {
+        'name': _procedure,
+        'arguments': {
+          'taskId': invalidNoteTaskId,
+          'note': _headerWrappedNote,
+        },
+      },
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    parameterHeaders: {
+      'TaskId': invalidNoteTaskId,
+      'Note': '=?base64?not-base64?=',
+    },
+  );
+  _assertMcpCorsErrorResponse(
+    invalidNote,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label Streamable invalid Mcp-Param-Note',
+    sessionId: sessionId,
+    bodyContains: 'Mcp-Param-Note',
+  );
+
+  final recoveryId = '$label-streamable-cors-header-error-recovery';
+  final recovery = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': recoveryId,
+      'method': 'tools/list',
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (recovery.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS header-error recovery returned '
+      '${recovery.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    recovery,
+    label: '$label Streamable header-error recovery',
+  );
+  _mcpSseJsonRpcPayload(
+    recovery,
+    id: recoveryId,
+    label: '$label Streamable header-error recovery',
   );
 }
 
@@ -6167,6 +6399,10 @@ Future<_McpRawHttpResponse> _mcpRawJsonPost(
   String? sessionId,
   String? bearerToken,
   Map<String, String> parameterHeaders = const <String, String>{},
+  bool includeMethodHeader = true,
+  bool includeNameHeader = true,
+  String? methodHeader,
+  String? nameHeader,
 }) async {
   final request = await client.postUrl(endpoint);
   request.headers.set('Origin', _allowedOrigin);
@@ -6180,7 +6416,9 @@ Future<_McpRawHttpResponse> _mcpRawJsonPost(
   );
   final method = message['method'];
   if (method is String) {
-    request.headers.set('Mcp-Method', method);
+    if (includeMethodHeader) {
+      request.headers.set('Mcp-Method', methodHeader ?? method);
+    }
     final params = message['params'];
     if (params is Map<Object?, Object?>) {
       final name = switch (method) {
@@ -6188,8 +6426,8 @@ Future<_McpRawHttpResponse> _mcpRawJsonPost(
         'resources/read' => params['uri'],
         _ => null,
       };
-      if (name is String && name.isNotEmpty) {
-        request.headers.set('Mcp-Name', name);
+      if (includeNameHeader && name is String && name.isNotEmpty) {
+        request.headers.set('Mcp-Name', nameHeader ?? name);
       }
     }
   }
@@ -6272,6 +6510,40 @@ Future<_McpRawHttpResponse> _mcpRawPollUntilToolListChanged(
   throw StateError('Timed out waiting for MCP $label Streamable CORS poll.');
 }
 
+void _assertMcpCorsErrorResponse(
+  _McpRawHttpResponse response, {
+  required int expectedStatus,
+  required String label,
+  String? sessionId,
+  bool expectNoSession = false,
+  String? bodyContains,
+}) {
+  if (response.statusCode != expectedStatus) {
+    throw StateError(
+      'MCP $label returned ${response.statusCode} instead of '
+      '$expectedStatus: ${response.body}',
+    );
+  }
+  _assertMcpCorsStatefulResponse(response, label: label);
+  final responseSessionId = response.header('mcp-session-id');
+  if (sessionId != null && responseSessionId != sessionId) {
+    throw StateError('MCP $label returned the wrong session id.');
+  }
+  if (expectNoSession && responseSessionId != null) {
+    throw StateError('MCP $label created Streamable session state.');
+  }
+  _assertHeaderContains(
+    response,
+    'content-type',
+    'application/json',
+    label: label,
+  );
+  if (bodyContains != null &&
+      !response.body.toLowerCase().contains(bodyContains.toLowerCase())) {
+    throw StateError('MCP $label response did not mention $bodyContains.');
+  }
+}
+
 void _assertMcpCorsStatefulResponse(
   _McpRawHttpResponse response, {
   required String label,
@@ -6346,7 +6618,9 @@ void _assertCorsAllowed(
   required String label,
 }) {
   if (response.header('access-control-allow-origin') != origin) {
-    throw StateError('$label did not echo the allowed Origin.');
+    throw StateError(
+      '$label did not echo the allowed Origin. Headers: ${response.headers}',
+    );
   }
   _assertHeaderContains(response, 'vary', 'origin', label: '$label vary');
 }

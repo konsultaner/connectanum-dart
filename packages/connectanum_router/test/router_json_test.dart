@@ -162,6 +162,68 @@ void main() {
       expect(action['procedure'], 'connectanum.mcp.handle');
     });
 
+    test(
+      'keeps MCP auth failures in Dart binding for CORS-aware responses',
+      () {
+        final endpoint = Endpoint(
+          host: '127.0.0.1',
+          port: 0,
+          tlsMode: TlsMode.disabled,
+          maxRawSocketSizeExponent: 16,
+        );
+        final settings = RouterSettings(
+          realms: [
+            RealmSettings(
+              name: 'realm1',
+              auth: const RealmAuthSettings(methods: ['ticket']),
+              roles: const [],
+              limits: const RealmLimitSettings(),
+            ),
+          ],
+          sessionProfiles: const [
+            SessionProfileSettings(
+              name: 'mcp-ticket',
+              realm: 'realm1',
+              auth: SessionProfileAuthSettings(methods: ['ticket']),
+            ),
+          ],
+          listeners: const [
+            ListenerSettings(
+              endpoint: '127.0.0.1:0',
+              protocols: [ListenerProtocol.http],
+              http: HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/mcp'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.mcp,
+                      realm: 'realm1',
+                      sessionProfile: 'mcp-ticket',
+                      options: {'allow_insecure_transport': true},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+        final router = Router(
+          RouterConfig(endpoints: [endpoint]),
+          settings: settings,
+        );
+
+        final map =
+            json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+        final endpointJson = (map['endpoints'] as List).single as Map;
+        final route = (endpointJson['http_routes'] as List).single as Map;
+        expect(route, isNot(contains('transport_auth')));
+        expect(
+          (route['default'] as Map)['procedure'],
+          'connectanum.mcp.handle',
+        );
+      },
+    );
+
     test('validates MCP resource options while building native config', () {
       final router = _routerWithMcpOptions({
         'resources': [

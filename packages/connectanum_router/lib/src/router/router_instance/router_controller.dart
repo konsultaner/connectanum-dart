@@ -125,14 +125,18 @@ class Router {
     if (match.protocols.isNotEmpty) {
       routeMap['protocols'] = List<String>.from(match.protocols);
     }
-    final transportAuth = deriveHttpRouteTransportAuth(
-      action: route.action,
-      sessionProfile: _sessionProfileForRoute(
-        action: route.action,
-        listener: listener,
-        settings: settings,
-      ),
-    );
+    final transportAuth = route.action.type == HttpRouteActionType.mcp
+        // MCP auth failures need route-specific CORS/MCP headers that the
+        // native listener does not have enough route metadata to produce.
+        ? const HttpRouteTransportAuthRequirements()
+        : deriveHttpRouteTransportAuth(
+            action: route.action,
+            sessionProfile: _sessionProfileForRoute(
+              action: route.action,
+              listener: listener,
+              settings: settings,
+            ),
+          );
     if (transportAuth.isConfigured) {
       routeMap['transport_auth'] = transportAuth.toNativeMap();
     }

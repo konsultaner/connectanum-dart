@@ -1075,17 +1075,29 @@ class RouterBinding {
       final authRealm = resolvedRealm != null && resolvedRealm.isNotEmpty
           ? resolvedRealm
           : (request.realm ?? 'router.http');
+      final authHeaders = transportAuthFailure.bearerChallenge
+          ? _httpUnauthorizedHeaders(
+              realm: authRealm,
+              authPath: _httpAuthPathFor(listenerSettings?.http),
+            )
+          : const <String, String>{};
+      final mcpRoute = matchedRoute?.action.type == HttpRouteActionType.mcp
+          ? matchedRoute
+          : null;
+      final responseHeaders = mcpRoute == null
+          ? authHeaders
+          : _mcpHttpResponseHeaders(
+              extra: <String, String>{
+                ...authHeaders,
+                ..._mcpCorsResponseHeaders(this, request, mcpRoute),
+              },
+            );
       await _sendImmediateHttpResponse(
         request: request,
         handshake: retainedHandshake,
         response: NativeHttpResponse(
           status: transportAuthFailure.status,
-          headers: transportAuthFailure.bearerChallenge
-              ? _httpUnauthorizedHeaders(
-                  realm: authRealm,
-                  authPath: _httpAuthPathFor(listenerSettings?.http),
-                )
-              : const <String, String>{},
+          headers: responseHeaders,
           body: NativeHttpResponseJson(<String, Object?>{
             'status': 'error',
             'reason': transportAuthFailure.reason,
