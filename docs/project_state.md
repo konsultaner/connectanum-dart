@@ -2,16 +2,19 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: `74b86c0`
-(`test: cover mcp direct json error cors`; MCP consumer package raw direct JSON
-error CORS smoke hosted CI and
-deployment-chain evidence clean)
+Last reviewed branch checkpoint: current local implementation commit
+(`test: cover mcp streamable wamp batch cors`; MCP consumer package raw
+Streamable HTTP WAMP API/pubsub batch CORS smoke complete locally; hosted CI and
+deployment-chain evidence pending)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-cors-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-batch-cors-smoke.md`
 (complete locally; hosted CI and deployment-chain evidence pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-cors-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-batch-cors-smoke.md`
 (complete locally; hosted CI and deployment-chain evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-cors-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-12-mcp-consumer-direct-json-error-cors-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
@@ -358,11 +361,11 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`74b86c0`
-(`test: cover mcp direct json error cors`; hosted CI and
+`cc2640d`
+(`test: cover mcp streamable wamp cors`; hosted CI and
 deployment-chain evidence clean).
 Current implementation checkpoint: router-hosted MCP raw Streamable HTTP WAMP
-API/pubsub CORS readiness is complete locally. The generated consumer smoke now
+API/pubsub CORS readiness is complete and pushed. The generated consumer smoke now
 proves public and bearer-protected MCP routes support browser-style Streamable
 HTTP `tools/call` POST/SSE responses for WAMP API metadata and pub/sub
 subscribe, publish, poll, and unsubscribe helpers, including MCP tool-result
@@ -370,8 +373,17 @@ errors for missing API entries and unknown pub/sub handles. Pre-change
 `bin/test-fast`, focused `bash -n bin/common.sh`, focused
 `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap;
 run_mcp_consumer_package_smoke'`, and full local `bin/verify` passed on
-2026-05-13. Commit, push, hosted CI/log scan, and deployment-chain evidence are
-pending.
+2026-05-13. Commit `cc2640d` was pushed to both configured remotes. GitHub
+`CI` run `25765942692` completed successfully with `Fast Checks` and
+`Full Verify` green, and the hosted CI log scan was clean. The
+deployment-chain audit passed with clean latest CI, clean hosted CI logs, and a
+clean relevant Dart package publish dry-run. The latest package dry-run remains
+relevant from `aa33384` because no publish-sensitive paths changed after that
+commit. The strict audit still reports only known operator-side
+release-hardening gaps: branch protection/required checks are absent,
+`.github/workflows/router-image.yml` is not yet visible from the default branch
+through the Actions API, and `ghcr.io/konsultaner/connectanum-router` is not
+visible in GitHub Packages.
 Previous implementation checkpoint: router-hosted MCP raw direct JSON error
 CORS readiness is complete and pushed. The generated consumer smoke now proves
 public and bearer-protected MCP routes return browser-readable direct JSON
@@ -947,16 +959,27 @@ order.
 
 - Current autonomous focus:
   - MCP consumer package raw Streamable HTTP WAMP API/pubsub CORS smoke is
-    complete locally. The slice extends the neutral generated consumer package
-    smoke to prove browser-style public and bearer-protected MCP routes return
-    CORS-readable Streamable HTTP `tools/call` POST/SSE responses for WAMP API
-    metadata and pub/sub subscribe, publish, poll, and unsubscribe helpers,
-    including MCP tool-result errors for missing API entries and unknown
-    pub/sub handles. Pre-change `bin/test-fast`, focused
+    complete and pushed in commit `cc2640d`
+    (`test: cover mcp streamable wamp cors`). The slice extends the neutral
+    generated consumer package smoke to prove browser-style public and
+    bearer-protected MCP routes return CORS-readable Streamable HTTP
+    `tools/call` POST/SSE responses for WAMP API metadata and pub/sub
+    subscribe, publish, poll, and unsubscribe helpers, including MCP
+    tool-result errors for missing API entries and unknown pub/sub handles.
+    Pre-change `bin/test-fast`, focused
     `bash -n bin/common.sh`, focused `bash -lc 'source bin/common.sh;
     cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
-    and full local `bin/verify` passed on 2026-05-13. Commit, push, hosted
-    CI/log scan, and deployment-chain evidence are pending.
+    and full local `bin/verify` passed on 2026-05-13. GitHub `CI` run
+    `25765942692` completed successfully with `Fast Checks` and `Full Verify`
+    green, and the hosted CI log scan was clean. The deployment-chain audit
+    passed with clean latest CI, clean hosted CI logs, and a clean relevant
+    Dart package publish dry-run. The latest package dry-run remains relevant
+    from `aa33384` because no publish-sensitive paths changed after that
+    commit. The strict audit still reports only known operator-side
+    release-hardening gaps: branch protection/required checks are absent,
+    `.github/workflows/router-image.yml` is not yet visible from the default
+    branch through the Actions API, and `ghcr.io/konsultaner/connectanum-router`
+    is not visible in GitHub Packages.
   - MCP consumer package raw direct JSON error CORS smoke is complete and
     pushed in commit `74b86c0` (`test: cover mcp direct json error cors`). The
     slice extends the neutral generated consumer package smoke to prove
