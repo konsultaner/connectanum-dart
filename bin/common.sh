@@ -5473,6 +5473,11 @@ Future<void> _smokeMcpCorsPreflight(
       _mcpEndpoint(binding),
       label: 'public-cors',
     );
+    await _assertMcpDirectJsonErrorCorsResponse(
+      client,
+      _mcpEndpoint(binding),
+      label: 'public-cors',
+    );
     await _assertMcpDirectJsonCorsResponse(
       client,
       _mcpEndpoint(binding, secure: true),
@@ -5488,6 +5493,12 @@ Future<void> _smokeMcpCorsPreflight(
       bearerToken: grant.accessToken,
     );
     await _assertMcpDirectJsonNotificationCorsResponse(
+      client,
+      _mcpEndpoint(binding, secure: true),
+      label: 'secure-cors',
+      bearerToken: grant.accessToken,
+    );
+    await _assertMcpDirectJsonErrorCorsResponse(
       client,
       _mcpEndpoint(binding, secure: true),
       label: 'secure-cors',
@@ -6561,6 +6572,309 @@ void _assertMcpDirectJsonNotificationAccepted(
   }
   if (response.body.trim().isNotEmpty) {
     throw StateError('MCP $label returned a JSON-RPC response body.');
+  }
+}
+
+Future<void> _assertMcpDirectJsonErrorCorsResponse(
+  HttpClient client,
+  Uri endpoint, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final missingTool = 'missing.$label.direct-cors-error.tool';
+  final missingResourceUri = 'consumer://missing/$label/direct-cors-error';
+  final missingPrompt = 'missing-$label-direct-cors-error-prompt';
+  final missingApiUri = 'missing.$label.direct-cors-error.api';
+  final missingHandle = '$label-direct-cors-error-handle';
+
+  final toolErrorId = '$label-direct-cors-error-tool';
+  final toolError = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': toolErrorId,
+      'method': 'connectanum.tool.call',
+      'params': {'name': missingTool, 'arguments': <String, Object?>{}},
+    },
+    label: '$label direct JSON missing tool error',
+    bearerToken: bearerToken,
+  );
+  _expectJsonRpcError(
+    toolError,
+    id: toolErrorId,
+    messageSubstring: missingTool,
+    label: 'MCP $label direct JSON CORS missing tool',
+  );
+
+  final resourceErrorId = '$label-direct-cors-error-resource';
+  final resourceError = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': resourceErrorId,
+      'method': 'resources/read',
+      'params': {'uri': missingResourceUri},
+    },
+    label: '$label direct JSON missing resource error',
+    bearerToken: bearerToken,
+  );
+  _expectJsonRpcError(
+    resourceError,
+    id: resourceErrorId,
+    messageSubstring: missingResourceUri,
+    label: 'MCP $label direct JSON CORS missing resource',
+  );
+
+  final promptErrorId = '$label-direct-cors-error-prompt';
+  final promptError = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': promptErrorId,
+      'method': 'prompts/get',
+      'params': {
+        'name': missingPrompt,
+        'arguments': {'taskId': 'T-$label-direct-cors-error'},
+      },
+    },
+    label: '$label direct JSON missing prompt error',
+    bearerToken: bearerToken,
+  );
+  _expectJsonRpcError(
+    promptError,
+    id: promptErrorId,
+    messageSubstring: missingPrompt,
+    label: 'MCP $label direct JSON CORS missing prompt',
+  );
+
+  final apiErrorId = '$label-direct-cors-error-api';
+  final apiError = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': apiErrorId,
+      'method': 'connectanum.api.describe',
+      'params': {'uri': missingApiUri, 'kind': 'procedure'},
+    },
+    label: '$label direct JSON missing API describe error',
+    bearerToken: bearerToken,
+  );
+  _expectMcpDirectJsonToolResultError(
+    apiError,
+    id: apiErrorId,
+    messageSubstring: missingApiUri,
+    label: 'MCP $label direct JSON CORS missing API describe',
+  );
+
+  final pollErrorId = '$label-direct-cors-error-pubsub-poll';
+  final pollError = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': pollErrorId,
+      'method': 'connectanum.pubsub.poll',
+      'params': {'handle': missingHandle, 'limit': 1},
+    },
+    label: '$label direct JSON missing pub/sub poll error',
+    bearerToken: bearerToken,
+  );
+  _expectMcpDirectJsonToolResultError(
+    pollError,
+    id: pollErrorId,
+    messageSubstring: missingHandle,
+    label: 'MCP $label direct JSON CORS missing pub/sub poll',
+  );
+
+  final unsubscribeErrorId = '$label-direct-cors-error-pubsub-unsubscribe';
+  final unsubscribeError = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': unsubscribeErrorId,
+      'method': 'connectanum.pubsub.unsubscribe',
+      'params': {'handle': missingHandle},
+    },
+    label: '$label direct JSON missing pub/sub unsubscribe error',
+    bearerToken: bearerToken,
+  );
+  _expectMcpDirectJsonToolResultError(
+    unsubscribeError,
+    id: unsubscribeErrorId,
+    messageSubstring: missingHandle,
+    label: 'MCP $label direct JSON CORS missing pub/sub unsubscribe',
+  );
+
+  final recoveryId = '$label-direct-cors-error-tools-recovery';
+  final recovery = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': recoveryId,
+      'method': 'connectanum.tools.list',
+    },
+    label: '$label direct JSON error recovery tools/list',
+    bearerToken: bearerToken,
+  );
+  final tools = _jsonRpcResult(
+    recovery,
+    id: recoveryId,
+    label: 'MCP $label direct JSON CORS error recovery tools/list',
+  )['tools'];
+  if (tools is! List || tools.isEmpty) {
+    throw StateError(
+      'MCP $label direct JSON CORS error recovery missed tool catalog.',
+    );
+  }
+
+  final batchMissingTool = '$missingTool.batch';
+  final batchMissingResourceUri = '$missingResourceUri/batch';
+  final batchMissingPrompt = '$missingPrompt-batch';
+  final batchMissingApiUri = '$missingApiUri.batch';
+  final batchMissingHandle = '$missingHandle-batch';
+  final errorBatch = await _mcpRawDirectJsonRpcBatch(
+    client,
+    endpoint,
+    <Map<String, Object?>>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-error-batch-tools',
+        'method': 'connectanum.tools.list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-error-batch-missing-tool',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': batchMissingTool,
+          'arguments': <String, Object?>{},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-error-batch-missing-resource',
+        'method': 'resources/read',
+        'params': {'uri': batchMissingResourceUri},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-error-batch-missing-prompt',
+        'method': 'prompts/get',
+        'params': {
+          'name': batchMissingPrompt,
+          'arguments': {'taskId': 'T-$label-direct-cors-error-batch'},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-error-batch-missing-api',
+        'method': 'connectanum.api.describe',
+        'params': {'uri': batchMissingApiUri, 'kind': 'procedure'},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-error-batch-missing-pubsub',
+        'method': 'connectanum.pubsub.poll',
+        'params': {'handle': batchMissingHandle, 'limit': 1},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+        'params': <String, Object?>{},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-error-batch-resources',
+        'method': 'resources/list',
+      },
+    ],
+    label: '$label direct JSON error batch',
+    bearerToken: bearerToken,
+  );
+  if (errorBatch.length != 7) {
+    throw StateError(
+      'MCP $label direct JSON CORS error batch returned '
+      '${errorBatch.length} responses.',
+    );
+  }
+  final batchTools = _jsonRpcResult(
+    errorBatch[0],
+    id: '$label-direct-cors-error-batch-tools',
+    label: 'MCP $label direct JSON CORS error batch tools/list',
+  )['tools'];
+  if (batchTools is! List || batchTools.isEmpty) {
+    throw StateError(
+      'MCP $label direct JSON CORS error batch missed tool catalog.',
+    );
+  }
+  _expectJsonRpcError(
+    errorBatch[1],
+    id: '$label-direct-cors-error-batch-missing-tool',
+    messageSubstring: batchMissingTool,
+    label: 'MCP $label direct JSON CORS batch missing tool',
+  );
+  _expectJsonRpcError(
+    errorBatch[2],
+    id: '$label-direct-cors-error-batch-missing-resource',
+    messageSubstring: batchMissingResourceUri,
+    label: 'MCP $label direct JSON CORS batch missing resource',
+  );
+  _expectJsonRpcError(
+    errorBatch[3],
+    id: '$label-direct-cors-error-batch-missing-prompt',
+    messageSubstring: batchMissingPrompt,
+    label: 'MCP $label direct JSON CORS batch missing prompt',
+  );
+  _expectMcpDirectJsonToolResultError(
+    errorBatch[4],
+    id: '$label-direct-cors-error-batch-missing-api',
+    messageSubstring: batchMissingApiUri,
+    label: 'MCP $label direct JSON CORS batch missing API describe',
+  );
+  _expectMcpDirectJsonToolResultError(
+    errorBatch[5],
+    id: '$label-direct-cors-error-batch-missing-pubsub',
+    messageSubstring: batchMissingHandle,
+    label: 'MCP $label direct JSON CORS batch missing pub/sub poll',
+  );
+  if (!jsonEncode(
+    _jsonRpcResult(
+      errorBatch[6],
+      id: '$label-direct-cors-error-batch-resources',
+      label: 'MCP $label direct JSON CORS error batch resources/list',
+    )['resources'],
+  ).contains(_resourceUri)) {
+    throw StateError(
+      'MCP $label direct JSON CORS error batch recovery missed '
+      '$_resourceUri.',
+    );
+  }
+}
+
+void _expectMcpDirectJsonToolResultError(
+  Map<String, Object?> response, {
+  required Object id,
+  required String messageSubstring,
+  required String label,
+}) {
+  if (response['id'] != id) {
+    throw StateError('$label response id was invalid.');
+  }
+  if (response.containsKey('error')) {
+    throw StateError('$label response unexpectedly contained JSON-RPC error.');
+  }
+  final result = _jsonObjectFrom(response['result'], label: '$label result');
+  if (result['isError'] != true) {
+    throw StateError('$label response was not an MCP tool-result error.');
+  }
+  if (!jsonEncode(result).contains(messageSubstring)) {
+    throw StateError('$label did not mention $messageSubstring.');
   }
 }
 
