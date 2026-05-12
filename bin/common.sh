@@ -6099,6 +6099,24 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     );
   }
 
+  await _assertMcpStreamableCorsSessionGuardErrors(
+    client,
+    endpoint,
+    sessionId: sessionId,
+    label: label,
+    bearerToken: bearerToken,
+  );
+
+  if (bearerToken != null) {
+    await _assertMcpStreamableCorsAuthErrors(
+      client,
+      endpoint,
+      sessionId: sessionId,
+      label: label,
+      validBearerToken: bearerToken,
+    );
+  }
+
   await _assertMcpStreamableCorsHeaderErrors(
     client,
     endpoint,
@@ -6208,15 +6226,234 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     sessionId: sessionId,
     bearerToken: bearerToken,
   );
-  if (stalePoll.statusCode != HttpStatus.notFound) {
+  _assertMcpCorsErrorResponse(
+    stalePoll,
+    expectedStatus: HttpStatus.notFound,
+    label: '$label Streamable stale-session poll',
+    sessionId: sessionId,
+    bodyContains: 'Unknown MCP HTTP session',
+  );
+
+  final staleDelete = await _mcpRawSessionRequest(
+    client,
+    endpoint,
+    'DELETE',
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    staleDelete,
+    expectedStatus: HttpStatus.notFound,
+    label: '$label Streamable stale-session delete',
+    sessionId: sessionId,
+    bodyContains: 'Unknown MCP HTTP session',
+  );
+}
+
+Future<void> _assertMcpStreamableCorsSessionGuardErrors(
+  HttpClient client,
+  Uri endpoint, {
+  required String sessionId,
+  required String label,
+  String? bearerToken,
+}) async {
+  final missingPollSession = await _mcpRawMcpRequest(
+    client,
+    endpoint,
+    'GET',
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    missingPollSession,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label Streamable missing poll session',
+    expectNoSession: true,
+    bodyContains: 'MCP-Session-Id',
+  );
+
+  final missingDeleteSession = await _mcpRawMcpRequest(
+    client,
+    endpoint,
+    'DELETE',
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    missingDeleteSession,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label Streamable missing delete session',
+    expectNoSession: true,
+    bodyContains: 'MCP-Session-Id',
+  );
+
+  final invalidLastEventId = await _mcpRawSessionRequest(
+    client,
+    endpoint,
+    'GET',
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    lastEventId: '$sessionId:missing:1',
+  );
+  _assertMcpCorsErrorResponse(
+    invalidLastEventId,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label Streamable invalid Last-Event-ID',
+    sessionId: sessionId,
+    bodyContains: 'Last-Event-ID',
+  );
+
+  final recoveryId = '$label-streamable-cors-session-guard-recovery';
+  final recovery = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': recoveryId,
+      'method': 'tools/list',
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (recovery.statusCode != HttpStatus.ok) {
     throw StateError(
-      'MCP $label Streamable CORS stale session returned '
-      '${stalePoll.statusCode}.',
+      'MCP $label Streamable CORS session-guard recovery returned '
+      '${recovery.statusCode}.',
     );
   }
   _assertMcpCorsStatefulResponse(
-    stalePoll,
-    label: '$label Streamable stale-session poll',
+    recovery,
+    label: '$label Streamable session-guard recovery',
+  );
+  _mcpSseJsonRpcPayload(
+    recovery,
+    id: recoveryId,
+    label: '$label Streamable session-guard recovery',
+  );
+}
+
+Future<void> _assertMcpStreamableCorsAuthErrors(
+  HttpClient client,
+  Uri endpoint, {
+  required String sessionId,
+  required String label,
+  required String validBearerToken,
+}) async {
+  final missingPost = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-cors-missing-bearer-post',
+      'method': 'tools/list',
+    },
+    sessionId: sessionId,
+  );
+  _assertMcpCorsErrorResponse(
+    missingPost,
+    expectedStatus: HttpStatus.unauthorized,
+    label: '$label Streamable POST missing bearer',
+    sessionId: sessionId,
+    bodyContains: 'Bearer token required',
+  );
+  _assertHeaderContains(
+    missingPost,
+    'www-authenticate',
+    'Bearer',
+    label: '$label Streamable POST missing bearer',
+  );
+
+  final invalidToken = 'invalid-$label-cors-token';
+  final invalidPost = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': '$label-streamable-cors-invalid-bearer-post',
+      'method': 'tools/list',
+    },
+    sessionId: sessionId,
+    bearerToken: invalidToken,
+  );
+  _assertMcpCorsErrorResponse(
+    invalidPost,
+    expectedStatus: HttpStatus.unauthorized,
+    label: '$label Streamable POST invalid bearer',
+    sessionId: sessionId,
+    bodyContains: 'Bearer token',
+  );
+  _assertHeaderContains(
+    invalidPost,
+    'www-authenticate',
+    'Bearer',
+    label: '$label Streamable POST invalid bearer',
+  );
+
+  final missingPoll = await _mcpRawSessionRequest(
+    client,
+    endpoint,
+    'GET',
+    sessionId: sessionId,
+  );
+  _assertMcpCorsErrorResponse(
+    missingPoll,
+    expectedStatus: HttpStatus.unauthorized,
+    label: '$label Streamable poll missing bearer',
+    sessionId: sessionId,
+    bodyContains: 'Bearer token required',
+  );
+  _assertHeaderContains(
+    missingPoll,
+    'www-authenticate',
+    'Bearer',
+    label: '$label Streamable poll missing bearer',
+  );
+
+  final invalidDelete = await _mcpRawSessionRequest(
+    client,
+    endpoint,
+    'DELETE',
+    sessionId: sessionId,
+    bearerToken: invalidToken,
+  );
+  _assertMcpCorsErrorResponse(
+    invalidDelete,
+    expectedStatus: HttpStatus.unauthorized,
+    label: '$label Streamable delete invalid bearer',
+    sessionId: sessionId,
+    bodyContains: 'Bearer token',
+  );
+  _assertHeaderContains(
+    invalidDelete,
+    'www-authenticate',
+    'Bearer',
+    label: '$label Streamable delete invalid bearer',
+  );
+
+  final recoveryId = '$label-streamable-cors-auth-recovery';
+  final recovery = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': recoveryId,
+      'method': 'tools/list',
+    },
+    sessionId: sessionId,
+    bearerToken: validBearerToken,
+  );
+  if (recovery.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS auth-error recovery returned '
+      '${recovery.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    recovery,
+    label: '$label Streamable auth-error recovery',
+  );
+  _mcpSseJsonRpcPayload(
+    recovery,
+    id: recoveryId,
+    label: '$label Streamable auth-error recovery',
   );
 }
 
