@@ -2,16 +2,19 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: current local implementation commit
-(`test: cover mcp streamable wamp batch cors`; MCP consumer package raw
-Streamable HTTP WAMP API/pubsub batch CORS smoke complete locally; hosted CI and
+Last reviewed branch checkpoint: current local implementation
+(`test: cover mcp direct json tool alias cors`; MCP consumer package raw direct
+JSON tool-call alias CORS smoke complete locally; hosted CI and
 deployment-chain evidence pending)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-batch-cors-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-consumer-direct-json-tool-call-alias-cors-smoke.md`
 (complete locally; hosted CI and deployment-chain evidence pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-batch-cors-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-consumer-direct-json-tool-call-alias-cors-smoke.md`
 (complete locally; hosted CI and deployment-chain evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-batch-cors-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-streamable-wamp-cors-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
@@ -361,10 +364,21 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-`cc2640d`
-(`test: cover mcp streamable wamp cors`; hosted CI and
+`654e8a9`
+(`test: cover mcp streamable wamp batch cors`; hosted CI and
 deployment-chain evidence clean).
-Current implementation checkpoint: router-hosted MCP raw Streamable HTTP WAMP
+Current implementation checkpoint: router-hosted MCP raw direct JSON tool-call
+alias CORS readiness is complete locally. The generated consumer smoke now
+proves public and bearer-protected MCP routes accept both the singular
+`connectanum.tool.call` method and the plural `connectanum.tools.call` alias
+over browser-readable direct JSON CORS, including a direct JSON batch that mixes
+both names without entering the Streamable HTTP session lifecycle. Pre-change
+`bin/test-fast`, focused `bash -n bin/common.sh`, focused
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap;
+run_mcp_consumer_package_smoke'`, and full local `bin/verify` passed on
+2026-05-13. Implementation commit and hosted CI/deployment-chain evidence are
+pending.
+Previous implementation checkpoint: router-hosted MCP raw Streamable HTTP WAMP
 API/pubsub CORS readiness is complete and pushed. The generated consumer smoke now
 proves public and bearer-protected MCP routes support browser-style Streamable
 HTTP `tools/call` POST/SSE responses for WAMP API metadata and pub/sub

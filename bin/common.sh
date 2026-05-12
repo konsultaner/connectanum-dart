@@ -5841,6 +5841,35 @@ Future<void> _assertMcpDirectJsonCorsResponse(
     );
   }
 
+  final toolCallAliasTaskId = 'T-$label-direct-cors-tools-call-alias';
+  final toolCallAliasId = '$label-direct-cors-tools-call-alias';
+  final toolCallAlias = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': toolCallAliasId,
+      'method': 'connectanum.tools.call',
+      'params': {
+        'name': _procedure,
+        'arguments': {
+          'taskId': toolCallAliasTaskId,
+          'note': _headerWrappedNote,
+        },
+      },
+    },
+    label: '$label direct JSON connectanum.tools.call alias',
+    bearerToken: bearerToken,
+  );
+  final toolCallAliasJson = jsonEncode(toolCallAlias);
+  if (toolCallAlias['id'] != toolCallAliasId ||
+      !toolCallAliasJson.contains(toolCallAliasTaskId) ||
+      !toolCallAliasJson.contains(_headerWrappedNote)) {
+    throw StateError(
+      'MCP $label direct JSON CORS tools.call alias missed procedure result.',
+    );
+  }
+
   final apiListId = '$label-direct-cors-api-list';
   final apiList = await _mcpRawDirectJsonRpc(
     client,
@@ -6333,6 +6362,52 @@ Future<void> _assertMcpDirectJsonBatchCorsResponse(
     throw StateError(
       'MCP $label direct JSON CORS batch prompts/get did not substitute '
       'task id.',
+    );
+  }
+
+  final toolCallTaskId = 'T-$label-direct-cors-batch-tool-call';
+  final toolCallAliasTaskId = 'T-$label-direct-cors-batch-tools-call-alias';
+  final toolCallBatch = await _mcpRawDirectJsonRpcBatch(
+    client,
+    endpoint,
+    <Map<String, Object?>>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-tool-call',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': toolCallTaskId},
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-tools-call-alias',
+        'method': 'connectanum.tools.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': toolCallAliasTaskId},
+        },
+      },
+    ],
+    label: '$label direct JSON batch tool call aliases',
+    bearerToken: bearerToken,
+  );
+  if (toolCallBatch.length != 2) {
+    throw StateError(
+      'MCP $label direct JSON CORS tool-call alias batch returned '
+      '${toolCallBatch.length} responses.',
+    );
+  }
+  if (!jsonEncode(toolCallBatch[0]).contains(toolCallTaskId)) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch tool.call missed procedure result.',
+    );
+  }
+  if (!jsonEncode(toolCallBatch[1]).contains(toolCallAliasTaskId)) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch tools.call alias missed procedure '
+      'result.',
     );
   }
 
