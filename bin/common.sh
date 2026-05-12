@@ -5462,7 +5462,20 @@ Future<void> _smokeMcpCorsPreflight(
       serviceSession,
       label: 'public-cors',
     );
+    await _assertMcpDirectJsonBatchCorsResponse(
+      client,
+      _mcpEndpoint(binding),
+      serviceSession,
+      label: 'public-cors',
+    );
     await _assertMcpDirectJsonCorsResponse(
+      client,
+      _mcpEndpoint(binding, secure: true),
+      serviceSession,
+      label: 'secure-cors',
+      bearerToken: grant.accessToken,
+    );
+    await _assertMcpDirectJsonBatchCorsResponse(
       client,
       _mcpEndpoint(binding, secure: true),
       serviceSession,
@@ -6110,6 +6123,364 @@ Future<void> _assertMcpDirectJsonCorsResponse(
   }
 }
 
+Future<void> _assertMcpDirectJsonBatchCorsResponse(
+  HttpClient client,
+  Uri endpoint,
+  RouterSession serviceSession, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final catalogBatch = await _mcpRawDirectJsonRpcBatch(
+    client,
+    endpoint,
+    <Map<String, Object?>>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-api-list',
+        'method': 'connectanum.api.list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-tools',
+        'method': 'connectanum.tools.list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-resources',
+        'method': 'resources/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-prompts',
+        'method': 'prompts/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+      },
+    ],
+    label: '$label direct JSON batch catalog',
+    bearerToken: bearerToken,
+  );
+  if (catalogBatch.length != 4) {
+    throw StateError(
+      'MCP $label direct JSON CORS catalog batch returned '
+      '${catalogBatch.length} responses.',
+    );
+  }
+  if (!jsonEncode(
+    _jsonRpcStructuredContent(
+      catalogBatch[0],
+      id: '$label-direct-cors-batch-api-list',
+      label: 'MCP $label direct JSON CORS batch API list',
+    ),
+  ).contains(_procedure)) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch API list missed $_procedure.',
+    );
+  }
+  final batchTools = _jsonRpcResult(
+    catalogBatch[1],
+    id: '$label-direct-cors-batch-tools',
+    label: 'MCP $label direct JSON CORS batch tools/list',
+  )['tools'];
+  if (batchTools is! List || batchTools.isEmpty) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch tools/list missed direct catalog.',
+    );
+  }
+  if (!jsonEncode(
+    _jsonRpcResult(
+      catalogBatch[2],
+      id: '$label-direct-cors-batch-resources',
+      label: 'MCP $label direct JSON CORS batch resources/list',
+    )['resources'],
+  ).contains(_resourceUri)) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch resources/list missed '
+      '$_resourceUri.',
+    );
+  }
+  if (!jsonEncode(
+    _jsonRpcResult(
+      catalogBatch[3],
+      id: '$label-direct-cors-batch-prompts',
+      label: 'MCP $label direct JSON CORS batch prompts/list',
+    )['prompts'],
+  ).contains(_promptName)) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch prompts/list missed $_promptName.',
+    );
+  }
+
+  final promptTaskId = 'T-$label-direct-cors-batch-prompt';
+  final detailBatch = await _mcpRawDirectJsonRpcBatch(
+    client,
+    endpoint,
+    <Map<String, Object?>>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-api-describe',
+        'method': 'connectanum.api.describe',
+        'params': {'uri': _procedure, 'kind': 'procedure'},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-topic-describe',
+        'method': 'connectanum.api.describe',
+        'params': {'uri': _topic, 'kind': 'topic'},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-resource-read',
+        'method': 'resources/read',
+        'params': {'uri': _resourceUri},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-resource-templates',
+        'method': 'resources/templates/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-prompt-get',
+        'method': 'prompts/get',
+        'params': {
+          'name': _promptName,
+          'arguments': {'taskId': promptTaskId},
+        },
+      },
+    ],
+    label: '$label direct JSON batch resource/prompt details',
+    bearerToken: bearerToken,
+  );
+  if (detailBatch.length != 5) {
+    throw StateError(
+      'MCP $label direct JSON CORS detail batch returned '
+      '${detailBatch.length} responses.',
+    );
+  }
+  if (!jsonEncode(
+    _jsonRpcStructuredContent(
+      detailBatch[0],
+      id: '$label-direct-cors-batch-api-describe',
+      label: 'MCP $label direct JSON CORS batch API describe',
+    ),
+  ).contains(_procedure)) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch API describe missed $_procedure.',
+    );
+  }
+  final topicDescriptionJson = jsonEncode(
+    _jsonRpcStructuredContent(
+      detailBatch[1],
+      id: '$label-direct-cors-batch-topic-describe',
+      label: 'MCP $label direct JSON CORS batch topic describe',
+    ),
+  );
+  if (!topicDescriptionJson.contains(_topic) ||
+      !topicDescriptionJson.contains('eventSchema')) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch topic describe missed $_topic.',
+    );
+  }
+  if (!jsonEncode(
+    _jsonRpcResult(
+      detailBatch[2],
+      id: '$label-direct-cors-batch-resource-read',
+      label: 'MCP $label direct JSON CORS batch resources/read',
+    )['contents'],
+  ).contains('Consumer package router-hosted MCP context document.')) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch resources/read missed route context.',
+    );
+  }
+  if (!jsonEncode(
+    _jsonRpcResult(
+      detailBatch[3],
+      id: '$label-direct-cors-batch-resource-templates',
+      label: 'MCP $label direct JSON CORS batch resources/templates/list',
+    )['resourceTemplates'],
+  ).contains(_resourceTemplateUri)) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch resources/templates/list missed '
+      '$_resourceTemplateUri.',
+    );
+  }
+  if (!jsonEncode(detailBatch[4]).contains(promptTaskId)) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch prompts/get did not substitute '
+      'task id.',
+    );
+  }
+
+  final subscribeBatch = await _mcpRawDirectJsonRpcBatch(
+    client,
+    endpoint,
+    <Map<String, Object?>>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-pubsub-subscribe',
+        'method': 'connectanum.pubsub.subscribe',
+        'params': {'topic': _topic, 'queueLimit': 3},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-pubsub-tools',
+        'method': 'connectanum.tools.list',
+      },
+    ],
+    label: '$label direct JSON batch pub/sub subscribe',
+    bearerToken: bearerToken,
+  );
+  if (subscribeBatch.length != 2) {
+    throw StateError(
+      'MCP $label direct JSON CORS pub/sub subscribe batch returned '
+      '${subscribeBatch.length} responses.',
+    );
+  }
+  final subscription = _jsonRpcStructuredContent(
+    subscribeBatch[0],
+    id: '$label-direct-cors-batch-pubsub-subscribe',
+    label: 'MCP $label direct JSON CORS batch pub/sub subscribe',
+  );
+  final handle = subscription['handle'];
+  if (handle is! String ||
+      handle.isEmpty ||
+      subscription['topic'] != _topic ||
+      subscription['queueLimit'] != 3) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch pub/sub subscribe returned invalid '
+      'content.',
+    );
+  }
+  final subscribeBatchTools = _jsonRpcResult(
+    subscribeBatch[1],
+    id: '$label-direct-cors-batch-pubsub-tools',
+    label: 'MCP $label direct JSON CORS batch pub/sub tools/list',
+  )['tools'];
+  if (subscribeBatchTools is! List || subscribeBatchTools.isEmpty) {
+    throw StateError(
+      'MCP $label direct JSON CORS batch tools/list missed direct catalog.',
+    );
+  }
+
+  try {
+    final serviceTaskId = 'T-$label-direct-cors-batch-service-event';
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': serviceTaskId},
+      options: PublishOptions(acknowledge: true),
+    );
+    final publishBatch = await _mcpRawDirectJsonRpcBatch(
+      client,
+      endpoint,
+      <Map<String, Object?>>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': '$label-direct-cors-batch-pubsub-publish',
+          'method': 'connectanum.pubsub.publish',
+          'params': {
+            'topic': _topic,
+            'argumentsKeywords': {
+              'taskId': 'T-$label-direct-cors-batch-publish',
+            },
+            'acknowledge': true,
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': '$label-direct-cors-batch-pubsub-poll',
+          'method': 'connectanum.pubsub.poll',
+          'params': {'handle': handle, 'limit': 4},
+        },
+      ],
+      label: '$label direct JSON batch pub/sub publish/poll',
+      bearerToken: bearerToken,
+    );
+    if (publishBatch.length != 2) {
+      throw StateError(
+        'MCP $label direct JSON CORS pub/sub publish batch returned '
+        '${publishBatch.length} responses.',
+      );
+    }
+    final publication = _jsonRpcStructuredContent(
+      publishBatch[0],
+      id: '$label-direct-cors-batch-pubsub-publish',
+      label: 'MCP $label direct JSON CORS batch pub/sub publish',
+    );
+    if (publication['topic'] != _topic ||
+        publication['acknowledged'] != true) {
+      throw StateError(
+        'MCP $label direct JSON CORS batch pub/sub publish returned invalid '
+        'content.',
+      );
+    }
+    final eventBatch = _jsonRpcStructuredContent(
+      publishBatch[1],
+      id: '$label-direct-cors-batch-pubsub-poll',
+      label: 'MCP $label direct JSON CORS batch pub/sub poll',
+    );
+    if (eventBatch['handle'] != handle ||
+        !jsonEncode(eventBatch['events']).contains(serviceTaskId)) {
+      throw StateError(
+        'MCP $label direct JSON CORS batch pub/sub poll missed routed event.',
+      );
+    }
+  } finally {
+    final unsubscribeBatch = await _mcpRawDirectJsonRpcBatch(
+      client,
+      endpoint,
+      <Map<String, Object?>>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': '$label-direct-cors-batch-pubsub-unsubscribe',
+          'method': 'connectanum.pubsub.unsubscribe',
+          'params': {'handle': handle},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': '$label-direct-cors-batch-pubsub-api-list',
+          'method': 'connectanum.api.list',
+        },
+      ],
+      label: '$label direct JSON batch pub/sub unsubscribe',
+      bearerToken: bearerToken,
+    );
+    if (unsubscribeBatch.length != 2) {
+      throw StateError(
+        'MCP $label direct JSON CORS pub/sub unsubscribe batch returned '
+        '${unsubscribeBatch.length} responses.',
+      );
+    }
+    final unsubscribe = _jsonRpcStructuredContent(
+      unsubscribeBatch[0],
+      id: '$label-direct-cors-batch-pubsub-unsubscribe',
+      label: 'MCP $label direct JSON CORS batch pub/sub unsubscribe',
+    );
+    if (unsubscribe['handle'] != handle ||
+        unsubscribe['topic'] != _topic ||
+        unsubscribe['unsubscribed'] != true) {
+      throw StateError(
+        'MCP $label direct JSON CORS batch pub/sub unsubscribe returned '
+        'invalid content.',
+      );
+    }
+    if (!jsonEncode(
+      _jsonRpcStructuredContent(
+        unsubscribeBatch[1],
+        id: '$label-direct-cors-batch-pubsub-api-list',
+        label: 'MCP $label direct JSON CORS batch pub/sub API list',
+      ),
+    ).contains(_topic)) {
+      throw StateError(
+        'MCP $label direct JSON CORS batch post-unsubscribe API list missed '
+        '$_topic.',
+      );
+    }
+  }
+}
+
 Future<Map<String, Object?>> _mcpRawDirectJsonRpc(
   HttpClient client,
   Uri endpoint,
@@ -6149,10 +6520,60 @@ Future<Map<String, Object?>> _mcpRawDirectJsonRpc(
   return payload;
 }
 
+Future<List<Map<String, Object?>>> _mcpRawDirectJsonRpcBatch(
+  HttpClient client,
+  Uri endpoint,
+  List<Map<String, Object?>> messages, {
+  required String label,
+  String? bearerToken,
+}) async {
+  final response = await _mcpRawDirectJsonRpcResponse(
+    client,
+    endpoint,
+    messages,
+    bearerToken: bearerToken,
+  );
+  if (response.statusCode != HttpStatus.ok) {
+    throw StateError('MCP $label returned ${response.statusCode}.');
+  }
+  _assertCorsAllowed(response, _allowedOrigin, label: label);
+  _assertHeaderContains(
+    response,
+    'access-control-expose-headers',
+    'mcp-session-id',
+    label: '$label exposed headers',
+  );
+  _assertHeaderContains(
+    response,
+    'access-control-expose-headers',
+    'mcp-protocol-version',
+    label: '$label exposed headers',
+  );
+  if (response.header('mcp-session-id') != null) {
+    throw StateError('MCP $label created Streamable session state.');
+  }
+  final payload = jsonDecode(response.body);
+  if (payload is! List) {
+    throw StateError('MCP $label returned non-batch JSON-RPC.');
+  }
+  final responses = <Map<String, Object?>>[];
+  for (final item in payload) {
+    final responsePayload = _jsonObjectFrom(
+      item,
+      label: '$label batch response',
+    );
+    if (responsePayload['jsonrpc'] != '2.0') {
+      throw StateError('MCP $label returned invalid batch JSON-RPC.');
+    }
+    responses.add(responsePayload);
+  }
+  return responses;
+}
+
 Future<_McpRawHttpResponse> _mcpRawDirectJsonRpcResponse(
   HttpClient client,
   Uri endpoint,
-  Map<String, Object?> message, {
+  Object? message, {
   String? bearerToken,
 }) async {
   final request = await client.postUrl(endpoint);
