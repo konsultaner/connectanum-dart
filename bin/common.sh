@@ -12194,19 +12194,12 @@ Future<void> _smokeStreamableSessionLifecycle(
     throw StateError('Streamable MCP DELETE did not clear session state.');
   }
 
-  client.sessionId = sessionId;
-  client.lastEventId = eventId;
-  try {
-    await client.listTools(id: '$label-stale-session-tools');
-    throw StateError('Deleted Streamable MCP session remained usable.');
-  } on McpStreamableHttpException catch (error) {
-    if (error.statusCode != HttpStatus.notFound) {
-      rethrow;
-    }
-  }
-  if (client.sessionId != null || client.lastEventId != null) {
-    throw StateError('Streamable MCP 404 did not clear stale session state.');
-  }
+  await _assertStreamableSessionReuseRejectedAcrossMethods(
+    client,
+    sessionId: sessionId,
+    lastEventId: eventId,
+    label: '$label deleted session',
+  );
 
   final recovered = await client.initialize(
     id: '$label-reinitialize',
