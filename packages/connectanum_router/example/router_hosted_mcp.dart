@@ -409,21 +409,80 @@ Future<void> _closeMcpClient(McpStreamableHttpClient client) async {
 Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
   final client = McpStreamableHttpClient(_mcpEndpoint(binding, secure: true));
   try {
-    await client.listResources(
-      id: 'secure-unauthenticated-resources',
-      directJson: true,
+    await _expectSecureMcpUnauthorized(
+      () async {
+        await client.listToolsDirect(id: 'secure-unauthenticated-tools');
+      },
+      label: 'direct JSON tools/list',
+      acceptedMessage:
+          'Bearer-protected MCP endpoint accepted no credentials for tools/list.',
     );
-    throw StateError('Bearer-protected MCP endpoint accepted no credentials.');
-  } on McpStreamableHttpException catch (error) {
-    if (error.statusCode != HttpStatus.unauthorized) {
+    await _expectSecureMcpUnauthorized(
+      () async {
+        await client.callToolDirect(
+          'example.task.lookup',
+          id: 'secure-unauthenticated-tool-call',
+          arguments: const <String, Object?>{
+            'taskId': 'T-secure-unauthenticated-tool-call',
+          },
+        );
+      },
+      label: 'direct JSON tools/call',
+      acceptedMessage:
+          'Bearer-protected MCP endpoint accepted no credentials for tools/call.',
+    );
+    await _expectSecureMcpUnauthorized(
+      () async {
+        await client.postBatchDirect([
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-batch-tools',
+            'method': 'tools/list',
+            'params': {},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-batch-tool-call',
+            'method': 'tools/call',
+            'params': {
+              'name': 'example.task.lookup',
+              'arguments': {
+                'taskId': 'T-secure-unauthenticated-batch-tool-call',
+              },
+            },
+          },
+        ]);
+      },
+      label: 'direct JSON batch tools/list and tools/call',
+      acceptedMessage:
+          'Bearer-protected MCP endpoint accepted no credentials for batch tools.',
+    );
+    if (client.sessionId != null || client.lastEventId != null) {
       throw StateError(
-        'Bearer-protected MCP endpoint returned ${error.statusCode} '
-        'instead of ${HttpStatus.unauthorized}.',
+        'Unauthenticated direct MCP requests changed session state.',
       );
     }
     print('Secure MCP endpoint rejects unauthenticated requests.');
   } finally {
     client.close(force: true);
+  }
+}
+
+Future<void> _expectSecureMcpUnauthorized(
+  Future<void> Function() request, {
+  required String label,
+  required String acceptedMessage,
+}) async {
+  try {
+    await request();
+    throw StateError(acceptedMessage);
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'Bearer-protected MCP endpoint returned ${error.statusCode} '
+        'instead of ${HttpStatus.unauthorized} for $label.',
+      );
+    }
   }
 }
 
@@ -452,15 +511,51 @@ Future<void> _assertSecureMcpRejectsBearer(
     bearerToken,
   );
   try {
-    await client.listConnectanumToolsDirect(id: 'secure-rejected-bearer-tools');
-    throw StateError(acceptedMessage);
-  } on McpStreamableHttpException catch (error) {
-    if (error.statusCode != HttpStatus.unauthorized) {
-      throw StateError(
-        'Bearer-protected MCP endpoint returned ${error.statusCode} '
-        'instead of ${HttpStatus.unauthorized} for a rejected token.',
-      );
-    }
+    await _expectSecureMcpUnauthorized(
+      () async {
+        await client.listToolsDirect(id: 'secure-rejected-bearer-tools');
+      },
+      label: 'direct JSON tools/list with rejected token',
+      acceptedMessage: acceptedMessage,
+    );
+    await _expectSecureMcpUnauthorized(
+      () async {
+        await client.callToolDirect(
+          'example.task.lookup',
+          id: 'secure-rejected-bearer-tool-call',
+          arguments: const <String, Object?>{
+            'taskId': 'T-secure-rejected-bearer-tool-call',
+          },
+        );
+      },
+      label: 'direct JSON tools/call with rejected token',
+      acceptedMessage: acceptedMessage,
+    );
+    await _expectSecureMcpUnauthorized(
+      () async {
+        await client.postBatchDirect([
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-rejected-bearer-batch-tools',
+            'method': 'tools/list',
+            'params': {},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-rejected-bearer-batch-tool-call',
+            'method': 'tools/call',
+            'params': {
+              'name': 'example.task.lookup',
+              'arguments': {
+                'taskId': 'T-secure-rejected-bearer-batch-tool-call',
+              },
+            },
+          },
+        ]);
+      },
+      label: 'direct JSON batch tools/list and tools/call with rejected token',
+      acceptedMessage: acceptedMessage,
+    );
   } finally {
     client.close(force: true);
   }
@@ -521,6 +616,57 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   }
   final lastEventId = client.lastEventId;
 
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listToolsDirect(id: '$label-rejected-direct-tools');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON tools/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.callToolDirect(
+        'example.task.lookup',
+        id: '$label-rejected-direct-tool-call',
+        arguments: {'taskId': 'T-$label-rejected-direct-tool-call'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON tools/call',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.postBatchDirect([
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-rejected-direct-batch-tools',
+          'method': 'tools/list',
+          'params': {},
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-rejected-direct-batch-tool-call',
+          'method': 'tools/call',
+          'params': {
+            'name': 'example.task.lookup',
+            'arguments': {'taskId': 'T-$label-rejected-direct-batch-tool-call'},
+          },
+        },
+      ]);
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON batch tools/list and tools/call',
+    acceptedMessage: acceptedMessage,
+  );
+
   client.sessionId = sessionId;
   client.lastEventId = lastEventId;
   try {
@@ -541,6 +687,32 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   }
 }
 
+Future<void> _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+  McpStreamableHttpClient client,
+  Future<void> Function() request, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+  required String acceptedMessage,
+}) async {
+  client.sessionId = sessionId;
+  client.lastEventId = lastEventId;
+  try {
+    await request();
+    throw StateError('$acceptedMessage $label succeeded.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'Active direct JSON MCP $label returned ${error.statusCode} '
+        'instead of ${HttpStatus.unauthorized} for a rejected token.',
+      );
+    }
+  }
+  if (client.sessionId != sessionId || client.lastEventId != lastEventId) {
+    throw StateError('Active direct JSON MCP $label changed session state.');
+  }
+}
+
 Future<void> _smokeSecureMcpRefreshedGrant(
   RouterBinding binding,
   ConnectanumHttpAuthGrant grant,
@@ -550,13 +722,26 @@ Future<void> _smokeSecureMcpRefreshedGrant(
     grant,
   );
   try {
-    final directTools = await client.listConnectanumToolsDirect(
+    final directTools = await client.listToolsDirect(
       id: 'secure-refreshed-direct-tools',
     );
     if (!directTools.tools.any(
       (tool) => tool['name'] == 'example.task.lookup',
     )) {
       throw StateError('Refreshed bearer did not expose direct MCP tools.');
+    }
+
+    final directTaskId = 'T-secure-refreshed-direct-tool-call';
+    final directResult = await client.callToolDirect(
+      'example.task.lookup',
+      id: 'secure-refreshed-direct-tool-call',
+      arguments: {'taskId': directTaskId},
+    );
+    if (!jsonEncode(directResult).contains(directTaskId)) {
+      throw StateError('Refreshed bearer direct MCP tool call failed.');
+    }
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError('Refreshed bearer direct MCP changed session state.');
     }
 
     await client.initialize(id: 'secure-refreshed-initialize');

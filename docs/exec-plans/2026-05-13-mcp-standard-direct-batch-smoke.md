@@ -1,6 +1,6 @@
 # Exec Plan: MCP Standard Direct Batch Smoke
 
-Status: complete; full local verification clean; hosted evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-05-13
@@ -56,6 +56,23 @@ would work lifecycle-free.
 - `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "hosts MCP over HTTP using the router internal session"`
   passed on 2026-05-13.
 - Full local `bin/verify` passed on 2026-05-13.
+- Commit `ea53861` (`mcp: cover standard direct batch tools`) was pushed to
+  both configured remotes.
+- GitHub `CI` run `25781537704` completed successfully for `ea53861` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `WAMP Profile Benchmarks` run `25781537731` completed successfully
+  for `ea53861`.
+- GitHub `Dart Package Publish Dry Run` run `25781537746` completed
+  successfully and covers the checked-out head.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI and a clean relevant Dart package publish
+  dry-run.
+- `bin/audit-github-deployment-chain --branch add-router --strict --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed the hosted CI, hosted CI log scan, and package dry-run checks, then
+  failed only known operator-side release-hardening gaps: branch protection /
+  required checks are absent, `.github/workflows/router-image.yml` is not yet
+  visible from the default branch through the Actions API, and the router GHCR
+  package is not visible.
 
 ## Decision Log
 
@@ -70,5 +87,6 @@ would work lifecycle-free.
 
 ## Handoff
 
-Implementation, focused local checks, and full local verification are complete.
-Hosted evidence is pending.
+Implementation is pushed. Focused local checks, full local verification, hosted
+CI, WAMP benchmark workflow, package publish dry-run, hosted CI log scan, and
+the non-strict deployment-chain audit are clean for `ea53861`.

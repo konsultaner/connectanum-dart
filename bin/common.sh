@@ -4967,6 +4967,20 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
     );
     await _expectSecureMcpUnauthorized(
       client,
+      label: 'direct JSON tools/call',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.callToolDirect(
+          _procedure,
+          id: 'secure-unauthenticated-direct-tool-call',
+          arguments: const <String, Object?>{
+            'taskId': 'T-secure-unauthenticated-direct-tool-call',
+          },
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
       label: 'direct JSON ping',
       acceptedMessage: acceptedMessage,
       operation: () async {
@@ -4975,7 +4989,7 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
     );
     await _expectSecureMcpUnauthorized(
       client,
-      label: 'direct JSON batch connectanum.tools.list',
+      label: 'direct JSON batch tools/list and tools/call',
       acceptedMessage: acceptedMessage,
       operation: () async {
         await client.postBatchDirect(
@@ -4983,8 +4997,19 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
             {
               'jsonrpc': '2.0',
               'id': 'secure-unauthenticated-direct-batch-tools',
-              'method': 'connectanum.tools.list',
+              'method': 'tools/list',
               'params': {},
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-tool-call',
+              'method': 'tools/call',
+              'params': {
+                'name': _procedure,
+                'arguments': {
+                  'taskId': 'T-secure-unauthenticated-direct-batch-tool-call',
+                },
+              },
             },
           ],
         );
@@ -9931,6 +9956,60 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   }
   final lastEventId = client.lastEventId;
 
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listToolsDirect(
+        id: '$label-rejected-direct-tools',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON tools/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.callToolDirect(
+        _procedure,
+        id: '$label-rejected-direct-tool-call',
+        arguments: {'taskId': 'T-$label-rejected-direct-tool-call'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON tools/call',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.postBatchDirect(
+        [
+          {
+            'jsonrpc': '2.0',
+            'id': '$label-rejected-direct-batch-tools',
+            'method': 'tools/list',
+            'params': {},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': '$label-rejected-direct-batch-tool-call',
+            'method': 'tools/call',
+            'params': {
+              'name': _procedure,
+              'arguments': {'taskId': 'T-$label-rejected-direct-batch-tool-call'},
+            },
+          },
+        ],
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON batch tools/list and tools/call',
+    acceptedMessage: acceptedMessage,
+  );
   await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
     client,
     () async {

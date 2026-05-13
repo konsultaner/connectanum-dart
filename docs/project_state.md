@@ -2,14 +2,19 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree after `e5b965f`
-(standard direct MCP helper/router direct tools complete with hosted evidence
-clean; standard direct JSON batch smoke complete with full local verification
-clean, hosted evidence pending)
+Last reviewed branch checkpoint: `ea53861`
+(`mcp: cover standard direct batch tools`; standard direct JSON secure auth
+smoke complete locally on top of this checkpoint)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-standard-direct-batch-smoke.md`
-(complete; full local verification clean; hosted evidence pending).
+`docs/exec-plans/2026-05-13-mcp-standard-direct-secure-auth-smoke.md`
+(complete; local verification clean, hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-standard-direct-secure-auth-smoke.md`
+(complete; local verification clean, hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-standard-direct-batch-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-standard-direct-tool-helper-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
