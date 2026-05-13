@@ -61,3 +61,6 @@ router image visibility.
   bin/audit-github-deployment-chain`, `bin/audit-github-deployment-chain
   --help`, a clean-`DOCKER_CONFIG` `--require-router-package` audit, and full
   `bin/verify`.
+- Hosted GitHub CI #25811942431 passed for `011e99b`; the branch audit with
+  clean latest CI/log requirements also passed and detected the router image
+  through the public GHCR registry manifest.

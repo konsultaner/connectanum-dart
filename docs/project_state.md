@@ -17,17 +17,34 @@ unless consumer integration exposes a real correctness bug. Pub.dev publishing
 remains deferred until package ownership, public versions, and release order
 for the private workspace packages are explicitly decided.
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-router-image-tag-aliases.md` (complete; router
+image tag-push metadata now publishes both exact `v*` Git tag aliases and
+normalized semver aliases).
+Latest post-RC implementation checkpoint:
+Router image tag-push metadata now emits both the exact Git tag form and the
+normalized semver form for `v*` refs. A future `v0.1.0-rc.1` tag push resolves
+to both `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` and
+`ghcr.io/konsultaner/connectanum-router:0.1.0-rc.1`, while stable `vX.Y.Z`
+tags keep `:X.Y`, `:X`, and `:latest` aliases. Local `bin/test-fast`, Python
+syntax compilation, focused router image metadata tests, a sample
+`v0.1.0-rc.1` render, and `bin/verify` passed on 2026-05-13 for this
+checkpoint.
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-ghcr-registry-audit-fallback.md` (complete; router
 image visibility checks now use the public GHCR registry manifest before
 falling back to Docker buildx).
-Latest post-RC implementation checkpoint:
+Previous post-RC implementation checkpoint:
 The deployment-chain audit now validates public router image visibility through
 the GHCR registry token and manifest endpoint before falling back to Docker
 buildx. This keeps `--require-router-package` reliable when the local GitHub
 token lacks `read:packages` and a clean Docker config hides Docker CLI plugins.
 Local `bin/test-fast`, focused audit syntax/help/router-package checks with a
 clean `DOCKER_CONFIG`, and `bin/verify` passed on 2026-05-13 for this
-checkpoint.
+checkpoint. Hosted GitHub CI #25811942431 passed on
+`codex/post-rc-production-readiness` at `011e99b`, and the branch audit with
+clean latest CI/log requirements passed while detecting
+`ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` through the public GHCR
+registry manifest.
 Previous completed exec plan:
 `docs/exec-plans/2026-05-13-http1-idle-log-cleanliness.md` (complete; HTTP/1
 keep-alive idle timeouts now close quietly in the native connection loop).
