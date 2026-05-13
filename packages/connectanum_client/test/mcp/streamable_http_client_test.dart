@@ -939,63 +939,57 @@ void main() {
         final client = McpStreamableHttpClient(endpoint.uri);
         addTearDown(() => client.close(force: true));
 
-        final catalog = await client.listWampApi(
+        final catalog = await client.listWampApiDirect(
           id: 'direct-helper-api-list',
           kind: 'topic',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-helper-api-list',
           },
         );
         expect(catalog['topics'], hasLength(1));
 
-        final subscription = await client.subscribeWampTopic(
+        final subscription = await client.subscribeWampTopicDirect(
           'app.events.audit',
           id: 'direct-helper-subscribe',
           queueLimit: 3,
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-helper-subscribe',
           },
         );
         expect(subscription.handle, 'wamp-sub-1');
 
-        final publication = await client.publishWampEvent(
+        final publication = await client.publishWampEventDirect(
           'app.events.audit',
           id: 'direct-helper-publish',
           argumentsKeywords: const <String, Object?>{'message': 'hello'},
           acknowledge: true,
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-helper-publish',
           },
         );
         expect(publication.acknowledged, isTrue);
 
-        final batch = await client.pollWampEvents(
+        final batch = await client.pollWampEventsDirect(
           subscription.handle,
           id: 'direct-helper-poll',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-helper-poll',
           },
         );
         expect(batch.events.single['argumentsKeywords'], {'message': 'hello'});
 
-        final registration = await client.matchWampRegistration(
+        final registration = await client.matchWampRegistrationDirect(
           'app.echo',
           id: 'direct-helper-registration-match',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-helper-registration-match',
           },
         );
         expect(registration.arguments, [11]);
 
-        final unsubscribe = await client.unsubscribeWampTopic(
+        final unsubscribe = await client.unsubscribeWampTopicDirect(
           subscription.handle,
           id: 'direct-helper-unsubscribe',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-helper-unsubscribe',
           },
@@ -1048,74 +1042,67 @@ void main() {
         expect(sessionId, 'session-1');
         endpoint.requests.clear();
 
-        final catalog = await client.listWampApi(
+        final catalog = await client.listWampApiDirect(
           id: 'direct-active-api-list',
           kind: 'topic',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-active-api-list',
           },
         );
         expect(catalog['topics'], hasLength(1));
 
-        final topic = await client.describeWampApi(
+        final topic = await client.describeWampApiDirect(
           'app.events.audit',
           id: 'direct-active-api-describe',
           kind: 'topic',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-active-api-describe',
           },
         );
         expect(topic['topic'], 'app.events.audit');
 
-        final subscription = await client.subscribeWampTopic(
+        final subscription = await client.subscribeWampTopicDirect(
           'app.events.audit',
           id: 'direct-active-subscribe',
           queueLimit: 3,
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-active-subscribe',
           },
         );
         expect(subscription.handle, 'wamp-sub-1');
 
-        final publication = await client.publishWampEvent(
+        final publication = await client.publishWampEventDirect(
           'app.events.audit',
           id: 'direct-active-publish',
           argumentsKeywords: const <String, Object?>{'message': 'hello'},
           acknowledge: true,
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-active-publish',
           },
         );
         expect(publication.acknowledged, isTrue);
 
-        final batch = await client.pollWampEvents(
+        final batch = await client.pollWampEventsDirect(
           subscription.handle,
           id: 'direct-active-poll',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-active-poll',
           },
         );
         expect(batch.events.single['argumentsKeywords'], {'message': 'hello'});
 
-        final registration = await client.matchWampRegistration(
+        final registration = await client.matchWampRegistrationDirect(
           'app.echo',
           id: 'direct-active-registration-match',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-active-registration-match',
           },
         );
         expect(registration.arguments, [11]);
 
-        final unsubscribe = await client.unsubscribeWampTopic(
+        final unsubscribe = await client.unsubscribeWampTopicDirect(
           subscription.handle,
           id: 'direct-active-unsubscribe',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-active-unsubscribe',
           },

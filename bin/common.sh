@@ -2654,9 +2654,8 @@ Future<void> _smokeWampHelpers(
     'streamable pub/sub unsubscribe helper failed',
   );
 
-  final directApi = await client.listWampApi(
+  final directApi = await client.listWampApiDirect(
     id: 'direct-api-list',
-    directJson: true,
     headers: const <String, String>{'x-consumer-trace': 'direct-api-list'},
   );
   _expect(
@@ -2668,11 +2667,10 @@ Future<void> _smokeWampHelpers(
     label: 'direct JSON WAMP API helper',
   );
 
-  final directDescription = await client.describeWampApi(
+  final directDescription = await client.describeWampApiDirect(
     _procedureName,
     id: 'direct-api-describe',
     kind: 'procedure',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-api-describe',
     },
@@ -2682,9 +2680,8 @@ Future<void> _smokeWampHelpers(
     'direct JSON WAMP API describe helper failed',
   );
 
-  final directSessionCount = await client.countWampSessions(
+  final directSessionCount = await client.countWampSessionsDirect(
     id: 'direct-session-count',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-session-count',
     },
@@ -2696,18 +2693,16 @@ Future<void> _smokeWampHelpers(
 
   await _smokeDirectWampMetaHelpers(client);
 
-  final directSubscription = await client.subscribeWampTopic(
+  final directSubscription = await client.subscribeWampTopicDirect(
     _topic,
     id: 'direct-subscribe',
-    directJson: true,
     headers: const <String, String>{'x-consumer-trace': 'direct-subscribe'},
   );
-  final directPublication = await client.publishWampEvent(
+  final directPublication = await client.publishWampEventDirect(
     _topic,
     id: 'direct-publish',
     argumentsKeywords: const <String, Object?>{'text': 'direct'},
     acknowledge: true,
-    directJson: true,
     headers: const <String, String>{'x-consumer-trace': 'direct-publish'},
   );
   _expect(
@@ -2715,10 +2710,9 @@ Future<void> _smokeWampHelpers(
     'direct JSON pub/sub publish helper failed',
   );
 
-  final directEvents = await client.pollWampEvents(
+  final directEvents = await client.pollWampEventsDirect(
     directSubscription.handle,
     id: 'direct-poll',
-    directJson: true,
     headers: const <String, String>{'x-consumer-trace': 'direct-poll'},
   );
   _expect(
@@ -2726,10 +2720,9 @@ Future<void> _smokeWampHelpers(
     'direct JSON pub/sub poll helper failed',
   );
 
-  await client.unsubscribeWampTopic(
+  await client.unsubscribeWampTopicDirect(
     directSubscription.handle,
     id: 'direct-unsubscribe',
-    directJson: true,
     headers: const <String, String>{'x-consumer-trace': 'direct-unsubscribe'},
   );
 
@@ -2812,9 +2805,8 @@ Future<void> _smokeWampHelpers(
 Future<void> _smokeDirectWampMetaHelpers(
   McpStreamableHttpClient client,
 ) async {
-  final sessions = await client.listWampSessions(
+  final sessions = await client.listWampSessionsDirect(
     id: 'direct-session-list',
-    directJson: true,
     headers: const <String, String>{'x-consumer-trace': 'direct-session-list'},
   );
   _expect(
@@ -2822,10 +2814,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP session list helper failed',
   );
 
-  final session = await client.getWampSession(
+  final session = await client.getWampSessionDirect(
     _wampSessionId,
     id: 'direct-session-get',
-    directJson: true,
     headers: const <String, String>{'x-consumer-trace': 'direct-session-get'},
   );
   final sessionDetails = _jsonMapFrom(
@@ -2837,9 +2828,8 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP session get helper failed',
   );
 
-  final registrations = await client.listWampRegistrations(
+  final registrations = await client.listWampRegistrationsDirect(
     id: 'direct-registration-list',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-registration-list',
     },
@@ -2849,11 +2839,10 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP registration list helper failed',
   );
 
-  final lookupRegistration = await client.lookupWampRegistration(
+  final lookupRegistration = await client.lookupWampRegistrationDirect(
     _procedureName,
     id: 'direct-registration-lookup',
     match: 'exact',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-registration-lookup',
     },
@@ -2863,10 +2852,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP registration lookup helper failed',
   );
 
-  final matchingRegistration = await client.matchWampRegistration(
+  final matchingRegistration = await client.matchWampRegistrationDirect(
     _procedureName,
     id: 'direct-registration-match',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-registration-match',
     },
@@ -2876,10 +2864,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP registration match helper failed',
   );
 
-  final registration = await client.getWampRegistration(
+  final registration = await client.getWampRegistrationDirect(
     _registrationId,
     id: 'direct-registration-get',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-registration-get',
     },
@@ -2889,10 +2876,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP registration get helper failed',
   );
 
-  final callees = await client.listWampRegistrationCallees(
+  final callees = await client.listWampRegistrationCalleesDirect(
     _registrationId,
     id: 'direct-registration-callees',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-registration-callees',
     },
@@ -2902,10 +2888,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP registration callee list helper failed',
   );
 
-  final calleeCount = await client.countWampRegistrationCallees(
+  final calleeCount = await client.countWampRegistrationCalleesDirect(
     _registrationId,
     id: 'direct-registration-callee-count',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-registration-callee-count',
     },
@@ -2915,9 +2900,8 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP registration callee count helper failed',
   );
 
-  final subscriptions = await client.listWampSubscriptions(
+  final subscriptions = await client.listWampSubscriptionsDirect(
     id: 'direct-subscription-list',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-subscription-list',
     },
@@ -2927,11 +2911,10 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP subscription list helper failed',
   );
 
-  final lookupSubscription = await client.lookupWampSubscription(
+  final lookupSubscription = await client.lookupWampSubscriptionDirect(
     _topic,
     id: 'direct-subscription-lookup',
     match: 'exact',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-subscription-lookup',
     },
@@ -2941,10 +2924,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP subscription lookup helper failed',
   );
 
-  final matchingSubscription = await client.matchWampSubscription(
+  final matchingSubscription = await client.matchWampSubscriptionDirect(
     _topic,
     id: 'direct-subscription-match',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-subscription-match',
     },
@@ -2954,10 +2936,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP subscription match helper failed',
   );
 
-  final subscription = await client.getWampSubscription(
+  final subscription = await client.getWampSubscriptionDirect(
     _subscriptionId,
     id: 'direct-subscription-get',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-subscription-get',
     },
@@ -2967,10 +2948,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP subscription get helper failed',
   );
 
-  final subscribers = await client.listWampSubscriptionSubscribers(
+  final subscribers = await client.listWampSubscriptionSubscribersDirect(
     _subscriptionId,
     id: 'direct-subscription-subscribers',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-subscription-subscribers',
     },
@@ -2980,10 +2960,9 @@ Future<void> _smokeDirectWampMetaHelpers(
     'direct JSON WAMP subscription subscriber list helper failed',
   );
 
-  final subscriberCount = await client.countWampSubscriptionSubscribers(
+  final subscriberCount = await client.countWampSubscriptionSubscribersDirect(
     _subscriptionId,
     id: 'direct-subscription-subscriber-count',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'direct-subscription-subscriber-count',
     },
@@ -10279,11 +10258,10 @@ Future<void> _smokeDirectJson(
     directJson: true,
   );
 
-  final subscription = await client.subscribeWampTopic(
+  final subscription = await client.subscribeWampTopicDirect(
     _topic,
     id: '$label-direct-subscribe',
     queueLimit: 4,
-    directJson: true,
   );
   try {
     await _smokeWampSubscriptionMeta(
@@ -10293,12 +10271,11 @@ Future<void> _smokeDirectJson(
       directJson: true,
     );
 
-    final publication = await client.publishWampEvent(
+    final publication = await client.publishWampEventDirect(
       _topic,
       id: '$label-direct-publish',
       argumentsKeywords: {'taskId': 'T-$label-direct-publish'},
       acknowledge: true,
-      directJson: true,
     );
     if (!publication.acknowledged) {
       throw StateError('Direct JSON MCP pub/sub publish was not acknowledged.');
@@ -10318,10 +10295,9 @@ Future<void> _smokeDirectJson(
       throw StateError('Direct JSON MCP pub/sub poll missed service event.');
     }
   } finally {
-    await client.unsubscribeWampTopic(
+    await client.unsubscribeWampTopicDirect(
       subscription.handle,
       id: '$label-direct-unsubscribe',
-      directJson: true,
     );
   }
   await _smokeMcpPubSubQueueOverflow(
@@ -13215,11 +13191,10 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
     directJson: true,
   );
 
-  final subscription = await client.subscribeWampTopic(
+  final subscription = await client.subscribeWampTopicDirect(
     _topic,
     id: '$label-direct-after-streamable-subscribe',
     queueLimit: 4,
-    directJson: true,
   );
   try {
     await _smokeWampSubscriptionMeta(
@@ -13248,10 +13223,9 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
       );
     }
   } finally {
-    await client.unsubscribeWampTopic(
+    await client.unsubscribeWampTopicDirect(
       subscription.handle,
       id: '$label-direct-after-streamable-unsubscribe',
-      directJson: true,
     );
   }
 
@@ -15758,13 +15732,20 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
 ) async {
   final deadline = DateTime.now().add(const Duration(seconds: 5));
   while (DateTime.now().isBefore(deadline)) {
-    final events = await client.pollWampEvents(
-      subscriptionHandle,
-      id: 'streamable-poll-${DateTime.now().microsecondsSinceEpoch}',
-      limit: 4,
-      directJson: directJson,
-      headers: headers,
-    );
+    final eventId = 'streamable-poll-${DateTime.now().microsecondsSinceEpoch}';
+    final events = directJson
+        ? await client.pollWampEventsDirect(
+            subscriptionHandle,
+            id: eventId,
+            limit: 4,
+            headers: headers,
+          )
+        : await client.pollWampEvents(
+            subscriptionHandle,
+            id: eventId,
+            limit: 4,
+            headers: headers,
+          );
     if (events.events.isNotEmpty) {
       return events;
     }
@@ -15784,15 +15765,23 @@ Future<void> _smokeMcpPubSubQueueOverflow(
   final suffix = directJson ? 'direct' : 'streamable';
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
-  final subscription = await client.subscribeWampTopic(
-    _topic,
-    id: '$label-$suffix-overflow-subscribe',
-    queueLimit: 1,
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$suffix-overflow-subscribe',
-    },
-  );
+  final subscription = directJson
+      ? await client.subscribeWampTopicDirect(
+          _topic,
+          id: '$label-$suffix-overflow-subscribe',
+          queueLimit: 1,
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$suffix-overflow-subscribe',
+          },
+        )
+      : await client.subscribeWampTopic(
+          _topic,
+          id: '$label-$suffix-overflow-subscribe',
+          queueLimit: 1,
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$suffix-overflow-subscribe',
+          },
+        );
   try {
     final taskIds = [
       'T-$label-$suffix-overflow-first',
@@ -15829,14 +15818,23 @@ Future<void> _smokeMcpPubSubQueueOverflow(
       );
     }
   } finally {
-    await client.unsubscribeWampTopic(
-      subscription.handle,
-      id: '$label-$suffix-overflow-unsubscribe',
-      directJson: directJson,
-      headers: <String, String>{
-        'x-consumer-trace': '$label-$suffix-overflow-unsubscribe',
-      },
-    );
+    if (directJson) {
+      await client.unsubscribeWampTopicDirect(
+        subscription.handle,
+        id: '$label-$suffix-overflow-unsubscribe',
+        headers: <String, String>{
+          'x-consumer-trace': '$label-$suffix-overflow-unsubscribe',
+        },
+      );
+    } else {
+      await client.unsubscribeWampTopic(
+        subscription.handle,
+        id: '$label-$suffix-overflow-unsubscribe',
+        headers: <String, String>{
+          'x-consumer-trace': '$label-$suffix-overflow-unsubscribe',
+        },
+      );
+    }
   }
 
   if (directJson) {

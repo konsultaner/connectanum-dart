@@ -442,6 +442,295 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     );
     return McpStreamableWampUnsubscribeResult.fromJson(structuredContent);
   }
+
+  Future<McpJsonMap> listWampApiDirect({
+    Object? id,
+    String? kind,
+    String? tag,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listWampApi(
+      id: id,
+      kind: kind,
+      tag: tag,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpJsonMap> describeWampApiDirect(
+    String uri, {
+    Object? id,
+    String? kind,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return describeWampApi(
+      uri,
+      id: id,
+      kind: kind,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> callWampMetaProcedureDirect(
+    String procedure, {
+    Object? id,
+    List<Object?>? arguments,
+    McpJsonMap? argumentsKeywords,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return callWampMetaProcedure(
+      procedure,
+      id: id,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> countWampSessionsDirect({
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return countWampSessions(id: id, directJson: true, headers: headers);
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampSessionsDirect({
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listWampSessions(id: id, directJson: true, headers: headers);
+  }
+
+  Future<McpStreamableWampMetaCallResult> getWampSessionDirect(
+    int sessionId, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return getWampSession(
+      sessionId,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampRegistrationsDirect({
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listWampRegistrations(id: id, directJson: true, headers: headers);
+  }
+
+  Future<McpStreamableWampMetaCallResult> lookupWampRegistrationDirect(
+    String procedure, {
+    Object? id,
+    String? match,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return lookupWampRegistration(
+      procedure,
+      id: id,
+      match: match,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> matchWampRegistrationDirect(
+    String procedure, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return matchWampRegistration(
+      procedure,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> getWampRegistrationDirect(
+    int registrationId, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return getWampRegistration(
+      registrationId,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampRegistrationCalleesDirect(
+    int registrationId, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listWampRegistrationCallees(
+      registrationId,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> countWampRegistrationCalleesDirect(
+    int registrationId, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return countWampRegistrationCallees(
+      registrationId,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampSubscriptionsDirect({
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listWampSubscriptions(id: id, directJson: true, headers: headers);
+  }
+
+  Future<McpStreamableWampMetaCallResult> lookupWampSubscriptionDirect(
+    String topic, {
+    Object? id,
+    String? match,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return lookupWampSubscription(
+      topic,
+      id: id,
+      match: match,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> matchWampSubscriptionDirect(
+    String topic, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return matchWampSubscription(
+      topic,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> getWampSubscriptionDirect(
+    int subscriptionId, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return getWampSubscription(
+      subscriptionId,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult> listWampSubscriptionSubscribersDirect(
+    int subscriptionId, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listWampSubscriptionSubscribers(
+      subscriptionId,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampMetaCallResult>
+  countWampSubscriptionSubscribersDirect(
+    int subscriptionId, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return countWampSubscriptionSubscribers(
+      subscriptionId,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampPublicationResult> publishWampEventDirect(
+    String topic, {
+    Object? id,
+    List<Object?>? arguments,
+    McpJsonMap? argumentsKeywords,
+    bool? acknowledge,
+    McpJsonMap? options,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return publishWampEvent(
+      topic,
+      id: id,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+      acknowledge: acknowledge,
+      options: options,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampSubscriptionResult> subscribeWampTopicDirect(
+    String topic, {
+    Object? id,
+    int? queueLimit,
+    McpJsonMap? options,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return subscribeWampTopic(
+      topic,
+      id: id,
+      queueLimit: queueLimit,
+      options: options,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampEventBatch> pollWampEventsDirect(
+    String handle, {
+    Object? id,
+    int? limit,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return pollWampEvents(
+      handle,
+      id: id,
+      limit: limit,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamableWampUnsubscribeResult> unsubscribeWampTopicDirect(
+    String handle, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return unsubscribeWampTopic(
+      handle,
+      id: id,
+      directJson: true,
+      headers: headers,
+    );
+  }
 }
 
 final class McpStreamableWampMetaCallResult {
