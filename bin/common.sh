@@ -842,13 +842,12 @@ Future<void> main() async {
       'tools/list cursor page failed',
     );
 
-    final toolResult = await client.callTool(
+    final toolResult = await client.callToolDirect(
       _toolName,
-      id: 'call-json',
+      id: 'direct-call',
       arguments: const <String, Object?>{'text': 'ready'},
-      streamable: false,
       headers: const <String, String>{
-        'x-consumer-trace': 'typed-tool-json',
+        'x-consumer-trace': 'direct-tool-call',
       },
     );
     final structuredContent = _jsonMapFrom(
@@ -861,7 +860,7 @@ Future<void> main() async {
       'tools/call returned an unexpected payload',
     );
 
-    final directTools = await client.listConnectanumToolsDirect(
+    final directTools = await client.listToolsDirect(
       id: 'direct-tools',
       headers: const <String, String>{
         'x-consumer-trace': 'direct-tools-list',
@@ -875,7 +874,7 @@ Future<void> main() async {
       directTools.nextCursor == _toolCursor,
       'direct JSON tools/list missed nextCursor',
     );
-    final directToolPage = await client.listConnectanumToolsDirect(
+    final directToolPage = await client.listToolsDirect(
       id: 'direct-tools-page-2',
       cursor: directTools.nextCursor,
       headers: const <String, String>{
@@ -3301,19 +3300,19 @@ final class _AgentMcpEndpoint {
         request.response.statusCode = HttpStatus.accepted;
         await request.response.close();
       case 'ping':
-        if (!_hasSession(request)) {
+        if (_isStreamableRequest(request) && !_hasSession(request)) {
           await _writeSessionError(request);
           return;
         }
         await _writeJson(request, _pingResponse(id));
       case 'tools/list':
-        if (!_hasSession(request)) {
+        if (_isStreamableRequest(request) && !_hasSession(request)) {
           await _writeSessionError(request);
           return;
         }
         await _writeJson(request, _toolListResponse(id, message));
       case 'tools/call':
-        if (!_hasSession(request)) {
+        if (_isStreamableRequest(request) && !_hasSession(request)) {
           await _writeSessionError(request);
           return;
         }
@@ -3442,7 +3441,7 @@ final class _AgentMcpEndpoint {
     if (id == null) {
       return null;
     }
-    if (_batchMethodRequiresSession(method) && !_hasSession(request)) {
+    if (_batchMethodRequiresSession(method, request) && !_hasSession(request)) {
       return _jsonRpcError(id, -32001, 'missing or unknown session');
     }
 
@@ -3480,11 +3479,12 @@ final class _AgentMcpEndpoint {
     }
   }
 
-  bool _batchMethodRequiresSession(String? method) {
-    return method == 'notifications/initialized' ||
-        method == 'ping' ||
-        method == 'tools/list' ||
-        method == 'tools/call';
+  bool _batchMethodRequiresSession(String? method, HttpRequest request) {
+    return _isStreamableRequest(request) &&
+        (method == 'notifications/initialized' ||
+            method == 'ping' ||
+            method == 'tools/list' ||
+            method == 'tools/call');
   }
 
   void _recordDirectRequest(
@@ -3493,12 +3493,14 @@ final class _AgentMcpEndpoint {
     Map<String, Object?> message,
   ) {
     if (method != null && request.headers.value('MCP-Session-Id') == null) {
+      sawDirectRequestWithoutSession = true;
       final trace = request.headers.value('x-consumer-trace');
       if (trace != null) {
         directTraceHeadersWithoutSession.add(trace);
       }
       directMethodsWithoutSession.add(method);
-      if (method == 'connectanum.tool.call' ||
+      if (method == 'tools/call' ||
+          method == 'connectanum.tool.call' ||
           method == 'connectanum.tools.call') {
         final params = message['params'];
         if (params is Map) {
@@ -3526,6 +3528,12 @@ final class _AgentMcpEndpoint {
   bool _hasSession(HttpRequest request) {
     return request.headers.value('MCP-Session-Id') == _sessionId &&
         _sessionActive;
+  }
+
+  bool _isStreamableRequest(HttpRequest request) {
+    return (request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
+      'text/event-stream',
+    );
   }
 
   Future<void> _writeSessionError(HttpRequest request) async {
@@ -4939,10 +4947,10 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
 }) async {
     await _expectSecureMcpUnauthorized(
       client,
-      label: 'direct JSON connectanum.tools.list',
+      label: 'direct JSON tools/list',
       acceptedMessage: acceptedMessage,
       operation: () async {
-        await client.listConnectanumToolsDirect(
+        await client.listToolsDirect(
           id: 'secure-unauthenticated-tools',
         );
       },
@@ -4952,10 +4960,7 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
       label: 'direct JSON ping',
       acceptedMessage: acceptedMessage,
       operation: () async {
-        await client.ping(
-          id: 'secure-unauthenticated-direct-ping',
-          directJson: true,
-        );
+        await client.pingDirect(id: 'secure-unauthenticated-direct-ping');
       },
     );
     await _expectSecureMcpUnauthorized(
@@ -5286,7 +5291,7 @@ Future<void> _smokeAllowedOriginMcpClient(
   McpStreamableHttpClient client, {
   required String label,
 }) async {
-  final directTools = await client.listConnectanumToolsDirect(
+  final directTools = await client.listToolsDirect(
     id: '$label-direct-tools',
   );
   if (directTools.tools.isEmpty) {
@@ -5323,7 +5328,7 @@ Future<void> _assertDisallowedOriginRejected(
   required String label,
 }) async {
   try {
-    await client.listConnectanumToolsDirect(id: '$label-disallowed-direct');
+    await client.listToolsDirect(id: '$label-disallowed-direct');
     throw StateError('MCP accepted a disallowed $label Origin.');
   } on McpStreamableHttpException catch (error) {
     if (error.statusCode != HttpStatus.forbidden) {
@@ -10329,7 +10334,7 @@ Future<List<String>> _expectPagedToolCatalog(
     }
     final pageLabel = '$label-$mode-tools-page-$pageCount';
     final page = directJson
-        ? await client.listConnectanumToolsDirect(
+        ? await client.listToolsDirect(
             id: pageLabel,
             cursor: cursor,
             headers: <String, String>{
@@ -13138,9 +13143,8 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
   }
   final eventId = client.lastEventId;
 
-  final ping = await client.ping(
+  final ping = await client.pingDirect(
     id: '$label-direct-after-streamable-ping',
-    directJson: true,
     headers: <String, String>{
       'x-consumer-trace': '$label-direct-after-streamable-ping',
     },

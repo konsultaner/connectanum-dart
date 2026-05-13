@@ -2,15 +2,15 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: working tree after `ac55e05`
-(`mcp: add direct resource prompt helpers`; direct WAMP helper wrappers
-implemented with full local verification clean; hosted evidence pending)
+Last reviewed branch checkpoint: working tree after `02449fa`
+(standard direct MCP helper/router direct tools slice complete with full local
+verification clean; hosted evidence pending)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-client-direct-wamp-helper-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-standard-direct-tool-helper-smoke.md`
 (complete; full local verification clean; hosted evidence pending).
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-client-direct-wamp-helper-smoke.md`
-(complete; full local verification clean; hosted evidence pending).
+(complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-client-direct-resource-prompt-helper-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).

@@ -940,6 +940,52 @@ void main() {
       final client = HttpClient();
       addTearDown(() => client.close(force: true));
 
+      final directTools = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-tools-list',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {'Mcp-Method': 'tools/list'},
+      );
+      expect(directTools.statusCode, equals(HttpStatus.ok));
+      expect(directTools.headers['mcp-session-id'], isNull);
+      final directToolList =
+          ((directTools.json?['result'] as Map<String, Object?>)['tools']
+                  as List)
+              .cast<Map>();
+      expect(directToolList.map((tool) => tool['name']), contains('app.echo'));
+
+      final directToolCall = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-tools-call',
+          'method': 'tools/call',
+          'params': {
+            'name': 'app.echo',
+            'arguments': {'message': 'direct-standard'},
+          },
+        },
+        headers: {
+          'Mcp-Method': 'tools/call',
+          'Mcp-Name': 'app.echo',
+          'Mcp-Parameter-Message': 'direct-standard',
+        },
+      );
+      expect(directToolCall.statusCode, equals(HttpStatus.ok));
+      expect(directToolCall.headers['mcp-session-id'], isNull);
+      expect(
+        jsonEncode(directToolCall.json?['result']),
+        contains('direct-standard'),
+      );
+
       final directResources = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
         'id': 'direct-resources-list',

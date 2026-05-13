@@ -1637,6 +1637,8 @@ class _RouterMcpEndpoint {
 
   bool _isDirectJsonMethod(String method) {
     return method == 'ping' ||
+        method == 'tools/list' ||
+        method == 'tools/call' ||
         method == 'connectanum.tools.list' ||
         method == 'connectanum.tool.call' ||
         method == 'connectanum.tools.call' ||
@@ -1655,11 +1657,13 @@ class _RouterMcpEndpoint {
     switch (method) {
       case 'ping':
         return <String, Object?>{};
+      case 'tools/list':
       case 'connectanum.tools.list':
-        return _listDirectJsonTools(params);
+        return _listDirectJsonTools(method, params);
+      case 'tools/call':
       case 'connectanum.tool.call':
       case 'connectanum.tools.call':
-        return _callDirectJsonTool(params);
+        return _callDirectJsonTool(method, params);
       case 'resources/list':
         return _listDirectJsonResources(params);
       case 'resources/read':
@@ -1682,12 +1686,12 @@ class _RouterMcpEndpoint {
     }
   }
 
-  mcp.JsonMap _listDirectJsonTools(mcp.JsonMap params) {
+  mcp.JsonMap _listDirectJsonTools(String method, mcp.JsonMap params) {
     final cursor = params['cursor'];
     if (cursor != null && cursor is! String) {
       throw mcp.McpException(
         mcp.McpErrorCodes.invalidParams,
-        'connectanum.tools.list.params.cursor must be a string',
+        '$method.params.cursor must be a string',
       );
     }
     final page = server.tools.listPage(cursor: cursor as String?);
@@ -1701,17 +1705,20 @@ class _RouterMcpEndpoint {
     return result;
   }
 
-  Future<mcp.JsonMap> _callDirectJsonTool(mcp.JsonMap params) async {
+  Future<mcp.JsonMap> _callDirectJsonTool(
+    String method,
+    mcp.JsonMap params,
+  ) async {
     final name = params['name'];
     if (name is! String) {
       throw mcp.McpException(
         mcp.McpErrorCodes.invalidParams,
-        'connectanum.tool.call.params.name must be a string',
+        '$method.params.name must be a string',
       );
     }
     final arguments = mcp.jsonMapFrom(
       params['arguments'],
-      label: 'connectanum.tool.call.params.arguments',
+      label: '$method.params.arguments',
     );
     return _callDirectJsonToolByName(name, arguments);
   }

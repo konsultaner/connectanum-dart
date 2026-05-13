@@ -66,9 +66,8 @@ void main() {
         );
         expect(jsonTools['id'], 'tools-json');
 
-        final ping = await client.ping(
+        final ping = await client.pingDirect(
           id: 'ping-json',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'ping-json-helper',
           },
@@ -439,6 +438,58 @@ void main() {
       expect(endpoint.requests[4].mcpParameterHeaders, isEmpty);
     });
 
+    test('uses standard direct JSON helpers without MCP lifecycle', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      final ping = await client.pingDirect(
+        id: 'direct-ping',
+        headers: const <String, String>{'x-consumer-trace': 'direct-ping'},
+      );
+      expect(ping, isEmpty);
+
+      final page = await client.listToolsDirect(
+        id: 'direct-tools',
+        headers: const <String, String>{
+          'x-consumer-trace': 'direct-tools-list',
+        },
+      );
+      expect(page.nextCursor, isNull);
+      expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
+
+      final result = await client.callToolDirect(
+        'app.echo',
+        id: 'direct-call',
+        arguments: const <String, Object?>{'message': 'direct'},
+        headers: const <String, String>{'x-consumer-trace': 'direct-tool-call'},
+      );
+      expect(result['isError'], isFalse);
+      expect(result['structuredContent'], {
+        'echo': {'message': 'direct'},
+      });
+
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+      expect(endpoint.requests, hasLength(3));
+      for (final request in endpoint.requests) {
+        expect(request.accept, 'application/json');
+        expect(request.sessionId, isNull);
+      }
+      expect(endpoint.requests[0].mcpMethod, 'ping');
+      expect(endpoint.requests[0].consumerTrace, 'direct-ping');
+      expect(endpoint.requests[1].mcpMethod, 'tools/list');
+      expect(endpoint.requests[1].consumerTrace, 'direct-tools-list');
+      expect(endpoint.requests[2].mcpMethod, 'tools/call');
+      expect(endpoint.requests[2].mcpName, 'app.echo');
+      expect(endpoint.requests[2].consumerTrace, 'direct-tool-call');
+      expect(endpoint.requests[2].mcpParameterHeaders, {
+        'mcp-param-message': 'direct',
+      });
+    });
+
     test(
       'uses Connectanum direct JSON helpers without MCP lifecycle',
       () async {
@@ -568,9 +619,7 @@ void main() {
         final client = McpStreamableHttpClient(endpoint.uri);
         addTearDown(() => client.close(force: true));
 
-        final page = await client.listConnectanumToolsDirect(
-          id: 'direct-catalog',
-        );
+        final page = await client.listToolsDirect(id: 'direct-catalog');
         expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
 
         await client.initialize();
@@ -598,7 +647,7 @@ void main() {
           },
         });
 
-        expect(endpoint.requests[0].mcpMethod, 'connectanum.tools.list');
+        expect(endpoint.requests[0].mcpMethod, 'tools/list');
         expect(endpoint.requests[0].accept, 'application/json');
         expect(endpoint.requests[1].mcpMethod, 'initialize');
         expect(endpoint.requests[2].mcpMethod, 'notifications/initialized');

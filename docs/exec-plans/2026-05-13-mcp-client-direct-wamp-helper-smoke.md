@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Direct WAMP Helper Smoke
 
-Status: complete; full local verification clean; hosted evidence pending
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-05-13
@@ -53,6 +53,22 @@ resource, and prompt helper paths.
 - `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap >/tmp/connectanum-dart-workspace-bootstrap.log; run_mcp_consumer_package_smoke'`
   passed on 2026-05-13.
 - Full local `bin/verify` passed on 2026-05-13.
+- Commit `02449fa` (`mcp: add direct wamp helper wrappers`) was pushed to
+  both configured remotes.
+- GitHub `CI` run `25778272810` completed successfully for `02449fa` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `WAMP Profile Benchmarks` run `25778272808` completed successfully
+  for `02449fa`.
+- GitHub `Dart Package Publish Dry Run` run `25778272819` completed
+  successfully and covers the checked-out head.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI, clean hosted CI logs, and a clean relevant Dart
+  package publish dry-run.
+- Strict deployment-chain audit still fails only known operator-side
+  release-hardening gaps: branch protection/required checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and `ghcr.io/konsultaner/connectanum-router`
+  is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -66,5 +82,7 @@ resource, and prompt helper paths.
 
 ## Handoff
 
-Implementation, focused local checks, generated consumer-package smoke, and
-full local verification are complete. Hosted evidence is pending.
+Implementation is pushed. Focused local checks, generated consumer-package
+smoke, full local verification, hosted CI, WAMP benchmark workflow, package
+publish dry-run, hosted CI log scan, and the non-strict deployment-chain audit
+are clean for `02449fa`.

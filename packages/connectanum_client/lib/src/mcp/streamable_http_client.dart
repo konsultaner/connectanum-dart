@@ -206,6 +206,14 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: 'ping');
   }
 
+  Future<McpJsonMap> pingDirect({
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final response = await requestDirect('ping', id: id, headers: headers);
+    return _jsonRpcResultFrom(response, method: 'ping');
+  }
+
   Future<McpStreamableToolListPage> listTools({
     Object? id,
     String? cursor,
@@ -234,6 +242,33 @@ final class McpStreamableHttpClient {
     );
   }
 
+  Future<McpStreamableToolListPage> listToolsDirect({
+    Object? id,
+    String? cursor,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    const method = 'tools/list';
+    final response = await requestDirect(
+      method,
+      id: id,
+      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      headers: headers,
+    );
+    final result = _jsonRpcResultFrom(response, method: method);
+    final tools = _rememberToolHeaderParameters(
+      _jsonMapListFrom(
+        result,
+        key: 'tools',
+        method: method,
+        label: '$method result tool',
+      ),
+    );
+    return McpStreamableToolListPage(
+      tools: tools,
+      nextCursor: _nextCursorFrom(result, method: method),
+    );
+  }
+
   Future<McpJsonMap> callTool(
     String name, {
     Object? id,
@@ -250,6 +285,25 @@ final class McpStreamableHttpClient {
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: streamable,
+      headers: requestHeaders,
+    );
+    return _jsonRpcResultFrom(response, method: 'tools/call');
+  }
+
+  Future<McpJsonMap> callToolDirect(
+    String name, {
+    Object? id,
+    McpJsonMap arguments = const <String, Object?>{},
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final parameterHeaders = _mcpToolParameterHeaders(name, arguments);
+    final requestHeaders = parameterHeaders.isEmpty
+        ? headers
+        : <String, String>{...headers, ...parameterHeaders};
+    final response = await requestDirect(
+      'tools/call',
+      id: id,
+      params: <String, Object?>{'name': name, 'arguments': arguments},
       headers: requestHeaders,
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');

@@ -59,6 +59,70 @@ void main() {
     },
   );
 
+  test('IO entrypoint re-exports standard direct MCP helpers', () async {
+    final endpoint = await _DirectWampEndpoint.bind();
+    addTearDown(endpoint.close);
+
+    final client = McpStreamableHttpClient(endpoint.uri);
+    addTearDown(() => client.close(force: true));
+
+    final ping = await client.pingDirect(
+      id: 'io-direct-ping',
+      headers: const <String, String>{'x-consumer-trace': 'io-direct-ping'},
+    );
+    expect(ping, isEmpty);
+
+    final tools = await client.listToolsDirect(
+      id: 'io-direct-tools',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-direct-tools-list',
+      },
+    );
+    expect(tools.nextCursor, isNull);
+    expect(tools.tools.map((tool) => tool['name']), contains('app.echo'));
+
+    final toolResult = await client.callToolDirect(
+      'app.echo',
+      id: 'io-direct-tool-call',
+      arguments: const <String, Object?>{'message': 'tool'},
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-direct-tool-call',
+      },
+    );
+    expect(toolResult['isError'], isFalse);
+    expect(toolResult['structuredContent'], {
+      'echo': {'message': 'tool'},
+    });
+
+    expect(client.sessionId, isNull);
+    expect(endpoint.requests, hasLength(3));
+    for (final request in endpoint.requests) {
+      expect(request.accept, 'application/json');
+      expect(request.sessionId, isNull);
+    }
+    expect(endpoint.requests.map((request) => request.body['method']), [
+      'ping',
+      'tools/list',
+      'tools/call',
+    ]);
+    expect(endpoint.requests[0].consumerTrace, 'io-direct-ping');
+    expect(endpoint.requests[1].consumerTrace, 'io-direct-tools-list');
+    expect(endpoint.requests[2].consumerTrace, 'io-direct-tool-call');
+
+    final toolCallParams = _jsonMapFrom(
+      endpoint.requests[2].body['params'],
+      label: 'standard direct tool call params',
+    );
+    expect(toolCallParams['name'], 'app.echo');
+    expect(
+      _jsonMapFrom(
+        toolCallParams['arguments'],
+        label: 'standard direct tool call arguments',
+      ),
+      {'message': 'tool'},
+    );
+  });
+
   test(
     'IO entrypoint re-exports direct Connectanum tool and meta helpers',
     () async {
@@ -1029,6 +1093,14 @@ final class _DirectWampEndpoint {
     }
 
     switch (jsonBody['method']) {
+      case 'ping':
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': jsonBody['id'],
+          'result': <String, Object?>{},
+        });
+        return;
+      case 'tools/list':
       case 'connectanum.tools.list':
         await _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
@@ -1047,6 +1119,18 @@ final class _DirectWampEndpoint {
               },
             ],
           },
+        });
+        return;
+      case 'tools/call':
+        final params = _jsonMapFrom(
+          jsonBody['params'],
+          label: 'standard tool params',
+        );
+        await _writeToolResult(jsonBody['id'], request, <String, Object?>{
+          'echo': _jsonMapFrom(
+            params['arguments'],
+            label: 'standard tool arguments',
+          ),
         });
         return;
       case 'connectanum.tool.call':
