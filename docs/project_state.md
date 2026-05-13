@@ -29,10 +29,12 @@ The Router Image workflow is being moved from Docker setup actions `v3` to
 runtime deprecation annotation from the old action major. GitHub's release
 metadata reports `docker/setup-qemu-action@v4.0.0` and
 `docker/setup-buildx-action@v4.0.0`; both `action.yml` files declare
-`runs.using: node24`. Local pre-change `bin/test-fast`, workflow YAML parsing,
-`git diff --check`, and `bin/verify` passed on 2026-05-13. Hosted CI, hosted
-Router Image dry-run, and the final deployment-chain audit are pending after
-push.
+`runs.using: node24`. After the first dry-run with `v4`, the workflow also
+suppresses Git's checkout-time `init.defaultBranch` hint so Router Image logs
+stay warning-clean. Local pre-change `bin/test-fast`, workflow YAML parsing,
+`git diff --check`, and `bin/verify` passed on 2026-05-13 before the checkout
+hint suppression. Hosted CI, hosted Router Image dry-run, and the final
+deployment-chain audit are pending after the follow-up workflow push.
 Previous implementation checkpoint:
 The deployment-chain audit now requires hosted Router Image dry-run evidence
 before accepting the router image deployment chain as RC-ready. Local

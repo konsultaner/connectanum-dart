@@ -21,6 +21,9 @@ Node.js runtime deprecation annotation emitted by Docker setup action `v3`.
   `docker/setup-qemu-action@v4` and `docker/setup-buildx-action@v4`.
 - GitHub release metadata reports `v4.0.0` as the latest release for both
   actions, and both `action.yml` files declare `runs.using: node24`.
+- The workflow also configures Git's default initial branch before checkout, so
+  the dry-run log does not include the checkout-time `git init` branch-name
+  warning hint.
 
 ## Verification
 
@@ -29,5 +32,7 @@ Node.js runtime deprecation annotation emitted by Docker setup action `v3`.
   passed.
 - `git diff --check` passed.
 - `bin/verify` passed on 2026-05-13.
-- Hosted CI, hosted Router Image dry-run, and final deployment-chain audit are
-  pending after push.
+- Hosted CI and Router Image dry-run passed once for the action-major upgrade,
+  but the dry-run log still contained Git's checkout-time branch-name warning
+  hint. Hosted CI, hosted Router Image dry-run, and final deployment-chain
+  audit are pending after the follow-up hint-suppression push.

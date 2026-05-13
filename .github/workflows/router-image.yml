@@ -31,6 +31,9 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      - name: Configure Git default branch hint
+        run: git config --global init.defaultBranch master
+
       - uses: actions/checkout@v5
 
       - name: Set up QEMU
