@@ -1,6 +1,6 @@
 # WAMP Profile Benchmark Audit Gate
 
-Status: in progress
+Status: complete
 
 ## Goal
 
@@ -43,8 +43,15 @@ notes.
 - `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 6 --require-clean-wamp-profile-benchmarks`
   passed against the latest committed head before this slice was committed.
 - `bin/verify` passed on 2026-05-13.
+- Hosted GitHub PR checks passed on `2d9c3f2`: Fast Checks and Full Verify in
+  CI runs #25829242364 and #25829293318, plus Dart Package Publish Dry Run
+  #25829293308.
+- Hosted WAMP Profile Benchmarks run #25829247215 passed on `2d9c3f2`; its
+  `Linux WAMP profile gates` job completed in 7m44s and uploaded a 31-file
+  artifact bundle.
+- `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 6 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run --require-clean-router-image-dry-run --require-clean-wamp-profile-benchmarks --require-router-package`
+  passed after hosted checks completed.
 
 ## Remaining
 
-- Commit, push, and watch GitHub CI plus a fresh WAMP Profile Benchmarks run
-  because this slice changes the benchmark workflow and audit gate.
+- No implementation work remains in this slice.

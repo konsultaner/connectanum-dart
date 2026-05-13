@@ -7,7 +7,8 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-13-wamp-profile-benchmark-audit-gate.md`.
+none; use `ROADMAP_NEXT.md` and `ROADMAP.md` to select the next
+implementation slice.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs an
@@ -24,18 +25,43 @@ integration exposes a real correctness bug. Pub.dev publishing remains deferred
 until package ownership, public versions, and release order for the private
 workspace packages are explicitly decided.
 Current implementation checkpoint:
-The deployment-chain audit is being extended so WAMP Profile Benchmarks are a
-first-class RC readiness gate instead of manual reviewer evidence. The audit now
-has `--show-wamp-profile-benchmarks` and
-`--require-clean-wamp-profile-benchmarks`, `--require-rc-ready` evaluates that
-gate, and the WAMP benchmark workflow now triggers on
+The deployment-chain audit output now separates audited-branch protection from
+the default release branch protection baseline. Candidate branch audits still
+report whether the PR branch is protected, but they also print the `master`
+release branch baseline and required checks before the workflow/hosted-gate
+sections, making RC audit evidence easier to read without changing branch
+protection settings or release policy. Focused `bash -n`, `git diff --check`,
+candidate-branch audit, and strict `master` audit checks passed on 2026-05-13.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-release-branch-protection-audit-clarity.md`
+(complete; candidate-branch audits now show the release/default branch
+protection baseline explicitly).
+
+Previous implementation checkpoint:
+The deployment-chain audit now treats WAMP Profile Benchmarks as a first-class
+RC readiness gate instead of manual reviewer evidence. Commit `2d9c3f2` added
+`--show-wamp-profile-benchmarks` and
+`--require-clean-wamp-profile-benchmarks`, made `--require-rc-ready` evaluate
+that gate, and expanded the WAMP benchmark workflow trigger to
 `packages/connectanum_core/**` changes because serializers and message behavior
-there affect WAMP benchmark validity. Pre-change `bin/test-fast` passed on
-2026-05-13; local shell syntax/help checks, workflow YAML parsing, and a
-show-only WAMP benchmark audit also passed. A focused strict WAMP benchmark
-audit passed against the previous committed head, and `bin/verify` passed on
-2026-05-13. Hosted CI and fresh hosted WAMP benchmark evidence are pending for
-this in-progress slice.
+there affect WAMP benchmark validity. Local `bin/test-fast`, shell syntax/help
+checks, workflow YAML parsing, focused WAMP benchmark audit checks, and
+`bin/verify` passed on 2026-05-13. Hosted PR checks passed on `2d9c3f2`: Fast
+Checks and Full Verify in CI runs #25829242364 and #25829293318, plus Dart
+Package Publish Dry Run #25829293308. Hosted WAMP Profile Benchmarks run
+#25829247215 also passed on `2d9c3f2` with `Linux WAMP profile gates`
+completing in 7m44s and uploading a 31-file artifact bundle. The strict
+deployment-chain audit passed with clean latest CI/logs, relevant Dart package
+dry-run, relevant Native Artifacts dry-run, relevant Router Image dry-run, the
+new WAMP benchmark gate, and router package visibility requirements enabled.
+These state updates are docs-only bookkeeping after commit `2d9c3f2` and should
+be bundled with the next code/config implementation commit rather than pushed
+alone.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-wamp-profile-benchmark-audit-gate.md` (complete;
+RC audit now requires clean, relevant hosted WAMP Profile Benchmarks evidence).
 
 Previous implementation checkpoint:
 The Router Image workflow now uses Docker setup action `v4` majors that declare

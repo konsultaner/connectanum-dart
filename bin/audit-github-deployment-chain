@@ -1697,7 +1697,7 @@ printf 'Allow auto-merge: %s\n' "$allow_auto_merge"
 printf 'Delete branch on merge: %s\n' "$delete_branch_on_merge"
 printf 'Repository rulesets: %s\n\n' "${ruleset_count:-unknown}"
 
-printf '## Branch Protection\n\n'
+printf '## Audited Branch Protection\n\n'
 
 if [[ -z "$branch_protected" ]]; then
   printf 'Branch exists/protection status: unknown\n'
@@ -1705,12 +1705,14 @@ if [[ -z "$branch_protected" ]]; then
   exit 1
 fi
 
+printf 'Audited branch: %s\n' "$branch"
 printf 'Protected: %s\n' "$branch_protected"
 
 missing_required_checks=0
 release_missing_required_checks=0
 release_branch_protected=""
 release_required_contexts=""
+release_status_strict=""
 missing_visible_workflow=0
 missing_router_package=0
 latest_ci_failed=0
@@ -1772,12 +1774,16 @@ if [[ "$branch_protected" == "true" ]]; then
 else
   printf 'Required status checks: none\n'
   printf 'Finding: branch is not protected.\n'
+  if [[ "$branch" != "$release_protection_branch" ]]; then
+    printf 'Note: audited branch is not the default release branch; RC readiness uses the release branch baseline below.\n'
+  fi
   missing_required_checks=1
 fi
 
 if [[ "$release_protection_branch" == "$branch" ]]; then
   release_branch_protected="$branch_protected"
   release_required_contexts="$required_contexts"
+  release_status_strict="${status_strict:-}"
   release_missing_required_checks="$missing_required_checks"
 else
   release_branch_protected="$(api_jq_optional "branches/${release_protection_branch}" '.protected')"
@@ -1787,6 +1793,11 @@ else
         "branches/${release_protection_branch}/protection" \
         '((.required_status_checks.contexts // []) + ((.required_status_checks.checks // []) | map(.context))) | unique | join(", ")'
     )"
+    release_status_strict="$(
+      api_jq_optional \
+        "branches/${release_protection_branch}/protection" \
+        '.required_status_checks.strict // false'
+    )"
     for expected_check in "${expected_ci_jobs[@]}"; do
       if [[ "$release_required_contexts" != *"$expected_check"* ]]; then
         release_missing_required_checks=1
@@ -1795,6 +1806,26 @@ else
   else
     release_missing_required_checks=1
   fi
+fi
+
+printf '\n## Release Branch Protection Baseline\n\n'
+printf 'Release protection branch: %s\n' "$release_protection_branch"
+if [[ -z "$release_branch_protected" ]]; then
+  printf 'Protected: unknown\n'
+  printf 'Finding: could not inspect release protection branch %s.\n' "$release_protection_branch"
+elif [[ "$release_branch_protected" == "true" ]]; then
+  printf 'Protected: true\n'
+  printf 'Required status checks: %s\n' "${release_required_contexts:-none}"
+  printf 'Require up-to-date branches: %s\n' "${release_status_strict:-unknown}"
+  if [[ "$release_missing_required_checks" -eq 0 ]]; then
+    printf 'Baseline: ready for release-critical checks.\n'
+  else
+    printf 'Finding: release branch is missing required release-critical checks.\n'
+  fi
+else
+  printf 'Protected: %s\n' "$release_branch_protected"
+  printf 'Required status checks: none\n'
+  printf 'Finding: release branch is not protected.\n'
 fi
 
 if [[ "$show_required_checks_plan" -eq 1 ]]; then
