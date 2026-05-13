@@ -1,8 +1,8 @@
 # Project State
 
 Last updated: 2026-05-13
-Current branch: GitHub `master` promoted from the router workspace
-(`codex/rc-master-promotion` local working branch tracks `github/master`).
+Current branch: `codex/post-rc-production-readiness` from GitHub `master`
+after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
@@ -21,6 +21,11 @@ Latest completed exec plan:
 promoted, required checks configured, hosted CI clean, native prerelease and
 router image published for `v0.1.0-rc.1`, final RC audit ready with pub.dev
 release-order intentionally deferred).
+Latest post-RC implementation checkpoint:
+HTTP route protocol mismatches now return `426 upgrade_required` before WAMP
+dispatch, including allowed protocol response metadata. Local `bin/test-fast`,
+focused router protocol restriction test, and `bin/verify` passed on
+2026-05-13 for this checkpoint.
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).

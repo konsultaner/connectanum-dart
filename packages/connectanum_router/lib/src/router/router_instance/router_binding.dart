@@ -1048,6 +1048,35 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    if (routeMatch.isProtocolNotAllowed) {
+      final headers = <String, String>{
+        'x-connectanum-allowed-protocols': routeMatch.allowedProtocols.join(
+          ', ',
+        ),
+      };
+      final upgradeHeader = _httpUpgradeHeaderForProtocols(
+        routeMatch.allowedProtocols,
+      );
+      if (upgradeHeader != null) {
+        headers[HttpHeaders.upgradeHeader] = upgradeHeader;
+      }
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.upgradeRequired,
+          headers: headers,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'upgrade_required',
+            'message': 'HTTP protocol is not allowed for this route',
+            'allowedProtocols': routeMatch.allowedProtocols,
+          }),
+        ),
+      );
+      retainedHandshake?.release();
+      return;
+    }
     if (routeMatch.isNotFound && listenerSettings?.http != null) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -1528,15 +1557,25 @@ class RouterBinding {
       return const _HttpRouteMatchResult.notFound();
     }
     final allowedMethods = <String>{};
+    final allowedProtocols = <String>{};
     for (final route in httpSettings.routes) {
       if (_httpRouteMatchesRequest(route, request)) {
         return _HttpRouteMatchResult.route(route);
+      }
+      if (_httpRouteMatchesRequest(route, request, ignoreProtocol: true)) {
+        allowedProtocols.addAll(
+          route.match.protocols.map((protocol) => protocol.trim()),
+        );
       }
       if (_httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
         allowedMethods.addAll(
           route.match.methods.map((method) => method.trim().toUpperCase()),
         );
       }
+    }
+    if (allowedProtocols.isNotEmpty) {
+      final normalized = allowedProtocols.toList(growable: false)..sort();
+      return _HttpRouteMatchResult.protocolNotAllowed(normalized);
     }
     if (allowedMethods.isNotEmpty) {
       final normalized = allowedMethods.toList(growable: false)..sort();
@@ -1549,6 +1588,7 @@ class RouterBinding {
     HttpRouteSettings route,
     RouterHttpRequest request, {
     bool ignoreMethod = false,
+    bool ignoreProtocol = false,
   }) {
     final match = route.match;
     if (match.path != null && match.path != request.path) {
@@ -1574,7 +1614,7 @@ class RouterBinding {
         return false;
       }
     }
-    if (match.protocols.isNotEmpty) {
+    if (!ignoreProtocol && match.protocols.isNotEmpty) {
       final requestProtocol = request.protocol.trim().toLowerCase();
       final allowedProtocols = match.protocols.map(
         (protocol) => protocol.trim().toLowerCase(),
@@ -1605,6 +1645,23 @@ class RouterBinding {
       }
     }
     return true;
+  }
+
+  String? _httpUpgradeHeaderForProtocols(List<String> protocols) {
+    final values = <String>{};
+    for (final protocol in protocols) {
+      final normalized = protocol.trim().toLowerCase();
+      if (normalized == 'http/2' || normalized == 'h2') {
+        values.add('h2');
+      } else if (normalized == 'http/3' || normalized == 'h3') {
+        values.add('h3');
+      }
+    }
+    if (values.isEmpty) {
+      return null;
+    }
+    final sorted = values.toList(growable: false)..sort();
+    return sorted.join(', ');
   }
 
   _HttpRouteTransportAuthFailure? _evaluateHttpRouteTransportAuth({
@@ -4353,7 +4410,11 @@ class _HttpRefreshTokenRecord {
 }
 
 class _HttpRouteMatchResult {
-  const _HttpRouteMatchResult._({this.route, this.allowedMethods = const []});
+  const _HttpRouteMatchResult._({
+    this.route,
+    this.allowedMethods = const [],
+    this.allowedProtocols = const [],
+  });
 
   const _HttpRouteMatchResult.route(HttpRouteSettings route)
     : this._(route: route);
@@ -4361,13 +4422,19 @@ class _HttpRouteMatchResult {
   const _HttpRouteMatchResult.methodNotAllowed(List<String> allowedMethods)
     : this._(allowedMethods: allowedMethods);
 
+  const _HttpRouteMatchResult.protocolNotAllowed(List<String> allowedProtocols)
+    : this._(allowedProtocols: allowedProtocols);
+
   const _HttpRouteMatchResult.notFound() : this._();
 
   final HttpRouteSettings? route;
   final List<String> allowedMethods;
+  final List<String> allowedProtocols;
 
   bool get isMethodNotAllowed => route == null && allowedMethods.isNotEmpty;
-  bool get isNotFound => route == null && allowedMethods.isEmpty;
+  bool get isProtocolNotAllowed => route == null && allowedProtocols.isNotEmpty;
+  bool get isNotFound =>
+      route == null && allowedMethods.isEmpty && allowedProtocols.isEmpty;
 }
 
 class _HttpRouteTransportAuthFailure {

@@ -3364,9 +3364,12 @@ void main() {
         () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
       );
       final response = runtime.httpResponses[connectionId]!.single;
-      expect(response.status, HttpStatus.notFound);
+      expect(response.status, HttpStatus.upgradeRequired);
+      expect(response.headers['x-connectanum-allowed-protocols'], 'http/2');
+      expect(response.headers[HttpHeaders.upgradeHeader], 'h2');
       final jsonBody = _jsonResponseBody(response);
-      expect(jsonBody['reason'], 'route_not_found');
+      expect(jsonBody['reason'], 'upgrade_required');
+      expect(jsonBody['allowedProtocols'], const ['http/2']);
       expect(
         events.any((event) => event['type'] == 'http_request_dispatched'),
         isFalse,
