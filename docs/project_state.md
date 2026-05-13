@@ -25,6 +25,20 @@ integration exposes a real correctness bug. Pub.dev publishing remains deferred
 until package ownership, public versions, and release order for the private
 workspace packages are explicitly decided.
 Current implementation checkpoint:
+The deployment-chain audit now treats an existing GitHub RC prerelease as stale
+when its tag is behind release-sensitive changes. `--show-rc-readiness` no
+longer prints `GitHub RC prerelease: ready` for the old `v0.1.0-rc.1`
+prerelease while the checked-out candidate has newer release-sensitive commits;
+instead it reports that the prerelease does not cover the checked-out
+candidate and points the operator to create or move the intended RC tag after
+release approval. Focused shell syntax, whitespace, and RC-readiness output
+checks passed on 2026-05-14, and `bin/verify` passed.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-stale-rc-prerelease-audit.md` (complete; stale RC
+prereleases are no longer reported as ready for newer release-sensitive heads).
+
+Previous implementation checkpoint:
 The deployment-chain audit output now separates audited-branch protection from
 the default release branch protection baseline. Candidate branch audits still
 report whether the PR branch is protected, but they also print the `master`
@@ -32,6 +46,14 @@ release branch baseline and required checks before the workflow/hosted-gate
 sections, making RC audit evidence easier to read without changing branch
 protection settings or release policy. Focused `bash -n`, `git diff --check`,
 candidate-branch audit, and strict `master` audit checks passed on 2026-05-13.
+Hosted PR checks passed on `e8365e8`: Fast Checks and Full Verify in CI runs
+#25830021890 and #25830023179, plus Dart Package Publish Dry Run
+#25830023207. The strict deployment-chain audit passed on `e8365e8` with clean
+latest CI/logs, relevant Dart package dry-run, relevant Native Artifacts
+dry-run, relevant Router Image dry-run, relevant WAMP Profile Benchmarks, and
+router package visibility requirements enabled. These latest evidence updates
+are docs-only bookkeeping after commit `e8365e8` and should be bundled with the
+next code/config implementation commit rather than pushed alone.
 
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-release-branch-protection-audit-clarity.md`

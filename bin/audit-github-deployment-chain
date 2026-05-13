@@ -1437,6 +1437,7 @@ print_rc_readiness() {
   local rc_tag_sha
   local rc_changed_paths
   local selected_rc_tag=""
+  local selected_rc_tag_covers_head=0
   local selected_rc_release_state=""
   local strict_dart_output
 
@@ -1565,6 +1566,7 @@ print_rc_readiness() {
         rc_ready_failed=1
       elif [[ "$rc_tag_sha" == "$(git rev-parse HEAD)" ]]; then
         printf 'RC tag on checked-out head: ready via requested tag %s at %s.\n' "$requested_rc_tag" "${rc_tag_sha:0:7}"
+        selected_rc_tag_covers_head=1
       elif ! rc_changed_paths="$(rc_readiness_sensitive_changes_since "$rc_tag_sha")"; then
         printf 'RC tag on checked-out head: not ready; failed to compare requested tag %s with %s.\n' "$requested_rc_tag" "$short_head_sha"
         rc_ready_failed=1
@@ -1577,6 +1579,7 @@ print_rc_readiness() {
         rc_ready_failed=1
       else
         printf 'RC tag on checked-out head: ready via requested tag %s at %s; only audit/project-state bookkeeping changed after the tag.\n' "$requested_rc_tag" "${rc_tag_sha:0:7}"
+        selected_rc_tag_covers_head=1
       fi
     fi
   else
@@ -1605,10 +1608,12 @@ print_rc_readiness() {
           rc_ready_failed=1
         else
           printf 'RC tag on checked-out head: ready via %s at %s; only audit/project-state bookkeeping changed after the tag.\n' "$selected_rc_tag" "${rc_tag_sha:0:7}"
+          selected_rc_tag_covers_head=1
         fi
       fi
     else
       printf 'RC tag on checked-out head: ready\n'
+      selected_rc_tag_covers_head=1
       while IFS= read -r rc_tag; do
         [[ -n "$rc_tag" ]] || continue
         printf -- '- %s\n' "$rc_tag"
@@ -1628,8 +1633,12 @@ print_rc_readiness() {
         2>/dev/null
     )"; then
       IFS=$'\t' read -r release_tag release_prerelease release_draft <<<"$selected_rc_release_state"
-      if [[ "$release_prerelease" == "true" && "$release_draft" != "true" ]]; then
+      if [[ "$release_prerelease" == "true" && "$release_draft" != "true" && "$selected_rc_tag_covers_head" -eq 1 ]]; then
         printf 'GitHub RC prerelease: ready (%s)\n' "$release_tag"
+      elif [[ "$release_prerelease" == "true" && "$release_draft" != "true" ]]; then
+        printf 'GitHub RC prerelease: not ready; %s exists but its tag does not cover the checked-out release-sensitive candidate.\n' "$release_tag"
+        printf '  Next action: after release approval, move or create the intended RC tag at %s and create or update the non-draft GitHub prerelease.\n' "$short_head_sha"
+        rc_ready_failed=1
       else
         printf 'GitHub RC prerelease: not ready; %s isPrerelease=%s isDraft=%s.\n' "$release_tag" "$release_prerelease" "$release_draft"
         rc_ready_failed=1

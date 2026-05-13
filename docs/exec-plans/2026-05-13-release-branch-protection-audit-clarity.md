@@ -32,6 +32,13 @@ protection from the release/default-branch protection baseline.
 - `bin/audit-github-deployment-chain --branch master --run-limit 1 --strict`
   prints the same release branch baseline and passes strict required-check
   validation.
+- Hosted PR checks passed on `e8365e8`: Fast Checks and Full Verify in CI runs
+  #25830021890 and #25830023179, plus Dart Package Publish Dry Run
+  #25830023207.
+- The strict deployment-chain audit passed on `e8365e8` with clean latest
+  CI/logs, relevant Dart package dry-run, relevant Native Artifacts dry-run,
+  relevant Router Image dry-run, relevant WAMP Profile Benchmarks, and router
+  package visibility requirements enabled.
 
 ## Remaining
 
