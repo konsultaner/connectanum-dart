@@ -6,19 +6,27 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan: none. Use `ROADMAP_NEXT.md` and `ROADMAP.md` to select the
-next milestone.
+Active exec plan:
+`docs/exec-plans/2026-05-13-router-image-dry-run-audit.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs an
-operator-approved RC tag and matching native/router release evidence. MCP is
-RC-ready for the first candidate: router-hosted endpoints, auth/session
+operator-approved RC tag and matching native/router release evidence. The
+deployment-chain audit is being tightened so RC readiness requires a hosted
+Router Image dry-run before accepting a router image publish. MCP is RC-ready
+for the first candidate: router-hosted endpoints, auth/session
 correctness, direct JSON/meta API, WAMP pub/sub coverage, resources/prompts,
 Streamable HTTP compatibility, and consumer-package smoke coverage are in
 place. Further MCP helper permutations are post-RC polish unless consumer
 integration exposes a real correctness bug. Pub.dev publishing remains deferred
 until package ownership, public versions, and release order for the private
 workspace packages are explicitly decided.
+Current implementation checkpoint:
+The deployment-chain audit now has an in-progress Router Image dry-run gate for
+the first-class RC path. Local `bin/test-fast`, audit syntax/help checks, and a
+show-only branch audit passed on 2026-05-13; `bin/verify` also passed. Hosted
+Router Image dry-run evidence and the final branch audit remain pending for
+this slice.
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-explicit-rc-tag-audit.md` (complete; deployment
 audit can evaluate a requested RC tag and matching router image manifest).
@@ -29,7 +37,16 @@ tag is at `HEAD`, behind release-sensitive changes, missing locally, or not an
 RC-shaped tag, and router image visibility fallback now checks the requested
 candidate tag instead of older reachable RC evidence. Local `bin/test-fast`,
 audit syntax/help checks, focused stale-tag and temporary-head-tag audit checks,
-and `bin/verify` passed on 2026-05-13 for this checkpoint.
+and `bin/verify` passed on 2026-05-13 for this checkpoint. Hosted GitHub CI
+#25818605350 passed on `codex/post-rc-production-readiness` at `3e44f09`, and
+the branch audit with clean latest CI/log requirements plus router package
+visibility passed while detecting the router image through the public GHCR
+registry manifest. Native Artifacts dry-run #25819608906 also passed on
+`codex/post-rc-production-readiness` at `3e44f09` for requested preview tag
+`v0.1.0-rc.2`: all five `ct_ffi` platform artifact jobs and the release
+preview job passed, the audit confirmed no GitHub Release was created for that
+tag, `native-release-preview` was uploaded, and the native-release evidence
+covers the checked-out head.
 Previous completed exec plan:
 `docs/exec-plans/2026-05-13-native-release-router-image-tags.md` (complete;
 native GitHub Release notes now list concrete router image tags for `v*`

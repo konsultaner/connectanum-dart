@@ -47,6 +47,15 @@ Options:
                              uploaded the preview artifact, avoided release
                              mutation, and still covers the checked-out native
                              release inputs.
+  --show-router-image-dry-run
+                             Print the latest dedicated router image dry-run
+                             workflow evidence.
+  --require-clean-router-image-dry-run
+                             Exit non-zero unless the latest relevant Router
+                             Image dry-run workflow completed successfully,
+                             uploaded the preview artifact, avoided GHCR
+                             mutation, and still covers the checked-out router
+                             image inputs.
   --require-router-package   Exit non-zero unless the GHCR router package is
                              visible through the GitHub Packages API or a
                              public registry manifest for the RC tag.
@@ -63,7 +72,8 @@ Options:
                              has release-candidate evidence: clean hosted CI
                              and logs, hosted Dart package publish dry-run
                              evidence, hosted native release dry-run or
-                             prerelease publish evidence, baseline
+                             prerelease publish evidence, hosted router image
+                             dry-run evidence, baseline
                              default-branch protection, visible workflows,
                              visible router package, an RC GitHub prerelease,
                              and either strict Dart package dry-run readiness
@@ -91,6 +101,8 @@ require_clean_dart_package_publish_dry_run=0
 check_native_release_dry_run=0
 require_clean_native_release_dry_run=0
 accept_native_prerelease_evidence=0
+check_router_image_dry_run=0
+require_clean_router_image_dry_run=0
 require_router_package=0
 require_workflows_visible=0
 show_required_checks_plan=0
@@ -109,6 +121,8 @@ expected_native_release_jobs=(
   'Publish GitHub Release'
 )
 expected_native_release_asset_count=30
+router_image_workflow='Router Image'
+expected_router_image_jobs=('Publish Router Image')
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
 
 while [[ $# -gt 0 ]]; do
@@ -195,6 +209,15 @@ while [[ $# -gt 0 ]]; do
       require_clean_native_release_dry_run=1
       shift
       ;;
+    --show-router-image-dry-run)
+      check_router_image_dry_run=1
+      shift
+      ;;
+    --require-clean-router-image-dry-run)
+      check_router_image_dry_run=1
+      require_clean_router_image_dry_run=1
+      shift
+      ;;
     --require-router-package)
       require_router_package=1
       shift
@@ -214,6 +237,7 @@ while [[ $# -gt 0 ]]; do
       scan_latest_ci_logs=1
       check_dart_package_publish_dry_run=1
       check_native_release_dry_run=1
+      check_router_image_dry_run=1
       accept_native_prerelease_evidence=1
       shift
       ;;
@@ -225,6 +249,8 @@ while [[ $# -gt 0 ]]; do
       scan_latest_ci_logs=1
       check_dart_package_publish_dry_run=1
       check_native_release_dry_run=1
+      check_router_image_dry_run=1
+      require_clean_router_image_dry_run=1
       accept_native_prerelease_evidence=1
       shift
       ;;
@@ -318,6 +344,19 @@ is_expected_native_release_job() {
   local expected_job
 
   for expected_job in "${expected_native_release_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+is_expected_router_image_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_router_image_jobs[@]}"; do
     if [[ "$candidate" == "$expected_job" ]]; then
       return 0
     fi
@@ -517,6 +556,10 @@ latest_native_release_dry_run_id() {
   latest_workflow_run_id "$native_release_workflow"
 }
 
+latest_router_image_dry_run_id() {
+  latest_workflow_run_id "$router_image_workflow"
+}
+
 dart_package_publish_sensitive_changes_since() {
   local base="$1"
   local path
@@ -555,6 +598,28 @@ native_release_sensitive_changes_since() {
       tool/test_render_native_release_notes.py|\
       tool/validate_native_release_intent.py|\
       tool/test_validate_native_release_intent.py)
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+router_image_sensitive_changes_since() {
+  local base="$1"
+  local path
+
+  git diff --name-only "${base}..HEAD" | while IFS= read -r path; do
+    case "$path" in
+      .github/workflows/router-image.yml|\
+      deploy/docker/*|\
+      deploy/docker/**|\
+      native/transport/*|\
+      native/transport/**|\
+      packages/*|\
+      packages/*/**|\
+      pubspec.yaml|\
+      tool/render_router_image_metadata.py|\
+      tool/test_render_router_image_metadata.py)
         printf '%s\n' "$path"
         ;;
     esac
@@ -910,6 +975,181 @@ print_native_release_dry_run_gate() {
   return "$failed"
 }
 
+print_router_image_dry_run_gate() {
+  local run_id
+  local run_summary
+  local run_state
+  local run_status
+  local run_conclusion
+  local run_head_sha
+  local run_event
+  local current_head_sha
+  local run_jobs
+  local job_name
+  local job_status
+  local job_conclusion
+  local expected_job
+  local changed_paths
+  local log_file
+  local preview_dir
+  local metadata_file=""
+  local preview_tags=""
+  local failed=0
+
+  run_id="$(latest_router_image_dry_run_id)"
+
+  if [[ -z "$run_id" ]]; then
+    printf 'Finding: no Router Image workflow run found for branch %s.\n' "$branch"
+    return 1
+  fi
+
+  run_summary="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,url,displayTitle,event \
+      --jq '"Run: Router Image #'"$run_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nTitle: \(.displayTitle)\nEvent: \(.event)\nURL: \(.url)"'
+  )"
+  printf '%s\n' "$run_summary"
+
+  run_state="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,event \
+      --jq '[.status, (.conclusion // "pending"), .headSha, .event] | @tsv'
+  )"
+  IFS=$'\t' read -r run_status run_conclusion run_head_sha run_event <<<"$run_state"
+
+  if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+    printf 'Finding: latest Router Image dry-run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
+    failed=1
+  fi
+
+  if [[ "$run_event" != "workflow_dispatch" ]]; then
+    printf 'Finding: latest Router Image evidence was not a manual dry-run dispatch: %s.\n' "$run_event"
+    failed=1
+  fi
+
+  run_jobs="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json jobs \
+      --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+  )"
+
+  if [[ -z "$run_jobs" ]]; then
+    printf 'Finding: latest Router Image dry-run has no inspectable jobs.\n'
+    failed=1
+  else
+    while IFS=$'\t' read -r job_name job_status job_conclusion; do
+      [[ -n "$job_name" ]] || continue
+      printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+      if ! is_expected_router_image_job "$job_name"; then
+        printf 'Finding: latest Router Image dry-run contains unexpected job: %s\n' "$job_name"
+        failed=1
+      fi
+
+      if [[ "$job_conclusion" == "skipped" ]]; then
+        printf 'Finding: latest Router Image dry-run job was skipped: %s\n' "$job_name"
+        failed=1
+      elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+        printf 'Finding: latest Router Image dry-run job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+        failed=1
+      fi
+    done <<<"$run_jobs"
+
+    for expected_job in "${expected_router_image_jobs[@]}"; do
+      if ! printf '%s\n' "$run_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+        printf 'Finding: latest Router Image dry-run is missing expected job: %s\n' "$expected_job"
+        failed=1
+      fi
+    done
+  fi
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-router-image-log.XXXXXX")"
+  if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    if grep -Fq 'Artifact router-image-preview has been successfully uploaded!' "$log_file"; then
+      printf 'Router image preview artifact upload: ready (router-image-preview).\n'
+    else
+      printf 'Finding: latest Router Image dry-run did not log router-image-preview upload.\n'
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download logs for Router Image run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -f "$log_file"
+
+  preview_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-image-preview.XXXXXX")"
+  if "$gh_bin" run download "$run_id" --repo "$repository" --pattern router-image-preview --dir "$preview_dir" >/dev/null 2>&1; then
+    metadata_file="$(find "$preview_dir" -type f -name 'router-image-metadata.md' -print -quit)"
+    if [[ -z "$metadata_file" ]]; then
+      printf 'Finding: router-image-preview artifact does not contain router-image-metadata.md.\n'
+      failed=1
+    else
+      if grep -Fq -- '- Mode: `dry-run`' "$metadata_file" \
+        && grep -Fq -- '- Publish: `false`' "$metadata_file" \
+        && grep -Fq -- '- Provenance: `false`' "$metadata_file" \
+        && grep -Fq -- '- SBOM: `false`' "$metadata_file"; then
+        printf 'Router image dry-run metadata: ready (dry-run, publish=false, provenance=false, sbom=false).\n'
+      else
+        printf 'Finding: router image preview metadata is not a non-mutating dry-run.\n'
+        failed=1
+      fi
+
+      preview_tags="$(
+        sed -n '/^### Tags$/,/^### Labels$/p' "$metadata_file" \
+          | grep -E '^- `ghcr\.io/.+`$' \
+          | sed 's/^- `//; s/`$//' \
+          || true
+      )"
+
+      if [[ -z "$preview_tags" ]]; then
+        printf 'Finding: router image preview metadata did not list GHCR tags.\n'
+        failed=1
+      else
+        printf 'Router image dry-run preview tags:\n'
+        while IFS= read -r preview_tag; do
+          [[ -n "$preview_tag" ]] || continue
+          printf -- '- %s\n' "$preview_tag"
+        done <<<"$preview_tags"
+      fi
+    fi
+  else
+    printf 'Finding: could not download router-image-preview artifact for Router Image run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -rf "$preview_dir"
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+    printf 'Router image dry-run covers checked-out head: yes.\n'
+  else
+    if ! git cat-file -e "${run_head_sha}^{commit}" 2>/dev/null; then
+      printf 'Finding: cannot compare Router Image dry-run head %s with checked-out head; commit is not available locally.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif ! changed_paths="$(router_image_sensitive_changes_since "$run_head_sha")"; then
+      printf 'Finding: failed to compare router-image-sensitive paths since %s.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif [[ -n "$changed_paths" ]]; then
+      printf 'Finding: checked-out head has router-image-sensitive changes after dry-run head %s:\n' "${run_head_sha:0:7}"
+      while IFS= read -r changed_path; do
+        [[ -n "$changed_path" ]] || continue
+        printf -- '- %s\n' "$changed_path"
+      done <<<"$changed_paths"
+      failed=1
+    else
+      printf 'Router image dry-run covers checked-out router image inputs: yes; checked-out head differs from dry-run head %s, but no router-image-sensitive paths changed since then.\n' "${run_head_sha:0:7}"
+    fi
+  fi
+
+  if [[ "$failed" -eq 0 ]]; then
+    printf 'Latest Router Image dry-run is clean and relevant.\n'
+  fi
+
+  return "$failed"
+}
+
 print_required_checks_plan() {
   local target_branch="$1"
   local protected="$2"
@@ -1055,6 +1295,19 @@ print_rc_readiness() {
     fi
   else
     printf 'Native release hosted evidence gate: not evaluated; use --show-native-release-dry-run or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$check_router_image_dry_run" -eq 1 ]]; then
+    if [[ "$router_image_dry_run_failed" -eq 0 ]]; then
+      printf 'Router image hosted dry-run gate: ready\n'
+    else
+      printf 'Router image hosted dry-run gate: not ready\n'
+      printf '  Next action: run the Router Image workflow with dry_run=true for the intended RC image tag, wait for it to finish, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-router-image-dry-run.\n' "$branch"
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Router image hosted dry-run gate: not evaluated; use --show-router-image-dry-run or --require-rc-ready.\n'
     rc_ready_failed=1
   fi
 
@@ -1253,6 +1506,7 @@ latest_ci_failed=0
 latest_ci_log_failed=0
 dart_package_publish_dry_run_failed=0
 native_release_dry_run_failed=0
+router_image_dry_run_failed=0
 latest_ci_id=""
 latest_ci_status=""
 latest_ci_conclusion=""
@@ -1575,6 +1829,14 @@ if [[ "$check_native_release_dry_run" -eq 1 ]]; then
   fi
 fi
 
+if [[ "$check_router_image_dry_run" -eq 1 ]]; then
+  printf '\n## Latest Router Image Dry Run\n\n'
+
+  if ! print_router_image_dry_run_gate; then
+    router_image_dry_run_failed=1
+  fi
+fi
+
 rc_ready_failed=0
 if [[ "$show_rc_readiness" -eq 1 ]]; then
   if ! print_rc_readiness; then
@@ -1599,6 +1861,11 @@ fi
 
 if [[ "$require_clean_native_release_dry_run" -eq 1 && "$native_release_dry_run_failed" -ne 0 ]]; then
   printf '\nNative release dry-run audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_clean_router_image_dry_run" -eq 1 && "$router_image_dry_run_failed" -ne 0 ]]; then
+  printf '\nRouter image dry-run audit failed.\n' >&2
   exit 1
 fi
 

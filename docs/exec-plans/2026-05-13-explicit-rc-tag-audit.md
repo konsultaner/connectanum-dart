@@ -35,3 +35,10 @@ reachable local RC tag.
 - A temporary local `v0.0.0-rc.audit-local` tag at `HEAD` was recognized as the
   requested RC candidate, and the tag was removed after the focused check.
 - `bin/verify` passed on 2026-05-13.
+- Hosted GitHub CI #25818605350 passed for `3e44f09`; the branch audit with
+  clean latest CI/log requirements and router package visibility also passed,
+  detecting the router image through the public GHCR registry manifest.
+- Hosted Native Artifacts dry-run #25819608906 passed for `3e44f09` with
+  requested preview tag `v0.1.0-rc.2`; all five platform artifact jobs and the
+  release preview job passed, no GitHub Release was created, and the audit
+  accepted the dry-run evidence as current for the checked-out head.
