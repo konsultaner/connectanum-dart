@@ -7,6 +7,8 @@ import argparse
 import os
 from pathlib import Path
 
+from render_router_image_metadata import resolve_router_image_metadata
+
 
 PLATFORMS = (
     ("Linux x64", "x86_64-unknown-linux-gnu"),
@@ -33,6 +35,48 @@ def _repo_url(server_url: str, repository: str) -> str:
     return f"{server_url.rstrip('/')}/{repository}"
 
 
+def _router_image_section(
+    *,
+    release_tag: str,
+    repository: str,
+    commit_sha: str,
+    owner: str,
+) -> str:
+    image = f"ghcr.io/{owner.strip().lower()}/connectanum-router"
+
+    if not release_tag.startswith("v"):
+        return f"""## Router container image
+
+No router image tag is implied by this standalone native-bundle release.
+Router images are released separately at `{image}`; confirm package availability
+in the deployment guide before using one in production.
+"""
+
+    metadata = resolve_router_image_metadata(
+        owner=owner,
+        repository=repository,
+        sha=commit_sha,
+        ref_type="tag",
+        ref_name=release_tag,
+        event_name="push",
+        dry_run="true",
+    )
+    tag_lines = "\n".join(f"- `{tag}`" for tag in metadata.tags)
+
+    return f"""## Router container image
+
+The matching router-image workflow publishes these tags for this project
+release:
+
+{tag_lines}
+
+Use the exact `v*` tag or full semver tag for immutable deployments. Treat
+minor, major, and `latest` tags as moving aliases when they are present.
+Confirm package availability in the deployment guide before using an image in
+production.
+"""
+
+
 def render_release_notes(
     *,
     release_tag: str,
@@ -47,6 +91,12 @@ def render_release_notes(
     workflow_identity = f"https://github.com/{workflow_ref}"
     platform_lines = "\n".join(
         f"- {name} (`{host_triple}`)" for name, host_triple in PLATFORMS
+    )
+    router_image_section = _router_image_section(
+        release_tag=release_tag,
+        repository=repository,
+        commit_sha=commit_sha,
+        owner=owner,
     )
 
     notes = f"""## What this release includes
@@ -75,6 +125,8 @@ def render_release_notes(
    - `dart packages/connectanum_router/tool/install_native.dart --tag {release_tag}`
    - `dart packages/connectanum_client/tool/install_native.dart --tag {release_tag}`
 
+{router_image_section}
+
 ## Verification
 
 - GitHub attestation:
@@ -86,9 +138,6 @@ def render_release_notes(
 
 - Repository README: {repo_url}/blob/{commit_sha}/README.md
 - Deployment guide: {repo_url}/blob/{commit_sha}/docs/deployment.md
-- Router container image target: `ghcr.io/{owner.lower()}/connectanum-router`
-  (released separately; confirm package availability in the deployment guide
-  before using it in production)
 """
 
     generated_notes = generated_notes.strip()

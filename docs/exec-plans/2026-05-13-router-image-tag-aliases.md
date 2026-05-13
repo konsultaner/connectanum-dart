@@ -60,3 +60,6 @@ form for `v*` refs.
 - Verified locally with `bin/test-fast`, Python syntax compilation, focused
   router image metadata tests, a sample `v0.1.0-rc.1` render, and full
   `bin/verify`.
+- Hosted GitHub CI #25814049258 passed for `7215164`; the branch audit with
+  clean latest CI/log requirements and router package visibility also passed,
+  detecting the router image through the public GHCR registry manifest.

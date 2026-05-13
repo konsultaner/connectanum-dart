@@ -40,11 +40,12 @@ class NativeReleaseNotesTest(unittest.TestCase):
             rendered,
         )
         self.assertIn(
-            "Router container image target: "
+            "Router images are released separately at "
             "`ghcr.io/konsultaner/connectanum-router`",
             rendered,
         )
-        self.assertIn("released separately", rendered)
+        self.assertIn("No router image tag is implied", rendered)
+        self.assertNotIn("ghcr.io/konsultaner/connectanum-router:ct-ffi-v", rendered)
         self.assertNotIn("## Changelog", rendered)
 
     def test_project_release_notes_append_generated_changelog(self) -> None:
@@ -63,8 +64,37 @@ class NativeReleaseNotesTest(unittest.TestCase):
 
         self.assertIn("current prebuilt native transport bundles", rendered)
         self.assertIn("https://github.example/example/connectanum-dart", rendered)
+        self.assertIn("ghcr.io/example/connectanum-router:v1.2.3", rendered)
+        self.assertIn("ghcr.io/example/connectanum-router:1.2.3", rendered)
+        self.assertIn("ghcr.io/example/connectanum-router:1.2", rendered)
+        self.assertIn("ghcr.io/example/connectanum-router:1", rendered)
+        self.assertIn("ghcr.io/example/connectanum-router:latest", rendered)
         self.assertIn("## Changelog", rendered)
         self.assertIn("* Fix release publishing", rendered)
+
+    def test_project_prerelease_notes_include_exact_and_semver_image_tags(self) -> None:
+        rendered = notes.render_release_notes(
+            release_tag="v0.1.0-rc.1",
+            repository="konsultaner/connectanum-dart",
+            server_url="https://github.com",
+            commit_sha="abc123",
+            workflow_ref=(
+                "konsultaner/connectanum-dart/.github/workflows/"
+                "native-artifacts.yml@refs/tags/v0.1.0-rc.1"
+            ),
+            owner="Konsultaner",
+        )
+
+        self.assertIn(
+            "The matching router-image workflow publishes these tags", rendered
+        )
+        self.assertIn(
+            "ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1", rendered
+        )
+        self.assertIn(
+            "ghcr.io/konsultaner/connectanum-router:0.1.0-rc.1", rendered
+        )
+        self.assertNotIn("ghcr.io/konsultaner/connectanum-router:latest", rendered)
 
     def test_cli_renders_generated_notes_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

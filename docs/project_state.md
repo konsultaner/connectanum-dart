@@ -17,10 +17,22 @@ unless consumer integration exposes a real correctness bug. Pub.dev publishing
 remains deferred until package ownership, public versions, and release order
 for the private workspace packages are explicitly decided.
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-native-release-router-image-tags.md` (complete;
+native GitHub Release notes now list concrete router image tags for `v*`
+project releases).
+Latest post-RC implementation checkpoint:
+Native GitHub Release notes now reuse the router image metadata resolver for
+`v*` project release tags. Future RC/stable release notes list the exact Git
+tag image alias and normalized semver image alias, while standalone
+`ct-ffi-v*` native-bundle releases continue to state that no router image tag is
+implied. Local `bin/test-fast`, Python syntax compilation, focused native
+release-note tests, a sample `v0.1.0-rc.1` render, and `bin/verify` passed on
+2026-05-13 for this checkpoint.
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-router-image-tag-aliases.md` (complete; router
 image tag-push metadata now publishes both exact `v*` Git tag aliases and
 normalized semver aliases).
-Latest post-RC implementation checkpoint:
+Previous post-RC implementation checkpoint:
 Router image tag-push metadata now emits both the exact Git tag form and the
 normalized semver form for `v*` refs. A future `v0.1.0-rc.1` tag push resolves
 to both `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` and
@@ -28,7 +40,10 @@ to both `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` and
 tags keep `:X.Y`, `:X`, and `:latest` aliases. Local `bin/test-fast`, Python
 syntax compilation, focused router image metadata tests, a sample
 `v0.1.0-rc.1` render, and `bin/verify` passed on 2026-05-13 for this
-checkpoint.
+checkpoint. Hosted GitHub CI #25814049258 passed on
+`codex/post-rc-production-readiness` at `7215164`, and the branch audit with
+clean latest CI/log requirements plus router package visibility passed while
+detecting the router image through the public GHCR registry manifest.
 Previous completed exec plan:
 `docs/exec-plans/2026-05-13-ghcr-registry-audit-fallback.md` (complete; router
 image visibility checks now use the public GHCR registry manifest before
