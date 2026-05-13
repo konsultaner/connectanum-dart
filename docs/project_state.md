@@ -2,13 +2,17 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: `c4302db`
-(`mcp: add direct json ping helper`; new direct JSON helper API slice is in
-progress on top of this hosted-clean checkpoint)
+Last reviewed branch checkpoint: `09c5ce7`
+(`mcp: add direct json helper api`; public direct JSON request/notification/
+batch helpers plus neutral consumer smoke coverage complete with hosted
+evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-client-direct-json-helper-api-smoke.md`
-(in progress; full local verification clean, push/hosted evidence pending).
+`docs/exec-plans/2026-05-13-mcp-client-direct-json-post-helper-smoke.md`
+(implemented; full local verification passed, hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-client-direct-json-helper-api-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-client-direct-json-ping-helper-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:

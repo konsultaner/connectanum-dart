@@ -9948,7 +9948,7 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
     client,
     () async {
-      await client.postBatch(
+      await client.postBatchDirect(
         [
           {
             'jsonrpc': '2.0',
@@ -9962,8 +9962,6 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
             'params': {},
           },
         ],
-        streamable: false,
-        includeSession: false,
       );
     },
     sessionId: sessionId,
@@ -9974,12 +9972,10 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
     client,
     () async {
-      await client.request(
+      await client.requestDirect(
         'connectanum.api.list',
         id: '$label-rejected-direct-api',
         params: {'kind': 'procedure'},
-        streamable: false,
-        includeSession: false,
       );
     },
     sessionId: sessionId,
@@ -9990,12 +9986,10 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
     client,
     () async {
-      await client.request(
+      await client.requestDirect(
         'connectanum.pubsub.subscribe',
         id: '$label-rejected-direct-pubsub-subscribe',
         params: {'topic': _topic, 'queueLimit': 1},
-        streamable: false,
-        includeSession: false,
       );
     },
     sessionId: sessionId,
@@ -10006,7 +10000,7 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
     client,
     () async {
-      await client.postBatch(
+      await client.postBatchDirect(
         [
           {
             'jsonrpc': '2.0',
@@ -10021,8 +10015,6 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
             'params': {'topic': _topic, 'queueLimit': 1},
           },
         ],
-        streamable: false,
-        includeSession: false,
       );
     },
     sessionId: sessionId,
@@ -10438,12 +10430,10 @@ Future<List<String>> _expectGenericToolCatalog(
       if (cursor != null) 'cursor': cursor,
     };
     final response = directJson
-        ? await client.request(
+        ? await client.requestDirect(
             method,
             id: pageLabel,
             params: params,
-            streamable: false,
-            includeSession: false,
           )
         : await client.request(method, id: pageLabel, params: params);
     final result = _jsonRpcResult(
@@ -10509,12 +10499,10 @@ Future<List<String>> _expectGenericCatalogPages(
       if (cursor != null) 'cursor': cursor,
     };
     final response = directJson
-        ? await client.request(
+        ? await client.requestDirect(
             method,
             id: pageLabel,
             params: params,
-            streamable: false,
-            includeSession: false,
           )
         : await client.request(method, id: pageLabel, params: params);
     final result = _jsonRpcResult(
@@ -10608,19 +10596,18 @@ Future<List<String>> _expectBatchToolCatalogPages(
       throw StateError('$label pagination did not terminate.');
     }
     final pageId = '$idPrefix-page-$pageCount';
-    final pageBatch = await client.postBatch(
-      [
-        {
-          'jsonrpc': '2.0',
-          'id': pageId,
-          'method': method,
-          'params': {'cursor': cursor},
-        },
-      ],
-      streamable: !directJson,
-      includeSession: !directJson,
-      headers: <String, String>{'x-consumer-trace': pageId},
-    );
+    final pageRequest = <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': pageId,
+        'method': method,
+        'params': {'cursor': cursor},
+      },
+    ];
+    final pageHeaders = <String, String>{'x-consumer-trace': pageId};
+    final pageBatch = directJson
+        ? await client.postBatchDirect(pageRequest, headers: pageHeaders)
+        : await client.postBatch(pageRequest, headers: pageHeaders);
     if (pageBatch == null || pageBatch.length != 1) {
       throw StateError(
         '$label cursor page $pageCount did not return one response.',
@@ -10933,7 +10920,7 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
 
   final taskId = 'T-$label-generic-direct-tool-call';
   final toolCallId = '$label-generic-direct-tool-call';
-  final toolCall = await client.post(
+  final toolCall = await client.postDirect(
     {
       'jsonrpc': '2.0',
       'id': toolCallId,
@@ -10943,8 +10930,6 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
         'arguments': {'taskId': taskId, 'note': _headerWrappedNote},
       },
     },
-    streamable: false,
-    includeSession: false,
   );
   final toolCallJson = jsonEncode(toolCall);
   if (toolCall == null ||
@@ -10955,11 +10940,9 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
   }
 
   final apiListId = '$label-generic-direct-api-list';
-  final apiList = await client.request(
+  final apiList = await client.requestDirect(
     'connectanum.api.list',
     id: apiListId,
-    streamable: false,
-    includeSession: false,
   );
   final apiCatalog = _jsonRpcStructuredContent(
     apiList,
@@ -10977,12 +10960,10 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
   );
 
   final describeId = '$label-generic-direct-api-describe';
-  final describe = await client.request(
+  final describe = await client.requestDirect(
     'connectanum.api.describe',
     id: describeId,
     params: {'uri': _procedure, 'kind': 'procedure'},
-    streamable: false,
-    includeSession: false,
   );
   if (describe['id'] != describeId ||
       !jsonEncode(describe['result']).contains(_procedure)) {
@@ -10995,7 +10976,7 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     label: label,
   );
 
-  final notificationBatch = await client.postBatch(
+  final notificationBatch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -11011,8 +10992,6 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
         },
       },
     ],
-    streamable: false,
-    includeSession: false,
     headers: const <String, String>{
       'x-consumer-trace': 'router-direct-notification-batch',
     },
@@ -11023,14 +11002,12 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     );
   }
 
-  await client.notification(
+  await client.notificationDirect(
     'notifications/progress',
     params: const <String, Object?>{
       'progressToken': 'generic-direct-single-notification',
       'progress': 1,
     },
-    streamable: false,
-    includeSession: false,
   );
 
   if (client.sessionId != previousSessionId ||
@@ -11045,11 +11022,9 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   required String label,
 }) async {
   final sessionCountId = '$label-generic-direct-session-count';
-  final sessionCount = await client.request(
+  final sessionCount = await client.requestDirect(
     'wamp.session.count',
     id: sessionCountId,
-    streamable: false,
-    includeSession: false,
   );
   final sessionCountContent = _jsonRpcStructuredContent(
     sessionCount,
@@ -11068,11 +11043,9 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   }
 
   final sessionListId = '$label-generic-direct-session-list';
-  final sessionList = await client.request(
+  final sessionList = await client.requestDirect(
     'wamp.session.list',
     id: sessionListId,
-    streamable: false,
-    includeSession: false,
   );
   final sessionListContent = _jsonRpcStructuredContent(
     sessionList,
@@ -11105,12 +11078,10 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
 
   final visibleSessionId = sessionIds.first;
   final sessionGetId = '$label-generic-direct-session-get';
-  final sessionGet = await client.request(
+  final sessionGet = await client.requestDirect(
     'wamp.session.get',
     id: sessionGetId,
     params: {'id': visibleSessionId},
-    streamable: false,
-    includeSession: false,
   );
   final sessionGetContent = _jsonRpcStructuredContent(
     sessionGet,
@@ -11132,12 +11103,10 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   }
 
   final registrationLookupId = '$label-generic-direct-registration-lookup';
-  final registrationLookup = await client.request(
+  final registrationLookup = await client.requestDirect(
     'wamp.registration.lookup',
     id: registrationLookupId,
     params: {'uri': _procedure},
-    streamable: false,
-    includeSession: false,
   );
   final registrationLookupContent = _jsonRpcStructuredContent(
     registrationLookup,
@@ -11162,12 +11131,10 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   }
 
   final registrationMatchId = '$label-generic-direct-registration-match';
-  final registrationMatch = await client.request(
+  final registrationMatch = await client.requestDirect(
     'wamp.registration.match',
     id: registrationMatchId,
     params: {'uri': _procedure},
-    streamable: false,
-    includeSession: false,
   );
   final registrationMatchContent = _jsonRpcStructuredContent(
     registrationMatch,
@@ -11192,11 +11159,9 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   }
 
   final registrationListId = '$label-generic-direct-registration-list';
-  final registrationList = await client.request(
+  final registrationList = await client.requestDirect(
     'wamp.registration.list',
     id: registrationListId,
-    streamable: false,
-    includeSession: false,
   );
   final registrationListContent = _jsonRpcStructuredContent(
     registrationList,
@@ -11218,12 +11183,10 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   }
 
   final registrationGetId = '$label-generic-direct-registration-get';
-  final registrationGet = await client.request(
+  final registrationGet = await client.requestDirect(
     'wamp.registration.get',
     id: registrationGetId,
     params: {'id': registrationId},
-    streamable: false,
-    includeSession: false,
   );
   final registrationGetContent = _jsonRpcStructuredContent(
     registrationGet,
@@ -11241,12 +11204,10 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   }
 
   final registrationCalleesId = '$label-generic-direct-registration-callees';
-  final registrationCallees = await client.request(
+  final registrationCallees = await client.requestDirect(
     'wamp.registration.list_callees',
     id: registrationCalleesId,
     params: {'id': registrationId},
-    streamable: false,
-    includeSession: false,
   );
   final registrationCalleesContent = _jsonRpcStructuredContent(
     registrationCallees,
@@ -11272,12 +11233,10 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
 
   final registrationCalleeCountId =
       '$label-generic-direct-registration-callee-count';
-  final registrationCalleeCount = await client.request(
+  final registrationCalleeCount = await client.requestDirect(
     'wamp.registration.count_callees',
     id: registrationCalleeCountId,
     params: {'id': registrationId},
-    streamable: false,
-    includeSession: false,
   );
   final registrationCalleeCountContent = _jsonRpcStructuredContent(
     registrationCalleeCount,
@@ -11324,12 +11283,10 @@ Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
   );
 
   final readId = '$label-generic-direct-resource-read';
-  final read = await client.request(
+  final read = await client.requestDirect(
     'resources/read',
     id: readId,
     params: {'uri': _resourceUri},
-    streamable: false,
-    includeSession: false,
   );
   final readResult = _jsonRpcResult(
     read,
@@ -11371,7 +11328,7 @@ Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
   final taskId = 'T-$label-generic-direct-prompt';
   final promptId = '$label-generic-direct-prompt-get';
   final prompt = _jsonObjectFrom(
-    await client.post(
+    await client.postDirect(
       {
         'jsonrpc': '2.0',
         'id': promptId,
@@ -11381,8 +11338,6 @@ Future<void> _smokeGenericDirectJsonRpcResourcesAndPrompts(
           'arguments': {'taskId': taskId},
         },
       },
-      streamable: false,
-      includeSession: false,
     ),
     label: 'Generic direct JSON-RPC prompts/get response',
   );
@@ -11414,12 +11369,10 @@ Future<void> _smokeGenericDirectJsonRpcResourcePromptErrors(
 
   final missingResourceUri = 'connectanum://consumer/missing/$label';
   final resourceErrorId = '$label-generic-direct-resource-error';
-  final resourceError = await client.request(
+  final resourceError = await client.requestDirect(
     'resources/read',
     id: resourceErrorId,
     params: {'uri': missingResourceUri},
-    streamable: false,
-    includeSession: false,
   );
   _expectJsonRpcError(
     resourceError,
@@ -11431,15 +11384,13 @@ Future<void> _smokeGenericDirectJsonRpcResourcePromptErrors(
   final missingPromptName = 'missing-$label-prompt';
   final promptErrorId = '$label-generic-direct-prompt-error';
   final promptError = _jsonObjectFrom(
-    await client.post(
+    await client.postDirect(
       {
         'jsonrpc': '2.0',
         'id': promptErrorId,
         'method': 'prompts/get',
         'params': {'name': missingPromptName, 'arguments': {}},
       },
-      streamable: false,
-      includeSession: false,
     ),
     label: 'Generic direct JSON-RPC missing prompt response',
   );
@@ -11458,11 +11409,9 @@ Future<void> _smokeGenericDirectJsonRpcResourcePromptErrors(
     );
   }
 
-  final resources = await client.request(
+  final resources = await client.requestDirect(
     'resources/list',
     id: '$label-generic-direct-resource-error-recovery',
-    streamable: false,
-    includeSession: false,
   );
   if (!jsonEncode(resources).contains(_resourceUri)) {
     throw StateError(
@@ -11470,11 +11419,9 @@ Future<void> _smokeGenericDirectJsonRpcResourcePromptErrors(
     );
   }
 
-  final prompts = await client.request(
+  final prompts = await client.requestDirect(
     'prompts/list',
     id: '$label-generic-direct-prompt-error-recovery',
-    streamable: false,
-    includeSession: false,
   );
   if (!jsonEncode(prompts).contains(_promptName)) {
     throw StateError(
@@ -11499,12 +11446,10 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
   final subscribeId = '$label-generic-direct-pubsub-subscribe';
-  final subscribe = await client.request(
+  final subscribe = await client.requestDirect(
     'connectanum.pubsub.subscribe',
     id: subscribeId,
     params: {'topic': _topic, 'queueLimit': 4},
-    streamable: false,
-    includeSession: false,
   );
   final subscription = _jsonRpcStructuredContent(
     subscribe,
@@ -11541,7 +11486,7 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
 
     final publishId = '$label-generic-direct-pubsub-publish';
     final publishResponse = _jsonObjectFrom(
-      await client.post(
+      await client.postDirect(
         {
           'jsonrpc': '2.0',
           'id': publishId,
@@ -11554,8 +11499,6 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
             'acknowledge': true,
           },
         },
-        streamable: false,
-        includeSession: false,
       ),
       label: 'Generic direct JSON-RPC pub/sub publish response',
     );
@@ -11585,12 +11528,10 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
     );
   } finally {
     final unsubscribeId = '$label-generic-direct-pubsub-unsubscribe';
-    final unsubscribe = await client.request(
+    final unsubscribe = await client.requestDirect(
       'connectanum.pubsub.unsubscribe',
       id: unsubscribeId,
       params: {'handle': handle},
-      streamable: false,
-      includeSession: false,
     );
     final unsubscribeContent = _jsonRpcStructuredContent(
       unsubscribe,
@@ -11620,12 +11561,10 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
   required String label,
 }) async {
   final subscriptionLookupId = '$label-generic-direct-subscription-lookup';
-  final subscriptionLookup = await client.request(
+  final subscriptionLookup = await client.requestDirect(
     'wamp.subscription.lookup',
     id: subscriptionLookupId,
     params: {'topic': _topic},
-    streamable: false,
-    includeSession: false,
   );
   final subscriptionLookupContent = _jsonRpcStructuredContent(
     subscriptionLookup,
@@ -11650,12 +11589,10 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
   }
 
   final subscriptionMatchId = '$label-generic-direct-subscription-match';
-  final subscriptionMatch = await client.request(
+  final subscriptionMatch = await client.requestDirect(
     'wamp.subscription.match',
     id: subscriptionMatchId,
     params: {'topic': _topic},
-    streamable: false,
-    includeSession: false,
   );
   final subscriptionMatchContent = _jsonRpcStructuredContent(
     subscriptionMatch,
@@ -11679,11 +11616,9 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
   }
 
   final subscriptionListId = '$label-generic-direct-subscription-list';
-  final subscriptionList = await client.request(
+  final subscriptionList = await client.requestDirect(
     'wamp.subscription.list',
     id: subscriptionListId,
-    streamable: false,
-    includeSession: false,
   );
   final subscriptionListContent = _jsonRpcStructuredContent(
     subscriptionList,
@@ -11705,12 +11640,10 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
   }
 
   final subscriptionGetId = '$label-generic-direct-subscription-get';
-  final subscriptionGet = await client.request(
+  final subscriptionGet = await client.requestDirect(
     'wamp.subscription.get',
     id: subscriptionGetId,
     params: {'id': subscriptionId},
-    streamable: false,
-    includeSession: false,
   );
   final subscriptionGetContent = _jsonRpcStructuredContent(
     subscriptionGet,
@@ -11728,12 +11661,10 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
   }
 
   final subscribersId = '$label-generic-direct-subscription-subscribers';
-  final subscribers = await client.request(
+  final subscribers = await client.requestDirect(
     'wamp.subscription.list_subscribers',
     id: subscribersId,
     params: {'id': subscriptionId},
-    streamable: false,
-    includeSession: false,
   );
   final subscribersContent = _jsonRpcStructuredContent(
     subscribers,
@@ -11765,12 +11696,10 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
 
   final subscriberCountId =
       '$label-generic-direct-subscription-subscriber-count';
-  final subscriberCount = await client.request(
+  final subscriberCount = await client.requestDirect(
     'wamp.subscription.count_subscribers',
     id: subscriberCountId,
     params: {'id': subscriptionId},
-    streamable: false,
-    includeSession: false,
   );
   final subscriberCountContent = _jsonRpcStructuredContent(
     subscriberCount,
@@ -11807,7 +11736,7 @@ Future<void> _smokeDirectJsonBatchWampSubscriptionMeta(
       '$label-direct-batch-wamp-subscription-lookup';
   final subscriptionMatchId = '$label-direct-batch-wamp-subscription-match';
   final subscriptionListId = '$label-direct-batch-wamp-subscription-list';
-  final discovery = await client.postBatch(
+  final discovery = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -11828,8 +11757,6 @@ Future<void> _smokeDirectJsonBatchWampSubscriptionMeta(
         'params': {},
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (discovery == null) {
     throw StateError(
@@ -11848,7 +11775,7 @@ Future<void> _smokeDirectJsonBatchWampSubscriptionMeta(
   final subscribersId = '$label-direct-batch-wamp-subscription-subscribers';
   final subscriberCountId =
       '$label-direct-batch-wamp-subscription-subscriber-count';
-  final details = await client.postBatch(
+  final details = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -11869,8 +11796,6 @@ Future<void> _smokeDirectJsonBatchWampSubscriptionMeta(
         'params': {'id': subscriptionId},
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (details == null) {
     throw StateError(
@@ -11907,7 +11832,7 @@ Future<void> _smokeDirectJsonBatchPubSub(
   try {
     final subscribeId = '$label-direct-batch-pubsub-subscribe';
     final apiListId = '$label-direct-batch-pubsub-api-list';
-    final subscribeBatch = await client.postBatch(
+    final subscribeBatch = await client.postBatchDirect(
       [
         {
           'jsonrpc': '2.0',
@@ -11922,8 +11847,6 @@ Future<void> _smokeDirectJsonBatchPubSub(
           'params': {'kind': 'procedure'},
         },
       ],
-      streamable: false,
-      includeSession: false,
     );
     if (subscribeBatch == null || subscribeBatch.length != 2) {
       throw StateError(
@@ -11952,7 +11875,7 @@ Future<void> _smokeDirectJsonBatchPubSub(
 
     final publishId = '$label-direct-batch-pubsub-publish';
     final apiDescribeId = '$label-direct-batch-pubsub-api-describe';
-    final publishBatch = await client.postBatch(
+    final publishBatch = await client.postBatchDirect(
       [
         {
           'jsonrpc': '2.0',
@@ -11973,8 +11896,6 @@ Future<void> _smokeDirectJsonBatchPubSub(
           'params': {'uri': _procedure, 'kind': 'procedure'},
         },
       ],
-      streamable: false,
-      includeSession: false,
     );
     if (publishBatch == null || publishBatch.length != 2) {
       throw StateError(
@@ -12013,7 +11934,7 @@ Future<void> _smokeDirectJsonBatchPubSub(
     if (tempHandle != null) {
       final unsubscribeId = '$label-direct-batch-pubsub-unsubscribe';
       final apiListId = '$label-direct-batch-pubsub-unsubscribe-api-list';
-      final unsubscribeBatch = await client.postBatch(
+      final unsubscribeBatch = await client.postBatchDirect(
         [
           {
             'jsonrpc': '2.0',
@@ -12028,8 +11949,6 @@ Future<void> _smokeDirectJsonBatchPubSub(
             'params': {'kind': 'procedure'},
           },
         ],
-        streamable: false,
-        includeSession: false,
       );
       if (unsubscribeBatch == null || unsubscribeBatch.length != 2) {
         throw StateError(
@@ -13036,12 +12955,10 @@ Future<void> _pollGenericDirectJsonRpcPubSubUntil(
     final pollId =
         '$label-generic-direct-pubsub-poll-'
         '${DateTime.now().microsecondsSinceEpoch}';
-    final poll = await client.request(
+    final poll = await client.requestDirect(
       'connectanum.pubsub.poll',
       id: pollId,
       params: {'handle': handle, 'limit': 4},
-      streamable: false,
-      includeSession: false,
     );
     final eventBatch = _jsonRpcStructuredContent(
       poll,
@@ -13074,7 +12991,7 @@ Future<void> _pollDirectJsonBatchPubSubUntil(
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final pollId = '$label-direct-batch-pubsub-poll-$timestamp';
     final apiListId = '$label-direct-batch-pubsub-poll-api-$timestamp';
-    final pollBatch = await client.postBatch(
+    final pollBatch = await client.postBatchDirect(
       [
         {
           'jsonrpc': '2.0',
@@ -13089,8 +13006,6 @@ Future<void> _pollDirectJsonBatchPubSubUntil(
           'params': {'kind': 'procedure'},
         },
       ],
-      streamable: false,
-      includeSession: false,
     );
     if (pollBatch == null || pollBatch.length != 2) {
       throw StateError(
@@ -13591,7 +13506,7 @@ Future<void> _smokeDirectJsonBatch(
   final taskId = 'T-$label-direct-batch';
   final aliasTaskId = 'T-$label-direct-batch-tools-alias';
   final promptTaskId = 'T-$label-direct-batch-prompt';
-  final responses = await client.postBatch(
+  final responses = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -13644,8 +13559,6 @@ Future<void> _smokeDirectJsonBatch(
         },
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (responses == null || responses.length != 6) {
     throw StateError('Direct JSON batch did not return six responses.');
@@ -13709,7 +13622,7 @@ Future<void> _smokeDirectJsonBatchResourcePromptDetails(
   required String label,
   required String resourceCursor,
 }) async {
-  final detailBatch = await client.postBatch(
+  final detailBatch = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -13730,8 +13643,6 @@ Future<void> _smokeDirectJsonBatchResourcePromptDetails(
         'params': {},
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (detailBatch == null || detailBatch.length != 3) {
     throw StateError(
@@ -13772,7 +13683,7 @@ Future<void> _smokeDirectJsonBatchResourcePromptDetails(
     expectedPrimary: _promptName,
   );
 
-  final cursorBatch = await client.postBatch(
+  final cursorBatch = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -13793,8 +13704,6 @@ Future<void> _smokeDirectJsonBatchResourcePromptDetails(
         'params': {'cursor': promptCursor},
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (cursorBatch == null || cursorBatch.length != 3) {
     throw StateError(
@@ -13841,7 +13750,7 @@ Future<void> _smokeDirectJsonBatchWampMeta(
   final registrationLookupId = '$label-direct-batch-wamp-registration-lookup';
   final registrationMatchId = '$label-direct-batch-wamp-registration-match';
   final registrationListId = '$label-direct-batch-wamp-registration-list';
-  final discovery = await client.postBatch(
+  final discovery = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -13874,8 +13783,6 @@ Future<void> _smokeDirectJsonBatchWampMeta(
         'params': {},
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (discovery == null) {
     throw StateError('Direct JSON batch WAMP meta discovery returned null.');
@@ -13899,7 +13806,7 @@ Future<void> _smokeDirectJsonBatchWampMeta(
       '$label-direct-batch-wamp-registration-callees';
   final registrationCalleeCountId =
       '$label-direct-batch-wamp-registration-callee-count';
-  final details = await client.postBatch(
+  final details = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -13926,8 +13833,6 @@ Future<void> _smokeDirectJsonBatchWampMeta(
         'params': {'id': registrationId},
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (details == null) {
     throw StateError('Direct JSON batch WAMP meta details returned null.');
@@ -13945,7 +13850,7 @@ Future<void> _smokeDirectJsonBatchWampMeta(
 
   final topicListId = '$label-direct-batch-wamp-topic-list';
   final topicDescribeId = '$label-direct-batch-wamp-topic-describe';
-  final topics = await client.postBatch(
+  final topics = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -13960,8 +13865,6 @@ Future<void> _smokeDirectJsonBatchWampMeta(
         'params': {'uri': _topic, 'kind': 'topic'},
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (topics == null) {
     throw StateError('Direct JSON batch WAMP topic meta returned null.');
@@ -15193,7 +15096,7 @@ Future<void> _smokeDirectJsonBatchErrorIsolation(
   final taskId = 'T-$label-direct-batch-error-ok';
   final aliasTaskId = 'T-$label-direct-batch-error-alias-ok';
   final missingTool = 'missing.$label.direct.batch';
-  final responses = await client.postBatch(
+  final responses = await client.postBatchDirect(
     [
       {
         'jsonrpc': '2.0',
@@ -15239,8 +15142,6 @@ Future<void> _smokeDirectJsonBatchErrorIsolation(
         },
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   if (responses == null || responses.length != 4) {
     throw StateError(

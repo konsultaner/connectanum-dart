@@ -491,6 +491,18 @@ final class McpStreamableHttpClient {
     return _jsonMapFrom(response, label: 'JSON-RPC response');
   }
 
+  Future<McpJsonMap?> postDirect(
+    McpJsonMap message, {
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return post(
+      message,
+      streamable: false,
+      includeSession: false,
+      headers: headers,
+    );
+  }
+
   Future<List<McpJsonMap>?> postBatch(
     List<McpJsonMap> messages, {
     bool streamable = true,

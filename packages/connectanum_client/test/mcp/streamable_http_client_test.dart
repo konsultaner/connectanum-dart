@@ -470,6 +470,22 @@ void main() {
         );
         expect(jsonEncode(rawResult['tools']), contains('app.echo'));
 
+        final rawPostResponse = await client.postDirect(
+          {
+            'jsonrpc': '2.0',
+            'id': 'direct-post-tools',
+            'method': 'connectanum.tools.list',
+          },
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-post-tools',
+          },
+        );
+        final rawPostResult = _jsonMapFrom(
+          rawPostResponse?['result'],
+          label: 'direct post result',
+        );
+        expect(jsonEncode(rawPostResult['tools']), contains('app.echo'));
+
         final toolResult = await client.callConnectanumToolDirect(
           'app.echo',
           id: 'direct-call',
@@ -511,7 +527,7 @@ void main() {
         });
 
         expect(client.sessionId, isNull);
-        expect(endpoint.requests, hasLength(5));
+        expect(endpoint.requests, hasLength(6));
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.sessionId, isNull);
@@ -521,11 +537,13 @@ void main() {
         expect(endpoint.requests[0].consumerTrace, 'direct-tools-list');
         expect(endpoint.requests[1].mcpMethod, 'connectanum.tools.list');
         expect(endpoint.requests[1].consumerTrace, 'direct-request-tools');
-        expect(endpoint.requests[2].mcpMethod, 'connectanum.tool.call');
-        expect(endpoint.requests[2].mcpName, isNull);
-        expect(endpoint.requests[2].consumerTrace, 'direct-tool-call');
-        expect(endpoint.requests[3].consumerTrace, 'direct-dotted-method');
-        expect(endpoint.requests[4].consumerTrace, 'direct-meta-method');
+        expect(endpoint.requests[2].mcpMethod, 'connectanum.tools.list');
+        expect(endpoint.requests[2].consumerTrace, 'direct-post-tools');
+        expect(endpoint.requests[3].mcpMethod, 'connectanum.tool.call');
+        expect(endpoint.requests[3].mcpName, isNull);
+        expect(endpoint.requests[3].consumerTrace, 'direct-tool-call');
+        expect(endpoint.requests[4].consumerTrace, 'direct-dotted-method');
+        expect(endpoint.requests[5].consumerTrace, 'direct-meta-method');
         expect(
           endpoint.requests.first.body,
           containsPair('method', 'connectanum.tools.list'),
@@ -1284,6 +1302,24 @@ void main() {
       expect(result['isError'], isFalse);
       expect(client.sessionId, sessionId);
       expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+
+      final post = await client.postDirect(
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-response-session-post',
+          'method': 'connectanum.tools.list',
+        },
+        headers: const <String, String>{
+          'x-consumer-trace': 'direct-response-session-post',
+          'x-test-response-session-id': 'direct-post-session-ignored',
+        },
+      );
+      expect(post?['id'], 'direct-response-session-post');
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.accept, 'application/json');
       expect(endpoint.requests.last.sessionId, isNull);
       expect(endpoint.requests.last.lastEventId, isNull);
 

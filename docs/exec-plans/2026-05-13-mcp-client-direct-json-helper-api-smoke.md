@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Direct JSON Helper API Smoke
 
-Status: in progress; full local verification clean
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-05-13
@@ -61,6 +61,22 @@ then prove the helpers from a neutral generated consumer package.
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`
   passed on 2026-05-13.
 - Full local `bin/verify` passed on 2026-05-13.
+- Commit `09c5ce7` (`mcp: add direct json helper api`) was pushed to both
+  configured remotes.
+- GitHub `CI` run `25774096844` completed successfully for `09c5ce7` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `WAMP Profile Benchmarks` run `25774096845` completed successfully
+  for `09c5ce7`.
+- GitHub `Dart Package Publish Dry Run` run `25774096833` completed
+  successfully and covers the checked-out head.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI, clean hosted CI logs, and a clean relevant Dart
+  package publish dry-run.
+- Strict deployment-chain audit still fails only known operator-side
+  release-hardening gaps: branch protection/required checks are absent,
+  `.github/workflows/router-image.yml` is not yet visible from the default
+  branch through the Actions API, and `ghcr.io/konsultaner/connectanum-router`
+  is not visible in GitHub Packages.
 
 ## Decision Log
 
@@ -71,5 +87,6 @@ then prove the helpers from a neutral generated consumer package.
 
 ## Handoff
 
-Implementation is locally verified. Commit, push, and hosted deployment-chain
-evidence are still pending.
+Implementation is pushed. Focused local checks, full local verification,
+hosted CI, WAMP benchmark workflow, package publish dry-run, hosted CI log
+scan, and the non-strict deployment-chain audit are clean for `09c5ce7`.
