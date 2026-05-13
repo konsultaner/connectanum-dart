@@ -1,6 +1,6 @@
 # Exec Plan: Release Candidate Readiness
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-05-13
@@ -47,7 +47,9 @@ decision because `connectanum_client` still depends on private
 - `v0.1.0-rc.1` exists as a non-draft GitHub prerelease with native bundles,
   checksums, and Sigstore metadata.
 - `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` is published and the
-  router package is visible through GitHub Packages.
+  router package is visible through the public GHCR registry manifest. The
+  local `gh` token lacks `read:packages`, so the GitHub Packages REST endpoint
+  returns 403 even though Docker registry resolution succeeds.
 - Final audits pass for GitHub-prerelease RC readiness, with pub.dev release
   order explicitly deferred.
 
@@ -77,8 +79,24 @@ decision because `connectanum_client` still depends on private
 - 2026-05-13: GitHub `master` is the default release branch. It currently
   represents the old single-package history, so promotion must merge the
   workspace branch into GitHub `master` while keeping the workspace layout.
+- 2026-05-13: `add-router` was promoted into GitHub `master`, branch protection
+  now requires `Fast Checks` and `Full Verify`, and `v0.1.0-rc.1` was cut from
+  commit `47bbf9c`.
+- 2026-05-13: Native Artifacts run `25800596153` published the non-draft
+  GitHub prerelease with 30 native assets: archives, checksums, manifests, and
+  Sigstore bundles for Linux x64/arm64, macOS arm64/x64, and Windows x64.
+- 2026-05-13: Router Image run `25800605287` published
+  `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1`; `docker buildx
+  imagetools inspect` resolves it as a multi-arch OCI index for `linux/amd64`
+  and `linux/arm64` with attestations.
+- 2026-05-13: `bin/audit-github-deployment-chain --require-rc-ready` now treats
+  a successful native prerelease publish as stronger RC evidence than a dry-run
+  preview and falls back to GHCR manifest resolution when the local GitHub token
+  cannot read package metadata.
 
 ## Handoff
 
-Active. Continue with GitHub default-branch promotion, required-check
-configuration, hosted release workflows, and final RC audit evidence.
+Complete. Next release-track work is to resolve public pub.dev package
+ownership/version/release order, or continue the roadmap with WAMP
+profile-related transport performance production readiness before broader
+transport exploration.

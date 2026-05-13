@@ -1,19 +1,26 @@
 # Project State
 
 Last updated: 2026-05-13
-Current branch: `add-router`
-Last reviewed branch checkpoint: `be89a91`
-(`mcp: smoke consumer direct wamp api helpers`; generated consumer-package
-router-hosted MCP direct WAMP API helper smoke complete with local and hosted
-verification clean)
-Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
-Current milestone: Release-candidate readiness for a GitHub prerelease
-`v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
-candidate: router-hosted endpoints, auth/session correctness, direct JSON/meta
-API, WAMP pub/sub coverage, resources/prompts, Streamable HTTP compatibility,
-and consumer-package smoke coverage are in place. Further MCP helper
-permutations are post-RC polish unless consumer integration exposes a real
-correctness bug.
+Current branch: GitHub `master` promoted from the router workspace
+(`codex/rc-master-promotion` local working branch tracks `github/master`).
+RC artifact checkpoint: `47bbf9c`
+(`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
+image publish evidence).
+Active exec plan: none. Use `ROADMAP_NEXT.md` and `ROADMAP.md` to select the
+next milestone.
+Current milestone: `v0.1.0-rc.1` is GitHub-RC ready for downstream-consuming
+applications. MCP is RC-ready for the first candidate: router-hosted endpoints,
+auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
+resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
+coverage are in place. Further MCP helper permutations are post-RC polish
+unless consumer integration exposes a real correctness bug. Pub.dev publishing
+remains deferred until package ownership, public versions, and release order
+for the private workspace packages are explicitly decided.
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-rc-readiness.md` (complete; GitHub default branch
+promoted, required checks configured, hosted CI clean, native prerelease and
+router image published for `v0.1.0-rc.1`, final RC audit ready with pub.dev
+release-order intentionally deferred).
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).

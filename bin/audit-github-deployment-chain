@@ -46,7 +46,8 @@ Options:
                              mutation, and still covers the checked-out native
                              release inputs.
   --require-router-package   Exit non-zero unless the GHCR router package is
-                             visible through the GitHub Packages API.
+                             visible through the GitHub Packages API or a
+                             public registry manifest for the RC tag.
   --require-workflows-visible
                              Exit non-zero unless every checked-in workflow is
                              discoverable through the GitHub Actions API.
@@ -59,13 +60,14 @@ Options:
   --require-rc-ready         Exit non-zero unless the current checked-out head
                              has release-candidate evidence: clean hosted CI
                              and logs, hosted Dart package publish dry-run
-                             evidence, hosted native release dry-run evidence,
-                             baseline default-branch protection, visible
-                             workflows, visible router package, an RC GitHub
-                             prerelease, and either strict Dart package
-                             dry-run readiness or the documented first-RC
-                             pub.dev deferral where connectanum_client is
-                             blocked only by private connectanum_core.
+                             evidence, hosted native release dry-run or
+                             prerelease publish evidence, baseline
+                             default-branch protection, visible workflows,
+                             visible router package, an RC GitHub prerelease,
+                             and either strict Dart package dry-run readiness
+                             or the documented first-RC pub.dev deferral where
+                             connectanum_client is blocked only by private
+                             connectanum_core.
   --strict                  Exit non-zero when the branch lacks the baseline
                              required checks expected for protected releases.
   -h, --help                Show this help text.
@@ -85,6 +87,7 @@ check_dart_package_publish_dry_run=0
 require_clean_dart_package_publish_dry_run=0
 check_native_release_dry_run=0
 require_clean_native_release_dry_run=0
+accept_native_prerelease_evidence=0
 require_router_package=0
 require_workflows_visible=0
 show_required_checks_plan=0
@@ -102,6 +105,7 @@ expected_native_release_jobs=(
   'ct_ffi (Windows x64)'
   'Publish GitHub Release'
 )
+expected_native_release_asset_count=30
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
 
 while [[ $# -gt 0 ]]; do
@@ -195,6 +199,7 @@ while [[ $# -gt 0 ]]; do
       scan_latest_ci_logs=1
       check_dart_package_publish_dry_run=1
       check_native_release_dry_run=1
+      accept_native_prerelease_evidence=1
       shift
       ;;
     --require-rc-ready)
@@ -205,6 +210,7 @@ while [[ $# -gt 0 ]]; do
       scan_latest_ci_logs=1
       check_dart_package_publish_dry_run=1
       check_native_release_dry_run=1
+      accept_native_prerelease_evidence=1
       shift
       ;;
     --strict)
@@ -309,6 +315,74 @@ is_release_candidate_tag() {
   local tag="$1"
 
   [[ "$tag" =~ (^|[-_.])rc([0-9]+|[-_.][0-9]+)?($|[-_.]) ]]
+}
+
+rc_tags_pointing_at_head() {
+  local tag
+
+  while IFS= read -r tag; do
+    [[ -n "$tag" ]] || continue
+    if is_release_candidate_tag "$tag"; then
+      printf '%s\n' "$tag"
+    fi
+  done < <(git tag --points-at HEAD | sort)
+}
+
+rc_tags_merged_into_head() {
+  local tag
+
+  while IFS= read -r tag; do
+    [[ -n "$tag" ]] || continue
+    if is_release_candidate_tag "$tag"; then
+      printf '%s\n' "$tag"
+    fi
+  done < <(
+    git for-each-ref \
+      --merged HEAD \
+      --sort=-creatordate \
+      --format='%(refname:short)' \
+      refs/tags
+  )
+}
+
+rc_candidate_tags_for_head() {
+  local head_tags
+
+  head_tags="$(rc_tags_pointing_at_head)"
+  if [[ -n "$head_tags" ]]; then
+    printf '%s\n' "$head_tags"
+    return
+  fi
+
+  rc_tags_merged_into_head
+}
+
+rc_readiness_sensitive_changes_since() {
+  local base="$1"
+  local path
+
+  git diff --name-only "${base}..HEAD" | while IFS= read -r path; do
+    case "$path" in
+      bin/audit-github-deployment-chain|\
+      docs/project_state.md|\
+      docs/exec-plans/*)
+        ;;
+      *)
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+inspect_router_image_manifest() {
+  local image="$1"
+
+  if command -v docker >/dev/null 2>&1; then
+    docker buildx imagetools inspect "$image" >/dev/null 2>&1
+    return $?
+  fi
+
+  return 127
 }
 
 strict_dart_output_is_deferred_pub_dev_only() {
@@ -581,7 +655,15 @@ print_native_release_dry_run_gate() {
   local expected_job
   local changed_paths
   local log_file
+  local release_intent
+  local release_scope=""
+  local release_mode=""
   local release_tag=""
+  local release_state
+  local release_prerelease
+  local release_draft
+  local release_target
+  local release_asset_count
   local failed=0
 
   run_id="$(latest_native_release_dry_run_id)"
@@ -656,30 +738,73 @@ print_native_release_dry_run_gate() {
 
   log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-native-release-log.XXXXXX")"
   if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
-    release_tag="$(
-      sed -nE 's/.*Release intent accepted: ([^ ]+) \(native, dry-run\)\..*/\1/p' "$log_file" \
+    release_intent="$(
+      sed -nE 's/.*Release intent accepted: ([^ ]+) \(([^,]+), ([^)]+)\)\..*/\1\t\2\t\3/p' "$log_file" \
         | head -n 1
     )"
 
-    if [[ -z "$release_tag" ]]; then
-      printf 'Finding: latest Native Artifacts run did not log accepted native dry-run release intent.\n'
+    if [[ -z "$release_intent" ]]; then
+      printf 'Finding: latest Native Artifacts run did not log accepted release intent.\n'
       failed=1
     else
-      printf 'Native release dry-run intent: accepted (%s).\n' "$release_tag"
+      IFS=$'\t' read -r release_tag release_scope release_mode <<<"$release_intent"
 
-      if "$gh_bin" release view "$release_tag" --repo "$repository" >/dev/null 2>&1; then
-        printf 'Finding: dry-run release tag exists as a GitHub Release: %s.\n' "$release_tag"
-        failed=1
+      if [[ "$release_mode" == "dry-run" ]]; then
+        printf 'Native release dry-run intent: accepted (%s, %s).\n' "$release_tag" "$release_scope"
+
+        if "$gh_bin" release view "$release_tag" --repo "$repository" >/dev/null 2>&1; then
+          printf 'Finding: dry-run release tag exists as a GitHub Release: %s.\n' "$release_tag"
+          failed=1
+        else
+          printf 'Native release dry-run avoided GitHub Release mutation: yes (%s not found).\n' "$release_tag"
+        fi
+
+        if grep -Fq 'Artifact native-release-preview has been successfully uploaded!' "$log_file"; then
+          printf 'Native release preview artifact upload: ready (native-release-preview).\n'
+        else
+          printf 'Finding: latest Native Artifacts dry-run did not upload native-release-preview.\n'
+          failed=1
+        fi
+      elif [[ "$release_mode" == "prerelease" && "$accept_native_prerelease_evidence" -eq 1 ]]; then
+        printf 'Native release prerelease intent: accepted (%s, %s).\n' "$release_tag" "$release_scope"
+
+        if release_state="$(
+          "$gh_bin" release view "$release_tag" \
+            --repo "$repository" \
+            --json isPrerelease,isDraft,targetCommitish,assets \
+            --jq '[.isPrerelease, .isDraft, .targetCommitish, (.assets | length)] | @tsv' \
+            2>/dev/null
+        )"; then
+          IFS=$'\t' read -r release_prerelease release_draft release_target release_asset_count <<<"$release_state"
+
+          if [[ "$release_prerelease" == "true" && "$release_draft" != "true" ]]; then
+            printf 'Native GitHub prerelease state: ready (%s is a non-draft prerelease).\n' "$release_tag"
+          else
+            printf 'Finding: GitHub Release %s isPrerelease=%s isDraft=%s.\n' "$release_tag" "$release_prerelease" "$release_draft"
+            failed=1
+          fi
+
+          if [[ "$release_target" == "$run_head_sha" ]]; then
+            printf 'Native GitHub prerelease target: ready (%s).\n' "${release_target:0:7}"
+          else
+            printf 'Finding: GitHub Release %s targets %s, expected %s.\n' "$release_tag" "${release_target:0:7}" "${run_head_sha:0:7}"
+            failed=1
+          fi
+
+          if [[ "$release_asset_count" =~ ^[0-9]+$ && "$release_asset_count" -ge "$expected_native_release_asset_count" ]]; then
+            printf 'Native GitHub prerelease assets: ready (%s assets).\n' "$release_asset_count"
+          else
+            printf 'Finding: GitHub Release %s has %s assets, expected at least %s.\n' "$release_tag" "${release_asset_count:-unknown}" "$expected_native_release_asset_count"
+            failed=1
+          fi
+        else
+          printf 'Finding: accepted prerelease intent did not create an inspectable GitHub Release: %s.\n' "$release_tag"
+          failed=1
+        fi
       else
-        printf 'Native release dry-run avoided GitHub Release mutation: yes (%s not found).\n' "$release_tag"
+        printf 'Finding: latest Native Artifacts run accepted %s/%s intent, not the required native dry-run evidence.\n' "$release_scope" "$release_mode"
+        failed=1
       fi
-    fi
-
-    if grep -Fq 'Artifact native-release-preview has been successfully uploaded!' "$log_file"; then
-      printf 'Native release preview artifact upload: ready (native-release-preview).\n'
-    else
-      printf 'Finding: latest Native Artifacts dry-run did not upload native-release-preview.\n'
-      failed=1
     fi
   else
     printf 'Finding: could not download logs for Native Artifacts run #%s.\n' "$run_id"
@@ -710,7 +835,11 @@ print_native_release_dry_run_gate() {
   fi
 
   if [[ "$failed" -eq 0 ]]; then
-    printf 'Latest Native Artifacts dry-run is clean and relevant.\n'
+    if [[ "$release_mode" == "prerelease" ]]; then
+      printf 'Latest Native Artifacts prerelease publish is clean and relevant.\n'
+    else
+      printf 'Latest Native Artifacts dry-run is clean and relevant.\n'
+    fi
   fi
 
   return "$failed"
@@ -800,7 +929,10 @@ print_rc_readiness() {
   local head_sha
   local short_head_sha
   local rc_tags
+  local rc_reachable_tags
   local rc_tag
+  local rc_tag_sha
+  local rc_changed_paths
   local selected_rc_tag=""
   local selected_rc_release_state=""
   local strict_dart_output
@@ -851,13 +983,13 @@ print_rc_readiness() {
 
   if [[ "$check_native_release_dry_run" -eq 1 ]]; then
     if [[ "$native_release_dry_run_failed" -eq 0 ]]; then
-      printf 'Native release hosted dry-run gate: ready\n'
+      printf 'Native release hosted evidence gate: ready\n'
     else
-      printf 'Native release hosted dry-run gate: not ready\n'
+      printf 'Native release hosted evidence gate: not ready\n'
       rc_ready_failed=1
     fi
   else
-    printf 'Native release hosted dry-run gate: not evaluated; use --show-native-release-dry-run or --require-rc-ready.\n'
+    printf 'Native release hosted evidence gate: not evaluated; use --show-native-release-dry-run or --require-rc-ready.\n'
     rc_ready_failed=1
   fi
 
@@ -892,18 +1024,32 @@ print_rc_readiness() {
   fi
 
   rc_tags="$(
-    while IFS= read -r rc_tag; do
-      [[ -n "$rc_tag" ]] || continue
-      if is_release_candidate_tag "$rc_tag"; then
-        printf '%s\n' "$rc_tag"
-      fi
-    done < <(git tag --points-at HEAD | sort)
+    rc_tags_pointing_at_head
   )"
 
   if [[ -z "$rc_tags" ]]; then
-    printf 'RC tag on checked-out head: not ready; no local tag with an rc segment points at %s.\n' "$short_head_sha"
-    printf '  Next action: choose the RC version, create a tag such as v<version>-rc.1 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
-    rc_ready_failed=1
+    rc_reachable_tags="$(rc_tags_merged_into_head | head -n 1)"
+    if [[ -z "$rc_reachable_tags" ]]; then
+      printf 'RC tag on checked-out head: not ready; no local tag with an rc segment points at or is merged into %s.\n' "$short_head_sha"
+      printf '  Next action: choose the RC version, create a tag such as v<version>-rc.1 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
+      rc_ready_failed=1
+    else
+      selected_rc_tag="$rc_reachable_tags"
+      rc_tag_sha="$(git rev-list -n 1 "$selected_rc_tag")"
+      if ! rc_changed_paths="$(rc_readiness_sensitive_changes_since "$rc_tag_sha")"; then
+        printf 'RC tag on checked-out head: not ready; failed to compare %s with %s.\n' "$selected_rc_tag" "$short_head_sha"
+        rc_ready_failed=1
+      elif [[ -n "$rc_changed_paths" ]]; then
+        printf 'RC tag on checked-out head: not ready; %s is at %s and release-sensitive changes exist after it:\n' "$selected_rc_tag" "${rc_tag_sha:0:7}"
+        while IFS= read -r rc_changed_path; do
+          [[ -n "$rc_changed_path" ]] || continue
+          printf -- '- %s\n' "$rc_changed_path"
+        done <<<"$rc_changed_paths"
+        rc_ready_failed=1
+      else
+        printf 'RC tag on checked-out head: ready via %s at %s; only audit/project-state bookkeeping changed after the tag.\n' "$selected_rc_tag" "${rc_tag_sha:0:7}"
+      fi
+    fi
   else
     printf 'RC tag on checked-out head: ready\n'
     while IFS= read -r rc_tag; do
@@ -1156,23 +1302,46 @@ fi
 printf '\n## Router Container Package\n\n'
 
 router_package=""
+router_package_source=""
+router_image_evidence=""
 if candidate_package="$(
   "$gh_bin" api "users/${package_owner}/packages/container/connectanum-router" \
     --jq '.name' 2>/dev/null
 )"; then
   router_package="$candidate_package"
+  router_package_source="GitHub Packages user API"
 elif candidate_package="$(
   "$gh_bin" api "orgs/${package_owner}/packages/container/connectanum-router" \
     --jq '.name' 2>/dev/null
 )"; then
   router_package="$candidate_package"
+  router_package_source="GitHub Packages org API"
+else
+  while IFS= read -r router_rc_tag; do
+    [[ -n "$router_rc_tag" ]] || continue
+
+    for router_image_tag in "$router_rc_tag" "${router_rc_tag#v}"; do
+      [[ -n "$router_image_tag" ]] || continue
+
+      if inspect_router_image_manifest "ghcr.io/${package_owner}/connectanum-router:${router_image_tag}"; then
+        router_package="connectanum-router"
+        router_package_source="GHCR registry manifest"
+        router_image_evidence="ghcr.io/${package_owner}/connectanum-router:${router_image_tag}"
+        break 2
+      fi
+    done
+  done < <(rc_candidate_tags_for_head)
 fi
 
 if [[ -n "$router_package" ]]; then
   printf 'GHCR package: ghcr.io/%s/%s\n' "$package_owner" "$router_package"
+  printf 'GHCR visibility evidence: %s\n' "$router_package_source"
+  if [[ -n "$router_image_evidence" ]]; then
+    printf 'GHCR registry manifest: ready (%s)\n' "$router_image_evidence"
+  fi
 else
   printf 'GHCR package: not found for ghcr.io/%s/connectanum-router\n' "$package_owner"
-  printf 'Finding: router container package is not currently visible in GitHub Packages.\n'
+  printf 'Finding: router container package is not currently visible in GitHub Packages or as a published RC registry manifest.\n'
   missing_router_package=1
 fi
 
