@@ -621,20 +621,18 @@ void main() {
       final sessionId = client.sessionId;
       final lastEventId = client.lastEventId;
 
-      final directResources = await client.listResources(
+      final directResources = await client.listResourcesDirect(
         id: 'io-direct-resources',
-        directJson: true,
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-resources-list',
         },
       );
       expect(directResources.resources.single['uri'], _ioResourceUri);
 
-      final directPrompt = await client.getPrompt(
+      final directPrompt = await client.getPromptDirect(
         _ioPromptName,
         id: 'io-direct-prompt-get',
         arguments: const <String, String>{'taskId': 'T-direct'},
-        directJson: true,
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-prompt-get',
         },

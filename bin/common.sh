@@ -2338,9 +2338,8 @@ Future<void> _smokeResourcesAndPrompts(
     'streamable prompts/get failed',
   );
 
-  final directResources = await client.listResources(
+  final directResources = await client.listResourcesDirect(
     id: 'direct-resources',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'resource-prompts-direct-resources',
     },
@@ -2353,10 +2352,9 @@ Future<void> _smokeResourcesAndPrompts(
     directResources.nextCursor == _resourceCursor,
     'direct JSON resources/list missed nextCursor',
   );
-  final directResourcesPage = await client.listResources(
+  final directResourcesPage = await client.listResourcesDirect(
     id: 'direct-resources-page-2',
     cursor: directResources.nextCursor,
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'resource-prompts-direct-resources-page-2',
     },
@@ -2367,10 +2365,9 @@ Future<void> _smokeResourcesAndPrompts(
     'direct JSON resources/list cursor page failed',
   );
 
-  final directReadResource = await client.readResource(
+  final directReadResource = await client.readResourceDirect(
     _resourceUri,
     id: 'direct-resource-read',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'resource-prompts-direct-resource-read',
     },
@@ -2380,9 +2377,8 @@ Future<void> _smokeResourcesAndPrompts(
     'direct JSON resources/read failed',
   );
 
-  final directTemplates = await client.listResourceTemplates(
+  final directTemplates = await client.listResourceTemplatesDirect(
     id: 'direct-resource-templates',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'resource-prompts-direct-templates',
     },
@@ -2396,10 +2392,9 @@ Future<void> _smokeResourcesAndPrompts(
     directTemplates.nextCursor == _resourceTemplateCursor,
     'direct JSON resources/templates/list missed nextCursor',
   );
-  final directTemplatesPage = await client.listResourceTemplates(
+  final directTemplatesPage = await client.listResourceTemplatesDirect(
     id: 'direct-resource-templates-page-2',
     cursor: directTemplates.nextCursor,
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'resource-prompts-direct-templates-page-2',
     },
@@ -2411,9 +2406,8 @@ Future<void> _smokeResourcesAndPrompts(
     'direct JSON resources/templates/list cursor page failed',
   );
 
-  final directPrompts = await client.listPrompts(
+  final directPrompts = await client.listPromptsDirect(
     id: 'direct-prompts',
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'resource-prompts-direct-prompts',
     },
@@ -2426,10 +2420,9 @@ Future<void> _smokeResourcesAndPrompts(
     directPrompts.nextCursor == _promptCursor,
     'direct JSON prompts/list missed nextCursor',
   );
-  final directPromptsPage = await client.listPrompts(
+  final directPromptsPage = await client.listPromptsDirect(
     id: 'direct-prompts-page-2',
     cursor: directPrompts.nextCursor,
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'resource-prompts-direct-prompts-page-2',
     },
@@ -2440,11 +2433,10 @@ Future<void> _smokeResourcesAndPrompts(
     'direct JSON prompts/list cursor page failed',
   );
 
-  final directPrompt = await client.getPrompt(
+  final directPrompt = await client.getPromptDirect(
     _promptName,
     id: 'direct-prompt-get',
     arguments: const <String, String>{'taskId': 'T-direct'},
-    directJson: true,
     headers: const <String, String>{
       'x-consumer-trace': 'resource-prompts-direct-prompt-get',
     },
@@ -15302,13 +15294,19 @@ Future<void> _smokeResourcesAndPrompts(
   bool directJson = false,
 }) async {
   final mode = directJson ? 'direct' : 'streamable';
-  final resources = await client.listResources(
-    id: '$label-$mode-resources',
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$mode-resources',
-    },
-  );
+  final resources = directJson
+      ? await client.listResourcesDirect(
+          id: '$label-$mode-resources',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resources',
+          },
+        )
+      : await client.listResources(
+          id: '$label-$mode-resources',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resources',
+          },
+        );
   final resourceUris = {
     for (final resource in resources.resources) resource['uri'],
   };
@@ -15319,14 +15317,21 @@ Future<void> _smokeResourcesAndPrompts(
   if (resourceCursor == null || resourceCursor.isEmpty) {
     throw StateError('MCP resources/list did not expose a catalog cursor.');
   }
-  final resourcePage = await client.listResources(
-    id: '$label-$mode-resources-page',
-    cursor: resourceCursor,
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$mode-resources-page',
-    },
-  );
+  final resourcePage = directJson
+      ? await client.listResourcesDirect(
+          id: '$label-$mode-resources-page',
+          cursor: resourceCursor,
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resources-page',
+          },
+        )
+      : await client.listResources(
+          id: '$label-$mode-resources-page',
+          cursor: resourceCursor,
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resources-page',
+          },
+        );
   final pagedResourceUris = {
     for (final resource in resourcePage.resources) resource['uri'],
   };
@@ -15335,27 +15340,40 @@ Future<void> _smokeResourcesAndPrompts(
     throw StateError('MCP resources/list cursor page was invalid.');
   }
 
-  final contents = await client.readResource(
-    _resourceUri,
-    id: '$label-$mode-resource-read',
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$mode-resource-read',
-    },
-  );
+  final contents = directJson
+      ? await client.readResourceDirect(
+          _resourceUri,
+          id: '$label-$mode-resource-read',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resource-read',
+          },
+        )
+      : await client.readResource(
+          _resourceUri,
+          id: '$label-$mode-resource-read',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resource-read',
+          },
+        );
   if (!jsonEncode(contents).contains(
     'Consumer package router-hosted MCP context document.',
   )) {
     throw StateError('MCP resources/read did not return route context.');
   }
 
-  final templates = await client.listResourceTemplates(
-    id: '$label-$mode-resource-templates',
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$mode-resource-templates',
-    },
-  );
+  final templates = directJson
+      ? await client.listResourceTemplatesDirect(
+          id: '$label-$mode-resource-templates',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resource-templates',
+          },
+        )
+      : await client.listResourceTemplates(
+          id: '$label-$mode-resource-templates',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resource-templates',
+          },
+        );
   final templateUris = {
     for (final template in templates.resourceTemplates)
       template['uriTemplate'] ?? template['uri_template'],
@@ -15371,14 +15389,21 @@ Future<void> _smokeResourcesAndPrompts(
       'MCP resources/templates/list did not expose a catalog cursor.',
     );
   }
-  final templatePage = await client.listResourceTemplates(
-    id: '$label-$mode-resource-templates-page',
-    cursor: templateCursor,
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$mode-resource-templates-page',
-    },
-  );
+  final templatePage = directJson
+      ? await client.listResourceTemplatesDirect(
+          id: '$label-$mode-resource-templates-page',
+          cursor: templateCursor,
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resource-templates-page',
+          },
+        )
+      : await client.listResourceTemplates(
+          id: '$label-$mode-resource-templates-page',
+          cursor: templateCursor,
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-resource-templates-page',
+          },
+        );
   final pagedTemplateUris = {
     for (final template in templatePage.resourceTemplates)
       template['uriTemplate'] ?? template['uri_template'],
@@ -15390,13 +15415,19 @@ Future<void> _smokeResourcesAndPrompts(
     );
   }
 
-  final prompts = await client.listPrompts(
-    id: '$label-$mode-prompts',
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$mode-prompts',
-    },
-  );
+  final prompts = directJson
+      ? await client.listPromptsDirect(
+          id: '$label-$mode-prompts',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-prompts',
+          },
+        )
+      : await client.listPrompts(
+          id: '$label-$mode-prompts',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-prompts',
+          },
+        );
   final promptNames = {for (final prompt in prompts.prompts) prompt['name']};
   if (!promptNames.contains(_promptName)) {
     throw StateError('MCP prompts/list did not expose $_promptName.');
@@ -15405,14 +15436,21 @@ Future<void> _smokeResourcesAndPrompts(
   if (promptCursor == null || promptCursor.isEmpty) {
     throw StateError('MCP prompts/list did not expose a catalog cursor.');
   }
-  final promptPage = await client.listPrompts(
-    id: '$label-$mode-prompts-page',
-    cursor: promptCursor,
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$mode-prompts-page',
-    },
-  );
+  final promptPage = directJson
+      ? await client.listPromptsDirect(
+          id: '$label-$mode-prompts-page',
+          cursor: promptCursor,
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-prompts-page',
+          },
+        )
+      : await client.listPrompts(
+          id: '$label-$mode-prompts-page',
+          cursor: promptCursor,
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-prompts-page',
+          },
+        );
   final pagedPromptNames = {
     for (final prompt in promptPage.prompts) prompt['name'],
   };
@@ -15422,15 +15460,23 @@ Future<void> _smokeResourcesAndPrompts(
   }
 
   final taskId = 'T-$label-$mode-prompt';
-  final prompt = await client.getPrompt(
-    _promptName,
-    id: '$label-$mode-prompt',
-    arguments: {'taskId': taskId},
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$mode-prompt',
-    },
-  );
+  final prompt = directJson
+      ? await client.getPromptDirect(
+          _promptName,
+          id: '$label-$mode-prompt',
+          arguments: {'taskId': taskId},
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-prompt',
+          },
+        )
+      : await client.getPrompt(
+          _promptName,
+          id: '$label-$mode-prompt',
+          arguments: {'taskId': taskId},
+          headers: <String, String>{
+            'x-consumer-trace': '$label-$mode-prompt',
+          },
+        );
   if (!jsonEncode(prompt).contains(taskId)) {
     throw StateError('MCP prompts/get did not substitute $taskId.');
   }

@@ -2,14 +2,17 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: `09c5ce7`
-(`mcp: add direct json helper api`; public direct JSON request/notification/
-batch helpers plus neutral consumer smoke coverage complete with hosted
-evidence clean)
+Last reviewed branch checkpoint: working tree after `dbe712e`
+(`mcp: add direct resource prompt helpers`; typed direct JSON resource/prompt
+helpers implemented with full local verification clean; hosted evidence
+pending)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-client-direct-json-post-helper-smoke.md`
-(implemented; full local verification passed, hosted evidence pending).
+`docs/exec-plans/2026-05-13-mcp-client-direct-resource-prompt-helper-smoke.md`
+(complete; full local verification clean; hosted evidence pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-client-direct-json-post-helper-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-client-direct-json-helper-api-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:

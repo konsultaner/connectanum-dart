@@ -726,28 +726,25 @@ void main() {
         expect(client.sessionId, 'session-1');
         endpoint.requests.clear();
 
-        final resources = await client.listResources(
+        final resources = await client.listResourcesDirect(
           id: 'direct-resources-helper',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-resources-list-helper',
           },
         );
         expect(resources.resources.single['uri'], 'wamp://app/readme');
 
-        final contents = await client.readResource(
+        final contents = await client.readResourceDirect(
           'wamp://app/readme',
           id: 'direct-resource-read',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-resource-read-helper',
           },
         );
         expect(contents.single['text'], 'hello resource');
 
-        final templates = await client.listResourceTemplates(
+        final templates = await client.listResourceTemplatesDirect(
           id: 'direct-resource-templates-helper',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-resource-templates-helper',
           },
@@ -757,20 +754,18 @@ void main() {
           'wamp://app/{name}',
         );
 
-        final prompts = await client.listPrompts(
+        final prompts = await client.listPromptsDirect(
           id: 'direct-prompts-helper',
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-prompts-list-helper',
           },
         );
         expect(prompts.prompts.single['name'], 'summarize');
 
-        final prompt = await client.getPrompt(
+        final prompt = await client.getPromptDirect(
           'summarize',
           id: 'direct-prompt-get',
           arguments: {'topic': 'mcp'},
-          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-prompt-get-helper',
           },

@@ -444,6 +444,68 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: 'prompts/get');
   }
 
+  Future<McpStreamableResourceListPage> listResourcesDirect({
+    Object? id,
+    String? cursor,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listResources(
+      id: id,
+      cursor: cursor,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<List<McpJsonMap>> readResourceDirect(
+    String uri, {
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return readResource(uri, id: id, directJson: true, headers: headers);
+  }
+
+  Future<McpStreamableResourceTemplateListPage> listResourceTemplatesDirect({
+    Object? id,
+    String? cursor,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listResourceTemplates(
+      id: id,
+      cursor: cursor,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpStreamablePromptListPage> listPromptsDirect({
+    Object? id,
+    String? cursor,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return listPrompts(
+      id: id,
+      cursor: cursor,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
+  Future<McpJsonMap> getPromptDirect(
+    String name, {
+    Object? id,
+    Map<String, String> arguments = const <String, String>{},
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return getPrompt(
+      name,
+      id: id,
+      arguments: arguments,
+      directJson: true,
+      headers: headers,
+    );
+  }
+
   Future<void> notification(
     String method, {
     McpJsonMap? params,
