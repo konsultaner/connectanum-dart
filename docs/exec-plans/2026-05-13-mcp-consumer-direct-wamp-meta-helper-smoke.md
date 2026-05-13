@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Direct WAMP Meta Helper Smoke
 
-Status: active; full local verification passing
+Status: complete; hosted CI/log/dry-run evidence clean
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-05-13
@@ -43,6 +43,27 @@ coverage instead of package-boundary smoke evidence.
   package `dart analyze` and router-hosted MCP runtime smoke.
 - `git diff --check` passed on 2026-05-13.
 - Full local `bin/verify` passed on 2026-05-13.
+- Commit `18d3378`
+  (`mcp: smoke consumer direct wamp meta helpers`) was pushed to both
+  configured remotes.
+- GitHub `CI` run `25794202291` completed successfully for `18d3378` with
+  `Fast Checks` and `Full Verify` green.
+- The `Dart Package Publish Dry Run` workflow did not rerun for `18d3378`
+  because the commit did not touch package publish-sensitive paths. The latest
+  run `25792246592` at `ee009e1` remains clean and relevant for checked-out
+  package inputs.
+- The `WAMP Profile Benchmarks` workflow did not rerun for `18d3378` because
+  the commit did not touch benchmark-sensitive paths. The latest run
+  `25792246590` at `ee009e1` remains green.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI, clean hosted CI logs, and a clean relevant Dart
+  package publish dry-run.
+- `bin/audit-github-deployment-chain --branch add-router --strict --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed the hosted CI, hosted CI log scan, and package dry-run checks, then
+  failed only known operator-side release-hardening gaps: required-check
+  branch protection is not ready, `.github/workflows/router-image.yml` is not
+  yet visible from the default branch through the Actions API, and the router
+  GHCR package is not visible.
 
 ## Decision Log
 
@@ -52,5 +73,6 @@ coverage instead of package-boundary smoke evidence.
 
 ## Handoff
 
-Implementation is complete and full local verification is passing. Commit,
-push, and hosted evidence are pending.
+Implementation is pushed. Focused local checks, full local verification,
+hosted CI, hosted CI log scan, and the non-strict deployment-chain audit are
+clean for `18d3378`.

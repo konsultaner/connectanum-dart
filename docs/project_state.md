@@ -2,16 +2,19 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: `ee009e1`
-(`mcp: smoke direct wamp meta helpers in router example`; router-hosted MCP
-direct WAMP meta helper smoke complete with hosted CI/log/dry-run evidence
+Last reviewed branch checkpoint: local implementation commit pending push
+(`mcp: smoke consumer direct wamp api helpers`; generated consumer-package
+router-hosted MCP direct WAMP API helper smoke complete with local verification
 clean)
-Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-meta-helper-smoke.md`
-(generated consumer-package router-hosted MCP direct WAMP meta helper smoke
-implemented with full local `bin/verify` passing; commit, push, and hosted
-evidence pending).
+Active exec plan: none.
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
+(complete; local verification clean; hosted CI/log evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-meta-helper-smoke.md`
+(complete; hosted CI/log/dry-run evidence clean; strict audit still reports
+known operator-side release-hardening gaps).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-router-direct-wamp-meta-helper-smoke.md`
 (complete; hosted CI/log/dry-run evidence clean; strict audit still reports
 known operator-side release-hardening gaps).

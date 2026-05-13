@@ -10327,6 +10327,7 @@ Future<void> _smokeDirectJson(
   );
 
   await _smokeDirectToolApi(client, label: label);
+  await _smokeDirectWampApiHelpers(client, label: label);
   await _smokeGenericDirectJsonRpcAccess(
     client,
     serviceSession,
@@ -10827,6 +10828,95 @@ Future<void> _smokeDirectToolApi(
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Direct JSON tool API changed Streamable session state.');
+  }
+}
+
+Future<void> _smokeDirectWampApiHelpers(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final procedureCatalog = await client.listWampApiDirect(
+    id: '$label-direct-helper-api-procedures',
+    kind: 'procedure',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-helper-api-procedures',
+    },
+  );
+  final procedureUris = _catalogStringFieldValues(
+    procedureCatalog['procedures'],
+    field: 'uri',
+    label: 'Direct WAMP API helper procedure catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    procedureUris,
+    label: 'Direct WAMP API helper procedure catalog',
+    fieldDescription: 'procedure URI',
+  );
+  if (!procedureUris.contains(_procedure)) {
+    throw StateError(
+      'Direct WAMP API helper procedure catalog missed $_procedure.',
+    );
+  }
+
+  final procedureDescription = await client.describeWampApiDirect(
+    _procedure,
+    id: '$label-direct-helper-api-procedure-describe',
+    kind: 'procedure',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-helper-api-procedure-describe',
+    },
+  );
+  if (procedureDescription['uri'] != _procedure) {
+    throw StateError(
+      'Direct WAMP API helper procedure describe missed $_procedure.',
+    );
+  }
+
+  final topicCatalog = await client.listWampApiDirect(
+    id: '$label-direct-helper-api-topics',
+    kind: 'topic',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-helper-api-topics',
+    },
+  );
+  final topicUris = _catalogStringFieldValues(
+    topicCatalog['topics'],
+    field: 'uri',
+    label: 'Direct WAMP API helper topic catalog',
+  );
+  _expectSortedUniqueCatalogValues(
+    topicUris,
+    label: 'Direct WAMP API helper topic catalog',
+    fieldDescription: 'topic URI',
+  );
+  final topicCatalogJson = jsonEncode(topicCatalog);
+  if (!topicUris.contains(_topic) ||
+      !topicCatalogJson.contains('Consumer task lifecycle event stream')) {
+    throw StateError('Direct WAMP API helper topic catalog missed $_topic.');
+  }
+
+  final topicDescription = await client.describeWampApiDirect(
+    _topic,
+    id: '$label-direct-helper-api-topic-describe',
+    kind: 'topic',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-helper-api-topic-describe',
+    },
+  );
+  final topicDescriptionJson = jsonEncode(topicDescription);
+  if (topicDescription['uri'] != _topic ||
+      !topicDescriptionJson.contains('eventSchema') ||
+      !topicDescriptionJson.contains('allowPublish') ||
+      !topicDescriptionJson.contains('allowSubscribe')) {
+    throw StateError('Direct WAMP API helper topic describe missed $_topic.');
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct WAMP API helpers changed Streamable session state.');
   }
 }
 
