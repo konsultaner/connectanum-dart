@@ -5330,6 +5330,30 @@ async fn serve_http_connection(
                     break;
                 }
             }
+            HttpRouteMatch::ProtocolNotAllowed { allowed_protocols } => {
+                let allowed_value = allowed_protocols.join(", ");
+                let upgrade_value = http_upgrade_header_for_protocols(&allowed_protocols);
+                let mut headers = vec![("X-Connectanum-Allowed-Protocols", allowed_value.as_str())];
+                if let Some(upgrade) = upgrade_value.as_deref() {
+                    headers.push(("Upgrade", upgrade));
+                }
+                if let Err(err) = send_http_simple_response(
+                    &mut write_half,
+                    version,
+                    StatusCode::UPGRADE_REQUIRED,
+                    keep_alive,
+                    b"upgrade required",
+                    &headers,
+                )
+                .await
+                {
+                    eprintln!(
+                        "failed to send 426 response for listener {:?}: {}",
+                        listener_id, err
+                    );
+                    break;
+                }
+            }
             HttpRouteMatch::NotFound => {
                 if let Err(err) = send_http_simple_response(
                     &mut write_half,
@@ -5417,6 +5441,28 @@ async fn send_http_simple_response(
     protocol::write_http_response_shared(writer, version, status.as_u16() as i32, &headers, body)
         .await
         .map_err(|err| err.to_string())
+}
+
+fn http_upgrade_header_for_protocols(protocols: &[String]) -> Option<String> {
+    let mut values = Vec::new();
+    for protocol in protocols {
+        let value = match protocol.trim().to_lowercase().as_str() {
+            "h2" | "http2" | "http/2" => Some("h2"),
+            "h3" | "http3" | "http/3" => Some("h3"),
+            _ => None,
+        };
+        if let Some(value) = value {
+            if !values.contains(&value) {
+                values.push(value);
+            }
+        }
+    }
+    if values.is_empty() {
+        None
+    } else {
+        values.sort();
+        Some(values.join(", "))
+    }
 }
 
 fn ensure_connection_header(headers: &mut Vec<(String, String)>, keep_alive: bool, version: u8) {
@@ -6257,6 +6303,17 @@ async fn handle_http2_request(
             )
             .await
         }
+        HttpRouteMatch::ProtocolNotAllowed { allowed_protocols } => {
+            let allowed_value = allowed_protocols.join(", ");
+            let headers = [("x-connectanum-allowed-protocols", allowed_value.as_str())];
+            send_http2_plain_response(
+                respond,
+                StatusCode::UPGRADE_REQUIRED,
+                b"upgrade required",
+                &headers,
+            )
+            .await
+        }
         HttpRouteMatch::NotFound => {
             send_http2_plain_response(respond, StatusCode::NOT_FOUND, b"route not found", &[]).await
         }
@@ -6798,6 +6855,17 @@ async fn process_http3_request(
                 StatusCode::METHOD_NOT_ALLOWED,
                 b"method not allowed",
                 &[("allow", allow_value.as_str())],
+            )
+            .await
+        }
+        HttpRouteMatch::ProtocolNotAllowed { allowed_protocols } => {
+            let allowed_value = allowed_protocols.join(", ");
+            let headers = [("x-connectanum-allowed-protocols", allowed_value.as_str())];
+            send_http3_plain_response(
+                &mut send_stream,
+                StatusCode::UPGRADE_REQUIRED,
+                b"upgrade required",
+                &headers,
             )
             .await
         }
@@ -8336,6 +8404,62 @@ mod tests {
         drop(stream);
 
         assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn http_route_protocol_mismatch_returns_426_before_dispatch() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let config = json!({
+            "schema": "connectanum.router",
+            "version": 1,
+            "endpoints": [{
+                "host": "127.0.0.1",
+                "port": 0,
+                "tls_mode": "disabled",
+                "protocols": ["http"],
+                "http": {"alpn": ["http/1.1", "h2"]},
+                "http_routes": [{
+                    "path": "/h2-only",
+                    "protocols": ["http/2"],
+                    "methods": {
+                        "GET": {"type": "reserved_realm", "namespace": "api"}
+                    }
+                }]
+            }]
+        });
+        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(b"GET /h2-only HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
+        let connection_id = receiver.recv().await.expect("http connection delivered");
+
+        let mut response = Vec::new();
+        client.read_to_end(&mut response).await.unwrap();
+        let response = String::from_utf8_lossy(&response);
+        assert!(
+            response.starts_with("HTTP/1.1 426 Upgrade Required"),
+            "{response}"
+        );
+        assert!(
+            response.contains("X-Connectanum-Allowed-Protocols: http/2"),
+            "{response}"
+        );
+        assert!(response.contains("Upgrade: h2"), "{response}");
+        assert!(
+            connection_http_poll_request(connection_id)
+                .unwrap()
+                .is_none(),
+            "protocol mismatch must not dispatch a WAMP-backed HTTP request"
+        );
         shutdown().unwrap();
     }
 

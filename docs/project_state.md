@@ -22,10 +22,19 @@ promoted, required checks configured, hosted CI clean, native prerelease and
 router image published for `v0.1.0-rc.1`, final RC audit ready with pub.dev
 release-order intentionally deferred).
 Latest post-RC implementation checkpoint:
+Native HTTP route protocol mismatches now return `426 Upgrade Required` before
+WAMP/Dart dispatch on real native HTTP requests, including allowed protocol
+metadata and HTTP/1.1 `Upgrade` hints. Local `bin/test-fast`, focused
+`ct_core` protocol-gate tests, and `bin/verify` passed on 2026-05-13 for this
+checkpoint.
+Previous post-RC implementation checkpoint:
 HTTP route protocol mismatches now return `426 upgrade_required` before WAMP
 dispatch, including allowed protocol response metadata. Local `bin/test-fast`,
 focused router protocol restriction test, and `bin/verify` passed on
 2026-05-13 for this checkpoint.
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-native-http-protocol-gate.md` (complete; native
+HTTP route protocol mismatches reject with 426 before dispatch).
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).
