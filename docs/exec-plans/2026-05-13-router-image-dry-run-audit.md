@@ -1,6 +1,6 @@
 # Router Image Dry-Run Audit
 
-Status: in progress
+Status: complete
 
 ## Goal
 
@@ -38,5 +38,13 @@ treating the router image deployment chain as RC-ready.
   passed as a show-only audit and reported that no Router Image dry-run exists
   yet for the branch.
 - `bin/verify` passed on 2026-05-13.
-- Hosted Router Image dry-run and final deployment-chain audit pending after
-  push.
+- Hosted GitHub CI #25821472623 passed on
+  `codex/post-rc-production-readiness` at `67c46be`.
+- Hosted Router Image dry-run #25822055247 passed on
+  `codex/post-rc-production-readiness` at `67c46be`; the `router-image-preview`
+  artifact advertised `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.2`
+  with `Mode: dry-run`, `Publish: false`, `Provenance: false`, and `SBOM:
+  false`.
+- The strict deployment-chain audit passed with clean latest CI/logs, relevant
+  Native Artifacts dry-run evidence, relevant Router Image dry-run evidence,
+  and router package visibility requirements enabled.

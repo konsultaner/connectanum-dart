@@ -7,14 +7,16 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-13-router-image-dry-run-audit.md`.
+`docs/exec-plans/2026-05-13-router-image-node24-actions.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs an
 operator-approved RC tag and matching native/router release evidence. The
-deployment-chain audit is being tightened so RC readiness requires a hosted
-Router Image dry-run before accepting a router image publish. MCP is RC-ready
-for the first candidate: router-hosted endpoints, auth/session
+deployment-chain audit now requires a hosted Router Image dry-run before
+accepting a router image publish, and the current workflow cleanup is removing
+the old Docker setup action major that emitted a future Node.js deprecation
+annotation. MCP is RC-ready for the first candidate: router-hosted endpoints,
+auth/session
 correctness, direct JSON/meta API, WAMP pub/sub coverage, resources/prompts,
 Streamable HTTP compatibility, and consumer-package smoke coverage are in
 place. Further MCP helper permutations are post-RC polish unless consumer
@@ -22,12 +24,31 @@ integration exposes a real correctness bug. Pub.dev publishing remains deferred
 until package ownership, public versions, and release order for the private
 workspace packages are explicitly decided.
 Current implementation checkpoint:
-The deployment-chain audit now has an in-progress Router Image dry-run gate for
-the first-class RC path. Local `bin/test-fast`, audit syntax/help checks, and a
-show-only branch audit passed on 2026-05-13; `bin/verify` also passed. Hosted
-Router Image dry-run evidence and the final branch audit remain pending for
-this slice.
+The Router Image workflow is being moved from Docker setup actions `v3` to
+`v4`, because the latest hosted dry-run passed but emitted a future Node.js
+runtime deprecation annotation from the old action major. GitHub's release
+metadata reports `docker/setup-qemu-action@v4.0.0` and
+`docker/setup-buildx-action@v4.0.0`; both `action.yml` files declare
+`runs.using: node24`. Local pre-change `bin/test-fast`, workflow YAML parsing,
+`git diff --check`, and `bin/verify` passed on 2026-05-13. Hosted CI, hosted
+Router Image dry-run, and the final deployment-chain audit are pending after
+push.
+Previous implementation checkpoint:
+The deployment-chain audit now requires hosted Router Image dry-run evidence
+before accepting the router image deployment chain as RC-ready. Local
+`bin/test-fast`, audit syntax/help checks, a show-only branch audit, and
+`bin/verify` passed on 2026-05-13. Hosted GitHub CI #25821472623 passed on
+`codex/post-rc-production-readiness` at `67c46be`; Router Image dry-run
+#25822055247 passed at the same commit with `router-image-preview` metadata for
+`ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.2` and non-mutating
+`dry_run=true` / `publish=false` / `provenance=false` / `sbom=false` state. The
+strict deployment-chain audit with clean latest CI/logs, native release
+dry-run, Router Image dry-run, and router package visibility requirements
+passed after the hosted dry-run.
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-router-image-dry-run-audit.md` (complete; RC
+readiness now requires hosted Router Image dry-run evidence).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-explicit-rc-tag-audit.md` (complete; deployment
 audit can evaluate a requested RC tag and matching router image manifest).
 Latest post-RC implementation checkpoint:
