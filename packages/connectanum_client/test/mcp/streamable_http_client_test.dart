@@ -457,6 +457,19 @@ void main() {
         expect(page.nextCursor, isNull);
         expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
 
+        final rawResponse = await client.requestDirect(
+          'connectanum.tools.list',
+          id: 'direct-request-tools',
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-request-tools',
+          },
+        );
+        final rawResult = _jsonMapFrom(
+          rawResponse['result'],
+          label: 'direct request result',
+        );
+        expect(jsonEncode(rawResult['tools']), contains('app.echo'));
+
         final toolResult = await client.callConnectanumToolDirect(
           'app.echo',
           id: 'direct-call',
@@ -498,7 +511,7 @@ void main() {
         });
 
         expect(client.sessionId, isNull);
-        expect(endpoint.requests, hasLength(4));
+        expect(endpoint.requests, hasLength(5));
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.sessionId, isNull);
@@ -506,11 +519,13 @@ void main() {
         }
         expect(endpoint.requests[0].mcpMethod, 'connectanum.tools.list');
         expect(endpoint.requests[0].consumerTrace, 'direct-tools-list');
-        expect(endpoint.requests[1].mcpMethod, 'connectanum.tool.call');
-        expect(endpoint.requests[1].mcpName, isNull);
-        expect(endpoint.requests[1].consumerTrace, 'direct-tool-call');
-        expect(endpoint.requests[2].consumerTrace, 'direct-dotted-method');
-        expect(endpoint.requests[3].consumerTrace, 'direct-meta-method');
+        expect(endpoint.requests[1].mcpMethod, 'connectanum.tools.list');
+        expect(endpoint.requests[1].consumerTrace, 'direct-request-tools');
+        expect(endpoint.requests[2].mcpMethod, 'connectanum.tool.call');
+        expect(endpoint.requests[2].mcpName, isNull);
+        expect(endpoint.requests[2].consumerTrace, 'direct-tool-call');
+        expect(endpoint.requests[3].consumerTrace, 'direct-dotted-method');
+        expect(endpoint.requests[4].consumerTrace, 'direct-meta-method');
         expect(
           endpoint.requests.first.body,
           containsPair('method', 'connectanum.tools.list'),
@@ -1158,7 +1173,7 @@ void main() {
         expect(sessionId, 'session-1');
         endpoint.requests.clear();
 
-        final batch = await client.postBatch(
+        final batch = await client.postBatchDirect(
           [
             {
               'jsonrpc': '2.0',
@@ -1167,8 +1182,6 @@ void main() {
             },
             {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
           ],
-          streamable: false,
-          includeSession: false,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-batch-smoke',
           },
@@ -1298,7 +1311,7 @@ void main() {
       expect(endpoint.requests.last.sessionId, isNull);
       expect(endpoint.requests.last.lastEventId, isNull);
 
-      final batch = await client.postBatch(
+      final batch = await client.postBatchDirect(
         [
           {
             'jsonrpc': '2.0',
@@ -1314,8 +1327,6 @@ void main() {
             },
           },
         ],
-        streamable: false,
-        includeSession: false,
         headers: const <String, String>{
           'x-consumer-trace': 'direct-response-session-batch',
           'x-test-response-session-id': 'direct-batch-session-ignored',
@@ -1328,14 +1339,12 @@ void main() {
       expect(endpoint.requests.last.sessionId, isNull);
       expect(endpoint.requests.last.lastEventId, isNull);
 
-      await client.notification(
+      await client.notificationDirect(
         'notifications/progress',
         params: const <String, Object?>{
           'progressToken': 'direct-response-session-notification',
           'progress': 1,
         },
-        streamable: false,
-        includeSession: false,
         headers: const <String, String>{
           'x-consumer-trace': 'direct-response-session-notification',
           'x-test-response-session-id': 'direct-notification-session-ignored',
@@ -1346,7 +1355,7 @@ void main() {
       expect(endpoint.requests.last.sessionId, isNull);
       expect(endpoint.requests.last.lastEventId, isNull);
 
-      final notificationBatch = await client.postBatch(
+      final notificationBatch = await client.postBatchDirect(
         [
           {
             'jsonrpc': '2.0',
@@ -1357,8 +1366,6 @@ void main() {
             },
           },
         ],
-        streamable: false,
-        includeSession: false,
         headers: const <String, String>{
           'x-consumer-trace': 'direct-response-session-notification-batch',
           'x-test-response-session-id':
@@ -1394,25 +1401,21 @@ void main() {
         expect(sessionId, 'session-1');
         endpoint.requests.clear();
 
-        final directBatch = await client.postBatch(
-          [
-            {
-              'jsonrpc': '2.0',
-              'method': 'notifications/initialized',
-              'params': <String, Object?>{},
+        final directBatch = await client.postBatchDirect([
+          {
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+            'params': <String, Object?>{},
+          },
+          {
+            'jsonrpc': '2.0',
+            'method': 'notifications/progress',
+            'params': <String, Object?>{
+              'progressToken': 'direct-notification-batch',
+              'progress': 1,
             },
-            {
-              'jsonrpc': '2.0',
-              'method': 'notifications/progress',
-              'params': <String, Object?>{
-                'progressToken': 'direct-notification-batch',
-                'progress': 1,
-              },
-            },
-          ],
-          streamable: false,
-          includeSession: false,
-        );
+          },
+        ]);
         final streamableBatch = await client.postBatch([
           {
             'jsonrpc': '2.0',
@@ -1458,14 +1461,12 @@ void main() {
         expect(sessionId, 'session-1');
         endpoint.requests.clear();
 
-        await client.notification(
+        await client.notificationDirect(
           'notifications/progress',
           params: <String, Object?>{
             'progressToken': 'direct-single-notification',
             'progress': 1,
           },
-          streamable: false,
-          includeSession: false,
         );
         await client.notification(
           'notifications/tools/list_changed',

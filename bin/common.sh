@@ -940,11 +940,9 @@ Future<void> _smokeGenericJsonRpcApi(
     'generic Streamable ping failed',
   );
 
-  final directTools = await client.request(
+  final directTools = await client.requestDirect(
     'connectanum.tools.list',
     id: 'generic-direct-tools',
-    streamable: false,
-    includeSession: false,
   );
   _expect(
     jsonEncode(
@@ -957,15 +955,13 @@ Future<void> _smokeGenericJsonRpcApi(
     'generic direct JSON tools/list missed $_toolName',
   );
 
-  final directToolCall = await client.request(
+  final directToolCall = await client.requestDirect(
     'connectanum.tool.call',
     id: 'generic-direct-tool-call',
     params: const <String, Object?>{
       'name': _toolName,
       'arguments': <String, Object?>{'text': 'generic direct'},
     },
-    streamable: false,
-    includeSession: false,
   );
   _expect(
     _toolEchoText(
@@ -980,7 +976,7 @@ Future<void> _smokeGenericJsonRpcApi(
     'generic direct JSON tool call failed',
   );
 
-  final directBatch = await client.postBatch(
+  final directBatch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1003,8 +999,6 @@ Future<void> _smokeGenericJsonRpcApi(
         'params': <String, Object?>{'text': 'generic dotted batch'},
       },
     ],
-    streamable: false,
-    includeSession: false,
     headers: const <String, String>{
       'x-consumer-trace': 'generic-direct-batch',
     },
@@ -1075,7 +1069,7 @@ Future<void> _smokeGenericJsonRpcApi(
     'generic Streamable batch tools/list missed $_toolName',
   );
 
-  final directNotificationBatch = await client.postBatch(
+  final directNotificationBatch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1091,8 +1085,6 @@ Future<void> _smokeGenericJsonRpcApi(
         },
       },
     ],
-    streamable: false,
-    includeSession: false,
     headers: const <String, String>{
       'x-consumer-trace': 'generic-direct-notification-batch',
     },
@@ -1121,14 +1113,12 @@ Future<void> _smokeGenericJsonRpcApi(
     'generic Streamable notification-only batch returned a response',
   );
 
-  await client.notification(
+  await client.notificationDirect(
     'notifications/progress',
     params: const <String, Object?>{
       'progressToken': 'generic-direct-single-notification',
       'progress': 1,
     },
-    streamable: false,
-    includeSession: false,
   );
   await client.notification(
     'notifications/tools/list_changed',
@@ -1201,7 +1191,7 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
   );
 
   const responseSessionBatchTrace = 'direct-response-session-batch-header';
-  final responseSessionBatch = await client.postBatch(
+  final responseSessionBatch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1217,8 +1207,6 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
         },
       },
     ],
-    streamable: false,
-    includeSession: false,
     headers: const <String, String>{
       'x-consumer-trace': responseSessionBatchTrace,
       'x-test-response-session-id': 'direct-batch-session-header-ignored',
@@ -1244,14 +1232,12 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
 
   const responseSessionNotificationTrace =
       'direct-response-session-notification-header';
-  await client.notification(
+  await client.notificationDirect(
     'notifications/progress',
     params: const <String, Object?>{
       'progressToken': responseSessionNotificationTrace,
       'progress': 1,
     },
-    streamable: false,
-    includeSession: false,
     headers: const <String, String>{
       'x-consumer-trace': responseSessionNotificationTrace,
       'x-test-response-session-id':
@@ -1273,7 +1259,7 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
 
   const responseSessionNotificationBatchTrace =
       'direct-response-session-notification-batch-header';
-  final responseSessionNotificationBatch = await client.postBatch(
+  final responseSessionNotificationBatch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1284,8 +1270,6 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
         },
       },
     ],
-    streamable: false,
-    includeSession: false,
     headers: const <String, String>{
       'x-consumer-trace': responseSessionNotificationBatchTrace,
       'x-test-response-session-id':
@@ -1423,7 +1407,7 @@ Future<void> _smokeGenericJsonRpcBatchErrors(
   final eventId = client.lastEventId;
 
   const missingDirectTool = 'missing.generic.direct.batch';
-  final directBatch = await client.postBatch(
+  final directBatch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1454,8 +1438,6 @@ Future<void> _smokeGenericJsonRpcBatchErrors(
         'params': <String, Object?>{'text': 'direct notification'},
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   _expect(
     directBatch != null && directBatch.length == 3,
@@ -1573,7 +1555,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
   final sessionId = client.sessionId;
   final eventId = client.lastEventId;
 
-  final directSubscribeBatch = await client.postBatch(
+  final directSubscribeBatch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1593,8 +1575,6 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
         'method': 'connectanum.tools.list',
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   _expect(
     directSubscribeBatch != null && directSubscribeBatch.length == 2,
@@ -1621,7 +1601,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
     'generic direct JSON batch pub/sub tools/list missed pub/sub helpers',
   );
 
-  final directPublishPollBatch = await client.postBatch(
+  final directPublishPollBatch = await client.postBatchDirect(
     <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1648,8 +1628,6 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
         },
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   _expect(
     directPublishPollBatch != null && directPublishPollBatch.length == 2,
@@ -1674,7 +1652,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
     'generic direct JSON batch pub/sub poll missed the published event',
   );
 
-  final directUnsubscribeBatch = await client.postBatch(
+  final directUnsubscribeBatch = await client.postBatchDirect(
     <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1693,8 +1671,6 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
         'method': 'connectanum.tools.list',
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   _expect(
     directUnsubscribeBatch != null && directUnsubscribeBatch.length == 2,
@@ -1890,7 +1866,7 @@ Future<void> _smokeGenericJsonRpcBatchResourcesAndPrompts(
   final eventId = client.lastEventId;
 
   final directTaskId = 'T-direct-batch-resource-prompt';
-  final directDetailBatch = await client.postBatch(
+  final directDetailBatch = await client.postBatchDirect(
     <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1918,8 +1894,6 @@ Future<void> _smokeGenericJsonRpcBatchResourcesAndPrompts(
         },
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   _expect(
     directDetailBatch != null && directDetailBatch.length == 4,
@@ -1969,7 +1943,7 @@ Future<void> _smokeGenericJsonRpcBatchResourcesAndPrompts(
 
   final missingResourceUri = 'agent://missing/resource';
   final missingPromptName = 'missing-agent-prompt';
-  final directErrorBatch = await client.postBatch(
+  final directErrorBatch = await client.postBatchDirect(
     <McpJsonMap>[
       <String, Object?>{
         'jsonrpc': '2.0',
@@ -1992,8 +1966,6 @@ Future<void> _smokeGenericJsonRpcBatchResourcesAndPrompts(
         'method': 'resources/list',
       },
     ],
-    streamable: false,
-    includeSession: false,
   );
   _expect(
     directErrorBatch != null && directErrorBatch.length == 3,
@@ -5020,7 +4992,7 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
       label: 'direct JSON batch connectanum.tools.list',
       acceptedMessage: acceptedMessage,
       operation: () async {
-        await client.postBatch(
+        await client.postBatchDirect(
           [
             {
               'jsonrpc': '2.0',
@@ -5029,8 +5001,6 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
               'params': {},
             },
           ],
-          streamable: false,
-          includeSession: false,
         );
       },
     );
@@ -5039,12 +5009,10 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
       label: 'direct JSON connectanum.api.list',
       acceptedMessage: acceptedMessage,
       operation: () async {
-        await client.request(
+        await client.requestDirect(
           'connectanum.api.list',
           id: 'secure-unauthenticated-api-list',
           params: const <String, Object?>{'kind': 'topic'},
-          streamable: false,
-          includeSession: false,
         );
       },
     );
@@ -5053,15 +5021,13 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
       label: 'direct JSON connectanum.pubsub.subscribe',
       acceptedMessage: acceptedMessage,
       operation: () async {
-        await client.request(
+        await client.requestDirect(
           'connectanum.pubsub.subscribe',
           id: 'secure-unauthenticated-pubsub-subscribe',
           params: const <String, Object?>{
             'topic': _topic,
             'queueLimit': 1,
           },
-          streamable: false,
-          includeSession: false,
         );
       },
     );
@@ -5070,7 +5036,7 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
       label: 'direct JSON batch WAMP meta/pubsub',
       acceptedMessage: acceptedMessage,
       operation: () async {
-        await client.postBatch(
+        await client.postBatchDirect(
           [
             {
               'jsonrpc': '2.0',
@@ -5085,8 +5051,6 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
               'params': {'topic': _topic, 'queueLimit': 1},
             },
           ],
-          streamable: false,
-          includeSession: false,
         );
       },
     );

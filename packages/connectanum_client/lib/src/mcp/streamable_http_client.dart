@@ -174,6 +174,22 @@ final class McpStreamableHttpClient {
     return response;
   }
 
+  Future<McpJsonMap> requestDirect(
+    String method, {
+    Object? id,
+    McpJsonMap? params,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return request(
+      method,
+      id: id,
+      params: params,
+      streamable: false,
+      includeSession: false,
+      headers: headers,
+    );
+  }
+
   Future<McpJsonMap> ping({
     Object? id,
     bool streamable = true,
@@ -292,12 +308,10 @@ final class McpStreamableHttpClient {
     McpJsonMap params = const <String, Object?>{},
     Map<String, String> headers = const <String, String>{},
   }) async {
-    final response = await request(
+    final response = await requestDirect(
       method,
       id: id,
       params: params,
-      streamable: false,
-      includeSession: false,
       headers: headers,
     );
     return _jsonRpcResultFrom(response, method: method);
@@ -445,6 +459,20 @@ final class McpStreamableHttpClient {
     );
   }
 
+  Future<void> notificationDirect(
+    String method, {
+    McpJsonMap? params,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return notification(
+      method,
+      params: params,
+      streamable: false,
+      includeSession: false,
+      headers: headers,
+    );
+  }
+
   Future<McpJsonMap?> post(
     McpJsonMap message, {
     bool streamable = true,
@@ -485,6 +513,18 @@ final class McpStreamableHttpClient {
       for (final item in response)
         _jsonMapFrom(item, label: 'JSON-RPC batch response item'),
     ];
+  }
+
+  Future<List<McpJsonMap>?> postBatchDirect(
+    List<McpJsonMap> messages, {
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return postBatch(
+      messages,
+      streamable: false,
+      includeSession: false,
+      headers: headers,
+    );
   }
 
   Future<Object?> _postPayload(
