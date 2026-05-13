@@ -1,4 +1,2 @@
-platforms: [vm, chrome]
-compilers: [dart2wasm]
-on_platform:
-  chrome: {timeout: 10x}
+tags:
+  zero_copy_publish:

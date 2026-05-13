@@ -1,0 +1,27 @@
+name = "remote_auth_rawsocket_cold_warm"
+description = "Cold versus warm RawSocket remote-auth ticket latency over the live router-to-auth-service RPC path."
+
+[[workloads]]
+name = "remote_auth_success_cold"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 1
+concurrency = 1
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_id = "ticket-user"
+auth_secret = "ticket-secret"
+frame_case = "success"
+
+[[workloads]]
+name = "remote_auth_success_warm"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 12
+concurrency = 1
+warmup_ms = 250
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_id = "ticket-user"
+auth_secret = "ticket-secret"
+frame_case = "success"

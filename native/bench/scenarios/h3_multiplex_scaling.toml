@@ -1,0 +1,72 @@
+name = "h3_multiplex_scaling"
+description = "HTTP/3 sustained-transfer benchmark that sweeps concurrent streams per reused connection."
+
+[[workloads]]
+name = "h3_multiplexed_streams_s1"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 32
+concurrency = 4
+streams_per_connection = 1
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500
+
+[[workloads]]
+name = "h3_multiplexed_streams_s2"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 32
+concurrency = 4
+streams_per_connection = 2
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500
+
+[[workloads]]
+name = "h3_multiplexed_streams_s4"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 32
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500
+
+[[workloads]]
+name = "h3_multiplexed_streams_s8"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 32
+concurrency = 4
+streams_per_connection = 8
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500
+
+[[workloads]]
+name = "h3_multiplexed_streams_s16"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 32
+concurrency = 4
+streams_per_connection = 16
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500

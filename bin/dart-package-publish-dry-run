@@ -1,0 +1,479 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/dart-package-publish-dry-run [options] [package-or-path ...]
+
+Runs `dart pub publish --dry-run` for publishable Dart workspace packages.
+When no package is provided, the command discovers packages under packages/
+and skips packages whose pubspec declares `publish_to: none`.
+
+Options:
+  --include-private   Also run dry-runs for packages with `publish_to: none`.
+                      This is expected to fail unless the package is made
+                      publishable first.
+  --show-release-plan
+                      Print the current package release-order plan, including
+                      the full private workspace package inventory and any
+                      private packages that block publishable packages. This
+                      does not change publishability.
+  --strict-release-ready
+                      Exit non-zero when a publishable package still depends on
+                      a private workspace package. The default reports those
+                      blockers without failing the archive dry-run.
+  -h, --help          Show this help text.
+USAGE
+}
+
+include_private=0
+show_release_plan=0
+strict_release_ready=0
+requested_packages=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --include-private)
+      include_private=1
+      shift
+      ;;
+    --show-release-plan)
+      show_release_plan=1
+      shift
+      ;;
+    --strict-release-ready)
+      strict_release_ready=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do
+        requested_packages+=("$1")
+        shift
+      done
+      ;;
+    -*)
+      printf 'Unrecognized argument: %s\n' "$1" >&2
+      usage >&2
+      exit 64
+      ;;
+    *)
+      requested_packages+=("$1")
+      shift
+      ;;
+  esac
+done
+
+pubspec_name() {
+  local pubspec="$1"
+
+  awk '
+    /^[[:space:]]*name:[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]*name:[[:space:]]*/, "", value)
+      sub(/[[:space:]]*#.*$/, "", value)
+      gsub(/^[[:space:]]*["'\'']?/, "", value)
+      gsub(/["'\'']?[[:space:]]*$/, "", value)
+      print value
+      exit
+    }
+  ' "$pubspec"
+}
+
+pubspec_version() {
+  local pubspec="$1"
+
+  awk '
+    /^[[:space:]]*version:[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]*version:[[:space:]]*/, "", value)
+      sub(/[[:space:]]*#.*$/, "", value)
+      gsub(/^[[:space:]]*["'\'']?/, "", value)
+      gsub(/["'\'']?[[:space:]]*$/, "", value)
+      print value
+      exit
+    }
+  ' "$pubspec"
+}
+
+publish_to_none() {
+  local pubspec="$1"
+
+  grep -Eq "^[[:space:]]*publish_to:[[:space:]]*['\"]?none['\"]?[[:space:]]*(#.*)?$" "$pubspec"
+}
+
+pubspec_dependencies() {
+  local pubspec="$1"
+
+  awk '
+    /^[^[:space:]][^:]*:/ {
+      in_dependencies = ($1 == "dependencies:")
+      next
+    }
+    in_dependencies && /^[[:space:]]+[A-Za-z0-9_]+:[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]*/, "", value)
+      sub(/:.*/, "", value)
+      print value
+    }
+  ' "$pubspec"
+}
+
+resolve_package_root() {
+  local package="$1"
+  local candidate
+  local pubspec
+  local name
+
+  if [[ -d "$package" && -f "$package/pubspec.yaml" ]]; then
+    (cd "$package" && pwd -P)
+    return 0
+  fi
+
+  candidate="packages/$package"
+  if [[ -d "$candidate" && -f "$candidate/pubspec.yaml" ]]; then
+    (cd "$candidate" && pwd -P)
+    return 0
+  fi
+
+  for pubspec in packages/*/pubspec.yaml; do
+    [[ -f "$pubspec" ]] || continue
+    name="$(pubspec_name "$pubspec")"
+    if [[ "$name" == "$package" ]]; then
+      (cd "$(dirname "$pubspec")" && pwd -P)
+      return 0
+    fi
+  done
+
+  printf 'Could not resolve Dart workspace package or path: %s\n' "$package" >&2
+  return 1
+}
+
+workspace_package_root_by_name() {
+  local package="$1"
+  local pubspec
+  local name
+
+  for pubspec in packages/*/pubspec.yaml; do
+    [[ -f "$pubspec" ]] || continue
+    name="$(pubspec_name "$pubspec")"
+    if [[ "$name" == "$package" ]]; then
+      (cd "$(dirname "$pubspec")" && pwd -P)
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+append_unique_root() {
+  local root="$1"
+  local existing
+
+  for existing in "${package_roots[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$root" ]]; then
+      return 0
+    fi
+  done
+
+  package_roots+=("$root")
+}
+
+append_unique_release_target() {
+  local value="$1"
+  local existing
+
+  for existing in "${release_plan_targets[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  release_plan_targets+=("$value")
+}
+
+append_unique_private_dependency() {
+  local value="$1"
+  local existing
+
+  for existing in "${release_plan_private_dependencies[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  release_plan_private_dependencies+=("$value")
+}
+
+append_unique_private_package() {
+  local value="$1"
+  local existing
+
+  for existing in "${release_plan_private_packages[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  release_plan_private_packages+=("$value")
+}
+
+append_unique_dependency_edge() {
+  local value="$1"
+  local existing
+
+  for existing in "${release_plan_dependency_edges[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  release_plan_dependency_edges+=("$value")
+}
+
+print_release_plan() {
+  printf '\nDart package release-order plan:\n'
+
+  if [[ "${#release_plan_targets[@]}" -gt 0 ]]; then
+    printf '\nCurrently publishable package archives:\n'
+    for target in "${release_plan_targets[@]}"; do
+      printf -- '- %s\n' "$target"
+    done
+  else
+    printf '\nCurrently publishable package archives: none.\n'
+  fi
+
+  if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
+    printf '\nPrivate workspace packages not currently publishable:\n'
+    for package in "${release_plan_private_packages[@]}"; do
+      printf -- '- %s\n' "$package"
+    done
+  else
+    printf '\nPrivate workspace packages not currently publishable: none.\n'
+  fi
+
+  if [[ "${#release_plan_private_dependencies[@]}" -gt 0 ]]; then
+    printf '\nPrivate workspace packages blocking publishable targets:\n'
+    for dependency in "${release_plan_private_dependencies[@]}"; do
+      printf -- '- %s\n' "$dependency"
+    done
+  else
+    printf '\nPrivate workspace packages blocking publishable targets: none.\n'
+  fi
+
+  if [[ "${#release_plan_dependency_edges[@]}" -gt 0 ]]; then
+    printf '\nWorkspace dependency order that must be satisfied before public publishing:\n'
+    for edge in "${release_plan_dependency_edges[@]}"; do
+      printf -- '- %s\n' "$edge"
+    done
+  else
+    printf '\nWorkspace dependency order: no publishable package depends on another workspace package.\n'
+  fi
+
+  printf '\nOperator decisions still required before a real publish:\n'
+  printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\n'
+  printf -- '- Choose canonical public versions for every package that becomes publishable.\n'
+  printf -- '- Remove publish_to: none only in an explicit release slice for packages that are approved public API.\n'
+}
+
+cd_repo_root
+require_command dart
+
+package_roots=()
+skipped_packages=()
+release_plan_targets=()
+release_plan_private_packages=()
+release_plan_private_dependencies=()
+release_plan_dependency_edges=()
+
+if [[ "${#requested_packages[@]}" -gt 0 ]]; then
+  for package in "${requested_packages[@]}"; do
+    append_unique_root "$(resolve_package_root "$package")"
+  done
+else
+  for pubspec in packages/*/pubspec.yaml; do
+    [[ -f "$pubspec" ]] || continue
+    append_unique_root "$(cd "$(dirname "$pubspec")" && pwd -P)"
+  done
+fi
+
+if [[ "${#package_roots[@]}" -eq 0 ]]; then
+  printf 'No Dart workspace packages found.\n' >&2
+  exit 1
+fi
+
+dart_workspace_bootstrap
+
+dry_run_packages=()
+release_blockers=()
+dry_run_warning_failures=()
+
+for root in "${package_roots[@]}"; do
+  pubspec="$root/pubspec.yaml"
+  package_name="$(pubspec_name "$pubspec")"
+  rel_root="${root#"$(repo_root)/"}"
+  dry_run_output=""
+
+  if publish_to_none "$pubspec"; then
+    package_version="$(pubspec_version "$pubspec")"
+    append_unique_private_package "${package_name} ${package_version:-unknown-version} (${rel_root})"
+  fi
+
+  if [[ "$include_private" -eq 0 ]] && publish_to_none "$pubspec"; then
+    skipped_packages+=("${package_name} (${rel_root})")
+    printf 'Skipping private package %s (%s): publish_to is none.\n' "$package_name" "$rel_root"
+    continue
+  fi
+
+  dry_run_packages+=("${package_name} (${rel_root})")
+  package_version="$(pubspec_version "$pubspec")"
+  append_unique_release_target "${package_name} ${package_version:-unknown-version} (${rel_root})"
+  printf '\n## Publish dry-run: %s (%s)\n\n' "$package_name" "$rel_root"
+  dry_run_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-dry-run.XXXXXX")"
+  if ! (
+    cd "$root"
+    dart pub publish --dry-run 2>&1
+  ) | tee "$dry_run_output"; then
+    rm -f "$dry_run_output"
+    exit 1
+  fi
+
+  if ! grep -Eq 'Package has 0 warnings\.?' "$dry_run_output"; then
+    dry_run_warning_failures+=(
+      "${package_name} (${rel_root}) did not report a zero-warning publish dry-run."
+    )
+  fi
+  rm -f "$dry_run_output"
+
+  while IFS= read -r dependency; do
+    [[ -n "$dependency" ]] || continue
+    dependency_root="$(workspace_package_root_by_name "$dependency" || true)"
+    [[ -n "$dependency_root" ]] || continue
+    dependency_pubspec="$dependency_root/pubspec.yaml"
+    dependency_rel_root="${dependency_root#"$(repo_root)/"}"
+
+    if publish_to_none "$dependency_pubspec"; then
+      dependency_version="$(pubspec_version "$dependency_pubspec")"
+      append_unique_private_dependency "${dependency} ${dependency_version:-unknown-version} (${dependency_rel_root})"
+      append_unique_dependency_edge "${dependency} -> ${package_name}"
+      release_blockers+=(
+        "${package_name} depends on private workspace package ${dependency} (${dependency_rel_root}); publish ${dependency} first or remove the hosted dependency before publishing ${package_name}."
+      )
+    else
+      append_unique_dependency_edge "${dependency} -> ${package_name}"
+    fi
+  done < <(pubspec_dependencies "$pubspec")
+done
+
+if [[ "${#dry_run_packages[@]}" -eq 0 ]]; then
+  printf '\nNo publishable Dart packages found.\n' >&2
+  exit 1
+fi
+
+printf '\nDart package publish dry-run completed for %d package(s).\n' "${#dry_run_packages[@]}"
+
+if [[ "${#release_blockers[@]}" -gt 0 ]]; then
+  printf '\nDart package release-readiness blockers:\n'
+  for blocker in "${release_blockers[@]}"; do
+    printf -- '- %s\n' "$blocker"
+  done
+  if [[ "$strict_release_ready" -eq 0 ]]; then
+    printf '\nDefault dry-run mode reports release-readiness blockers without failing. Re-run with --strict-release-ready when the package release plan is approved.\n'
+  fi
+else
+  printf '\nNo private workspace dependency blockers found for publishable packages.\n'
+fi
+
+if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
+  printf '\nDart package publish dry-run warning gate failed:\n'
+  for warning_failure in "${dry_run_warning_failures[@]}"; do
+    printf -- '- %s\n' "$warning_failure"
+  done
+else
+  printf '\nAll Dart package publish dry-runs reported zero warnings.\n'
+fi
+
+if [[ "$show_release_plan" -ne 0 ]]; then
+  print_release_plan
+fi
+
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  {
+    printf '## Dart Package Publish Dry Run\n\n'
+    printf 'Validated package archives:\n'
+    for package in "${dry_run_packages[@]}"; do
+      printf -- '- %s\n' "$package"
+    done
+    if [[ "${#skipped_packages[@]}" -gt 0 ]]; then
+      printf '\nSkipped private workspace packages:\n'
+      for package in "${skipped_packages[@]}"; do
+        printf -- '- %s\n' "$package"
+      done
+    fi
+    if [[ "${#release_blockers[@]}" -gt 0 ]]; then
+      printf '\nRelease-readiness blockers:\n'
+      for blocker in "${release_blockers[@]}"; do
+        printf -- '- %s\n' "$blocker"
+      done
+      printf '\nDefault dry-run mode reports these blockers without failing. Use `--strict-release-ready` after the package release plan is approved.\n'
+    else
+      printf '\nNo private workspace dependency blockers found for publishable packages.\n'
+    fi
+    if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
+      printf '\nWarning gate failures:\n'
+      for warning_failure in "${dry_run_warning_failures[@]}"; do
+        printf -- '- %s\n' "$warning_failure"
+      done
+    else
+      printf '\nAll package publish dry-runs reported zero warnings.\n'
+    fi
+    if [[ "$show_release_plan" -ne 0 ]]; then
+      printf '\nRelease-order plan:\n'
+      if [[ "${#release_plan_targets[@]}" -gt 0 ]]; then
+        printf '\nCurrently publishable package archives:\n'
+        for target in "${release_plan_targets[@]}"; do
+          printf -- '- %s\n' "$target"
+        done
+      fi
+      if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
+        printf '\nPrivate workspace packages not currently publishable:\n'
+        for package in "${release_plan_private_packages[@]}"; do
+          printf -- '- %s\n' "$package"
+        done
+      fi
+      if [[ "${#release_plan_private_dependencies[@]}" -gt 0 ]]; then
+        printf '\nPrivate workspace packages blocking publishable targets:\n'
+        for dependency in "${release_plan_private_dependencies[@]}"; do
+          printf -- '- %s\n' "$dependency"
+        done
+      fi
+      if [[ "${#release_plan_dependency_edges[@]}" -gt 0 ]]; then
+        printf '\nWorkspace dependency order:\n'
+        for edge in "${release_plan_dependency_edges[@]}"; do
+          printf -- '- %s\n' "$edge"
+        done
+      fi
+      printf '\nOperator decisions still required: package-name ownership, canonical public versions, and explicit publishability approval.\n'
+    fi
+  } >>"$GITHUB_STEP_SUMMARY"
+fi
+
+if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
+  exit 1
+fi
+
+if [[ "$strict_release_ready" -ne 0 && "${#release_blockers[@]}" -gt 0 ]]; then
+  exit 1
+fi

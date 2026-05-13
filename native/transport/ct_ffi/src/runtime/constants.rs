@@ -1,0 +1,33 @@
+pub const SUCCESS: i32 = 0;
+pub const ERR_UNSUPPORTED: i32 = -1;
+pub const ERR_ALREADY_STARTED: i32 = -2;
+pub const ERR_RUNTIME_NOT_STARTED: i32 = -3;
+pub const ERR_INVALID_ARGUMENT: i32 = -4;
+pub const ERR_LISTENER_NOT_FOUND: i32 = -5;
+pub const ERR_CHANNEL_ALREADY_TAKEN: i32 = -6;
+pub const ERR_IO: i32 = -7;
+pub const ERR_ROUTER_CONFIG_INVALID: i32 = -8;
+pub const ERR_ENDPOINT_NOT_CONFIGURED: i32 = -9;
+pub const ERR_CONNECTION_NOT_FOUND: i32 = -10;
+pub const ERR_UNSUPPORTED_SERIALIZER: i32 = -11;
+pub const ERR_UNSUPPORTED_PROTOCOL: i32 = -12;
+pub const ERR_HANDSHAKE_CONSUMED: i32 = -13;
+pub const ERR_HANDLE_UNAVAILABLE: i32 = -14;
+pub const ERR_STREAM_CLOSED: i32 = -15;
+pub const ERR_INTERNAL: i32 = -16;
+pub const ERR_SEND_QUEUE_FULL: i32 = -17;
+pub const ERR_KEY_NOT_FOUND: i32 = -18;
+pub const ERR_DECRYPT_FAILED: i32 = -19;
+
+pub const PROTOCOL_RAWSOCKET: i32 = 1;
+pub const PROTOCOL_WEBSOCKET: i32 = 2;
+pub const PROTOCOL_HTTP: i32 = 3;
+pub const PROTOCOL_HTTP2: i32 = 4;
+pub const PROTOCOL_HTTP3: i32 = 5;
+
+pub const HTTP_EVENT_REASON_GRACEFUL: i32 = 1;
+pub const HTTP_EVENT_REASON_GOAWAY: i32 = 2;
+pub const HTTP_EVENT_REASON_IDLE_TIMEOUT: i32 = 3;
+pub const HTTP_EVENT_REASON_BODY_TIMEOUT: i32 = 4;
+pub const HTTP_EVENT_REASON_PROTOCOL_ERROR: i32 = 5;
+pub const HTTP_EVENT_REASON_INTERNAL: i32 = 6;

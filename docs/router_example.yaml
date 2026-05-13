@@ -1,0 +1,154 @@
+router:
+  session_profiles:
+    - name: public-wamp
+      auth:
+        methods: [anonymous]
+
+    - name: public-http
+      auth:
+        methods: []
+
+    - name: http-auth
+      realm: realm1
+      auth:
+        methods: [ticket]
+
+    - name: http-jwt
+      realm: realm1
+      auth:
+        methods: [jwt]
+        http_provider: edge-jwt
+
+    - name: metrics-internal
+      realm: connectanum.metrics
+      auth:
+        auth_id: metrics-daemon
+        auth_role: metrics
+
+  http_auth_providers:
+    edge-jwt:
+      type: jwt
+      options:
+        issuer: https://issuer.example
+        audience: [connectanum-http]
+        hmac_secret: ${HTTP_JWT_SECRET}
+
+  realms:
+    - name: realm1
+      auth:
+        authmethods: [anonymous, ticket]
+        ticket:
+          authenticator: ticket-basic
+      roles:
+        - name: anonymous
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [subscribe, publish, call, register, unregister]
+        - name: member
+          permissions:
+            - uri: "com.example.api."
+              match: prefix
+              allow: [call]
+      limits:
+        max_pending_auth: 32
+        auth_timeout_ms: 10000
+        session_idle_ms: 600000
+        max_failed_auth: 5
+        lockout_ms: 900000
+        call_timeout_ms: 30000
+
+    - name: connectanum.metrics
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: metrics
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [register, unregister, call, subscribe, publish]
+
+  listeners:
+    - endpoint: 0.0.0.0:8443
+      session_profile: public-wamp
+      protocols: [rawsocket, websocket, http, http2]
+      tls:
+        mode: native
+        sni_certificates:
+          - hostname: example.com
+            certificate_chain_file: /etc/connectanum/tls/fullchain.pem
+            private_key_file: /etc/connectanum/tls/privkey.pem
+        # Optional mTLS / client cert auth:
+        # client_auth:
+        #   mode: required # or: optional
+        #   ca_certificates_file: /etc/connectanum/tls/client_ca.pem
+      # Native endpoint options (timeouts, heartbeats, ...):
+      options:
+        # Native transport ping/pong (in ms). If set, connections without PONG
+        # replies are closed after `heartbeat_timeout_ms`.
+        heartbeat_interval_ms: 15000
+        heartbeat_timeout_ms: 45000
+        # Maximum number of outbound frames queued per connection for
+        # RawSocket/WebSocket. Use this to cap memory usage when peers stop reading.
+        # outbound_send_queue_capacity: 1024
+      rawsocket:
+        max_rawsocket_size_exponent: 16
+      websocket:
+        path: /ws
+        serializer_fallback: json
+      http:
+        alpn: [h2, http/1.1]
+        session_profile: public-http
+        routes:
+          - match:
+              path: /auth
+              methods: [POST]
+            action:
+              type: auth
+              session_profile: http-auth
+              token_ttl_ms: 600000
+              refresh_token_ttl_ms: 3600000
+              rotate_refresh_tokens: true
+          - match:
+              path: /api/secure
+              protocols: [http/1.1, http/2, http/3]
+            action:
+              type: rpc
+              procedure: com.example.api.secure
+              session_profile: http-auth
+          - match:
+              path: /api/mtls
+            action:
+              type: rpc
+              procedure: com.example.api.mtls
+              session_profile: http-auth
+              require_mtls: true
+          - match:
+              path: /api/jwt
+            action:
+              type: rpc
+              procedure: com.example.api.jwt
+              session_profile: http-jwt
+
+  internal_realms:
+    - name: connectanum.metrics
+      session_profile: metrics-internal
+      services: [metrics]
+
+  metrics:
+    open_metrics:
+      enabled: true
+      listen: 0.0.0.0:9100
+      path: /metrics
+      realm: connectanum.metrics
+
+  authenticators:
+    anonymous:
+      type: anonymous
+    ticket-basic:
+      type: ticket
+      options:
+        secrets:
+          user-1:
+            ticket: signed-token
+            role: member

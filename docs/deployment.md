@@ -1,0 +1,243 @@
+# Deployment (production)
+
+This repo deploys as a Dart VM process + the native transport library (`libct_ffi.so` / `.dylib` / `.dll`) plus a router config file (YAML or JSON).
+
+Deployment templates live in:
+
+- `deploy/docker` (Dockerfile + compose example)
+- `deploy/systemd` (systemd unit file)
+- `deploy/k8s` (Kubernetes manifest)
+
+Multi-arch router image publishing is staged through
+`.github/workflows/router-image.yml`, but it is not yet a verified public
+artifact on GitHub's default branch:
+
+- Intended image name: `ghcr.io/konsultaner/connectanum-router`
+- Platforms: `linux/amd64`, `linux/arm64`
+- Tag flow:
+  - `v*` Git tags publish the matching version tag
+  - stable `v<major>.<minor>.<patch>` tags also publish `latest`,
+    `<major>.<minor>`, and `<major>`
+  - manual workflow dispatch defaults to a dry-run build that validates image
+    metadata without pushing to GHCR
+  - manual dry-runs upload a `router-image-preview` artifact containing the
+    rendered image tags, labels, publish mode, and attestation settings
+  - manual publishes require `dry_run=false` and `publish_approval` set exactly
+    to the primary image tag
+  - publish builds request max-level provenance and SBOM attestations; dry-runs
+    disable image attestations because cache-only outputs do not create
+    registry image attestations
+
+Current release status: GitHub does not yet expose the router image workflow on
+the default branch, and `ghcr.io/konsultaner/connectanum-router` is not visible
+as a published package. Use the Dart runner or publish an image to your own
+registry until the deployment-chain audit records workflow and GHCR validation.
+Once the package exists, prefer immutable version tags in production manifests
+and reserve `latest` for development or fast-follow environments.
+
+Maintainer-side GitHub Actions, branch protection, and release-evidence
+expectations are tracked in `docs/github_deployment_chain.md`.
+
+## Build native transport
+
+```sh
+cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --release
+```
+
+The shared library ends up at:
+
+- `native/transport/target/release/libct_ffi.so` (Linux)
+- `native/transport/target/release/libct_ffi.dylib` (macOS)
+- `native/transport/target/release/ct_ffi.dll` (Windows)
+
+## Run the router
+
+1. Create a router config file (see `docs/tls.md` for TLS settings).
+2. Point the process at the native library (env var or CLI flag).
+
+The router runner expects `CONNECTANUM_NATIVE_LIB` to point at the native shared library:
+
+```sh
+export CONNECTANUM_NATIVE_LIB=/absolute/path/to/native/transport/target/release/libct_ffi.so
+dart run connectanum_router --config /etc/connectanum/router.yaml
+```
+
+During `dart run` / `dart test`, the package build hooks compile `ct_ffi`
+automatically by default. Dart SDK hooks run in a semi-hermetic environment, so
+configure hook inputs in the application `pubspec.yaml`:
+
+```yaml
+hooks:
+  user_defines:
+    connectanum_router:
+      CONNECTANUM_NATIVE_RELEASE_TAG: <tag>
+      # CONNECTANUM_NATIVE_RELEASE_REPOSITORY: <owner/repo>
+```
+
+Use `CONNECTANUM_NATIVE_LIB` as a hook user define when you already have a
+prebuilt library; paths may be absolute or relative to the pubspec. Use
+`CONNECTANUM_SKIP_NATIVE_BUILD: true` when the deployment provides `ct_ffi` via
+the platform loader search path. If you want the hook to download a hosted
+prebuilt bundle instead of building locally, set
+`CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` as a user define. The hook downloads
+`ct-ffi-<host-triple>.tar.gz` and its `.sha256` sidecar from GitHub Releases,
+verifies the checksum, extracts the archive, and bundles the native library
+automatically. Override the default release source
+(`konsultaner/connectanum-dart`) with
+`CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` when needed.
+
+If you want to prefetch the native library before the hook runs, use the
+source-checkout helper instead:
+
+```sh
+export CONNECTANUM_NATIVE_LIB="$(
+  dart packages/connectanum_router/tool/install_native.dart --tag <release-tag>
+)"
+```
+
+`packages/connectanum_router/tool/install_native.dart` and
+`packages/connectanum_client/tool/install_native.dart` download the hosted
+bundle for the current host into
+`.dart_tool/connectanum/native/<host-triple>/`, verify the published checksum,
+and print the installed library path so deployment scripts can wire
+`CONNECTANUM_NATIVE_LIB` explicitly.
+
+Maintainers can validate both source-checkout installer helpers against a
+published GitHub Release with:
+
+```sh
+bin/validate-native-release-install --tag <release-tag>
+```
+
+If you do not want to build Rust locally, the GitHub Actions
+`Native Artifacts` workflow uploads prebuilt `ct-ffi-<host-triple>.tar.gz`
+bundles for:
+
+- Linux x64 (`x86_64-unknown-linux-gnu`)
+- Linux arm64 (`aarch64-unknown-linux-gnu`)
+- macOS arm64 (`aarch64-apple-darwin`)
+- macOS Intel (`x86_64-apple-darwin`)
+- Windows x64 (`x86_64-pc-windows-msvc`)
+
+Release-tag runs publish the same assets to GitHub Releases. You can either
+let the hook fetch those assets via a `CONNECTANUM_NATIVE_RELEASE_TAG` user
+define or extract the archive manually and provide `CONNECTANUM_NATIVE_LIB` to
+the runtime before starting the router. The main `CI` workflow does not publish
+generic debug metrics dumps, so production packaging should rely on this
+workflow or GitHub Releases rather than arbitrary branch-run artifacts.
+
+Before publishing a real release, maintainers can manually dispatch the
+`Native Artifacts` workflow with `release_tag=<tag>` and `dry_run=true`. That
+path builds and verifies the native matrix, renders the exact release notes and
+asset metadata, uploads them as `native-release-preview`, and exits before
+creating or updating a GitHub Release.
+
+The same workflow publishes GitHub artifact attestations for each
+archive/checksum/manifest set, so you can verify a downloaded archive with:
+
+```sh
+gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart
+```
+
+The workflow also ships detached Sigstore blob bundles as
+`<asset>.sigstore.json`, so the downloaded archive/checksum/manifest can be
+verified offline without relying on GitHub-hosted attestations:
+
+```sh
+cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz \
+  --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json \
+  --certificate-identity "https://github.com/konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/tags/<tag>" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+For manually dispatched workflow runs, replace the tag-based identity with the
+actual workflow ref that produced the bundle.
+
+For production packaging you can compile the runner to a native executable:
+
+```sh
+dart compile exe packages/connectanum_router/bin/connectanum_router.dart -o connectanum_router
+./connectanum_router --config /etc/connectanum/router.yaml
+```
+
+Example config starter: `docs/router_example.yaml`.
+
+## Graceful shutdown and drain behavior
+
+The production runner handles `SIGINT` and `SIGTERM` by calling
+`RouterBinding.dispose()`. That path drains before the process exits:
+
+- native listeners close first so no new accepts enter the pipeline
+- pending accepted-but-unassigned connections are closed
+- worker sessions finish GOODBYE / close handling within the drain timeout
+
+If you manage the router as a library instead of the CLI, call
+`await binding.drain()` explicitly when you need the same behavior.
+
+When `metrics.open_metrics.listen` is configured, the same HTTP server exposes
+`/healthz`. The response is:
+
+- `200 ok` while the router is ready
+- `503 starting` before the binding is ready
+- `503 draining` while graceful shutdown is in progress
+
+That is the intended readiness signal for a load balancer or orchestrator to
+stop routing new traffic before final process exit.
+
+## OpenMetrics exporter
+
+If the config sets `metrics.open_metrics.listen`, the router runner starts an
+HTTP server on that address that serves:
+
+- `GET /metrics` (OpenMetrics text)
+- `GET /healthz` (`200 ok`, `503 starting`, or `503 draining`)
+
+If `metrics.open_metrics.auth_token` is set, `GET /metrics` requires
+`Authorization: Bearer <token>`.
+
+The OpenMetrics payload also exports drain counters such as:
+
+- `connectanum_router_drain_in_progress`
+- `connectanum_router_drain_total`
+- `connectanum_router_drain_timeouts_total`
+- `connectanum_router_last_drain_duration_ms`
+
+## TLS reload / certificate rotation
+
+The production runner (`packages/connectanum_router/bin/connectanum_router.dart`) watches `SIGHUP`
+and reloads TLS configuration (certificates and `client_auth`) from the configured YAML/JSON file.
+This updates TLS settings for **new** connections (TCP + QUIC); existing connections keep using the
+previous TLS session.
+
+- systemd: `systemctl reload connectanum-router` (the unit uses `ExecReload=/bin/kill -HUP $MAINPID`)
+- manual: `kill -HUP <pid>`
+
+## systemd sketch
+
+```ini
+[Unit]
+Description=Connectanum Router
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/connectanum-router
+Environment=CONNECTANUM_NATIVE_LIB=/opt/connectanum-router/lib/libct_ffi.so
+ExecStart=/usr/bin/dart run connectanum_router --config /etc/connectanum/router.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Operational notes
+
+- Prefer running as a non-root user; bind privileged ports via a reverse proxy or `setcap cap_net_bind_service=+ep` on your launcher binary.
+- Mount TLS private keys read-only and keep them out of the repo; rotate certificates via your standard PKI process.
+- Expose metrics using the built-in OpenMetrics exporter (`metrics.open_metrics`) and scrape it with Prometheus.
+- The checked-in Kubernetes manifest uses the intended GHCR image path with a
+  `replace-me` tag; replace it with a pinned version tag only after the router
+  image workflow has published and validated that package, or point it at your
+  own registry build.

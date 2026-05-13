@@ -1,0 +1,38 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=12h"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./connectanum_router_alerts.yml:/etc/prometheus/connectanum_router_alerts.yml:ro
+      - ./connectanum_bench_artifact_alerts.yml:/etc/prometheus/connectanum_bench_artifact_alerts.yml:ro
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    command:
+      - "--collector.disable-defaults"
+      - "--collector.textfile"
+      - "--collector.textfile.directory=/var/lib/node_exporter/textfile_collector"
+    volumes:
+      - ./artifacts:/var/lib/node_exporter/textfile_collector:ro
+
+  grafana:
+    image: grafana/grafana:10.4.3
+    depends_on:
+      - node-exporter
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards-json

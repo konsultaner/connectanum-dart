@@ -1,0 +1,1360 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/audit-github-deployment-chain [options]
+
+Prints a read-only GitHub deployment-chain audit for the repository: default
+branch protection, required status checks, repository rulesets, active workflows,
+and the latest branch runs.
+
+Options:
+  --repository <owner/repo>  Repository to inspect. Defaults to
+                             GITHUB_REPOSITORY or konsultaner/connectanum-dart.
+  --branch <branch>         Branch to inspect. Defaults to the repository
+                             default branch.
+  --run-limit <count>       Latest branch runs to print. Defaults to 6.
+  --require-clean-latest-ci
+                             Exit non-zero unless the latest CI run on the
+                             audited branch completed with exactly the expected
+                             main jobs and no skipped, pending, or failed jobs.
+  --scan-latest-ci-logs      Print high-signal warning/skipped-test/noisy
+                             runtime matches from the latest CI run logs.
+  --require-clean-latest-ci-logs
+                             Exit non-zero if the latest CI run logs contain
+                             high-signal warning/skipped-test/noisy runtime
+                             matches, or if the run is not complete and green.
+  --show-dart-package-publish-dry-run
+                             Print the latest dedicated Dart package publish
+                             dry-run workflow evidence.
+  --require-clean-dart-package-publish-dry-run
+                             Exit non-zero unless the latest relevant Dart
+                             package publish dry-run workflow completed
+                             successfully and still covers the checked-out
+                             package-publishing inputs.
+  --show-native-release-dry-run
+                             Print the latest dedicated native release dry-run
+                             workflow evidence.
+  --require-clean-native-release-dry-run
+                             Exit non-zero unless the latest relevant Native
+                             Artifacts dry-run workflow completed successfully,
+                             uploaded the preview artifact, avoided release
+                             mutation, and still covers the checked-out native
+                             release inputs.
+  --require-router-package   Exit non-zero unless the GHCR router package is
+                             visible through the GitHub Packages API.
+  --require-workflows-visible
+                             Exit non-zero unless every checked-in workflow is
+                             discoverable through the GitHub Actions API.
+  --show-required-checks-plan
+                             Print the non-mutating operator plan for adding
+                             the baseline required status checks to the audited
+                             protected branch.
+  --show-rc-readiness        Print a non-mutating release-candidate readiness
+                             summary for the current checked-out head.
+  --require-rc-ready         Exit non-zero unless the current checked-out head
+                             has release-candidate evidence: clean hosted CI
+                             and logs, hosted Dart package publish dry-run
+                             evidence, hosted native release dry-run evidence,
+                             baseline default-branch protection, visible
+                             workflows, visible router package, an RC GitHub
+                             prerelease, and either strict Dart package
+                             dry-run readiness or the documented first-RC
+                             pub.dev deferral where connectanum_client is
+                             blocked only by private connectanum_core.
+  --strict                  Exit non-zero when the branch lacks the baseline
+                             required checks expected for protected releases.
+  -h, --help                Show this help text.
+USAGE
+}
+
+repository="${GITHUB_REPOSITORY:-konsultaner/connectanum-dart}"
+branch=""
+run_limit=6
+strict=0
+check_clean_latest_ci=0
+require_clean_latest_ci=0
+check_latest_ci_logs=0
+scan_latest_ci_logs=0
+require_clean_latest_ci_logs=0
+check_dart_package_publish_dry_run=0
+require_clean_dart_package_publish_dry_run=0
+check_native_release_dry_run=0
+require_clean_native_release_dry_run=0
+require_router_package=0
+require_workflows_visible=0
+show_required_checks_plan=0
+show_rc_readiness=0
+require_rc_ready=0
+expected_ci_jobs=('Fast Checks' 'Full Verify')
+dart_package_publish_workflow='Dart Package Publish Dry Run'
+expected_dart_package_publish_jobs=('Publish Dry Run')
+native_release_workflow='Native Artifacts'
+expected_native_release_jobs=(
+  'ct_ffi (Linux x64)'
+  'ct_ffi (Linux arm64)'
+  'ct_ffi (macOS Apple Silicon)'
+  'ct_ffi (macOS Intel)'
+  'ct_ffi (Windows x64)'
+  'Publish GitHub Release'
+)
+ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repository)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --repository.\n' >&2
+        exit 64
+      }
+      repository="$2"
+      shift 2
+      ;;
+    --repository=*)
+      repository="${1#--repository=}"
+      shift
+      ;;
+    --branch)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --branch.\n' >&2
+        exit 64
+      }
+      branch="$2"
+      shift 2
+      ;;
+    --branch=*)
+      branch="${1#--branch=}"
+      shift
+      ;;
+    --run-limit)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --run-limit.\n' >&2
+        exit 64
+      }
+      run_limit="$2"
+      shift 2
+      ;;
+    --run-limit=*)
+      run_limit="${1#--run-limit=}"
+      shift
+      ;;
+    --require-clean-latest-ci)
+      check_clean_latest_ci=1
+      require_clean_latest_ci=1
+      shift
+      ;;
+    --scan-latest-ci-logs)
+      check_latest_ci_logs=1
+      scan_latest_ci_logs=1
+      shift
+      ;;
+    --require-clean-latest-ci-logs)
+      check_latest_ci_logs=1
+      scan_latest_ci_logs=1
+      require_clean_latest_ci_logs=1
+      shift
+      ;;
+    --show-dart-package-publish-dry-run)
+      check_dart_package_publish_dry_run=1
+      shift
+      ;;
+    --require-clean-dart-package-publish-dry-run)
+      check_dart_package_publish_dry_run=1
+      require_clean_dart_package_publish_dry_run=1
+      shift
+      ;;
+    --show-native-release-dry-run)
+      check_native_release_dry_run=1
+      shift
+      ;;
+    --require-clean-native-release-dry-run)
+      check_native_release_dry_run=1
+      require_clean_native_release_dry_run=1
+      shift
+      ;;
+    --require-router-package)
+      require_router_package=1
+      shift
+      ;;
+    --require-workflows-visible)
+      require_workflows_visible=1
+      shift
+      ;;
+    --show-required-checks-plan)
+      show_required_checks_plan=1
+      shift
+      ;;
+    --show-rc-readiness)
+      show_rc_readiness=1
+      check_clean_latest_ci=1
+      check_latest_ci_logs=1
+      scan_latest_ci_logs=1
+      check_dart_package_publish_dry_run=1
+      check_native_release_dry_run=1
+      shift
+      ;;
+    --require-rc-ready)
+      show_rc_readiness=1
+      require_rc_ready=1
+      check_clean_latest_ci=1
+      check_latest_ci_logs=1
+      scan_latest_ci_logs=1
+      check_dart_package_publish_dry_run=1
+      check_native_release_dry_run=1
+      shift
+      ;;
+    --strict)
+      strict=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unrecognized argument: %s\n' "$1" >&2
+      usage >&2
+      exit 64
+      ;;
+  esac
+done
+
+if ! [[ "$run_limit" =~ ^[0-9]+$ ]] || [[ "$run_limit" -eq 0 ]]; then
+  printf 'Expected --run-limit to be a positive integer, got %s.\n' "$run_limit" >&2
+  exit 64
+fi
+
+cd_repo_root
+
+gh_bin="${GH_BIN:-}"
+if [[ -z "$gh_bin" ]]; then
+  if command -v gh >/dev/null 2>&1; then
+    gh_bin="$(command -v gh)"
+  elif [[ -x "$HOME/bin/gh" ]]; then
+    gh_bin="$HOME/bin/gh"
+  else
+    printf 'Missing required command: gh. Set GH_BIN to the GitHub CLI path if it is not on PATH.\n' >&2
+    exit 1
+  fi
+fi
+
+api_jq() {
+  local path="$1"
+  local filter="$2"
+  local api_path="repos/${repository}"
+
+  if [[ -n "$path" ]]; then
+    api_path="${api_path}/${path}"
+  fi
+
+  "$gh_bin" api "$api_path" --jq "$filter"
+}
+
+api_jq_optional() {
+  local path="$1"
+  local filter="$2"
+  local api_path="repos/${repository}"
+
+  if [[ -n "$path" ]]; then
+    api_path="${api_path}/${path}"
+  fi
+
+  "$gh_bin" api "$api_path" --jq "$filter" 2>/dev/null || true
+}
+
+is_expected_ci_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_ci_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+is_expected_dart_package_publish_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_dart_package_publish_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+is_expected_native_release_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_native_release_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+is_release_candidate_tag() {
+  local tag="$1"
+
+  [[ "$tag" =~ (^|[-_.])rc([0-9]+|[-_.][0-9]+)?($|[-_.]) ]]
+}
+
+strict_dart_output_is_deferred_pub_dev_only() {
+  local output_file="$1"
+  local blocker_lines
+  local unexpected_blockers
+
+  grep -Fq 'All Dart package publish dry-runs reported zero warnings.' "$output_file" || return 1
+  grep -Fq 'Dart package release-readiness blockers:' "$output_file" || return 1
+  grep -Fq 'Private workspace packages blocking publishable targets:' "$output_file" || return 1
+  grep -Eq '^- connectanum_core [^ ]+ \(packages/connectanum_core\)$' "$output_file" || return 1
+
+  blocker_lines="$(
+    grep -E '^- .+ depends on private workspace package .+' "$output_file" || true
+  )"
+
+  [[ -n "$blocker_lines" ]] || return 1
+
+  unexpected_blockers="$(
+    printf '%s\n' "$blocker_lines" \
+      | grep -Ev '^- connectanum_client depends on private workspace package connectanum_core \(packages/connectanum_core\); publish connectanum_core first or remove the hosted dependency before publishing connectanum_client\.$' \
+      || true
+  )"
+
+  [[ -z "$unexpected_blockers" ]]
+}
+
+latest_workflow_run_id() {
+  local workflow="$1"
+  local run_id
+
+  run_id="$(
+    "$gh_bin" run list \
+      --repo "$repository" \
+      --branch "$branch" \
+      --workflow "$workflow" \
+      --limit 1 \
+      --json databaseId \
+      --jq '.[0].databaseId // empty'
+  )"
+
+  if [[ -n "$run_id" ]]; then
+    printf '%s\n' "$run_id"
+    return 0
+  fi
+
+  # GitHub can briefly index a completed run in the branch list before the
+  # workflow-filtered list sees it. Fall back to the same branch run feed so a
+  # fresh clean run does not false-fail the deployment-chain audit.
+  "$gh_bin" run list \
+    --repo "$repository" \
+    --branch "$branch" \
+    --limit "$run_limit" \
+    --json name,databaseId \
+    --jq '[.[] | select(.name == "'"$workflow"'")][0].databaseId // empty'
+}
+
+latest_ci_run_id() {
+  latest_workflow_run_id CI
+}
+
+latest_dart_package_publish_dry_run_id() {
+  latest_workflow_run_id "$dart_package_publish_workflow"
+}
+
+latest_native_release_dry_run_id() {
+  latest_workflow_run_id "$native_release_workflow"
+}
+
+dart_package_publish_sensitive_changes_since() {
+  local base="$1"
+  local path
+
+  git diff --name-only "${base}..HEAD" | while IFS= read -r path; do
+    case "$path" in
+      .github/workflows/dart-package-publish.yml|\
+      bin/dart-package-publish-dry-run|\
+      docs/dart_package_publishing.md|\
+      packages/*|\
+      packages/*/**)
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+native_release_sensitive_changes_since() {
+  local base="$1"
+  local path
+
+  git diff --name-only "${base}..HEAD" | while IFS= read -r path; do
+    case "$path" in
+      .github/workflows/native-artifacts.yml|\
+      bin/package-native-artifact|\
+      bin/validate-native-release-install|\
+      native/transport/*|\
+      native/transport/**|\
+      packages/connectanum_client/hook/*|\
+      packages/connectanum_client/hook/**|\
+      packages/connectanum_client/tool/install_native.dart|\
+      packages/connectanum_router/hook/*|\
+      packages/connectanum_router/hook/**|\
+      packages/connectanum_router/tool/install_native.dart|\
+      tool/render_native_release_notes.py|\
+      tool/test_render_native_release_notes.py|\
+      tool/validate_native_release_intent.py|\
+      tool/test_validate_native_release_intent.py)
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+print_latest_ci_log_scan() {
+  local run_id="$1"
+  local log_file
+  local matches_file
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-ci-log.XXXXXX")"
+  matches_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-ci-log-matches.XXXXXX")"
+
+  if ! "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    printf 'Finding: could not download logs for CI run #%s.\n' "$run_id"
+    rm -f "$log_file" "$matches_file"
+    return 1
+  fi
+
+  if LC_ALL=C grep -Eai "$ci_log_issue_pattern" "$log_file" >"$matches_file"; then
+    printf 'Potential hosted CI log issues matching: %s\n' "$ci_log_issue_pattern"
+    awk '
+      NR <= 200 { print "- " $0 }
+      END {
+        if (NR > 200) {
+          printf("- ... truncated %d additional matching lines\n", NR - 200)
+        }
+      }
+    ' "$matches_file"
+    rm -f "$log_file" "$matches_file"
+    return 1
+  fi
+
+  printf 'Latest CI log scan is clean: no warning/deprecation/skipped/reset/connection-noise patterns found.\n'
+  rm -f "$log_file" "$matches_file"
+  return 0
+}
+
+print_dart_package_publish_dry_run_gate() {
+  local run_id
+  local run_summary
+  local run_state
+  local run_status
+  local run_conclusion
+  local run_head_sha
+  local current_head_sha
+  local run_jobs
+  local job_name
+  local job_status
+  local job_conclusion
+  local expected_job
+  local changed_paths
+  local failed=0
+
+  run_id="$(latest_dart_package_publish_dry_run_id)"
+
+  if [[ -z "$run_id" ]]; then
+    printf 'Finding: no Dart Package Publish Dry Run workflow run found for branch %s.\n' "$branch"
+    return 1
+  fi
+
+  run_summary="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,url,displayTitle \
+      --jq '"Run: Dart Package Publish Dry Run #'"$run_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nTitle: \(.displayTitle)\nURL: \(.url)"'
+  )"
+  printf '%s\n' "$run_summary"
+
+  run_state="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha \
+      --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
+  )"
+  IFS=$'\t' read -r run_status run_conclusion run_head_sha <<<"$run_state"
+
+  if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+    printf 'Finding: latest Dart package publish dry-run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
+    failed=1
+  fi
+
+  run_jobs="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json jobs \
+      --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+  )"
+
+  if [[ -z "$run_jobs" ]]; then
+    printf 'Finding: latest Dart package publish dry-run has no inspectable jobs.\n'
+    failed=1
+  else
+    while IFS=$'\t' read -r job_name job_status job_conclusion; do
+      [[ -n "$job_name" ]] || continue
+      printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+      if ! is_expected_dart_package_publish_job "$job_name"; then
+        printf 'Finding: latest Dart package publish dry-run contains unexpected job: %s\n' "$job_name"
+        failed=1
+      fi
+
+      if [[ "$job_conclusion" == "skipped" ]]; then
+        printf 'Finding: latest Dart package publish dry-run job was skipped: %s\n' "$job_name"
+        failed=1
+      elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+        printf 'Finding: latest Dart package publish dry-run job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+        failed=1
+      fi
+    done <<<"$run_jobs"
+
+    for expected_job in "${expected_dart_package_publish_jobs[@]}"; do
+      if ! printf '%s\n' "$run_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+        printf 'Finding: latest Dart package publish dry-run is missing expected job: %s\n' "$expected_job"
+        failed=1
+      fi
+    done
+  fi
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+    printf 'Dart package publish dry-run covers checked-out head: yes.\n'
+  else
+    if ! git cat-file -e "${run_head_sha}^{commit}" 2>/dev/null; then
+      printf 'Finding: cannot compare Dart package publish dry-run head %s with checked-out head; commit is not available locally.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif ! changed_paths="$(dart_package_publish_sensitive_changes_since "$run_head_sha")"; then
+      printf 'Finding: failed to compare Dart package publish-sensitive paths since %s.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif [[ -n "$changed_paths" ]]; then
+      printf 'Finding: checked-out head has Dart package publish-sensitive changes after dry-run head %s:\n' "${run_head_sha:0:7}"
+      while IFS= read -r changed_path; do
+        [[ -n "$changed_path" ]] || continue
+        printf -- '- %s\n' "$changed_path"
+      done <<<"$changed_paths"
+      failed=1
+    else
+      printf 'Dart package publish dry-run covers checked-out package inputs: yes; checked-out head differs from dry-run head %s, but no publish-sensitive paths changed since then.\n' "${run_head_sha:0:7}"
+    fi
+  fi
+
+  if [[ "$failed" -eq 0 ]]; then
+    printf 'Latest Dart package publish dry-run is clean and relevant.\n'
+  fi
+
+  return "$failed"
+}
+
+print_native_release_dry_run_gate() {
+  local run_id
+  local run_summary
+  local run_state
+  local run_status
+  local run_conclusion
+  local run_head_sha
+  local run_event
+  local current_head_sha
+  local run_jobs
+  local job_name
+  local job_status
+  local job_conclusion
+  local expected_job
+  local changed_paths
+  local log_file
+  local release_tag=""
+  local failed=0
+
+  run_id="$(latest_native_release_dry_run_id)"
+
+  if [[ -z "$run_id" ]]; then
+    printf 'Finding: no Native Artifacts workflow run found for branch %s.\n' "$branch"
+    return 1
+  fi
+
+  run_summary="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,url,displayTitle,event \
+      --jq '"Run: Native Artifacts #'"$run_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nTitle: \(.displayTitle)\nEvent: \(.event)\nURL: \(.url)"'
+  )"
+  printf '%s\n' "$run_summary"
+
+  run_state="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,event \
+      --jq '[.status, (.conclusion // "pending"), .headSha, .event] | @tsv'
+  )"
+  IFS=$'\t' read -r run_status run_conclusion run_head_sha run_event <<<"$run_state"
+
+  if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+    printf 'Finding: latest Native Artifacts dry-run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
+    failed=1
+  fi
+
+  if [[ "$run_event" != "workflow_dispatch" ]]; then
+    printf 'Finding: latest Native Artifacts evidence was not a manual dry-run dispatch: %s.\n' "$run_event"
+    failed=1
+  fi
+
+  run_jobs="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json jobs \
+      --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+  )"
+
+  if [[ -z "$run_jobs" ]]; then
+    printf 'Finding: latest Native Artifacts dry-run has no inspectable jobs.\n'
+    failed=1
+  else
+    while IFS=$'\t' read -r job_name job_status job_conclusion; do
+      [[ -n "$job_name" ]] || continue
+      printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+      if ! is_expected_native_release_job "$job_name"; then
+        printf 'Finding: latest Native Artifacts dry-run contains unexpected job: %s\n' "$job_name"
+        failed=1
+      fi
+
+      if [[ "$job_conclusion" == "skipped" ]]; then
+        printf 'Finding: latest Native Artifacts dry-run job was skipped: %s\n' "$job_name"
+        failed=1
+      elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+        printf 'Finding: latest Native Artifacts dry-run job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+        failed=1
+      fi
+    done <<<"$run_jobs"
+
+    for expected_job in "${expected_native_release_jobs[@]}"; do
+      if ! printf '%s\n' "$run_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+        printf 'Finding: latest Native Artifacts dry-run is missing expected job: %s\n' "$expected_job"
+        failed=1
+      fi
+    done
+  fi
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-native-release-log.XXXXXX")"
+  if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    release_tag="$(
+      sed -nE 's/.*Release intent accepted: ([^ ]+) \(native, dry-run\)\..*/\1/p' "$log_file" \
+        | head -n 1
+    )"
+
+    if [[ -z "$release_tag" ]]; then
+      printf 'Finding: latest Native Artifacts run did not log accepted native dry-run release intent.\n'
+      failed=1
+    else
+      printf 'Native release dry-run intent: accepted (%s).\n' "$release_tag"
+
+      if "$gh_bin" release view "$release_tag" --repo "$repository" >/dev/null 2>&1; then
+        printf 'Finding: dry-run release tag exists as a GitHub Release: %s.\n' "$release_tag"
+        failed=1
+      else
+        printf 'Native release dry-run avoided GitHub Release mutation: yes (%s not found).\n' "$release_tag"
+      fi
+    fi
+
+    if grep -Fq 'Artifact native-release-preview has been successfully uploaded!' "$log_file"; then
+      printf 'Native release preview artifact upload: ready (native-release-preview).\n'
+    else
+      printf 'Finding: latest Native Artifacts dry-run did not upload native-release-preview.\n'
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download logs for Native Artifacts run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -f "$log_file"
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+    printf 'Native release dry-run covers checked-out head: yes.\n'
+  else
+    if ! git cat-file -e "${run_head_sha}^{commit}" 2>/dev/null; then
+      printf 'Finding: cannot compare Native Artifacts dry-run head %s with checked-out head; commit is not available locally.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif ! changed_paths="$(native_release_sensitive_changes_since "$run_head_sha")"; then
+      printf 'Finding: failed to compare native-release-sensitive paths since %s.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif [[ -n "$changed_paths" ]]; then
+      printf 'Finding: checked-out head has native-release-sensitive changes after dry-run head %s:\n' "${run_head_sha:0:7}"
+      while IFS= read -r changed_path; do
+        [[ -n "$changed_path" ]] || continue
+        printf -- '- %s\n' "$changed_path"
+      done <<<"$changed_paths"
+      failed=1
+    else
+      printf 'Native release dry-run covers checked-out native release inputs: yes; checked-out head differs from dry-run head %s, but no native-release-sensitive paths changed since then.\n' "${run_head_sha:0:7}"
+    fi
+  fi
+
+  if [[ "$failed" -eq 0 ]]; then
+    printf 'Latest Native Artifacts dry-run is clean and relevant.\n'
+  fi
+
+  return "$failed"
+}
+
+print_required_checks_plan() {
+  local target_branch="$1"
+  local protected="$2"
+  local existing_strict="$3"
+  local strict_value="false"
+  local expected_job
+  local job_count="${#expected_ci_jobs[@]}"
+  local index=0
+
+  if [[ "$existing_strict" == "true" ]]; then
+    strict_value="true"
+  fi
+
+  printf '\n## Required Status Check Operator Plan\n\n'
+  printf 'This audit does not change GitHub settings. Apply this only after operator approval.\n\n'
+
+  if [[ "$protected" != "true" ]]; then
+    printf 'Branch %s is not protected, so the required-status-check endpoint is unavailable until branch protection exists.\n' "$target_branch"
+    printf 'Recommended autonomous action: keep using clean hosted CI evidence; do not protect development branches silently.\n'
+    return
+  fi
+
+  printf 'Target branch: %s\n' "$target_branch"
+  printf 'Required checks to add or preserve:\n'
+  for expected_job in "${expected_ci_jobs[@]}"; do
+    printf -- '- %s\n' "$expected_job"
+  done
+  printf 'Require up-to-date branches: %s\n\n' "$strict_value"
+
+  printf 'Minimal required-status-check payload:\n\n'
+  printf '```json\n'
+  printf '{\n'
+  printf '  "strict": %s,\n' "$strict_value"
+  printf '  "contexts": [\n'
+  for expected_job in "${expected_ci_jobs[@]}"; do
+    index=$((index + 1))
+    if [[ "$index" -lt "$job_count" ]]; then
+      printf '    "%s",\n' "$expected_job"
+    else
+      printf '    "%s"\n' "$expected_job"
+    fi
+  done
+  printf '  ]\n'
+  printf '}\n'
+  printf '```\n\n'
+
+  printf 'Operator command, after saving the reviewed payload as required-status-checks.json:\n\n'
+  printf '```sh\n'
+  printf 'gh api \\\n'
+  printf '  --method PATCH \\\n'
+  printf '  repos/%s/branches/%s/protection/required_status_checks \\\n' "$repository" "$target_branch"
+  printf '  --input required-status-checks.json\n'
+  printf '```\n'
+}
+
+print_latest_ci_next_action() {
+  if [[ -z "${latest_ci_id:-}" ]]; then
+    printf '  Next action: trigger or wait for a CI run on %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$branch" "$branch"
+  elif [[ "${latest_ci_status:-}" != "completed" ]]; then
+    printf '  Next action: wait for CI run #%s to complete, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$latest_ci_id" "$branch"
+  elif [[ "${latest_ci_conclusion:-}" != "success" ]]; then
+    printf '  Next action: inspect CI run #%s, fix the failed/skipped/missing job signal, push a new candidate, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$latest_ci_id" "$branch"
+  else
+    printf '  Next action: inspect CI run #%s for unexpected or missing jobs, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci after the job set matches release policy.\n' "$latest_ci_id" "$branch"
+  fi
+}
+
+print_latest_ci_log_next_action() {
+  if [[ -z "${latest_ci_id:-}" ]]; then
+    printf '  Next action: trigger or wait for a CI run on %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$branch" "$branch"
+  elif [[ "${latest_ci_log_status:-}" != "completed" ]]; then
+    printf '  Next action: wait for CI run #%s to complete so logs are downloadable, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$latest_ci_id" "$branch"
+  elif [[ "${latest_ci_log_conclusion:-}" != "success" ]]; then
+    printf '  Next action: resolve CI run #%s before treating hosted logs as release evidence, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$latest_ci_id" "$branch"
+  else
+    printf '  Next action: inspect the hosted log findings above, fix any real warning/noise source or retry if GitHub log download failed, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$branch"
+  fi
+}
+
+print_rc_readiness() {
+  local rc_ready_failed=0
+  local head_sha
+  local short_head_sha
+  local rc_tags
+  local rc_tag
+  local selected_rc_tag=""
+  local selected_rc_release_state=""
+  local strict_dart_output
+
+  head_sha="$(git rev-parse HEAD)"
+  short_head_sha="${head_sha:0:7}"
+
+  printf '\n## Release Candidate Readiness\n\n'
+  printf 'Checked-out head: %s\n' "$short_head_sha"
+
+  if [[ "$check_clean_latest_ci" -eq 1 ]]; then
+    if [[ "$latest_ci_failed" -eq 0 ]]; then
+      printf 'Latest CI job gate: ready\n'
+    else
+      printf 'Latest CI job gate: not ready\n'
+      print_latest_ci_next_action
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Latest CI job gate: not evaluated; use --require-clean-latest-ci or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
+    if [[ "$latest_ci_log_failed" -eq 0 ]]; then
+      printf 'Latest CI log gate: ready\n'
+    else
+      printf 'Latest CI log gate: not ready\n'
+      print_latest_ci_log_next_action
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Latest CI log gate: not evaluated; use --scan-latest-ci-logs or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$check_dart_package_publish_dry_run" -eq 1 ]]; then
+    if [[ "$dart_package_publish_dry_run_failed" -eq 0 ]]; then
+      printf 'Dart package hosted dry-run gate: ready\n'
+    else
+      printf 'Dart package hosted dry-run gate: not ready\n'
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Dart package hosted dry-run gate: not evaluated; use --show-dart-package-publish-dry-run or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$check_native_release_dry_run" -eq 1 ]]; then
+    if [[ "$native_release_dry_run_failed" -eq 0 ]]; then
+      printf 'Native release hosted dry-run gate: ready\n'
+    else
+      printf 'Native release hosted dry-run gate: not ready\n'
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Native release hosted dry-run gate: not evaluated; use --show-native-release-dry-run or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$release_missing_required_checks" -eq 0 ]]; then
+    printf 'Default branch protection baseline: ready (%s requires %s)\n' "$release_protection_branch" "${release_required_contexts:-none}"
+  else
+    if [[ -z "$release_branch_protected" ]]; then
+      printf 'Default branch protection baseline: not ready; could not inspect %s.\n' "$release_protection_branch"
+    elif [[ "$release_branch_protected" != "true" ]]; then
+      printf 'Default branch protection baseline: not ready; %s is not protected.\n' "$release_protection_branch"
+    else
+      printf 'Default branch protection baseline: not ready; %s must require release-critical CI checks (current: %s).\n' "$release_protection_branch" "${release_required_contexts:-none}"
+    fi
+    printf '  Next action: run bin/audit-github-deployment-chain --branch %s --show-required-checks-plan and apply the reviewed GitHub branch-protection change only after operator approval.\n' "$release_protection_branch"
+    rc_ready_failed=1
+  fi
+
+  if [[ "$missing_visible_workflow" -eq 0 ]]; then
+    printf 'Workflow visibility: ready\n'
+  else
+    printf 'Workflow visibility: not ready; every checked-in workflow must be visible to GitHub Actions.\n'
+    printf '  Next action: promote the missing workflow file(s) through %s, then rerun bin/audit-github-deployment-chain --branch %s --require-workflows-visible.\n' "$default_branch" "$branch"
+    rc_ready_failed=1
+  fi
+
+  if [[ "$missing_router_package" -eq 0 ]]; then
+    printf 'Router image package visibility: ready\n'
+  else
+    printf 'Router image package visibility: not ready; ghcr.io/%s/connectanum-router is not visible.\n' "$package_owner"
+    printf '  Next action: after the router image workflow is visible on %s, run a manual dry-run/publish validation and rerun bin/audit-github-deployment-chain --branch %s --require-router-package.\n' "$default_branch" "$branch"
+    rc_ready_failed=1
+  fi
+
+  rc_tags="$(
+    while IFS= read -r rc_tag; do
+      [[ -n "$rc_tag" ]] || continue
+      if is_release_candidate_tag "$rc_tag"; then
+        printf '%s\n' "$rc_tag"
+      fi
+    done < <(git tag --points-at HEAD | sort)
+  )"
+
+  if [[ -z "$rc_tags" ]]; then
+    printf 'RC tag on checked-out head: not ready; no local tag with an rc segment points at %s.\n' "$short_head_sha"
+    printf '  Next action: choose the RC version, create a tag such as v<version>-rc.1 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
+    rc_ready_failed=1
+  else
+    printf 'RC tag on checked-out head: ready\n'
+    while IFS= read -r rc_tag; do
+      [[ -n "$rc_tag" ]] || continue
+      printf -- '- %s\n' "$rc_tag"
+      if [[ -z "$selected_rc_tag" ]]; then
+        selected_rc_tag="$rc_tag"
+      fi
+    done <<<"$rc_tags"
+  fi
+
+  if [[ -n "$selected_rc_tag" ]]; then
+    if selected_rc_release_state="$(
+      "$gh_bin" release view "$selected_rc_tag" \
+        --repo "$repository" \
+        --json tagName,isPrerelease,isDraft \
+        --jq '[.tagName, .isPrerelease, .isDraft] | @tsv' \
+        2>/dev/null
+    )"; then
+      IFS=$'\t' read -r release_tag release_prerelease release_draft <<<"$selected_rc_release_state"
+      if [[ "$release_prerelease" == "true" && "$release_draft" != "true" ]]; then
+        printf 'GitHub RC prerelease: ready (%s)\n' "$release_tag"
+      else
+        printf 'GitHub RC prerelease: not ready; %s isPrerelease=%s isDraft=%s.\n' "$release_tag" "$release_prerelease" "$release_draft"
+        rc_ready_failed=1
+      fi
+    else
+      printf 'GitHub RC prerelease: not ready; no GitHub Release exists for %s.\n' "$selected_rc_tag"
+      printf '  Next action: create a non-draft GitHub prerelease for %s after the tag and release notes are approved.\n' "$selected_rc_tag"
+      rc_ready_failed=1
+    fi
+  else
+    printf 'GitHub RC prerelease: not ready; no RC tag selected.\n'
+    printf '  Next action: select and push an RC tag before creating the GitHub prerelease.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ -x bin/dart-package-publish-dry-run ]]; then
+    strict_dart_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-strict.XXXXXX")"
+    if bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan >"$strict_dart_output" 2>&1; then
+      printf 'Dart package strict publish dry-run: ready\n'
+    elif strict_dart_output_is_deferred_pub_dev_only "$strict_dart_output"; then
+      printf 'Dart package strict publish dry-run: deferred for first GitHub RC\n'
+      grep -E '^(Dart package release-readiness blockers:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
+      printf '  Deferred: pub.dev publishing is intentionally outside this GitHub prerelease RC; keep the archive dry-run zero-warning and resolve package ownership/version/release-order before public publishing.\n'
+    else
+      printf 'Dart package strict publish dry-run: not ready\n'
+      grep -E '^(Dart package release-readiness blockers:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
+      printf '  Next action: resolve the package ownership/version/release-order decisions in docs/dart_package_publishing.md, then rerun bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan.\n'
+      rc_ready_failed=1
+    fi
+    rm -f "$strict_dart_output"
+  else
+    printf 'Dart package strict publish dry-run: not ready; bin/dart-package-publish-dry-run is missing or not executable.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$rc_ready_failed" -eq 0 ]]; then
+    printf '\nRelease candidate readiness: ready.\n'
+  else
+    printf '\nRelease candidate readiness: not ready.\n'
+  fi
+
+  return "$rc_ready_failed"
+}
+
+if [[ -z "$branch" ]]; then
+  branch="$(api_jq "" '.default_branch')"
+fi
+
+repo_visibility="$(api_jq "" '.visibility')"
+repo_private="$(api_jq "" '.private')"
+default_branch="$(api_jq "" '.default_branch')"
+allow_auto_merge="$(api_jq "" '.allow_auto_merge')"
+delete_branch_on_merge="$(api_jq "" '.delete_branch_on_merge')"
+branch_protected="$(api_jq_optional "branches/${branch}" '.protected')"
+release_protection_branch="$default_branch"
+ruleset_count="$(api_jq_optional "rulesets" 'length')"
+package_owner="${repository%%/*}"
+
+printf '# GitHub Deployment Chain Audit\n\n'
+printf 'Repository: %s\n' "$repository"
+printf 'Visibility: %s (private=%s)\n' "$repo_visibility" "$repo_private"
+printf 'Default branch: %s\n' "$default_branch"
+printf 'Audited branch: %s\n' "$branch"
+printf 'Allow auto-merge: %s\n' "$allow_auto_merge"
+printf 'Delete branch on merge: %s\n' "$delete_branch_on_merge"
+printf 'Repository rulesets: %s\n\n' "${ruleset_count:-unknown}"
+
+printf '## Branch Protection\n\n'
+
+if [[ -z "$branch_protected" ]]; then
+  printf 'Branch exists/protection status: unknown\n'
+  printf 'Finding: could not inspect branch %s.\n' "$branch"
+  exit 1
+fi
+
+printf 'Protected: %s\n' "$branch_protected"
+
+missing_required_checks=0
+release_missing_required_checks=0
+release_branch_protected=""
+release_required_contexts=""
+missing_visible_workflow=0
+missing_router_package=0
+latest_ci_failed=0
+latest_ci_log_failed=0
+dart_package_publish_dry_run_failed=0
+native_release_dry_run_failed=0
+latest_ci_id=""
+latest_ci_status=""
+latest_ci_conclusion=""
+latest_ci_log_status=""
+latest_ci_log_conclusion=""
+required_contexts=""
+
+if [[ "$branch_protected" == "true" ]]; then
+  required_contexts="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '((.required_status_checks.contexts // []) + ((.required_status_checks.checks // []) | map(.context))) | unique | join(", ")'
+  )"
+  status_strict="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '.required_status_checks.strict // false'
+  )"
+  review_count="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '.required_pull_request_reviews.required_approving_review_count // 0'
+  )"
+  code_owner_reviews="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '.required_pull_request_reviews.require_code_owner_reviews // false'
+  )"
+  enforce_admins="$(api_jq_optional "branches/${branch}/protection" '.enforce_admins.enabled // false')"
+  allow_force_pushes="$(api_jq_optional "branches/${branch}/protection" '.allow_force_pushes.enabled // false')"
+  allow_deletions="$(api_jq_optional "branches/${branch}/protection" '.allow_deletions.enabled // false')"
+  linear_history="$(api_jq_optional "branches/${branch}/protection" '.required_linear_history.enabled // false')"
+  conversation_resolution="$(api_jq_optional "branches/${branch}/protection" '.required_conversation_resolution.enabled // false')"
+
+  printf 'Required status checks: %s\n' "${required_contexts:-none}"
+  printf 'Require up-to-date branches: %s\n' "$status_strict"
+  printf 'Required approving reviews: %s\n' "$review_count"
+  printf 'Require code-owner reviews: %s\n' "$code_owner_reviews"
+  printf 'Enforce admins: %s\n' "$enforce_admins"
+  printf 'Allow force pushes: %s\n' "$allow_force_pushes"
+  printf 'Allow deletions: %s\n' "$allow_deletions"
+  printf 'Required linear history: %s\n' "$linear_history"
+  printf 'Required conversation resolution: %s\n' "$conversation_resolution"
+
+  for expected_check in 'Fast Checks' 'Full Verify'; do
+    if [[ "$required_contexts" != *"$expected_check"* ]]; then
+      printf 'Finding: missing required status check: %s\n' "$expected_check"
+      missing_required_checks=1
+    fi
+  done
+else
+  printf 'Required status checks: none\n'
+  printf 'Finding: branch is not protected.\n'
+  missing_required_checks=1
+fi
+
+if [[ "$release_protection_branch" == "$branch" ]]; then
+  release_branch_protected="$branch_protected"
+  release_required_contexts="$required_contexts"
+  release_missing_required_checks="$missing_required_checks"
+else
+  release_branch_protected="$(api_jq_optional "branches/${release_protection_branch}" '.protected')"
+  if [[ "$release_branch_protected" == "true" ]]; then
+    release_required_contexts="$(
+      api_jq_optional \
+        "branches/${release_protection_branch}/protection" \
+        '((.required_status_checks.contexts // []) + ((.required_status_checks.checks // []) | map(.context))) | unique | join(", ")'
+    )"
+    for expected_check in "${expected_ci_jobs[@]}"; do
+      if [[ "$release_required_contexts" != *"$expected_check"* ]]; then
+        release_missing_required_checks=1
+      fi
+    done
+  else
+    release_missing_required_checks=1
+  fi
+fi
+
+if [[ "$show_required_checks_plan" -eq 1 ]]; then
+  print_required_checks_plan "$branch" "$branch_protected" "${status_strict:-false}"
+fi
+
+printf '\n## Active Workflows\n\n'
+api_jq_optional \
+  "actions/workflows" \
+  '.workflows[] | "- \(.name): \(.state) (\(.path))"'
+
+printf '\n## Checked-In Workflow Visibility\n\n'
+
+active_workflow_paths="$(
+  api_jq_optional \
+    "actions/workflows" \
+    '.workflows[].path'
+)"
+
+workflow_count=0
+while IFS= read -r workflow_path; do
+  [[ -n "$workflow_path" ]] || continue
+  workflow_path="${workflow_path#./}"
+  workflow_count=$((workflow_count + 1))
+
+  if printf '%s\n' "$active_workflow_paths" | grep -Fxq "$workflow_path"; then
+    printf -- '- %s: discoverable\n' "$workflow_path"
+  else
+    printf -- '- %s: not discoverable through GitHub Actions API\n' "$workflow_path"
+    default_branch_workflow_error="$(mktemp "${TMPDIR:-/tmp}/connectanum-workflow-visibility.XXXXXX")"
+    if "$gh_bin" api \
+      --method GET \
+      "repos/${repository}/contents/${workflow_path}" \
+      -F "ref=${default_branch}" \
+      --jq '.path' >/dev/null 2>"$default_branch_workflow_error"; then
+      printf '  Default branch check: present on %s; inspect workflow state or repository Actions settings.\n' "$default_branch"
+    elif grep -q 'HTTP 404' "$default_branch_workflow_error"; then
+      printf '  Default branch check: missing from %s; promote the workflow through the default branch before expecting Actions API visibility.\n' "$default_branch"
+    else
+      default_branch_workflow_error_message="$(head -n 1 "$default_branch_workflow_error")"
+      printf '  Default branch check: inconclusive; GitHub content lookup failed'
+      if [[ -n "$default_branch_workflow_error_message" ]]; then
+        printf ' (%s)' "$default_branch_workflow_error_message"
+      fi
+      printf '.\n'
+    fi
+    rm -f "$default_branch_workflow_error"
+    printf 'Finding: checked-in workflow is not discoverable by GitHub: %s\n' "$workflow_path"
+    missing_visible_workflow=1
+  fi
+done < <(
+  find .github/workflows \
+    -maxdepth 1 \
+    -type f \
+    \( -name '*.yml' -o -name '*.yaml' \) \
+    -print 2>/dev/null \
+    | sed 's#^\./##' \
+    | sort
+)
+
+if [[ "$workflow_count" -eq 0 ]]; then
+  printf 'No checked-in workflow files found.\n'
+fi
+
+printf '\n## Router Container Package\n\n'
+
+router_package=""
+if candidate_package="$(
+  "$gh_bin" api "users/${package_owner}/packages/container/connectanum-router" \
+    --jq '.name' 2>/dev/null
+)"; then
+  router_package="$candidate_package"
+elif candidate_package="$(
+  "$gh_bin" api "orgs/${package_owner}/packages/container/connectanum-router" \
+    --jq '.name' 2>/dev/null
+)"; then
+  router_package="$candidate_package"
+fi
+
+if [[ -n "$router_package" ]]; then
+  printf 'GHCR package: ghcr.io/%s/%s\n' "$package_owner" "$router_package"
+else
+  printf 'GHCR package: not found for ghcr.io/%s/connectanum-router\n' "$package_owner"
+  printf 'Finding: router container package is not currently visible in GitHub Packages.\n'
+  missing_router_package=1
+fi
+
+printf '\n## Latest Branch Runs\n\n'
+"$gh_bin" run list \
+  --repo "$repository" \
+  --branch "$branch" \
+  --limit "$run_limit" \
+  --json name,databaseId,status,conclusion,headSha,createdAt \
+  --jq '.[] | "- \(.name) #\(.databaseId): \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7]) (\(.createdAt))"' \
+  || true
+
+if [[ "$check_clean_latest_ci" -eq 1 ]]; then
+  printf '\n## Latest CI Job Cleanliness\n\n'
+
+  latest_ci_id="$(latest_ci_run_id)"
+
+  if [[ -z "$latest_ci_id" ]]; then
+    printf 'Finding: no CI run found for branch %s.\n' "$branch"
+    latest_ci_failed=1
+  else
+    latest_ci_summary="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json status,conclusion,headSha,url \
+        --jq '"Run: CI #'"$latest_ci_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nURL: \(.url)"'
+    )"
+    printf '%s\n' "$latest_ci_summary"
+
+    latest_ci_state="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json status,conclusion \
+        --jq '[.status, (.conclusion // "pending")] | @tsv'
+    )"
+    IFS=$'\t' read -r latest_ci_status latest_ci_conclusion <<<"$latest_ci_state"
+
+    if [[ "$latest_ci_status" != "completed" || "$latest_ci_conclusion" != "success" ]]; then
+      printf 'Finding: latest CI run is not green: %s/%s.\n' "$latest_ci_status" "$latest_ci_conclusion"
+      latest_ci_failed=1
+    fi
+
+    latest_ci_jobs="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json jobs \
+        --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+    )"
+
+    if [[ -z "$latest_ci_jobs" ]]; then
+      printf 'Finding: latest CI run has no inspectable jobs.\n'
+      latest_ci_failed=1
+    else
+      while IFS=$'\t' read -r job_name job_status job_conclusion; do
+        [[ -n "$job_name" ]] || continue
+        printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+        if ! is_expected_ci_job "$job_name"; then
+          printf 'Finding: latest CI run contains unexpected job: %s\n' "$job_name"
+          latest_ci_failed=1
+        fi
+
+        if [[ "$job_conclusion" == "skipped" ]]; then
+          printf 'Finding: latest CI job was skipped: %s\n' "$job_name"
+          latest_ci_failed=1
+        elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+          printf 'Finding: latest CI job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+          latest_ci_failed=1
+        fi
+      done <<<"$latest_ci_jobs"
+
+      for expected_job in "${expected_ci_jobs[@]}"; do
+        if ! printf '%s\n' "$latest_ci_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+          printf 'Finding: latest CI run is missing expected job: %s\n' "$expected_job"
+          latest_ci_failed=1
+        fi
+      done
+    fi
+
+    if [[ "$latest_ci_failed" -eq 0 ]]; then
+      printf 'Latest CI run is clean: no skipped, pending, failed, missing, or unexpected jobs.\n'
+    fi
+  fi
+fi
+
+if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
+  printf '\n## Latest CI Log Scan\n\n'
+
+  if [[ -z "$latest_ci_id" ]]; then
+    latest_ci_id="$(latest_ci_run_id)"
+  fi
+
+  if [[ -z "$latest_ci_id" ]]; then
+    printf 'Finding: no CI run found for branch %s.\n' "$branch"
+    latest_ci_log_failed=1
+  else
+    latest_ci_log_summary="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json status,conclusion,headSha,url \
+        --jq '"Run: CI #'"$latest_ci_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nURL: \(.url)"'
+    )"
+    printf '%s\n' "$latest_ci_log_summary"
+
+    latest_ci_log_state="$(
+      "$gh_bin" run view "$latest_ci_id" \
+        --repo "$repository" \
+        --json status,conclusion \
+        --jq '[.status, (.conclusion // "pending")] | @tsv'
+    )"
+    IFS=$'\t' read -r latest_ci_log_status latest_ci_log_conclusion <<<"$latest_ci_log_state"
+
+    if [[ "$require_clean_latest_ci_logs" -eq 1 && ( "$latest_ci_log_status" != "completed" || "$latest_ci_log_conclusion" != "success" ) ]]; then
+      printf 'Finding: latest CI logs are not a complete green signal yet: %s/%s.\n' "$latest_ci_log_status" "$latest_ci_log_conclusion"
+      latest_ci_log_failed=1
+    fi
+
+    if ! print_latest_ci_log_scan "$latest_ci_id"; then
+      latest_ci_log_failed=1
+    fi
+  fi
+fi
+
+if [[ "$check_dart_package_publish_dry_run" -eq 1 ]]; then
+  printf '\n## Latest Dart Package Publish Dry Run\n\n'
+
+  if ! print_dart_package_publish_dry_run_gate; then
+    dart_package_publish_dry_run_failed=1
+  fi
+fi
+
+if [[ "$check_native_release_dry_run" -eq 1 ]]; then
+  printf '\n## Latest Native Release Dry Run\n\n'
+
+  if ! print_native_release_dry_run_gate; then
+    native_release_dry_run_failed=1
+  fi
+fi
+
+rc_ready_failed=0
+if [[ "$show_rc_readiness" -eq 1 ]]; then
+  if ! print_rc_readiness; then
+    rc_ready_failed=1
+  fi
+fi
+
+if [[ "$require_clean_latest_ci" -eq 1 && "$latest_ci_failed" -ne 0 ]]; then
+  printf '\nLatest CI cleanliness audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_clean_latest_ci_logs" -eq 1 && "$latest_ci_log_failed" -ne 0 ]]; then
+  printf '\nLatest CI log-scan audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_clean_dart_package_publish_dry_run" -eq 1 && "$dart_package_publish_dry_run_failed" -ne 0 ]]; then
+  printf '\nDart package publish dry-run audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_clean_native_release_dry_run" -eq 1 && "$native_release_dry_run_failed" -ne 0 ]]; then
+  printf '\nNative release dry-run audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_router_package" -eq 1 && "$missing_router_package" -ne 0 ]]; then
+  printf '\nRouter package visibility audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_workflows_visible" -eq 1 && "$missing_visible_workflow" -ne 0 ]]; then
+  printf '\nWorkflow visibility audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$strict" -eq 1 && ( "$missing_required_checks" -ne 0 || "$missing_visible_workflow" -ne 0 ) ]]; then
+  printf '\nStrict audit failed: protected release branches should require Fast Checks and Full Verify, and checked-in workflows should be visible to GitHub Actions.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_rc_ready" -eq 1 && "$rc_ready_failed" -ne 0 ]]; then
+  printf '\nRelease candidate readiness audit failed.\n' >&2
+  exit 1
+fi

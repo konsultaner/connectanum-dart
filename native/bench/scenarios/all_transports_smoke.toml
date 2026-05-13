@@ -1,0 +1,95 @@
+name = "all_transports_smoke"
+description = "Quick cross-transport smoke covering RawSocket, WebSocket, HTTP/1.1, HTTP/2, and HTTP/3."
+
+[[workloads]]
+name = "rawsocket_pubsub_json"
+protocol = "wamp_rawsocket_pubsub"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 24
+concurrency = 4
+request_bytes = 256
+
+[[workloads]]
+name = "rawsocket_rpc_msgpack"
+protocol = "wamp_rawsocket_rpc"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+request_bytes = 256
+
+[[workloads]]
+name = "rawsocket_rpc_cbor"
+protocol = "wamp_rawsocket_rpc"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+request_bytes = 256
+
+[[workloads]]
+name = "websocket_pubsub_json"
+protocol = "wamp_websocket_pubsub"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 24
+concurrency = 4
+request_bytes = 256
+
+[[workloads]]
+name = "websocket_rpc_msgpack"
+protocol = "wamp_websocket_rpc"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+request_bytes = 256
+
+[[workloads]]
+name = "websocket_rpc_cbor"
+protocol = "wamp_websocket_rpc"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+request_bytes = 256
+
+[[workloads]]
+name = "h1_keepalive"
+protocol = "h1"
+path = "/bench/stream"
+method = "POST"
+iterations = 8
+concurrency = 4
+request_bytes = 32768
+response_bytes = 32768
+request_chunk_bytes = 8192
+response_chunk_bytes = 8192
+reuse_connections = true
+
+[[workloads]]
+name = "h2_streaming"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 8
+concurrency = 4
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+streams_per_connection = 2
+
+[[workloads]]
+name = "h3_streaming"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 8
+concurrency = 4
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+streams_per_connection = 2

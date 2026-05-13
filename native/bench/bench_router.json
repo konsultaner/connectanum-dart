@@ -1,0 +1,454 @@
+{
+  "router": {
+    "realms": [
+      {
+        "name": "bench.control",
+        "auth": {
+          "authmethods": ["anonymous"]
+        },
+        "roles": [
+          {
+            "name": "anonymous",
+            "permissions": []
+          },
+          {
+            "name": "bench",
+            "permissions": []
+          }
+        ]
+      },
+      {
+        "name": "bench.secure",
+        "auth": {
+          "authmethods": ["ticket", "wampcra", "scram"],
+          "ticket": {
+            "authenticator": "ticket-basic"
+          },
+          "wampcra": {
+            "authenticator": "cra-basic"
+          },
+          "scram": {
+            "authenticator": "scram-basic"
+          }
+        },
+        "roles": [
+          {
+            "name": "member",
+            "permissions": [
+              {
+                "uri": "bench.",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "internal",
+            "permissions": [
+              {
+                "uri": "bench.",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "bench.remote_auth",
+        "auth": {
+          "authmethods": ["ticket"],
+          "ticket": {
+            "authenticator": "remote-ticket"
+          }
+        },
+        "roles": [
+          {
+            "name": "member",
+            "permissions": [
+              {
+                "uri": "bench.",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "connectanum.metrics",
+        "auth": {
+          "authmethods": ["anonymous"]
+        },
+        "roles": [
+          {
+            "name": "metrics",
+            "permissions": [
+              {
+                "uri": "",
+                "match": "prefix",
+                "allow": [
+                  "register",
+                  "unregister",
+                  "subscribe",
+                  "unsubscribe",
+                  "publish",
+                  "call"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "session_profiles": [
+      {
+        "name": "public-http",
+        "auth": {
+          "methods": []
+        }
+      },
+      {
+        "name": "http-auth",
+        "realm": "bench.secure",
+        "auth": {
+          "methods": ["ticket", "wampcra", "scram"]
+        }
+      },
+      {
+        "name": "http-jwt",
+        "realm": "bench.secure",
+        "auth": {
+          "methods": ["jwt"],
+          "http_provider": "bench-jwt"
+        }
+      },
+      {
+        "name": "http-oauth",
+        "realm": "bench.secure",
+        "auth": {
+          "methods": ["oauth"],
+          "http_provider": "bench-oauth"
+        }
+      }
+    ],
+    "http_auth_providers": {
+      "bench-jwt": {
+        "type": "jwt",
+        "options": {
+          "issuer": "https://issuer.example",
+          "audience": ["connectanum-http"],
+          "hmac_secret": "bench-jwt-secret",
+          "auth_id_claim": "sub",
+          "auth_role_claim": "role"
+        }
+      },
+      "bench-oauth": {
+        "type": "oauth",
+        "options": {
+          "issuer": "https://issuer.example",
+          "audience": ["connectanum-http"],
+          "introspection_url": "http://127.0.0.1:18083/introspect",
+          "client_id": "bench-client",
+          "client_secret": "bench-secret",
+          "auth_id_claim": "sub",
+          "auth_role_claim": "role"
+        }
+      }
+    },
+    "listeners": [
+      {
+        "endpoint": "127.0.0.1:8080",
+        "authmethods": ["anonymous"],
+        "protocols": ["http", "http2", "http3"],
+        "tls": {
+          "mode": "native",
+          "sni_certificates": [
+            {
+              "hostname": "localhost",
+              "certificate_chain_file": "native/bench/bench_tls.crt",
+              "private_key_file": "native/bench/bench_tls.key"
+            }
+          ]
+        },
+        "rawsocket": {
+          "max_rawsocket_size_exponent": 18
+        },
+        "http": {
+          "session_profile": "public-http",
+          "alpn": ["h3", "h2", "http/1.1"],
+          "http3": {
+            "enabled": true,
+            "port": 8443
+          },
+          "routes": [
+            {
+              "match": {
+                "path": "/bench/auth",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "auth",
+                "session_profile": "http-auth",
+                "token_ttl_ms": 60000,
+                "refresh_token_ttl_ms": 300000,
+                "rotate_refresh_tokens": true
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/healthz",
+                "methods": ["GET"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.healthz"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/metrics",
+                "methods": ["GET"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.metrics"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/stop",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.stop"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/stream",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.stream"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/secure",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.secure",
+                "procedure": "bench.http.secure",
+                "session_profile": "http-auth"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/secure-jwt",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.secure",
+                "procedure": "bench.http.secure",
+                "session_profile": "http-jwt"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/secure-oauth",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.secure",
+                "procedure": "bench.http.secure",
+                "session_profile": "http-oauth"
+              }
+            },
+            {
+              "match": {
+                "path": "/bench/wamp",
+                "methods": ["POST"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "bench.control",
+                "procedure": "bench.http.wamp"
+              }
+            },
+            {
+              "match": {
+                "path": "/metrics",
+                "methods": ["GET"]
+              },
+              "action": {
+                "type": "rpc",
+                "realm": "connectanum.metrics",
+                "procedure": "connectanum.metrics.openmetrics"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "endpoint": "127.0.0.1:8081",
+        "authmethods": ["anonymous", "ticket"],
+        "protocols": ["rawsocket", "websocket"],
+        "rawsocket": {
+          "max_rawsocket_size_exponent": 18
+        },
+        "websocket": {
+          "path": "/wamp",
+          "subprotocols": ["wamp.2.json", "wamp.2.msgpack", "wamp.2.cbor"]
+        }
+      },
+      {
+        "endpoint": "127.0.0.1:8083",
+        "authmethods": ["anonymous", "ticket"],
+        "protocols": ["rawsocket", "websocket"],
+        "tls": {
+          "mode": "native",
+          "sni_certificates": [
+            {
+              "hostname": "localhost",
+              "certificate_chain_file": "native/bench/bench_tls.crt",
+              "private_key_file": "native/bench/bench_tls.key"
+            }
+          ]
+        },
+        "rawsocket": {
+          "max_rawsocket_size_exponent": 18
+        },
+        "websocket": {
+          "path": "/wamp",
+          "subprotocols": ["wamp.2.json", "wamp.2.msgpack", "wamp.2.cbor"]
+        }
+      }
+    ],
+    "internal_realms": [
+      {
+        "name": "connectanum.metrics",
+        "auth_id": "bench-metrics",
+        "auth_role": "metrics",
+        "services": ["metrics"]
+      }
+    ],
+    "metrics": {
+      "open_metrics": {
+        "enabled": true,
+        "path": "/metrics",
+        "realm": "connectanum.metrics"
+      }
+    },
+    "worker_pool": {
+      "min_workers": 1
+    },
+    "authenticators": {
+      "anonymous": {
+        "type": "anonymous"
+      },
+      "ticket-basic": {
+        "type": "ticket",
+        "options": {
+          "secrets": {
+            "bench-user": {
+              "ticket": "bench-ticket",
+              "role": "member",
+              "provider": "bench-ticket-store"
+            }
+          }
+        }
+      },
+      "cra-basic": {
+        "type": "wampcra",
+        "options": {
+          "secrets": {
+            "bench-user": {
+              "secret": "bench-cra-secret",
+              "salt": "bench-cra-salt",
+              "iterations": 1000,
+              "keylen": 32,
+              "role": "member",
+              "provider": "bench-cra-store",
+              "challenge": {
+                "scope": "bench-http-auth"
+              }
+            }
+          }
+        }
+      },
+      "scram-basic": {
+        "type": "scram",
+        "options": {
+          "secrets": {
+            "bench-user": {
+              "secret": "bench-scram-secret",
+              "salt": "CgsMDQ4PEBESExQVFhcYGQ==",
+              "iterations": 4096,
+              "role": "member",
+              "provider": "bench-scram-store"
+            }
+          }
+        }
+      },
+      "remote-ticket": {
+        "type": "remote",
+        "options": {
+          "allowed_roles": ["member"],
+          "auth_token_file": "native/bench/remote_auth_token.txt",
+          "rpc": {
+            "realm": "connectanum.authenticate",
+            "call_timeout_ms": 1000,
+            "connect_timeout_ms": 1000,
+            "service_auth_method": "ticket",
+            "service_auth_id": "auth-service",
+            "service_auth_secret_file": "native/bench/remote_auth_service_ticket.txt",
+            "transport": {
+              "type": "rawsocket",
+              "host": "127.0.0.1",
+              "port": 8082,
+              "ssl": true,
+              "serializer": "json",
+              "tls": {
+                "ca_certificates_file": "packages/connectanum_router/test/certs/remote_auth_ca_cert.pem",
+                "client_certificate_file": "packages/connectanum_router/test/certs/remote_auth_client_cert.pem",
+                "client_private_key_file": "packages/connectanum_router/test/certs/remote_auth_client_key.pem"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

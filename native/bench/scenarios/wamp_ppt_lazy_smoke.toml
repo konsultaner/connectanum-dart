@@ -1,0 +1,98 @@
+name = "wamp_ppt_lazy_smoke"
+description = "Measure lazy PPT payload handling over WAMP for Dart and native clients."
+
+[[workloads]]
+name = "rawsocket_rpc_cbor_ppt_dart"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 4
+request_bytes = 512
+ppt_scheme = "x_custom_scheme"
+ppt_serializer = "cbor"
+
+[[workloads]]
+name = "rawsocket_rpc_cbor_ppt_native"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 4
+request_bytes = 512
+ppt_scheme = "x_custom_scheme"
+ppt_serializer = "cbor"
+
+[[workloads]]
+name = "rawsocket_pubsub_cbor_ppt_dart"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 40
+concurrency = 4
+request_bytes = 512
+ppt_scheme = "x_custom_scheme"
+ppt_serializer = "cbor"
+
+[[workloads]]
+name = "rawsocket_pubsub_cbor_ppt_native"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 40
+concurrency = 4
+request_bytes = 512
+ppt_scheme = "x_custom_scheme"
+ppt_serializer = "cbor"
+
+[[workloads]]
+name = "websocket_rpc_cbor_ppt_dart"
+protocol = "wamp_websocket_rpc"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 4
+request_bytes = 512
+ppt_scheme = "x_custom_scheme"
+ppt_serializer = "cbor"
+
+[[workloads]]
+name = "websocket_rpc_cbor_ppt_native"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 48
+concurrency = 4
+request_bytes = 512
+ppt_scheme = "x_custom_scheme"
+ppt_serializer = "cbor"
+
+[[workloads]]
+name = "websocket_pubsub_cbor_ppt_dart"
+protocol = "wamp_websocket_pubsub"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 40
+concurrency = 4
+request_bytes = 512
+ppt_scheme = "x_custom_scheme"
+ppt_serializer = "cbor"
+
+[[workloads]]
+name = "websocket_pubsub_cbor_ppt_native"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 40
+concurrency = 4
+request_bytes = 512
+ppt_scheme = "x_custom_scheme"
+ppt_serializer = "cbor"

@@ -1,0 +1,100 @@
+import 'dart:collection';
+
+import 'abstract_message.dart';
+import 'custom_fields.dart';
+import 'message_types.dart';
+
+/// Used to subscribe to a topic
+class Subscribe extends AbstractMessage {
+  int requestId;
+  SubscribeOptions? options;
+  String topic;
+
+  /// The [requestId] will identify the subscription server response. The [topic]
+  /// is the actual topic to subscribe to or a prefix or wildcard topic as
+  /// defined in the [options].
+  Subscribe(this.requestId, this.topic, {this.options}) {
+    id = MessageTypes.codeSubscribe;
+  }
+}
+
+/// Used to either define advanced router options such a prefix or wildcard
+/// matching or subsciption retention. One may also add custom options, Those
+/// custom options need to be added with a custom serializer because flutter
+/// disables reflections.
+class SubscribeOptions with CustomFieldContainer {
+  static final String? matchPlain = null;
+  static final String matchPrefix = 'prefix';
+  static final String matchWildcard = 'wildcard';
+
+  static final String customSerializerJson = 'json';
+  static final String customSerializerMsgpack = 'msgpack';
+  static final String customSerializerCbor = 'cbor';
+
+  String? match;
+  String? metaTopic;
+  bool? getRetained;
+
+  final HashMap<String, dynamic Function(String)> _customSerializedOptions =
+      HashMap<String, dynamic Function(String)>();
+
+  /// the constructor
+  SubscribeOptions({
+    this.match,
+    this.metaTopic,
+    this.getRetained,
+    Map<String, dynamic>? custom,
+  }) {
+    if (custom != null) {
+      this.custom.addAll(custom);
+    }
+  }
+
+  /// add a custom [valueSerializer] to a given option [key]. The [valueSerializer]
+  /// is passed a serializerr type. According to that type the serializer should
+  /// respond with a correct serialized value.
+  /// Example:
+  /// ```dart
+  /// options.addCustomValue(
+  ///  'key1', (serializerType) {
+  ///    if (serializerType == SubscribeOptions.CUSTOM_SERIALIZER_JSON) {
+  ///      return '12';
+  ///    } else if (serializerType == SubscribeOptions.CUSTOM_SERIALIZER_MSGPACK) {
+  ///      return 12;
+  ///    } else throw Exception('Unknown serializer');
+  ///  }
+  /// )
+  /// options.addCustomValue(
+  ///  'key2', (serializerType) {
+  ///    if (serializerType == SubscribeOptions.CUSTOM_SERIALIZER_JSON) {
+  ///      return '{"complexObjectKey":"complexObjectValue"}';
+  ///    } else if (serializerType == SubscribeOptions.CUSTOM_SERIALIZER_MSGPACK) {
+  ///      return {"complexObjectKey":"complexObjectValue"};
+  ///    } else throw Exception('Unknown serializer');
+  ///  }
+  /// )
+  /// ```
+  void addCustomValue(String key, dynamic Function(String) valueSerializer) {
+    _customSerializedOptions[key] = valueSerializer;
+  }
+
+  /// Sets a custom option that will be serialized using [json.encode] for the
+  /// JSON serializer and passed through unchanged for binary serializers.
+  @override
+  void setCustomField(String key, dynamic value) {
+    custom[key] = value;
+  }
+
+  /// Some server need custom values to be added to the options. Since flutter
+  /// disables reflection in favor of tree shaking, the custom values need a
+  /// custom serialization process that has to be defined for each value
+  /// separately. The current [serializerType] is passed to the custom
+  /// serializer.
+  HashMap<String, T> getCustomValues<T>(String serializerType) {
+    var resultMap = HashMap<String, T>();
+    _customSerializedOptions.forEach((key, value) {
+      resultMap[key] = value(serializerType);
+    });
+    return resultMap;
+  }
+}

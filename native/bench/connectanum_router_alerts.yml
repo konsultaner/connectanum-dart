@@ -1,0 +1,38 @@
+groups:
+  - name: connectanum-router-alerts
+    rules:
+      - alert: ConnectanumListenerThrottleActive
+        expr: connectanum_router_listener_throttle_active > 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Connectanum listener throttle is active"
+          description: "Listener {{ $labels.listener_id }} ({{ $labels.protocol }} on {{ $labels.endpoint }}) is currently throttled by the boss alert loop."
+
+      - alert: ConnectanumBackpressureSpike
+        expr: increase(connectanum_router_transport_alerts_by_listener_total{reason="backpressure"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backpressure alerts observed on Connectanum router"
+          description: "Backpressure alerts fired in the last 5m for listener {{ $labels.listener_id }} ({{ $labels.protocol }} on {{ $labels.endpoint }})."
+
+      - alert: ConnectanumGoAwaySpike
+        expr: increase(connectanum_router_transport_alerts_by_listener_total{reason="go_away"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GOAWAY spikes on Connectanum listener"
+          description: "GOAWAY alerts fired in the last 5m for listener {{ $labels.listener_id }} ({{ $labels.protocol }} on {{ $labels.endpoint }})."
+
+      - alert: ConnectanumTransportErrors
+        expr: increase(connectanum_router_transport_alerts_by_listener_total{reason=~"protocol_error|internal_error"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Transport errors observed on Connectanum listener"
+          description: "Protocol or internal transport alerts fired in the last 5m for listener {{ $labels.listener_id }} ({{ $labels.protocol }} on {{ $labels.endpoint }})."

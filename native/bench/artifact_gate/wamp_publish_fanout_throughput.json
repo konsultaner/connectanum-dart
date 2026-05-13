@@ -1,0 +1,76 @@
+{
+  "metrics": [
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 50.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "rawsocket_pubsub_json_64k_fanout8"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 550.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "rawsocket_pubsub_json_64k_fanout8"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 18.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "rawsocket_pubsub_msgpack_64k_fanout8"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 550.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "rawsocket_pubsub_msgpack_64k_fanout8"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 18.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "rawsocket_pubsub_cbor_64k_fanout8"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 650.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "rawsocket_pubsub_cbor_64k_fanout8"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 18.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "websocket_pubsub_json_64k_fanout8"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 550.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "websocket_pubsub_json_64k_fanout8"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 18.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "websocket_pubsub_msgpack_64k_fanout8"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 500.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "websocket_pubsub_msgpack_64k_fanout8"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 18.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "websocket_pubsub_cbor_64k_fanout8"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 600.0,
+      "scenario": "wamp_publish_fanout_throughput",
+      "workload": "websocket_pubsub_cbor_64k_fanout8"
+    }
+  ]
+}

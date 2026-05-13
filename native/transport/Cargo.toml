@@ -1,0 +1,3 @@
+[workspace]
+members = ["ct_core", "ct_ffi"]
+resolver = "2"

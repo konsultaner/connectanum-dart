@@ -1,0 +1,355 @@
+name: Native Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional tag name to publish or update on GitHub Releases
+        required: false
+        type: string
+      release_name:
+        description: Optional GitHub Release title override
+        required: false
+        type: string
+      prerelease:
+        description: Mark the published GitHub Release as a prerelease
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: Render release metadata and upload a preview without creating or updating a GitHub Release
+        required: false
+        type: boolean
+        default: false
+      stable_release_approval:
+        description: Type release_tag exactly to allow a manual non-prerelease release
+        required: false
+        type: string
+  push:
+    tags:
+      - 'ct-ffi-v*'
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  ct-ffi:
+    name: ct_ffi (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            runner: ubuntu-24.04
+          - name: Linux arm64
+            runner: ubuntu-24.04-arm
+          - name: macOS Apple Silicon
+            runner: macos-15
+          - name: macOS Intel
+            runner: macos-15-intel
+          - name: Windows x64
+            runner: windows-2025
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Package ct_ffi artifact
+        id: package
+        run: bin/package-native-artifact
+
+      - name: Sign packaged artifacts
+        env:
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          CHECKSUM_PATH: ${{ steps.package.outputs.checksum_path }}
+          MANIFEST_PATH: ${{ steps.package.outputs.manifest_path }}
+        run: |
+          set -euo pipefail
+
+          for artifact in "$ARCHIVE_PATH" "$CHECKSUM_PATH" "$MANIFEST_PATH"; do
+            cosign sign-blob "$artifact" \
+              --bundle "${artifact}.sigstore.json" \
+              --yes
+          done
+
+      - name: Verify packaged artifact bundles
+        env:
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          CHECKSUM_PATH: ${{ steps.package.outputs.checksum_path }}
+          MANIFEST_PATH: ${{ steps.package.outputs.manifest_path }}
+          WORKFLOW_IDENTITY: https://github.com/${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+
+          for artifact in "$ARCHIVE_PATH" "$CHECKSUM_PATH" "$MANIFEST_PATH"; do
+            cosign verify-blob "$artifact" \
+              --bundle "${artifact}.sigstore.json" \
+              --certificate-identity "$WORKFLOW_IDENTITY" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          done
+
+      - name: Generate archive attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz
+
+      - name: Generate checksum attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz.sha256
+
+      - name: Generate manifest attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: out/native-artifacts/${{ steps.package.outputs.bundle_name }}.manifest.json
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.bundle_name }}
+          path: |
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz.sigstore.json
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz.sha256
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.tar.gz.sha256.sigstore.json
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.manifest.json
+            out/native-artifacts/${{ steps.package.outputs.bundle_name }}.manifest.json.sigstore.json
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: ct-ffi
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download packaged artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          download_dir="out/github-release-download"
+          release_dir="out/github-release"
+
+          rm -rf "$download_dir" "$release_dir"
+          mkdir -p "$download_dir" "$release_dir"
+
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'ct-ffi-*' \
+            --dir "$download_dir"
+
+          assets=("$download_dir"/ct-ffi-*/*)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            printf 'No packaged artifacts were downloaded.\n' >&2
+            exit 1
+          fi
+
+          for asset in "${assets[@]}"; do
+            cp "$asset" "$release_dir/"
+          done
+
+      - name: Resolve release metadata
+        id: meta
+        env:
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          INPUT_RELEASE_NAME: ${{ github.event.inputs.release_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            release_tag="$GITHUB_REF_NAME"
+          else
+            release_tag="${INPUT_RELEASE_TAG:-}"
+          fi
+
+          if [[ -z "$release_tag" ]]; then
+            printf 'No release tag resolved for this run.\n' >&2
+            exit 1
+          fi
+
+          if [[ -n "${INPUT_RELEASE_NAME:-}" ]]; then
+            release_title="$INPUT_RELEASE_NAME"
+          elif [[ "$release_tag" == ct-ffi-v* ]]; then
+            release_title="Connectanum native transport assets v${release_tag#ct-ffi-v}"
+          elif [[ "$release_tag" == v* ]]; then
+            release_title="Connectanum ${release_tag}"
+          else
+            release_title="Connectanum release ${release_tag}"
+          fi
+
+          printf 'release_tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
+          printf 'release_title=%s\n' "$release_title" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release intent
+        env:
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          INPUT_PRERELEASE: ${{ github.event.inputs.prerelease }}
+          INPUT_STABLE_RELEASE_APPROVAL: ${{ github.event.inputs.stable_release_approval }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          python3 tool/validate_native_release_intent.py \
+            --release-tag "$RELEASE_TAG" \
+            --event-name "${GITHUB_EVENT_NAME:-}" \
+            --ref-type "${GITHUB_REF_TYPE:-}" \
+            --dry-run "${INPUT_DRY_RUN:-false}" \
+            --prerelease "${INPUT_PRERELEASE:-false}" \
+            --stable-release-approval "${INPUT_STABLE_RELEASE_APPROVAL:-}"
+
+      - name: Render or publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_PRERELEASE: ${{ github.event.inputs.prerelease }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          RELEASE_TITLE: ${{ steps.meta.outputs.release_title }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          assets=(out/github-release/*)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            printf 'No release assets were downloaded.\n' >&2
+            exit 1
+          fi
+
+          prerelease_args=()
+          if [[ "${INPUT_PRERELEASE:-false}" == "true" ]]; then
+            prerelease_args+=(--prerelease)
+          fi
+
+          owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          generate_notes='false'
+
+          if [[ "$RELEASE_TAG" == v* && "$RELEASE_TAG" != ct-ffi-v* ]]; then
+            generate_notes='true'
+          fi
+
+          release_notes_file="$(mktemp)"
+          generated_notes_file="$(mktemp)"
+          trap 'rm -f "$release_notes_file" "$generated_notes_file"' EXIT
+
+          if [[ "$generate_notes" == 'true' ]]; then
+            gh api \
+              --method POST \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$RELEASE_TAG" \
+              -f target_commitish="$GITHUB_SHA" \
+              --jq '.body' > "$generated_notes_file"
+          fi
+
+          python3 tool/render_native_release_notes.py \
+            --release-tag "$RELEASE_TAG" \
+            --repository "$GITHUB_REPOSITORY" \
+            --server-url "${GITHUB_SERVER_URL:-https://github.com}" \
+            --commit "$GITHUB_SHA" \
+            --workflow-ref "$GITHUB_WORKFLOW_REF" \
+            --owner "$owner" \
+            --generated-notes-file "$generated_notes_file" \
+            > "$release_notes_file"
+
+          release_notes="$(cat "$release_notes_file")"
+
+          if [[ "${INPUT_DRY_RUN:-false}" == "true" ]]; then
+            preview_dir="out/release-preview"
+            mkdir -p "$preview_dir"
+            cp "$release_notes_file" "$preview_dir/release-notes.md"
+
+            {
+              printf 'Release tag: %s\n' "$RELEASE_TAG"
+              printf 'Release title: %s\n' "$RELEASE_TITLE"
+              printf 'Prerelease: %s\n' "${INPUT_PRERELEASE:-false}"
+              printf 'Commit: %s\n' "$GITHUB_SHA"
+              printf 'Assets:\n'
+              for asset in "${assets[@]}"; do
+                printf '%s\n' "- $(basename "$asset")"
+              done
+            } > "$preview_dir/release-metadata.txt"
+
+            summary_file="${GITHUB_STEP_SUMMARY:-/dev/null}"
+            {
+              printf '## Native release dry run\n\n'
+              printf 'No GitHub Release was created or updated.\n\n'
+              printf '%s\n' "- Release tag: \`$RELEASE_TAG\`"
+              printf '%s\n' "- Release title: \`$RELEASE_TITLE\`"
+              printf '%s\n' "- Prerelease: \`${INPUT_PRERELEASE:-false}\`"
+              printf '%s\n\n' "- Asset count: \`${#assets[@]}\`"
+              printf '### Assets\n\n'
+              for asset in "${assets[@]}"; do
+                printf '%s\n' "- \`$(basename "$asset")\`"
+              done
+              printf '\n### Release notes preview\n\n'
+              printf '<details>\n<summary>Rendered release notes</summary>\n\n'
+              cat "$release_notes_file"
+              printf '\n</details>\n'
+            } >> "$summary_file"
+
+            exit 0
+          fi
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TITLE" \
+              --notes "$release_notes"
+            gh release upload "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber \
+              "${assets[@]}"
+          else
+            create_args=(
+              --repo "$GITHUB_REPOSITORY"
+              --notes "$release_notes"
+            )
+
+            if [[ -n "$RELEASE_TITLE" ]]; then
+              create_args+=(--title "$RELEASE_TITLE")
+            fi
+
+            if [[ "$RELEASE_TAG" == ct-ffi-v* ]]; then
+              create_args+=(--latest=false)
+            fi
+
+            if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+              create_args+=(--verify-tag)
+            else
+              create_args+=(--target "$GITHUB_SHA")
+            fi
+
+            gh release create "$RELEASE_TAG" \
+              "${create_args[@]}" \
+              "${prerelease_args[@]}" \
+              "${assets[@]}"
+          fi
+
+      - name: Upload release preview
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-release-preview
+          path: out/release-preview

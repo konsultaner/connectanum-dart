@@ -1,0 +1,74 @@
+name = "wamp_publish_fanout_throughput"
+description = "Large-payload native-client WAMP pub/sub fan-out sweep with eight subscribers per publisher session."
+
+[[workloads]]
+name = "rawsocket_pubsub_json_64k_fanout8"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 2
+in_flight_per_session = 4
+peer_count = 8
+request_bytes = 65536
+
+[[workloads]]
+name = "rawsocket_pubsub_msgpack_64k_fanout8"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 2
+in_flight_per_session = 4
+peer_count = 8
+request_bytes = 65536
+
+[[workloads]]
+name = "rawsocket_pubsub_cbor_64k_fanout8"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 2
+in_flight_per_session = 4
+peer_count = 8
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_pubsub_json_64k_fanout8"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 2
+in_flight_per_session = 4
+peer_count = 8
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_pubsub_msgpack_64k_fanout8"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 2
+in_flight_per_session = 4
+peer_count = 8
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_pubsub_cbor_64k_fanout8"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 2
+in_flight_per_session = 4
+peer_count = 8
+request_bytes = 65536

@@ -1,0 +1,49 @@
+name = "remote_auth_rawsocket_smoke"
+description = "Constrained RawSocket frame-pusher smoke for remote-auth HELLO/CHALLENGE/AUTHENTICATE flows."
+
+[[workloads]]
+name = "remote_auth_success"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 8
+concurrency = 4
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_id = "ticket-user"
+auth_secret = "ticket-secret"
+frame_case = "success"
+
+[[workloads]]
+name = "remote_auth_disconnect_after_challenge"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 8
+concurrency = 4
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_id = "ticket-user"
+auth_secret = "ticket-secret"
+frame_case = "disconnect_after_challenge"
+
+[[workloads]]
+name = "remote_auth_invalid_ticket"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 8
+concurrency = 4
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_id = "ticket-user"
+auth_secret = "ticket-secret"
+frame_case = "invalid_ticket"
+
+[[workloads]]
+name = "remote_auth_missing_authid"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 8
+concurrency = 4
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_secret = "ticket-secret"
+frame_case = "missing_authid"

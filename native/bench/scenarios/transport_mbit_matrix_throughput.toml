@@ -1,0 +1,802 @@
+name = "transport_mbit_matrix_throughput"
+description = "Throughput-grade cross-transport/auth/authz matrix across HTTP and WAMP transports, keeping representative payload sizes, websocket continuation rows, and stable ACL off/on comparisons in one canonical Mbps artifact set."
+
+[[workloads]]
+name = "rawsocket_auth_anonymous"
+protocol = "wamp_rawsocket_auth"
+client_impl = "native"
+serializer = "cbor"
+uri = "bench.auth"
+iterations = 16
+concurrency = 1
+
+[[workloads]]
+name = "rawsocket_auth_ticket_acl_on"
+protocol = "wamp_rawsocket_auth"
+client_impl = "native"
+serializer = "cbor"
+uri = "bench.auth"
+iterations = 16
+concurrency = 1
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_auth_anonymous"
+protocol = "wamp_websocket_auth"
+client_impl = "native"
+serializer = "cbor"
+uri = "bench.auth"
+iterations = 16
+concurrency = 1
+
+[[workloads]]
+name = "websocket_auth_ticket_acl_on"
+protocol = "wamp_websocket_auth"
+client_impl = "native"
+serializer = "cbor"
+uri = "bench.auth"
+iterations = 16
+concurrency = 1
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "rawsocket_rpc_256_acl_off"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 256
+
+[[workloads]]
+name = "rawsocket_rpc_256_acl_on"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 256
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "rawsocket_rpc_4k_acl_off"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4096
+
+[[workloads]]
+name = "rawsocket_rpc_4k_acl_on"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "rawsocket_rpc_64k_acl_off"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "rawsocket_rpc_64k_acl_on"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "rawsocket_pubsub_256_acl_off"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 256
+
+[[workloads]]
+name = "rawsocket_pubsub_256_acl_on"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 256
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "rawsocket_pubsub_4k_acl_off"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4096
+
+[[workloads]]
+name = "rawsocket_pubsub_4k_acl_on"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "rawsocket_pubsub_64k_acl_off"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "rawsocket_pubsub_64k_acl_on"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_rpc_256_acl_off"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 256
+
+[[workloads]]
+name = "websocket_rpc_256_acl_on"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 256
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_rpc_4k_acl_off"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4096
+
+[[workloads]]
+name = "websocket_rpc_4k_acl_on"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_rpc_64k_contiguous_acl_off"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_rpc_64k_contiguous_acl_on"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_rpc_64k_frag4k_acl_off"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_rpc_64k_frag4k_acl_on"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_rpc_64k_frag16k_acl_off"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 16384
+
+[[workloads]]
+name = "websocket_rpc_64k_frag16k_acl_on"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 16384
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_pubsub_256_acl_off"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 256
+
+[[workloads]]
+name = "websocket_pubsub_256_acl_on"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 256
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_pubsub_4k_acl_off"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4096
+
+[[workloads]]
+name = "websocket_pubsub_4k_acl_on"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_pubsub_64k_contiguous_acl_off"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_pubsub_64k_contiguous_acl_on"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_pubsub_64k_frag4k_acl_off"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_pubsub_64k_frag4k_acl_on"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "websocket_pubsub_64k_frag16k_acl_off"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 16384
+
+[[workloads]]
+name = "websocket_pubsub_64k_frag16k_acl_on"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.topic"
+iterations = 24
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 65536
+websocket_fragment_size = 16384
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+
+[[workloads]]
+name = "h1_public_4k"
+protocol = "h1"
+path = "/bench/stream"
+method = "POST"
+iterations = 16
+concurrency = 4
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+reuse_connections = true
+
+[[workloads]]
+name = "h1_public_64k"
+protocol = "h1"
+path = "/bench/stream"
+method = "POST"
+iterations = 16
+concurrency = 4
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 8192
+response_chunk_bytes = 8192
+reuse_connections = true
+
+[[workloads]]
+name = "h2_public_4k"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h2_public_64k"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+
+[[workloads]]
+name = "h3_public_4k"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_public_64k"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+
+[[workloads]]
+name = "h1_ticket_login"
+protocol = "h1"
+path = "/bench/auth"
+method = "POST"
+iterations = 16
+concurrency = 1
+auth_flow = "login"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h2_ticket_login"
+protocol = "h2"
+path = "/bench/auth"
+method = "POST"
+iterations = 16
+concurrency = 1
+auth_flow = "login"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h3_ticket_login"
+protocol = "h3"
+path = "/bench/auth"
+method = "POST"
+iterations = 16
+concurrency = 1
+auth_flow = "login"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 0
+response_bytes = 0
+
+[[workloads]]
+name = "h1_ticket_protected_4k"
+protocol = "h1"
+path = "/bench/secure"
+method = "POST"
+iterations = 16
+concurrency = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h2_ticket_protected_4k"
+protocol = "h2"
+path = "/bench/secure"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_ticket_protected_4k"
+protocol = "h3"
+path = "/bench/secure"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h1_ticket_protected_64k"
+protocol = "h1"
+path = "/bench/secure"
+method = "POST"
+iterations = 16
+concurrency = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+
+[[workloads]]
+name = "h2_ticket_protected_64k"
+protocol = "h2"
+path = "/bench/secure"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+
+[[workloads]]
+name = "h3_ticket_protected_64k"
+protocol = "h3"
+path = "/bench/secure"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+
+[[workloads]]
+name = "h1_jwt_protected_4k"
+protocol = "h1"
+path = "/bench/secure-jwt"
+method = "POST"
+iterations = 16
+concurrency = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_bearer_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZW5jaC11c2VyIiwicm9sZSI6Im1lbWJlciIsImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUiLCJhdWQiOlsiY29ubmVjdGFudW0taHR0cCJdLCJleHAiOjQxMDI0NDQ4MDB9.MM2g7l37iaFv4yRcNviriaTsitSR5HuZkTdkOD_HnkE"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h1_jwt_protected_64k"
+protocol = "h1"
+path = "/bench/secure-jwt"
+method = "POST"
+iterations = 16
+concurrency = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_bearer_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZW5jaC11c2VyIiwicm9sZSI6Im1lbWJlciIsImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUiLCJhdWQiOlsiY29ubmVjdGFudW0taHR0cCJdLCJleHAiOjQxMDI0NDQ4MDB9.MM2g7l37iaFv4yRcNviriaTsitSR5HuZkTdkOD_HnkE"
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+
+[[workloads]]
+name = "h2_jwt_protected_64k"
+protocol = "h2"
+path = "/bench/secure-jwt"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_bearer_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZW5jaC11c2VyIiwicm9sZSI6Im1lbWJlciIsImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUiLCJhdWQiOlsiY29ubmVjdGFudW0taHR0cCJdLCJleHAiOjQxMDI0NDQ4MDB9.MM2g7l37iaFv4yRcNviriaTsitSR5HuZkTdkOD_HnkE"
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+
+[[workloads]]
+name = "h3_jwt_protected_64k"
+protocol = "h3"
+path = "/bench/secure-jwt"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_bearer_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZW5jaC11c2VyIiwicm9sZSI6Im1lbWJlciIsImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUiLCJhdWQiOlsiY29ubmVjdGFudW0taHR0cCJdLCJleHAiOjQxMDI0NDQ4MDB9.MM2g7l37iaFv4yRcNviriaTsitSR5HuZkTdkOD_HnkE"
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+
+[[workloads]]
+name = "h2_jwt_protected_4k"
+protocol = "h2"
+path = "/bench/secure-jwt"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_bearer_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZW5jaC11c2VyIiwicm9sZSI6Im1lbWJlciIsImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUiLCJhdWQiOlsiY29ubmVjdGFudW0taHR0cCJdLCJleHAiOjQxMDI0NDQ4MDB9.MM2g7l37iaFv4yRcNviriaTsitSR5HuZkTdkOD_HnkE"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_jwt_protected_4k"
+protocol = "h3"
+path = "/bench/secure-jwt"
+method = "POST"
+iterations = 16
+concurrency = 4
+streams_per_connection = 4
+auth_flow = "protected"
+auth_path = "/bench/auth"
+auth_bearer_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZW5jaC11c2VyIiwicm9sZSI6Im1lbWJlciIsImlzcyI6Imh0dHBzOi8vaXNzdWVyLmV4YW1wbGUiLCJhdWQiOlsiY29ubmVjdGFudW0taHR0cCJdLCJleHAiOjQxMDI0NDQ4MDB9.MM2g7l37iaFv4yRcNviriaTsitSR5HuZkTdkOD_HnkE"
+request_bytes = 4096
+response_bytes = 4096
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024

@@ -1,0 +1,410 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: bin/ktls-http2-bench [--scenario <path>] [--workloads <csv>] [--out-dir <dir>] [--router-worker-counts <csv>] [--native-runtime-thread-counts <csv>] [--repeat-count <count>] [--repeat-order <baseline-first|ktls-first|alternating>] [--cooldown-seconds <seconds>] [--artifact-policy <path>] [--skip-artifact-gate]
+
+Runs the Linux-only HTTP/2 comparison bench:
+1. baseline TLS over the existing HTTP/2 listener
+2. required-kTLS over the same HTTP/2 listener
+
+Outputs:
+  <out-dir>/baseline/*
+  <out-dir>/ktls/*
+  <out-dir>/comparison.json
+  <out-dir>/comparison.md
+
+With --repeat-count > 1, per-repeat artifacts move under:
+  <out-dir>/repeats/repeat-XX/{baseline,ktls,comparison.json,comparison.md}
+and the top-level comparison.* files become the aggregate repeat-stability report.
+
+Environment:
+  CONNECTANUM_ENABLE_KTLS            Forced to 0 for baseline and 1 for kTLS
+  CONNECTANUM_REQUIRE_KTLS           Forced to 0 for baseline and 1 for kTLS
+EOF
+}
+
+scenario="$(repo_root)/native/bench/scenarios/h2_ktls_benchmark.toml"
+workloads=""
+out_dir="$(repo_root)/out/ktls-http2-bench"
+router_worker_counts="1"
+native_runtime_thread_counts="1,4"
+repeat_count=1
+repeat_order="alternating"
+cooldown_seconds=15
+artifact_policy=""
+skip_artifact_gate=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scenario)
+      scenario="$2"
+      shift 2
+      ;;
+    --out-dir)
+      out_dir="$2"
+      shift 2
+      ;;
+    --workloads)
+      workloads="$2"
+      shift 2
+      ;;
+    --router-worker-counts)
+      router_worker_counts="$2"
+      shift 2
+      ;;
+    --native-runtime-thread-counts)
+      native_runtime_thread_counts="$2"
+      shift 2
+      ;;
+    --repeat-count)
+      repeat_count="$2"
+      shift 2
+      ;;
+    --repeat-order)
+      repeat_order="$2"
+      shift 2
+      ;;
+    --cooldown-seconds)
+      cooldown_seconds="$2"
+      shift 2
+      ;;
+    --artifact-policy)
+      artifact_policy="$2"
+      shift 2
+      ;;
+    --skip-artifact-gate)
+      skip_artifact_gate=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+require_command cargo
+require_command dart
+require_command python3
+cd_repo_root
+
+if ! [[ "$repeat_count" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'Repeat count must be a positive integer: %s\n' "$repeat_count" >&2
+  exit 1
+fi
+
+case "$repeat_order" in
+  baseline-first|ktls-first|alternating)
+    ;;
+  *)
+    printf 'Repeat order must be one of: baseline-first, ktls-first, alternating (got %s)\n' \
+      "$repeat_order" >&2
+    exit 1
+    ;;
+esac
+
+if ! [[ "$cooldown_seconds" =~ ^[0-9]+$ ]]; then
+  printf 'Cooldown seconds must be a non-negative integer: %s\n' "$cooldown_seconds" >&2
+  exit 1
+fi
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+  printf 'bin/ktls-http2-bench requires Linux.\n' >&2
+  exit 1
+fi
+
+mkdir -p "$out_dir"
+
+scenario_source="$(cd "$(dirname "$scenario")" && pwd)/$(basename "$scenario")"
+scenario="$scenario_source"
+if [[ -n "$artifact_policy" ]]; then
+  artifact_policy="$(cd "$(dirname "$artifact_policy")" && pwd)/$(basename "$artifact_policy")"
+fi
+baseline_dir="${out_dir%/}/baseline"
+ktls_dir="${out_dir%/}/ktls"
+comparison_json="${out_dir%/}/comparison.json"
+comparison_md="${out_dir%/}/comparison.md"
+host_info_path="${out_dir%/}/host-info.txt"
+repeat_plan_path="${out_dir%/}/repeat-plan.txt"
+default_artifact_policy="$(repo_root)/native/bench/artifact_gate/$(basename "${scenario_source%.toml}").json"
+temporary_scenario_dir=""
+
+cleanup() {
+  if [[ -n "$temporary_scenario_dir" && -d "$temporary_scenario_dir" ]]; then
+    rm -rf "$temporary_scenario_dir"
+  fi
+}
+
+trap cleanup EXIT
+
+if [[ -n "$workloads" ]]; then
+  temporary_scenario_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-ktls-scenario.XXXXXX")"
+  scenario="${temporary_scenario_dir}/$(basename "$scenario_source")"
+  python3 "$(repo_root)/tool/filter_bench_scenario.py" \
+    "$scenario_source" \
+    "$scenario" \
+    "$workloads"
+fi
+
+if (( ! skip_artifact_gate )) && [[ -z "$artifact_policy" && -f "$default_artifact_policy" ]]; then
+  artifact_policy="$default_artifact_policy"
+fi
+
+if [[ -n "$artifact_policy" && ! -f "$artifact_policy" ]]; then
+  printf 'Artifact policy not found: %s\n' "$artifact_policy" >&2
+  exit 1
+fi
+
+build_native_ffi_test_release
+
+printf 'Building release HTTP bench binary for stable comparison runs...\n'
+cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
+
+if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+  printf 'Failed to resolve CONNECTANUM_NATIVE_LIB for HTTP/2 kTLS benchmark.\n' >&2
+  exit 1
+fi
+
+{
+  printf 'date_utc=%s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  printf 'uname=%s\n' "$(uname -a)"
+  if [[ -r /proc/version ]]; then
+    printf 'proc_version=%s\n' "$(tr '\n' ' ' </proc/version)"
+  fi
+  if [[ -r /proc/sys/net/ipv4/tcp_available_ulp ]]; then
+    printf 'tcp_available_ulp=%s\n' "$(tr '\n' ' ' </proc/sys/net/ipv4/tcp_available_ulp)"
+  fi
+  printf 'rustc=%s\n' "$(rustc -V)"
+  printf 'cargo=%s\n' "$(cargo -V)"
+  printf 'dart=%s\n' "$("$(dart_binary)" --version 2>&1 | tr '\n' ' ')"
+  printf 'scenario_source=%s\n' "$scenario_source"
+  printf 'scenario_effective=%s\n' "$scenario"
+  printf 'workloads=%s\n' "${workloads:-all}"
+  printf 'router_worker_counts=%s\n' "$router_worker_counts"
+  printf 'native_runtime_thread_counts=%s\n' "$native_runtime_thread_counts"
+  printf 'repeat_count=%s\n' "$repeat_count"
+  printf 'repeat_order=%s\n' "$repeat_order"
+  printf 'cooldown_seconds=%s\n' "$cooldown_seconds"
+  printf 'native_lib=%s\n' "$CONNECTANUM_NATIVE_LIB"
+  if (( skip_artifact_gate )); then
+    printf 'artifact_gate=skipped\n'
+  elif [[ -n "$artifact_policy" ]]; then
+    printf 'artifact_policy=%s\n' "$artifact_policy"
+  else
+    printf 'artifact_gate=default_strict\n'
+  fi
+} >"$host_info_path"
+
+maybe_cooldown() {
+  local reason="$1"
+  if (( cooldown_seconds <= 0 )); then
+    return 0
+  fi
+  printf 'Cooling down for %ss (%s)...\n' "$cooldown_seconds" "$reason"
+  sleep "$cooldown_seconds"
+}
+
+resolve_repeat_pass_order() {
+  local repeat_index="$1"
+  case "$repeat_order" in
+    baseline-first)
+      printf 'baseline ktls\n'
+      ;;
+    ktls-first)
+      printf 'ktls baseline\n'
+      ;;
+    alternating)
+      if (( repeat_index % 2 == 1 )); then
+        printf 'baseline ktls\n'
+      else
+        printf 'ktls baseline\n'
+      fi
+      ;;
+  esac
+}
+
+capture_tls_stat() {
+  local output_path="$1"
+  if [[ -r /proc/net/tls_stat ]]; then
+    cat /proc/net/tls_stat >"$output_path"
+  else
+    printf 'tls_stat_capture=unavailable\nreason=/proc/net/tls_stat not readable\n' \
+      >"$output_path"
+  fi
+}
+
+run_pass() {
+  local label="$1"
+  local pass_out_dir="$2"
+  local enable_ktls="$3"
+  local require_ktls="$4"
+  local pass_status=0
+  local gate_status=0
+  local resource_usage_path="${pass_out_dir}/resource-usage.txt"
+  local tls_stat_before_path="${pass_out_dir}/tls-stat-before.txt"
+  local tls_stat_after_path="${pass_out_dir}/tls-stat-after.txt"
+
+  mkdir -p "$pass_out_dir"
+  capture_tls_stat "$tls_stat_before_path"
+
+  printf 'Running %s HTTP/2 bench (CONNECTANUM_ENABLE_KTLS=%s, CONNECTANUM_REQUIRE_KTLS=%s)...\n' \
+    "$label" "$enable_ktls" "$require_ktls"
+
+  if [[ -x /usr/bin/time ]]; then
+    /usr/bin/time -v -o "$resource_usage_path" env \
+      CONNECTANUM_ENABLE_KTLS="$enable_ktls" \
+      CONNECTANUM_REQUIRE_KTLS="$require_ktls" \
+      cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- \
+        --native-lib "$CONNECTANUM_NATIVE_LIB" \
+        --scenario "$scenario" \
+        --results "${pass_out_dir}/bench_results.jsonl" \
+        --artifact-dir "$pass_out_dir" \
+        --router-worker-counts "$router_worker_counts" \
+        --native-runtime-thread-counts "$native_runtime_thread_counts" \
+        || pass_status=$?
+  else
+    printf 'resource_usage_capture=unavailable\nreason=/usr/bin/time not found\n' \
+      >"$resource_usage_path"
+    CONNECTANUM_ENABLE_KTLS="$enable_ktls" \
+    CONNECTANUM_REQUIRE_KTLS="$require_ktls" \
+    cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- \
+      --native-lib "$CONNECTANUM_NATIVE_LIB" \
+      --scenario "$scenario" \
+      --results "${pass_out_dir}/bench_results.jsonl" \
+      --artifact-dir "$pass_out_dir" \
+      --router-worker-counts "$router_worker_counts" \
+      --native-runtime-thread-counts "$native_runtime_thread_counts" \
+      || pass_status=$?
+  fi
+
+  capture_tls_stat "$tls_stat_after_path"
+
+  if [[ -f "${pass_out_dir}/bench_results.summary.json" ]]; then
+    if (( skip_artifact_gate )); then
+      printf 'Skipping %s bench artifact gate by request.\n' "$label"
+    else
+      printf 'Checking %s bench artifacts for transport regressions...\n' "$label"
+      if [[ -n "$artifact_policy" ]]; then
+        bin/check-bench-artifacts \
+          --summary "${pass_out_dir}/bench_results.summary.json" \
+          --policy "$artifact_policy" \
+          || gate_status=$?
+      else
+        bin/check-bench-artifacts \
+          --summary "${pass_out_dir}/bench_results.summary.json" \
+          || gate_status=$?
+      fi
+    fi
+  fi
+
+  if (( pass_status != 0 )); then
+    return "$pass_status"
+  fi
+
+  if (( gate_status != 0 )); then
+    return "$gate_status"
+  fi
+}
+
+write_single_comparison() {
+  local baseline_dir="$1"
+  local ktls_dir="$2"
+  local output_json="$3"
+  local output_md="$4"
+
+  python3 "$(repo_root)/tool/ktls_http2_compare.py" \
+    "$baseline_dir/bench_results.summary.json" \
+    "$ktls_dir/bench_results.summary.json" \
+    "$output_json" \
+    "$output_md"
+}
+
+if (( repeat_count == 1 )); then
+  baseline_status=0
+  ktls_status=0
+
+  run_pass baseline "$baseline_dir" 0 0 || baseline_status=$?
+  run_pass ktls "$ktls_dir" 1 1 || ktls_status=$?
+  write_single_comparison "$baseline_dir" "$ktls_dir" "$comparison_json" "$comparison_md"
+
+  if (( baseline_status != 0 || ktls_status != 0 )); then
+    printf 'HTTP/2 benchmark pass statuses: baseline=%s ktls=%s\n' \
+      "$baseline_status" "$ktls_status" >&2
+    printf 'Partial benchmark artifacts were still written to %s\n' "$out_dir" >&2
+    exit 1
+  fi
+else
+  comparison_inputs=()
+  overall_failure=0
+  : >"$repeat_plan_path"
+
+  for (( repeat_index = 1; repeat_index <= repeat_count; repeat_index++ )); do
+    repeat_name="$(printf 'repeat-%02d' "$repeat_index")"
+    repeat_dir="${out_dir%/}/repeats/${repeat_name}"
+    repeat_baseline_dir="${repeat_dir}/baseline"
+    repeat_ktls_dir="${repeat_dir}/ktls"
+    repeat_comparison_json="${repeat_dir}/comparison.json"
+    repeat_comparison_md="${repeat_dir}/comparison.md"
+    baseline_status=0
+    ktls_status=0
+    read -r first_pass second_pass <<<"$(resolve_repeat_pass_order "$repeat_index")"
+
+    {
+      printf '%s.pass_order=%s,%s\n' "$repeat_name" "$first_pass" "$second_pass"
+      printf '%s.cooldown_seconds=%s\n' "$repeat_name" "$cooldown_seconds"
+    } >>"$repeat_plan_path"
+
+    case "$first_pass" in
+      baseline)
+        run_pass "${repeat_name} baseline" "$repeat_baseline_dir" 0 0 || baseline_status=$?
+        maybe_cooldown "${repeat_name} baseline -> ktls"
+        run_pass "${repeat_name} ktls" "$repeat_ktls_dir" 1 1 || ktls_status=$?
+        ;;
+      ktls)
+        run_pass "${repeat_name} ktls" "$repeat_ktls_dir" 1 1 || ktls_status=$?
+        maybe_cooldown "${repeat_name} ktls -> baseline"
+        run_pass "${repeat_name} baseline" "$repeat_baseline_dir" 0 0 || baseline_status=$?
+        ;;
+    esac
+
+    write_single_comparison \
+      "$repeat_baseline_dir" \
+      "$repeat_ktls_dir" \
+      "$repeat_comparison_json" \
+      "$repeat_comparison_md"
+    comparison_inputs+=("$repeat_comparison_json")
+
+    if (( baseline_status != 0 || ktls_status != 0 )); then
+      printf 'HTTP/2 benchmark pass statuses for %s: baseline=%s ktls=%s\n' \
+        "$repeat_name" "$baseline_status" "$ktls_status" >&2
+      printf 'Partial benchmark artifacts were still written to %s\n' "$repeat_dir" >&2
+      overall_failure=1
+      break
+    fi
+
+    if (( repeat_index < repeat_count )); then
+      maybe_cooldown "${repeat_name} -> next repeat"
+    fi
+  done
+
+  python3 "$(repo_root)/tool/ktls_http2_compare_repeats.py" \
+    "$comparison_json" \
+    "$comparison_md" \
+    "${comparison_inputs[@]}"
+
+  if (( overall_failure != 0 )); then
+    exit 1
+  fi
+fi
+
+printf 'HTTP/2 TLS vs kTLS benchmark artifacts written to %s\n' "$out_dir"

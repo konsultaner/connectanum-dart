@@ -1,0 +1,38 @@
+groups:
+  - name: connectanum-bench-artifacts
+    rules:
+      - alert: ConnectanumBenchArtifactThrottleDetected
+        expr: connectanum_bench_artifact_workload_transport_after{kind="active_throttles"} > 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Bench artifact captured throttled listeners"
+          description: "Scenario {{ $labels.scenario }} workload {{ $labels.workload }} ({{ $labels.protocol }}) finished with active throttles still present."
+
+      - alert: ConnectanumBenchArtifactTransportAlerts
+        expr: connectanum_bench_artifact_workload_transport_delta_total{kind="transport_alerts"} > 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Bench artifact recorded transport alerts"
+          description: "Scenario {{ $labels.scenario }} workload {{ $labels.workload }} ({{ $labels.protocol }}) emitted transport alerts during the captured run."
+
+      - alert: ConnectanumBenchArtifactBackpressure
+        expr: connectanum_bench_artifact_workload_transport_delta_total{kind=~"backpressure_events|backpressure_alerts"} > 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Bench artifact recorded backpressure"
+          description: "Scenario {{ $labels.scenario }} workload {{ $labels.workload }} ({{ $labels.protocol }}) saw backpressure counters increase."
+
+      - alert: ConnectanumBenchArtifactTransportErrors
+        expr: connectanum_bench_artifact_workload_transport_delta_total{kind=~"goaway_alerts|idle_timeout_alerts|body_timeout_alerts|protocol_error_alerts|internal_error_alerts"} > 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Bench artifact recorded transport error alerts"
+          description: "Scenario {{ $labels.scenario }} workload {{ $labels.workload }} ({{ $labels.protocol }}) hit GOAWAY, timeout, protocol, or internal error alerts."

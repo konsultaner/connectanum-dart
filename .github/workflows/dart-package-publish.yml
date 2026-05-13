@@ -1,0 +1,41 @@
+name: Dart Package Publish Dry Run
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - '.github/workflows/dart-package-publish.yml'
+      - 'bin/dart-package-publish-dry-run'
+      - 'docs/dart_package_publishing.md'
+      - 'packages/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/dart-package-publish.yml'
+      - 'bin/dart-package-publish-dry-run'
+      - 'docs/dart_package_publishing.md'
+      - 'packages/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  publish-dry-run:
+    name: Publish Dry Run
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Validate publishable Dart packages
+        run: bin/dart-package-publish-dry-run
+
+      - name: Validate MCP package release readiness
+        run: bin/dart-package-publish-dry-run --include-private connectanum_mcp

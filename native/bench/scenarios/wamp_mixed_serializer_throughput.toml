@@ -1,0 +1,98 @@
+name = "wamp_mixed_serializer_throughput"
+description = "Cross-serializer WAMP throughput across RawSocket and WebSocket using real remote peers."
+
+[[workloads]]
+name = "rawsocket_rpc_json_to_msgpack_dart"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "json"
+peer_serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "rawsocket_rpc_json_to_msgpack_native"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "json"
+peer_serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "rawsocket_pubsub_msgpack_to_cbor_dart"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "dart"
+serializer = "msgpack"
+peer_serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "rawsocket_pubsub_msgpack_to_cbor_native"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+peer_serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_rpc_json_to_cbor_dart"
+protocol = "wamp_websocket_rpc"
+client_impl = "dart"
+serializer = "json"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_rpc_json_to_cbor_native"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "json"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_pubsub_cbor_to_json_dart"
+protocol = "wamp_websocket_pubsub"
+client_impl = "dart"
+serializer = "cbor"
+peer_serializer = "json"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536
+
+[[workloads]]
+name = "websocket_pubsub_cbor_to_json_native"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "json"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 6
+in_flight_per_session = 4
+request_bytes = 65536

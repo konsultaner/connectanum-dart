@@ -1,0 +1,29 @@
+name = "h2_ktls_benchmark"
+description = "HTTP/2-only sustained and multiplexed benchmark intended for baseline TLS versus required kTLS comparison runs."
+
+[[workloads]]
+name = "h2_sustained_transfer"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 20
+concurrency = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500
+
+[[workloads]]
+name = "h2_multiplexed_streams"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 24
+concurrency = 6
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+warmup_ms = 500

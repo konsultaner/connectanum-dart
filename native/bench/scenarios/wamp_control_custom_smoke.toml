@@ -1,0 +1,146 @@
+name = "wamp_control_custom_smoke"
+description = "Control-heavy native WAMP workloads with custom option/detail fields enabled so ct_message_peek direct-bind coverage is exercised on richer control maps."
+
+[[workloads]]
+name = "rawsocket_publish_ack_msgpack_custom"
+protocol = "wamp_rawsocket_publish_ack"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.topic"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+control_custom_fields = true
+
+[[workloads]]
+name = "rawsocket_publish_ack_cbor_custom"
+protocol = "wamp_rawsocket_publish_ack"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.topic"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+control_custom_fields = true
+
+[[workloads]]
+name = "rawsocket_subscribe_cycle_msgpack_custom"
+protocol = "wamp_rawsocket_subscribe_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.topic"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+control_custom_fields = true
+
+[[workloads]]
+name = "rawsocket_subscribe_cycle_cbor_custom"
+protocol = "wamp_rawsocket_subscribe_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.topic"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+control_custom_fields = true
+
+[[workloads]]
+name = "rawsocket_register_cycle_msgpack_custom"
+protocol = "wamp_rawsocket_register_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.proc"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+control_custom_fields = true
+
+[[workloads]]
+name = "rawsocket_register_cycle_cbor_custom"
+protocol = "wamp_rawsocket_register_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.proc"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+control_custom_fields = true
+
+[[workloads]]
+name = "websocket_publish_ack_msgpack_custom"
+protocol = "wamp_websocket_publish_ack"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.topic"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+control_custom_fields = true
+
+[[workloads]]
+name = "websocket_publish_ack_cbor_custom"
+protocol = "wamp_websocket_publish_ack"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.topic"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 128
+control_custom_fields = true
+
+[[workloads]]
+name = "websocket_subscribe_cycle_msgpack_custom"
+protocol = "wamp_websocket_subscribe_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.topic"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+control_custom_fields = true
+
+[[workloads]]
+name = "websocket_subscribe_cycle_cbor_custom"
+protocol = "wamp_websocket_subscribe_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.topic"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+control_custom_fields = true
+
+[[workloads]]
+name = "websocket_register_cycle_msgpack_custom"
+protocol = "wamp_websocket_register_cycle"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.control.proc"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+control_custom_fields = true
+
+[[workloads]]
+name = "websocket_register_cycle_cbor_custom"
+protocol = "wamp_websocket_register_cycle"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.control.proc"
+iterations = 64
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 0
+control_custom_fields = true

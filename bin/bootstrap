@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+cd_repo_root
+require_command dart
+require_command cargo
+
+printf 'Using Dart: %s\n' "$(dart --version 2>&1 | tail -n 1)"
+printf 'Using Cargo: %s\n' "$(cargo --version)"
+
+dart pub get
+cargo metadata --manifest-path native/transport/Cargo.toml --format-version 1 >/dev/null
+
+if ensure_chrome_env; then
+  printf 'Chrome detected at %s\n' "$CHROME_EXECUTABLE"
+else
+  printf 'Chrome not found; browser-platform tests will be skipped locally.\n'
+fi
+
+ensure_native_lib_env || true
+if [[ -n "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+  printf 'Native library configured at %s\n' "$CONNECTANUM_NATIVE_LIB"
+else
+  printf 'Native library not built yet; bin/test-all and bin/verify will build it when needed.\n'
+fi

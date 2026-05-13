@@ -1,0 +1,91 @@
+name = "real_world_smoke"
+description = "High-connection smoke: mixed WAMP pubsub/RPC and HTTP/2+HTTP/3 fanout to probe backpressure."
+
+# ~2k RawSocket WAMP connections (pub + sub per worker) pushing ~100k publishes total.
+[[workloads]]
+name = "wamp_rawsocket_pubsub_load"
+protocol = "wamp_rawsocket_pubsub"
+path = "bench.wamp.topic"
+iterations = 100
+concurrency = 1000
+request_bytes = 256
+
+# Heavy RPC echo to keep call path hot.
+[[workloads]]
+name = "wamp_rawsocket_rpc_load"
+protocol = "wamp_rawsocket_rpc"
+path = "bench.rpc.echo"
+iterations = 100
+concurrency = 500
+request_bytes = 256
+
+# Smaller WebSocket load to compare transport overhead against RawSocket.
+[[workloads]]
+name = "wamp_websocket_pubsub_load"
+protocol = "wamp_websocket_pubsub"
+path = "bench.wamp.topic"
+iterations = 80
+concurrency = 250
+request_bytes = 256
+
+[[workloads]]
+name = "wamp_websocket_rpc_load"
+protocol = "wamp_websocket_rpc"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 125
+request_bytes = 256
+
+# HTTP/2 fanout: small-ish payloads, lots of concurrent streams.
+[[workloads]]
+name = "h2_fanout"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 50
+concurrency = 200
+request_bytes = 65536        # 64 KiB request body
+response_bytes = 65536       # 64 KiB response
+request_chunk_bytes = 16384  # 16 KiB chunks
+response_chunk_bytes = 16384
+warmup_ms = 500
+
+# HTTP/3 fanout with similar size to compare behaviour/backpressure.
+[[workloads]]
+name = "h3_fanout"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 50
+concurrency = 200
+request_bytes = 65536
+response_bytes = 65536
+request_chunk_bytes = 16384
+response_chunk_bytes = 16384
+warmup_ms = 500
+
+# HTTP/2 asset-style echo: larger responses to exercise buffering/backpressure.
+[[workloads]]
+name = "h2_asset_echo"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 24
+concurrency = 150
+request_bytes = 8192
+response_bytes = 524288        # 512 KiB
+request_chunk_bytes = 8192
+response_chunk_bytes = 65536
+
+# HTTP/3 asset-style echo.
+[[workloads]]
+name = "h3_asset_echo"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 24
+concurrency = 150
+request_bytes = 8192
+response_bytes = 524288
+request_chunk_bytes = 8192
+response_chunk_bytes = 65536

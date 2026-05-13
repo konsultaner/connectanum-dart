@@ -1,0 +1,75 @@
+name: WAMP Profile Diagnostics
+
+on:
+  push:
+    branches:
+      - add-router
+      - master
+    paths:
+      - .github/workflows/wamp-profile-diagnostics.yml
+      - bin/wamp-profile-diagnostics
+      - bin/check-bench-artifacts
+      - native/bench/scenarios/wamp_client_impl_throughput.toml
+      - native/bench/scenarios/wamp_payload_mode_throughput.toml
+      - native/bench/scenarios/wamp_mixed_serializer_throughput.toml
+      - native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml
+  workflow_dispatch:
+    inputs:
+      router_worker_counts:
+        description: Router worker counts passed to the bench orchestrator
+        required: false
+        default: "1"
+        type: string
+      native_runtime_thread_counts:
+        description: Tokio runtime thread counts passed to the bench orchestrator
+        required: false
+        default: "1"
+        type: string
+      workload_timeout_ms:
+        description: Per-workload timeout in milliseconds
+        required: false
+        default: "300000"
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  linux-wamp-profile-diagnostics:
+    name: Linux WAMP profile diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Bootstrap workspace
+        run: bin/bootstrap
+
+      - name: Run WAMP profile diagnostics
+        env:
+          INPUT_ROUTER_WORKER_COUNTS: ${{ github.event.inputs.router_worker_counts || '1' }}
+          INPUT_NATIVE_RUNTIME_THREAD_COUNTS: ${{ github.event.inputs.native_runtime_thread_counts || '1' }}
+          INPUT_WORKLOAD_TIMEOUT_MS: ${{ github.event.inputs.workload_timeout_ms || '300000' }}
+        run: |
+          set -euo pipefail
+          bin/wamp-profile-diagnostics \
+            --out-dir "${GITHUB_WORKSPACE}/out/wamp-profile-diagnostics" \
+            --router-worker-counts "$INPUT_ROUTER_WORKER_COUNTS" \
+            --native-runtime-thread-counts "$INPUT_NATIVE_RUNTIME_THREAD_COUNTS" \
+            --workload-timeout-ms "$INPUT_WORKLOAD_TIMEOUT_MS"
+
+      - name: Upload WAMP profile diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wamp-profile-diagnostic-artifacts
+          path: out/wamp-profile-diagnostics
+          if-no-files-found: error
