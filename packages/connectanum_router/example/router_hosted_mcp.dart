@@ -979,7 +979,7 @@ Future<void> _smokeMcpEndpoint(
   required String label,
   required RouterSession serviceSession,
 }) async {
-  final directTools = await client.listConnectanumToolsDirect(
+  final directTools = await client.listToolsDirect(
     id: '$label-direct-tools',
     headers: <String, String>{'x-consumer-trace': '$label-direct-tools'},
   );
@@ -990,10 +990,10 @@ Future<void> _smokeMcpEndpoint(
     throw StateError('MCP tool catalog did not expose example.task.lookup.');
   }
 
-  final directResult = await client.callConnectanumMethodDirect(
+  final directResult = await client.callToolDirect(
     'example.task.lookup',
     id: '$label-direct-call',
-    params: {'taskId': 'T-$label-direct'},
+    arguments: {'taskId': 'T-$label-direct'},
     headers: <String, String>{'x-consumer-trace': '$label-direct-call'},
   );
   print('[$label] Direct JSON-RPC result: ${jsonEncode(directResult)}');
@@ -1760,17 +1760,13 @@ Future<void> _smokeDirectJsonErrorRecovery(
   final missingTool = 'missing.$label.direct.single';
   final errorId = '$label-direct-error-missing';
   try {
-    await client.callConnectanumToolDirect(
-      missingTool,
-      id: errorId,
-      arguments: {},
-    );
+    await client.callToolDirect(missingTool, id: errorId, arguments: {});
     throw StateError('Direct JSON-RPC accepted missing tool $missingTool.');
   } on McpJsonRpcException catch (error) {
     _expectMcpJsonRpcException(
       error,
       id: errorId,
-      method: 'connectanum.tool.call',
+      method: 'tools/call',
       messageSubstring: missingTool,
       label: 'Direct JSON-RPC missing tool',
     );
@@ -1816,7 +1812,7 @@ Future<void> _smokeDirectJsonErrorRecovery(
 
   await _smokeDirectJsonBatchErrorIsolation(client, label: label);
 
-  final recoveryTools = await client.listConnectanumToolsDirect(
+  final recoveryTools = await client.listToolsDirect(
     id: '$label-direct-error-recovery-tools',
   );
   final recoveryToolNames = {

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Standard Direct Secure Auth Smoke
 
-Status: complete; local verification clean, hosted evidence pending
+Status: complete; hosted CI/log/dry-run evidence clean
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-05-13
@@ -61,6 +61,23 @@ project-specific assumptions.
 - `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap >/tmp/connectanum-dart-workspace-bootstrap.log; run_mcp_consumer_package_smoke'`
   passed on 2026-05-13.
 - Full local `bin/verify` passed on 2026-05-13.
+- Commit `b06cad6` (`mcp: cover standard direct secure auth`) was pushed to
+  both configured remotes.
+- GitHub `CI` run `25783336366` completed successfully for `b06cad6` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `WAMP Profile Benchmarks` run `25783336354` completed successfully
+  for `b06cad6`.
+- GitHub `Dart Package Publish Dry Run` run `25783336374` completed
+  successfully and covers the checked-out head.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI, clean hosted CI logs, and a clean relevant Dart
+  package publish dry-run.
+- `bin/audit-github-deployment-chain --branch add-router --strict --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed the hosted CI, hosted CI log scan, and package dry-run checks, then
+  failed only known operator-side release-hardening gaps: branch protection /
+  required checks are absent and `.github/workflows/router-image.yml` is not
+  yet visible from the default branch through the Actions API. The audit also
+  continues to report that the router GHCR package is not visible.
 
 ## Decision Log
 
@@ -72,5 +89,6 @@ project-specific assumptions.
 
 ## Handoff
 
-Implementation is locally complete. Focused local checks and full local
-`bin/verify` are clean; push the implementation and collect hosted evidence.
+Implementation is pushed. Focused local checks, full local verification, hosted
+CI, WAMP benchmark workflow, package publish dry-run, hosted CI log scan, and
+the non-strict deployment-chain audit are clean for `b06cad6`.

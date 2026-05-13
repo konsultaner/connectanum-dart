@@ -10477,7 +10477,7 @@ Future<List<String>> _expectGenericToolCatalog(
   void Function(String operation)? expectStreamableProgress,
 }) async {
   final mode = directJson ? 'generic direct' : 'generic streamable';
-  final method = directJson ? 'connectanum.tools.list' : 'tools/list';
+  const method = 'tools/list';
   final names = <String>[];
   String? cursor;
   var pageCount = 0;
@@ -13338,7 +13338,7 @@ Future<void> _smokeDirectJsonSingleError(
   final missingTool = 'missing.$label.direct.single';
   final errorId = '$label-direct-error-missing';
   try {
-    await client.callConnectanumToolDirect(
+    await client.callToolDirect(
       missingTool,
       id: errorId,
       arguments: {},
@@ -13348,7 +13348,7 @@ Future<void> _smokeDirectJsonSingleError(
     _expectMcpJsonRpcException(
       error,
       id: errorId,
-      method: 'connectanum.tool.call',
+      method: 'tools/call',
       messageSubstring: missingTool,
       label: 'Direct JSON single missing tool',
     );
@@ -13563,6 +13563,7 @@ Future<void> _smokeDirectJsonBatch(
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
   final taskId = 'T-$label-direct-batch';
+  final directProcedureTaskId = 'T-$label-direct-batch-procedure';
   final aliasTaskId = 'T-$label-direct-batch-tools-alias';
   final promptTaskId = 'T-$label-direct-batch-prompt';
   final responses = await client.postBatchDirect(
@@ -13576,14 +13577,23 @@ Future<void> _smokeDirectJsonBatch(
       {
         'jsonrpc': '2.0',
         'id': '$label-direct-batch-tools',
-        'method': 'connectanum.tools.list',
+        'method': 'tools/list',
         'params': {},
       },
       {
         'jsonrpc': '2.0',
         'id': '$label-direct-batch-call',
+        'method': 'tools/call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': taskId},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-direct-batch-procedure',
         'method': _procedure,
-        'params': {'taskId': taskId},
+        'params': {'taskId': directProcedureTaskId},
       },
       {
         'jsonrpc': '2.0',
@@ -13619,8 +13629,8 @@ Future<void> _smokeDirectJsonBatch(
       },
     ],
   );
-  if (responses == null || responses.length != 6) {
-    throw StateError('Direct JSON batch did not return six responses.');
+  if (responses == null || responses.length != 7) {
+    throw StateError('Direct JSON batch did not return seven responses.');
   }
   if (responses[0]['id'] != '$label-direct-batch-api' ||
       !jsonEncode(responses[0]).contains(_procedure)) {
@@ -13630,24 +13640,28 @@ Future<void> _smokeDirectJsonBatch(
     client,
     headResponse: responses[1],
     headId: '$label-direct-batch-tools',
-    label: 'Direct JSON batch connectanum.tools.list',
+    label: 'Direct JSON batch tools/list',
     idPrefix: '$label-direct-batch-tools',
-    method: 'connectanum.tools.list',
+    method: 'tools/list',
     directJson: true,
   );
   if (responses[2]['id'] != '$label-direct-batch-call' ||
       !jsonEncode(responses[2]).contains(taskId)) {
-    throw StateError('Direct JSON batch procedure call response was invalid.');
+    throw StateError('Direct JSON batch tools/call response was invalid.');
   }
-  if (responses[3]['id'] != '$label-direct-batch-tools-alias' ||
-      !jsonEncode(responses[3]).contains(aliasTaskId) ||
-      !jsonEncode(responses[3]).contains(_headerWrappedNote)) {
+  if (responses[3]['id'] != '$label-direct-batch-procedure' ||
+      !jsonEncode(responses[3]).contains(directProcedureTaskId)) {
+    throw StateError('Direct JSON batch procedure alias response was invalid.');
+  }
+  if (responses[4]['id'] != '$label-direct-batch-tools-alias' ||
+      !jsonEncode(responses[4]).contains(aliasTaskId) ||
+      !jsonEncode(responses[4]).contains(_headerWrappedNote)) {
     throw StateError(
       'Direct JSON batch plural tool alias response was invalid.',
     );
   }
   final resourceCursor = _expectPaginatedCatalogHead(
-    responses[4],
+    responses[5],
     id: '$label-direct-batch-resources',
     label: 'Direct JSON batch resources/list',
     resultKey: 'resources',
@@ -13655,8 +13669,8 @@ Future<void> _smokeDirectJsonBatch(
     fieldDescription: 'resource URIs',
     expectedPrimary: _resourceUri,
   );
-  if (responses[5]['id'] != '$label-direct-batch-prompt' ||
-      !jsonEncode(responses[5]).contains(promptTaskId)) {
+  if (responses[6]['id'] != '$label-direct-batch-prompt' ||
+      !jsonEncode(responses[6]).contains(promptTaskId)) {
     throw StateError('Direct JSON batch prompts/get response was invalid.');
   }
   await _smokeDirectJsonBatchResourcePromptDetails(
