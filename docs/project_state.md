@@ -2,14 +2,18 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: `c0ad0de`
-(`mcp: make router direct smoke standard`; standard direct router happy-path
+Last reviewed branch checkpoint: `7d2ad41`
+(`mcp: use direct helpers in router example`; router-hosted MCP direct helper
 smoke complete with hosted CI/log/dry-run evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-router-direct-helper-example-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-router-direct-resource-prompt-helper-smoke.md`
 (implementation complete; local verification clean; push/hosted evidence
 pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-router-direct-helper-example-smoke.md`
+(complete; hosted CI/log/dry-run evidence clean; strict audit still reports
+known operator-side release-hardening gaps).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-standard-direct-router-happy-path-smoke.md`
 (complete; hosted CI/log/dry-run evidence clean; strict audit still reports
 known operator-side release-hardening gaps).

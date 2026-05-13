@@ -1001,9 +1001,8 @@ Future<void> _smokeMcpEndpoint(
   await _smokeDirectJsonTopicMetaApi(client, label: label);
   await _smokeDirectJsonErrorRecovery(client, label: label);
 
-  final directResources = await client.listResources(
+  final directResources = await client.listResourcesDirect(
     id: '$label-direct-resources',
-    directJson: true,
     headers: <String, String>{'x-consumer-trace': '$label-direct-resources'},
   );
   if (!directResources.resources.any(
@@ -1012,10 +1011,9 @@ Future<void> _smokeMcpEndpoint(
     throw StateError('Direct JSON-RPC resources/list did not expose context.');
   }
 
-  final directResource = await client.readResource(
+  final directResource = await client.readResourceDirect(
     'app://example/context',
     id: '$label-direct-resource-read',
-    directJson: true,
     headers: <String, String>{
       'x-consumer-trace': '$label-direct-resource-read',
     },
@@ -1024,11 +1022,10 @@ Future<void> _smokeMcpEndpoint(
     throw StateError('Direct JSON-RPC resources/read did not return context.');
   }
 
-  final directPrompt = await client.getPrompt(
+  final directPrompt = await client.getPromptDirect(
     'summarize-task',
     id: '$label-direct-prompt',
     arguments: {'taskId': 'T-$label-direct'},
-    directJson: true,
     headers: <String, String>{'x-consumer-trace': '$label-direct-prompt'},
   );
   if (!jsonEncode(directPrompt).contains('T-$label-direct')) {
@@ -3662,15 +3659,21 @@ Future<void> _smokeMcpPubSubQueueOverflow(
   final suffix = directJson ? 'direct' : 'streamable';
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
-  final subscription = await client.subscribeWampTopic(
-    'example.events.task',
-    id: '$label-$suffix-overflow-subscribe',
-    queueLimit: 1,
-    directJson: directJson,
-    headers: <String, String>{
-      'x-consumer-trace': '$label-$suffix-overflow-subscribe',
-    },
-  );
+  final subscribeId = '$label-$suffix-overflow-subscribe';
+  final subscribeHeaders = <String, String>{'x-consumer-trace': subscribeId};
+  final subscription = directJson
+      ? await client.subscribeWampTopicDirect(
+          'example.events.task',
+          id: subscribeId,
+          queueLimit: 1,
+          headers: subscribeHeaders,
+        )
+      : await client.subscribeWampTopic(
+          'example.events.task',
+          id: subscribeId,
+          queueLimit: 1,
+          headers: subscribeHeaders,
+        );
   try {
     final taskIds = [
       'T-$label-$suffix-overflow-first',
@@ -3708,14 +3711,23 @@ Future<void> _smokeMcpPubSubQueueOverflow(
       );
     }
   } finally {
-    await client.unsubscribeWampTopic(
-      subscription.handle,
-      id: '$label-$suffix-overflow-unsubscribe',
-      directJson: directJson,
-      headers: <String, String>{
-        'x-consumer-trace': '$label-$suffix-overflow-unsubscribe',
-      },
-    );
+    final unsubscribeId = '$label-$suffix-overflow-unsubscribe';
+    final unsubscribeHeaders = <String, String>{
+      'x-consumer-trace': unsubscribeId,
+    };
+    if (directJson) {
+      await client.unsubscribeWampTopicDirect(
+        subscription.handle,
+        id: unsubscribeId,
+        headers: unsubscribeHeaders,
+      );
+    } else {
+      await client.unsubscribeWampTopic(
+        subscription.handle,
+        id: unsubscribeId,
+        headers: unsubscribeHeaders,
+      );
+    }
   }
 
   if (directJson) {
