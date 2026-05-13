@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer Direct WAMP API Helper Smoke
 
-Status: complete; local verification clean; hosted evidence pending
+Status: complete; local and hosted evidence clean
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-05-13
@@ -43,16 +43,23 @@ WAMP API helper APIs against the router-provided MCP endpoint.
   package `dart analyze` and router-hosted MCP runtime smoke.
 - `git diff --check` passed on 2026-05-13.
 - Full local `bin/verify` passed on 2026-05-13.
-- Implementation commit `mcp: smoke consumer direct wamp api helpers` was
-  prepared for push.
+- Commit `be89a91` (`mcp: smoke consumer direct wamp api helpers`) was pushed
+  to both configured remotes on 2026-05-13.
+- GitHub `CI` run `25796015262` completed successfully on 2026-05-13 with
+  `Fast Checks` and `Full Verify` green.
 
 ## Decision Log
 
 - 2026-05-13: Keep this as consumer-package smoke coverage because the public
   helper APIs already exist; the readiness gap is proving package-boundary use
   against router-hosted MCP.
+- 2026-05-13: With this package-boundary direct WAMP API helper smoke green,
+  MCP is RC-ready for the first GitHub prerelease. Treat additional helper
+  permutations as post-RC polish unless they uncover a consumer integration
+  correctness bug.
 
 ## Handoff
 
-Implementation is ready to commit and push. Local focused checks and full local
-verification are clean; hosted CI/log evidence is pending.
+Implementation is pushed and hosted CI is green. This closes the active MCP
+slice for first-RC readiness; continue with release-branch promotion and hosted
+deployment-chain validation.
