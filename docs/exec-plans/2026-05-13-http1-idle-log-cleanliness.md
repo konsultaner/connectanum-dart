@@ -60,3 +60,5 @@ diagnostics for malformed requests and real I/O errors.
 - Verified locally with `bin/test-fast`, `cargo test -p ct_core`, a focused
   generated MCP consumer smoke with output checked for the removed diagnostic,
   and full `bin/verify`.
+- Hosted GitHub CI #25809250168 passed for `b85f044`; branch audit with clean
+  latest CI/log requirements also passed.

@@ -374,15 +374,60 @@ rc_readiness_sensitive_changes_since() {
   done
 }
 
+ghcr_registry_manifest_exists() {
+  local image="$1"
+  local reference
+  local repository_path
+  local tag
+  local token
+
+  [[ "$image" == ghcr.io/*:* ]] || return 1
+  command -v curl >/dev/null 2>&1 || return 127
+  command -v python3 >/dev/null 2>&1 || return 127
+
+  reference="${image#ghcr.io/}"
+  repository_path="${reference%:*}"
+  tag="${reference##*:}"
+
+  [[ -n "$repository_path" && "$repository_path" != "$reference" ]] || return 1
+  [[ -n "$tag" ]] || return 1
+
+  token="$(
+    curl -fsSLG \
+      --connect-timeout 10 \
+      --max-time 30 \
+      --data-urlencode 'service=ghcr.io' \
+      --data-urlencode "scope=repository:${repository_path}:pull" \
+      'https://ghcr.io/token' \
+      2>/dev/null \
+      | python3 -c 'import json, sys; print(json.load(sys.stdin).get("token", ""))' \
+        2>/dev/null
+  )" || return 1
+
+  [[ -n "$token" ]] || return 1
+
+  curl -fsSI \
+    --connect-timeout 10 \
+    --max-time 30 \
+    -H "Authorization: Bearer ${token}" \
+    -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+    "https://ghcr.io/v2/${repository_path}/manifests/${tag}" \
+    >/dev/null 2>&1
+}
+
 inspect_router_image_manifest() {
   local image="$1"
 
-  if command -v docker >/dev/null 2>&1; then
+  if ghcr_registry_manifest_exists "$image"; then
+    return 0
+  fi
+
+  if command -v docker >/dev/null 2>&1 && docker buildx version >/dev/null 2>&1; then
     docker buildx imagetools inspect "$image" >/dev/null 2>&1
     return $?
   fi
 
-  return 127
+  return 1
 }
 
 strict_dart_output_is_deferred_pub_dev_only() {
