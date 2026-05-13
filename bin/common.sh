@@ -5006,6 +5006,17 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
     );
     await _expectSecureMcpUnauthorized(
       client,
+      label: 'direct JSON ping',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.ping(
+          id: 'secure-unauthenticated-direct-ping',
+          directJson: true,
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
       label: 'direct JSON batch connectanum.tools.list',
       acceptedMessage: acceptedMessage,
       operation: () async {
@@ -13279,6 +13290,19 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
     throw StateError('Streamable MCP direct JSON smoke has no session id.');
   }
   final eventId = client.lastEventId;
+
+  final ping = await client.ping(
+    id: '$label-direct-after-streamable-ping',
+    directJson: true,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-after-streamable-ping',
+    },
+  );
+  if (ping.isNotEmpty) {
+    throw StateError(
+      'Direct JSON MCP ping after Streamable initialization returned data.',
+    );
+  }
 
   await _smokeDirectToolApi(
     client,

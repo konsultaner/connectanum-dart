@@ -68,7 +68,7 @@ void main() {
 
         final ping = await client.ping(
           id: 'ping-json',
-          streamable: false,
+          directJson: true,
           headers: const <String, String>{
             'x-consumer-trace': 'ping-json-helper',
           },
@@ -118,6 +118,8 @@ void main() {
         expect(endpoint.requests[5].accept, 'application/json');
         expect(endpoint.requests[5].body, containsPair('method', 'ping'));
         expect(endpoint.requests[5].mcpMethod, 'ping');
+        expect(endpoint.requests[5].sessionId, isNull);
+        expect(endpoint.requests[5].lastEventId, isNull);
         expect(endpoint.requests[5].consumerTrace, 'ping-json-helper');
         expect(endpoint.requests[6].accept, contains('text/event-stream'));
         expect(endpoint.requests[6].mcpMethod, isNull);

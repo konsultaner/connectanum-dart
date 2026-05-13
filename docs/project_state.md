@@ -2,15 +2,19 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: current local implementation commit
+Last reviewed branch checkpoint: `e156708`
 (`mcp: support direct json ping`; router direct JSON `ping` support plus MCP
-consumer package direct JSON/Streamable CORS ping smoke complete locally)
+consumer package direct JSON/Streamable CORS ping smoke complete with hosted
+evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-consumer-direct-json-ping-cors-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-client-direct-json-ping-helper-smoke.md`
 (complete; local verification clean, hosted evidence pending).
 Latest completed exec plan:
-`docs/exec-plans/2026-05-13-mcp-consumer-direct-json-ping-cors-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-client-direct-json-ping-helper-smoke.md`
 (complete; local verification clean, hosted evidence pending).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-consumer-direct-json-ping-cors-smoke.md`
+(complete; hosted CI and deployment-chain evidence clean).
 Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-json-tool-call-alias-cors-smoke.md`
 (complete; hosted CI and deployment-chain evidence clean).
@@ -366,20 +370,40 @@ Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
 Latest pushed implementation commit:
-current local implementation commit
-(`mcp: support direct json ping`; local verification clean, hosted evidence
-pending).
-Current implementation checkpoint: router-hosted MCP direct JSON `ping`
-readiness is complete locally. The router direct JSON dispatcher now accepts
+`e156708` (`mcp: support direct json ping`; hosted CI and deployment-chain
+evidence clean).
+Current implementation checkpoint: router-hosted MCP direct JSON `ping` client
+helper readiness is complete locally. The local implementation adds an
+explicit direct JSON mode to `McpStreamableHttpClient.ping(...)` so active
+Streamable sessions can probe router-hosted MCP endpoints without sending
+Streamable session headers, and extends the generated neutral consumer smoke
+to cover the active-session and bearer-protected route paths. Pre-change
+`bin/test-fast`, `dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`bash -n bin/common.sh`, focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+focused `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+and full local `bin/verify` passed on 2026-05-13. The local implementation
+commit is pending, and hosted deployment-chain evidence is pending.
+Previous implementation checkpoint: router-hosted MCP direct JSON `ping`
+readiness is complete and pushed. The router direct JSON dispatcher now accepts
 `ping` without requiring Streamable HTTP initialization, and the generated
 consumer smoke proves public and bearer-protected MCP routes handle direct JSON
 `ping`, direct JSON batch `ping`, Streamable POST/SSE `ping`, and Streamable
 batch `ping` over browser-readable CORS. Pre-change `bin/test-fast`, focused
 `bash -n bin/common.sh`, focused `bash -lc 'source bin/common.sh;
 cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`, and
-full local `bin/verify` passed on 2026-05-13. The local implementation commit
-contains the change. Hosted CI and deployment-chain evidence are pending for
-the implementation commit.
+full local `bin/verify` passed on 2026-05-13. Commit `e156708` was pushed to
+both configured remotes. GitHub `CI` run `25771050652` completed successfully
+with `Fast Checks` and `Full Verify` green, GitHub `WAMP Profile Benchmarks`
+run `25771050659` completed successfully, and GitHub
+`Dart Package Publish Dry Run` run `25771050658` completed successfully and
+covers the checked-out head. The deployment-chain audit passed with clean
+latest CI, clean hosted CI logs, and a clean relevant Dart package publish
+dry-run. The strict audit still reports only known operator-side
+release-hardening gaps: branch protection/required checks are absent,
+`.github/workflows/router-image.yml` is not yet visible from the default
+branch through the Actions API, and `ghcr.io/konsultaner/connectanum-router`
+is not visible in GitHub Packages.
 Previous implementation checkpoint: router-hosted MCP raw direct JSON
 tool-call alias CORS readiness is complete and pushed. The generated consumer
 smoke now proves public and bearer-protected MCP routes accept both the

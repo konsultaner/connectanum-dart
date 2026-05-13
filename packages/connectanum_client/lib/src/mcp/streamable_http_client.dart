@@ -177,12 +177,14 @@ final class McpStreamableHttpClient {
   Future<McpJsonMap> ping({
     Object? id,
     bool streamable = true,
+    bool directJson = false,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
       'ping',
       id: id,
-      streamable: streamable,
+      streamable: directJson ? false : streamable,
+      includeSession: !directJson,
       headers: headers,
     );
     return _jsonRpcResultFrom(response, method: 'ping');
