@@ -17,16 +17,28 @@ unless consumer integration exposes a real correctness bug. Pub.dev publishing
 remains deferred until package ownership, public versions, and release order
 for the private workspace packages are explicitly decided.
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-http1-idle-log-cleanliness.md` (complete; HTTP/1
+keep-alive idle timeouts now close quietly in the native connection loop).
+Latest post-RC implementation checkpoint:
+HTTP/1 keep-alive idle timeouts no longer print read-error diagnostics during
+normal idle connection closure, keeping generated router-hosted MCP consumer
+smoke output cleaner while preserving non-timeout protocol/I/O diagnostics.
+Local `bin/test-fast`, focused `cargo test -p ct_core`, a focused generated MCP
+consumer smoke with output checked for the removed diagnostic, and `bin/verify`
+passed on 2026-05-13 for this checkpoint.
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-rc-readiness.md` (complete; GitHub default branch
 promoted, required checks configured, hosted CI clean, native prerelease and
 router image published for `v0.1.0-rc.1`, final RC audit ready with pub.dev
 release-order intentionally deferred).
-Latest post-RC implementation checkpoint:
+Previous post-RC implementation checkpoint:
 Native HTTP route protocol mismatches now return `426 Upgrade Required` before
 WAMP/Dart dispatch on real native HTTP requests, including allowed protocol
 metadata and HTTP/1.1 `Upgrade` hints. Local `bin/test-fast`, focused
 `ct_core` protocol-gate tests, and `bin/verify` passed on 2026-05-13 for this
-checkpoint.
+checkpoint. Hosted GitHub CI #25806702206 passed on
+`codex/post-rc-production-readiness` at `b6a8d1e`, and the branch audit with
+clean latest CI/log requirements passed.
 Previous post-RC implementation checkpoint:
 HTTP route protocol mismatches now return `426 upgrade_required` before WAMP
 dispatch, including allowed protocol response metadata. Local `bin/test-fast`,

@@ -5142,6 +5142,7 @@ async fn serve_http_connection(
                 {
                     Ok(Some(value)) => value,
                     Ok(None) => break,
+                    Err(protocol::NegotiationError::Timeout) => break,
                     Err(err) => {
                         eprintln!(
                             "http/1 connection read error for listener {:?}: {:?}",
