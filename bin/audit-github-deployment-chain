@@ -56,6 +56,15 @@ Options:
                              uploaded the preview artifact, avoided GHCR
                              mutation, and still covers the checked-out router
                              image inputs.
+  --show-wamp-profile-benchmarks
+                             Print the latest dedicated WAMP profile benchmark
+                             workflow evidence.
+  --require-clean-wamp-profile-benchmarks
+                             Exit non-zero unless the latest relevant WAMP
+                             Profile Benchmarks workflow completed
+                             successfully, uploaded its artifact bundle, and
+                             still covers the checked-out WAMP benchmark
+                             inputs.
   --require-router-package   Exit non-zero unless the GHCR router package is
                              visible through the GitHub Packages API or a
                              public registry manifest for the RC tag.
@@ -73,7 +82,8 @@ Options:
                              and logs, hosted Dart package publish dry-run
                              evidence, hosted native release dry-run or
                              prerelease publish evidence, hosted router image
-                             dry-run evidence, baseline
+                             dry-run evidence, hosted WAMP profile benchmark
+                             evidence, baseline
                              default-branch protection, visible workflows,
                              visible router package, an RC GitHub prerelease,
                              and either strict Dart package dry-run readiness
@@ -103,6 +113,8 @@ require_clean_native_release_dry_run=0
 accept_native_prerelease_evidence=0
 check_router_image_dry_run=0
 require_clean_router_image_dry_run=0
+check_wamp_profile_benchmarks=0
+require_clean_wamp_profile_benchmarks=0
 require_router_package=0
 require_workflows_visible=0
 show_required_checks_plan=0
@@ -123,6 +135,8 @@ expected_native_release_jobs=(
 expected_native_release_asset_count=30
 router_image_workflow='Router Image'
 expected_router_image_jobs=('Publish Router Image')
+wamp_profile_benchmarks_workflow='WAMP Profile Benchmarks'
+expected_wamp_profile_benchmark_jobs=('Linux WAMP profile gates')
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
 
 while [[ $# -gt 0 ]]; do
@@ -218,6 +232,15 @@ while [[ $# -gt 0 ]]; do
       require_clean_router_image_dry_run=1
       shift
       ;;
+    --show-wamp-profile-benchmarks)
+      check_wamp_profile_benchmarks=1
+      shift
+      ;;
+    --require-clean-wamp-profile-benchmarks)
+      check_wamp_profile_benchmarks=1
+      require_clean_wamp_profile_benchmarks=1
+      shift
+      ;;
     --require-router-package)
       require_router_package=1
       shift
@@ -238,6 +261,7 @@ while [[ $# -gt 0 ]]; do
       check_dart_package_publish_dry_run=1
       check_native_release_dry_run=1
       check_router_image_dry_run=1
+      check_wamp_profile_benchmarks=1
       accept_native_prerelease_evidence=1
       shift
       ;;
@@ -250,7 +274,9 @@ while [[ $# -gt 0 ]]; do
       check_dart_package_publish_dry_run=1
       check_native_release_dry_run=1
       check_router_image_dry_run=1
+      check_wamp_profile_benchmarks=1
       require_clean_router_image_dry_run=1
+      require_clean_wamp_profile_benchmarks=1
       accept_native_prerelease_evidence=1
       shift
       ;;
@@ -357,6 +383,19 @@ is_expected_router_image_job() {
   local expected_job
 
   for expected_job in "${expected_router_image_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+is_expected_wamp_profile_benchmark_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_wamp_profile_benchmark_jobs[@]}"; do
     if [[ "$candidate" == "$expected_job" ]]; then
       return 0
     fi
@@ -560,6 +599,10 @@ latest_router_image_dry_run_id() {
   latest_workflow_run_id "$router_image_workflow"
 }
 
+latest_wamp_profile_benchmarks_id() {
+  latest_workflow_run_id "$wamp_profile_benchmarks_workflow"
+}
+
 dart_package_publish_sensitive_changes_since() {
   local base="$1"
   local path
@@ -620,6 +663,34 @@ router_image_sensitive_changes_since() {
       pubspec.yaml|\
       tool/render_router_image_metadata.py|\
       tool/test_render_router_image_metadata.py)
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+wamp_profile_benchmark_sensitive_changes_since() {
+  local base="$1"
+  local path
+
+  git diff --name-only "${base}..HEAD" | while IFS= read -r path; do
+    case "$path" in
+      .github/workflows/wamp-profile-benchmarks.yml|\
+      bin/check-bench-artifacts|\
+      bin/wamp-profile-validate|\
+      native/bench/*|\
+      native/bench/**|\
+      native/transport/*|\
+      native/transport/**|\
+      packages/connectanum_bench/*|\
+      packages/connectanum_bench/**|\
+      packages/connectanum_client/*|\
+      packages/connectanum_client/**|\
+      packages/connectanum_core/*|\
+      packages/connectanum_core/**|\
+      packages/connectanum_router/*|\
+      packages/connectanum_router/**|\
+      pubspec.yaml)
         printf '%s\n' "$path"
         ;;
     esac
@@ -1150,6 +1221,133 @@ print_router_image_dry_run_gate() {
   return "$failed"
 }
 
+print_wamp_profile_benchmark_gate() {
+  local run_id
+  local run_summary
+  local run_state
+  local run_status
+  local run_conclusion
+  local run_head_sha
+  local current_head_sha
+  local run_jobs
+  local job_name
+  local job_status
+  local job_conclusion
+  local expected_job
+  local changed_paths
+  local artifact_dir
+  local artifact_file_count
+  local failed=0
+
+  run_id="$(latest_wamp_profile_benchmarks_id)"
+
+  if [[ -z "$run_id" ]]; then
+    printf 'Finding: no WAMP Profile Benchmarks workflow run found for branch %s.\n' "$branch"
+    return 1
+  fi
+
+  run_summary="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,url,displayTitle,event \
+      --jq '"Run: WAMP Profile Benchmarks #'"$run_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nTitle: \(.displayTitle)\nEvent: \(.event)\nURL: \(.url)"'
+  )"
+  printf '%s\n' "$run_summary"
+
+  run_state="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha \
+      --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
+  )"
+  IFS=$'\t' read -r run_status run_conclusion run_head_sha <<<"$run_state"
+
+  if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+    printf 'Finding: latest WAMP Profile Benchmarks run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
+    failed=1
+  fi
+
+  run_jobs="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json jobs \
+      --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+  )"
+
+  if [[ -z "$run_jobs" ]]; then
+    printf 'Finding: latest WAMP Profile Benchmarks run has no inspectable jobs.\n'
+    failed=1
+  else
+    while IFS=$'\t' read -r job_name job_status job_conclusion; do
+      [[ -n "$job_name" ]] || continue
+      printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+      if ! is_expected_wamp_profile_benchmark_job "$job_name"; then
+        printf 'Finding: latest WAMP Profile Benchmarks run contains unexpected job: %s\n' "$job_name"
+        failed=1
+      fi
+
+      if [[ "$job_conclusion" == "skipped" ]]; then
+        printf 'Finding: latest WAMP Profile Benchmarks job was skipped: %s\n' "$job_name"
+        failed=1
+      elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+        printf 'Finding: latest WAMP Profile Benchmarks job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+        failed=1
+      fi
+    done <<<"$run_jobs"
+
+    for expected_job in "${expected_wamp_profile_benchmark_jobs[@]}"; do
+      if ! printf '%s\n' "$run_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+        printf 'Finding: latest WAMP Profile Benchmarks run is missing expected job: %s\n' "$expected_job"
+        failed=1
+      fi
+    done
+  fi
+
+  artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-wamp-profile-artifacts.XXXXXX")"
+  if "$gh_bin" run download "$run_id" --repo "$repository" --pattern wamp-profile-benchmark-artifacts --dir "$artifact_dir" >/dev/null 2>&1; then
+    artifact_file_count="$(find "$artifact_dir" -type f | wc -l | tr -d '[:space:]')"
+    if [[ "$artifact_file_count" =~ ^[0-9]+$ && "$artifact_file_count" -gt 0 ]]; then
+      printf 'WAMP profile benchmark artifact bundle: ready (%s files).\n' "$artifact_file_count"
+    else
+      printf 'Finding: WAMP profile benchmark artifact bundle is empty.\n'
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download wamp-profile-benchmark-artifacts for WAMP Profile Benchmarks run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -rf "$artifact_dir"
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+    printf 'WAMP Profile Benchmarks cover checked-out head: yes.\n'
+  else
+    if ! git cat-file -e "${run_head_sha}^{commit}" 2>/dev/null; then
+      printf 'Finding: cannot compare WAMP Profile Benchmarks head %s with checked-out head; commit is not available locally.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif ! changed_paths="$(wamp_profile_benchmark_sensitive_changes_since "$run_head_sha")"; then
+      printf 'Finding: failed to compare WAMP benchmark-sensitive paths since %s.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif [[ -n "$changed_paths" ]]; then
+      printf 'Finding: checked-out head has WAMP benchmark-sensitive changes after benchmark head %s:\n' "${run_head_sha:0:7}"
+      while IFS= read -r changed_path; do
+        [[ -n "$changed_path" ]] || continue
+        printf -- '- %s\n' "$changed_path"
+      done <<<"$changed_paths"
+      failed=1
+    else
+      printf 'WAMP Profile Benchmarks cover checked-out WAMP inputs: yes; checked-out head differs from benchmark head %s, but no WAMP benchmark-sensitive paths changed since then.\n' "${run_head_sha:0:7}"
+    fi
+  fi
+
+  if [[ "$failed" -eq 0 ]]; then
+    printf 'Latest WAMP Profile Benchmarks run is clean and relevant.\n'
+  fi
+
+  return "$failed"
+}
+
 print_required_checks_plan() {
   local target_branch="$1"
   local protected="$2"
@@ -1308,6 +1506,19 @@ print_rc_readiness() {
     fi
   else
     printf 'Router image hosted dry-run gate: not evaluated; use --show-router-image-dry-run or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$check_wamp_profile_benchmarks" -eq 1 ]]; then
+    if [[ "$wamp_profile_benchmarks_failed" -eq 0 ]]; then
+      printf 'WAMP profile benchmark gate: ready\n'
+    else
+      printf 'WAMP profile benchmark gate: not ready\n'
+      printf '  Next action: run the WAMP Profile Benchmarks workflow for %s, wait for it to finish, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-wamp-profile-benchmarks.\n' "$branch" "$branch"
+      rc_ready_failed=1
+    fi
+  else
+    printf 'WAMP profile benchmark gate: not evaluated; use --show-wamp-profile-benchmarks or --require-rc-ready.\n'
     rc_ready_failed=1
   fi
 
@@ -1507,6 +1718,7 @@ latest_ci_log_failed=0
 dart_package_publish_dry_run_failed=0
 native_release_dry_run_failed=0
 router_image_dry_run_failed=0
+wamp_profile_benchmarks_failed=0
 latest_ci_id=""
 latest_ci_status=""
 latest_ci_conclusion=""
@@ -1837,6 +2049,14 @@ if [[ "$check_router_image_dry_run" -eq 1 ]]; then
   fi
 fi
 
+if [[ "$check_wamp_profile_benchmarks" -eq 1 ]]; then
+  printf '\n## Latest WAMP Profile Benchmarks\n\n'
+
+  if ! print_wamp_profile_benchmark_gate; then
+    wamp_profile_benchmarks_failed=1
+  fi
+fi
+
 rc_ready_failed=0
 if [[ "$show_rc_readiness" -eq 1 ]]; then
   if ! print_rc_readiness; then
@@ -1866,6 +2086,11 @@ fi
 
 if [[ "$require_clean_router_image_dry_run" -eq 1 && "$router_image_dry_run_failed" -ne 0 ]]; then
   printf '\nRouter image dry-run audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_clean_wamp_profile_benchmarks" -eq 1 && "$wamp_profile_benchmarks_failed" -ne 0 ]]; then
+  printf '\nWAMP profile benchmark audit failed.\n' >&2
   exit 1
 fi
 

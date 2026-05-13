@@ -13,6 +13,7 @@ on:
       - native/transport/**
       - packages/connectanum_bench/**
       - packages/connectanum_client/**
+      - packages/connectanum_core/**
       - packages/connectanum_router/**
   workflow_dispatch:
     inputs:

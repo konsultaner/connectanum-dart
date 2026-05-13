@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-13-router-image-node24-actions.md`.
+`docs/exec-plans/2026-05-13-wamp-profile-benchmark-audit-gate.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs an
@@ -24,17 +24,56 @@ integration exposes a real correctness bug. Pub.dev publishing remains deferred
 until package ownership, public versions, and release order for the private
 workspace packages are explicitly decided.
 Current implementation checkpoint:
-The Router Image workflow is being moved from Docker setup actions `v3` to
-`v4`, because the latest hosted dry-run passed but emitted a future Node.js
-runtime deprecation annotation from the old action major. GitHub's release
-metadata reports `docker/setup-qemu-action@v4.0.0` and
-`docker/setup-buildx-action@v4.0.0`; both `action.yml` files declare
-`runs.using: node24`. After the first dry-run with `v4`, the workflow also
-suppresses Git's checkout-time `init.defaultBranch` hint so Router Image logs
-stay warning-clean. Local pre-change `bin/test-fast`, workflow YAML parsing,
-`git diff --check`, and `bin/verify` passed on 2026-05-13 before the checkout
-hint suppression. Hosted CI, hosted Router Image dry-run, and the final
-deployment-chain audit are pending after the follow-up workflow push.
+The deployment-chain audit is being extended so WAMP Profile Benchmarks are a
+first-class RC readiness gate instead of manual reviewer evidence. The audit now
+has `--show-wamp-profile-benchmarks` and
+`--require-clean-wamp-profile-benchmarks`, `--require-rc-ready` evaluates that
+gate, and the WAMP benchmark workflow now triggers on
+`packages/connectanum_core/**` changes because serializers and message behavior
+there affect WAMP benchmark validity. Pre-change `bin/test-fast` passed on
+2026-05-13; local shell syntax/help checks, workflow YAML parsing, and a
+show-only WAMP benchmark audit also passed. A focused strict WAMP benchmark
+audit passed against the previous committed head, and `bin/verify` passed on
+2026-05-13. Hosted CI and fresh hosted WAMP benchmark evidence are pending for
+this in-progress slice.
+
+Previous implementation checkpoint:
+The Router Image workflow now uses Docker setup action `v4` majors that declare
+`runs.using: node24`, removing the future Node.js runtime deprecation
+annotation emitted by the old action major. The workflow also configures Git's
+default initial branch before checkout so Router Image dry-run logs no longer
+include the checkout-time `git init` branch-name warning hint. Local
+`bin/test-fast`, workflow YAML parsing, `git diff --check`, and `bin/verify`
+passed on 2026-05-13. Hosted CI #25825256743 passed on
+`codex/post-rc-production-readiness` at `ae9ff88` with Fast Checks and Full
+Verify green; hosted Router Image dry-run #25825262531 passed at the same
+commit in 3m1s, its logs had no warning/deprecation matches, and the strict
+deployment-chain audit passed with clean latest CI/logs, relevant native
+release dry-run evidence, relevant Router Image dry-run evidence, and router
+package visibility requirements enabled. PR #79
+(`codex/post-rc-production-readiness` into `master`) is ready for review for this
+deployment-chain hardening slice. Its PR-triggered checks also passed at
+`ae9ff88`: `Fast Checks` and `Full Verify` in GitHub Actions run #25825933313,
+plus `Publish Dry Run` in run #25825933310. After installing the GitHub CLI in
+the local automation environment, the strict deployment-chain audit passed with
+full hosted log access for PR-triggered CI #25825933313, clean CI logs,
+relevant Dart package dry-run, relevant Native Artifacts dry-run, relevant
+Router Image dry-run, and router package visibility requirements enabled. The
+PR is mergeable but blocked by GitHub review policy (`REVIEW_REQUIRED`), not by
+implementation or CI. Manual WAMP Profile Benchmarks run #25827390502 also
+passed on the PR head `ae9ff88`: `Linux WAMP profile gates` completed in
+8m11s and uploaded WAMP profile artifacts. Local
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+also matched the expected first-RC stance: `connectanum_client` publish
+dry-runs with zero warnings, and the only strict release-readiness blocker is
+the intentionally deferred private-package release-order decision
+(`connectanum_core -> connectanum_client`). The PR body has been refreshed with
+the PR-triggered CI, package dry-run, WAMP benchmark, strict audit, and expected
+pub.dev deferral evidence for reviewer handoff.
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-router-image-node24-actions.md` (complete; Router
+Image dry-run uses Node 24 Docker setup actions and warning-clean checkout
+logs).
 Previous implementation checkpoint:
 The deployment-chain audit now requires hosted Router Image dry-run evidence
 before accepting the router image deployment chain as RC-ready. Local
