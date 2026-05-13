@@ -8,26 +8,43 @@ RC artifact checkpoint: `47bbf9c`
 image publish evidence).
 Active exec plan: none. Use `ROADMAP_NEXT.md` and `ROADMAP.md` to select the
 next milestone.
-Current milestone: `v0.1.0-rc.1` is GitHub-RC ready for downstream-consuming
-applications. MCP is RC-ready for the first candidate: router-hosted endpoints,
-auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
-resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
-coverage are in place. Further MCP helper permutations are post-RC polish
-unless consumer integration exposes a real correctness bug. Pub.dev publishing
-remains deferred until package ownership, public versions, and release order
-for the private workspace packages are explicitly decided.
+Current milestone: post-RC GitHub deployment-chain hardening. The published
+`v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
+contains release-sensitive fixes after that tag; the next candidate needs an
+operator-approved RC tag and matching native/router release evidence. MCP is
+RC-ready for the first candidate: router-hosted endpoints, auth/session
+correctness, direct JSON/meta API, WAMP pub/sub coverage, resources/prompts,
+Streamable HTTP compatibility, and consumer-package smoke coverage are in
+place. Further MCP helper permutations are post-RC polish unless consumer
+integration exposes a real correctness bug. Pub.dev publishing remains deferred
+until package ownership, public versions, and release order for the private
+workspace packages are explicitly decided.
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-explicit-rc-tag-audit.md` (complete; deployment
+audit can evaluate a requested RC tag and matching router image manifest).
+Latest post-RC implementation checkpoint:
+The deployment-chain audit now accepts `--rc-tag <tag>` so the next intended RC
+candidate can be checked explicitly. RC readiness reports whether the requested
+tag is at `HEAD`, behind release-sensitive changes, missing locally, or not an
+RC-shaped tag, and router image visibility fallback now checks the requested
+candidate tag instead of older reachable RC evidence. Local `bin/test-fast`,
+audit syntax/help checks, focused stale-tag and temporary-head-tag audit checks,
+and `bin/verify` passed on 2026-05-13 for this checkpoint.
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-native-release-router-image-tags.md` (complete;
 native GitHub Release notes now list concrete router image tags for `v*`
 project releases).
-Latest post-RC implementation checkpoint:
+Previous post-RC implementation checkpoint:
 Native GitHub Release notes now reuse the router image metadata resolver for
 `v*` project release tags. Future RC/stable release notes list the exact Git
 tag image alias and normalized semver image alias, while standalone
 `ct-ffi-v*` native-bundle releases continue to state that no router image tag is
 implied. Local `bin/test-fast`, Python syntax compilation, focused native
 release-note tests, a sample `v0.1.0-rc.1` render, and `bin/verify` passed on
-2026-05-13 for this checkpoint.
+2026-05-13 for this checkpoint. Hosted GitHub CI #25816244654 passed on
+`codex/post-rc-production-readiness` at `4634831`, and the branch audit with
+clean latest CI/log requirements plus router package visibility passed while
+detecting the router image through the public GHCR registry manifest.
 Previous completed exec plan:
 `docs/exec-plans/2026-05-13-router-image-tag-aliases.md` (complete; router
 image tag-push metadata now publishes both exact `v*` Git tag aliases and

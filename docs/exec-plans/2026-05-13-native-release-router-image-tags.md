@@ -35,3 +35,6 @@ project release, instead of only naming the GHCR package.
   `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` and
   `ghcr.io/konsultaner/connectanum-router:0.1.0-rc.1`.
 - `bin/verify` passed on 2026-05-13.
+- Hosted GitHub CI #25816244654 passed for `4634831`; the branch audit with
+  clean latest CI/log requirements and router package visibility also passed,
+  detecting the router image through the public GHCR registry manifest.
