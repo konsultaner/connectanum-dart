@@ -10332,6 +10332,11 @@ Future<void> _smokeDirectJson(
     serviceSession,
     label: label,
   );
+  await _smokeDirectWampMetaHelpers(
+    client,
+    serviceSession,
+    label: label,
+  );
   await _smokeGenericDirectJsonRpcPubSub(
     client,
     serviceSession,
@@ -11322,6 +11327,216 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
       'Generic direct JSON-RPC WAMP registration callee count leaked '
       'internal sessions.',
     );
+  }
+}
+
+Future<void> _smokeDirectWampMetaHelpers(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final sessionCountId = '$label-direct-helper-wamp-session-count';
+  final sessionListId = '$label-direct-helper-wamp-session-list';
+  final registrationLookupId = '$label-direct-helper-wamp-registration-lookup';
+  final registrationMatchId = '$label-direct-helper-wamp-registration-match';
+  final registrationListId = '$label-direct-helper-wamp-registration-list';
+  final sessionCount = await client.countWampSessionsDirect(
+    id: sessionCountId,
+    headers: <String, String>{'x-consumer-trace': sessionCountId},
+  );
+  final sessionList = await client.listWampSessionsDirect(
+    id: sessionListId,
+    headers: <String, String>{'x-consumer-trace': sessionListId},
+  );
+  final registrationLookup = await client.lookupWampRegistrationDirect(
+    _procedure,
+    id: registrationLookupId,
+    headers: <String, String>{'x-consumer-trace': registrationLookupId},
+  );
+  final registrationMatch = await client.matchWampRegistrationDirect(
+    _procedure,
+    id: registrationMatchId,
+    headers: <String, String>{'x-consumer-trace': registrationMatchId},
+  );
+  final registrationList = await client.listWampRegistrationsDirect(
+    id: registrationListId,
+    headers: <String, String>{'x-consumer-trace': registrationListId},
+  );
+  final ids = _expectWampRegistrationSessionBatchDiscovery(
+    [
+      _wampMetaHelperBatchResponse(sessionCount, id: sessionCountId),
+      _wampMetaHelperBatchResponse(sessionList, id: sessionListId),
+      _wampMetaHelperBatchResponse(
+        registrationLookup,
+        id: registrationLookupId,
+      ),
+      _wampMetaHelperBatchResponse(registrationMatch, id: registrationMatchId),
+      _wampMetaHelperBatchResponse(registrationList, id: registrationListId),
+    ],
+    sessionCountId: sessionCountId,
+    sessionListId: sessionListId,
+    registrationLookupId: registrationLookupId,
+    registrationMatchId: registrationMatchId,
+    registrationListId: registrationListId,
+    serviceSession: serviceSession,
+    modeLabel: 'Direct WAMP meta helpers',
+  );
+
+  final visibleSessionId = ids[0];
+  final registrationId = ids[1];
+  final sessionGetId = '$label-direct-helper-wamp-session-get';
+  final registrationGetId = '$label-direct-helper-wamp-registration-get';
+  final registrationCalleesId =
+      '$label-direct-helper-wamp-registration-callees';
+  final registrationCalleeCountId =
+      '$label-direct-helper-wamp-registration-callee-count';
+  final sessionGet = await client.getWampSessionDirect(
+    visibleSessionId,
+    id: sessionGetId,
+    headers: <String, String>{'x-consumer-trace': sessionGetId},
+  );
+  final registrationGet = await client.getWampRegistrationDirect(
+    registrationId,
+    id: registrationGetId,
+    headers: <String, String>{'x-consumer-trace': registrationGetId},
+  );
+  final registrationCallees = await client.listWampRegistrationCalleesDirect(
+    registrationId,
+    id: registrationCalleesId,
+    headers: <String, String>{'x-consumer-trace': registrationCalleesId},
+  );
+  final registrationCalleeCount = await client
+      .countWampRegistrationCalleesDirect(
+        registrationId,
+        id: registrationCalleeCountId,
+        headers: <String, String>{
+          'x-consumer-trace': registrationCalleeCountId,
+        },
+      );
+  _expectWampRegistrationSessionBatchDetails(
+    [
+      _wampMetaHelperBatchResponse(sessionGet, id: sessionGetId),
+      _wampMetaHelperBatchResponse(registrationGet, id: registrationGetId),
+      _wampMetaHelperBatchResponse(
+        registrationCallees,
+        id: registrationCalleesId,
+      ),
+      _wampMetaHelperBatchResponse(
+        registrationCalleeCount,
+        id: registrationCalleeCountId,
+      ),
+    ],
+    sessionGetId: sessionGetId,
+    registrationGetId: registrationGetId,
+    registrationCalleesId: registrationCalleesId,
+    registrationCalleeCountId: registrationCalleeCountId,
+    visibleSessionId: visibleSessionId,
+    serviceSession: serviceSession,
+    modeLabel: 'Direct WAMP meta helpers',
+  );
+
+  final subscription = await client.subscribeWampTopicDirect(
+    _topic,
+    id: '$label-direct-helper-wamp-subscribe',
+    queueLimit: 2,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-helper-wamp-subscribe',
+    },
+  );
+  try {
+    final subscriptionId = subscription.subscriptionId;
+    if (subscriptionId == null || subscriptionId <= 0) {
+      throw StateError('Direct WAMP meta helpers missed subscription id.');
+    }
+
+    final subscriptionLookupId =
+        '$label-direct-helper-wamp-subscription-lookup';
+    final subscriptionMatchId = '$label-direct-helper-wamp-subscription-match';
+    final subscriptionListId = '$label-direct-helper-wamp-subscription-list';
+    final subscriptionLookup = await client.lookupWampSubscriptionDirect(
+      _topic,
+      id: subscriptionLookupId,
+      headers: <String, String>{'x-consumer-trace': subscriptionLookupId},
+    );
+    final subscriptionMatch = await client.matchWampSubscriptionDirect(
+      _topic,
+      id: subscriptionMatchId,
+      headers: <String, String>{'x-consumer-trace': subscriptionMatchId},
+    );
+    final subscriptionList = await client.listWampSubscriptionsDirect(
+      id: subscriptionListId,
+      headers: <String, String>{'x-consumer-trace': subscriptionListId},
+    );
+    final discoveredSubscriptionId = _expectWampSubscriptionBatchDiscovery(
+      [
+        _wampMetaHelperBatchResponse(
+          subscriptionLookup,
+          id: subscriptionLookupId,
+        ),
+        _wampMetaHelperBatchResponse(
+          subscriptionMatch,
+          id: subscriptionMatchId,
+        ),
+        _wampMetaHelperBatchResponse(subscriptionList, id: subscriptionListId),
+      ],
+      subscriptionLookupId: subscriptionLookupId,
+      subscriptionMatchId: subscriptionMatchId,
+      subscriptionListId: subscriptionListId,
+      modeLabel: 'Direct WAMP subscription meta helpers',
+    );
+    if (discoveredSubscriptionId != subscriptionId) {
+      throw StateError(
+        'Direct WAMP subscription meta helpers disagreed with subscribe id.',
+      );
+    }
+
+    final subscriptionGetId = '$label-direct-helper-wamp-subscription-get';
+    final subscribersId = '$label-direct-helper-wamp-subscription-subscribers';
+    final subscriberCountId =
+        '$label-direct-helper-wamp-subscription-subscriber-count';
+    final subscriptionGet = await client.getWampSubscriptionDirect(
+      subscriptionId,
+      id: subscriptionGetId,
+      headers: <String, String>{'x-consumer-trace': subscriptionGetId},
+    );
+    final subscribers = await client.listWampSubscriptionSubscribersDirect(
+      subscriptionId,
+      id: subscribersId,
+      headers: <String, String>{'x-consumer-trace': subscribersId},
+    );
+    final subscriberCount = await client.countWampSubscriptionSubscribersDirect(
+      subscriptionId,
+      id: subscriberCountId,
+      headers: <String, String>{'x-consumer-trace': subscriberCountId},
+    );
+    _expectWampSubscriptionBatchDetails(
+      [
+        _wampMetaHelperBatchResponse(subscriptionGet, id: subscriptionGetId),
+        _wampMetaHelperBatchResponse(subscribers, id: subscribersId),
+        _wampMetaHelperBatchResponse(subscriberCount, id: subscriberCountId),
+      ],
+      subscriptionGetId: subscriptionGetId,
+      subscribersId: subscribersId,
+      subscriberCountId: subscriberCountId,
+      serviceSession: serviceSession,
+      modeLabel: 'Direct WAMP subscription meta helpers',
+    );
+  } finally {
+    await client.unsubscribeWampTopicDirect(
+      subscription.handle,
+      id: '$label-direct-helper-wamp-unsubscribe',
+      headers: <String, String>{
+        'x-consumer-trace': '$label-direct-helper-wamp-unsubscribe',
+      },
+    );
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct WAMP meta helpers changed Streamable state.');
   }
 }
 
@@ -14795,6 +15010,17 @@ Future<void> _smokeStreamableBatchPubSub(
       expectStreamableProgress('unsubscribe batch');
     }
   }
+}
+
+Map<String, Object?> _wampMetaHelperBatchResponse(
+  McpStreamableWampMetaCallResult result, {
+  required Object id,
+}) {
+  return {
+    'jsonrpc': '2.0',
+    'id': id,
+    'result': {'isError': false, 'structuredContent': result.structuredContent},
+  };
 }
 
 int _expectWampSubscriptionBatchDiscovery(
