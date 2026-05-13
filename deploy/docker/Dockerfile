@@ -8,7 +8,7 @@ RUN cargo build -p ct_ffi --release
 
 FROM dart:stable AS dart-builder
 WORKDIR /src
-COPY pubspec.yaml pubspec.lock ./
+COPY pubspec.yaml ./
 COPY packages packages
 RUN dart pub get
 RUN dart compile exe packages/connectanum_router/bin/connectanum_router.dart -o /out/connectanum_router
