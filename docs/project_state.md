@@ -1,30 +1,40 @@
 # Project State
 
-Last updated: 2026-05-13
+Last updated: 2026-05-14
 Current branch: `codex/post-rc-production-readiness` from GitHub `master`
 after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan:
-none; use `ROADMAP_NEXT.md` and `ROADMAP.md` to select the next
-implementation slice.
+Active exec plan: none. Use `ROADMAP_NEXT.md` and `ROADMAP.md` for the next
+implementation slice unless hosted CI or review feedback exposes a blocker.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
-contains release-sensitive fixes after that tag; the next candidate needs an
-operator-approved RC tag and matching native/router release evidence. The
-deployment-chain audit now requires a hosted Router Image dry-run before
-accepting a router image publish, and the current workflow cleanup is removing
-the old Docker setup action major that emitted a future Node.js deprecation
-annotation. MCP is RC-ready for the first candidate: router-hosted endpoints,
-auth/session
-correctness, direct JSON/meta API, WAMP pub/sub coverage, resources/prompts,
-Streamable HTTP compatibility, and consumer-package smoke coverage are in
-place. Further MCP helper permutations are post-RC polish unless consumer
-integration exposes a real correctness bug. Pub.dev publishing remains deferred
-until package ownership, public versions, and release order for the private
-workspace packages are explicitly decided.
+contains release-sensitive fixes after that tag; the next candidate needs PR
+review/merge into the release branch, an operator-approved RC tag, and matching
+native/router release evidence. MCP is RC-ready for the first candidate:
+router-hosted endpoints, auth/session correctness, direct JSON/meta API, WAMP
+pub/sub coverage, resources/prompts, Streamable HTTP compatibility, and
+consumer-package smoke coverage are in place. Further MCP helper permutations
+are post-RC polish unless consumer integration exposes a real correctness bug.
+Pub.dev publishing remains deferred until package ownership, public versions,
+and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+The deployment-chain audit now reports candidate pull request promotion state
+for non-default release candidates. `--show-rc-readiness` includes a release
+branch promotion gate, so the audit no longer looks RC-ready while PR #79 is
+still `BLOCKED` / `REVIEW_REQUIRED` against `master`. Focused shell syntax,
+whitespace, show-only audit, strict deployment-chain audit, and expected
+`--require-rc-ready` failure checks passed on 2026-05-14. `bin/verify` also
+passed on 2026-05-14. The next RC still needs review/merge of PR #79, then an
+operator-approved tag/prerelease at the promoted release-sensitive candidate.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-candidate-pr-audit-status.md` (complete; RC
+readiness now reports candidate PR promotion state and blocks on review/merge
+policy before tag/prerelease promotion).
+
+Previous implementation checkpoint:
 The deployment-chain audit now treats an existing GitHub RC prerelease as stale
 when its tag is behind release-sensitive changes. `--show-rc-readiness` no
 longer prints `GitHub RC prerelease: ready` for the old `v0.1.0-rc.1`
@@ -32,9 +42,22 @@ prerelease while the checked-out candidate has newer release-sensitive commits;
 instead it reports that the prerelease does not cover the checked-out
 candidate and points the operator to create or move the intended RC tag after
 release approval. Focused shell syntax, whitespace, and RC-readiness output
-checks passed on 2026-05-14, and `bin/verify` passed.
+checks passed on 2026-05-14, and `bin/verify` passed. Commit `b28436f` is
+pushed to GitHub PR #79; PR checks are green with CI runs #25831328134 and
+#25831330204 (`Fast Checks` and `Full Verify`) plus Dart Package Publish Dry
+Run #25831330185. The strict deployment-chain audit passed on `b28436f` with
+clean latest CI/logs, relevant Dart package dry-run, relevant Native Artifacts
+dry-run, relevant Router Image dry-run, relevant WAMP Profile Benchmarks, and
+router package visibility requirements enabled. `--show-rc-readiness` now
+correctly reports the existing `v0.1.0-rc.1` prerelease as not ready for
+`b28436f`; the next RC still needs an operator-approved tag/prerelease at the
+current release-sensitive candidate. Local `bin/dart-package-publish-dry-run`
+also passed with zero package warnings on 2026-05-14, and
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+failed only on the expected deferred pub.dev release-order blocker
+(`connectanum_core -> connectanum_client`).
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-stale-rc-prerelease-audit.md` (complete; stale RC
 prereleases are no longer reported as ready for newer release-sensitive heads).
 

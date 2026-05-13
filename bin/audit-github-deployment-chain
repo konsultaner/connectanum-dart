@@ -138,6 +138,9 @@ expected_router_image_jobs=('Publish Router Image')
 wamp_profile_benchmarks_workflow='WAMP Profile Benchmarks'
 expected_wamp_profile_benchmark_jobs=('Linux WAMP profile gates')
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
+candidate_pr_ready=0
+candidate_pr_status_summary='not evaluated'
+candidate_pr_next_action=''
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -1403,6 +1406,111 @@ print_required_checks_plan() {
   printf '```\n'
 }
 
+print_candidate_pr_status() {
+  local pr_rows
+  local pr_number
+  local pr_url
+  local pr_draft
+  local pr_merge_state
+  local pr_review_decision
+  local pr_head_oid
+  local current_head_sha
+  local pr_count=0
+  local all_ready=1
+  local primary_pr_number=''
+  local primary_pr_merge_state=''
+  local primary_pr_review_decision=''
+
+  candidate_pr_ready=0
+  candidate_pr_status_summary='not ready'
+  candidate_pr_next_action="open or update a PR from ${branch} to ${default_branch}, satisfy review/merge requirements, merge it, then cut the RC from the promoted release branch."
+
+  printf '\n## Candidate Pull Request Status\n\n'
+
+  if [[ "$branch" == "$default_branch" ]]; then
+    candidate_pr_ready=1
+    candidate_pr_status_summary="audited branch is the default release branch (${default_branch})"
+    candidate_pr_next_action=''
+    printf 'Audited branch is the default release branch; no PR promotion is required.\n'
+    return 0
+  fi
+
+  pr_rows="$(
+    "$gh_bin" pr list \
+      --repo "$repository" \
+      --head "$branch" \
+      --base "$default_branch" \
+      --state open \
+      --limit 5 \
+      --json number,url,isDraft,mergeStateStatus,reviewDecision,headRefOid \
+      --jq '.[] | [.number, .url, (.isDraft | tostring), (.mergeStateStatus // "UNKNOWN"), (.reviewDecision // ""), (.headRefOid // "")] | @tsv' \
+      2>/dev/null || true
+  )"
+
+  if [[ -z "$pr_rows" ]]; then
+    candidate_pr_status_summary="no open PR from ${branch} to ${default_branch}"
+    printf 'Open PR: not found for %s -> %s.\n' "$branch" "$default_branch"
+    printf 'Finding: audited branch is not currently represented by an open release-promotion PR.\n'
+    return 0
+  fi
+
+  current_head_sha="$(git rev-parse HEAD)"
+
+  while IFS=$'\t' read -r pr_number pr_url pr_draft pr_merge_state pr_review_decision pr_head_oid; do
+    [[ -n "$pr_number" ]] || continue
+    pr_count=$((pr_count + 1))
+    if [[ "$pr_count" -eq 1 ]]; then
+      primary_pr_number="$pr_number"
+      primary_pr_merge_state="$pr_merge_state"
+      primary_pr_review_decision="$pr_review_decision"
+    fi
+    printf -- '- PR #%s: %s\n' "$pr_number" "$pr_url"
+    printf '  Draft: %s\n' "$pr_draft"
+    printf '  Merge state: %s\n' "$pr_merge_state"
+    printf '  Review decision: %s\n' "${pr_review_decision:-none}"
+    if [[ -n "$pr_head_oid" ]]; then
+      printf '  Head: %s\n' "${pr_head_oid:0:7}"
+    fi
+
+    if [[ "$pr_draft" == "true" ]]; then
+      printf '  Finding: PR is still a draft.\n'
+      all_ready=0
+    fi
+    if [[ -n "$pr_head_oid" && "$pr_head_oid" != "$current_head_sha" ]]; then
+      printf '  Finding: PR head %s does not match checked-out head %s.\n' "${pr_head_oid:0:7}" "${current_head_sha:0:7}"
+      all_ready=0
+    fi
+    if [[ "$pr_merge_state" != "CLEAN" ]]; then
+      printf '  Finding: PR merge state is not clean.\n'
+      all_ready=0
+    fi
+    if [[ "$pr_review_decision" == "REVIEW_REQUIRED" || "$pr_review_decision" == "CHANGES_REQUESTED" ]]; then
+      printf '  Finding: PR review decision blocks release-branch promotion.\n'
+      all_ready=0
+    fi
+  done <<<"$pr_rows"
+
+  if [[ "$pr_count" -gt 1 ]]; then
+    printf 'Finding: multiple open PRs target %s from %s; release-promotion evidence is ambiguous.\n' "$default_branch" "$branch"
+    candidate_pr_status_summary="multiple open PRs from ${branch} to ${default_branch}"
+    all_ready=0
+  fi
+
+  if [[ "$all_ready" -eq 1 ]]; then
+    candidate_pr_ready=1
+    candidate_pr_status_summary="PR #${primary_pr_number} is merge-ready for ${default_branch}"
+    candidate_pr_next_action=''
+    printf 'Candidate PR promotion gate: ready; merge the reviewed PR before cutting the RC from %s.\n' "$default_branch"
+  else
+    if [[ "$pr_count" -eq 1 ]]; then
+      candidate_pr_status_summary="PR #${primary_pr_number} is ${primary_pr_merge_state}/${primary_pr_review_decision:-none} for ${default_branch}"
+      candidate_pr_next_action="complete review/merge requirements for PR #${primary_pr_number}, merge it into ${default_branch}, then cut the RC from the promoted release branch."
+    fi
+    printf 'Candidate PR promotion gate: not ready.\n'
+    printf '  Next action: %s\n' "$candidate_pr_next_action"
+  fi
+}
+
 print_latest_ci_next_action() {
   if [[ -z "${latest_ci_id:-}" ]]; then
     printf '  Next action: trigger or wait for a CI run on %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$branch" "$branch"
@@ -1534,6 +1642,16 @@ print_rc_readiness() {
       printf 'Default branch protection baseline: not ready; %s must require release-critical CI checks (current: %s).\n' "$release_protection_branch" "${release_required_contexts:-none}"
     fi
     printf '  Next action: run bin/audit-github-deployment-chain --branch %s --show-required-checks-plan and apply the reviewed GitHub branch-protection change only after operator approval.\n' "$release_protection_branch"
+    rc_ready_failed=1
+  fi
+
+  if [[ "$candidate_pr_ready" -eq 1 ]]; then
+    printf 'Release branch promotion gate: ready; %s.\n' "$candidate_pr_status_summary"
+  else
+    printf 'Release branch promotion gate: not ready; %s.\n' "$candidate_pr_status_summary"
+    if [[ -n "$candidate_pr_next_action" ]]; then
+      printf '  Next action: %s\n' "$candidate_pr_next_action"
+    fi
     rc_ready_failed=1
   fi
 
@@ -1840,6 +1958,8 @@ fi
 if [[ "$show_required_checks_plan" -eq 1 ]]; then
   print_required_checks_plan "$branch" "$branch_protected" "${status_strict:-false}"
 fi
+
+print_candidate_pr_status
 
 printf '\n## Active Workflows\n\n'
 api_jq_optional \

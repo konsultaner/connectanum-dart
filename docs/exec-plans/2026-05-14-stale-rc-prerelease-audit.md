@@ -30,6 +30,20 @@ tag no longer covers the checked-out release-sensitive candidate.
   now reports the stale existing prerelease as not ready when its tag does not
   cover the checked-out release-sensitive candidate.
 - `bin/verify` passed on 2026-05-14.
+- Hosted PR checks passed on `b28436f`: CI runs #25831328134 and #25831330204
+  both completed `Fast Checks` and `Full Verify` successfully, and Dart Package
+  Publish Dry Run #25831330185 passed.
+- The strict deployment-chain audit passed on `b28436f` with clean latest
+  CI/logs, relevant Dart package dry-run, relevant Native Artifacts dry-run,
+  relevant Router Image dry-run, relevant WAMP Profile Benchmarks, and router
+  package visibility requirements enabled.
+- `--show-rc-readiness` reports the existing `v0.1.0-rc.1` prerelease as not
+  ready for `b28436f` because its tag does not cover the checked-out
+  release-sensitive candidate.
+- Local `bin/dart-package-publish-dry-run` passed with zero package warnings.
+- Local `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+  failed only on the expected deferred pub.dev release-order blocker
+  (`connectanum_core -> connectanum_client`).
 
 ## Remaining
 
