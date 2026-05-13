@@ -1091,20 +1091,18 @@ Future<void> _smokeMcpEndpoint(
     );
   }
 
-  final directSubscription = await client.subscribeWampTopic(
+  final directSubscription = await client.subscribeWampTopicDirect(
     'example.events.task',
     id: '$label-direct-subscribe',
     queueLimit: 4,
-    directJson: true,
     headers: <String, String>{'x-consumer-trace': '$label-direct-subscribe'},
   );
   try {
-    final directPublication = await client.publishWampEvent(
+    final directPublication = await client.publishWampEventDirect(
       'example.events.task',
       id: '$label-direct-publish',
       argumentsKeywords: {'taskId': 'T-$label-direct-publish'},
       acknowledge: true,
-      directJson: true,
       headers: <String, String>{'x-consumer-trace': '$label-direct-publish'},
     );
     if (!directPublication.acknowledged) {
@@ -1127,10 +1125,9 @@ Future<void> _smokeMcpEndpoint(
       throw StateError('Direct JSON-RPC pub/sub poll did not receive event.');
     }
   } finally {
-    await client.unsubscribeWampTopic(
+    await client.unsubscribeWampTopicDirect(
       directSubscription.handle,
       id: '$label-direct-unsubscribe',
-      directJson: true,
       headers: <String, String>{
         'x-consumer-trace': '$label-direct-unsubscribe',
       },
@@ -1622,24 +1619,21 @@ Future<void> _smokeDirectJsonToolMetaApi(
   }
 
   final apiListId = '$label-direct-generic-api-list';
-  final apiList = await client.requestDirect(
-    'connectanum.api.list',
+  final apiList = await client.listWampApiDirect(
     id: apiListId,
-    params: {'kind': 'procedure'},
+    kind: 'procedure',
   );
-  if (apiList['id'] != apiListId ||
-      !jsonEncode(apiList['result']).contains('example.task.lookup')) {
+  if (!jsonEncode(apiList).contains('example.task.lookup')) {
     throw StateError('Direct JSON-RPC generic API list missed procedure.');
   }
 
   final apiDescribeId = '$label-direct-generic-api-describe';
-  final apiDescribe = await client.requestDirect(
-    'connectanum.api.describe',
+  final apiDescribe = await client.describeWampApiDirect(
+    'example.task.lookup',
     id: apiDescribeId,
-    params: {'uri': 'example.task.lookup', 'kind': 'procedure'},
+    kind: 'procedure',
   );
-  if (apiDescribe['id'] != apiDescribeId ||
-      !jsonEncode(apiDescribe['result']).contains('example.task.lookup')) {
+  if (!jsonEncode(apiDescribe).contains('example.task.lookup')) {
     throw StateError('Direct JSON-RPC generic API describe missed procedure.');
   }
 
@@ -1656,10 +1650,9 @@ Future<void> _smokeDirectJsonTopicMetaApi(
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
 
-  final topicList = await client.listWampApi(
+  final topicList = await client.listWampApiDirect(
     id: '$label-direct-topic-api-list',
     kind: 'topic',
-    directJson: true,
     headers: <String, String>{
       'x-consumer-trace': '$label-direct-topic-api-list',
     },
@@ -1670,11 +1663,10 @@ Future<void> _smokeDirectJsonTopicMetaApi(
     throw StateError('Direct JSON-RPC topic API list missed topic metadata.');
   }
 
-  final topicDescription = await client.describeWampApi(
+  final topicDescription = await client.describeWampApiDirect(
     'example.events.task',
     id: '$label-direct-topic-api-describe',
     kind: 'topic',
-    directJson: true,
     headers: <String, String>{
       'x-consumer-trace': '$label-direct-topic-api-describe',
     },
@@ -3648,12 +3640,10 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
   Map<String, String> headers = const <String, String>{},
 }) async {
   for (var attempt = 0; attempt < 20; attempt++) {
-    final batch = await client.pollWampEvents(
-      handle,
-      id: '$label-poll-$attempt',
-      directJson: directJson,
-      headers: headers,
-    );
+    final id = '$label-poll-$attempt';
+    final batch = directJson
+        ? await client.pollWampEventsDirect(handle, id: id, headers: headers)
+        : await client.pollWampEvents(handle, id: id, headers: headers);
     if (batch.events.isNotEmpty) {
       return batch;
     }

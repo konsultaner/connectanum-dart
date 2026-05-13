@@ -2,14 +2,18 @@
 
 Last updated: 2026-05-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: `b06cad6`
-(`mcp: cover standard direct secure auth`; standard direct JSON secure auth
+Last reviewed branch checkpoint: `c0ad0de`
+(`mcp: make router direct smoke standard`; standard direct router happy-path
 smoke complete with hosted CI/log/dry-run evidence clean)
 Active exec plan:
-`docs/exec-plans/2026-05-13-mcp-standard-direct-router-happy-path-smoke.md`
+`docs/exec-plans/2026-05-13-mcp-router-direct-helper-example-smoke.md`
 (implementation complete; local verification clean; push/hosted evidence
 pending).
 Latest completed exec plan:
+`docs/exec-plans/2026-05-13-mcp-standard-direct-router-happy-path-smoke.md`
+(complete; hosted CI/log/dry-run evidence clean; strict audit still reports
+known operator-side release-hardening gaps).
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-standard-direct-secure-auth-smoke.md`
 (complete; hosted CI/log/dry-run evidence clean; strict audit still reports
 known operator-side release-hardening gaps).

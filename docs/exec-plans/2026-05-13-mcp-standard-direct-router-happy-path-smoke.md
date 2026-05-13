@@ -1,6 +1,6 @@
 # Exec Plan: MCP Standard Direct Router Happy Path Smoke
 
-Status: implementation complete; local verification clean; push/hosted evidence pending
+Status: complete; hosted CI/log/dry-run evidence clean
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-05-13
@@ -54,6 +54,23 @@ evidence that an application or agent can use standard MCP `tools/list` and
 - `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap >/tmp/connectanum-dart-workspace-bootstrap.log; run_mcp_consumer_package_smoke'`
   passed on 2026-05-13.
 - Full local `bin/verify` passed on 2026-05-13.
+- Commit `c0ad0de` (`mcp: make router direct smoke standard`) was pushed to
+  both configured remotes.
+- GitHub `CI` run `25785392079` completed successfully for `c0ad0de` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub `WAMP Profile Benchmarks` run `25785392096` completed successfully
+  for `c0ad0de`.
+- GitHub `Dart Package Publish Dry Run` run `25785392093` completed
+  successfully and covers the checked-out head.
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI, clean hosted CI logs, and a clean relevant Dart
+  package publish dry-run.
+- `bin/audit-github-deployment-chain --branch add-router --strict --require-clean-latest-ci --require-clean-latest-ci-logs --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run`
+  passed the hosted CI, hosted CI log scan, and package dry-run checks, then
+  failed only known operator-side release-hardening gaps: branch protection /
+  required checks are absent and `.github/workflows/router-image.yml` is not
+  yet visible from the default branch through the Actions API. The audit also
+  continues to report that the router GHCR package is not visible.
 
 ## Decision Log
 
@@ -63,5 +80,6 @@ evidence that an application or agent can use standard MCP `tools/list` and
 
 ## Handoff
 
-Implementation is locally verified and ready to push. After pushing, collect
-hosted CI, package dry-run, log-scan, and strict audit evidence.
+Implementation is pushed. Focused local checks, full local verification,
+hosted CI, WAMP benchmark workflow, package publish dry-run, hosted CI log
+scan, and the non-strict deployment-chain audit are clean for `c0ad0de`.
