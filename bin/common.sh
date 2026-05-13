@@ -940,7 +940,7 @@ Future<void> _smokeGenericJsonRpcApi(
   );
 
   final directTools = await client.requestDirect(
-    'connectanum.tools.list',
+    'tools/list',
     id: 'generic-direct-tools',
   );
   _expect(
@@ -955,7 +955,7 @@ Future<void> _smokeGenericJsonRpcApi(
   );
 
   final directToolCall = await client.requestDirect(
-    'connectanum.tool.call',
+    'tools/call',
     id: 'generic-direct-tool-call',
     params: const <String, Object?>{
       'name': _toolName,
@@ -980,12 +980,12 @@ Future<void> _smokeGenericJsonRpcApi(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-tools',
-        'method': 'connectanum.tools.list',
+        'method': 'tools/list',
       },
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-tool-call',
-        'method': 'connectanum.tool.call',
+        'method': 'tools/call',
         'params': <String, Object?>{
           'name': _toolName,
           'arguments': <String, Object?>{'text': 'generic batch'},
@@ -1007,9 +1007,19 @@ Future<void> _smokeGenericJsonRpcApi(
     'generic direct JSON batch did not return three responses',
   );
   _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        directBatch![0],
+        id: 'generic-direct-batch-tools',
+        label: 'generic direct batch tools/list',
+      )['tools'],
+    ).contains(_toolName),
+    'generic direct JSON batch tools/list missed $_toolName',
+  );
+  _expect(
     _toolEchoText(
           _jsonRpcResult(
-            directBatch![1],
+            directBatch[1],
             id: 'generic-direct-batch-tool-call',
             label: 'generic direct batch tool call',
           ),
@@ -1141,8 +1151,8 @@ Future<void> _smokeGenericJsonRpcApi(
     'session state for ${missingDirectTraceHeaders.join(', ')}',
   );
   const expectedDirectMethods = <String>{
-    'connectanum.tools.list',
-    'connectanum.tool.call',
+    'tools/list',
+    'tools/call',
     'notifications/progress',
     _toolName,
   };
@@ -1411,12 +1421,12 @@ Future<void> _smokeGenericJsonRpcBatchErrors(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-error-tools',
-        'method': 'connectanum.tools.list',
+        'method': 'tools/list',
       },
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-error-missing',
-        'method': 'connectanum.tool.call',
+        'method': 'tools/call',
         'params': <String, Object?>{
           'name': missingDirectTool,
           'arguments': <String, Object?>{},
@@ -1425,7 +1435,7 @@ Future<void> _smokeGenericJsonRpcBatchErrors(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-error-call',
-        'method': 'connectanum.tool.call',
+        'method': 'tools/call',
         'params': <String, Object?>{
           'name': _toolName,
           'arguments': <String, Object?>{'text': 'direct after error'},
@@ -1559,7 +1569,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-pubsub-subscribe',
-        'method': 'connectanum.tool.call',
+        'method': 'tools/call',
         'params': <String, Object?>{
           'name': 'connectanum.pubsub.subscribe',
           'arguments': <String, Object?>{
@@ -1571,7 +1581,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-pubsub-tools',
-        'method': 'connectanum.tools.list',
+        'method': 'tools/list',
       },
     ],
   );
@@ -1605,7 +1615,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-pubsub-publish',
-        'method': 'connectanum.tool.call',
+        'method': 'tools/call',
         'params': <String, Object?>{
           'name': 'connectanum.pubsub.publish',
           'arguments': <String, Object?>{
@@ -1618,7 +1628,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-pubsub-poll',
-        'method': 'connectanum.tool.call',
+        'method': 'tools/call',
         'params': <String, Object?>{
           'name': 'connectanum.pubsub.poll',
           'arguments': <String, Object?>{
@@ -1656,7 +1666,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-pubsub-unsubscribe',
-        'method': 'connectanum.tool.call',
+        'method': 'tools/call',
         'params': <String, Object?>{
           'name': 'connectanum.pubsub.unsubscribe',
           'arguments': <String, Object?>{
@@ -1667,7 +1677,7 @@ Future<void> _smokeGenericJsonRpcBatchPubSub(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'generic-direct-batch-pubsub-tools-after-unsubscribe',
-        'method': 'connectanum.tools.list',
+        'method': 'tools/list',
       },
     ],
   );

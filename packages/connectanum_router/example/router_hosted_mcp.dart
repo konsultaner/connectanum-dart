@@ -102,8 +102,8 @@ Future<void> main(List<String> args) async {
     print('Bearer-protected MCP endpoint is running at $secureEndpoint');
     print('The example registered WAMP procedure example.task.lookup.');
     print(
-      'Direct JSON-RPC clients can POST connectanum.tools.list, '
-      'connectanum.tool.call, or example.task.lookup to the same endpoint.',
+      'Direct JSON-RPC clients can POST tools/list, tools/call, '
+      'connectanum.api.list, or example.task.lookup to the same endpoint.',
     );
 
     if (!smokeAndExit) {
@@ -1369,6 +1369,16 @@ Future<void> _smokeDirectJsonToolMetaApi(
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
 
+  final standardTaskId = 'T-$label-direct-standard-tool';
+  final standardResult = await client.callToolDirect(
+    'example.task.lookup',
+    id: '$label-direct-standard-tool',
+    arguments: {'taskId': standardTaskId},
+  );
+  if (!jsonEncode(standardResult).contains(standardTaskId)) {
+    throw StateError('Standard direct JSON-RPC tool call failed.');
+  }
+
   final helperTaskId = 'T-$label-direct-tool-helper';
   final helperResult = await client.callConnectanumToolDirect(
     'example.task.lookup',
@@ -1392,33 +1402,34 @@ Future<void> _smokeDirectJsonToolMetaApi(
     throw StateError('Direct JSON-RPC plural tool alias failed.');
   }
 
-  final toolListId = '$label-direct-generic-tools-list';
-  final toolList = await client.request(
-    'connectanum.tools.list',
-    id: toolListId,
-    streamable: false,
-    includeSession: false,
+  final toolList = await client.listToolsDirect(
+    id: '$label-direct-standard-tools-list',
   );
-  if (toolList['id'] != toolListId ||
-      !jsonEncode(toolList['result']).contains('example.task.lookup')) {
-    throw StateError('Direct JSON-RPC generic tools/list missed tool.');
+  if (!jsonEncode(toolList.tools).contains('example.task.lookup')) {
+    throw StateError('Standard direct JSON-RPC tools/list missed tool.');
+  }
+
+  final aliasToolListId = '$label-direct-alias-tools-list';
+  final aliasToolList = await client.requestDirect(
+    'connectanum.tools.list',
+    id: aliasToolListId,
+  );
+  if (aliasToolList['id'] != aliasToolListId ||
+      !jsonEncode(aliasToolList['result']).contains('example.task.lookup')) {
+    throw StateError('Direct JSON-RPC alias tools/list missed tool.');
   }
 
   final singularAliasTaskId = 'T-$label-direct-tool-call-alias';
   final singularAliasId = '$label-direct-tool-call-alias';
-  final singularAlias = await client.post(
-    {
-      'jsonrpc': '2.0',
-      'id': singularAliasId,
-      'method': 'connectanum.tool.call',
-      'params': {
-        'name': 'example.task.lookup',
-        'arguments': {'taskId': singularAliasTaskId},
-      },
+  final singularAlias = await client.postDirect({
+    'jsonrpc': '2.0',
+    'id': singularAliasId,
+    'method': 'connectanum.tool.call',
+    'params': {
+      'name': 'example.task.lookup',
+      'arguments': {'taskId': singularAliasTaskId},
     },
-    streamable: false,
-    includeSession: false,
-  );
+  });
   if (singularAlias == null ||
       singularAlias['id'] != singularAliasId ||
       !jsonEncode(singularAlias).contains(singularAliasTaskId)) {
@@ -1426,12 +1437,10 @@ Future<void> _smokeDirectJsonToolMetaApi(
   }
 
   final apiListId = '$label-direct-generic-api-list';
-  final apiList = await client.request(
+  final apiList = await client.requestDirect(
     'connectanum.api.list',
     id: apiListId,
     params: {'kind': 'procedure'},
-    streamable: false,
-    includeSession: false,
   );
   if (apiList['id'] != apiListId ||
       !jsonEncode(apiList['result']).contains('example.task.lookup')) {
@@ -1439,12 +1448,10 @@ Future<void> _smokeDirectJsonToolMetaApi(
   }
 
   final apiDescribeId = '$label-direct-generic-api-describe';
-  final apiDescribe = await client.request(
+  final apiDescribe = await client.requestDirect(
     'connectanum.api.describe',
     id: apiDescribeId,
     params: {'uri': 'example.task.lookup', 'kind': 'procedure'},
-    streamable: false,
-    includeSession: false,
   );
   if (apiDescribe['id'] != apiDescribeId ||
       !jsonEncode(apiDescribe['result']).contains('example.task.lookup')) {
@@ -2964,25 +2971,19 @@ Future<void> _smokeDirectJsonBatchPubSub(
 
   try {
     final subscribeId = '$label-direct-batch-pubsub-subscribe';
-    final apiListId = '$label-direct-batch-pubsub-api-list';
-    final subscribeBatch = await client.postBatch(
-      [
-        {
-          'jsonrpc': '2.0',
-          'id': subscribeId,
-          'method': 'connectanum.pubsub.subscribe',
-          'params': {'topic': 'example.events.task', 'queueLimit': 4},
+    final toolListId = '$label-direct-batch-pubsub-tools-list';
+    final subscribeBatch = await client.postBatchDirect(<McpJsonMap>[
+      {
+        'jsonrpc': '2.0',
+        'id': subscribeId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'example.events.task', 'queueLimit': 4},
         },
-        {
-          'jsonrpc': '2.0',
-          'id': apiListId,
-          'method': 'connectanum.api.list',
-          'params': {'kind': 'procedure'},
-        },
-      ],
-      streamable: false,
-      includeSession: false,
-    );
+      },
+      {'jsonrpc': '2.0', 'id': toolListId, 'method': 'tools/list'},
+    ]);
     if (subscribeBatch == null || subscribeBatch.length != 2) {
       throw StateError(
         'Direct JSON-RPC batch pub/sub subscribe did not return two responses.',
@@ -3003,9 +3004,9 @@ Future<void> _smokeDirectJsonBatchPubSub(
       );
     }
     handle = handleValue;
-    if (subscribeBatch[1]['id'] != apiListId ||
-        !jsonEncode(subscribeBatch[1]).contains('example.task.lookup')) {
-      throw StateError('Direct JSON-RPC batch pub/sub API list was invalid.');
+    if (subscribeBatch[1]['id'] != toolListId ||
+        !jsonEncode(subscribeBatch[1]).contains('connectanum.pubsub.publish')) {
+      throw StateError('Direct JSON-RPC batch pub/sub tools/list was invalid.');
     }
     await _smokeDirectJsonBatchWampSubscriptionMeta(
       client,
@@ -3016,13 +3017,14 @@ Future<void> _smokeDirectJsonBatchPubSub(
 
     final publishId = '$label-direct-batch-pubsub-publish';
     final apiDescribeId = '$label-direct-batch-pubsub-api-describe';
-    final publishBatch = await client.postBatch(
-      [
-        {
-          'jsonrpc': '2.0',
-          'id': publishId,
-          'method': 'connectanum.pubsub.publish',
-          'params': {
+    final publishBatch = await client.postBatchDirect(<McpJsonMap>[
+      {
+        'jsonrpc': '2.0',
+        'id': publishId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.publish',
+          'arguments': {
             'topic': 'example.events.task',
             'argumentsKeywords': {
               'taskId': 'T-$label-direct-batch-pubsub-publish',
@@ -3030,16 +3032,14 @@ Future<void> _smokeDirectJsonBatchPubSub(
             'acknowledge': true,
           },
         },
-        {
-          'jsonrpc': '2.0',
-          'id': apiDescribeId,
-          'method': 'connectanum.api.describe',
-          'params': {'uri': 'example.task.lookup', 'kind': 'procedure'},
-        },
-      ],
-      streamable: false,
-      includeSession: false,
-    );
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': apiDescribeId,
+        'method': 'connectanum.api.describe',
+        'params': {'uri': 'example.task.lookup', 'kind': 'procedure'},
+      },
+    ]);
     if (publishBatch == null || publishBatch.length != 2) {
       throw StateError(
         'Direct JSON-RPC batch pub/sub publish did not return two responses.',
@@ -3078,25 +3078,19 @@ Future<void> _smokeDirectJsonBatchPubSub(
   } finally {
     if (handle != null) {
       final unsubscribeId = '$label-direct-batch-pubsub-unsubscribe';
-      final apiListId = '$label-direct-batch-pubsub-unsubscribe-api-list';
-      final unsubscribeBatch = await client.postBatch(
-        [
-          {
-            'jsonrpc': '2.0',
-            'id': unsubscribeId,
-            'method': 'connectanum.pubsub.unsubscribe',
-            'params': {'handle': handle},
+      final toolListId = '$label-direct-batch-pubsub-unsubscribe-tools-list';
+      final unsubscribeBatch = await client.postBatchDirect(<McpJsonMap>[
+        {
+          'jsonrpc': '2.0',
+          'id': unsubscribeId,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.unsubscribe',
+            'arguments': {'handle': handle},
           },
-          {
-            'jsonrpc': '2.0',
-            'id': apiListId,
-            'method': 'connectanum.api.list',
-            'params': {'kind': 'procedure'},
-          },
-        ],
-        streamable: false,
-        includeSession: false,
-      );
+        },
+        {'jsonrpc': '2.0', 'id': toolListId, 'method': 'tools/list'},
+      ]);
       if (unsubscribeBatch == null || unsubscribeBatch.length != 2) {
         throw StateError(
           'Direct JSON-RPC batch pub/sub unsubscribe did not return two '
@@ -3115,10 +3109,12 @@ Future<void> _smokeDirectJsonBatchPubSub(
           'Direct JSON-RPC batch pub/sub unsubscribe response was invalid.',
         );
       }
-      if (unsubscribeBatch[1]['id'] != apiListId ||
-          !jsonEncode(unsubscribeBatch[1]).contains('example.task.lookup')) {
+      if (unsubscribeBatch[1]['id'] != toolListId ||
+          !jsonEncode(
+            unsubscribeBatch[1],
+          ).contains('connectanum.pubsub.unsubscribe')) {
         throw StateError(
-          'Direct JSON-RPC batch pub/sub unsubscribe API list was invalid.',
+          'Direct JSON-RPC batch pub/sub unsubscribe tools/list was invalid.',
         );
       }
     }
@@ -3140,25 +3136,19 @@ Future<void> _pollDirectJsonBatchPubSubUntil(
   while (DateTime.now().isBefore(deadline)) {
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final pollId = '$label-direct-batch-pubsub-poll-$timestamp';
-    final apiListId = '$label-direct-batch-pubsub-poll-api-$timestamp';
-    final pollBatch = await client.postBatch(
-      [
-        {
-          'jsonrpc': '2.0',
-          'id': pollId,
-          'method': 'connectanum.pubsub.poll',
-          'params': {'handle': handle, 'limit': 4},
+    final toolListId = '$label-direct-batch-pubsub-poll-tools-$timestamp';
+    final pollBatch = await client.postBatchDirect(<McpJsonMap>[
+      {
+        'jsonrpc': '2.0',
+        'id': pollId,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.poll',
+          'arguments': {'handle': handle, 'limit': 4},
         },
-        {
-          'jsonrpc': '2.0',
-          'id': apiListId,
-          'method': 'connectanum.api.list',
-          'params': {'kind': 'procedure'},
-        },
-      ],
-      streamable: false,
-      includeSession: false,
-    );
+      },
+      {'jsonrpc': '2.0', 'id': toolListId, 'method': 'tools/list'},
+    ]);
     if (pollBatch == null || pollBatch.length != 2) {
       throw StateError(
         'Direct JSON-RPC batch pub/sub poll did not return two responses.',
@@ -3173,9 +3163,11 @@ Future<void> _pollDirectJsonBatchPubSubUntil(
         eventBatch['topic'] != 'example.events.task') {
       throw StateError('Direct JSON-RPC batch pub/sub poll was invalid.');
     }
-    if (pollBatch[1]['id'] != apiListId ||
-        !jsonEncode(pollBatch[1]).contains('example.task.lookup')) {
-      throw StateError('Direct JSON-RPC batch pub/sub poll API list invalid.');
+    if (pollBatch[1]['id'] != toolListId ||
+        !jsonEncode(pollBatch[1]).contains('connectanum.pubsub.poll')) {
+      throw StateError(
+        'Direct JSON-RPC batch pub/sub poll tools/list invalid.',
+      );
     }
     if (jsonEncode(eventBatch['events']).contains(expectedTaskId)) {
       return;
