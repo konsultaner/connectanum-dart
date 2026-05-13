@@ -5812,6 +5812,27 @@ Future<void> _assertMcpDirectJsonCorsResponse(
     throw StateError('MCP $label direct JSON CORS missed tool catalog.');
   }
 
+  final pingId = '$label-direct-cors-ping';
+  final ping = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': pingId,
+      'method': 'ping',
+    },
+    label: '$label direct JSON ping',
+    bearerToken: bearerToken,
+  );
+  final pingResult = _jsonRpcResult(
+    ping,
+    id: pingId,
+    label: 'MCP $label direct JSON CORS ping',
+  );
+  if (pingResult.isNotEmpty) {
+    throw StateError('MCP $label direct JSON CORS ping returned data.');
+  }
+
   final toolCallTaskId = 'T-$label-direct-cors-tool-call';
   final toolCallId = '$label-direct-cors-tool-call';
   final toolCall = await _mcpRawDirectJsonRpc(
@@ -6197,6 +6218,11 @@ Future<void> _assertMcpDirectJsonBatchCorsResponse(
       },
       <String, Object?>{
         'jsonrpc': '2.0',
+        'id': '$label-direct-cors-batch-ping',
+        'method': 'ping',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
         'id': '$label-direct-cors-batch-resources',
         'method': 'resources/list',
       },
@@ -6213,7 +6239,7 @@ Future<void> _assertMcpDirectJsonBatchCorsResponse(
     label: '$label direct JSON batch catalog',
     bearerToken: bearerToken,
   );
-  if (catalogBatch.length != 4) {
+  if (catalogBatch.length != 5) {
     throw StateError(
       'MCP $label direct JSON CORS catalog batch returned '
       '${catalogBatch.length} responses.',
@@ -6240,9 +6266,17 @@ Future<void> _assertMcpDirectJsonBatchCorsResponse(
       'MCP $label direct JSON CORS batch tools/list missed direct catalog.',
     );
   }
+  final batchPing = _jsonRpcResult(
+    catalogBatch[2],
+    id: '$label-direct-cors-batch-ping',
+    label: 'MCP $label direct JSON CORS batch ping',
+  );
+  if (batchPing.isNotEmpty) {
+    throw StateError('MCP $label direct JSON CORS batch ping returned data.');
+  }
   if (!jsonEncode(
     _jsonRpcResult(
-      catalogBatch[2],
+      catalogBatch[3],
       id: '$label-direct-cors-batch-resources',
       label: 'MCP $label direct JSON CORS batch resources/list',
     )['resources'],
@@ -6254,7 +6288,7 @@ Future<void> _assertMcpDirectJsonBatchCorsResponse(
   }
   if (!jsonEncode(
     _jsonRpcResult(
-      catalogBatch[3],
+      catalogBatch[4],
       id: '$label-direct-cors-batch-prompts',
       label: 'MCP $label direct JSON CORS batch prompts/list',
     )['prompts'],
@@ -7230,6 +7264,41 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     );
   }
 
+  final pingId = '$label-streamable-cors-ping';
+  final ping = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': pingId,
+      'method': 'ping',
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+  );
+  if (ping.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable CORS ping returned ${ping.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    ping,
+    label: '$label Streamable POST/SSE ping',
+  );
+  final pingPayload = _mcpSseJsonRpcPayload(
+    ping,
+    id: pingId,
+    label: '$label Streamable POST/SSE ping',
+  );
+  final pingResult = _jsonRpcResult(
+    pingPayload,
+    id: pingId,
+    label: 'MCP $label Streamable CORS ping',
+  );
+  if (pingResult.isNotEmpty) {
+    throw StateError('MCP $label Streamable CORS ping returned data.');
+  }
+
   await _assertMcpStreamableCorsPostBodyErrors(
     client,
     endpoint,
@@ -8201,6 +8270,11 @@ Future<void> _assertMcpStreamableCorsWampBatchTools(
         name: 'connectanum.api.list',
         arguments: const <String, Object?>{},
       ),
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-streamable-cors-wamp-batch-ping',
+        'method': 'ping',
+      },
       _mcpToolCallMessage(
         id: apiDescribeId,
         name: 'connectanum.api.describe',
@@ -8221,7 +8295,7 @@ Future<void> _assertMcpStreamableCorsWampBatchTools(
     label: '$label Streamable WAMP API batch',
     bearerToken: bearerToken,
   );
-  if (apiBatch.length != 4) {
+  if (apiBatch.length != 5) {
     throw StateError(
       'MCP $label Streamable CORS WAMP API batch returned '
       '${apiBatch.length} responses.',
@@ -8241,9 +8315,19 @@ Future<void> _assertMcpStreamableCorsWampBatchTools(
       'metadata.',
     );
   }
+  final batchPing = _jsonRpcResult(
+    apiBatch[1],
+    id: '$label-streamable-cors-wamp-batch-ping',
+    label: 'MCP $label Streamable CORS WAMP batch ping',
+  );
+  if (batchPing.isNotEmpty) {
+    throw StateError(
+      'MCP $label Streamable CORS WAMP batch ping returned data.',
+    );
+  }
   if (!jsonEncode(
     _jsonRpcStructuredContent(
-      apiBatch[1],
+      apiBatch[2],
       id: apiDescribeId,
       label: 'MCP $label Streamable CORS WAMP batch API describe',
     ),
@@ -8255,7 +8339,7 @@ Future<void> _assertMcpStreamableCorsWampBatchTools(
   }
   final topicDescriptionJson = jsonEncode(
     _jsonRpcStructuredContent(
-      apiBatch[2],
+      apiBatch[3],
       id: topicDescribeId,
       label: 'MCP $label Streamable CORS WAMP batch topic describe',
     ),
@@ -8269,7 +8353,7 @@ Future<void> _assertMcpStreamableCorsWampBatchTools(
     );
   }
   _expectMcpToolResultError(
-    apiBatch[3],
+    apiBatch[4],
     id: missingApiId,
     messageSubstring: missingApiUri,
     label: 'MCP $label Streamable CORS WAMP batch missing API describe',

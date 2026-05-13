@@ -1636,7 +1636,8 @@ class _RouterMcpEndpoint {
   }
 
   bool _isDirectJsonMethod(String method) {
-    return method == 'connectanum.tools.list' ||
+    return method == 'ping' ||
+        method == 'connectanum.tools.list' ||
         method == 'connectanum.tool.call' ||
         method == 'connectanum.tools.call' ||
         method == 'resources/list' ||
@@ -1652,6 +1653,8 @@ class _RouterMcpEndpoint {
     mcp.JsonMap params,
   ) async {
     switch (method) {
+      case 'ping':
+        return <String, Object?>{};
       case 'connectanum.tools.list':
         return _listDirectJsonTools(params);
       case 'connectanum.tool.call':
