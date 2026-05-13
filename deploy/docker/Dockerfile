@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM rust:1.85-bookworm AS rust-builder
+FROM rust:stable-bookworm AS rust-builder
 WORKDIR /src
 COPY native/transport native/transport
 WORKDIR /src/native/transport
