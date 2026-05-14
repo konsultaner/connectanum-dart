@@ -77,8 +77,8 @@ Options:
                              discoverable through the GitHub Actions API.
   --show-required-checks-plan
                              Print the non-mutating operator plan for adding
-                             the baseline required status checks to the audited
-                             protected branch.
+                             the baseline required status checks to the release
+                             protection branch.
   --show-rc-readiness        Print a non-mutating release-candidate readiness
                              summary for the current checked-out head.
   --require-rc-ready         Exit non-zero unless the current checked-out head
@@ -2101,7 +2101,7 @@ else
 fi
 
 if [[ "$show_required_checks_plan" -eq 1 ]]; then
-  print_required_checks_plan "$branch" "$branch_protected" "${status_strict:-false}"
+  print_required_checks_plan "$release_protection_branch" "$release_branch_protected" "${release_status_strict:-false}"
 fi
 
 print_candidate_pr_status

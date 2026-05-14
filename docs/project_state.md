@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-14-strict-release-branch-audit.md`.
+`docs/exec-plans/2026-05-14-required-checks-plan-release-branch.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,6 +20,23 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+`bin/audit-github-deployment-chain --show-required-checks-plan` now targets the
+release protection branch and preserves that branch's required-check strictness,
+matching the `--strict` audit baseline. This keeps PR-branch audits from
+printing an operator plan for the intentionally unprotected candidate branch
+while still preserving the separate audited-branch protection finding.
+`bin/test-fast` passed before edits on 2026-05-14; `bash -n
+bin/audit-github-deployment-chain` passed; focused `--show-required-checks-plan`
+output printed `Target branch: master`, `Fast Checks`, `Full Verify`, and
+`Require up-to-date branches: true`; and the strict release-evidence audit with
+`--show-required-checks-plan` plus `--show-rc-readiness` passed locally against
+the latest hosted evidence. RC readiness still reports only expected
+release-promotion blockers: PR #79 review/merge into `master`, the stale
+`v0.1.0-rc.1` tag/prerelease, and deferred pub.dev release-order decisions.
+`git diff --check` and `bin/verify` also passed on 2026-05-14. The
+implementation is ready to commit, push, and collect hosted CI evidence.
+
+Previous implementation checkpoint:
 `bin/audit-github-deployment-chain --strict` now enforces the default release
 branch protection baseline instead of failing solely because an audited
 release-candidate PR branch is intentionally unprotected. The audit still prints
@@ -33,7 +50,21 @@ and visible router package. RC readiness still reports only expected
 release-promotion blockers: PR #79 review/merge into `master`, the stale
 `v0.1.0-rc.1` tag/prerelease, and deferred pub.dev release-order decisions.
 `git diff --check` and `bin/verify` also passed on 2026-05-14. The
-implementation is ready to push and collect hosted CI evidence.
+implementation was committed as `6def1cc` and pushed to GitHub PR #79. GitHub
+CI #25838841442 and PR-triggered CI #25838842681 passed with `Fast Checks` and
+`Full Verify` green; PR-triggered Dart Package Publish Dry Run #25838842682
+passed. The strict release-evidence deployment-chain audit passed on `6def1cc`
+with clean latest CI/logs, clean hosted warning/error annotations, clean Dart
+package dry-run, clean Native Artifacts dry-run, clean Router Image dry-run,
+clean WAMP Profile Benchmarks, visible workflows, and visible router package.
+`--show-rc-readiness` still reports only expected release-promotion blockers:
+PR #79 review/merge into `master`, the stale `v0.1.0-rc.1` tag/prerelease, and
+deferred pub.dev release-order decisions.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-strict-release-branch-audit.md`
+(complete; strict audit now uses the release branch baseline and hosted
+evidence is clean for `6def1cc`).
 
 Previous implementation checkpoint:
 The deployment-chain audit is being hardened so hosted warning/noise signals are
@@ -58,7 +89,7 @@ still reports only expected release-promotion blockers: PR #79 review/merge
 into `master`, the stale `v0.1.0-rc.1` tag/prerelease, and deferred pub.dev
 release-order decisions.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-hosted-workflow-warning-scan-audit.md`
 (complete; hosted CI, package dry-run, release-evidence audit, and new
 log/annotation scans are clean).

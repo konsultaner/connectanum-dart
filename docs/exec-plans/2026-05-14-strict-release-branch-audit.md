@@ -1,6 +1,6 @@
 # Strict Release Branch Audit
 
-Status: implementation complete; hosted evidence pending
+Status: complete
 
 ## Goal
 
@@ -27,7 +27,17 @@ unprotected.
   and only expected RC promotion blockers reported.
 - `git diff --check` passed.
 - `bin/verify` passed on 2026-05-14.
+- Commit `6def1cc` was pushed to GitHub PR #79.
+- GitHub CI #25838841442 and PR-triggered CI #25838842681 passed on
+  `6def1cc` with `Fast Checks` and `Full Verify` green.
+- PR-triggered Dart Package Publish Dry Run #25838842682 passed on `6def1cc`.
+- The strict release-evidence deployment-chain audit passed on `6def1cc` with
+  clean latest CI/logs, clean hosted warning/error annotations, clean Dart
+  package dry-run, clean Native Artifacts dry-run, clean Router Image dry-run,
+  clean WAMP Profile Benchmarks, visible workflows, and visible router package.
 
 ## Remaining
 
-- Push the implementation and collect hosted CI evidence for the new commit.
+- No implementation work remains for this slice. RC promotion still requires
+  PR #79 review/merge, an operator-approved RC tag/prerelease update, and the
+  intentionally deferred pub.dev release-order decisions.
