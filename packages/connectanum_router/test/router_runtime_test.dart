@@ -1772,6 +1772,49 @@ RouterSettings _buildRouterSettingsWithHttpRateLimitRoute() {
   return builder.build();
 }
 
+RouterSettings _buildRouterSettingsWithHttpConcurrencyLimitRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/throttled'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.api.throttled',
+                    concurrencyLimit: HttpRouteConcurrencyLimitSettings(
+                      maxConcurrent: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
 RouterSettings _buildRouterSettingsWithHttpCatchAllRoute() {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -4096,6 +4139,139 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'throttles concurrent HTTP routes and releases completed slots',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpConcurrencyLimitRoute(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      final releaseFirst = Completer<void>();
+      var invocationCount = 0;
+      final internalSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final registered = await internalSession.register(
+        'com.example.api.throttled',
+      );
+      registered.onInvoke((invocation) async {
+        invocationCount += 1;
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        await releaseFirst.future;
+        context!.sendText(body: 'OK');
+      });
+
+      runtime.setConnectionProtocol(160, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        160,
+        NativeHttpHandshake.synthetic(
+          handle: 120,
+          method: 'GET',
+          target: '/api/throttled',
+          path: '/api/throttled',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.throttled',
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any((event) => event['type'] == 'http_request_dispatched'),
+      );
+      await _waitUntil(() => invocationCount == 1);
+
+      runtime.setConnectionProtocol(161, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        161,
+        NativeHttpHandshake.synthetic(
+          handle: 121,
+          method: 'GET',
+          target: '/api/throttled',
+          path: '/api/throttled',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.throttled',
+        ),
+      );
+
+      await _waitUntil(() => runtime.httpResponses[161]?.isNotEmpty ?? false);
+      final throttled = runtime.httpResponses[161]!.single;
+      expect(throttled.status, HttpStatus.tooManyRequests);
+      expect(throttled.headers['x-concurrency-limit'], '1');
+      expect(throttled.headers['x-concurrency-current'], '1');
+      expect(_jsonResponseBody(throttled)['reason'], 'concurrency_limited');
+      expect(invocationCount, 1);
+      expect(
+        events.where((event) => event['type'] == 'http_request_dispatched'),
+        hasLength(1),
+      );
+      expect(
+        events.any(
+          (event) => event['type'] == 'http_route_concurrency_limited',
+        ),
+        isTrue,
+      );
+
+      releaseFirst.complete();
+      await _waitUntil(() => runtime.httpResponses[160]?.isNotEmpty ?? false);
+      expect(runtime.httpResponses[160]!.single.status, HttpStatus.ok);
+
+      runtime.setConnectionProtocol(162, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        162,
+        NativeHttpHandshake.synthetic(
+          handle: 122,
+          method: 'GET',
+          target: '/api/throttled',
+          path: '/api/throttled',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.throttled',
+        ),
+      );
+
+      await _waitUntil(() => runtime.httpResponses[162]?.isNotEmpty ?? false);
+      expect(runtime.httpResponses[162]!.single.status, HttpStatus.ok);
+      expect(invocationCount, 2);
+    },
+  );
 
   test('uses catch-all HTTP routes only after more specific matches', () async {
     final runtime = _HandleRuntime();

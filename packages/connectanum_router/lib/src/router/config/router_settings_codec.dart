@@ -291,6 +291,11 @@ abstract final class RouterSettingsCodec {
     if (action.rateLimit != null) {
       map['rate_limit'] = _httpRouteRateLimitToMap(action.rateLimit!);
     }
+    if (action.concurrencyLimit != null) {
+      map['concurrency_limit'] = _httpRouteConcurrencyLimitToMap(
+        action.concurrencyLimit!,
+      );
+    }
     if (action.options.isNotEmpty) {
       map['options'] = action.options;
     }
@@ -304,6 +309,15 @@ abstract final class RouterSettingsCodec {
       'max_requests': rateLimit.maxRequests,
       'window_ms': rateLimit.window.inMilliseconds,
       'key': rateLimit.key,
+    };
+  }
+
+  static Map<String, Object?> _httpRouteConcurrencyLimitToMap(
+    HttpRouteConcurrencyLimitSettings concurrencyLimit,
+  ) {
+    return <String, Object?>{
+      'max_concurrent': concurrencyLimit.maxConcurrent,
+      'key': concurrencyLimit.key,
     };
   }
 

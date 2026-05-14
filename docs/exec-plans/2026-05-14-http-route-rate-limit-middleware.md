@@ -55,6 +55,11 @@ dispatching into WAMP-backed handlers.
 - `dart test packages/connectanum_router/test/router_runtime_test.dart -n "rate-limits HTTP routes"`
 - `git diff --check`
 - `bin/verify`
+- GitHub PR CI #25858492092 passed on `4c8e3c5` with `Fast Checks` and
+  `Full Verify` green.
+- GitHub Dart Package Publish Dry Run #25858492076 passed on `4c8e3c5`.
+- `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI/logs and clean hosted package dry-run evidence.
 
 ## Decision Log
 
@@ -67,5 +72,5 @@ dispatching into WAMP-backed handlers.
 HTTP routes now accept typed per-route rate-limit settings, parse common config
 aliases, round-trip through the settings codec, enforce limits before WAMP/MCP
 dispatch, emit `http_route_rate_limited`, and return structured `429` responses
-with retry/rate-limit headers. Hosted CI evidence is still pending for the
-commit that contains this slice.
+with retry/rate-limit headers. Commit `4c8e3c5` is pushed to GitHub PR #79 with
+clean hosted CI/package dry-run/audit evidence.

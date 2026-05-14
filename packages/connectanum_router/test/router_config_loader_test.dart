@@ -782,7 +782,7 @@ void main() {
       );
     });
 
-    test('parses HTTP route rate-limit middleware', () {
+    test('parses HTTP route middleware limits', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
           'realms': [
@@ -809,6 +809,10 @@ void main() {
                         'windowMs': 1500,
                         'key': 'header:x-client-id',
                       },
+                      'concurrencyLimit': <String, Object?>{
+                        'maxConcurrent': 3,
+                        'key': 'bearer',
+                      },
                     },
                   },
                 ],
@@ -823,6 +827,16 @@ void main() {
       expect(rateLimit.maxRequests, 2);
       expect(rateLimit.window, const Duration(milliseconds: 1500));
       expect(rateLimit.key, 'header:x-client-id');
+      final concurrencyLimit = settings
+          .listeners
+          .single
+          .http!
+          .routes
+          .single
+          .action
+          .concurrencyLimit!;
+      expect(concurrencyLimit.maxConcurrent, 3);
+      expect(concurrencyLimit.key, 'bearer');
 
       final encoded = RouterSettingsCodec.toMap(settings);
       final decoded = RouterSettingsCodec.fromMap(encoded);
@@ -831,6 +845,10 @@ void main() {
       expect(decodedRateLimit.maxRequests, 2);
       expect(decodedRateLimit.window, const Duration(milliseconds: 1500));
       expect(decodedRateLimit.key, 'header:x-client-id');
+      final decodedConcurrencyLimit =
+          decoded.listeners.single.http!.routes.single.action.concurrencyLimit!;
+      expect(decodedConcurrencyLimit.maxConcurrent, 3);
+      expect(decodedConcurrencyLimit.key, 'bearer');
     });
 
     test('parses multi-protocol listener with http routes', () {

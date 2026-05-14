@@ -912,6 +912,30 @@ class HttpRouteRateLimitSettings {
 }
 
 @immutable
+class HttpRouteConcurrencyLimitSettings {
+  const HttpRouteConcurrencyLimitSettings({
+    required this.maxConcurrent,
+    this.key = 'global',
+  });
+
+  final int maxConcurrent;
+  final String key;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is HttpRouteConcurrencyLimitSettings &&
+        other.maxConcurrent == maxConcurrent &&
+        other.key == key;
+  }
+
+  @override
+  int get hashCode => Object.hash(maxConcurrent, key);
+}
+
+@immutable
 class HttpRouteAction {
   const HttpRouteAction({
     required this.type,
@@ -927,6 +951,7 @@ class HttpRouteAction {
     this.cacheControl,
     this.delegate,
     this.rateLimit,
+    this.concurrencyLimit,
     this.options = const {},
   });
 
@@ -943,6 +968,7 @@ class HttpRouteAction {
   final String? cacheControl;
   final String? delegate;
   final HttpRouteRateLimitSettings? rateLimit;
+  final HttpRouteConcurrencyLimitSettings? concurrencyLimit;
   final Map<String, Object?> options;
 
   @override
@@ -964,6 +990,7 @@ class HttpRouteAction {
         other.cacheControl == cacheControl &&
         other.delegate == delegate &&
         other.rateLimit == rateLimit &&
+        other.concurrencyLimit == concurrencyLimit &&
         const DeepCollectionEquality().equals(other.options, options);
   }
 
@@ -982,6 +1009,7 @@ class HttpRouteAction {
     cacheControl,
     delegate,
     rateLimit,
+    concurrencyLimit,
     const DeepCollectionEquality().hash(options),
   );
 }

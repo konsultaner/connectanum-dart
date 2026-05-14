@@ -120,6 +120,7 @@ class RouterBinding {
   final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
   final Map<String, Future<HttpAuthProvider>> _httpAuthProviderCache = {};
   final Map<String, _HttpRouteRateLimitState> _httpRouteRateLimitStates = {};
+  final Map<String, int> _httpRouteConcurrencyCounts = {};
   final Map<String, ListenerSettings> _listenerSettingsByEndpoint;
   final Map<int, ListenerSettings?> _listenerConfigById = {};
   final Random _random = Random.secure();
@@ -1190,6 +1191,43 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    final concurrencyDecision = _acquireHttpRouteConcurrencySlot(
+      request: request,
+      route: matchedRoute,
+    );
+    if (concurrencyDecision.failure != null) {
+      final failure = concurrencyDecision.failure!;
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.tooManyRequests,
+          headers: failure.headers,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'concurrency_limited',
+            'message': 'HTTP route concurrency limit exceeded',
+            'current': failure.current,
+            'limit': failure.limit,
+          }),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_route_concurrency_limited',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'method': request.method,
+        'key': failure.key,
+        'current': failure.current,
+        'limit': failure.limit,
+      });
+      retainedHandshake?.release();
+      return;
+    }
+    final concurrencyToken = concurrencyDecision.token;
     if (matchedRoute?.action.type == HttpRouteActionType.auth) {
       try {
         await _handleHttpAuthRequest(
@@ -1200,6 +1238,7 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
         retainedHandshake?.release();
       }
       return;
@@ -1215,6 +1254,7 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
         retainedHandshake?.release();
       }
       return;
@@ -1229,6 +1269,7 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
         retainedHandshake?.release();
       }
       return;
@@ -1250,6 +1291,7 @@ class RouterBinding {
         'connectionId': request.connectionId,
         'endpoint': request.endpoint,
       });
+      _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
     }
@@ -1262,6 +1304,7 @@ class RouterBinding {
         'endpoint': request.endpoint,
         'realm': realmUri,
       });
+      _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
     }
@@ -1317,6 +1360,7 @@ class RouterBinding {
               }),
             ),
           );
+          _releaseHttpRouteConcurrencySlot(concurrencyToken);
           retainedHandshake?.release();
           return;
         }
@@ -1342,6 +1386,7 @@ class RouterBinding {
           }),
         ),
       );
+      _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
     } catch (error, stackTrace) {
@@ -1356,6 +1401,7 @@ class RouterBinding {
         'error': error.toString(),
         'stackTrace': stackTrace.toString(),
       });
+      _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
     }
@@ -1377,6 +1423,7 @@ class RouterBinding {
       snapshot: snapshot,
       session: session,
       handshake: retainedHandshake,
+      concurrencyToken: concurrencyToken,
     );
     _pendingHttpCalls[httpRequestId] = pending;
 
@@ -1521,6 +1568,7 @@ class RouterBinding {
     } catch (error, stackTrace) {
       _pendingHttpCalls.remove(httpRequestId);
       subscription?.cancel();
+      _releaseHttpRouteConcurrencySlot(pending.concurrencyToken);
       onEvent?.call({
         'source': 'binding',
         'type': 'http_request_dispatch_error',
@@ -2251,11 +2299,81 @@ class RouterBinding {
     return null;
   }
 
+  _HttpRouteConcurrencyDecision _acquireHttpRouteConcurrencySlot({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+  }) {
+    if (route == null) {
+      return const _HttpRouteConcurrencyDecision.none();
+    }
+    final action = route.actionForMethod(request.method);
+    final concurrencyLimit = action.concurrencyLimit;
+    if (concurrencyLimit == null) {
+      return const _HttpRouteConcurrencyDecision.none();
+    }
+    final key = _httpRouteConcurrencyLimitKey(
+      request: request,
+      route: route,
+      action: action,
+      concurrencyLimit: concurrencyLimit,
+    );
+    final current = _httpRouteConcurrencyCounts[key] ?? 0;
+    if (current >= concurrencyLimit.maxConcurrent) {
+      return _HttpRouteConcurrencyDecision.failure(
+        _HttpRouteConcurrencyFailure(
+          key: key,
+          limit: concurrencyLimit.maxConcurrent,
+          current: current,
+        ),
+      );
+    }
+    _httpRouteConcurrencyCounts[key] = current + 1;
+    return _HttpRouteConcurrencyDecision.acquired(
+      _HttpRouteConcurrencyToken(key: key),
+    );
+  }
+
+  void _releaseHttpRouteConcurrencySlot(_HttpRouteConcurrencyToken? token) {
+    if (token == null) {
+      return;
+    }
+    final current = _httpRouteConcurrencyCounts[token.key];
+    if (current == null || current <= 1) {
+      _httpRouteConcurrencyCounts.remove(token.key);
+      return;
+    }
+    _httpRouteConcurrencyCounts[token.key] = current - 1;
+  }
+
   String _httpRouteRateLimitKey({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
     required HttpRouteAction action,
     required HttpRouteRateLimitSettings rateLimit,
+  }) => _httpRouteMiddlewareKey(
+    request: request,
+    route: route,
+    action: action,
+    keyStrategy: rateLimit.key,
+  );
+
+  String _httpRouteConcurrencyLimitKey({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required HttpRouteAction action,
+    required HttpRouteConcurrencyLimitSettings concurrencyLimit,
+  }) => _httpRouteMiddlewareKey(
+    request: request,
+    route: route,
+    action: action,
+    keyStrategy: concurrencyLimit.key,
+  );
+
+  String _httpRouteMiddlewareKey({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required HttpRouteAction action,
+    required String keyStrategy,
   }) {
     final routeKey =
         route.match.path ??
@@ -2266,16 +2384,16 @@ class RouterBinding {
         action.topic ??
         action.namespace ??
         httpRouteActionTypeToString(action.type);
-    final keyStrategy = rateLimit.key.trim();
-    final normalized = keyStrategy.toLowerCase();
+    final trimmedStrategy = keyStrategy.trim();
+    final normalized = trimmedStrategy.toLowerCase();
     final subject = switch (normalized) {
       'global' => 'global',
       'connection' => 'connection:${request.connectionId}',
       'bearer' =>
         'bearer:${_extractBearerToken(request.headers) ?? 'anonymous'}',
-      _ when normalized.startsWith('header:') => _httpRouteRateLimitHeaderKey(
+      _ when normalized.startsWith('header:') => _httpRouteMiddlewareHeaderKey(
         request,
-        keyStrategy.substring('header:'.length),
+        trimmedStrategy.substring('header:'.length),
       ),
       _ => 'global',
     };
@@ -2288,7 +2406,7 @@ class RouterBinding {
     ].join('|');
   }
 
-  String _httpRouteRateLimitHeaderKey(
+  String _httpRouteMiddlewareHeaderKey(
     RouterHttpRequest request,
     String headerName,
   ) {
@@ -3757,6 +3875,7 @@ class RouterBinding {
     }
     pending?.subscription.cancel();
     pending?.handshake?.release();
+    _releaseHttpRouteConcurrencySlot(pending?.concurrencyToken);
   }
 
   void _scheduleInternalBootstrap() {
@@ -3964,12 +4083,14 @@ class _PendingHttpCall {
     required this.snapshot,
     required this.session,
     this.handshake,
+    this.concurrencyToken,
   });
 
   final int id;
   final RouterHttpRequest request;
   final HttpRequestSnapshot snapshot;
   final RouterSession session;
+  final _HttpRouteConcurrencyToken? concurrencyToken;
   late StreamSubscription<result_msg.Result> subscription;
   NativeHttpHandshake? handshake;
   NativeHttpResponseStream? responseStream;
@@ -5145,6 +5266,40 @@ class _HttpRouteRateLimitFailure {
     }
     return (milliseconds + 999) ~/ 1000;
   }
+}
+
+class _HttpRouteConcurrencyDecision {
+  const _HttpRouteConcurrencyDecision.none() : token = null, failure = null;
+
+  const _HttpRouteConcurrencyDecision.acquired(this.token) : failure = null;
+
+  const _HttpRouteConcurrencyDecision.failure(this.failure) : token = null;
+
+  final _HttpRouteConcurrencyToken? token;
+  final _HttpRouteConcurrencyFailure? failure;
+}
+
+class _HttpRouteConcurrencyToken {
+  const _HttpRouteConcurrencyToken({required this.key});
+
+  final String key;
+}
+
+class _HttpRouteConcurrencyFailure {
+  const _HttpRouteConcurrencyFailure({
+    required this.key,
+    required this.limit,
+    required this.current,
+  });
+
+  final String key;
+  final int limit;
+  final int current;
+
+  Map<String, String> get headers => <String, String>{
+    'x-concurrency-limit': limit.toString(),
+    'x-concurrency-current': current.toString(),
+  };
 }
 
 class _HttpUnauthorized implements Exception {

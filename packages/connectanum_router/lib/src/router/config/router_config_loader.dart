@@ -228,6 +228,11 @@ class RouterConfigLoader {
     final rateLimit = _parseHttpRouteRateLimit(
       map.remove('rate_limit') ?? map.remove('rateLimit'),
     );
+    final concurrencyLimit = _parseHttpRouteConcurrencyLimit(
+      map.remove('concurrency_limit') ??
+          map.remove('concurrencyLimit') ??
+          map.remove('throttle'),
+    );
     final actionOptions =
         _asMap(map.remove('options'), allowNull: true) ?? const {};
     final extras = Map<String, Object?>.unmodifiable(map);
@@ -251,6 +256,7 @@ class RouterConfigLoader {
       cacheControl: cacheControl,
       delegate: delegate,
       rateLimit: rateLimit,
+      concurrencyLimit: concurrencyLimit,
       options: mergedOptions,
     );
   }
@@ -321,6 +327,65 @@ class RouterConfigLoader {
     return HttpRouteRateLimitSettings(
       maxRequests: maxRequests,
       window: Duration(milliseconds: windowMs),
+      key: normalizedKey,
+    );
+  }
+
+  static HttpRouteConcurrencyLimitSettings? _parseHttpRouteConcurrencyLimit(
+    dynamic node,
+  ) {
+    if (node == null) {
+      return null;
+    }
+    final map = Map<String, Object?>.from(_asMap(node)!);
+    final maxConcurrent = _asInt(
+      map.remove('max_concurrent') ??
+          map.remove('maxConcurrent') ??
+          map.remove('limit') ??
+          map.remove('concurrent'),
+      defaultValue: 16,
+    );
+    if (maxConcurrent <= 0) {
+      throw FormatException(
+        'listener.http.routes.action.concurrency_limit.max_concurrent must be > 0',
+      );
+    }
+    final key =
+        _asNullableString(
+          map.remove('key') ??
+              map.remove('scope') ??
+              map.remove('key_by') ??
+              map.remove('keyBy'),
+        ) ??
+        'global';
+    final normalizedKey = key.trim();
+    if (normalizedKey.isEmpty) {
+      throw FormatException(
+        'listener.http.routes.action.concurrency_limit.key must not be empty',
+      );
+    }
+    final keyLower = normalizedKey.toLowerCase();
+    if (keyLower != 'global' &&
+        keyLower != 'connection' &&
+        keyLower != 'bearer' &&
+        !keyLower.startsWith('header:')) {
+      throw FormatException(
+        'listener.http.routes.action.concurrency_limit.key must be global, connection, bearer, or header:<name>',
+      );
+    }
+    if (keyLower.startsWith('header:') &&
+        normalizedKey.substring('header:'.length).trim().isEmpty) {
+      throw FormatException(
+        'listener.http.routes.action.concurrency_limit.header key must include a header name',
+      );
+    }
+    if (map.isNotEmpty) {
+      throw FormatException(
+        'Unknown listener.http.routes.action.concurrency_limit keys: ${map.keys.join(', ')}',
+      );
+    }
+    return HttpRouteConcurrencyLimitSettings(
+      maxConcurrent: maxConcurrent,
       key: normalizedKey,
     );
   }

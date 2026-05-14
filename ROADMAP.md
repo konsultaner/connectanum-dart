@@ -121,6 +121,7 @@
   - [x] Add end-to-end zero-copy HTTP regressions (large request/response plus descriptor-based internal-session routing) to ensure no stray serialization occurs in Dart.
   - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
     - [x] Per-route rate-limit middleware is typed in the HTTP route action surface, parses from config aliases, round-trips through the settings codec, runs before HTTP bridge dispatch, and returns structured `429` responses with retry/rate-limit headers.
+    - [x] Per-route concurrency throttling is typed in the HTTP route action surface, parses from config aliases, round-trips through the settings codec, rejects excess in-flight requests before bridge dispatch, and releases slots when HTTP calls complete.
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
   - [ ] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
 - [ ] HTTP authentication & session tokens

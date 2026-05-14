@@ -19,20 +19,42 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP route rate-limit middleware is complete for local verification. HTTP route
+HTTP route concurrency throttling is complete locally for release readiness.
+HTTP route actions now have typed per-route concurrency-limit settings, config
+aliases parse and round-trip through the settings codec, the Dart router
+binding rejects excess in-flight requests before WAMP/MCP dispatch, and
+acquired slots are released when immediate or pending HTTP requests complete.
+Pre-edit `bin/test-fast` passed on 2026-05-14; focused config-loader/codec and
+runtime concurrency-throttle tests passed locally; `git diff --check` passed;
+and `bin/verify` passed on 2026-05-14. Hosted evidence is pending for the
+commit that contains this slice.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-concurrency-throttle.md`
+(complete locally; per-route HTTP concurrency throttling now parses, encodes,
+enforces before dispatch, returns structured `429` responses, releases slots on
+completion, and has clean local verification evidence).
+
+Previous implementation checkpoint:
+HTTP route rate-limit middleware is complete for release readiness. HTTP route
 actions now have typed per-route rate-limit settings, config aliases parse and
 round-trip through the settings codec, the Dart router binding enforces the
 limit before WAMP/MCP dispatch, and exceeded routes return structured
 `429 Too Many Requests` responses with retry/rate-limit headers while emitting
 `http_route_rate_limited`. Pre-edit `bin/test-fast` passed on 2026-05-14;
 focused config-loader/codec and runtime rate-limit tests passed locally;
-`git diff --check` passed; and `bin/verify` passed on 2026-05-14. Hosted CI
-evidence is pending for the commit that contains this slice.
+`git diff --check` passed; and `bin/verify` passed on 2026-05-14. The
+implementation was committed as `4c8e3c5` and pushed to GitHub PR #79.
+PR-triggered GitHub CI #25858492092 passed with `Fast Checks` and
+`Full Verify` green on `4c8e3c5`; PR-triggered Dart Package Publish Dry Run
+#25858492076 passed; and the deployment-chain audit passed with clean latest
+CI/logs plus clean hosted package dry-run evidence.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-route-rate-limit-middleware.md`
-(complete locally; per-route HTTP rate-limit middleware now parses, encodes,
-enforces before dispatch, and returns structured `429` responses).
+(complete; per-route HTTP rate-limit middleware now parses, encodes, enforces
+before dispatch, returns structured `429` responses, and has clean hosted
+CI/package/audit evidence).
 
 Previous implementation checkpoint:
 HTTP publish route action wiring is complete for release readiness. The public
