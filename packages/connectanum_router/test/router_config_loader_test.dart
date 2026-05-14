@@ -632,6 +632,66 @@ void main() {
       );
     });
 
+    test('parses deterministic HTTP route shorthand aliases', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/'},
+                    'action': <String, Object?>{
+                      'type': 'reservedRealm',
+                      'namespace': 'Public.Http',
+                      'appendMethodSuffix': false,
+                    },
+                  },
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/api/'},
+                    'action': <String, Object?>{
+                      'type': 'namespace',
+                      'targetRealm': 'realm1',
+                      'namespace': 'consumer.api',
+                      'appendMethodSuffix': true,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final routes = settings.listeners.single.http!.routes;
+      expect(routes.first.action.type, HttpRouteActionType.reservedRealm);
+      expect(routes.first.action.namespace, 'Public.Http');
+      expect(routes.first.action.appendMethodSuffix, isFalse);
+      expect(routes.last.action.type, HttpRouteActionType.namespace);
+      expect(routes.last.action.options['targetRealm'], 'realm1');
+      expect(routes.last.action.appendMethodSuffix, isTrue);
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRoutes = decoded.listeners.single.http!.routes;
+      expect(
+        decodedRoutes.first.action.type,
+        HttpRouteActionType.reservedRealm,
+      );
+      expect(decodedRoutes.first.action.appendMethodSuffix, isFalse);
+      expect(decodedRoutes.last.action.options['targetRealm'], 'realm1');
+    });
+
     test('parses multi-protocol listener with http routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{

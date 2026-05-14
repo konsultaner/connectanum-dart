@@ -792,10 +792,13 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
     case 'rpc':
       return HttpRouteActionType.rpc;
     case 'internal_call':
+    case 'internalCall':
       return HttpRouteActionType.internalCall;
     case 'auth':
       return HttpRouteActionType.auth;
     case 'reserved_realm':
+    case 'reservedRealm':
+    case 'reserved':
       return HttpRouteActionType.reservedRealm;
     case 'namespace':
       return HttpRouteActionType.namespace;
@@ -804,6 +807,7 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
     case 'file':
       return HttpRouteActionType.file;
     case 'session_proxy':
+    case 'sessionProxy':
       return HttpRouteActionType.sessionProxy;
     case 'publish':
       return HttpRouteActionType.publish;

@@ -1775,6 +1775,61 @@ RouterSettings _buildRouterSettingsWithHttpCatchAllRoute() {
   return builder.build();
 }
 
+RouterSettings _buildRouterSettingsWithHttpShorthandRoutes() {
+  PermissionSettingsBuilder allowBridgeOperations() =>
+      PermissionSettingsBuilder('')
+        ..setMatchPolicy(PermissionMatchPolicy.prefix)
+        ..allowOperations(const ['call', 'register', 'unregister']);
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('router.http')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')
+            ..addPermissionFromBuilder(allowBridgeOperations()),
+        ),
+    )
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')
+            ..addPermissionFromBuilder(allowBridgeOperations()),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reservedRealm,
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/tasks/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.namespace,
+                    realm: 'realm1',
+                    namespace: 'consumer.api',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
 String _encodeHs256Jwt({
   required Map<String, Object?> claims,
   required String secret,
@@ -3740,6 +3795,134 @@ void main() {
     );
     expect(fallbackDispatch['procedure'], 'com.example.http.fallback');
   });
+
+  test(
+    'derives deterministic HTTP shorthand targets in Dart runtime',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpShorthandRoutes(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      final reservedSession = await binding.createInternalSession(
+        realmUri: 'router.http',
+      );
+      final reservedRegistration = await reservedSession.register('index.get');
+      reservedRegistration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        expect(context!.request.realm, 'router.http');
+        expect(context.request.procedure, 'index.get');
+        context.sendJson(body: {'ok': true, 'route': 'reserved'});
+      });
+
+      final namespaceSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final namespaceRegistration = await namespaceSession.register(
+        'consumer.api.tasks.42.post',
+      );
+      namespaceRegistration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        expect(context!.request.realm, 'realm1');
+        expect(context.request.procedure, 'consumer.api.tasks.42.post');
+        context.sendJson(body: {'ok': true, 'route': 'namespace'});
+      });
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      runtime.setConnectionProtocol(221, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        221,
+        NativeHttpHandshake.synthetic(
+          handle: 2210,
+          method: 'GET',
+          target: '/',
+          path: '/',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+        ),
+      );
+
+      runtime.setConnectionProtocol(222, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        222,
+        NativeHttpHandshake.synthetic(
+          handle: 2220,
+          method: 'POST',
+          target: '/tasks/42',
+          path: '/tasks/42',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+        ),
+      );
+
+      await _waitUntil(
+        () =>
+            events
+                .where((event) => event['type'] == 'http_request_dispatched')
+                .length >=
+            2,
+      );
+
+      final dispatches = events
+          .where((event) => event['type'] == 'http_request_dispatched')
+          .toList();
+      expect(
+        dispatches,
+        contains(
+          allOf(
+            containsPair('connectionId', 221),
+            containsPair('realm', 'router.http'),
+            containsPair('procedure', 'index.get'),
+          ),
+        ),
+      );
+      expect(
+        dispatches,
+        contains(
+          allOf(
+            containsPair('connectionId', 222),
+            containsPair('realm', 'realm1'),
+            containsPair('procedure', 'consumer.api.tasks.42.post'),
+          ),
+        ),
+      );
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[221]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[222]?.isNotEmpty ?? false),
+      );
+    },
+  );
 
   test(
     'validates protected HTTP bearer routes through configured JWT provider',

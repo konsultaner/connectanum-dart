@@ -380,6 +380,10 @@ class Router {
     if (optionValue is bool) {
       return optionValue;
     }
+    final camelOptionValue = action.options['appendMethodSuffix'];
+    if (camelOptionValue is bool) {
+      return camelOptionValue;
+    }
     return defaultValue;
   }
 

@@ -6,8 +6,7 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan: none. Use `ROADMAP_NEXT.md` and `ROADMAP.md` for the next
-implementation slice unless hosted CI or review feedback exposes a blocker.
+Active exec plan: none.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,6 +19,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP bridge route shorthand is complete for release readiness:
+`reserved_realm` and `namespace` routes already encode to native
+deterministic targets, and Dart runtime dispatch now derives matching targets
+for synthetic/non-native handshakes. Config parsing also accepts Dart-style
+aliases such as `reservedRealm`, `reserved`, `internalCall`, `sessionProxy`,
+and `appendMethodSuffix`. Pre-edit `bin/test-fast` passed on 2026-05-14;
+focused config-loader, native JSON, and runtime shorthand tests passed; and
+`bin/verify` passed on 2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-deterministic-namespace-shorthand.md`
+(complete; deterministic reserved-realm and namespace HTTP shorthand routes now
+derive matching WAMP dispatch targets in Dart synthetic/non-native runtime
+paths and accept common Dart-style config aliases).
+
+Previous implementation checkpoint:
 HTTP bridge route configuration now supports catch-all fallback matches through
 empty matches, explicit `catch_all` / `catchAll` / `wildcard` config, and
 `path: "*"`. Native config generation serializes catch-all routes as
@@ -27,9 +42,14 @@ empty matches, explicit `catch_all` / `catchAll` / `wildcard` config, and
 most specific matching route so a catch-all fallback cannot shadow exact or
 longer-prefix routes. Pre-edit `bin/test-fast` passed on 2026-05-14; focused
 router config-loader, native-config JSON, and runtime catch-all tests passed;
-`git diff --check` passed; and `bin/verify` passed on 2026-05-14.
+`git diff --check` passed; and `bin/verify` passed on 2026-05-14. The
+implementation was committed as `649d925` and pushed to GitHub PR #79.
+PR-triggered GitHub CI #25847918490 passed with `Fast Checks` and
+`Full Verify` green on `649d925`; PR-triggered Dart Package Publish Dry Run
+#25847918488 passed; and the deployment-chain audit passed with clean latest
+CI/logs plus clean hosted package dry-run evidence.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-route-catch-all-fallback.md`
 (complete; catch-all HTTP fallback routes now bridge the Dart settings surface
 to native prefix fallback routing with most-specific Dart synthetic matching).

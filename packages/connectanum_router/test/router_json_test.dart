@@ -273,6 +273,70 @@ void main() {
       expect(action['procedure'], 'com.example.http.fallback');
     });
 
+    test('encodes deterministic HTTP shorthand routes for native routing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: 'realm1',
+            auth: const RealmAuthSettings(methods: ['anonymous']),
+            roles: const [],
+            limits: const RealmLimitSettings(),
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reservedRealm,
+                    namespace: 'public.http',
+                    appendMethodSuffix: false,
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/api/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.namespace,
+                    realm: 'realm1',
+                    namespace: 'consumer.api',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final routes = endpointJson['http_routes'] as List;
+      final reserved = (routes.first as Map)['default'] as Map;
+      expect(reserved['type'], 'reserved_realm');
+      expect(reserved['namespace'], 'public.http');
+      expect(reserved['append_method_suffix'], isFalse);
+
+      final namespace = (routes.last as Map)['default'] as Map;
+      expect(namespace['type'], 'namespace');
+      expect(namespace['realm'], 'realm1');
+      expect(namespace['namespace'], 'consumer.api');
+      expect(namespace['append_method_suffix'], isTrue);
+    });
+
     test(
       'keeps MCP auth failures in Dart binding for CORS-aware responses',
       () {

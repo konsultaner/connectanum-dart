@@ -24,3 +24,9 @@ keep Dart synthetic routing aligned with native route priority.
 - `dart test packages/connectanum_router/test/router_runtime_test.dart --name "catch-all HTTP routes" --chain-stack-traces`: passed on 2026-05-14.
 - `git diff --check`: passed on 2026-05-14.
 - `bin/verify`: passed on 2026-05-14.
+- Commit `649d925` pushed to GitHub PR #79 on 2026-05-14.
+- PR-triggered GitHub CI #25847918490 passed with `Fast Checks` and
+  `Full Verify` green on 2026-05-14.
+- PR-triggered Dart Package Publish Dry Run #25847918488 passed on
+  2026-05-14.
+- `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`: passed on 2026-05-14.

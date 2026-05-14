@@ -53,6 +53,24 @@ class RouterHttpRequest {
     realm: realm,
     procedure: procedure,
   );
+
+  HttpRequestSnapshot toSnapshotWithTarget(
+    int requestId, {
+    String? realm,
+    String? procedure,
+  }) => HttpRequestSnapshot(
+    id: requestId,
+    method: method,
+    target: target,
+    path: path,
+    protocol: protocol,
+    version: version,
+    headers: headers,
+    nativeBody: _body,
+    query: query,
+    realm: realm ?? this.realm,
+    procedure: procedure ?? this.procedure,
+  );
 }
 
 /// Public façade that wires the Dart router to the native transport runtime.
@@ -1168,8 +1186,14 @@ class RouterBinding {
       return;
     }
 
-    final realmUri = request.realm;
-    final procedure = request.procedure;
+    final dispatchTarget = _resolveHttpRouteDispatchTarget(
+      request: request,
+      route: matchedRoute,
+      listenerSettings: listenerSettings,
+      sessionProfile: sessionProfile,
+    );
+    final realmUri = dispatchTarget.realm;
+    final procedure = dispatchTarget.procedure;
     if (realmUri == null || realmUri.isEmpty) {
       onEvent?.call({
         'source': 'binding',
@@ -1195,7 +1219,11 @@ class RouterBinding {
     }
 
     final httpRequestId = _nextHttpRequestId++;
-    final snapshot = request.toSnapshot(httpRequestId);
+    final snapshot = request.toSnapshotWithTarget(
+      httpRequestId,
+      realm: realmUri,
+      procedure: procedure,
+    );
     final nativeLibraryPath = runtime is NativeRuntimeWithHandles
         ? (runtime as NativeRuntimeWithHandles).libraryPathHint
         : null;
@@ -1547,6 +1575,166 @@ class RouterBinding {
               ? listenerProfile
               : null);
     return _resolveSessionProfile(profileName);
+  }
+
+  _HttpRouteDispatchTarget _resolveHttpRouteDispatchTarget({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+    required ListenerSettings? listenerSettings,
+    required SessionProfileSettings? sessionProfile,
+  }) {
+    final requestRealm = _nonEmptyHttpRouteString(request.realm);
+    final requestProcedure = _nonEmptyHttpRouteString(request.procedure);
+    if (requestRealm != null && requestProcedure != null) {
+      return _HttpRouteDispatchTarget(
+        realm: requestRealm,
+        procedure: requestProcedure,
+      );
+    }
+    final action = route?.action;
+    if (action == null) {
+      return _HttpRouteDispatchTarget(
+        realm: requestRealm,
+        procedure: requestProcedure,
+      );
+    }
+    switch (action.type) {
+      case HttpRouteActionType.rpc:
+      case HttpRouteActionType.internalCall:
+        final procedure =
+            requestProcedure ?? _nonEmptyHttpRouteString(action.procedure);
+        return _HttpRouteDispatchTarget(
+          realm:
+              requestRealm ??
+              _resolveHttpRouteRealmForBinding(
+                action,
+                listenerSettings: listenerSettings,
+                sessionProfile: sessionProfile,
+                fallbackFromProcedure:
+                    action.type == HttpRouteActionType.internalCall
+                    ? procedure
+                    : null,
+              ),
+          procedure: procedure,
+        );
+      case HttpRouteActionType.reservedRealm:
+        return _HttpRouteDispatchTarget(
+          realm: requestRealm ?? 'router.http',
+          procedure:
+              requestProcedure ??
+              _materializeHttpRouteProcedure(
+                namespace: _resolveHttpRouteNamespaceForBinding(action),
+                path: request.path,
+                method: request.method,
+                appendMethodSuffix: _resolveHttpRouteAppendMethodSuffix(action),
+              ),
+        );
+      case HttpRouteActionType.namespace:
+        return _HttpRouteDispatchTarget(
+          realm:
+              requestRealm ??
+              _resolveHttpRouteRealmForBinding(
+                action,
+                listenerSettings: listenerSettings,
+                sessionProfile: sessionProfile,
+              ),
+          procedure:
+              requestProcedure ??
+              _materializeHttpRouteProcedure(
+                namespace: _resolveHttpRouteNamespaceForBinding(action),
+                path: request.path,
+                method: request.method,
+                appendMethodSuffix: _resolveHttpRouteAppendMethodSuffix(action),
+              ),
+        );
+      default:
+        return _HttpRouteDispatchTarget(
+          realm: requestRealm,
+          procedure: requestProcedure,
+        );
+    }
+  }
+
+  String? _resolveHttpRouteRealmForBinding(
+    HttpRouteAction action, {
+    required ListenerSettings? listenerSettings,
+    required SessionProfileSettings? sessionProfile,
+    String? fallbackFromProcedure,
+  }) {
+    final directRealm = _nonEmptyHttpRouteString(action.realm);
+    if (directRealm != null) {
+      return directRealm;
+    }
+    final optionRealm =
+        action.options['realm'] ?? action.options['targetRealm'];
+    if (optionRealm is String && optionRealm.trim().isNotEmpty) {
+      return optionRealm.trim();
+    }
+    final profileRealm = _nonEmptyHttpRouteString(sessionProfile?.realm);
+    if (profileRealm != null) {
+      return profileRealm;
+    }
+    final listenerRealm = listenerSettings?.options['realm'];
+    if (listenerRealm is String && listenerRealm.trim().isNotEmpty) {
+      return listenerRealm.trim();
+    }
+    final realmNames = settings.realms.map((realm) => realm.name).toSet();
+    if (realmNames.length == 1) {
+      return realmNames.single;
+    }
+    if (fallbackFromProcedure != null) {
+      final lastDot = fallbackFromProcedure.lastIndexOf('.');
+      if (lastDot > 0) {
+        return fallbackFromProcedure.substring(0, lastDot);
+      }
+    }
+    return null;
+  }
+
+  String? _resolveHttpRouteNamespaceForBinding(HttpRouteAction action) {
+    final directNamespace = _nonEmptyHttpRouteString(action.namespace);
+    if (directNamespace != null) {
+      return directNamespace;
+    }
+    final optionNamespace = action.options['namespace'];
+    if (optionNamespace is String && optionNamespace.trim().isNotEmpty) {
+      return optionNamespace.trim();
+    }
+    return null;
+  }
+
+  bool _resolveHttpRouteAppendMethodSuffix(HttpRouteAction action) {
+    if (action.appendMethodSuffix != null) {
+      return action.appendMethodSuffix!;
+    }
+    final snake = action.options['append_method_suffix'];
+    if (snake is bool) {
+      return snake;
+    }
+    final camel = action.options['appendMethodSuffix'];
+    if (camel is bool) {
+      return camel;
+    }
+    return true;
+  }
+
+  String _materializeHttpRouteProcedure({
+    required String? namespace,
+    required String path,
+    required String method,
+    required bool appendMethodSuffix,
+  }) {
+    final segments = <String>[
+      ..._httpRouteNamespaceSegments(namespace),
+      ..._httpRoutePathSegments(path),
+    ];
+    if (segments.isEmpty) {
+      segments.add('index');
+    }
+    if (appendMethodSuffix) {
+      segments.add(method.trim().toLowerCase());
+    }
+    return segments.join('.');
   }
 
   _HttpRouteMatchResult _matchHttpRoute(
@@ -3296,6 +3484,52 @@ class RouterBinding {
 String _endpointKey(String host, int port) =>
     '${host.trim().toLowerCase()}:$port';
 
+String? _nonEmptyHttpRouteString(String? value) {
+  final trimmed = value?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
+List<String> _httpRouteNamespaceSegments(String? namespace) {
+  final trimmed = namespace?.trim().replaceAll(RegExp(r'^\.+|\.+$'), '');
+  if (trimmed == null || trimmed.isEmpty) {
+    return const <String>[];
+  }
+  return [trimmed];
+}
+
+List<String> _httpRoutePathSegments(String path) {
+  final stripped = (path.isEmpty ? '/' : path).trim().replaceAll(
+    RegExp(r'^/+|/+$'),
+    '',
+  );
+  if (stripped.isEmpty) {
+    return const <String>[];
+  }
+  return stripped
+      .split('/')
+      .where((segment) => segment.isNotEmpty)
+      .map(_sanitizeHttpRouteSegment)
+      .toList(growable: false);
+}
+
+String _sanitizeHttpRouteSegment(String segment) {
+  final buffer = StringBuffer();
+  for (final codeUnit in segment.codeUnits) {
+    final char = String.fromCharCode(codeUnit);
+    if ((codeUnit >= 0x30 && codeUnit <= 0x39) ||
+        (codeUnit >= 0x41 && codeUnit <= 0x5A) ||
+        (codeUnit >= 0x61 && codeUnit <= 0x7A)) {
+      buffer.write(char.toLowerCase());
+    } else if (char == '_' || char == '-') {
+      buffer.write('_');
+    } else {
+      buffer.write('_');
+    }
+  }
+  final value = buffer.toString();
+  return value.isEmpty ? 'index' : value;
+}
+
 String _normalizeConfiguredEndpoint(String endpoint) {
   final trimmed = endpoint.trim();
   if (trimmed.isEmpty) {
@@ -3320,6 +3554,16 @@ String _normalizeConfiguredEndpoint(String endpoint) {
   final portPart = trimmed.substring(lastColon + 1);
   final port = int.tryParse(portPart) ?? 0;
   return _endpointKey(hostPart, port);
+}
+
+class _HttpRouteDispatchTarget {
+  const _HttpRouteDispatchTarget({
+    required this.realm,
+    required this.procedure,
+  });
+
+  final String? realm;
+  final String? procedure;
 }
 
 /// Tracks additional per-connection bookkeeping for the binding.

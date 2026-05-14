@@ -217,7 +217,7 @@ class RouterConfigLoader {
     );
     final namespace = _asNullableString(map.remove('namespace'));
     final appendMethodSuffix = _asNullableBool(
-      map.remove('append_method_suffix'),
+      map.remove('append_method_suffix') ?? map.remove('appendMethodSuffix'),
     );
     final topic = _asNullableString(map.remove('topic'));
     final serializer = _asNullableString(map.remove('serializer'));
