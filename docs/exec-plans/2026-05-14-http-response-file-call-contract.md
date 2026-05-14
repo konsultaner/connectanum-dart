@@ -58,6 +58,13 @@ runtime dispatch and the native HTTP runtime.
 - `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "routes HTTP request through native runtime"` passed.
 - `git diff --check` passed.
 - `bin/verify` passed on 2026-05-14.
+- GitHub PR CI #25864917191 passed on `53b4976` with `Fast Checks` and
+  `Full Verify` green.
+- GitHub Dart Package Publish Dry Run #25864917111 passed on `53b4976`.
+- `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI/logs and clean hosted package dry-run evidence;
+  PR #79 remains blocked only by review/merge requirements before release
+  branch promotion.
 
 ## Decision Log
 
@@ -72,4 +79,6 @@ through to an unsupported response path, native HTTP clients receive file body
 contents through the existing buffered send path, helper-body mapping now has
 bytes/JSON/file runtime coverage, native file response round-trip coverage is
 in place, and the existing native HTTP response round-trip test now runs
-without requiring the zero-copy publish feature flag.
+without requiring the zero-copy publish feature flag. Hosted CI, hosted package
+dry-run, and strict deployment-chain audit evidence are clean for pushed commit
+`53b4976`.

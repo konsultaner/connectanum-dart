@@ -959,6 +959,77 @@ void main() {
       await harness.nextEvent('http_response_sent');
     }, skip: skipReason);
 
+    test(
+      'serves configured HTTP file routes through native runtime',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'connectanum-native-static-route-',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+        final staticFile = File(
+          '${tempDir.path}${Platform.pathSeparator}asset.txt',
+        );
+        await staticFile.writeAsString('native static route');
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9113,
+          nativeLib: nativeLib,
+          settings: RouterSettings(
+            realms: const [],
+            listeners: [
+              ListenerSettings(
+                endpoint: '127.0.0.1:0',
+                protocols: const [ListenerProtocol.http],
+                http: HttpListenerSettings(
+                  routes: [
+                    HttpRouteSettings(
+                      match: const HttpRouteMatch(prefix: '/static/'),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.file,
+                        directory: tempDir.path,
+                        cacheControl: 'public, max-age=60',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        final request = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        final response = await request.close();
+        final body = await utf8.decoder.bind(response).join();
+
+        expect(response.statusCode, equals(HttpStatus.ok));
+        expect(
+          response.headers.value(HttpHeaders.contentTypeHeader),
+          equals('text/plain; charset=utf-8'),
+        );
+        expect(
+          response.headers.value(HttpHeaders.cacheControlHeader),
+          equals('public, max-age=60'),
+        );
+        expect(body, equals('native static route'));
+
+        final fileEvent = await harness.nextEvent('http_file_response_sent');
+        expect(fileEvent['path'], equals('/static/asset.txt'));
+      },
+      skip: skipReason,
+    );
+
     test('hosts MCP over HTTP using the router internal session', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9111,

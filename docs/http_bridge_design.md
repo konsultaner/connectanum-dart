@@ -215,6 +215,10 @@ router:
 - `session_proxy` routes create or reuse an internal session specified in
   `internal_realms`. This enables wiring to a PHP FPM-based bridge or any other
   custom processor running in a dedicated isolate.
+- `file` routes serve files relative to the configured `directory`. The router
+  rejects empty/unsafe path segments and symlink escapes outside that directory;
+  directory listings, index rewrites, range requests, and conditional caching
+  are intentionally outside the first static-file slice.
 - Translator shorthands:
   - `type: reserved_realm` automatically targets the router-managed
     `router.http` realm. Use `namespace` (optional) to prepend static segments
@@ -233,8 +237,9 @@ router:
 - Request bodies are kept in native buffers. Workers obtain slices via handle
   IDs, and internal sessions receive either the same handles or `ByteData`
   views if they insist on Dart access.
-- File responses rely on `sendfile`/`splice` semantics in Rust. The Dart side
-  never touches the bytes.
+- File responses use the file-backed response helper at the bridge contract
+  boundary. Native `sendfile`/`splice` remains a future optimization for the
+  runtime path where the Dart side currently may still materialize bytes.
 - For dynamic responses, handlers can stream using `Stream<List<int>>` backed by
   `Uint8List.view` on the original native buffers to avoid reallocation.
 

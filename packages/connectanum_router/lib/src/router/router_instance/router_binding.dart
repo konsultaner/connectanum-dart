@@ -1299,6 +1299,20 @@ class RouterBinding {
       }
       return;
     }
+    if (matchedRoute?.action.type == HttpRouteActionType.file) {
+      try {
+        await _handleHttpFileRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+          accessLogContext: accessLogContext,
+        );
+      } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
+        retainedHandshake?.release();
+      }
+      return;
+    }
 
     final dispatchTarget = _resolveHttpRouteDispatchTarget(
       request: request,
@@ -1928,6 +1942,317 @@ class RouterBinding {
         ),
       );
     }
+  }
+
+  Future<void> _handleHttpFileRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+    required _HttpRouteAccessLogContext? accessLogContext,
+  }) async {
+    final action = route.action;
+    final optionDirectory = action.options['directory'];
+    final directory =
+        _nonEmptyHttpRouteString(action.directory) ??
+        (optionDirectory is String
+            ? _nonEmptyHttpRouteString(optionDirectory)
+            : null);
+    if (directory == null) {
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'file_directory_missing',
+        message: 'HTTP file route is missing a directory',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'file_misconfigured',
+      );
+      return;
+    }
+
+    final segments = _httpFileRouteSegments(request, route);
+    if (segments == null || segments.isEmpty) {
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route did not resolve a file',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notFound,
+        outcome: 'file_not_found',
+      );
+      return;
+    }
+
+    String rootPath;
+    try {
+      rootPath = Directory(directory).resolveSymbolicLinksSync();
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_directory_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'directory': directory,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'file_directory_unavailable',
+        message: 'HTTP file route directory is unavailable',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'file_directory_unavailable',
+        error: error,
+      );
+      return;
+    }
+
+    final candidatePath = _joinHttpFilePath(rootPath, segments);
+    final candidate = File(candidatePath);
+    final stat = candidate.statSync();
+    if (stat.type != FileSystemEntityType.file) {
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route target was not found',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notFound,
+        outcome: 'file_not_found',
+      );
+      return;
+    }
+
+    String filePath;
+    try {
+      filePath = candidate.resolveSymbolicLinksSync();
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_resolve_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route target was not found',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notFound,
+        outcome: 'file_not_found',
+      );
+      return;
+    }
+
+    if (!_isHttpFileInsideRoot(filePath, rootPath)) {
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.forbidden,
+        reason: 'file_forbidden',
+        message: 'HTTP file route target is outside the configured directory',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.forbidden,
+        outcome: 'file_forbidden',
+      );
+      return;
+    }
+
+    final headers = <String, String>{};
+    final contentType = _httpFileContentType(action, filePath);
+    if (contentType != null) {
+      headers[HttpHeaders.contentTypeHeader] = contentType;
+    }
+    final optionCacheControl =
+        action.options['cache_control'] ?? action.options['cacheControl'];
+    final cacheControl =
+        _nonEmptyHttpRouteString(action.cacheControl) ??
+        (optionCacheControl is String
+            ? _nonEmptyHttpRouteString(optionCacheControl)
+            : null);
+    if (cacheControl != null) {
+      headers[HttpHeaders.cacheControlHeader] = cacheControl;
+    }
+
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.ok,
+        headers: headers,
+        body: NativeHttpResponseFile(filePath),
+      ),
+    );
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_file_response_sent',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'path': request.path,
+      'filePath': filePath,
+    });
+    _finishHttpRouteAccessLog(
+      accessLogContext,
+      status: HttpStatus.ok,
+      outcome: 'file_completed',
+    );
+  }
+
+  Future<void> _sendHttpFileError({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required int status,
+    required String reason,
+    required String message,
+  }) {
+    return _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: status,
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': reason,
+          'message': message,
+        }),
+      ),
+    );
+  }
+
+  List<String>? _httpFileRouteSegments(
+    RouterHttpRequest request,
+    HttpRouteSettings route,
+  ) {
+    final requestPath = _normalizePath(request.path);
+    final match = route.match;
+    String relativePath;
+    if (match.isCatchAll) {
+      relativePath = requestPath.substring(1);
+    } else if (match.prefix != null) {
+      final prefix = _normalizePath(match.prefix!);
+      if (requestPath == prefix) {
+        relativePath = '';
+      } else if (prefix == '/') {
+        relativePath = requestPath.substring(1);
+      } else if (prefix.endsWith('/')) {
+        relativePath = requestPath.substring(prefix.length);
+      } else {
+        relativePath = requestPath.substring(prefix.length + 1);
+      }
+    } else {
+      final path = _normalizePath(match.path ?? requestPath);
+      if (requestPath != path) {
+        return null;
+      }
+      final slash = requestPath.lastIndexOf('/');
+      relativePath = slash >= 0
+          ? requestPath.substring(slash + 1)
+          : requestPath;
+    }
+    return _safeHttpFileSegments(relativePath);
+  }
+
+  List<String>? _safeHttpFileSegments(String relativePath) {
+    final segments = <String>[];
+    for (final rawSegment in relativePath.split('/')) {
+      if (rawSegment.isEmpty) {
+        continue;
+      }
+      final String segment;
+      try {
+        segment = Uri.decodeComponent(rawSegment);
+      } on FormatException {
+        return null;
+      }
+      if (segment.isEmpty ||
+          segment == '.' ||
+          segment == '..' ||
+          segment.contains('/') ||
+          segment.contains(r'\') ||
+          segment.contains('\u0000')) {
+        return null;
+      }
+      segments.add(segment);
+    }
+    return segments;
+  }
+
+  String _joinHttpFilePath(String rootPath, List<String> segments) {
+    final separator = Platform.pathSeparator;
+    var current = rootPath;
+    for (final segment in segments) {
+      current = current.endsWith(separator)
+          ? '$current$segment'
+          : '$current$separator$segment';
+    }
+    return current;
+  }
+
+  bool _isHttpFileInsideRoot(String filePath, String rootPath) {
+    final separator = Platform.pathSeparator;
+    final normalizedRoot = rootPath.endsWith(separator)
+        ? rootPath.substring(0, rootPath.length - 1)
+        : rootPath;
+    return filePath == normalizedRoot ||
+        filePath.startsWith('$normalizedRoot$separator');
+  }
+
+  String? _httpFileContentType(HttpRouteAction action, String filePath) {
+    final optionContentType =
+        action.options['content_type'] ?? action.options['contentType'];
+    final configured =
+        _nonEmptyHttpRouteString(action.contentType) ??
+        (optionContentType is String
+            ? _nonEmptyHttpRouteString(optionContentType)
+            : null);
+    if (configured != null) {
+      return configured;
+    }
+    final dot = filePath.lastIndexOf('.');
+    if (dot < 0 || dot == filePath.length - 1) {
+      return null;
+    }
+    return switch (filePath.substring(dot + 1).toLowerCase()) {
+      'css' => 'text/css; charset=utf-8',
+      'gif' => 'image/gif',
+      'htm' || 'html' => 'text/html; charset=utf-8',
+      'ico' => 'image/x-icon',
+      'jpeg' || 'jpg' => 'image/jpeg',
+      'js' || 'mjs' => 'text/javascript; charset=utf-8',
+      'json' => 'application/json; charset=utf-8',
+      'png' => 'image/png',
+      'svg' => 'image/svg+xml',
+      'txt' || 'text' => 'text/plain; charset=utf-8',
+      'wasm' => 'application/wasm',
+      _ => null,
+    };
   }
 
   SessionProfileSettings? _resolveHttpSessionProfile({

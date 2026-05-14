@@ -3490,6 +3490,164 @@ void main() {
     );
   });
 
+  test(
+    'serves configured HTTP file routes directly from the binding',
+    () async {
+      final runtime = _HandleRuntime();
+      final tempDir = await Directory.systemTemp.createTemp(
+        'connectanum-http-static-route-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final staticFile = File(
+        '${tempDir.path}${Platform.pathSeparator}hello.txt',
+      );
+      await staticFile.writeAsString('static route ok');
+      final outsideDir = await Directory.systemTemp.createTemp(
+        'connectanum-http-static-outside-',
+      );
+      addTearDown(() async {
+        if (await outsideDir.exists()) {
+          await outsideDir.delete(recursive: true);
+        }
+      });
+      final outsideFile = File(
+        '${outsideDir.path}${Platform.pathSeparator}secret.txt',
+      );
+      await outsideFile.writeAsString('outside static root');
+      await Link(
+        '${tempDir.path}${Platform.pathSeparator}escape.txt',
+      ).create(outsideFile.path);
+
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: RouterSettings(
+          realms: const [],
+          listeners: [
+            ListenerSettings(
+              endpoint: '127.0.0.1:0',
+              protocols: const [ListenerProtocol.http],
+              http: HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: const HttpRouteMatch(prefix: '/static/'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.file,
+                      directory: tempDir.path,
+                      cacheControl: 'public, max-age=3600',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 304,
+        handle: 3040,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: const {'x-test': 'file-route'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 305,
+        handle: 3050,
+        method: 'GET',
+        target: '/static/../secret.txt',
+        headers: const {'x-test': 'file-route-traversal'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 306,
+        handle: 3060,
+        method: 'GET',
+        target: '/static/escape.txt',
+        headers: const {'x-test': 'file-route-symlink-escape'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[304]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[305]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[306]?.isNotEmpty ?? false),
+      );
+
+      final ok = runtime.httpResponses[304]!.single;
+      expect(ok.status, HttpStatus.ok);
+      expect(
+        ok.headers[HttpHeaders.contentTypeHeader],
+        'text/plain; charset=utf-8',
+      );
+      expect(
+        ok.headers[HttpHeaders.cacheControlHeader],
+        'public, max-age=3600',
+      );
+      expect(ok.body, isA<NativeHttpResponseFile>());
+      expect(
+        (ok.body as NativeHttpResponseFile).path,
+        staticFile.resolveSymbolicLinksSync(),
+      );
+
+      final traversal = runtime.httpResponses[305]!.single;
+      expect(traversal.status, HttpStatus.notFound);
+      expect(_jsonResponseBody(traversal)['reason'], 'file_not_found');
+
+      final symlinkEscape = runtime.httpResponses[306]!.single;
+      expect(symlinkEscape.status, HttpStatus.forbidden);
+      expect(_jsonResponseBody(symlinkEscape)['reason'], 'file_forbidden');
+      expect(
+        events.map((event) => event['type']),
+        contains('http_file_response_sent'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        isNot(contains('http_request_dispatched')),
+      );
+    },
+  );
+
   test('routes HTTP session proxy actions through internal sessions', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettings(

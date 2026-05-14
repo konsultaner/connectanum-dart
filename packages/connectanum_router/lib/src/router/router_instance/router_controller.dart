@@ -290,10 +290,18 @@ class Router {
           );
         }
         return {'type': 'translation', 'realm': realm, 'procedure': topic};
-      default:
-        throw StateError(
-          'HTTP route action ${action.type} is not yet supported for native wiring.',
-        );
+      case HttpRouteActionType.file:
+        final directory = _resolveRouteDirectory(action);
+        if (directory == null || directory.isEmpty) {
+          throw StateError(
+            'HTTP file routes require a directory; set action.directory or action.options.directory.',
+          );
+        }
+        return const <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': 'router.http.file',
+        };
     }
   }
 
@@ -394,6 +402,21 @@ class Router {
     final optionTopic = action.options['topic'];
     if (optionTopic is String) {
       final trimmed = optionTopic.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveRouteDirectory(HttpRouteAction action) {
+    final direct = action.directory?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final optionDirectory = action.options['directory'];
+    if (optionDirectory is String) {
+      final trimmed = optionDirectory.trim();
       if (trimmed.isNotEmpty) {
         return trimmed;
       }

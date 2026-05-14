@@ -6,7 +6,8 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan: none.
+Active exec plan:
+`docs/exec-plans/2026-05-14-http-static-file-route-action.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -19,6 +20,16 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP static file route actions are implemented locally for release readiness.
+The existing `HttpRouteActionType.file` settings surface now has native route
+enqueue wiring, binding-level file serving before WAMP dispatch, configured
+directory validation, path traversal/symlink escape protection, common content
+type inference, and cache-control response headers. Pre-edit `bin/test-fast`
+passed on 2026-05-14; focused config/native-config/runtime tests passed; and
+the focused native HTTP route round-trip test passed. Full `bin/verify` passed
+on 2026-05-14. Commit/push and hosted GitHub evidence are pending.
+
+Previous implementation checkpoint:
 HTTP response file call-contract coverage is complete locally for release
 readiness.
 `HttpInvocationContext.sendFile` now maps to `NativeHttpResponseFile`, the
@@ -28,7 +39,13 @@ helpers plus native file response round-trip behavior. The existing native HTTP
 response round-trip test no longer depends on the zero-copy publish feature
 flag. Pre-edit `bin/test-fast` passed on 2026-05-14; focused runtime and native
 HTTP file/round-trip tests passed locally; `git diff --check` passed; and
-`bin/verify` passed on 2026-05-14.
+`bin/verify` passed on 2026-05-14. The implementation was committed as
+`53b4976` and pushed to GitHub PR #79. PR-triggered GitHub CI #25864917191
+passed with `Fast Checks` and `Full Verify` green on `53b4976`; PR-triggered
+Dart Package Publish Dry Run #25864917111 passed; and the deployment-chain
+audit passed with clean latest CI/logs plus clean hosted package dry-run
+evidence. PR #79 remains blocked only by review/merge requirements before
+release-branch promotion.
 
 Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-response-file-call-contract.md`

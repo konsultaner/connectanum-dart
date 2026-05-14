@@ -10,6 +10,9 @@ import 'dart:typed_data';
 import 'dart:io'
     show
         ContentType,
+        Directory,
+        File,
+        FileSystemEntityType,
         HttpHeaders,
         HttpRequest,
         HttpServer,

@@ -221,9 +221,13 @@ class RouterConfigLoader {
     );
     final topic = _asNullableString(map.remove('topic'));
     final serializer = _asNullableString(map.remove('serializer'));
-    final contentType = _asNullableString(map.remove('content_type'));
+    final contentType = _asNullableString(
+      map.remove('content_type') ?? map.remove('contentType'),
+    );
     final directory = _asNullableString(map.remove('directory'));
-    final cacheControl = _asNullableString(map.remove('cache_control'));
+    final cacheControl = _asNullableString(
+      map.remove('cache_control') ?? map.remove('cacheControl'),
+    );
     final delegate = _asNullableString(map.remove('delegate'));
     final rateLimit = _parseHttpRouteRateLimit(
       map.remove('rate_limit') ?? map.remove('rateLimit'),

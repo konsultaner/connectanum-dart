@@ -782,6 +782,54 @@ void main() {
       );
     });
 
+    test('parses HTTP file routes with directory options', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/static/'},
+                    'action': <String, Object?>{
+                      'type': 'file',
+                      'directory': '/var/www/static',
+                      'contentType': 'text/plain; charset=utf-8',
+                      'cacheControl': 'public, max-age=3600',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.action.type, HttpRouteActionType.file);
+      expect(route.action.directory, '/var/www/static');
+      expect(route.action.contentType, 'text/plain; charset=utf-8');
+      expect(route.action.cacheControl, 'public, max-age=3600');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedAction = decoded.listeners.single.http!.routes.single.action;
+      expect(decodedAction.type, HttpRouteActionType.file);
+      expect(decodedAction.directory, '/var/www/static');
+      expect(decodedAction.contentType, 'text/plain; charset=utf-8');
+      expect(decodedAction.cacheControl, 'public, max-age=3600');
+    });
+
     test('parses HTTP route middleware settings', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
