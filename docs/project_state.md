@@ -6,8 +6,8 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan:
-`docs/exec-plans/2026-05-14-required-checks-plan-release-branch.md`.
+Active exec plan: none. Use `ROADMAP_NEXT.md` and `ROADMAP.md` for the next
+implementation slice unless hosted CI or review feedback exposes a blocker.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,6 +20,25 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+`bin/audit-github-deployment-chain --show-rc-readiness` now cross-checks the
+selected RC tag against hosted native release evidence and Router Image dry-run
+preview tags. This prevents mixed RC evidence from looking coherent, such as
+the current stale selected `v0.1.0-rc.1` tag paired with Native Artifacts and
+Router Image dry-run evidence for `v0.1.0-rc.2`. `bin/test-fast` passed before
+edits on 2026-05-14; `bash -n bin/audit-github-deployment-chain` passed;
+`git diff --check` passed; the focused `--show-rc-readiness` audit now reports
+the Native Artifacts and Router Image RC tag mismatches explicitly; and
+`bin/verify` passed on 2026-05-14. RC readiness still reports expected
+release-promotion blockers: PR #79 review/merge into `master`, choosing and
+approving the final RC tag, rerunning native/router evidence for that same tag,
+and deferred pub.dev release-order decisions.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-rc-evidence-tag-consistency.md`
+(complete; RC readiness now verifies native/router hosted evidence tags match
+the selected RC tag).
+
+Previous implementation checkpoint:
 `bin/audit-github-deployment-chain --show-required-checks-plan` now targets the
 release protection branch and preserves that branch's required-check strictness,
 matching the `--strict` audit baseline. This keeps PR-branch audits from
@@ -34,7 +53,23 @@ the latest hosted evidence. RC readiness still reports only expected
 release-promotion blockers: PR #79 review/merge into `master`, the stale
 `v0.1.0-rc.1` tag/prerelease, and deferred pub.dev release-order decisions.
 `git diff --check` and `bin/verify` also passed on 2026-05-14. The
-implementation is ready to commit, push, and collect hosted CI evidence.
+implementation was committed as `47df05d` and pushed to GitHub PR #79.
+PR-triggered Dart Package Publish Dry Run #25840116608 passed on `47df05d`.
+Push-triggered GitHub CI #25840115547 and PR-triggered GitHub CI #25840116609
+passed on `47df05d`, with `Fast Checks` and `Full Verify` green in both runs.
+The strict release-evidence deployment-chain audit passed on `47df05d` with
+clean latest CI/logs, clean hosted warning/error annotations, clean Dart package
+dry-run, clean Native Artifacts dry-run, clean Router Image dry-run, clean WAMP
+Profile Benchmarks, visible workflows, visible router package, and the
+required-checks operator plan targeting `master`. `--show-rc-readiness` still
+reports only expected release-promotion blockers: PR #79 review/merge into
+`master`, the stale `v0.1.0-rc.1` tag/prerelease, and deferred pub.dev
+release-order decisions.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-required-checks-plan-release-branch.md`
+(complete; required-checks operator guidance now targets the release branch
+baseline and hosted evidence is clean for `47df05d`).
 
 Previous implementation checkpoint:
 `bin/audit-github-deployment-chain --strict` now enforces the default release
@@ -61,7 +96,7 @@ clean WAMP Profile Benchmarks, visible workflows, and visible router package.
 PR #79 review/merge into `master`, the stale `v0.1.0-rc.1` tag/prerelease, and
 deferred pub.dev release-order decisions.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-strict-release-branch-audit.md`
 (complete; strict audit now uses the release branch baseline and hosted
 evidence is clean for `6def1cc`).

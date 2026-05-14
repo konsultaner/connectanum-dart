@@ -143,6 +143,9 @@ expected_router_image_jobs=('Publish Router Image')
 wamp_profile_benchmarks_workflow='WAMP Profile Benchmarks'
 expected_wamp_profile_benchmark_jobs=('Linux WAMP profile gates')
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
+latest_native_release_evidence_tag=''
+latest_native_release_evidence_mode=''
+latest_router_image_dry_run_tags=''
 candidate_pr_ready=0
 candidate_pr_status_summary='not evaluated'
 candidate_pr_next_action=''
@@ -532,6 +535,23 @@ inspect_router_image_manifest() {
     docker buildx imagetools inspect "$image" >/dev/null 2>&1
     return $?
   fi
+
+  return 1
+}
+
+router_image_dry_run_tags_include_rc_tag() {
+  local rc_tag="$1"
+  local preview_ref
+  local preview_tag
+  local unprefixed_rc_tag="${rc_tag#v}"
+
+  while IFS= read -r preview_ref; do
+    [[ -n "$preview_ref" ]] || continue
+    preview_tag="${preview_ref##*:}"
+    if [[ "$preview_tag" == "$rc_tag" || "$preview_tag" == "$unprefixed_rc_tag" ]]; then
+      return 0
+    fi
+  done <<<"$latest_router_image_dry_run_tags"
 
   return 1
 }
@@ -1065,6 +1085,8 @@ print_native_release_dry_run_gate() {
       failed=1
     else
       IFS=$'\t' read -r release_tag release_scope release_mode <<<"$release_intent"
+      latest_native_release_evidence_tag="$release_tag"
+      latest_native_release_evidence_mode="$release_mode"
 
       if [[ "$release_mode" == "dry-run" ]]; then
         printf 'Native release dry-run intent: accepted (%s, %s).\n' "$release_tag" "$release_scope"
@@ -1311,6 +1333,7 @@ print_router_image_dry_run_gate() {
         printf 'Finding: router image preview metadata did not list GHCR tags.\n'
         failed=1
       else
+        latest_router_image_dry_run_tags="$preview_tags"
         printf 'Router image dry-run preview tags:\n'
         while IFS= read -r preview_tag; do
           [[ -n "$preview_tag" ]] || continue
@@ -1915,6 +1938,26 @@ print_rc_readiness() {
     printf 'GitHub RC prerelease: not ready; no RC tag selected.\n'
     printf '  Next action: select and push an RC tag before creating the GitHub prerelease.\n'
     rc_ready_failed=1
+  fi
+
+  if [[ -n "$selected_rc_tag" && "$check_native_release_dry_run" -eq 1 && "$native_release_dry_run_failed" -eq 0 ]]; then
+    if [[ "$latest_native_release_evidence_tag" == "$selected_rc_tag" ]]; then
+      printf 'Native release evidence RC tag: ready (%s, %s).\n' "$latest_native_release_evidence_tag" "$latest_native_release_evidence_mode"
+    else
+      printf 'Native release evidence RC tag: not ready; latest Native Artifacts evidence is for %s, but selected RC tag is %s.\n' "${latest_native_release_evidence_tag:-unknown}" "$selected_rc_tag"
+      printf '  Next action: rerun the Native Artifacts dry-run or prerelease publish for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
+      rc_ready_failed=1
+    fi
+  fi
+
+  if [[ -n "$selected_rc_tag" && "$check_router_image_dry_run" -eq 1 && "$router_image_dry_run_failed" -eq 0 ]]; then
+    if router_image_dry_run_tags_include_rc_tag "$selected_rc_tag"; then
+      printf 'Router image evidence RC tag: ready (%s).\n' "$selected_rc_tag"
+    else
+      printf 'Router image evidence RC tag: not ready; latest Router Image dry-run tags do not include %s or %s.\n' "$selected_rc_tag" "${selected_rc_tag#v}"
+      printf '  Next action: rerun the Router Image dry-run for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
+      rc_ready_failed=1
+    fi
   fi
 
   if [[ -x bin/dart-package-publish-dry-run ]]; then

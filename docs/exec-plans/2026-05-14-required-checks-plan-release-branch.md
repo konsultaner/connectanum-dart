@@ -1,6 +1,6 @@
 # Required Checks Plan Release Branch Target
 
-Status: implementation complete; hosted evidence pending
+Status: complete
 
 ## Goal
 
@@ -29,7 +29,19 @@ instead of the intentionally unprotected development branch.
   operator plan targeting `master` and only expected RC promotion blockers.
 - `git diff --check` passed.
 - `bin/verify` passed on 2026-05-14.
+- Commit `47df05d` was pushed to GitHub PR #79.
+- PR-triggered Dart Package Publish Dry Run #25840116608 passed on `47df05d`.
+- Push-triggered GitHub CI #25840115547 and PR-triggered GitHub CI
+  #25840116609 passed on `47df05d`, with `Fast Checks` and `Full Verify`
+  green in both runs.
+- The strict release-evidence deployment-chain audit passed on `47df05d` with
+  clean latest CI/logs, clean hosted warning/error annotations, clean Dart
+  package dry-run, clean Native Artifacts dry-run, clean Router Image dry-run,
+  clean WAMP Profile Benchmarks, visible workflows, visible router package, and
+  the required-checks operator plan targeting `master`.
 
 ## Remaining
 
-- Push the implementation and collect hosted CI evidence for the new commit.
+- No implementation work remains for this slice. RC promotion still requires
+  PR #79 review/merge, an operator-approved RC tag/prerelease update, and the
+  intentionally deferred pub.dev release-order decisions.
