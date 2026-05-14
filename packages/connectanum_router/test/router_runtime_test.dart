@@ -3505,7 +3505,8 @@ void main() {
       final staticFile = File(
         '${tempDir.path}${Platform.pathSeparator}hello.txt',
       );
-      await staticFile.writeAsString('static route ok');
+      const fileContents = 'static route ok';
+      await staticFile.writeAsString(fileContents);
       final outsideDir = await Directory.systemTemp.createTemp(
         'connectanum-http-static-outside-',
       );
@@ -3606,12 +3607,25 @@ void main() {
         realm: 'router.http',
         procedure: 'router.http.file',
       );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 307,
+        handle: 3070,
+        method: 'HEAD',
+        target: '/static/hello.txt',
+        headers: const {'x-test': 'file-route-head'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
 
       await _waitUntil(
         () =>
             (runtime.httpResponses[304]?.isNotEmpty ?? false) &&
             (runtime.httpResponses[305]?.isNotEmpty ?? false) &&
-            (runtime.httpResponses[306]?.isNotEmpty ?? false),
+            (runtime.httpResponses[306]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[307]?.isNotEmpty ?? false),
       );
 
       final ok = runtime.httpResponses[304]!.single;
@@ -3623,6 +3637,10 @@ void main() {
       expect(
         ok.headers[HttpHeaders.cacheControlHeader],
         'public, max-age=3600',
+      );
+      expect(
+        ok.headers[HttpHeaders.contentLengthHeader],
+        utf8.encode(fileContents).length.toString(),
       );
       expect(ok.body, isA<NativeHttpResponseFile>());
       expect(
@@ -3637,6 +3655,15 @@ void main() {
       final symlinkEscape = runtime.httpResponses[306]!.single;
       expect(symlinkEscape.status, HttpStatus.forbidden);
       expect(_jsonResponseBody(symlinkEscape)['reason'], 'file_forbidden');
+
+      final head = runtime.httpResponses[307]!.single;
+      expect(head.status, HttpStatus.ok);
+      expect(
+        head.headers[HttpHeaders.contentLengthHeader],
+        utf8.encode(fileContents).length.toString(),
+      );
+      expect(head.body, isA<NativeHttpResponseBytes>());
+      expect((head.body as NativeHttpResponseBytes).bytes, isEmpty);
       expect(
         events.map((event) => event['type']),
         contains('http_file_response_sent'),

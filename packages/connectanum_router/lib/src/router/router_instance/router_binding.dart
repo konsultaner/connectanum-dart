@@ -2085,6 +2085,7 @@ class RouterBinding {
     }
 
     final headers = <String, String>{};
+    headers[HttpHeaders.contentLengthHeader] = stat.size.toString();
     final contentType = _httpFileContentType(action, filePath);
     if (contentType != null) {
       headers[HttpHeaders.contentTypeHeader] = contentType;
@@ -2106,7 +2107,9 @@ class RouterBinding {
       response: NativeHttpResponse(
         status: HttpStatus.ok,
         headers: headers,
-        body: NativeHttpResponseFile(filePath),
+        body: request.method.toUpperCase() == 'HEAD'
+            ? NativeHttpResponseBytes(Uint8List(0))
+            : NativeHttpResponseFile(filePath),
       ),
     );
     onEvent?.call({

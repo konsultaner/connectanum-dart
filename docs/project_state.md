@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-14-http-static-file-route-action.md`.
+`docs/exec-plans/2026-05-14-http-file-route-head-content-length.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,14 +20,36 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP static file route actions are implemented locally for release readiness.
+HTTP file route HEAD/content-length hardening is locally complete for release
+readiness. Successful file-route responses now include deterministic
+`Content-Length`, and `HEAD` returns the same metadata as `GET` without sending
+a file body through both binding-level and native HTTP paths. Pre-edit
+`bin/test-fast`, focused binding/native route tests,
+`dart analyze packages/connectanum_router`, `git diff --check`, and full
+local `bin/verify` passed on 2026-05-14. Commit/push and hosted GitHub
+evidence are pending.
+
+Previous implementation checkpoint:
+HTTP static file route actions are complete for release readiness.
 The existing `HttpRouteActionType.file` settings surface now has native route
 enqueue wiring, binding-level file serving before WAMP dispatch, configured
 directory validation, path traversal/symlink escape protection, common content
 type inference, and cache-control response headers. Pre-edit `bin/test-fast`
 passed on 2026-05-14; focused config/native-config/runtime tests passed; and
 the focused native HTTP route round-trip test passed. Full `bin/verify` passed
-on 2026-05-14. Commit/push and hosted GitHub evidence are pending.
+on 2026-05-14. The implementation was committed as `0eb89aa` and pushed to
+GitHub PR #79. PR-triggered GitHub CI #25868250887 passed with `Fast Checks`
+and `Full Verify` green on `0eb89aa`; PR-triggered Dart Package Publish Dry
+Run #25868251230 passed; and the deployment-chain audit passed with clean
+latest CI/logs plus clean hosted package dry-run evidence. PR #79 remains
+blocked only by review/merge requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-static-file-route-action.md`
+(complete; configured HTTP `file` routes now enqueue through native routing,
+serve from the Dart router binding before WAMP dispatch, reject traversal and
+symlink escapes, apply content-type/cache-control headers, and have clean local
+plus hosted CI/package/audit evidence).
 
 Previous implementation checkpoint:
 HTTP response file call-contract coverage is complete locally for release
@@ -47,7 +69,7 @@ audit passed with clean latest CI/logs plus clean hosted package dry-run
 evidence. PR #79 remains blocked only by review/merge requirements before
 release-branch promotion.
 
-Previous completed exec plan:
+Earlier completed exec plan:
 `docs/exec-plans/2026-05-14-http-response-file-call-contract.md`
 (complete; file-backed HTTP responses now dispatch through the router binding,
 native HTTP clients receive file contents, helper body mapping has bytes, JSON,

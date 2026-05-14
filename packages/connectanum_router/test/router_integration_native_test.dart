@@ -973,7 +973,8 @@ void main() {
         final staticFile = File(
           '${tempDir.path}${Platform.pathSeparator}asset.txt',
         );
-        await staticFile.writeAsString('native static route');
+        const fileContents = 'native static route';
+        await staticFile.writeAsString(fileContents);
 
         final harness = await _RouterHarness.start(
           connectionId: 9113,
@@ -1022,7 +1023,25 @@ void main() {
           response.headers.value(HttpHeaders.cacheControlHeader),
           equals('public, max-age=60'),
         );
-        expect(body, equals('native static route'));
+        expect(
+          response.headers.value(HttpHeaders.contentLengthHeader),
+          equals(utf8.encode(fileContents).length.toString()),
+        );
+        expect(body, equals(fileContents));
+
+        final headRequest = await client.head(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        final headResponse = await headRequest.close();
+        final headBody = await utf8.decoder.bind(headResponse).join();
+        expect(headResponse.statusCode, equals(HttpStatus.ok));
+        expect(
+          headResponse.headers.value(HttpHeaders.contentLengthHeader),
+          equals(utf8.encode(fileContents).length.toString()),
+        );
+        expect(headBody, isEmpty);
 
         final fileEvent = await harness.nextEvent('http_file_response_sent');
         expect(fileEvent['path'], equals('/static/asset.txt'));
