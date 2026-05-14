@@ -3643,10 +3643,9 @@ void main() {
         utf8.encode(fileContents).length.toString(),
       );
       expect(ok.headers['accept-ranges'], 'bytes');
-      final etag = ok.headers[HttpHeaders.etagHeader];
-      final lastModified = ok.headers[HttpHeaders.lastModifiedHeader];
+      final etag = ok.headers[HttpHeaders.etagHeader]!;
+      final lastModified = ok.headers[HttpHeaders.lastModifiedHeader]!;
       expect(etag, startsWith('W/"'));
-      expect(lastModified, isNotNull);
       expect(ok.body, isA<NativeHttpResponseFile>());
       expect(
         (ok.body as NativeHttpResponseFile).path,
@@ -3706,11 +3705,53 @@ void main() {
         realm: 'router.http',
         procedure: 'router.http.file',
       );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 313,
+        handle: 3130,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: {'range': 'bytes=0-5', 'if-range': lastModified},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 314,
+        handle: 3140,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: {'range': 'bytes=0-5', 'if-range': etag},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 315,
+        handle: 3150,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: const {
+          'range': 'bytes=0-5',
+          'if-range': 'Wed, 21 Oct 2015 07:28:00 GMT',
+        },
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
       await _waitUntil(
         () =>
             (runtime.httpResponses[310]?.isNotEmpty ?? false) &&
             (runtime.httpResponses[311]?.isNotEmpty ?? false) &&
-            (runtime.httpResponses[312]?.isNotEmpty ?? false),
+            (runtime.httpResponses[312]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[313]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[314]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[315]?.isNotEmpty ?? false),
       );
 
       final partial = runtime.httpResponses[310]!.single;
@@ -3738,6 +3779,34 @@ void main() {
       expect(unsatisfiable.body, isA<NativeHttpResponseBytes>());
       expect((unsatisfiable.body as NativeHttpResponseBytes).bytes, isEmpty);
 
+      final dateIfRange = runtime.httpResponses[313]!.single;
+      expect(dateIfRange.status, HttpStatus.partialContent);
+      expect(dateIfRange.headers[HttpHeaders.contentLengthHeader], '6');
+      expect(dateIfRange.headers['content-range'], 'bytes 0-5/15');
+      expect(dateIfRange.body, isA<NativeHttpResponseBytes>());
+      expect(
+        utf8.decode((dateIfRange.body as NativeHttpResponseBytes).bytes),
+        'static',
+      );
+
+      final weakEtagIfRange = runtime.httpResponses[314]!.single;
+      expect(weakEtagIfRange.status, HttpStatus.ok);
+      expect(
+        weakEtagIfRange.headers[HttpHeaders.contentLengthHeader],
+        utf8.encode(fileContents).length.toString(),
+      );
+      expect(weakEtagIfRange.headers.containsKey('content-range'), isFalse);
+      expect(weakEtagIfRange.body, isA<NativeHttpResponseFile>());
+
+      final staleDateIfRange = runtime.httpResponses[315]!.single;
+      expect(staleDateIfRange.status, HttpStatus.ok);
+      expect(
+        staleDateIfRange.headers[HttpHeaders.contentLengthHeader],
+        utf8.encode(fileContents).length.toString(),
+      );
+      expect(staleDateIfRange.headers.containsKey('content-range'), isFalse);
+      expect(staleDateIfRange.body, isA<NativeHttpResponseFile>());
+
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
@@ -3745,7 +3814,7 @@ void main() {
         handle: 3080,
         method: 'GET',
         target: '/static/hello.txt',
-        headers: {'if-none-match': etag!},
+        headers: {'if-none-match': etag},
         body: null,
         realm: 'router.http',
         procedure: 'router.http.file',
@@ -3757,7 +3826,7 @@ void main() {
         handle: 3090,
         method: 'HEAD',
         target: '/static/hello.txt',
-        headers: {'if-modified-since': lastModified!},
+        headers: {'if-modified-since': lastModified},
         body: null,
         realm: 'router.http',
         procedure: 'router.http.file',

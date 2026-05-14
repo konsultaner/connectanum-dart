@@ -1028,12 +1028,11 @@ void main() {
           equals(utf8.encode(fileContents).length.toString()),
         );
         expect(response.headers.value('accept-ranges'), equals('bytes'));
-        final etag = response.headers.value(HttpHeaders.etagHeader);
+        final etag = response.headers.value(HttpHeaders.etagHeader)!;
         final lastModified = response.headers.value(
           HttpHeaders.lastModifiedHeader,
-        );
+        )!;
         expect(etag, startsWith('W/"'));
-        expect(lastModified, isNotNull);
         expect(body, equals(fileContents));
 
         final headRequest = await client.head(
@@ -1069,6 +1068,45 @@ void main() {
         );
         expect(rangeResponse.headers.value('accept-ranges'), equals('bytes'));
         expect(rangeBody, equals('static'));
+
+        final dateIfRangeRequest = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        dateIfRangeRequest.headers.set(HttpHeaders.rangeHeader, 'bytes=0-5');
+        dateIfRangeRequest.headers.set('if-range', lastModified);
+        final dateIfRangeResponse = await dateIfRangeRequest.close();
+        final dateIfRangeBody = await utf8.decoder
+            .bind(dateIfRangeResponse)
+            .join();
+        expect(
+          dateIfRangeResponse.statusCode,
+          equals(HttpStatus.partialContent),
+        );
+        expect(
+          dateIfRangeResponse.headers.value('content-range'),
+          equals('bytes 0-5/19'),
+        );
+        expect(dateIfRangeBody, equals('native'));
+
+        final weakEtagIfRangeRequest = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        weakEtagIfRangeRequest.headers.set(
+          HttpHeaders.rangeHeader,
+          'bytes=0-5',
+        );
+        weakEtagIfRangeRequest.headers.set('if-range', etag);
+        final weakEtagIfRangeResponse = await weakEtagIfRangeRequest.close();
+        final weakEtagIfRangeBody = await utf8.decoder
+            .bind(weakEtagIfRangeResponse)
+            .join();
+        expect(weakEtagIfRangeResponse.statusCode, equals(HttpStatus.ok));
+        expect(weakEtagIfRangeResponse.headers.value('content-range'), isNull);
+        expect(weakEtagIfRangeBody, equals(fileContents));
 
         final rangeHeadRequest = await client.head(
           '127.0.0.1',
@@ -1114,7 +1152,7 @@ void main() {
           listener.port,
           '/static/asset.txt',
         );
-        conditionalGet.headers.set(HttpHeaders.ifNoneMatchHeader, etag!);
+        conditionalGet.headers.set(HttpHeaders.ifNoneMatchHeader, etag);
         final conditionalGetResponse = await conditionalGet.close();
         final conditionalGetBody = await utf8.decoder
             .bind(conditionalGetResponse)
@@ -1136,7 +1174,7 @@ void main() {
         );
         conditionalHead.headers.set(
           HttpHeaders.ifModifiedSinceHeader,
-          lastModified!,
+          lastModified,
         );
         final conditionalHeadResponse = await conditionalHead.close();
         final conditionalHeadBody = await utf8.decoder

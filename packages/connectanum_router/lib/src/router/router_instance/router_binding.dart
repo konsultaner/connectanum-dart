@@ -2500,7 +2500,13 @@ class RouterBinding {
       return false;
     }
     if (trimmed.startsWith('"') || trimmed.startsWith('W/')) {
-      return _normalizeHttpFileEtag(trimmed) == _normalizeHttpFileEtag(etag);
+      final current = etag.trim();
+      // If-Range uses strong entity-tag comparison; weak validators never
+      // authorize a partial response.
+      if (trimmed.startsWith('W/') || current.startsWith('W/')) {
+        return false;
+      }
+      return trimmed == current;
     }
     try {
       final since = HttpDate.parse(trimmed).toUtc();

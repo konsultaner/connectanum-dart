@@ -222,6 +222,8 @@ router:
   file body; matching `If-None-Match` / `If-Modified-Since` validators return
   `304 Not Modified`; and single `Range: bytes=...` requests return
   `206 Partial Content` or `416 Range Not Satisfiable` with `Content-Range`.
+  `If-Range` date validators can authorize partial responses for unchanged
+  files; weak entity tags fall back to a full `200 OK` response.
   Directory listings, index rewrites, and multipart range responses are
   intentionally outside the first static-file slices.
 - Translator shorthands:
