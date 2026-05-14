@@ -843,63 +843,121 @@ void main() {
       skip: skipReason ?? _nativePublishSkipReason,
     );
 
-    test(
-      'routes HTTP request through native runtime',
-      () async {
-        final harness = await _RouterHarness.start(
-          connectionId: 9102,
-          nativeLib: nativeLib,
+    test('routes HTTP request through native runtime', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9102,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http-handler',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final registration = await httpSession.register(
+        'com.example.http.health',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        expect(context!.request.method, equals('GET'));
+        expect(context.request.path, equals('/api/health'));
+        context.sendText(
+          body: 'service:ok',
+          status: 202,
+          headers: const {'x-router': 'native'},
         );
-        addTearDown(harness.dispose);
+      });
 
-        final binding = harness.binding;
+      final listener = binding.listeners.single;
+      final socket = await Socket.connect('127.0.0.1', listener.port);
+      addTearDown(socket.destroy);
 
-        final httpSession = await binding.createInternalSession(
-          realmUri: 'realm1',
-          authId: 'http-handler',
-          authRole: 'internal',
+      socket.write('GET /api/health HTTP/1.1\r\nHost: localhost\r\n\r\n');
+      await socket.flush();
+
+      final requestEvent = await harness.nextEvent('listener_http_request');
+      expect(requestEvent['path'], equals('/api/health'));
+      expect(requestEvent['realm'], equals('realm1'));
+      expect(requestEvent['procedure'], equals('com.example.http.health'));
+
+      await harness.nextEvent('http_request_dispatched');
+      final responseSent = await harness.nextEvent('http_response_sent');
+      expect(responseSent['listenerId'], equals(listener.listenerId));
+
+      final response = await _readHttpResponse(socket);
+      expect(response, contains('HTTP/1.1 202 Accepted'));
+      expect(response, contains('x-router: native'));
+      expect(response.trim(), endsWith('service:ok'));
+    }, skip: skipReason);
+
+    test('serves file HTTP responses through native runtime', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9112,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'connectanum-native-http-file-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final staticFile = File(
+        '${tempDir.path}${Platform.pathSeparator}response.txt',
+      );
+      await staticFile.writeAsString('native-file-response');
+
+      final binding = harness.binding;
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http-file-handler',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final registration = await httpSession.register(
+        'com.example.http.health',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        expect(context!.request.path, equals('/api/health'));
+        context.sendFile(
+          path: staticFile.path,
+          status: 203,
+          headers: const {
+            'content-type': 'text/plain; charset=utf-8',
+            'x-router': 'native-file',
+          },
         );
-        addTearDown(httpSession.close);
+      });
 
-        final registration = await httpSession.register(
-          'com.example.http.health',
-        );
-        registration.onInvoke((invocation) {
-          final context = HttpInvocationContext.maybeFromInvocation(invocation);
-          expect(context, isNotNull, reason: 'Invocation missing HTTP context');
-          expect(context!.request.method, equals('GET'));
-          expect(context.request.path, equals('/api/health'));
-          context.sendText(
-            body: 'service:ok',
-            status: 202,
-            headers: const {'x-router': 'native'},
-          );
-        });
+      final listener = binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+      final request = await client.get(
+        '127.0.0.1',
+        listener.port,
+        '/api/health',
+      );
+      final response = await request.close();
+      final body = await utf8.decoder.bind(response).join();
 
-        final listener = binding.listeners.single;
-        final socket = await Socket.connect('127.0.0.1', listener.port);
-        addTearDown(socket.destroy);
+      expect(response.statusCode, equals(203));
+      expect(response.headers.value('x-router'), equals('native-file'));
+      expect(body, equals('native-file-response'));
 
-        socket.write('GET /api/health HTTP/1.1\r\nHost: localhost\r\n\r\n');
-        await socket.flush();
-
-        final requestEvent = await harness.nextEvent('listener_http_request');
-        expect(requestEvent['path'], equals('/api/health'));
-        expect(requestEvent['realm'], equals('realm1'));
-        expect(requestEvent['procedure'], equals('com.example.http.health'));
-
-        await harness.nextEvent('http_request_dispatched');
-        final responseSent = await harness.nextEvent('http_response_sent');
-        expect(responseSent['listenerId'], equals(listener.listenerId));
-
-        final response = await _readHttpResponse(socket);
-        expect(response, contains('HTTP/1.1 202 Accepted'));
-        expect(response, contains('x-router: native'));
-        expect(response.trim(), endsWith('service:ok'));
-      },
-      tags: _zeroCopyPublishTag,
-      skip: skipReason ?? _nativePublishSkipReason,
-    );
+      await harness.nextEvent('http_response_sent');
+    }, skip: skipReason);
 
     test('hosts MCP over HTTP using the router internal session', () async {
       final harness = await _RouterHarness.start(

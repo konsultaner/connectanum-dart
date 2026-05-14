@@ -3060,7 +3060,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         final jsonBody = body as NativeHttpResponseJson;
         return Uint8List.fromList(utf8.encode(jsonEncode(jsonBody.value)));
       case NativeHttpResponseBodyKind.file:
-        throw UnsupportedError('File responses not supported yet');
+        final fileBody = body as NativeHttpResponseFile;
+        return File(fileBody.path).readAsBytesSync();
     }
   }
 

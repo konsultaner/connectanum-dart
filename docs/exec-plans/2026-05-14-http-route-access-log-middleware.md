@@ -55,6 +55,11 @@ completion events without logging sensitive headers by default.
 - `dart test packages/connectanum_router/test/router_runtime_test.dart -n "logs HTTP route access"` passed.
 - `git diff --check` passed.
 - `bin/verify` passed on 2026-05-14.
+- GitHub PR CI #25862587507 passed on `7904822` with `Fast Checks` and
+  `Full Verify` green.
+- GitHub Dart Package Publish Dry Run #25862587325 passed on `7904822`.
+- `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI/logs and clean hosted package dry-run evidence.
 
 ## Decision Log
 
@@ -70,4 +75,4 @@ HTTP route access logging is complete locally. Routes can configure a typed
 the setting, the Dart router binding emits structured route access start and
 completion events, optional query/header logging is opt-in, sensitive headers
 are redacted, and completion events include duration, outcome, and status when
-available.
+available. Hosted evidence is clean for pushed commit `7904822`.

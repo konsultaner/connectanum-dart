@@ -3838,8 +3838,14 @@ class RouterBinding {
           body: NativeHttpResponseJson(payload.bodyJson),
         );
       case HttpResponseBodyKind.file:
-        throw UnsupportedError(
-          'File-backed HTTP responses are not supported yet.',
+        final filePath = payload.filePath;
+        if (filePath == null) {
+          throw StateError('File-backed HTTP response missing file path.');
+        }
+        return NativeHttpResponse(
+          status: payload.status,
+          headers: headers,
+          body: NativeHttpResponseFile(filePath),
         );
     }
   }

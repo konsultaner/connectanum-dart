@@ -3320,6 +3320,176 @@ void main() {
     expect((body as NativeHttpResponseText).text, 'OK');
   });
 
+  test('maps HTTP response helper bodies into native responses', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithSessionProfiles(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    final tempDir = await Directory.systemTemp.createTemp(
+      'connectanum-http-file-',
+    );
+    addTearDown(() async {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+    final staticFile = File(
+      '${tempDir.path}${Platform.pathSeparator}contract.txt',
+    );
+    await staticFile.writeAsString('file-contract-ok');
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    addTearDown(internalSession.close);
+    final registered = await internalSession.register('com.example.api.health');
+    registered.onInvoke((invocation) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      switch (context!.request.target) {
+        case '/api/health?kind=bytes':
+          context.sendBytes(
+            body: Uint8List.fromList([0, 1, 2, 255]),
+            status: 202,
+            headers: const {'content-type': 'application/octet-stream'},
+          );
+          break;
+        case '/api/health?kind=json':
+          context.sendJson(
+            body: const {'ok': true, 'kind': 'json'},
+            status: 201,
+            headers: const {'x-contract': 'json'},
+          );
+          break;
+        case '/api/health?kind=file':
+          context.sendFile(
+            path: staticFile.path,
+            status: 203,
+            headers: const {'content-type': 'text/plain'},
+          );
+          break;
+        default:
+          fail('Unexpected HTTP target ${context.request.target}');
+      }
+    });
+
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 301,
+      handle: 3010,
+      method: 'GET',
+      target: '/api/health?kind=bytes',
+      headers: const {'x-test': 'bytes'},
+      body: null,
+      realm: 'realm1',
+      procedure: 'com.example.api.health',
+    );
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 302,
+      handle: 3020,
+      method: 'GET',
+      target: '/api/health?kind=json',
+      headers: const {'x-test': 'json'},
+      body: null,
+      realm: 'realm1',
+      procedure: 'com.example.api.health',
+    );
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 303,
+      handle: 3030,
+      method: 'GET',
+      target: '/api/health?kind=file',
+      headers: const {'x-test': 'file'},
+      body: null,
+      realm: 'realm1',
+      procedure: 'com.example.api.health',
+    );
+
+    await _waitUntil(
+      () =>
+          (runtime.httpResponses[301]?.isNotEmpty ?? false) &&
+          (runtime.httpResponses[302]?.isNotEmpty ?? false) &&
+          (runtime.httpResponses[303]?.isNotEmpty ?? false),
+    );
+
+    final bytesResponse = runtime.httpResponses[301]!.single;
+    expect(bytesResponse.status, 202);
+    expect(bytesResponse.headers['content-type'], 'application/octet-stream');
+    final bytesBody = bytesResponse.body;
+    expect(bytesBody, isA<NativeHttpResponseBytes>());
+    expect(
+      (bytesBody as NativeHttpResponseBytes).bytes,
+      orderedEquals([0, 1, 2, 255]),
+    );
+
+    final jsonResponse = runtime.httpResponses[302]!.single;
+    expect(jsonResponse.status, 201);
+    expect(
+      jsonResponse.headers['content-type'],
+      'application/json; charset=utf-8',
+    );
+    expect(jsonResponse.headers['x-contract'], 'json');
+    final jsonBody = jsonResponse.body;
+    expect(jsonBody, isA<NativeHttpResponseJson>());
+    expect((jsonBody as NativeHttpResponseJson).value, {
+      'ok': true,
+      'kind': 'json',
+    });
+
+    final fileResponse = runtime.httpResponses[303]!.single;
+    expect(fileResponse.status, 203);
+    expect(fileResponse.headers['content-type'], 'text/plain');
+    final fileBody = fileResponse.body;
+    expect(fileBody, isA<NativeHttpResponseFile>());
+    expect((fileBody as NativeHttpResponseFile).path, staticFile.path);
+
+    final readyEvents = events
+        .where((event) => event['type'] == 'http_response_ready')
+        .map((event) => event['response'] as Map)
+        .toList(growable: false);
+    expect(
+      readyEvents,
+      contains(
+        allOf(
+          containsPair('status', 203),
+          containsPair('bodyKind', 'file'),
+          containsPair('filePath', staticFile.path),
+        ),
+      ),
+    );
+  });
+
   test('routes HTTP session proxy actions through internal sessions', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettings(

@@ -124,7 +124,7 @@
     - [x] Per-route concurrency throttling is typed in the HTTP route action surface, parses from config aliases, round-trips through the settings codec, rejects excess in-flight requests before bridge dispatch, and releases slots when HTTP calls complete.
     - [x] Per-route access logging is typed in the HTTP route action surface, parses from config aliases, round-trips through the settings codec, emits structured start/completion events, redacts sensitive headers, and records duration/status/outcome metadata.
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
-  - [ ] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
+  - [x] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
 - [ ] HTTP authentication & session tokens
   - [x] Shared `session_profiles` now provide the common auth/session config surface for WAMP listeners, HTTP listeners/routes, and public/internal profiles, including explicit public profiles (`auth.methods: []` or `anonymous`) and shared method declarations such as `ticket`, `scram`, and `wampcra`.
   - [x] Reuse endpoint authenticators (ticket, CRA, SCRAM, and any configured remote-backed method) to issue short-lived bearer tokens for HTTP clients; the bridge resolves target realm information from body/query/header and keeps public profiles on the current fast path.

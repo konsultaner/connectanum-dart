@@ -19,20 +19,44 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP route access-log middleware is complete locally for release readiness.
-HTTP route actions now have typed per-route access-log settings, config aliases
-parse and round-trip through the settings codec, and the Dart router binding
-emits structured start/completion events with duration, outcome, status when
-available, optional query/header fields, and sensitive-header redaction.
-Pre-edit `bin/test-fast` passed on 2026-05-14; focused config-loader/codec and
-runtime access-log tests passed locally; `git diff --check` passed; and
+HTTP response file call-contract coverage is complete locally for release
+readiness.
+`HttpInvocationContext.sendFile` now maps to `NativeHttpResponseFile`, the
+native Dart runtime encodes file response bodies through the existing buffered
+HTTP send path, and runtime/native tests cover bytes, JSON, and file response
+helpers plus native file response round-trip behavior. The existing native HTTP
+response round-trip test no longer depends on the zero-copy publish feature
+flag. Pre-edit `bin/test-fast` passed on 2026-05-14; focused runtime and native
+HTTP file/round-trip tests passed locally; `git diff --check` passed; and
 `bin/verify` passed on 2026-05-14.
 
 Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-response-file-call-contract.md`
+(complete; file-backed HTTP responses now dispatch through the router binding,
+native HTTP clients receive file contents, helper body mapping has bytes, JSON,
+and file coverage, and the existing native HTTP round-trip test runs without the
+zero-copy publish feature flag).
+
+Earlier implementation checkpoint:
+HTTP route access-log middleware is complete for release readiness. HTTP route
+actions now have typed per-route access-log settings, config aliases parse and
+round-trip through the settings codec, and the Dart router binding emits
+structured start/completion events with duration, outcome, status when
+available, optional query/header fields, and sensitive-header redaction.
+Pre-edit `bin/test-fast` passed on 2026-05-14; focused config-loader/codec and
+runtime access-log tests passed locally; `git diff --check` passed; and
+`bin/verify` passed on 2026-05-14. The implementation was committed as
+`7904822` and pushed to GitHub PR #79. PR-triggered GitHub CI #25862587507
+passed with `Fast Checks` and `Full Verify` green on `7904822`; PR-triggered
+Dart Package Publish Dry Run #25862587325 passed; and the deployment-chain
+audit passed with clean latest CI/logs plus clean hosted package dry-run
+evidence.
+
+Earlier completed exec plan:
 `docs/exec-plans/2026-05-14-http-route-access-log-middleware.md`
 (complete; per-route HTTP access logging now parses, encodes, emits
 structured start/completion events, redacts sensitive optional headers, and has
-clean local verification evidence).
+clean hosted CI/package/audit evidence).
 
 Previous implementation checkpoint:
 HTTP route concurrency throttling is complete locally for release readiness.
