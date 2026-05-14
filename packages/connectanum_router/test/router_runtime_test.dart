@@ -3189,6 +3189,130 @@ void main() {
     expect((body as NativeHttpResponseText).text, 'OK');
   });
 
+  test('routes HTTP session proxy actions through internal sessions', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettings(
+      realms: [
+        RealmSettings(
+          name: 'realm1',
+          auth: const RealmAuthSettings(methods: ['anonymous']),
+          roles: [
+            RoleSettings(
+              name: 'anonymous',
+              permissions: [
+                PermissionSettings(
+                  uri: '',
+                  matchPolicy: PermissionMatchPolicy.prefix,
+                  allow: const ['call', 'register', 'unregister'],
+                  deny: const [],
+                  disclose: const DiscloseSettings(),
+                ),
+              ],
+            ),
+          ],
+          limits: const RealmLimitSettings(),
+        ),
+      ],
+      listeners: const [
+        ListenerSettings(
+          endpoint: '127.0.0.1:0',
+          protocols: [ListenerProtocol.rawsocket, ListenerProtocol.http],
+          http: HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: HttpRouteMatch(path: '/proxy/task'),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.sessionProxy,
+                  procedure: 'com.example.proxy.task',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      authenticators: const {
+        'anonymous': AuthenticatorDefinition(type: 'anonymous'),
+      },
+    );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings,
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 44;
+
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    addTearDown(internalSession.close);
+    final registered = await internalSession.register('com.example.proxy.task');
+    registered.onInvoke((invocation) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      expect(context!.request.path, '/proxy/task');
+      context.sendJson(body: const {'proxied': true}, status: 202);
+    });
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 3,
+        method: 'POST',
+        target: '/proxy/task',
+        path: '/proxy/task',
+        protocol: 'http/1.1',
+        headers: const {'x-proxy': 'session'},
+        body: Uint8List.fromList(utf8.encode('{"task":true}')),
+      ),
+    );
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_request_dispatched'),
+      timeout: const Duration(seconds: 2),
+    );
+    final dispatchEvent = events.firstWhere(
+      (event) => event['type'] == 'http_request_dispatched',
+    );
+    expect(dispatchEvent['realm'], 'realm1');
+    expect(dispatchEvent['procedure'], 'com.example.proxy.task');
+    expect(dispatchEvent['listenerId'], listenerId);
+    expect(dispatchEvent['connectionId'], connectionId);
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty == true,
+      timeout: const Duration(seconds: 2),
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, 202);
+    expect(response.body, isA<NativeHttpResponseJson>());
+    expect((response.body as NativeHttpResponseJson).value, {'proxied': true});
+  });
+
   test('creates internal sessions from session profile defaults', () async {
     final runtime = _HandleRuntime();
     final router = Router(

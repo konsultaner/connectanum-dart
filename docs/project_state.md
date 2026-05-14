@@ -19,6 +19,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP session-proxy route action wiring is complete for release readiness. The
+public `session_proxy` / `sessionProxy` HTTP route action already existed in the
+settings surface; it now maps to native translation route entries and the Dart
+synthetic/non-native runtime dispatch target uses the same internal-session call
+path as `internal_call`. Pre-edit `bin/test-fast` passed on 2026-05-14; focused
+config-loader, native-config JSON, and runtime session-proxy tests passed
+locally; a first `bin/verify` attempt hit a transient HTTP/3 response-streaming
+handshake timeout; the focused native HTTP/3 test passed immediately; and the
+full `bin/verify` rerun passed on 2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-http-session-proxy-route-action.md`
+(complete; `session_proxy` routes now parse, encode, and dispatch through
+internal router sessions).
+
+Previous implementation checkpoint:
 Native HTTP translation-table mapping is complete for release readiness. The
 Dart/router config layer already supports explicit WAMP realm/procedure
 targets, per-method overrides, route protocol gates, and catch-all fallbacks;
@@ -26,9 +42,13 @@ the native runtime now has HTTP/1.1 regression coverage proving a translation
 route with a method-specific override enqueues the expected WAMP
 realm/procedure target before Dart dispatch. Pre-edit `bin/test-fast`, the
 focused native `ct_core` translation-route regression, and `bin/verify` passed
-on 2026-05-14.
+on 2026-05-14. The implementation was committed as `95e5827` and pushed to
+GitHub PR #79. PR-triggered GitHub CI #25853437436 passed with `Fast Checks`
+and `Full Verify` green on `95e5827`; PR-triggered Dart Package Publish Dry
+Run #25853437435 passed; and the deployment-chain audit passed with clean
+latest CI/logs plus clean hosted package dry-run evidence.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-native-http-translation-table-mapping.md`
 (complete; explicit HTTP path/method/protocol translation routes now have
 native runtime evidence that the queued request carries the selected WAMP

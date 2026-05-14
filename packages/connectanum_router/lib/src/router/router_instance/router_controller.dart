@@ -206,17 +206,20 @@ class Router {
     switch (action.type) {
       case HttpRouteActionType.rpc:
       case HttpRouteActionType.internalCall:
+      case HttpRouteActionType.sessionProxy:
         final procedure = action.procedure?.trim();
         if (procedure == null || procedure.isEmpty) {
           throw StateError(
-            'HTTP RPC routes require a non-empty procedure name.',
+            'HTTP ${httpRouteActionTypeToString(action.type)} routes require a non-empty procedure name.',
           );
         }
         final realm = _resolveRouteRealm(
           action,
           listener,
           settings,
-          fallbackFromProcedure: action.type == HttpRouteActionType.internalCall
+          fallbackFromProcedure:
+              (action.type == HttpRouteActionType.internalCall ||
+                  action.type == HttpRouteActionType.sessionProxy)
               ? procedure
               : null,
         );

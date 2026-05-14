@@ -1601,6 +1601,7 @@ class RouterBinding {
     switch (action.type) {
       case HttpRouteActionType.rpc:
       case HttpRouteActionType.internalCall:
+      case HttpRouteActionType.sessionProxy:
         final procedure =
             requestProcedure ?? _nonEmptyHttpRouteString(action.procedure);
         return _HttpRouteDispatchTarget(
@@ -1611,7 +1612,8 @@ class RouterBinding {
                 listenerSettings: listenerSettings,
                 sessionProfile: sessionProfile,
                 fallbackFromProcedure:
-                    action.type == HttpRouteActionType.internalCall
+                    (action.type == HttpRouteActionType.internalCall ||
+                        action.type == HttpRouteActionType.sessionProxy)
                     ? procedure
                     : null,
               ),

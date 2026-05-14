@@ -692,6 +692,49 @@ void main() {
       expect(decodedRoutes.last.action.options['targetRealm'], 'realm1');
     });
 
+    test('parses HTTP session proxy route aliases', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/proxy'},
+                    'action': <String, Object?>{
+                      'type': 'sessionProxy',
+                      'procedure': 'com.example.proxy.handle',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.action.type, HttpRouteActionType.sessionProxy);
+      expect(route.action.procedure, 'com.example.proxy.handle');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      expect(
+        decoded.listeners.single.http!.routes.single.action.type,
+        HttpRouteActionType.sessionProxy,
+      );
+    });
+
     test('parses multi-protocol listener with http routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
