@@ -288,10 +288,23 @@ abstract final class RouterSettingsCodec {
     if (action.delegate != null) {
       map['delegate'] = action.delegate;
     }
+    if (action.rateLimit != null) {
+      map['rate_limit'] = _httpRouteRateLimitToMap(action.rateLimit!);
+    }
     if (action.options.isNotEmpty) {
       map['options'] = action.options;
     }
     return map;
+  }
+
+  static Map<String, Object?> _httpRouteRateLimitToMap(
+    HttpRouteRateLimitSettings rateLimit,
+  ) {
+    return <String, Object?>{
+      'max_requests': rateLimit.maxRequests,
+      'window_ms': rateLimit.window.inMilliseconds,
+      'key': rateLimit.key,
+    };
   }
 
   static Map<String, Object?> _metricsToMap(MetricsSettings metrics) {

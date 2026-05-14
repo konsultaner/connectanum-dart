@@ -885,6 +885,33 @@ class HttpRouteMatch {
 }
 
 @immutable
+class HttpRouteRateLimitSettings {
+  const HttpRouteRateLimitSettings({
+    required this.maxRequests,
+    required this.window,
+    this.key = 'global',
+  });
+
+  final int maxRequests;
+  final Duration window;
+  final String key;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is HttpRouteRateLimitSettings &&
+        other.maxRequests == maxRequests &&
+        other.window == window &&
+        other.key == key;
+  }
+
+  @override
+  int get hashCode => Object.hash(maxRequests, window, key);
+}
+
+@immutable
 class HttpRouteAction {
   const HttpRouteAction({
     required this.type,
@@ -899,6 +926,7 @@ class HttpRouteAction {
     this.directory,
     this.cacheControl,
     this.delegate,
+    this.rateLimit,
     this.options = const {},
   });
 
@@ -914,6 +942,7 @@ class HttpRouteAction {
   final String? directory;
   final String? cacheControl;
   final String? delegate;
+  final HttpRouteRateLimitSettings? rateLimit;
   final Map<String, Object?> options;
 
   @override
@@ -934,6 +963,7 @@ class HttpRouteAction {
         other.directory == directory &&
         other.cacheControl == cacheControl &&
         other.delegate == delegate &&
+        other.rateLimit == rateLimit &&
         const DeepCollectionEquality().equals(other.options, options);
   }
 
@@ -951,6 +981,7 @@ class HttpRouteAction {
     directory,
     cacheControl,
     delegate,
+    rateLimit,
     const DeepCollectionEquality().hash(options),
   );
 }

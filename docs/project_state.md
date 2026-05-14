@@ -19,6 +19,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP route rate-limit middleware is complete for local verification. HTTP route
+actions now have typed per-route rate-limit settings, config aliases parse and
+round-trip through the settings codec, the Dart router binding enforces the
+limit before WAMP/MCP dispatch, and exceeded routes return structured
+`429 Too Many Requests` responses with retry/rate-limit headers while emitting
+`http_route_rate_limited`. Pre-edit `bin/test-fast` passed on 2026-05-14;
+focused config-loader/codec and runtime rate-limit tests passed locally;
+`git diff --check` passed; and `bin/verify` passed on 2026-05-14. Hosted CI
+evidence is pending for the commit that contains this slice.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-rate-limit-middleware.md`
+(complete locally; per-route HTTP rate-limit middleware now parses, encodes,
+enforces before dispatch, and returns structured `429` responses).
+
+Previous implementation checkpoint:
 HTTP publish route action wiring is complete for release readiness. The public
 `publish` HTTP route action and `topic` field already exist in the settings
 surface; it now maps to native translation route entries for request enqueueing,
@@ -26,9 +42,13 @@ publishes the standard HTTP request context through Dart runtime internal
 sessions, and returns acknowledged `202` JSON responses. Pre-edit
 `bin/test-fast` passed on 2026-05-14; focused config-loader, native-config JSON,
 and runtime publish-route tests passed locally; and `bin/verify` passed on
-2026-05-14.
+2026-05-14. The implementation was committed as `5d8ff5b` and pushed to GitHub
+PR #79. PR-triggered GitHub CI #25856957962 passed with `Fast Checks` and
+`Full Verify` green on `5d8ff5b`; PR-triggered Dart Package Publish Dry Run
+#25856957965 passed; and the deployment-chain audit passed with clean latest
+CI/logs plus clean hosted package dry-run evidence.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-publish-route-action.md`
 (complete; `publish` routes now parse, encode, publish via router internal
 sessions, and return acknowledged HTTP responses).

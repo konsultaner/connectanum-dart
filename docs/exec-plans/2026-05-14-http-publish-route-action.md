@@ -55,6 +55,11 @@ through the router internal-session path.
 - `dart test packages/connectanum_router/test/router_json_test.dart -n "publish routes"`
 - `dart test packages/connectanum_router/test/router_runtime_test.dart -n "publish actions"`
 - `bin/verify`
+- GitHub PR CI #25856957962 passed on `5d8ff5b` with `Fast Checks` and
+  `Full Verify` green.
+- GitHub Dart Package Publish Dry Run #25856957965 passed on `5d8ff5b`.
+- `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI/logs and clean hosted package dry-run evidence.
 
 ## Decision Log
 
@@ -67,6 +72,7 @@ through the router internal-session path.
 
 `publish` routes now parse, encode to native translation entries for request
 enqueueing, publish the standard HTTP request context through router internal
-sessions, and return acknowledged `202` JSON responses. Remaining policy-driven
-HTTP bridge work stays on file/custom-handler adapters, middleware hooks, and
-configurable payload-shaping options.
+sessions, and return acknowledged `202` JSON responses. Commit `5d8ff5b` is
+pushed to GitHub PR #79 with clean hosted CI/package dry-run/audit evidence.
+Remaining policy-driven HTTP bridge work stays on file/custom-handler adapters,
+middleware hooks, and configurable payload-shaping options.

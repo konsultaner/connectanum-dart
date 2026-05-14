@@ -782,6 +782,57 @@ void main() {
       );
     });
 
+    test('parses HTTP route rate-limit middleware', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/limited'},
+                    'action': <String, Object?>{
+                      'type': 'rpc',
+                      'procedure': 'com.example.http.limited',
+                      'rateLimit': <String, Object?>{
+                        'maxRequests': 2,
+                        'windowMs': 1500,
+                        'key': 'header:x-client-id',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final rateLimit =
+          settings.listeners.single.http!.routes.single.action.rateLimit!;
+      expect(rateLimit.maxRequests, 2);
+      expect(rateLimit.window, const Duration(milliseconds: 1500));
+      expect(rateLimit.key, 'header:x-client-id');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRateLimit =
+          decoded.listeners.single.http!.routes.single.action.rateLimit!;
+      expect(decodedRateLimit.maxRequests, 2);
+      expect(decodedRateLimit.window, const Duration(milliseconds: 1500));
+      expect(decodedRateLimit.key, 'header:x-client-id');
+    });
+
     test('parses multi-protocol listener with http routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
