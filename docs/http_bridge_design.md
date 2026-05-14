@@ -217,10 +217,11 @@ router:
   custom processor running in a dedicated isolate.
 - `file` routes serve files relative to the configured `directory`. The router
   rejects empty/unsafe path segments and symlink escapes outside that directory;
-  successful responses include `Content-Length`, and `HEAD` returns the same
-  metadata as `GET` without a file body. Directory listings, index rewrites,
-  range requests, and conditional caching are intentionally outside the first
-  static-file slice.
+  successful responses include `Content-Length`, `ETag`, and `Last-Modified`;
+  `HEAD` returns the same metadata as `GET` without a file body; and matching
+  `If-None-Match` / `If-Modified-Since` validators return `304 Not Modified`.
+  Directory listings, index rewrites, and range requests are intentionally
+  outside the first static-file slices.
 - Translator shorthands:
   - `type: reserved_realm` automatically targets the router-managed
     `router.http` realm. Use `namespace` (optional) to prepend static segments

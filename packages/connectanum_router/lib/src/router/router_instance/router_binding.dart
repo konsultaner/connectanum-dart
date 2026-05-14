@@ -2084,8 +2084,13 @@ class RouterBinding {
       return;
     }
 
+    final method = request.method.toUpperCase();
+    final modified = stat.modified.toUtc();
+    final etag = _httpFileEtag(stat);
     final headers = <String, String>{};
     headers[HttpHeaders.contentLengthHeader] = stat.size.toString();
+    headers[HttpHeaders.etagHeader] = etag;
+    headers[HttpHeaders.lastModifiedHeader] = HttpDate.format(modified);
     final contentType = _httpFileContentType(action, filePath);
     if (contentType != null) {
       headers[HttpHeaders.contentTypeHeader] = contentType;
@@ -2101,13 +2106,42 @@ class RouterBinding {
       headers[HttpHeaders.cacheControlHeader] = cacheControl;
     }
 
+    if ((method == 'GET' || method == 'HEAD') &&
+        _httpFileNotModified(request, etag: etag, modified: modified)) {
+      headers.remove(HttpHeaders.contentLengthHeader);
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.notModified,
+          headers: headers,
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_not_modified',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'filePath': filePath,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notModified,
+        outcome: 'file_not_modified',
+      );
+      return;
+    }
+
     await _sendImmediateHttpResponse(
       request: request,
       handshake: handshake,
       response: NativeHttpResponse(
         status: HttpStatus.ok,
         headers: headers,
-        body: request.method.toUpperCase() == 'HEAD'
+        body: method == 'HEAD'
             ? NativeHttpResponseBytes(Uint8List(0))
             : NativeHttpResponseFile(filePath),
       ),
@@ -2256,6 +2290,66 @@ class RouterBinding {
       'wasm' => 'application/wasm',
       _ => null,
     };
+  }
+
+  String _httpFileEtag(FileStat stat) {
+    final size = stat.size.toRadixString(16);
+    final modified = stat.modified.toUtc().millisecondsSinceEpoch.toRadixString(
+      16,
+    );
+    return 'W/"$size-$modified"';
+  }
+
+  bool _httpFileNotModified(
+    RouterHttpRequest request, {
+    required String etag,
+    required DateTime modified,
+  }) {
+    final ifNoneMatch = _headerValue(
+      request.headers,
+      HttpHeaders.ifNoneMatchHeader,
+    );
+    if (ifNoneMatch != null) {
+      return _httpFileEtagMatches(ifNoneMatch, etag);
+    }
+    final ifModifiedSince = _headerValue(
+      request.headers,
+      HttpHeaders.ifModifiedSinceHeader,
+    );
+    if (ifModifiedSince == null) {
+      return false;
+    }
+    try {
+      final since = HttpDate.parse(ifModifiedSince).toUtc();
+      final modifiedSeconds = DateTime.fromMillisecondsSinceEpoch(
+        (modified.millisecondsSinceEpoch ~/ 1000) * 1000,
+        isUtc: true,
+      );
+      return !modifiedSeconds.isAfter(since);
+    } on FormatException {
+      return false;
+    }
+  }
+
+  bool _httpFileEtagMatches(String header, String etag) {
+    for (final rawTag in header.split(',')) {
+      final tag = rawTag.trim();
+      if (tag == '*') {
+        return true;
+      }
+      if (_normalizeHttpFileEtag(tag) == _normalizeHttpFileEtag(etag)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String _normalizeHttpFileEtag(String value) {
+    final trimmed = value.trim();
+    if (trimmed.startsWith('W/')) {
+      return trimmed.substring(2).trim();
+    }
+    return trimmed;
   }
 
   SessionProfileSettings? _resolveHttpSessionProfile({

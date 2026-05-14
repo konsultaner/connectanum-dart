@@ -1027,6 +1027,12 @@ void main() {
           response.headers.value(HttpHeaders.contentLengthHeader),
           equals(utf8.encode(fileContents).length.toString()),
         );
+        final etag = response.headers.value(HttpHeaders.etagHeader);
+        final lastModified = response.headers.value(
+          HttpHeaders.lastModifiedHeader,
+        );
+        expect(etag, startsWith('W/"'));
+        expect(lastModified, isNotNull);
         expect(body, equals(fileContents));
 
         final headRequest = await client.head(
@@ -1043,8 +1049,55 @@ void main() {
         );
         expect(headBody, isEmpty);
 
+        final conditionalGet = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        conditionalGet.headers.set(HttpHeaders.ifNoneMatchHeader, etag!);
+        final conditionalGetResponse = await conditionalGet.close();
+        final conditionalGetBody = await utf8.decoder
+            .bind(conditionalGetResponse)
+            .join();
+        expect(
+          conditionalGetResponse.statusCode,
+          equals(HttpStatus.notModified),
+        );
+        expect(
+          conditionalGetResponse.headers.value(HttpHeaders.etagHeader),
+          equals(etag),
+        );
+        expect(conditionalGetBody, isEmpty);
+
+        final conditionalHead = await client.head(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        conditionalHead.headers.set(
+          HttpHeaders.ifModifiedSinceHeader,
+          lastModified!,
+        );
+        final conditionalHeadResponse = await conditionalHead.close();
+        final conditionalHeadBody = await utf8.decoder
+            .bind(conditionalHeadResponse)
+            .join();
+        expect(
+          conditionalHeadResponse.statusCode,
+          equals(HttpStatus.notModified),
+        );
+        expect(
+          conditionalHeadResponse.headers.value(HttpHeaders.lastModifiedHeader),
+          equals(lastModified),
+        );
+        expect(conditionalHeadBody, isEmpty);
+
         final fileEvent = await harness.nextEvent('http_file_response_sent');
         expect(fileEvent['path'], equals('/static/asset.txt'));
+        final notModifiedEvent = await harness.nextEvent(
+          'http_file_not_modified',
+        );
+        expect(notModifiedEvent['path'], equals('/static/asset.txt'));
       },
       skip: skipReason,
     );

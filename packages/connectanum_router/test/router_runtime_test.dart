@@ -3642,6 +3642,10 @@ void main() {
         ok.headers[HttpHeaders.contentLengthHeader],
         utf8.encode(fileContents).length.toString(),
       );
+      final etag = ok.headers[HttpHeaders.etagHeader];
+      final lastModified = ok.headers[HttpHeaders.lastModifiedHeader];
+      expect(etag, startsWith('W/"'));
+      expect(lastModified, isNotNull);
       expect(ok.body, isA<NativeHttpResponseFile>());
       expect(
         (ok.body as NativeHttpResponseFile).path,
@@ -3664,9 +3668,62 @@ void main() {
       );
       expect(head.body, isA<NativeHttpResponseBytes>());
       expect((head.body as NativeHttpResponseBytes).bytes, isEmpty);
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 308,
+        handle: 3080,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: {'if-none-match': etag!},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 309,
+        handle: 3090,
+        method: 'HEAD',
+        target: '/static/hello.txt',
+        headers: {'if-modified-since': lastModified!},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[308]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[309]?.isNotEmpty ?? false),
+      );
+
+      final etagNotModified = runtime.httpResponses[308]!.single;
+      expect(etagNotModified.status, HttpStatus.notModified);
+      expect(etagNotModified.headers[HttpHeaders.etagHeader], etag);
+      expect(
+        etagNotModified.headers.containsKey(HttpHeaders.contentLengthHeader),
+        isFalse,
+      );
+      expect(etagNotModified.body, isA<NativeHttpResponseBytes>());
+      expect((etagNotModified.body as NativeHttpResponseBytes).bytes, isEmpty);
+
+      final dateNotModified = runtime.httpResponses[309]!.single;
+      expect(dateNotModified.status, HttpStatus.notModified);
+      expect(
+        dateNotModified.headers[HttpHeaders.lastModifiedHeader],
+        lastModified,
+      );
+      expect(dateNotModified.body, isA<NativeHttpResponseBytes>());
+      expect((dateNotModified.body as NativeHttpResponseBytes).bytes, isEmpty);
       expect(
         events.map((event) => event['type']),
         contains('http_file_response_sent'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        contains('http_file_not_modified'),
       );
       expect(
         events.map((event) => event['type']),

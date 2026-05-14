@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-14-http-file-route-head-content-length.md`.
+`docs/exec-plans/2026-05-14-http-file-route-cache-validation.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,14 +20,38 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP file route HEAD/content-length hardening is locally complete for release
+HTTP file route cache validation is locally complete for release readiness.
+Configured HTTP `file` route responses now include deterministic weak `ETag`
+and `Last-Modified` headers, and matching `If-None-Match` /
+`If-Modified-Since` validators return `304 Not Modified` without a body on
+`GET` and `HEAD` through both binding-level and native HTTP paths. Pre-edit
+`bin/test-fast`, focused binding/native route tests,
+`dart analyze packages/connectanum_router`, `git diff --check`, and full
+local `bin/verify` passed on 2026-05-14. Commit/push and hosted GitHub
+evidence are pending.
+
+Previous implementation checkpoint:
+HTTP file route HEAD/content-length hardening is complete for release
 readiness. Successful file-route responses now include deterministic
 `Content-Length`, and `HEAD` returns the same metadata as `GET` without sending
 a file body through both binding-level and native HTTP paths. Pre-edit
 `bin/test-fast`, focused binding/native route tests,
 `dart analyze packages/connectanum_router`, `git diff --check`, and full
-local `bin/verify` passed on 2026-05-14. Commit/push and hosted GitHub
-evidence are pending.
+local `bin/verify` passed on 2026-05-14. The implementation was committed as
+`90cb23d` and pushed to GitHub PR #79. Push-triggered GitHub CI #25870513225
+passed with `Fast Checks` and `Full Verify` green; push-triggered Dart Package
+Publish Dry Run #25870513185 passed; PR-triggered latest GitHub CI #25870523008
+passed with `Fast Checks` and `Full Verify` green; PR-triggered latest Dart
+Package Publish Dry Run #25870523053 passed; and the deployment-chain audit
+passed with clean latest CI/logs plus clean hosted package dry-run evidence.
+PR #79 remains blocked only by review/merge requirements before release-branch
+promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-file-route-head-content-length.md`
+(complete; successful HTTP `file` route responses now include deterministic
+`Content-Length`, and `HEAD` returns the same headers/status as `GET` without a
+file body through both the router binding and native HTTP runtime path).
 
 Previous implementation checkpoint:
 HTTP static file route actions are complete for release readiness.

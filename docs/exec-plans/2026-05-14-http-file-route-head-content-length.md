@@ -1,6 +1,6 @@
 # HTTP File Route HEAD And Content Length
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-05-14
 Last updated: 2026-05-14
@@ -40,8 +40,29 @@ file body.
 - 2026-05-14: `dart analyze packages/connectanum_router` passed.
 - 2026-05-14: `git diff --check` passed.
 - 2026-05-14: Full local `bin/verify` passed on Darwin arm64.
+- 2026-05-14: Committed as `90cb23d` and pushed to GitHub PR #79.
+- 2026-05-14: Push-triggered GitHub CI #25870513225 passed on `90cb23d`
+  with `Fast Checks` and `Full Verify` green.
+- 2026-05-14: Push-triggered Dart Package Publish Dry Run #25870513185
+  passed on `90cb23d`.
+- 2026-05-14: PR-triggered latest GitHub CI #25870523008 passed on
+  `90cb23d` with `Fast Checks` and `Full Verify` green; PR-triggered latest
+  Dart Package Publish Dry Run #25870523053 also passed.
+- 2026-05-14: `bin/audit-github-deployment-chain --branch
+  codex/post-rc-production-readiness --run-limit 1
+  --require-clean-latest-ci --require-clean-latest-ci-logs
+  --require-clean-dart-package-publish-dry-run` passed with clean latest CI
+  jobs/logs and clean hosted package dry-run evidence. PR #79 remains blocked
+  only by review/merge requirements before release-branch promotion.
 
 ## Next Step
 
-Commit with the bundled project-state updates, push, and audit the GitHub
-deployment chain.
+Select the next release-readiness implementation slice from `ROADMAP_NEXT.md`
+and `ROADMAP.md`. The remaining external gate for this slice is review/merge
+of PR #79 before release-branch promotion.
+
+## Handoff
+
+Successful HTTP `file` route responses now include deterministic
+`Content-Length`, and `HEAD` returns the same headers/status as `GET` without a
+file body through both the router binding and native HTTP runtime path.
