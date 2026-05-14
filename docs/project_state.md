@@ -20,6 +20,20 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP route method/protocol whitelists are now code-backed as release-ready.
+Existing route `methods` / `protocols` enforcement was verified with new native
+and Dart runtime regressions: route resolution reports sorted allowed methods,
+native HTTP/1.1 returns 405 with `Allow` before enqueueing a WAMP-backed HTTP
+request, and the Dart synthetic runtime path returns 405 before dispatch as
+well. Pre-edit `bin/test-fast` passed on 2026-05-14; focused native and Dart
+method-gate tests passed; and `bin/verify` passed on 2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-method-gate-coverage.md`
+(complete; HTTP bridge method/protocol whitelist enforcement now has native and
+Dart runtime evidence and the roadmap item is closed).
+
+Previous implementation checkpoint:
 `bin/audit-github-deployment-chain --show-rc-readiness` now keeps stale-tag
 operator guidance coherent. When the selected RC tag does not cover the
 checked-out release-sensitive candidate, Native Artifacts and Router Image
@@ -30,7 +44,7 @@ bin/audit-github-deployment-chain` passed; `git diff --check` passed; the
 focused RC-readiness audit printed the corrected stale-tag next actions; and
 `bin/verify` passed on 2026-05-14.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-rc-stale-tag-evidence-next-actions.md`
 (complete; stale selected RC tags now tell operators to fix the tag before
 refreshing native/router hosted evidence).

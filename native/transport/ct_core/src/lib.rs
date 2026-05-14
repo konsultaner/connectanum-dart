@@ -8464,6 +8464,58 @@ mod tests {
         shutdown().unwrap();
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn http_route_method_mismatch_returns_405_before_dispatch() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let config = json!({
+            "schema": "connectanum.router",
+            "version": 1,
+            "endpoints": [{
+                "host": "127.0.0.1",
+                "port": 0,
+                "tls_mode": "disabled",
+                "protocols": ["http"],
+                "http": {"alpn": ["http/1.1"]},
+                "http_routes": [{
+                    "path": "/get-only",
+                    "protocols": ["http/1.1"],
+                    "methods": {
+                        "GET": {"type": "reserved_realm", "namespace": "api"}
+                    }
+                }]
+            }]
+        });
+        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(b"POST /get-only HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
+        let connection_id = receiver.recv().await.expect("http connection delivered");
+
+        let mut response = Vec::new();
+        client.read_to_end(&mut response).await.unwrap();
+        let response = String::from_utf8_lossy(&response);
+        assert!(
+            response.starts_with("HTTP/1.1 405 Method Not Allowed"),
+            "{response}"
+        );
+        assert!(response.contains("Allow: GET"), "{response}");
+        assert!(
+            connection_http_poll_request(connection_id)
+                .unwrap()
+                .is_none(),
+            "method mismatch must not dispatch a WAMP-backed HTTP request"
+        );
+        shutdown().unwrap();
+    }
+
     async fn wait_for_polled_message(connection_id: ConnectionId) -> super::ParsedMessage {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {

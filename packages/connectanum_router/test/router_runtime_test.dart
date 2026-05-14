@@ -1639,6 +1639,48 @@ RouterSettings _buildRouterSettingsWithHttpProtocolRoute() {
   return builder.build();
 }
 
+RouterSettings _buildRouterSettingsWithHttpMethodRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(
+                    path: '/api/get-only',
+                    methods: ['GET'],
+                  ),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    procedure: 'com.example.api.get',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
 String _encodeHs256Jwt({
   required Map<String, Object?> claims,
   required String secret,
@@ -3376,6 +3418,69 @@ void main() {
       );
     },
   );
+
+  test('honors typed HTTP route method restrictions before dispatch', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpMethodRoute(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 156;
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 115,
+        method: 'POST',
+        target: '/api/get-only',
+        path: '/api/get-only',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.get',
+      ),
+    );
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.methodNotAllowed);
+    expect(response.headers[HttpHeaders.allowHeader], 'GET');
+    final jsonBody = _jsonResponseBody(response);
+    expect(jsonBody['reason'], 'method_not_allowed');
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+  });
 
   test(
     'validates protected HTTP bearer routes through configured JWT provider',

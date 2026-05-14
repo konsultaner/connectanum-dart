@@ -843,6 +843,42 @@ mod tests {
     }
 
     #[test]
+    fn http_route_method_mismatch_reports_allowed_methods() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "protocols": ["http"],
+            "http_routes": [{
+                "path": "/api",
+                "protocols": ["http/1.1"],
+                "methods": {
+                    "POST": {"type": "translation", "realm": "realm1", "procedure": "com.example.create"},
+                    "GET": {"type": "translation", "realm": "realm1", "procedure": "com.example.read"}
+                }
+            }]
+        }))
+        .unwrap();
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+
+        match runtime.match_http_route("/api", None, "DELETE", "http/1.1") {
+            HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
+                assert_eq!(allowed_methods, vec!["GET", "POST"]);
+            }
+            other => panic!("expected method mismatch, got {other:?}"),
+        }
+
+        match runtime.match_http_route("/api", None, "post", "http/1.1") {
+            HttpRouteMatch::Resolved(resolution) => {
+                assert_eq!(resolution.realm, "realm1");
+                assert_eq!(resolution.procedure, "com.example.create");
+                assert_eq!(resolution.method, "POST");
+            }
+            other => panic!("expected method alias to match, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn client_auth_requires_native_tls() {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",
