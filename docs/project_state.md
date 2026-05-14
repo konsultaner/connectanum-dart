@@ -7,9 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-14-native-artifacts-windows-runner-label.md`
-(active; clean up a hosted Native Artifacts Windows runner-label redirect
-notice before the next RC).
+`docs/exec-plans/2026-05-14-hosted-workflow-warning-scan-audit.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -22,6 +20,20 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+The deployment-chain audit is being hardened so hosted warning/noise signals are
+part of release-sensitive workflow evidence, not a separate manual check. The
+audit now reuses the existing raw-log warning/skipped/noisy pattern scan and
+adds GitHub check-run warning/error annotation scans for CI, Dart Package
+Publish Dry Run, Native Artifacts, Router Image, and WAMP Profile Benchmarks.
+Pre-edit `bin/test-fast` passed on 2026-05-14, shell syntax passed for the
+audit script, and focused hosted audit checks passed for the current branch
+with clean logs plus zero warning/error annotations across CI, package
+dry-run, Native Artifacts, Router Image, and WAMP Profile Benchmarks.
+`git diff --check` and `bin/verify` also passed on 2026-05-14. The
+implementation is ready to push with the bundled project-state updates; hosted
+CI evidence is the remaining handoff check for this slice.
+
+Previous implementation checkpoint:
 Generated GitHub Release notes now distinguish standalone native bundle
 releases, project release candidates/prereleases, and stable project releases.
 Future `v*-*` prerelease notes include release status, tag, and commit metadata,
@@ -39,11 +51,26 @@ Native Artifacts dry-run #25835145241 refreshed native release evidence for
 `c3a31d6`, but the Windows x64 job emitted a hosted `windows-2025` runner-label
 redirect notice. The follow-up workflow cleanup changes the Windows x64 native
 artifact runner label to `windows-2025-vs2026`; local YAML parsing,
-`git diff --check`, `bin/test-fast`, and `bin/verify` passed on 2026-05-14.
-Hosted PR CI, a warning-clean Native Artifacts dry-run, and strict deployment
-audit still need to be refreshed after pushing that follow-up commit.
+`git diff --check`, `bin/test-fast`, and `bin/verify` passed on 2026-05-14, and
+commit `f7b13ef` is pushed to GitHub PR #79. GitHub CI #25835905426 and
+PR-triggered CI #25835906336 passed with `Fast Checks` and `Full Verify` green;
+PR-triggered Dart Package Publish Dry Run #25835906345 passed; Native Artifacts
+dry-run #25836267858 passed with all five platform bundle jobs, release-preview
+job, and no Windows runner-label redirect annotation. The strict
+deployment-chain audit passed on `f7b13ef` with clean latest CI/logs, relevant
+Dart package dry-run, relevant Native Artifacts dry-run, relevant Router Image
+dry-run, relevant WAMP Profile Benchmarks, and router package visibility checks
+enabled. `--require-rc-ready` still fails only on expected release-promotion
+items: PR #79 review/merge into `master`, moving or creating the intended RC tag
+at `f7b13ef`, updating the GitHub prerelease, and the intentionally deferred
+pub.dev release-order decisions.
 
 Latest completed exec plan:
+`docs/exec-plans/2026-05-14-native-artifacts-windows-runner-label.md`
+(complete; Native Artifacts Windows x64 uses the current hosted runner label and
+the warning-clean dry-run evidence is refreshed).
+
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-release-note-readability.md` (complete; generated
 RC/stable GitHub release notes and native-artifact prerelease titles are clearer
 for consumers).

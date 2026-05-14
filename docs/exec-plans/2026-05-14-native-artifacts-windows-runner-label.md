@@ -1,6 +1,6 @@
 # Native Artifacts Windows Runner Label
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -23,11 +23,21 @@ label directly instead of relying on redirect behavior.
 - `git diff --check` passed.
 - `bin/test-fast` passed on 2026-05-14.
 - `bin/verify` passed on 2026-05-14.
+- GitHub CI #25835905426 and PR-triggered GitHub CI #25835906336 passed on
+  `f7b13ef` with `Fast Checks` and `Full Verify` green.
+- PR-triggered Dart Package Publish Dry Run #25835906345 passed on `f7b13ef`.
+- Native Artifacts dry-run #25836267858 passed on `f7b13ef`; all five platform
+  bundle jobs and the release-preview job passed, and the previous Windows
+  runner-label redirect annotation was gone.
+- The strict deployment-chain audit passed on `f7b13ef` with clean latest
+  CI/logs, relevant Dart package dry-run, relevant Native Artifacts dry-run,
+  relevant Router Image dry-run, relevant WAMP Profile Benchmarks, and router
+  package visibility requirements enabled.
+- `--require-rc-ready` failed only on expected release-promotion blockers:
+  PR #79 still requires review/merge into `master`, the existing
+  `v0.1.0-rc.1` tag/prerelease does not cover `f7b13ef`, and pub.dev release
+  order remains intentionally deferred.
 
 ## Remaining
 
-- Push the runner-label fix.
-- Watch PR CI for the pushed head.
-- Dispatch Native Artifacts dry-run and confirm the Windows runner annotation is
-  gone.
-- Rerun the strict deployment-chain audit.
+- No implementation work remains for this slice.

@@ -36,8 +36,9 @@ Options:
   --require-clean-dart-package-publish-dry-run
                              Exit non-zero unless the latest relevant Dart
                              package publish dry-run workflow completed
-                             successfully and still covers the checked-out
-                             package-publishing inputs.
+                             successfully, has no hosted warning/error
+                             annotations or noisy log lines, and still covers
+                             the checked-out package-publishing inputs.
   --show-native-release-dry-run
                              Print the latest dedicated native release dry-run
                              workflow evidence.
@@ -45,8 +46,9 @@ Options:
                              Exit non-zero unless the latest relevant Native
                              Artifacts dry-run workflow completed successfully,
                              uploaded the preview artifact, avoided release
-                             mutation, and still covers the checked-out native
-                             release inputs.
+                             mutation, has no hosted warning/error annotations
+                             or noisy log lines, and still covers the
+                             checked-out native release inputs.
   --show-router-image-dry-run
                              Print the latest dedicated router image dry-run
                              workflow evidence.
@@ -54,17 +56,19 @@ Options:
                              Exit non-zero unless the latest relevant Router
                              Image dry-run workflow completed successfully,
                              uploaded the preview artifact, avoided GHCR
-                             mutation, and still covers the checked-out router
-                             image inputs.
+                             mutation, has no hosted warning/error annotations
+                             or noisy log lines, and still covers the
+                             checked-out router image inputs.
   --show-wamp-profile-benchmarks
                              Print the latest dedicated WAMP profile benchmark
                              workflow evidence.
   --require-clean-wamp-profile-benchmarks
                              Exit non-zero unless the latest relevant WAMP
                              Profile Benchmarks workflow completed
-                             successfully, uploaded its artifact bundle, and
-                             still covers the checked-out WAMP benchmark
-                             inputs.
+                             successfully, uploaded its artifact bundle, has no
+                             hosted warning/error annotations or noisy log
+                             lines, and still covers the checked-out WAMP
+                             benchmark inputs.
   --require-router-package   Exit non-zero unless the GHCR router package is
                              visible through the GitHub Packages API or a
                              public registry manifest for the RC tag.
@@ -606,6 +610,108 @@ latest_wamp_profile_benchmarks_id() {
   latest_workflow_run_id "$wamp_profile_benchmarks_workflow"
 }
 
+print_run_log_file_scan() {
+  local log_file="$1"
+  local label="$2"
+  local matches_file
+
+  matches_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-run-log-matches.XXXXXX")"
+
+  if LC_ALL=C grep -Eai "$ci_log_issue_pattern" "$log_file" >"$matches_file"; then
+    printf 'Potential hosted %s log issues matching: %s\n' "$label" "$ci_log_issue_pattern"
+    awk '
+      NR <= 200 { print "- " $0 }
+      END {
+        if (NR > 200) {
+          printf("- ... truncated %d additional matching lines\n", NR - 200)
+        }
+      }
+    ' "$matches_file"
+    rm -f "$matches_file"
+    return 1
+  fi
+
+  printf 'Latest %s log scan is clean: no warning/deprecation/skipped/reset/connection-noise patterns found.\n' "$label"
+  rm -f "$matches_file"
+  return 0
+}
+
+print_run_annotation_scan() {
+  local run_id="$1"
+  local label="$2"
+  local jobs_file
+  local annotations_file
+  local job_annotations_file
+  local job_name
+  local job_id
+  local failed=0
+
+  jobs_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-run-jobs.XXXXXX")"
+  annotations_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-run-annotations.XXXXXX")"
+  job_annotations_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-run-job-annotations.XXXXXX")"
+
+  if ! "$gh_bin" api "repos/${repository}/actions/runs/${run_id}/jobs?per_page=100" \
+    --jq '.jobs[] | [.name, .id] | @tsv' \
+    >"$jobs_file"; then
+    printf 'Finding: could not inspect GitHub check-run annotations for %s run #%s.\n' "$label" "$run_id"
+    rm -f "$jobs_file" "$annotations_file" "$job_annotations_file"
+    return 1
+  fi
+
+  if [[ ! -s "$jobs_file" ]]; then
+    printf 'Finding: %s run #%s has no inspectable check runs for annotation scanning.\n' "$label" "$run_id"
+    rm -f "$jobs_file" "$annotations_file" "$job_annotations_file"
+    return 1
+  fi
+
+  while IFS=$'\t' read -r job_name job_id; do
+    [[ -n "$job_name" && -n "$job_id" ]] || continue
+    : >"$job_annotations_file"
+
+    if ! "$gh_bin" api "repos/${repository}/check-runs/${job_id}/annotations?per_page=100" \
+      --jq '.[] | select(.annotation_level == "warning" or .annotation_level == "failure") | [.annotation_level, (.path // ""), ((.start_line // "") | tostring), ((.message // "") | gsub("[\r\n\t]+"; " "))] | @tsv' \
+      >"$job_annotations_file"; then
+      printf 'Finding: could not inspect GitHub check-run annotations for %s job %s.\n' "$label" "$job_name"
+      failed=1
+      continue
+    fi
+
+    if [[ -s "$job_annotations_file" ]]; then
+      awk -v job="$job_name" -F '\t' '
+        {
+          location = ""
+          if ($2 != "") {
+            location = " (" $2
+            if ($3 != "") {
+              location = location ":" $3
+            }
+            location = location ")"
+          }
+          printf("- %s: %s: %s%s\n", job, $1, $4, location)
+        }
+      ' "$job_annotations_file" >>"$annotations_file"
+    fi
+  done <"$jobs_file"
+
+  if [[ -s "$annotations_file" ]]; then
+    printf 'Potential hosted %s warning/error annotations:\n' "$label"
+    awk '
+      NR <= 200 { print }
+      END {
+        if (NR > 200) {
+          printf("- ... truncated %d additional annotations\n", NR - 200)
+        }
+      }
+    ' "$annotations_file"
+    failed=1
+  elif [[ "$failed" -eq 0 ]]; then
+    printf 'Latest %s annotation scan is clean: no warning/error annotations found.\n' "$label"
+  fi
+
+  rm -f "$jobs_file" "$annotations_file" "$job_annotations_file"
+  return "$failed"
+}
+
 dart_package_publish_sensitive_changes_since() {
   local base="$1"
   local path
@@ -703,34 +809,24 @@ wamp_profile_benchmark_sensitive_changes_since() {
 print_latest_ci_log_scan() {
   local run_id="$1"
   local log_file
-  local matches_file
+  local failed=0
 
   log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-ci-log.XXXXXX")"
-  matches_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-ci-log-matches.XXXXXX")"
 
   if ! "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
     printf 'Finding: could not download logs for CI run #%s.\n' "$run_id"
-    rm -f "$log_file" "$matches_file"
-    return 1
+    failed=1
+  elif ! print_run_log_file_scan "$log_file" CI; then
+    failed=1
   fi
 
-  if LC_ALL=C grep -Eai "$ci_log_issue_pattern" "$log_file" >"$matches_file"; then
-    printf 'Potential hosted CI log issues matching: %s\n' "$ci_log_issue_pattern"
-    awk '
-      NR <= 200 { print "- " $0 }
-      END {
-        if (NR > 200) {
-          printf("- ... truncated %d additional matching lines\n", NR - 200)
-        }
-      }
-    ' "$matches_file"
-    rm -f "$log_file" "$matches_file"
-    return 1
+  rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" CI; then
+    failed=1
   fi
 
-  printf 'Latest CI log scan is clean: no warning/deprecation/skipped/reset/connection-noise patterns found.\n'
-  rm -f "$log_file" "$matches_file"
-  return 0
+  return "$failed"
 }
 
 print_dart_package_publish_dry_run_gate() {
@@ -747,6 +843,7 @@ print_dart_package_publish_dry_run_gate() {
   local job_conclusion
   local expected_job
   local changed_paths
+  local log_file
   local failed=0
 
   run_id="$(latest_dart_package_publish_dry_run_id)"
@@ -812,6 +909,21 @@ print_dart_package_publish_dry_run_gate() {
         failed=1
       fi
     done
+  fi
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-package-publish-log.XXXXXX")"
+  if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    if ! print_run_log_file_scan "$log_file" "$dart_package_publish_workflow"; then
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download logs for Dart package publish dry-run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$dart_package_publish_workflow"; then
+    failed=1
   fi
 
   current_head_sha="$(git rev-parse HEAD)"
@@ -1010,11 +1122,19 @@ print_native_release_dry_run_gate() {
         failed=1
       fi
     fi
+
+    if ! print_run_log_file_scan "$log_file" "$native_release_workflow"; then
+      failed=1
+    fi
   else
     printf 'Finding: could not download logs for Native Artifacts run #%s.\n' "$run_id"
     failed=1
   fi
   rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$native_release_workflow"; then
+    failed=1
+  fi
 
   current_head_sha="$(git rev-parse HEAD)"
   if [[ "$run_head_sha" == "$current_head_sha" ]]; then
@@ -1148,11 +1268,19 @@ print_router_image_dry_run_gate() {
       printf 'Finding: latest Router Image dry-run did not log router-image-preview upload.\n'
       failed=1
     fi
+
+    if ! print_run_log_file_scan "$log_file" "$router_image_workflow"; then
+      failed=1
+    fi
   else
     printf 'Finding: could not download logs for Router Image run #%s.\n' "$run_id"
     failed=1
   fi
   rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$router_image_workflow"; then
+    failed=1
+  fi
 
   preview_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-image-preview.XXXXXX")"
   if "$gh_bin" run download "$run_id" --repo "$repository" --pattern router-image-preview --dir "$preview_dir" >/dev/null 2>&1; then
@@ -1240,6 +1368,7 @@ print_wamp_profile_benchmark_gate() {
   local changed_paths
   local artifact_dir
   local artifact_file_count
+  local log_file
   local failed=0
 
   run_id="$(latest_wamp_profile_benchmarks_id)"
@@ -1305,6 +1434,21 @@ print_wamp_profile_benchmark_gate() {
         failed=1
       fi
     done
+  fi
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-wamp-profile-log.XXXXXX")"
+  if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    if ! print_run_log_file_scan "$log_file" "$wamp_profile_benchmarks_workflow"; then
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download logs for WAMP Profile Benchmarks run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$wamp_profile_benchmarks_workflow"; then
+    failed=1
   fi
 
   artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-wamp-profile-artifacts.XXXXXX")"
