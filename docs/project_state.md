@@ -6,8 +6,10 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan: none. Use `ROADMAP_NEXT.md` and `ROADMAP.md` for the next
-implementation slice unless hosted CI or review feedback exposes a blocker.
+Active exec plan:
+`docs/exec-plans/2026-05-14-native-artifacts-windows-runner-label.md`
+(active; clean up a hosted Native Artifacts Windows runner-label redirect
+notice before the next RC).
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -33,6 +35,13 @@ focused release-tooling tests, Python syntax compilation, workflow YAML
 parsing, sample RC release-note rendering, `git diff --check`, and `bin/verify`
 passed on 2026-05-14. The next RC still needs review/merge of PR #79, then an
 operator-approved tag/prerelease at the promoted release-sensitive candidate.
+Native Artifacts dry-run #25835145241 refreshed native release evidence for
+`c3a31d6`, but the Windows x64 job emitted a hosted `windows-2025` runner-label
+redirect notice. The follow-up workflow cleanup changes the Windows x64 native
+artifact runner label to `windows-2025-vs2026`; local YAML parsing,
+`git diff --check`, `bin/test-fast`, and `bin/verify` passed on 2026-05-14.
+Hosted PR CI, a warning-clean Native Artifacts dry-run, and strict deployment
+audit still need to be refreshed after pushing that follow-up commit.
 
 Latest completed exec plan:
 `docs/exec-plans/2026-05-14-release-note-readability.md` (complete; generated
