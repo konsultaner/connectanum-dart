@@ -302,6 +302,21 @@ class Router {
           'realm': 'router.http',
           'procedure': 'router.http.file',
         };
+      case HttpRouteActionType.reverseProxy:
+      case HttpRouteActionType.fastCgi:
+        final endpoint = _resolveRouteAdapterEndpoint(action);
+        if (endpoint == null || endpoint.isEmpty) {
+          throw StateError(
+            'HTTP ${httpRouteActionTypeToString(action.type)} routes require an adapter endpoint; set action.delegate or action.options.target/upstream/socket.',
+          );
+        }
+        return <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': action.type == HttpRouteActionType.reverseProxy
+              ? 'router.http.reverse_proxy'
+              : 'router.http.fastcgi',
+        };
     }
   }
 
@@ -419,6 +434,33 @@ class Router {
       final trimmed = optionDirectory.trim();
       if (trimmed.isNotEmpty) {
         return trimmed;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveRouteAdapterEndpoint(HttpRouteAction action) {
+    final direct = action.delegate?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    for (final key in const [
+      'target',
+      'target_url',
+      'targetUrl',
+      'upstream',
+      'upstream_url',
+      'upstreamUrl',
+      'socket',
+      'socket_path',
+      'socketPath',
+    ]) {
+      final value = action.options[key];
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
       }
     }
     return null;

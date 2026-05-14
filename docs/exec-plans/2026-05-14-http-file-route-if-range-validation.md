@@ -1,6 +1,6 @@
 # HTTP File Route If-Range Validation
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-05-14
 Last updated: 2026-05-14
@@ -59,8 +59,20 @@ responses.
   -p chrome --timeout=5m --concurrency=1`.
 - 2026-05-14: Full local `bin/verify` passed on Darwin arm64 with the retry
   wrapper in place.
+- 2026-05-14: Committed the CI retry wrapper as `33092fb` and pushed to
+  GitHub PR #79.
+- 2026-05-14: Push-triggered GitHub CI #25879814425 passed.
+- 2026-05-14: PR-triggered GitHub CI #25879814731 passed with `Fast Checks`
+  and `Full Verify` green.
+- 2026-05-14: PR-triggered Dart Package Publish Dry Run #25879814810 passed.
+- 2026-05-14: Deployment-chain audit passed with clean latest CI/logs and
+  clean hosted Dart package dry-run evidence:
+  `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness
+  --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs
+  --require-clean-dart-package-publish-dry-run`.
 
 ## Next Step
 
-Commit the CI retry wrapper with the bundled project-state updates, push, and
-audit the GitHub deployment chain.
+PR #79 still needs review/merge before release-branch promotion. No further
+`If-Range` or browser-runner work is planned unless CI or consumer use exposes
+a real correctness issue.

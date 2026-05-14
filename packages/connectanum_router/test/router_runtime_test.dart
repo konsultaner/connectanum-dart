@@ -3878,6 +3878,118 @@ void main() {
     },
   );
 
+  test('returns explicit 501 for configured HTTP adapter stubs', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: const RouterSettings(
+        realms: [],
+        listeners: [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/proxy/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: {'target': 'http://127.0.0.1:9000'},
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/php/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.fastCgi,
+                    delegate: 'unix:/run/php-fpm.sock',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 314,
+      handle: 3140,
+      method: 'GET',
+      target: '/proxy/service',
+      headers: const {'x-test': 'reverse-proxy-stub'},
+      body: null,
+      realm: 'router.http',
+      procedure: 'router.http.reverse_proxy',
+    );
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 315,
+      handle: 3150,
+      method: 'POST',
+      target: '/php/index.php',
+      headers: const {'x-test': 'fastcgi-stub'},
+      body: const {'request': true},
+      realm: 'router.http',
+      procedure: 'router.http.fastcgi',
+    );
+
+    await _waitUntil(
+      () =>
+          runtime.httpResponses[314]?.isNotEmpty == true &&
+          runtime.httpResponses[315]?.isNotEmpty == true,
+      timeout: const Duration(seconds: 2),
+    );
+
+    final reverseProxyResponse = runtime.httpResponses[314]!.single;
+    final reverseProxyBody = _jsonResponseBody(reverseProxyResponse);
+    expect(reverseProxyResponse.status, HttpStatus.notImplemented);
+    expect(reverseProxyBody['reason'], 'http_adapter_not_implemented');
+    expect(reverseProxyBody['adapter'], 'reverse_proxy');
+
+    final fastCgiResponse = runtime.httpResponses[315]!.single;
+    final fastCgiBody = _jsonResponseBody(fastCgiResponse);
+    expect(fastCgiResponse.status, HttpStatus.notImplemented);
+    expect(fastCgiBody['reason'], 'http_adapter_not_implemented');
+    expect(fastCgiBody['adapter'], 'fastcgi');
+
+    expect(
+      events
+          .where((event) => event['type'] == 'http_adapter_not_implemented')
+          .map((event) => event['adapter']),
+      containsAll(<String>['reverse_proxy', 'fastcgi']),
+    );
+    expect(
+      events.map((event) => event['type']),
+      isNot(contains('http_request_dispatched')),
+    );
+  });
+
   test('routes HTTP session proxy actions through internal sessions', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettings(

@@ -1313,6 +1313,21 @@ class RouterBinding {
       }
       return;
     }
+    if (matchedRoute?.action.type == HttpRouteActionType.reverseProxy ||
+        matchedRoute?.action.type == HttpRouteActionType.fastCgi) {
+      try {
+        await _handleHttpUnsupportedAdapterRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+          accessLogContext: accessLogContext,
+        );
+      } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
+        retainedHandshake?.release();
+      }
+      return;
+    }
 
     final dispatchTarget = _resolveHttpRouteDispatchTarget(
       request: request,
@@ -2254,6 +2269,43 @@ class RouterBinding {
           'message': message,
         }),
       ),
+    );
+  }
+
+  Future<void> _handleHttpUnsupportedAdapterRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+    required _HttpRouteAccessLogContext? accessLogContext,
+  }) async {
+    final adapter = httpRouteActionTypeToString(route.action.type);
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.notImplemented,
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': 'http_adapter_not_implemented',
+          'adapter': adapter,
+          'message':
+              'HTTP $adapter route adapters are configurable but not implemented by this runtime yet.',
+        }),
+      ),
+    );
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_adapter_not_implemented',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'path': request.path,
+      'adapter': adapter,
+    });
+    _finishHttpRouteAccessLog(
+      accessLogContext,
+      status: HttpStatus.notImplemented,
+      outcome: 'adapter_not_implemented',
     );
   }
 

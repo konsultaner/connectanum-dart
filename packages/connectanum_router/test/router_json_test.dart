@@ -365,6 +365,60 @@ void main() {
       expect(action['procedure'], 'router.http.file');
     });
 
+    test('encodes HTTP adapter route stubs for native enqueueing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/proxy/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: {'target': 'http://127.0.0.1:9000'},
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/php/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.fastCgi,
+                    delegate: 'unix:/run/php-fpm.sock',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final routes = (map['endpoints'] as List).single['http_routes'] as List;
+      final reverseProxy = routes.first as Map;
+      final reverseProxyAction = reverseProxy['default'] as Map;
+      expect(reverseProxyAction['type'], 'translation');
+      expect(reverseProxyAction['realm'], 'router.http');
+      expect(reverseProxyAction['procedure'], 'router.http.reverse_proxy');
+      final fastCgi = routes.last as Map;
+      final fastCgiAction = fastCgi['default'] as Map;
+      expect(fastCgiAction['type'], 'translation');
+      expect(fastCgiAction['realm'], 'router.http');
+      expect(fastCgiAction['procedure'], 'router.http.fastcgi');
+    });
+
     test('encodes catch-all HTTP routes as native prefix fallbacks', () {
       final endpoint = Endpoint(
         host: '127.0.0.1',

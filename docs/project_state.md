@@ -6,8 +6,7 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan:
-`docs/exec-plans/2026-05-14-http-file-route-if-range-validation.md`.
+Active exec plan: none.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,21 +19,52 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP adapter route stubs are complete locally for the post-RC HTTP route
+adapter-pipeline milestone. `reverse_proxy` / `reverseProxy` / `proxy` and
+`fastcgi` / `fast_cgi` / `fastCgi` / `fastCGI` route actions now parse and
+round-trip through settings, validate that an adapter endpoint was configured
+before native config emission, enqueue through native HTTP routing, and return
+structured `501 Not Implemented` responses from the Dart binding without
+dispatching to WAMP. Runtime telemetry emits `http_adapter_not_implemented`
+without echoing configured endpoint values. Pre-edit `bin/test-fast`, focused
+adapter parser/native-config/runtime tests, `dart analyze packages/connectanum_router`,
+and full local `bin/verify` passed on 2026-05-14. Hosted evidence is pending
+until this code/config/docs bundle is pushed.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-adapter-route-stubs.md`
+(complete locally; reverse proxy and FastCGI route actions are now
+configuration-visible stubs that fail explicitly with `501 Not Implemented`
+instead of unknown config or accidental WAMP dispatch).
+
+Previous implementation checkpoint:
 HTTP file route `If-Range` validation and CI browser verification hardening
-are locally complete for release readiness. The `If-Range` slice pins date
-validator behavior, ensures weak entity tags do not match `If-Range`, and
-preserves full-response fallback when the validator does not match. It was
-committed as `b4abb76` and pushed to GitHub PR #79; push-triggered CI and both
-hosted Dart package dry-runs passed, but PR-triggered `Full Verify` failed
-twice while loading the Chrome/Dart2Wasm websocket test with the
-`package:test` browser-manager error `Cannot add stream while adding stream`.
-The current local fix keeps the browser test required and adds a narrow retry
-in `bin/test-all` for only that test-runner startup signature. Pre-edit
-`bin/test-fast`, focused binding/native route tests, focused browser websocket
-test, `dart analyze packages/connectanum_router`, `bash -n bin/test-all`,
-`git diff --check`, and full local `bin/verify` passed on 2026-05-14.
-Commit, push, hosted CI evidence, and deployment-chain audit for the retry
-wrapper are pending.
+are complete for release readiness. The `If-Range` slice pins date validator
+behavior, ensures weak entity tags do not match `If-Range`, and preserves
+full-response fallback when the validator does not match. It was committed as
+`b4abb76` and pushed to GitHub PR #79; push-triggered CI and hosted Dart
+package dry-runs passed, but PR-triggered `Full Verify` failed twice while
+loading the Chrome/Dart2Wasm websocket test with the `package:test`
+browser-manager error `Cannot add stream while adding stream`. The follow-up
+CI fix was committed as `33092fb` and keeps the browser test required while
+adding a narrow retry in `bin/test-all` for only that test-runner startup
+signature. Pre-edit `bin/test-fast`, focused binding/native route tests,
+focused browser websocket test, `dart analyze packages/connectanum_router`,
+`bash -n bin/test-all`, `git diff --check`, and full local `bin/verify` passed
+on 2026-05-14. Latest branch-head hosted evidence is clean:
+push-triggered GitHub CI #25879814425 passed; PR-triggered GitHub CI
+#25879814731 passed with `Fast Checks` and `Full Verify` green;
+PR-triggered Dart Package Publish Dry Run #25879814810 passed; and the
+deployment-chain audit passed with clean latest CI/logs plus clean hosted
+package dry-run evidence. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-file-route-if-range-validation.md`
+(complete; configured HTTP `file` routes now validate `If-Range` dates, fall
+back to full responses for weak entity tags or stale validators, and latest
+branch-head CI/package/audit evidence is clean after the browser runner retry
+wrapper).
 
 Previous implementation checkpoint:
 HTTP file route range request hardening is complete for release readiness.

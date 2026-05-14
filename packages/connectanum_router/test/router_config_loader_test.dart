@@ -830,6 +830,54 @@ void main() {
       expect(decodedAction.cacheControl, 'public, max-age=3600');
     });
 
+    test('parses HTTP adapter route aliases and options', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/proxy/'},
+                    'action': <String, Object?>{
+                      'type': 'reverseProxy',
+                      'targetUrl': 'http://127.0.0.1:9000',
+                      'preserveHost': true,
+                    },
+                  },
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/php/'},
+                    'action': <String, Object?>{
+                      'type': 'fast_cgi',
+                      'delegate': 'unix:/run/php-fpm.sock',
+                      'scriptRoot': '/srv/app/public',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final routes = settings.listeners.single.http!.routes;
+      expect(routes.first.action.type, HttpRouteActionType.reverseProxy);
+      expect(routes.first.action.options['targetUrl'], 'http://127.0.0.1:9000');
+      expect(routes.first.action.options['preserveHost'], isTrue);
+      expect(routes.last.action.type, HttpRouteActionType.fastCgi);
+      expect(routes.last.action.delegate, 'unix:/run/php-fpm.sock');
+      expect(routes.last.action.options['scriptRoot'], '/srv/app/public');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRoutes = decoded.listeners.single.http!.routes;
+      expect(decodedRoutes.first.action.type, HttpRouteActionType.reverseProxy);
+      expect(decodedRoutes.last.action.type, HttpRouteActionType.fastCgi);
+      expect(decodedRoutes.last.action.delegate, 'unix:/run/php-fpm.sock');
+    });
+
     test('parses HTTP route middleware settings', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
