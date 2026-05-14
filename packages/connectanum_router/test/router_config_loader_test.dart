@@ -522,6 +522,64 @@ void main() {
       expect(decoded.internalRealms.single.sessionProfile, 'http-handler');
     });
 
+    test('parses native-style HTTP method action maps', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/api/items'},
+                    'methods': <String, Object?>{
+                      'get': <String, Object?>{
+                        'type': 'rpc',
+                        'realm': 'realm1',
+                        'procedure': 'com.example.items.list',
+                      },
+                      'POST': <String, Object?>{
+                        'type': 'rpc',
+                        'realm': 'realm1',
+                        'procedure': 'com.example.items.create',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.match.methods, ['GET', 'POST']);
+      expect(route.actionForMethod('get').procedure, 'com.example.items.list');
+      expect(
+        route.actionForMethod('post').procedure,
+        'com.example.items.create',
+      );
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRoute = decoded.listeners.single.http!.routes.single;
+      expect(decodedRoute.match.methods, ['GET', 'POST']);
+      expect(decodedRoute.methodActions.keys, containsAll(['GET', 'POST']));
+      expect(
+        decodedRoute.actionForMethod('POST').procedure,
+        'com.example.items.create',
+      );
+    });
+
     test('parses multi-protocol listener with http routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{

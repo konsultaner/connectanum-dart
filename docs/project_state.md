@@ -20,6 +20,24 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP bridge route configuration now supports method-specific action maps in
+the Dart settings/API layer, matching the native `http_routes[].methods`
+runtime model. Routes can be configured with explicit `method_actions` /
+`methodActions`, or with native-style route-level `methods` maps when no
+default action is desired. Native config generation emits distinct method
+targets, codec round-trips preserve the method action map, and the Dart
+synthetic runtime uses the combined method allow list so method-specific targets
+do not get rejected before dispatch. Pre-edit `bin/test-fast` passed on
+2026-05-14; focused router config-loader, native-config JSON, and runtime
+method-action tests passed; `git diff --check` passed; and `bin/verify` passed
+on 2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-method-action-maps.md`
+(complete; method-specific HTTP route action maps now bridge the Dart settings
+surface to the native per-method target model).
+
+Previous implementation checkpoint:
 HTTP route method/protocol whitelists are now code-backed as release-ready.
 Existing route `methods` / `protocols` enforcement was verified with new native
 and Dart runtime regressions: route resolution reports sorted allowed methods,
@@ -28,7 +46,7 @@ request, and the Dart synthetic runtime path returns 405 before dispatch as
 well. Pre-edit `bin/test-fast` passed on 2026-05-14; focused native and Dart
 method-gate tests passed; and `bin/verify` passed on 2026-05-14.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-route-method-gate-coverage.md`
 (complete; HTTP bridge method/protocol whitelist enforcement now has native and
 Dart runtime evidence and the roadmap item is closed).

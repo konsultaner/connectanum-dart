@@ -113,9 +113,39 @@ class RouterConfigLoader {
           if (route is! Map<String, Object?>) {
             throw FormatException('listener.http.routes entries must be maps');
           }
-          final match = _parseHttpRouteMatch(route['match']);
-          final action = _parseHttpRouteAction(route['action']);
-          return HttpRouteSettings(match: match, action: action);
+          final methodActionsNode =
+              route['method_actions'] ??
+              route['methodActions'] ??
+              (route['methods'] is Map<String, Object?>
+                  ? route['methods']
+                  : null);
+          final methodActions = _parseHttpRouteMethodActions(methodActionsNode);
+          final actionNode = route['action'];
+          if (actionNode == null && methodActions.isEmpty) {
+            throw FormatException(
+              'listener.http.routes entries require action or methods',
+            );
+          }
+          final action = actionNode == null
+              ? methodActions.values.first
+              : _parseHttpRouteAction(actionNode);
+          final parsedMatch = _parseHttpRouteMatch(route['match']);
+          final match = actionNode == null && parsedMatch.methods.isEmpty
+              ? HttpRouteMatch(
+                  path: parsedMatch.path,
+                  prefix: parsedMatch.prefix,
+                  host: parsedMatch.host,
+                  methods: List<String>.unmodifiable(methodActions.keys),
+                  protocols: parsedMatch.protocols,
+                  headers: parsedMatch.headers,
+                  extra: parsedMatch.extra,
+                )
+              : parsedMatch;
+          return HttpRouteSettings(
+            match: match,
+            action: action,
+            methodActions: methodActions,
+          );
         })
         .toList(growable: false);
   }
@@ -196,6 +226,28 @@ class RouterConfigLoader {
       delegate: delegate,
       options: mergedOptions,
     );
+  }
+
+  static Map<String, HttpRouteAction> _parseHttpRouteMethodActions(
+    dynamic node,
+  ) {
+    if (node == null) {
+      return const {};
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException(
+        'listener.http.routes method actions must be a map',
+      );
+    }
+    final actions = <String, HttpRouteAction>{};
+    for (final entry in node.entries) {
+      final method = entry.key.trim().toUpperCase();
+      if (method.isEmpty) {
+        throw FormatException('listener.http.routes method cannot be empty');
+      }
+      actions[method] = _parseHttpRouteAction(entry.value);
+    }
+    return Map<String, HttpRouteAction>.unmodifiable(actions);
   }
 
   static RawSocketListenerSettings? _deriveLegacyRawSocketSettings(

@@ -125,37 +125,28 @@ class Router {
     if (match.protocols.isNotEmpty) {
       routeMap['protocols'] = List<String>.from(match.protocols);
     }
-    final transportAuth = route.action.type == HttpRouteActionType.mcp
-        // MCP auth failures need route-specific CORS/MCP headers that the
-        // native listener does not have enough route metadata to produce.
-        ? const HttpRouteTransportAuthRequirements()
-        : deriveHttpRouteTransportAuth(
-            action: route.action,
-            sessionProfile: _sessionProfileForRoute(
-              action: route.action,
-              listener: listener,
-              settings: settings,
-            ),
-          );
+    final transportAuth = _httpRouteTransportAuthToNative(
+      route,
+      listener,
+      settings,
+    );
     if (transportAuth.isConfigured) {
       routeMap['transport_auth'] = transportAuth.toNativeMap();
     }
 
-    final methods = match.methods
-        .map((method) => method.trim().toUpperCase())
-        .where((method) => method.isNotEmpty)
-        .toList(growable: false);
-    if (methods.isEmpty) {
+    final methods = route.explicitMethods;
+    if (match.methods.isEmpty) {
       routeMap['default'] = _httpRouteActionToNative(
         route.action,
         listener,
         settings,
       );
-    } else {
+    }
+    if (methods.isNotEmpty) {
       final targets = <String, Object?>{};
       for (final method in methods) {
         targets[method] = _httpRouteActionToNative(
-          route.action,
+          route.actionForMethod(method),
           listener,
           settings,
         );
@@ -163,6 +154,47 @@ class Router {
       routeMap['methods'] = targets;
     }
     return routeMap;
+  }
+
+  HttpRouteTransportAuthRequirements _httpRouteTransportAuthToNative(
+    HttpRouteSettings route,
+    ListenerSettings? listener,
+    RouterSettings? settings,
+  ) {
+    final actions = <HttpRouteAction>[
+      route.action,
+      ...route.methodActions.values,
+    ];
+    if (actions.any((action) => action.type == HttpRouteActionType.mcp)) {
+      // MCP auth failures need route-specific CORS/MCP headers that the
+      // native listener does not have enough route metadata to produce.
+      return const HttpRouteTransportAuthRequirements();
+    }
+    var requireBearer = false;
+    var requireTls = false;
+    var requireMutualTls = false;
+    var allowUnauthenticatedCorsPreflight = false;
+    for (final action in actions) {
+      final requirements = deriveHttpRouteTransportAuth(
+        action: action,
+        sessionProfile: _sessionProfileForRoute(
+          action: action,
+          listener: listener,
+          settings: settings,
+        ),
+      );
+      requireBearer |= requirements.requireBearer;
+      requireTls |= requirements.requireTls;
+      requireMutualTls |= requirements.requireMutualTls;
+      allowUnauthenticatedCorsPreflight |=
+          requirements.allowUnauthenticatedCorsPreflight;
+    }
+    return HttpRouteTransportAuthRequirements(
+      requireBearer: requireBearer,
+      requireTls: requireTls,
+      requireMutualTls: requireMutualTls,
+      allowUnauthenticatedCorsPreflight: allowUnauthenticatedCorsPreflight,
+    );
   }
 
   Map<String, Object?> _httpRouteActionToNative(

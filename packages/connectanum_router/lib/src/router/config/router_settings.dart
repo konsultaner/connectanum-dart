@@ -944,10 +944,54 @@ class HttpRouteAction {
 
 @immutable
 class HttpRouteSettings {
-  const HttpRouteSettings({required this.match, required this.action});
+  const HttpRouteSettings({
+    required this.match,
+    required this.action,
+    this.methodActions = const {},
+  });
 
   final HttpRouteMatch match;
   final HttpRouteAction action;
+  final Map<String, HttpRouteAction> methodActions;
+
+  HttpRouteAction actionForMethod(String method) {
+    final normalized = method.trim().toUpperCase();
+    final direct = methodActions[normalized];
+    if (direct != null) {
+      return direct;
+    }
+    for (final entry in methodActions.entries) {
+      if (entry.key.trim().toUpperCase() == normalized) {
+        return entry.value;
+      }
+    }
+    return action;
+  }
+
+  HttpRouteSettings withAction(HttpRouteAction action) {
+    return HttpRouteSettings(
+      match: match,
+      action: action,
+      methodActions: methodActions,
+    );
+  }
+
+  List<String> get explicitMethods {
+    final methods = <String>{};
+    for (final method in match.methods) {
+      final normalized = method.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        methods.add(normalized);
+      }
+    }
+    for (final method in methodActions.keys) {
+      final normalized = method.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        methods.add(normalized);
+      }
+    }
+    return methods.toList(growable: false)..sort();
+  }
 
   @override
   bool operator ==(Object other) {
@@ -956,11 +1000,19 @@ class HttpRouteSettings {
     }
     return other is HttpRouteSettings &&
         other.match == match &&
-        other.action == action;
+        other.action == action &&
+        const MapEquality<String, HttpRouteAction>().equals(
+          other.methodActions,
+          methodActions,
+        );
   }
 
   @override
-  int get hashCode => Object.hash(match, action);
+  int get hashCode => Object.hash(
+    match,
+    action,
+    const MapEquality<String, HttpRouteAction>().hash(methodActions),
+  );
 }
 
 /// Equality helpers

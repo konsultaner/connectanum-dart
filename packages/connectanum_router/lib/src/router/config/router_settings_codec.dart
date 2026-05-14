@@ -210,10 +210,17 @@ abstract final class RouterSettingsCodec {
   }
 
   static Map<String, Object?> _httpRouteToMap(HttpRouteSettings route) {
-    return <String, Object?>{
+    final map = <String, Object?>{
       'match': _httpRouteMatchToMap(route.match),
       'action': _httpRouteActionToMap(route.action),
     };
+    if (route.methodActions.isNotEmpty) {
+      map['method_actions'] = <String, Object?>{
+        for (final entry in route.methodActions.entries)
+          entry.key.trim().toUpperCase(): _httpRouteActionToMap(entry.value),
+      };
+    }
+    return map;
   }
 
   static Map<String, Object?> _httpRouteMatchToMap(HttpRouteMatch match) {

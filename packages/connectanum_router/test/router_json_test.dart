@@ -162,6 +162,66 @@ void main() {
       expect(action['procedure'], 'connectanum.mcp.handle');
     });
 
+    test('encodes method-specific HTTP route actions for native routing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: 'realm1',
+            auth: const RealmAuthSettings(methods: ['anonymous']),
+            roles: const [],
+            limits: const RealmLimitSettings(),
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(
+                    path: '/api/items',
+                    methods: ['GET', 'POST'],
+                  ),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.items.list',
+                  ),
+                  methodActions: {
+                    'POST': HttpRouteAction(
+                      type: HttpRouteActionType.rpc,
+                      realm: 'realm1',
+                      procedure: 'com.example.items.create',
+                    ),
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      expect(route, isNot(contains('default')));
+      final methods = route['methods'] as Map;
+      expect((methods['GET'] as Map)['procedure'], 'com.example.items.list');
+      expect((methods['POST'] as Map)['procedure'], 'com.example.items.create');
+    });
+
     test(
       'keeps MCP auth failures in Dart binding for CORS-aware responses',
       () {

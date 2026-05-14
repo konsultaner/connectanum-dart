@@ -1560,17 +1560,19 @@ class RouterBinding {
     final allowedProtocols = <String>{};
     for (final route in httpSettings.routes) {
       if (_httpRouteMatchesRequest(route, request)) {
-        return _HttpRouteMatchResult.route(route);
+        final action = route.actionForMethod(request.method);
+        return _HttpRouteMatchResult.route(
+          action == route.action ? route : route.withAction(action),
+        );
       }
       if (_httpRouteMatchesRequest(route, request, ignoreProtocol: true)) {
         allowedProtocols.addAll(
           route.match.protocols.map((protocol) => protocol.trim()),
         );
       }
-      if (_httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
-        allowedMethods.addAll(
-          route.match.methods.map((method) => method.trim().toUpperCase()),
-        );
+      if (route.match.methods.isNotEmpty &&
+          _httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
+        allowedMethods.addAll(route.explicitMethods);
       }
     }
     if (allowedProtocols.isNotEmpty) {
@@ -1625,9 +1627,7 @@ class RouterBinding {
     }
     if (!ignoreMethod && match.methods.isNotEmpty) {
       final requestMethod = request.method.trim().toUpperCase();
-      final allowed = match.methods.map(
-        (method) => method.trim().toUpperCase(),
-      );
+      final allowed = route.explicitMethods;
       if (!allowed.contains(requestMethod)) {
         return false;
       }
