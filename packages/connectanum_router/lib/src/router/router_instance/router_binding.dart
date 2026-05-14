@@ -1558,12 +1558,20 @@ class RouterBinding {
     }
     final allowedMethods = <String>{};
     final allowedProtocols = <String>{};
+    HttpRouteSettings? bestRoute;
+    var bestPriority = -1;
     for (final route in httpSettings.routes) {
       if (_httpRouteMatchesRequest(route, request)) {
         final action = route.actionForMethod(request.method);
-        return _HttpRouteMatchResult.route(
-          action == route.action ? route : route.withAction(action),
-        );
+        final effectiveRoute = action == route.action
+            ? route
+            : route.withAction(action);
+        final priority = _httpRoutePriority(route);
+        if (priority > bestPriority) {
+          bestRoute = effectiveRoute;
+          bestPriority = priority;
+        }
+        continue;
       }
       if (_httpRouteMatchesRequest(route, request, ignoreProtocol: true)) {
         allowedProtocols.addAll(
@@ -1574,6 +1582,9 @@ class RouterBinding {
           _httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
         allowedMethods.addAll(route.explicitMethods);
       }
+    }
+    if (bestRoute != null) {
+      return _HttpRouteMatchResult.route(bestRoute);
     }
     if (allowedProtocols.isNotEmpty) {
       final normalized = allowedProtocols.toList(growable: false)..sort();
@@ -1586,6 +1597,17 @@ class RouterBinding {
     return const _HttpRouteMatchResult.notFound();
   }
 
+  int _httpRoutePriority(HttpRouteSettings route) {
+    if (route.match.isCatchAll) {
+      return 1;
+    }
+    final path = (route.match.path ?? route.match.prefix)?.trim();
+    if (path == null || path.isEmpty) {
+      return 1;
+    }
+    return path.length;
+  }
+
   bool _httpRouteMatchesRequest(
     HttpRouteSettings route,
     RouterHttpRequest request, {
@@ -1593,10 +1615,11 @@ class RouterBinding {
     bool ignoreProtocol = false,
   }) {
     final match = route.match;
-    if (match.path != null && match.path != request.path) {
+    if (!match.isCatchAll && match.path != null && match.path != request.path) {
       return false;
     }
-    if (match.path == null &&
+    if (!match.isCatchAll &&
+        match.path == null &&
         match.prefix != null &&
         !request.path.startsWith(match.prefix!)) {
       return false;

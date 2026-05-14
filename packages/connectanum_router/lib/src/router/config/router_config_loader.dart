@@ -134,6 +134,7 @@ class RouterConfigLoader {
               ? HttpRouteMatch(
                   path: parsedMatch.path,
                   prefix: parsedMatch.prefix,
+                  catchAll: parsedMatch.catchAll,
                   host: parsedMatch.host,
                   methods: List<String>.unmodifiable(methodActions.keys),
                   protocols: parsedMatch.protocols,
@@ -158,8 +159,29 @@ class RouterConfigLoader {
       throw FormatException('listener.http.routes.match must be a map');
     }
     final matchMap = Map<String, Object?>.from(node);
-    final path = _asNullableString(matchMap.remove('path'));
-    final prefix = _asNullableString(matchMap.remove('prefix'));
+    var path = _asNullableString(matchMap.remove('path'));
+    var prefix = _asNullableString(matchMap.remove('prefix'));
+    final catchAllNode =
+        matchMap.remove('catch_all') ??
+        matchMap.remove('catchAll') ??
+        matchMap.remove('wildcard');
+    var catchAll = _asBool(catchAllNode, defaultValue: false);
+    final pathIsWildcard = path?.trim() == '*';
+    final prefixIsWildcard = prefix?.trim() == '*';
+    if (pathIsWildcard || prefixIsWildcard) {
+      catchAll = true;
+    }
+    if (catchAll) {
+      final hasSpecificPath = path != null && !pathIsWildcard;
+      final hasSpecificPrefix = prefix != null && !prefixIsWildcard;
+      if (hasSpecificPath || hasSpecificPrefix) {
+        throw FormatException(
+          'listener.http.routes.match catch-all cannot set path or prefix',
+        );
+      }
+      path = null;
+      prefix = null;
+    }
     final host = _asNullableString(matchMap.remove('host'));
     final methods = _stringList(matchMap.remove('methods'));
     final method = _asNullableString(matchMap.remove('method'));
@@ -171,6 +193,7 @@ class RouterConfigLoader {
     return HttpRouteMatch(
       path: path,
       prefix: prefix,
+      catchAll: catchAll,
       host: host,
       methods: List.unmodifiable(combinedMethods),
       protocols: List.unmodifiable(combinedProtocols),

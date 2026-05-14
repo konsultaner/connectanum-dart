@@ -580,6 +580,58 @@ void main() {
       );
     });
 
+    test('parses catch-all HTTP wildcard routes', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'catch_all': true},
+                    'action': <String, Object?>{
+                      'type': 'rpc',
+                      'realm': 'realm1',
+                      'procedure': 'com.example.http.fallback',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.match.isCatchAll, isTrue);
+      expect(route.match.path, isNull);
+      expect(route.match.prefix, isNull);
+      expect(route.action.procedure, 'com.example.http.fallback');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final encodedRoute =
+          ((encoded['listeners']! as List).single as Map)['http'] as Map;
+      final encodedMatch =
+          ((encodedRoute['routes']! as List).single as Map)['match'] as Map;
+      expect(encodedMatch['catch_all'], isTrue);
+
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      expect(
+        decoded.listeners.single.http!.routes.single.match.isCatchAll,
+        isTrue,
+      );
+    });
+
     test('parses multi-protocol listener with http routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{

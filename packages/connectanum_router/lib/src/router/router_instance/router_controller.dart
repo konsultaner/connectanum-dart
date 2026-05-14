@@ -111,8 +111,9 @@ class Router {
     RouterSettings? settings,
   ) {
     final match = route.match;
-    final path = (match.path ?? match.prefix)?.trim();
-    final matchKind = match.prefix != null && match.path == null
+    final path = match.isCatchAll ? '/' : (match.path ?? match.prefix)?.trim();
+    final matchKind =
+        match.isCatchAll || (match.prefix != null && match.path == null)
         ? 'prefix'
         : 'exact';
     final routeMap = <String, Object?>{

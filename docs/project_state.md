@@ -20,6 +20,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP bridge route configuration now supports catch-all fallback matches through
+empty matches, explicit `catch_all` / `catchAll` / `wildcard` config, and
+`path: "*"`. Native config generation serializes catch-all routes as
+`match_kind: "prefix"` on `/`, and the Dart synthetic runtime now selects the
+most specific matching route so a catch-all fallback cannot shadow exact or
+longer-prefix routes. Pre-edit `bin/test-fast` passed on 2026-05-14; focused
+router config-loader, native-config JSON, and runtime catch-all tests passed;
+`git diff --check` passed; and `bin/verify` passed on 2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-catch-all-fallback.md`
+(complete; catch-all HTTP fallback routes now bridge the Dart settings surface
+to native prefix fallback routing with most-specific Dart synthetic matching).
+
+Previous implementation checkpoint:
 HTTP bridge route configuration now supports method-specific action maps in
 the Dart settings/API layer, matching the native `http_routes[].methods`
 runtime model. Routes can be configured with explicit `method_actions` /
@@ -32,7 +47,7 @@ do not get rejected before dispatch. Pre-edit `bin/test-fast` passed on
 method-action tests passed; `git diff --check` passed; and `bin/verify` passed
 on 2026-05-14.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-route-method-action-maps.md`
 (complete; method-specific HTTP route action maps now bridge the Dart settings
 surface to the native per-method target model).

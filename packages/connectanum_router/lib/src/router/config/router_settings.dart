@@ -829,20 +829,27 @@ class HttpRouteMatch {
   const HttpRouteMatch({
     this.path,
     this.prefix,
+    this.catchAll = false,
     this.host,
     this.methods = const [],
     this.protocols = const [],
     this.headers = const {},
     this.extra = const {},
-  });
+  }) : assert(
+         !catchAll || (path == null && prefix == null),
+         'catchAll HTTP routes cannot set path or prefix',
+       );
 
   final String? path;
   final String? prefix;
+  final bool catchAll;
   final String? host;
   final List<String> methods;
   final List<String> protocols;
   final Map<String, String> headers;
   final Map<String, Object?> extra;
+
+  bool get isCatchAll => catchAll || (path == null && prefix == null);
 
   @override
   bool operator ==(Object other) {
@@ -852,6 +859,7 @@ class HttpRouteMatch {
     return other is HttpRouteMatch &&
         other.path == path &&
         other.prefix == prefix &&
+        other.isCatchAll == isCatchAll &&
         other.host == host &&
         const ListEquality<String>().equals(other.methods, methods) &&
         const ListEquality<String>().equals(other.protocols, protocols) &&
@@ -863,6 +871,7 @@ class HttpRouteMatch {
   int get hashCode => Object.hash(
     path,
     prefix,
+    isCatchAll,
     host,
     const ListEquality<String>().hash(methods),
     const ListEquality<String>().hash(protocols),

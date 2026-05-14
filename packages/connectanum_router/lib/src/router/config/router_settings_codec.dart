@@ -225,7 +225,9 @@ abstract final class RouterSettingsCodec {
 
   static Map<String, Object?> _httpRouteMatchToMap(HttpRouteMatch match) {
     final map = <String, Object?>{};
-    if (match.path != null) {
+    if (match.isCatchAll) {
+      map['catch_all'] = true;
+    } else if (match.path != null) {
       map['path'] = match.path;
     }
     if (match.prefix != null) {
