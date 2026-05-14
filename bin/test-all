@@ -54,6 +54,46 @@ run_bench_vm_tests() {
   )
 }
 
+run_client_browser_websocket_tests() {
+  local attempt=1
+  local max_attempts=3
+  local output_file
+  local status
+
+  while (( attempt <= max_attempts )); do
+    output_file="$(mktemp)"
+    set +e
+    dart test \
+      test/transport/websocket/websocket_transport_web_test.dart \
+      -p chrome \
+      --timeout=5m \
+      --concurrency=1 \
+      2>&1 | tee "$output_file"
+    status="${PIPESTATUS[0]}"
+    set -e
+
+    if [[ "$status" -eq 0 ]]; then
+      rm -f "$output_file"
+      return 0
+    fi
+
+    if grep -q 'Cannot add stream while adding stream' "$output_file" &&
+       grep -q 'package:test/src/runner/browser/browser_manager.dart' "$output_file" &&
+       (( attempt < max_attempts )); then
+      printf 'Browser test runner startup failed inside package:test; retrying browser websocket test (%d/%d).\n' \
+        "$((attempt + 1))" "$max_attempts"
+      rm -f "$output_file"
+      attempt=$((attempt + 1))
+      continue
+    fi
+
+    rm -f "$output_file"
+    return "$status"
+  done
+
+  return 1
+}
+
 if native_runtime_supported; then
   cargo test --manifest-path native/transport/Cargo.toml -p ct_core
   cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi
@@ -84,11 +124,7 @@ run_router_zero_copy_publish_tests
 if ensure_chrome_env; then
   (
     cd packages/connectanum_client
-    dart test \
-      test/transport/websocket/websocket_transport_web_test.dart \
-      -p chrome \
-      --timeout=5m \
-      --concurrency=1
+    run_client_browser_websocket_tests
   )
 else
   printf 'Chrome not found; skipping browser-platform tests.\n'

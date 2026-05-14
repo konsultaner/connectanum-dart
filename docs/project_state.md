@@ -20,14 +20,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP file route `If-Range` validation hardening is locally complete for
-release readiness. The current slice pins date validator behavior, ensures weak
-entity tags do not match `If-Range`, and preserves full-response fallback when
-the validator does not match. Pre-edit `bin/test-fast`, focused
-binding/native route tests, `dart analyze packages/connectanum_router`,
+HTTP file route `If-Range` validation and CI browser verification hardening
+are locally complete for release readiness. The `If-Range` slice pins date
+validator behavior, ensures weak entity tags do not match `If-Range`, and
+preserves full-response fallback when the validator does not match. It was
+committed as `b4abb76` and pushed to GitHub PR #79; push-triggered CI and both
+hosted Dart package dry-runs passed, but PR-triggered `Full Verify` failed
+twice while loading the Chrome/Dart2Wasm websocket test with the
+`package:test` browser-manager error `Cannot add stream while adding stream`.
+The current local fix keeps the browser test required and adds a narrow retry
+in `bin/test-all` for only that test-runner startup signature. Pre-edit
+`bin/test-fast`, focused binding/native route tests, focused browser websocket
+test, `dart analyze packages/connectanum_router`, `bash -n bin/test-all`,
 `git diff --check`, and full local `bin/verify` passed on 2026-05-14.
-Commit, push, hosted CI/package evidence, and deployment-chain audit are
-pending.
+Commit, push, hosted CI evidence, and deployment-chain audit for the retry
+wrapper are pending.
 
 Previous implementation checkpoint:
 HTTP file route range request hardening is complete for release readiness.
