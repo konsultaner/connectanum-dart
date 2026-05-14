@@ -8517,6 +8517,97 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn http_translation_route_maps_method_to_wamp_procedure_before_dispatch() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let config = json!({
+            "schema": "connectanum.router",
+            "version": 1,
+            "endpoints": [{
+                "host": "127.0.0.1",
+                "port": 0,
+                "tls_mode": "disabled",
+                "protocols": ["http"],
+                "http": {"alpn": ["http/1.1"]},
+                "http_routes": [{
+                    "path": "/widgets",
+                    "protocols": ["http/1.1"],
+                    "default": {
+                        "type": "translation",
+                        "realm": "realm1",
+                        "procedure": "consumer.widgets.list"
+                    },
+                    "methods": {
+                        "POST": {
+                            "type": "translation",
+                            "realm": "realm2",
+                            "procedure": "consumer.widgets.create"
+                        }
+                    }
+                }]
+            }]
+        });
+        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(
+                b"POST /widgets?source=mobile HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            )
+            .await
+            .unwrap();
+        let connection_id = receiver.recv().await.expect("http connection delivered");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let (request, response_handle) = loop {
+            if let Some(queued) = connection_http_poll_request(connection_id).unwrap() {
+                break queued;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "translation route did not enqueue an HTTP request"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+
+        fn text(bytes: &[u8]) -> &str {
+            std::str::from_utf8(bytes).unwrap()
+        }
+        assert_eq!(text(&request.method), "POST");
+        assert_eq!(text(&request.path), "/widgets");
+        assert_eq!(request.query.as_deref().map(text), Some("source=mobile"));
+        assert_eq!(request.realm.as_deref().map(text), Some("realm2"));
+        assert_eq!(
+            request.procedure.as_deref().map(text),
+            Some("consumer.widgets.create")
+        );
+        let route = request.route.as_ref().expect("route resolution attached");
+        assert_eq!(route.realm, "realm2");
+        assert_eq!(route.procedure, "consumer.widgets.create");
+        assert_eq!(route.path, "/widgets");
+        assert_eq!(route.query.as_deref(), Some("source=mobile"));
+        assert_eq!(route.method, "POST");
+        assert_eq!(route.protocol, "http/1.1");
+
+        response_handle
+            .respond(HttpResponseDispatch {
+                status: 202,
+                headers: vec![("x-test-route".into(), "translation".into())],
+                body: HttpResponseBody::Buffered(Vec::new()),
+            })
+            .unwrap();
+        let mut response = Vec::new();
+        client.read_to_end(&mut response).await.unwrap();
+        let response = String::from_utf8_lossy(&response);
+        assert!(response.starts_with("HTTP/1.1 202 Accepted"), "{response}");
+        assert!(response.contains("x-test-route: translation"), "{response}");
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn http_namespace_route_maps_path_to_wamp_procedure_before_dispatch() {
         let _guard = test_guard();
         shutdown().ok();

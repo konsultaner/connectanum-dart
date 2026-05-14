@@ -19,15 +19,36 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Native HTTP translation-table mapping is complete for release readiness. The
+Dart/router config layer already supports explicit WAMP realm/procedure
+targets, per-method overrides, route protocol gates, and catch-all fallbacks;
+the native runtime now has HTTP/1.1 regression coverage proving a translation
+route with a method-specific override enqueues the expected WAMP
+realm/procedure target before Dart dispatch. Pre-edit `bin/test-fast`, the
+focused native `ct_core` translation-route regression, and `bin/verify` passed
+on 2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-native-http-translation-table-mapping.md`
+(complete; explicit HTTP path/method/protocol translation routes now have
+native runtime evidence that the queued request carries the selected WAMP
+realm/procedure target before Dart dispatch, and the roadmap parent is closed).
+
+Previous implementation checkpoint:
 Native HTTP namespace route mapping is complete for release readiness. The
 existing Dart/native config surfaces already support `type: namespace`, and the
 native runtime now has HTTP/1.1 regression coverage proving a namespace route
 enqueues the derived WAMP realm/procedure target, including
 path/query/method/protocol metadata, before Dart dispatch. Pre-edit
 `bin/test-fast`, the focused native `ct_core` namespace-route regression, and
-`bin/verify` passed on 2026-05-14.
+`bin/verify` passed on 2026-05-14. The implementation was committed as
+`4337eee` and pushed to GitHub PR #79. PR-triggered GitHub CI #25852022424
+passed with `Fast Checks` and `Full Verify` green on `4337eee`;
+PR-triggered Dart Package Publish Dry Run #25852022270 passed; and the
+deployment-chain audit passed with clean latest CI/logs plus clean hosted
+package dry-run evidence.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-native-http-namespace-route-mapping.md`
 (complete; native HTTP namespace route mapping now has runtime evidence that
 path segments derive the expected WAMP namespace procedure before Dart
