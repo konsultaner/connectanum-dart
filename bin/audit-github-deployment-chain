@@ -94,8 +94,9 @@ Options:
                              or the documented first-RC pub.dev deferral where
                              connectanum_client is blocked only by private
                              connectanum_core.
-  --strict                  Exit non-zero when the branch lacks the baseline
-                             required checks expected for protected releases.
+  --strict                  Exit non-zero when the release branch lacks the
+                             baseline required checks expected for protected
+                             releases.
   -h, --help                Show this help text.
 USAGE
 }
@@ -2408,8 +2409,8 @@ if [[ "$require_workflows_visible" -eq 1 && "$missing_visible_workflow" -ne 0 ]]
   exit 1
 fi
 
-if [[ "$strict" -eq 1 && ( "$missing_required_checks" -ne 0 || "$missing_visible_workflow" -ne 0 ) ]]; then
-  printf '\nStrict audit failed: protected release branches should require Fast Checks and Full Verify, and checked-in workflows should be visible to GitHub Actions.\n' >&2
+if [[ "$strict" -eq 1 && ( "$release_missing_required_checks" -ne 0 || "$missing_visible_workflow" -ne 0 ) ]]; then
+  printf '\nStrict audit failed: the release branch should require Fast Checks and Full Verify, and checked-in workflows should be visible to GitHub Actions.\n' >&2
   exit 1
 fi
 

@@ -1,6 +1,6 @@
 # Hosted Workflow Warning Scan Audit
 
-Status: implementation complete; hosted evidence pending
+Status: complete
 
 ## Goal
 
@@ -30,7 +30,19 @@ check runs expose warning/error annotations.
   Profile Benchmarks.
 - `git diff --check` passed.
 - `bin/verify` passed on 2026-05-14.
+- Commit `ee02b83` was pushed to GitHub PR #79.
+- PR-triggered GitHub CI #25837416171 and #25837417462 passed on `ee02b83`
+  with `Fast Checks` and `Full Verify` green.
+- PR-triggered Dart Package Publish Dry Run #25837417460 passed on `ee02b83`.
+- The release-evidence deployment-chain audit passed on `ee02b83` with clean
+  latest CI/logs, zero warning/error annotations for CI and dedicated hosted
+  gates, relevant Dart package dry-run, relevant Native Artifacts dry-run,
+  relevant Router Image dry-run, relevant WAMP Profile Benchmarks, visible
+  workflows, and router package visibility checks enabled.
+- `--show-rc-readiness` still reports only expected release-promotion blockers:
+  PR #79 review/merge into `master`, the stale `v0.1.0-rc.1` tag/prerelease,
+  and deferred pub.dev release-order decisions.
 
 ## Remaining
 
-- Push with the bundled project-state updates and collect hosted CI evidence.
+- No implementation work remains for this slice.
