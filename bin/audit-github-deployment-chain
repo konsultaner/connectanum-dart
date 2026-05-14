@@ -1945,7 +1945,11 @@ print_rc_readiness() {
       printf 'Native release evidence RC tag: ready (%s, %s).\n' "$latest_native_release_evidence_tag" "$latest_native_release_evidence_mode"
     else
       printf 'Native release evidence RC tag: not ready; latest Native Artifacts evidence is for %s, but selected RC tag is %s.\n' "${latest_native_release_evidence_tag:-unknown}" "$selected_rc_tag"
-      printf '  Next action: rerun the Native Artifacts dry-run or prerelease publish for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
+      if [[ "$selected_rc_tag_covers_head" -eq 1 ]]; then
+        printf '  Next action: rerun the Native Artifacts dry-run or prerelease publish for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
+      else
+        printf '  Next action: after release approval, create or move %s to %s first, then rerun Native Artifacts evidence for that tag and rerun this audit.\n' "$selected_rc_tag" "$short_head_sha"
+      fi
       rc_ready_failed=1
     fi
   fi
@@ -1955,7 +1959,11 @@ print_rc_readiness() {
       printf 'Router image evidence RC tag: ready (%s).\n' "$selected_rc_tag"
     else
       printf 'Router image evidence RC tag: not ready; latest Router Image dry-run tags do not include %s or %s.\n' "$selected_rc_tag" "${selected_rc_tag#v}"
-      printf '  Next action: rerun the Router Image dry-run for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
+      if [[ "$selected_rc_tag_covers_head" -eq 1 ]]; then
+        printf '  Next action: rerun the Router Image dry-run for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
+      else
+        printf '  Next action: after release approval, create or move %s to %s first, then rerun Router Image evidence for that tag and rerun this audit.\n' "$selected_rc_tag" "$short_head_sha"
+      fi
       rc_ready_failed=1
     fi
   fi

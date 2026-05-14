@@ -20,6 +20,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+`bin/audit-github-deployment-chain --show-rc-readiness` now keeps stale-tag
+operator guidance coherent. When the selected RC tag does not cover the
+checked-out release-sensitive candidate, Native Artifacts and Router Image
+evidence mismatch next actions now first tell the operator to create or move
+the selected tag to the checked-out candidate, then rerun the hosted evidence
+for that tag. Pre-edit `bin/test-fast` passed on 2026-05-14; `bash -n
+bin/audit-github-deployment-chain` passed; `git diff --check` passed; the
+focused RC-readiness audit printed the corrected stale-tag next actions; and
+`bin/verify` passed on 2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-rc-stale-tag-evidence-next-actions.md`
+(complete; stale selected RC tags now tell operators to fix the tag before
+refreshing native/router hosted evidence).
+
+Previous implementation checkpoint:
 `bin/audit-github-deployment-chain --show-rc-readiness` now cross-checks the
 selected RC tag against hosted native release evidence and Router Image dry-run
 preview tags. This prevents mixed RC evidence from looking coherent, such as
@@ -33,7 +49,7 @@ release-promotion blockers: PR #79 review/merge into `master`, choosing and
 approving the final RC tag, rerunning native/router evidence for that same tag,
 and deferred pub.dev release-order decisions.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-rc-evidence-tag-consistency.md`
 (complete; RC readiness now verifies native/router hosted evidence tags match
 the selected RC tag).
