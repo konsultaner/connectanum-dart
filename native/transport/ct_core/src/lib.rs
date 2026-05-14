@@ -8516,6 +8516,96 @@ mod tests {
         shutdown().unwrap();
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn http_namespace_route_maps_path_to_wamp_procedure_before_dispatch() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let config = json!({
+            "schema": "connectanum.router",
+            "version": 1,
+            "endpoints": [{
+                "host": "127.0.0.1",
+                "port": 0,
+                "tls_mode": "disabled",
+                "protocols": ["http"],
+                "http": {"alpn": ["http/1.1"]},
+                "http_routes": [{
+                    "path": "/tasks/",
+                    "match_kind": "prefix",
+                    "methods": {
+                        "POST": {
+                            "type": "namespace",
+                            "realm": "realm1",
+                            "namespace": "consumer.api",
+                            "append_method_suffix": true
+                        }
+                    }
+                }]
+            }]
+        });
+        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(
+                b"POST /tasks/42?include=summary HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            )
+            .await
+            .unwrap();
+        let connection_id = receiver.recv().await.expect("http connection delivered");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let (request, response_handle) = loop {
+            if let Some(queued) = connection_http_poll_request(connection_id).unwrap() {
+                break queued;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "namespace route did not enqueue an HTTP request"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+
+        fn text(bytes: &[u8]) -> &str {
+            std::str::from_utf8(bytes).unwrap()
+        }
+        assert_eq!(text(&request.method), "POST");
+        assert_eq!(text(&request.path), "/tasks/42");
+        assert_eq!(request.query.as_deref().map(text), Some("include=summary"));
+        assert_eq!(request.realm.as_deref().map(text), Some("realm1"));
+        assert_eq!(
+            request.procedure.as_deref().map(text),
+            Some("consumer.api.tasks.42.post")
+        );
+        let route = request.route.as_ref().expect("route resolution attached");
+        assert_eq!(route.realm, "realm1");
+        assert_eq!(route.procedure, "consumer.api.tasks.42.post");
+        assert_eq!(route.path, "/tasks/42");
+        assert_eq!(route.query.as_deref(), Some("include=summary"));
+        assert_eq!(route.method, "POST");
+        assert_eq!(route.protocol, "http/1.1");
+
+        response_handle
+            .respond(HttpResponseDispatch {
+                status: 204,
+                headers: vec![("x-test-route".into(), "namespace".into())],
+                body: HttpResponseBody::Buffered(Vec::new()),
+            })
+            .unwrap();
+        let mut response = Vec::new();
+        client.read_to_end(&mut response).await.unwrap();
+        let response = String::from_utf8_lossy(&response);
+        assert!(
+            response.starts_with("HTTP/1.1 204 No Content"),
+            "{response}"
+        );
+        assert!(response.contains("x-test-route: namespace"), "{response}");
+        shutdown().unwrap();
+    }
+
     async fn wait_for_polled_message(connection_id: ConnectionId) -> super::ParsedMessage {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {

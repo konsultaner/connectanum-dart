@@ -19,6 +19,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Native HTTP namespace route mapping is complete for release readiness. The
+existing Dart/native config surfaces already support `type: namespace`, and the
+native runtime now has HTTP/1.1 regression coverage proving a namespace route
+enqueues the derived WAMP realm/procedure target, including
+path/query/method/protocol metadata, before Dart dispatch. Pre-edit
+`bin/test-fast`, the focused native `ct_core` namespace-route regression, and
+`bin/verify` passed on 2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-native-http-namespace-route-mapping.md`
+(complete; native HTTP namespace route mapping now has runtime evidence that
+path segments derive the expected WAMP namespace procedure before Dart
+dispatch, and the roadmap item is closed).
+
+Previous implementation checkpoint:
 HTTP bridge route shorthand is complete for release readiness:
 `reserved_realm` and `namespace` routes already encode to native
 deterministic targets, and Dart runtime dispatch now derives matching targets
@@ -26,9 +41,14 @@ for synthetic/non-native handshakes. Config parsing also accepts Dart-style
 aliases such as `reservedRealm`, `reserved`, `internalCall`, `sessionProxy`,
 and `appendMethodSuffix`. Pre-edit `bin/test-fast` passed on 2026-05-14;
 focused config-loader, native JSON, and runtime shorthand tests passed; and
-`bin/verify` passed on 2026-05-14.
+`bin/verify` passed on 2026-05-14. The implementation was committed as
+`f3079e8` and pushed to GitHub PR #79. PR-triggered GitHub CI #25849798467
+passed with `Fast Checks` and `Full Verify` green on `f3079e8`;
+PR-triggered Dart Package Publish Dry Run #25849798445 passed; and the
+deployment-chain audit passed with clean latest CI/logs plus clean hosted
+package dry-run evidence.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-route-deterministic-namespace-shorthand.md`
 (complete; deterministic reserved-realm and namespace HTTP shorthand routes now
 derive matching WAMP dispatch targets in Dart synthetic/non-native runtime
