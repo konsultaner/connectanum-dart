@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-14-http-file-route-cache-validation.md`.
+`docs/exec-plans/2026-05-14-http-file-route-range-requests.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,15 +20,40 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP file route cache validation is locally complete for release readiness.
+HTTP file route range request hardening is locally complete for release
+readiness. Configured HTTP `file` route responses now advertise byte-range
+support, return `206 Partial Content` with `Content-Range` and range-specific
+`Content-Length` for single `Range: bytes=...` `GET`/`HEAD` requests, and
+return `416 Range Not Satisfiable` with `Content-Range: bytes */<size>` for
+unsatisfiable single ranges. Matching conditional validators still return
+`304 Not Modified` before range handling. Pre-edit `bin/test-fast`, focused
+binding/native route tests, `dart analyze packages/connectanum_router`,
+`git diff --check`, and full local `bin/verify` passed on 2026-05-14. Commit,
+push, and hosted deployment-chain evidence are pending.
+
+Previous implementation checkpoint:
+HTTP file route cache validation is complete for release readiness.
 Configured HTTP `file` route responses now include deterministic weak `ETag`
 and `Last-Modified` headers, and matching `If-None-Match` /
 `If-Modified-Since` validators return `304 Not Modified` without a body on
 `GET` and `HEAD` through both binding-level and native HTTP paths. Pre-edit
 `bin/test-fast`, focused binding/native route tests,
 `dart analyze packages/connectanum_router`, `git diff --check`, and full
-local `bin/verify` passed on 2026-05-14. Commit/push and hosted GitHub
-evidence are pending.
+local `bin/verify` passed on 2026-05-14. The implementation was committed as
+`294760e` and pushed to GitHub PR #79. Push-triggered GitHub CI #25872653461
+passed with `Fast Checks` and `Full Verify` green; push-triggered Dart Package
+Publish Dry Run #25872653327 passed; PR-triggered latest GitHub CI #25872661493
+passed with `Fast Checks` and `Full Verify` green; PR-triggered latest Dart
+Package Publish Dry Run #25872659372 passed; and the deployment-chain audit
+passed with clean latest CI/logs plus clean hosted package dry-run evidence.
+PR #79 remains blocked only by review/merge requirements before release-branch
+promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-file-route-cache-validation.md`
+(complete; configured HTTP `file` routes now emit `ETag` and `Last-Modified`
+validators and return `304 Not Modified` for matching conditional `GET`/`HEAD`
+requests through both binding-level and native HTTP paths).
 
 Previous implementation checkpoint:
 HTTP file route HEAD/content-length hardening is complete for release

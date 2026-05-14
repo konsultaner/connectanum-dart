@@ -3642,6 +3642,7 @@ void main() {
         ok.headers[HttpHeaders.contentLengthHeader],
         utf8.encode(fileContents).length.toString(),
       );
+      expect(ok.headers['accept-ranges'], 'bytes');
       final etag = ok.headers[HttpHeaders.etagHeader];
       final lastModified = ok.headers[HttpHeaders.lastModifiedHeader];
       expect(etag, startsWith('W/"'));
@@ -3668,6 +3669,74 @@ void main() {
       );
       expect(head.body, isA<NativeHttpResponseBytes>());
       expect((head.body as NativeHttpResponseBytes).bytes, isEmpty);
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 310,
+        handle: 3100,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: const {'range': 'bytes=7-11'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 311,
+        handle: 3110,
+        method: 'HEAD',
+        target: '/static/hello.txt',
+        headers: const {'range': 'bytes=-2'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 312,
+        handle: 3120,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: const {'range': 'bytes=99-100'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[310]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[311]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[312]?.isNotEmpty ?? false),
+      );
+
+      final partial = runtime.httpResponses[310]!.single;
+      expect(partial.status, HttpStatus.partialContent);
+      expect(partial.headers[HttpHeaders.contentLengthHeader], '5');
+      expect(partial.headers['content-range'], 'bytes 7-11/15');
+      expect(partial.headers['accept-ranges'], 'bytes');
+      expect(partial.body, isA<NativeHttpResponseBytes>());
+      expect(
+        utf8.decode((partial.body as NativeHttpResponseBytes).bytes),
+        'route',
+      );
+
+      final partialHead = runtime.httpResponses[311]!.single;
+      expect(partialHead.status, HttpStatus.partialContent);
+      expect(partialHead.headers[HttpHeaders.contentLengthHeader], '2');
+      expect(partialHead.headers['content-range'], 'bytes 13-14/15');
+      expect(partialHead.body, isA<NativeHttpResponseBytes>());
+      expect((partialHead.body as NativeHttpResponseBytes).bytes, isEmpty);
+
+      final unsatisfiable = runtime.httpResponses[312]!.single;
+      expect(unsatisfiable.status, HttpStatus.requestedRangeNotSatisfiable);
+      expect(unsatisfiable.headers[HttpHeaders.contentLengthHeader], '0');
+      expect(unsatisfiable.headers['content-range'], 'bytes */15');
+      expect(unsatisfiable.body, isA<NativeHttpResponseBytes>());
+      expect((unsatisfiable.body as NativeHttpResponseBytes).bytes, isEmpty);
 
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
@@ -3724,6 +3793,14 @@ void main() {
       expect(
         events.map((event) => event['type']),
         contains('http_file_not_modified'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        contains('http_file_partial_response_sent'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        contains('http_file_range_not_satisfiable'),
       );
       expect(
         events.map((event) => event['type']),

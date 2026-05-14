@@ -1,6 +1,6 @@
 # HTTP File Route Cache Validation
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-05-14
 Last updated: 2026-05-14
@@ -39,8 +39,21 @@ adding validator metadata and conditional request handling.
 - 2026-05-14: `dart analyze packages/connectanum_router` passed.
 - 2026-05-14: `git diff --check` passed.
 - 2026-05-14: Full local `bin/verify` passed on Darwin arm64.
+- 2026-05-14: Implementation committed as `294760e` and pushed to GitHub PR
+  #79.
+- 2026-05-14: Push-triggered GitHub CI #25872653461 passed with `Fast Checks`
+  and `Full Verify` green; push-triggered Dart Package Publish Dry Run
+  #25872653327 passed.
+- 2026-05-14: PR-triggered latest GitHub CI #25872661493 passed with
+  `Fast Checks` and `Full Verify` green; PR-triggered latest Dart Package
+  Publish Dry Run #25872659372 passed.
+- 2026-05-14: `bin/audit-github-deployment-chain --branch
+  codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci
+  --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI/logs and clean hosted package dry-run evidence.
 
 ## Next Step
 
-Commit with the bundled project-state updates, push, and audit the GitHub
-deployment chain.
+Select the next release-readiness implementation slice after PR #79 review and
+merge requirements are resolved or continue branch-local hardening only if it
+materially improves the RC candidate.

@@ -1027,6 +1027,7 @@ void main() {
           response.headers.value(HttpHeaders.contentLengthHeader),
           equals(utf8.encode(fileContents).length.toString()),
         );
+        expect(response.headers.value('accept-ranges'), equals('bytes'));
         final etag = response.headers.value(HttpHeaders.etagHeader);
         final lastModified = response.headers.value(
           HttpHeaders.lastModifiedHeader,
@@ -1048,6 +1049,65 @@ void main() {
           equals(utf8.encode(fileContents).length.toString()),
         );
         expect(headBody, isEmpty);
+
+        final rangeRequest = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        rangeRequest.headers.set(HttpHeaders.rangeHeader, 'bytes=7-12');
+        final rangeResponse = await rangeRequest.close();
+        final rangeBody = await utf8.decoder.bind(rangeResponse).join();
+        expect(rangeResponse.statusCode, equals(HttpStatus.partialContent));
+        expect(
+          rangeResponse.headers.value(HttpHeaders.contentLengthHeader),
+          equals('6'),
+        );
+        expect(
+          rangeResponse.headers.value('content-range'),
+          equals('bytes 7-12/19'),
+        );
+        expect(rangeResponse.headers.value('accept-ranges'), equals('bytes'));
+        expect(rangeBody, equals('static'));
+
+        final rangeHeadRequest = await client.head(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        rangeHeadRequest.headers.set(HttpHeaders.rangeHeader, 'bytes=-5');
+        final rangeHeadResponse = await rangeHeadRequest.close();
+        final rangeHeadBody = await utf8.decoder.bind(rangeHeadResponse).join();
+        expect(rangeHeadResponse.statusCode, equals(HttpStatus.partialContent));
+        expect(
+          rangeHeadResponse.headers.value(HttpHeaders.contentLengthHeader),
+          equals('5'),
+        );
+        expect(
+          rangeHeadResponse.headers.value('content-range'),
+          equals('bytes 14-18/19'),
+        );
+        expect(rangeHeadBody, isEmpty);
+
+        final unsatisfiableRange = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        unsatisfiableRange.headers.set(HttpHeaders.rangeHeader, 'bytes=99-100');
+        final unsatisfiableRangeResponse = await unsatisfiableRange.close();
+        final unsatisfiableRangeBody = await utf8.decoder
+            .bind(unsatisfiableRangeResponse)
+            .join();
+        expect(
+          unsatisfiableRangeResponse.statusCode,
+          equals(HttpStatus.requestedRangeNotSatisfiable),
+        );
+        expect(
+          unsatisfiableRangeResponse.headers.value('content-range'),
+          equals('bytes */19'),
+        );
+        expect(unsatisfiableRangeBody, isEmpty);
 
         final conditionalGet = await client.get(
           '127.0.0.1',
@@ -1098,6 +1158,14 @@ void main() {
           'http_file_not_modified',
         );
         expect(notModifiedEvent['path'], equals('/static/asset.txt'));
+        final partialEvent = await harness.nextEvent(
+          'http_file_partial_response_sent',
+        );
+        expect(partialEvent['path'], equals('/static/asset.txt'));
+        final rangeErrorEvent = await harness.nextEvent(
+          'http_file_range_not_satisfiable',
+        );
+        expect(rangeErrorEvent['path'], equals('/static/asset.txt'));
       },
       skip: skipReason,
     );

@@ -2091,6 +2091,7 @@ class RouterBinding {
     headers[HttpHeaders.contentLengthHeader] = stat.size.toString();
     headers[HttpHeaders.etagHeader] = etag;
     headers[HttpHeaders.lastModifiedHeader] = HttpDate.format(modified);
+    headers['accept-ranges'] = 'bytes';
     final contentType = _httpFileContentType(action, filePath);
     if (contentType != null) {
       headers[HttpHeaders.contentTypeHeader] = contentType;
@@ -2131,6 +2132,79 @@ class RouterBinding {
         accessLogContext,
         status: HttpStatus.notModified,
         outcome: 'file_not_modified',
+      );
+      return;
+    }
+
+    final range = method == 'GET' || method == 'HEAD'
+        ? _httpFileRangeForRequest(
+            request,
+            size: stat.size,
+            etag: etag,
+            modified: modified,
+          )
+        : null;
+    if (range is _HttpFileUnsatisfiableRange) {
+      headers[HttpHeaders.contentLengthHeader] = '0';
+      headers['content-range'] = range.contentRangeHeader;
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.requestedRangeNotSatisfiable,
+          headers: headers,
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_range_not_satisfiable',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'filePath': filePath,
+        'size': stat.size,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.requestedRangeNotSatisfiable,
+        outcome: 'file_range_not_satisfiable',
+      );
+      return;
+    }
+    if (range is _HttpFileByteRange) {
+      headers[HttpHeaders.contentLengthHeader] = range.length.toString();
+      headers['content-range'] = range.contentRangeHeader;
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.partialContent,
+          headers: headers,
+          body: method == 'HEAD'
+              ? NativeHttpResponseBytes(Uint8List(0))
+              : NativeHttpResponseBytes(
+                  _readHttpFileRangeBytes(filePath, range),
+                ),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_partial_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'filePath': filePath,
+        'start': range.start,
+        'end': range.end,
+        'size': range.size,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.partialContent,
+        outcome: 'file_partial_completed',
       );
       return;
     }
@@ -2350,6 +2424,116 @@ class RouterBinding {
       return trimmed.substring(2).trim();
     }
     return trimmed;
+  }
+
+  _HttpFileRangeDecision? _httpFileRangeForRequest(
+    RouterHttpRequest request, {
+    required int size,
+    required String etag,
+    required DateTime modified,
+  }) {
+    final header = _headerValue(request.headers, 'range');
+    if (header == null) {
+      return null;
+    }
+    final ifRange = _headerValue(request.headers, 'if-range');
+    if (ifRange != null &&
+        !_httpFileIfRangeMatches(ifRange, etag: etag, modified: modified)) {
+      return null;
+    }
+
+    final value = header.trim();
+    const prefix = 'bytes=';
+    if (!value.toLowerCase().startsWith(prefix)) {
+      return null;
+    }
+    final spec = value.substring(prefix.length).trim();
+    if (spec.isEmpty || spec.contains(',')) {
+      return null;
+    }
+    final dash = spec.indexOf('-');
+    if (dash < 0) {
+      return _HttpFileUnsatisfiableRange(size);
+    }
+    final startPart = spec.substring(0, dash).trim();
+    final endPart = spec.substring(dash + 1).trim();
+    if (startPart.isEmpty && endPart.isEmpty) {
+      return _HttpFileUnsatisfiableRange(size);
+    }
+    if (size <= 0) {
+      return _HttpFileUnsatisfiableRange(size);
+    }
+
+    if (startPart.isEmpty) {
+      final suffixLength = int.tryParse(endPart);
+      if (suffixLength == null || suffixLength <= 0) {
+        return _HttpFileUnsatisfiableRange(size);
+      }
+      final start = suffixLength >= size ? 0 : size - suffixLength;
+      return _HttpFileByteRange(start: start, end: size - 1, size: size);
+    }
+
+    final start = int.tryParse(startPart);
+    if (start == null || start < 0 || start >= size) {
+      return _HttpFileUnsatisfiableRange(size);
+    }
+    final int end;
+    if (endPart.isEmpty) {
+      end = size - 1;
+    } else {
+      final parsedEnd = int.tryParse(endPart);
+      if (parsedEnd == null || parsedEnd < start) {
+        return _HttpFileUnsatisfiableRange(size);
+      }
+      end = parsedEnd >= size ? size - 1 : parsedEnd;
+    }
+    return _HttpFileByteRange(start: start, end: end, size: size);
+  }
+
+  bool _httpFileIfRangeMatches(
+    String header, {
+    required String etag,
+    required DateTime modified,
+  }) {
+    final trimmed = header.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    if (trimmed.startsWith('"') || trimmed.startsWith('W/')) {
+      return _normalizeHttpFileEtag(trimmed) == _normalizeHttpFileEtag(etag);
+    }
+    try {
+      final since = HttpDate.parse(trimmed).toUtc();
+      final modifiedSeconds = DateTime.fromMillisecondsSinceEpoch(
+        (modified.millisecondsSinceEpoch ~/ 1000) * 1000,
+        isUtc: true,
+      );
+      return !modifiedSeconds.isAfter(since);
+    } on FormatException {
+      return false;
+    }
+  }
+
+  Uint8List _readHttpFileRangeBytes(String filePath, _HttpFileByteRange range) {
+    final file = File(filePath).openSync();
+    try {
+      file.setPositionSync(range.start);
+      final bytes = Uint8List(range.length);
+      var offset = 0;
+      while (offset < range.length) {
+        final read = file.readIntoSync(bytes, offset, range.length);
+        if (read == 0) {
+          break;
+        }
+        offset += read;
+      }
+      if (offset == bytes.length) {
+        return bytes;
+      }
+      return Uint8List.sublistView(bytes, 0, offset);
+    } finally {
+      file.closeSync();
+    }
   }
 
   SessionProfileSettings? _resolveHttpSessionProfile({
@@ -5881,6 +6065,34 @@ class _HttpRouteAccessLogContext {
   final HttpRouteSettings route;
   final HttpRouteAction action;
   bool completed = false;
+}
+
+abstract class _HttpFileRangeDecision {
+  const _HttpFileRangeDecision();
+}
+
+class _HttpFileByteRange extends _HttpFileRangeDecision {
+  const _HttpFileByteRange({
+    required this.start,
+    required this.end,
+    required this.size,
+  });
+
+  final int start;
+  final int end;
+  final int size;
+
+  int get length => end - start + 1;
+
+  String get contentRangeHeader => 'bytes $start-$end/$size';
+}
+
+class _HttpFileUnsatisfiableRange extends _HttpFileRangeDecision {
+  const _HttpFileUnsatisfiableRange(this.size);
+
+  final int size;
+
+  String get contentRangeHeader => 'bytes */$size';
 }
 
 class _HttpRouteConcurrencyDecision {
