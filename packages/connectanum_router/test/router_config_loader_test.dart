@@ -735,6 +735,53 @@ void main() {
       );
     });
 
+    test('parses HTTP publish routes with topics', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/events'},
+                    'action': <String, Object?>{
+                      'type': 'publish',
+                      'topic': 'com.example.http.events',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.action.type, HttpRouteActionType.publish);
+      expect(route.action.topic, 'com.example.http.events');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      expect(
+        decoded.listeners.single.http!.routes.single.action.type,
+        HttpRouteActionType.publish,
+      );
+      expect(
+        decoded.listeners.single.http!.routes.single.action.topic,
+        'com.example.http.events',
+      );
+    });
+
     test('parses multi-protocol listener with http routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{

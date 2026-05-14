@@ -1185,6 +1185,20 @@ class RouterBinding {
       }
       return;
     }
+    if (matchedRoute?.action.type == HttpRouteActionType.publish) {
+      try {
+        await _handleHttpPublishRequest(
+          request: request,
+          handshake: retainedHandshake,
+          listenerSettings: listenerSettings,
+          route: matchedRoute!,
+          sessionProfile: sessionProfile,
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
+      return;
+    }
 
     final dispatchTarget = _resolveHttpRouteDispatchTarget(
       request: request,
@@ -1563,6 +1577,225 @@ class RouterBinding {
     ].join(':');
   }
 
+  Future<void> _handleHttpPublishRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required ListenerSettings? listenerSettings,
+    required HttpRouteSettings route,
+    required SessionProfileSettings? sessionProfile,
+  }) async {
+    final action = route.action;
+    final topic = _resolveHttpRouteTopicForBinding(action);
+    if (topic == null) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_unmapped_topic',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'route_topic_missing',
+            'message': 'HTTP publish route is missing a topic',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final requestRealm = _nonEmptyHttpRouteString(request.realm);
+    final routeRealm = _resolveHttpRouteRealmForBinding(
+      action,
+      listenerSettings: listenerSettings,
+      sessionProfile: sessionProfile,
+    );
+    final profileRealm = _nonEmptyHttpRouteString(sessionProfile?.realm);
+    final resolvedRealmUri = _firstNonEmptyString(
+      profileRealm,
+      requestRealm,
+      routeRealm,
+    );
+    if (resolvedRealmUri == null) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_unmapped_realm',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'topic': topic,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'route_realm_missing',
+            'message': 'HTTP publish route is missing a target realm',
+          }),
+        ),
+      );
+      return;
+    }
+
+    RouterSession session;
+    try {
+      final bearer = _extractBearerToken(request.headers);
+      if (bearer != null) {
+        session = await _authenticatedHttpSessionForToken(
+          token: bearer,
+          request: request,
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile,
+        );
+      } else {
+        final allowsAnonymous = httpSessionProfileAllowsAnonymous(
+          sessionProfile,
+        );
+        final requiresBridgeAuth =
+            sessionProfile != null &&
+            sessionProfile.auth.methods.isNotEmpty &&
+            !allowsAnonymous;
+        if (requiresBridgeAuth) {
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: handshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.unauthorized,
+              headers: _httpUnauthorizedHeaders(
+                realm: resolvedRealmUri,
+                authPath: _httpAuthPathFor(listenerSettings?.http),
+              ),
+              body: NativeHttpResponseJson(<String, Object?>{
+                'status': 'error',
+                'reason': 'unauthorized',
+                'message': 'Bearer token required',
+              }),
+            ),
+          );
+          return;
+        }
+        session = await _ensureInternalSession(
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile?.name,
+        );
+      }
+    } on _HttpUnauthorized catch (error) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          headers: _httpUnauthorizedHeaders(
+            realm: resolvedRealmUri,
+            authPath: _httpAuthPathFor(listenerSettings?.http),
+          ),
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': error.reason,
+            if (error.message != null) 'message': error.message,
+          }),
+        ),
+      );
+      return;
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_session_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      return;
+    }
+
+    final httpRequestId = _nextHttpRequestId++;
+    final snapshot = request.toSnapshotWithTarget(
+      httpRequestId,
+      realm: resolvedRealmUri,
+      procedure: topic,
+    );
+    final nativeLibraryPath = runtime is NativeRuntimeWithHandles
+        ? (runtime as NativeRuntimeWithHandles).libraryPathHint
+        : null;
+    final requestPayload = snapshot.toInvocationPayload(
+      nativeLibraryPath: nativeLibraryPath,
+    );
+    final keywords = <String, Object?>{
+      '_http': <String, Object?>{...requestPayload},
+      '_connection': <String, Object?>{
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+      },
+    };
+
+    try {
+      final published = await session.publish(
+        topic,
+        argumentsKeywords: Map<String, dynamic>.from(keywords),
+        options: publish_msg.PublishOptions(acknowledge: true),
+      );
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.accepted,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'published',
+            'topic': topic,
+            if (published != null) 'publicationId': published.publicationId,
+          }),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_request_published',
+        'httpRequestId': httpRequestId,
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        if (published != null) 'publicationId': published.publicationId,
+      });
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_error',
+        'httpRequestId': httpRequestId,
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'publish_failed',
+            'message': error.toString(),
+          }),
+        ),
+      );
+    }
+  }
+
   SessionProfileSettings? _resolveHttpSessionProfile({
     required ListenerSettings? listenerSettings,
     required HttpRouteSettings? route,
@@ -1701,6 +1934,18 @@ class RouterBinding {
     final optionNamespace = action.options['namespace'];
     if (optionNamespace is String && optionNamespace.trim().isNotEmpty) {
       return optionNamespace.trim();
+    }
+    return null;
+  }
+
+  String? _resolveHttpRouteTopicForBinding(HttpRouteAction action) {
+    final directTopic = _nonEmptyHttpRouteString(action.topic);
+    if (directTopic != null) {
+      return directTopic;
+    }
+    final optionTopic = action.options['topic'];
+    if (optionTopic is String && optionTopic.trim().isNotEmpty) {
+      return optionTopic.trim();
     }
     return null;
   }

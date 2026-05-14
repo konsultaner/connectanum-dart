@@ -271,6 +271,55 @@ void main() {
       expect(action['procedure'], 'com.example.proxy.handle');
     });
 
+    test('encodes HTTP publish routes for native enqueueing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: 'realm1',
+            auth: const RealmAuthSettings(methods: ['anonymous']),
+            roles: const [],
+            limits: const RealmLimitSettings(),
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/events'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.publish,
+                    topic: 'com.example.http.events',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      final action = route['default'] as Map;
+      expect(action['type'], 'translation');
+      expect(action['realm'], 'realm1');
+      expect(action['procedure'], 'com.example.http.events');
+    });
+
     test('encodes catch-all HTTP routes as native prefix fallbacks', () {
       final endpoint = Endpoint(
         host: '127.0.0.1',

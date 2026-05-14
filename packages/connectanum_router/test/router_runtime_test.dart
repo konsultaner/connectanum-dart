@@ -3313,6 +3313,145 @@ void main() {
     expect((response.body as NativeHttpResponseJson).value, {'proxied': true});
   });
 
+  test('routes HTTP publish actions through internal sessions', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettings(
+      realms: [
+        RealmSettings(
+          name: 'realm1',
+          auth: const RealmAuthSettings(methods: ['anonymous']),
+          roles: [
+            RoleSettings(
+              name: 'anonymous',
+              permissions: [
+                PermissionSettings(
+                  uri: '',
+                  matchPolicy: PermissionMatchPolicy.prefix,
+                  allow: const ['publish', 'subscribe'],
+                  deny: const [],
+                  disclose: const DiscloseSettings(),
+                ),
+              ],
+            ),
+          ],
+          limits: const RealmLimitSettings(),
+        ),
+      ],
+      listeners: const [
+        ListenerSettings(
+          endpoint: '127.0.0.1:0',
+          protocols: [ListenerProtocol.rawsocket, ListenerProtocol.http],
+          http: HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: HttpRouteMatch(path: '/events/task'),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.publish,
+                  topic: 'com.example.http.events',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      authenticators: const {
+        'anonymous': AuthenticatorDefinition(type: 'anonymous'),
+      },
+    );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings,
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 45;
+
+    final subscriber = await binding.createInternalSession(realmUri: 'realm1');
+    addTearDown(subscriber.close);
+    final publishedEvents = <Map<String, Object?>>[];
+    final subscription = await subscriber.subscribe('com.example.http.events');
+    subscription.onEvent((event) {
+      publishedEvents.add(
+        Map<String, Object?>.from(event.argumentsKeywords ?? const {}),
+      );
+    });
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 4,
+        method: 'POST',
+        target: '/events/task',
+        path: '/events/task',
+        protocol: 'http/1.1',
+        headers: const {'x-event': 'task'},
+        body: Uint8List.fromList(utf8.encode('{"task":true}')),
+      ),
+    );
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_request_published'),
+      timeout: const Duration(seconds: 2),
+    );
+    final publishEvent = events.firstWhere(
+      (event) => event['type'] == 'http_request_published',
+    );
+    expect(publishEvent['realm'], 'realm1');
+    expect(publishEvent['topic'], 'com.example.http.events');
+    expect(publishEvent['listenerId'], listenerId);
+    expect(publishEvent['connectionId'], connectionId);
+    expect(publishEvent['publicationId'], isA<int>());
+
+    await _waitUntil(
+      () => publishedEvents.isNotEmpty,
+      timeout: const Duration(seconds: 2),
+    );
+    final published = publishedEvents.single;
+    final http = published['_http'] as Map;
+    expect(http['method'], 'POST');
+    expect(http['path'], '/events/task');
+    expect(http['procedure'], 'com.example.http.events');
+    final connection = published['_connection'] as Map;
+    expect(connection['listenerId'], listenerId);
+    expect(connection['connectionId'], connectionId);
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty == true,
+      timeout: const Duration(seconds: 2),
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.accepted);
+    expect(response.body, isA<NativeHttpResponseJson>());
+    final body = (response.body as NativeHttpResponseJson).value as Map;
+    expect(body['status'], 'published');
+    expect(body['topic'], 'com.example.http.events');
+    expect(body['publicationId'], isA<int>());
+  });
+
   test('creates internal sessions from session profile defaults', () async {
     final runtime = _HandleRuntime();
     final router = Router(

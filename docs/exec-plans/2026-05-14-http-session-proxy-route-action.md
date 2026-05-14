@@ -54,6 +54,12 @@ proxy process.
 - `dart test packages/connectanum_router/test/router_json_test.dart -n "session proxy|method-specific HTTP route actions"`
 - `dart test packages/connectanum_router/test/router_runtime_test.dart -n "session proxy"`
 - `bin/verify`
+- Commit `12b6ec1` pushed to GitHub PR #79 on 2026-05-14.
+- PR-triggered GitHub CI #25855439878 passed with `Fast Checks` and
+  `Full Verify` green on 2026-05-14.
+- PR-triggered Dart Package Publish Dry Run #25855439876 passed on
+  2026-05-14.
+- `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`: passed on 2026-05-14.
 
 ## Decision Log
 

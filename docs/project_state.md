@@ -19,6 +19,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP publish route action wiring is complete for release readiness. The public
+`publish` HTTP route action and `topic` field already exist in the settings
+surface; it now maps to native translation route entries for request enqueueing,
+publishes the standard HTTP request context through Dart runtime internal
+sessions, and returns acknowledged `202` JSON responses. Pre-edit
+`bin/test-fast` passed on 2026-05-14; focused config-loader, native-config JSON,
+and runtime publish-route tests passed locally; and `bin/verify` passed on
+2026-05-14.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-http-publish-route-action.md`
+(complete; `publish` routes now parse, encode, publish via router internal
+sessions, and return acknowledged HTTP responses).
+
+Previous implementation checkpoint:
 HTTP session-proxy route action wiring is complete for release readiness. The
 public `session_proxy` / `sessionProxy` HTTP route action already existed in the
 settings surface; it now maps to native translation route entries and the Dart
@@ -27,9 +42,14 @@ path as `internal_call`. Pre-edit `bin/test-fast` passed on 2026-05-14; focused
 config-loader, native-config JSON, and runtime session-proxy tests passed
 locally; a first `bin/verify` attempt hit a transient HTTP/3 response-streaming
 handshake timeout; the focused native HTTP/3 test passed immediately; and the
-full `bin/verify` rerun passed on 2026-05-14.
+full `bin/verify` rerun passed on 2026-05-14. The implementation was committed
+as `12b6ec1` and pushed to GitHub PR #79. PR-triggered GitHub CI #25855439878
+passed with `Fast Checks` and `Full Verify` green on `12b6ec1`; PR-triggered
+Dart Package Publish Dry Run #25855439876 passed; and the deployment-chain
+audit passed with clean latest CI/logs plus clean hosted package dry-run
+evidence.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-session-proxy-route-action.md`
 (complete; `session_proxy` routes now parse, encode, and dispatch through
 internal router sessions).

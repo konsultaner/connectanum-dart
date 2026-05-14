@@ -276,6 +276,20 @@ class Router {
           'realm': realm,
           'procedure': 'connectanum.mcp.handle',
         };
+      case HttpRouteActionType.publish:
+        final topic = _resolveRouteTopic(action);
+        if (topic == null || topic.isEmpty) {
+          throw StateError(
+            'HTTP publish routes require a topic; set action.topic or action.options.topic.',
+          );
+        }
+        final realm = _resolveRouteRealm(action, listener, settings);
+        if (realm == null || realm.isEmpty) {
+          throw StateError(
+            'HTTP publish routes require a realm; specify action.realm, action.options.realm, or configure a listener/default realm.',
+          );
+        }
+        return {'type': 'translation', 'realm': realm, 'procedure': topic};
       default:
         throw StateError(
           'HTTP route action ${action.type} is not yet supported for native wiring.',
@@ -365,6 +379,21 @@ class Router {
     final optionNamespace = action.options['namespace'];
     if (optionNamespace is String) {
       final trimmed = optionNamespace.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveRouteTopic(HttpRouteAction action) {
+    final direct = action.topic?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final optionTopic = action.options['topic'];
+    if (optionTopic is String) {
+      final trimmed = optionTopic.trim();
       if (trimmed.isNotEmpty) {
         return trimmed;
       }
