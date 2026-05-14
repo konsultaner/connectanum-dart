@@ -19,6 +19,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP route access-log middleware is complete locally for release readiness.
+HTTP route actions now have typed per-route access-log settings, config aliases
+parse and round-trip through the settings codec, and the Dart router binding
+emits structured start/completion events with duration, outcome, status when
+available, optional query/header fields, and sensitive-header redaction.
+Pre-edit `bin/test-fast` passed on 2026-05-14; focused config-loader/codec and
+runtime access-log tests passed locally; `git diff --check` passed; and
+`bin/verify` passed on 2026-05-14.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-access-log-middleware.md`
+(complete; per-route HTTP access logging now parses, encodes, emits
+structured start/completion events, redacts sensitive optional headers, and has
+clean local verification evidence).
+
+Previous implementation checkpoint:
 HTTP route concurrency throttling is complete locally for release readiness.
 HTTP route actions now have typed per-route concurrency-limit settings, config
 aliases parse and round-trip through the settings codec, the Dart router
@@ -26,14 +42,18 @@ binding rejects excess in-flight requests before WAMP/MCP dispatch, and
 acquired slots are released when immediate or pending HTTP requests complete.
 Pre-edit `bin/test-fast` passed on 2026-05-14; focused config-loader/codec and
 runtime concurrency-throttle tests passed locally; `git diff --check` passed;
-and `bin/verify` passed on 2026-05-14. Hosted evidence is pending for the
-commit that contains this slice.
+and `bin/verify` passed on 2026-05-14. The implementation was committed as
+`18a1563` and pushed to GitHub PR #79. PR-triggered GitHub CI #25860173425
+passed with `Fast Checks` and `Full Verify` green on `18a1563`; PR-triggered
+Dart Package Publish Dry Run #25860173360 passed; and the deployment-chain
+audit passed with clean latest CI/logs plus clean hosted package dry-run
+evidence.
 
 Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-route-concurrency-throttle.md`
-(complete locally; per-route HTTP concurrency throttling now parses, encodes,
+(complete; per-route HTTP concurrency throttling now parses, encodes,
 enforces before dispatch, returns structured `429` responses, releases slots on
-completion, and has clean local verification evidence).
+completion, and has clean hosted CI/package/audit evidence).
 
 Previous implementation checkpoint:
 HTTP route rate-limit middleware is complete for release readiness. HTTP route

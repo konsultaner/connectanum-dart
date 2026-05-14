@@ -936,6 +936,33 @@ class HttpRouteConcurrencyLimitSettings {
 }
 
 @immutable
+class HttpRouteAccessLogSettings {
+  const HttpRouteAccessLogSettings({
+    this.enabled = true,
+    this.includeQuery = false,
+    this.includeHeaders = false,
+  });
+
+  final bool enabled;
+  final bool includeQuery;
+  final bool includeHeaders;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is HttpRouteAccessLogSettings &&
+        other.enabled == enabled &&
+        other.includeQuery == includeQuery &&
+        other.includeHeaders == includeHeaders;
+  }
+
+  @override
+  int get hashCode => Object.hash(enabled, includeQuery, includeHeaders);
+}
+
+@immutable
 class HttpRouteAction {
   const HttpRouteAction({
     required this.type,
@@ -952,6 +979,7 @@ class HttpRouteAction {
     this.delegate,
     this.rateLimit,
     this.concurrencyLimit,
+    this.accessLog,
     this.options = const {},
   });
 
@@ -969,6 +997,7 @@ class HttpRouteAction {
   final String? delegate;
   final HttpRouteRateLimitSettings? rateLimit;
   final HttpRouteConcurrencyLimitSettings? concurrencyLimit;
+  final HttpRouteAccessLogSettings? accessLog;
   final Map<String, Object?> options;
 
   @override
@@ -991,6 +1020,7 @@ class HttpRouteAction {
         other.delegate == delegate &&
         other.rateLimit == rateLimit &&
         other.concurrencyLimit == concurrencyLimit &&
+        other.accessLog == accessLog &&
         const DeepCollectionEquality().equals(other.options, options);
   }
 
@@ -1010,6 +1040,7 @@ class HttpRouteAction {
     delegate,
     rateLimit,
     concurrencyLimit,
+    accessLog,
     const DeepCollectionEquality().hash(options),
   );
 }

@@ -1113,6 +1113,10 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    final accessLogContext = _startHttpRouteAccessLog(
+      request: request,
+      route: matchedRoute,
+    );
     final transportAuthFailure = _evaluateHttpRouteTransportAuth(
       request: request,
       route: matchedRoute,
@@ -1155,6 +1159,11 @@ class RouterBinding {
           }),
         ),
       );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: transportAuthFailure.status,
+        outcome: transportAuthFailure.reason,
+      );
       retainedHandshake?.release();
       return;
     }
@@ -1188,6 +1197,11 @@ class RouterBinding {
         'key': rateLimitFailure.key,
         'retryAfterMs': rateLimitFailure.retryAfter.inMilliseconds,
       });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.tooManyRequests,
+        outcome: 'rate_limited',
+      );
       retainedHandshake?.release();
       return;
     }
@@ -1224,6 +1238,11 @@ class RouterBinding {
         'current': failure.current,
         'limit': failure.limit,
       });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.tooManyRequests,
+        outcome: 'concurrency_limited',
+      );
       retainedHandshake?.release();
       return;
     }
@@ -1238,6 +1257,7 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } finally {
+        _finishHttpRouteAccessLog(accessLogContext, outcome: 'auth_completed');
         _releaseHttpRouteConcurrencySlot(concurrencyToken);
         retainedHandshake?.release();
       }
@@ -1254,6 +1274,7 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } finally {
+        _finishHttpRouteAccessLog(accessLogContext, outcome: 'mcp_completed');
         _releaseHttpRouteConcurrencySlot(concurrencyToken);
         retainedHandshake?.release();
       }
@@ -1269,6 +1290,10 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } finally {
+        _finishHttpRouteAccessLog(
+          accessLogContext,
+          outcome: 'publish_completed',
+        );
         _releaseHttpRouteConcurrencySlot(concurrencyToken);
         retainedHandshake?.release();
       }
@@ -1291,6 +1316,7 @@ class RouterBinding {
         'connectionId': request.connectionId,
         'endpoint': request.endpoint,
       });
+      _finishHttpRouteAccessLog(accessLogContext, outcome: 'unmapped_realm');
       _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
@@ -1304,6 +1330,10 @@ class RouterBinding {
         'endpoint': request.endpoint,
         'realm': realmUri,
       });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        outcome: 'unmapped_procedure',
+      );
       _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
@@ -1360,6 +1390,11 @@ class RouterBinding {
               }),
             ),
           );
+          _finishHttpRouteAccessLog(
+            accessLogContext,
+            status: HttpStatus.unauthorized,
+            outcome: 'unauthorized',
+          );
           _releaseHttpRouteConcurrencySlot(concurrencyToken);
           retainedHandshake?.release();
           return;
@@ -1386,6 +1421,11 @@ class RouterBinding {
           }),
         ),
       );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.unauthorized,
+        outcome: error.reason,
+      );
       _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
@@ -1401,6 +1441,11 @@ class RouterBinding {
         'error': error.toString(),
         'stackTrace': stackTrace.toString(),
       });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        outcome: 'session_error',
+        error: error,
+      );
       _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
@@ -1424,6 +1469,7 @@ class RouterBinding {
       session: session,
       handshake: retainedHandshake,
       concurrencyToken: concurrencyToken,
+      accessLog: accessLogContext,
     );
     _pendingHttpCalls[httpRequestId] = pending;
 
@@ -1478,6 +1524,7 @@ class RouterBinding {
               'connectionId': request.connectionId,
               'response': responsePayload.toEventPayload(),
             });
+            pending.httpStatus = responsePayload.status;
             if (responsePayload.progress || pending.responseStream != null) {
               final sent = _forwardStreamingResponseChunk(
                 pending,
@@ -1580,6 +1627,11 @@ class RouterBinding {
         'error': error.toString(),
         'stackTrace': stackTrace.toString(),
       });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        outcome: 'dispatch_error',
+        error: error,
+      );
       retainedHandshake?.release();
       return;
     }
@@ -2297,6 +2349,115 @@ class RouterBinding {
     }
     existing.count += 1;
     return null;
+  }
+
+  _HttpRouteAccessLogContext? _startHttpRouteAccessLog({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+  }) {
+    if (route == null) {
+      return null;
+    }
+    final action = route.actionForMethod(request.method);
+    final accessLog = action.accessLog;
+    if (accessLog == null || !accessLog.enabled) {
+      return null;
+    }
+    final startedAt = DateTime.now().toUtc();
+    final context = _HttpRouteAccessLogContext(
+      startedAt: startedAt,
+      request: request,
+      route: route,
+      action: action,
+    );
+    final event = _httpRouteAccessLogBaseEvent(
+      type: 'http_route_access_started',
+      request: request,
+      context: context,
+    );
+    if (accessLog.includeQuery && request.query != null) {
+      event['query'] = request.query;
+    }
+    if (accessLog.includeHeaders) {
+      event['headers'] = _redactedHttpRouteAccessLogHeaders(request.headers);
+    }
+    onEvent?.call(event);
+    return context;
+  }
+
+  void _finishHttpRouteAccessLog(
+    _HttpRouteAccessLogContext? context, {
+    int? status,
+    required String outcome,
+    Object? error,
+  }) {
+    if (context == null || context.completed) {
+      return;
+    }
+    context.completed = true;
+    final elapsed = DateTime.now().toUtc().difference(context.startedAt);
+    final event = _httpRouteAccessLogBaseEvent(
+      type: 'http_route_access_completed',
+      request: context.request,
+      context: context,
+    );
+    event['durationMs'] = elapsed.inMilliseconds;
+    event['outcome'] = outcome;
+    if (status != null) {
+      event['status'] = status;
+    }
+    if (error != null) {
+      event['error'] = error.toString();
+    }
+    onEvent?.call(event);
+  }
+
+  Map<String, Object?> _httpRouteAccessLogBaseEvent({
+    required String type,
+    required RouterHttpRequest request,
+    required _HttpRouteAccessLogContext context,
+  }) {
+    return <String, Object?>{
+      'source': 'binding',
+      'type': type,
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'method': request.method,
+      'path': request.path,
+      'target': request.target,
+      'protocol': request.protocol,
+      'action': httpRouteActionTypeToString(context.action.type),
+      if (context.route.match.path != null)
+        'routePath': context.route.match.path,
+      if (context.route.match.prefix != null)
+        'routePrefix': context.route.match.prefix,
+      if (context.route.match.catchAll) 'routeCatchAll': true,
+      if (context.action.realm != null) 'realm': context.action.realm,
+      if (context.action.procedure != null)
+        'procedure': context.action.procedure,
+      if (context.action.topic != null) 'topic': context.action.topic,
+    };
+  }
+
+  Map<String, String> _redactedHttpRouteAccessLogHeaders(
+    Map<String, String> headers,
+  ) {
+    const sensitiveHeaders = {
+      'authorization',
+      'cookie',
+      'proxy-authorization',
+      'set-cookie',
+    };
+    return Map<String, String>.unmodifiable(
+      headers.map((name, value) {
+        final normalized = name.trim().toLowerCase();
+        return MapEntry(
+          name,
+          sensitiveHeaders.contains(normalized) ? '<redacted>' : value,
+        );
+      }),
+    );
   }
 
   _HttpRouteConcurrencyDecision _acquireHttpRouteConcurrencySlot({
@@ -3792,6 +3953,7 @@ class RouterBinding {
         headers: headers,
       );
       pending.directResponseStream = descriptor;
+      pending.httpStatus = status;
       return descriptor;
     } on UnsupportedError catch (error, stackTrace) {
       onEvent?.call({
@@ -3876,6 +4038,13 @@ class RouterBinding {
     pending?.subscription.cancel();
     pending?.handshake?.release();
     _releaseHttpRouteConcurrencySlot(pending?.concurrencyToken);
+    if (pending != null) {
+      _finishHttpRouteAccessLog(
+        pending.accessLog,
+        status: pending.httpStatus,
+        outcome: 'completed',
+      );
+    }
   }
 
   void _scheduleInternalBootstrap() {
@@ -4084,6 +4253,7 @@ class _PendingHttpCall {
     required this.session,
     this.handshake,
     this.concurrencyToken,
+    this.accessLog,
   });
 
   final int id;
@@ -4091,11 +4261,13 @@ class _PendingHttpCall {
   final HttpRequestSnapshot snapshot;
   final RouterSession session;
   final _HttpRouteConcurrencyToken? concurrencyToken;
+  final _HttpRouteAccessLogContext? accessLog;
   late StreamSubscription<result_msg.Result> subscription;
   NativeHttpHandshake? handshake;
   NativeHttpResponseStream? responseStream;
   NativeHttpResponseStreamDescriptor? directResponseStream;
   bool directResponseStreamCompleted = false;
+  int? httpStatus;
 }
 
 class _MetricsService {
@@ -5266,6 +5438,21 @@ class _HttpRouteRateLimitFailure {
     }
     return (milliseconds + 999) ~/ 1000;
   }
+}
+
+class _HttpRouteAccessLogContext {
+  _HttpRouteAccessLogContext({
+    required this.startedAt,
+    required this.request,
+    required this.route,
+    required this.action,
+  });
+
+  final DateTime startedAt;
+  final RouterHttpRequest request;
+  final HttpRouteSettings route;
+  final HttpRouteAction action;
+  bool completed = false;
 }
 
 class _HttpRouteConcurrencyDecision {

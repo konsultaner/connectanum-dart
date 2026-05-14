@@ -233,6 +233,11 @@ class RouterConfigLoader {
           map.remove('concurrencyLimit') ??
           map.remove('throttle'),
     );
+    final accessLog = _parseHttpRouteAccessLog(
+      map.remove('access_log') ??
+          map.remove('accessLog') ??
+          map.remove('logging'),
+    );
     final actionOptions =
         _asMap(map.remove('options'), allowNull: true) ?? const {};
     final extras = Map<String, Object?>.unmodifiable(map);
@@ -257,6 +262,7 @@ class RouterConfigLoader {
       delegate: delegate,
       rateLimit: rateLimit,
       concurrencyLimit: concurrencyLimit,
+      accessLog: accessLog,
       options: mergedOptions,
     );
   }
@@ -387,6 +393,38 @@ class RouterConfigLoader {
     return HttpRouteConcurrencyLimitSettings(
       maxConcurrent: maxConcurrent,
       key: normalizedKey,
+    );
+  }
+
+  static HttpRouteAccessLogSettings? _parseHttpRouteAccessLog(dynamic node) {
+    if (node == null) {
+      return null;
+    }
+    if (node is bool) {
+      return HttpRouteAccessLogSettings(enabled: node);
+    }
+    final map = Map<String, Object?>.from(_asMap(node)!);
+    final enabled =
+        _asNullableBool(map.remove('enabled') ?? map.remove('enable')) ?? true;
+    final includeQuery =
+        _asNullableBool(
+          map.remove('include_query') ?? map.remove('includeQuery'),
+        ) ??
+        false;
+    final includeHeaders =
+        _asNullableBool(
+          map.remove('include_headers') ?? map.remove('includeHeaders'),
+        ) ??
+        false;
+    if (map.isNotEmpty) {
+      throw FormatException(
+        'Unknown listener.http.routes.action.access_log keys: ${map.keys.join(', ')}',
+      );
+    }
+    return HttpRouteAccessLogSettings(
+      enabled: enabled,
+      includeQuery: includeQuery,
+      includeHeaders: includeHeaders,
     );
   }
 

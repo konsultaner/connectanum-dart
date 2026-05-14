@@ -1815,6 +1815,50 @@ RouterSettings _buildRouterSettingsWithHttpConcurrencyLimitRoute() {
   return builder.build();
 }
 
+RouterSettings _buildRouterSettingsWithHttpAccessLogRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/logged'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.api.logged',
+                    accessLog: HttpRouteAccessLogSettings(
+                      includeQuery: true,
+                      includeHeaders: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
 RouterSettings _buildRouterSettingsWithHttpCatchAllRoute() {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -4272,6 +4316,92 @@ void main() {
       expect(invocationCount, 2);
     },
   );
+
+  test('logs HTTP route access start and completion events', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpAccessLogRoute(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    final registered = await internalSession.register('com.example.api.logged');
+    registered.onInvoke((invocation) async {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      context!.sendJson(body: const {'ok': true}, status: HttpStatus.created);
+    });
+
+    runtime.setConnectionProtocol(163, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      163,
+      NativeHttpHandshake.synthetic(
+        handle: 123,
+        method: 'GET',
+        target: '/api/logged?trace=1',
+        path: '/api/logged',
+        protocol: 'http/1.1',
+        headers: const {
+          HttpHeaders.cookieHeader: 'session=secret-token',
+          'x-request-id': 'req-1',
+        },
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.logged',
+        query: 'trace=1',
+      ),
+    );
+
+    await _waitUntil(() => runtime.httpResponses[163]?.isNotEmpty ?? false);
+    expect(runtime.httpResponses[163]!.single.status, HttpStatus.created);
+
+    final started = events.firstWhere(
+      (event) => event['type'] == 'http_route_access_started',
+    );
+    expect(started['method'], 'GET');
+    expect(started['path'], '/api/logged');
+    expect(started['query'], 'trace=1');
+    expect(started['action'], 'rpc');
+    expect(started['procedure'], 'com.example.api.logged');
+    final headers = (started['headers'] as Map).cast<String, String>();
+    expect(headers[HttpHeaders.cookieHeader], '<redacted>');
+    expect(headers['x-request-id'], 'req-1');
+
+    final completed = events.firstWhere(
+      (event) => event['type'] == 'http_route_access_completed',
+    );
+    expect(completed['status'], HttpStatus.created);
+    expect(completed['outcome'], 'completed');
+    expect(completed['durationMs'], isA<int>());
+    expect(completed['procedure'], 'com.example.api.logged');
+  });
 
   test('uses catch-all HTTP routes only after more specific matches', () async {
     final runtime = _HandleRuntime();

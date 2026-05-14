@@ -782,7 +782,7 @@ void main() {
       );
     });
 
-    test('parses HTTP route middleware limits', () {
+    test('parses HTTP route middleware settings', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
           'realms': [
@@ -813,6 +813,10 @@ void main() {
                         'maxConcurrent': 3,
                         'key': 'bearer',
                       },
+                      'accessLog': <String, Object?>{
+                        'includeQuery': true,
+                        'includeHeaders': true,
+                      },
                     },
                   },
                 ],
@@ -837,6 +841,11 @@ void main() {
           .concurrencyLimit!;
       expect(concurrencyLimit.maxConcurrent, 3);
       expect(concurrencyLimit.key, 'bearer');
+      final accessLog =
+          settings.listeners.single.http!.routes.single.action.accessLog!;
+      expect(accessLog.enabled, isTrue);
+      expect(accessLog.includeQuery, isTrue);
+      expect(accessLog.includeHeaders, isTrue);
 
       final encoded = RouterSettingsCodec.toMap(settings);
       final decoded = RouterSettingsCodec.fromMap(encoded);
@@ -849,6 +858,11 @@ void main() {
           decoded.listeners.single.http!.routes.single.action.concurrencyLimit!;
       expect(decodedConcurrencyLimit.maxConcurrent, 3);
       expect(decodedConcurrencyLimit.key, 'bearer');
+      final decodedAccessLog =
+          decoded.listeners.single.http!.routes.single.action.accessLog!;
+      expect(decodedAccessLog.enabled, isTrue);
+      expect(decodedAccessLog.includeQuery, isTrue);
+      expect(decodedAccessLog.includeHeaders, isTrue);
     });
 
     test('parses multi-protocol listener with http routes', () {

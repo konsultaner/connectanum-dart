@@ -57,6 +57,11 @@ handlers.
 - `dart test packages/connectanum_router/test/router_runtime_test.dart -n "throttles concurrent HTTP routes"` passed.
 - `git diff --check` passed.
 - `bin/verify` passed on 2026-05-14.
+- GitHub PR CI #25860173425 passed on `18a1563` with `Fast Checks` and
+  `Full Verify` green.
+- GitHub Dart Package Publish Dry Run #25860173360 passed on `18a1563`.
+- `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI/logs and clean hosted package dry-run evidence.
 
 ## Decision Log
 
@@ -72,4 +77,4 @@ typed per-route `concurrency_limit` / `concurrencyLimit` / `throttle` block,
 the settings codec round-trips the limit, runtime enforcement rejects excess
 in-flight requests before immediate or WAMP-backed dispatch, and slots are
 released when immediate handlers or pending HTTP calls complete. Hosted
-evidence is pending for the commit that contains this slice.
+evidence is clean for pushed commit `18a1563`.

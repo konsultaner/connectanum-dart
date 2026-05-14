@@ -296,6 +296,9 @@ abstract final class RouterSettingsCodec {
         action.concurrencyLimit!,
       );
     }
+    if (action.accessLog != null) {
+      map['access_log'] = _httpRouteAccessLogToMap(action.accessLog!);
+    }
     if (action.options.isNotEmpty) {
       map['options'] = action.options;
     }
@@ -318,6 +321,16 @@ abstract final class RouterSettingsCodec {
     return <String, Object?>{
       'max_concurrent': concurrencyLimit.maxConcurrent,
       'key': concurrencyLimit.key,
+    };
+  }
+
+  static Map<String, Object?> _httpRouteAccessLogToMap(
+    HttpRouteAccessLogSettings accessLog,
+  ) {
+    return <String, Object?>{
+      'enabled': accessLog.enabled,
+      'include_query': accessLog.includeQuery,
+      'include_headers': accessLog.includeHeaders,
     };
   }
 
