@@ -20,6 +20,26 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Generated GitHub Release notes now distinguish standalone native bundle
+releases, project release candidates/prereleases, and stable project releases.
+Future `v*-*` prerelease notes include release status, tag, and commit metadata,
+describe the native bundles as prerelease integration artifacts, and still list
+matching router image tags for project tags. The Native Artifacts workflow now
+titles project prereleases as `Connectanum <tag> (prerelease)`, and the public
+deployment guide no longer says the router image workflow/package is absent;
+it tells consumers to verify GitHub Release, native checksum/Sigstore, and
+router image tag alignment before production use. Local `bin/test-fast`,
+focused release-tooling tests, Python syntax compilation, workflow YAML
+parsing, sample RC release-note rendering, `git diff --check`, and `bin/verify`
+passed on 2026-05-14. The next RC still needs review/merge of PR #79, then an
+operator-approved tag/prerelease at the promoted release-sensitive candidate.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-14-release-note-readability.md` (complete; generated
+RC/stable GitHub release notes and native-artifact prerelease titles are clearer
+for consumers).
+
+Previous implementation checkpoint:
 The deployment-chain audit now reports candidate pull request promotion state
 for non-default release candidates. `--show-rc-readiness` includes a release
 branch promotion gate, so the audit no longer looks RC-ready while PR #79 is
@@ -29,7 +49,7 @@ whitespace, show-only audit, strict deployment-chain audit, and expected
 passed on 2026-05-14. The next RC still needs review/merge of PR #79, then an
 operator-approved tag/prerelease at the promoted release-sensitive candidate.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-14-candidate-pr-audit-status.md` (complete; RC
 readiness now reports candidate PR promotion state and blocks on review/merge
 policy before tag/prerelease promotion).

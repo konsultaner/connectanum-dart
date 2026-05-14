@@ -194,6 +194,8 @@ jobs:
             release_title="$INPUT_RELEASE_NAME"
           elif [[ "$release_tag" == ct-ffi-v* ]]; then
             release_title="Connectanum native transport assets v${release_tag#ct-ffi-v}"
+          elif [[ "$release_tag" == v*-* ]]; then
+            release_title="Connectanum ${release_tag} (prerelease)"
           elif [[ "$release_tag" == v* ]]; then
             release_title="Connectanum ${release_tag}"
           else

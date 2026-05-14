@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from pathlib import Path
 
 from render_router_image_metadata import resolve_router_image_metadata
@@ -18,6 +19,8 @@ PLATFORMS = (
     ("Windows x64", "x86_64-pc-windows-msvc"),
 )
 
+_PROJECT_PRERELEASE_RE = re.compile(r"^v\d+\.\d+\.\d+-.+")
+
 
 def _release_summary(release_tag: str) -> str:
     if release_tag.startswith("ct-ffi-v"):
@@ -25,10 +28,26 @@ def _release_summary(release_tag: str) -> str:
             "This release publishes the standalone native transport bundles "
             "used by the Connectanum router and native client transports."
         )
+    if _PROJECT_PRERELEASE_RE.fullmatch(release_tag):
+        return (
+            "This release candidate publishes prebuilt native transport "
+            "bundles for the Connectanum router and native client transports, "
+            "and records the matching router container image tags for "
+            "integration testing."
+        )
     return (
-        "This release publishes the current prebuilt native transport "
-        "bundles for Connectanum."
+        "This release publishes prebuilt native transport bundles for the "
+        "Connectanum router and native client transports, and records the "
+        "matching router container image tags for production deployments."
     )
+
+
+def _release_stability(release_tag: str) -> str:
+    if release_tag.startswith("ct-ffi-v"):
+        return "standalone native bundle release"
+    if _PROJECT_PRERELEASE_RE.fullmatch(release_tag):
+        return "release candidate / prerelease"
+    return "stable project release"
 
 
 def _repo_url(server_url: str, repository: str) -> str:
@@ -102,6 +121,12 @@ def render_release_notes(
     notes = f"""## What this release includes
 
 {_release_summary(release_tag)}
+
+## Release status
+
+- Tag: `{release_tag}`
+- Stability: {_release_stability(release_tag)}
+- Commit: `{commit_sha}`
 
 ## Assets
 

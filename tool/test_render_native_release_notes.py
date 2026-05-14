@@ -24,6 +24,8 @@ class NativeReleaseNotesTest(unittest.TestCase):
         )
 
         self.assertIn("standalone native transport bundles", rendered)
+        self.assertIn("- Stability: standalone native bundle release", rendered)
+        self.assertIn("- Commit: `abc123`", rendered)
         self.assertIn("Windows x64 (`x86_64-pc-windows-msvc`)", rendered)
         self.assertIn(
             "CONNECTANUM_NATIVE_RELEASE_TAG=ct-ffi-v2026.04.28 dart run "
@@ -62,7 +64,9 @@ class NativeReleaseNotesTest(unittest.TestCase):
             generated_notes="* Fix release publishing",
         )
 
-        self.assertIn("current prebuilt native transport bundles", rendered)
+        self.assertIn("prebuilt native transport bundles", rendered)
+        self.assertIn("production deployments", rendered)
+        self.assertIn("- Stability: stable project release", rendered)
         self.assertIn("https://github.example/example/connectanum-dart", rendered)
         self.assertIn("ghcr.io/example/connectanum-router:v1.2.3", rendered)
         self.assertIn("ghcr.io/example/connectanum-router:1.2.3", rendered)
@@ -88,6 +92,9 @@ class NativeReleaseNotesTest(unittest.TestCase):
         self.assertIn(
             "The matching router-image workflow publishes these tags", rendered
         )
+        self.assertIn("release candidate publishes prebuilt native transport", rendered)
+        self.assertIn("integration testing", rendered)
+        self.assertIn("- Stability: release candidate / prerelease", rendered)
         self.assertIn(
             "ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1", rendered
         )
