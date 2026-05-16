@@ -19,23 +19,57 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Router-hosted MCP Streamable HTTP session deletion now cleans up WAMP pub/sub
-subscriptions created through that MCP endpoint. The endpoint tracks route-local
-subscription IDs, removes them on explicit `connectanum.pubsub.unsubscribe`,
-and best-effort unsubscribes any remaining IDs when DELETE removes the MCP
-session or router binding disposal removes the endpoint. The router-hosted MCP
-native smoke proves a consumer-style Streamable subscription reports one
-route-visible subscriber before DELETE and zero route-visible subscribers after
-session deletion without an explicit unsubscribe. The generated router-hosted
-consumer-package smoke now exercises the same cleanup through public
-`McpStreamableHttpClient` subscribe/count/delete/direct-count helpers, so a
-package-shaped downstream application proves the route-visible subscriber count
-drops to zero after Streamable session deletion. Pre-edit `bin/test-fast`,
-focused `router_integration_native_test.dart -n "MCP"`,
+HTTP `reverse_proxy` route actions are now operational for the post-RC HTTP
+adapter-pipeline milestone. Configured reverse proxy routes resolve the same
+adapter endpoint aliases as the native route table, forward buffered HTTP
+requests to `http` / `https` upstreams with method/body/query/header
+preservation, filter hop-by-hop headers, support optional route-prefix stripping,
+set `X-Forwarded-Host` / `X-Forwarded-Proto`, return upstream status/headers/body
+through the native HTTP response path, and map invalid targets, upstream
+timeouts, oversized buffered responses, and upstream failures to structured
+JSON errors. FastCGI remains an explicit `501 Not Implemented` adapter stub.
+Pre-edit `bin/test-fast`, focused reverse-proxy and FastCGI runtime tests, and
+`dart analyze packages/connectanum_router` passed locally on 2026-05-16.
+Full local `bin/verify` passed on 2026-05-16 after the reverse-proxy runtime
+slice and the MCP auth-invalidation consumer-package smoke extension. Hosted
+evidence is pending until this code/docs bundle is pushed.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-16-http-reverse-proxy-route-action.md`
+(complete locally; reverse proxy route actions now forward buffered HTTP
+requests to configured upstreams while FastCGI remains an explicit `501`
+adapter stub).
+
+Previous local implementation checkpoint:
+Router-hosted MCP Streamable HTTP session deletion and HTTP-auth-driven session
+invalidation now have explicit downstream-application smoke coverage for WAMP
+pub/sub subscription cleanup. The endpoint tracks route-local subscription IDs,
+removes them on explicit `connectanum.pubsub.unsubscribe`, and best-effort
+unsubscribes any remaining IDs when DELETE removes the MCP session or router
+binding disposal removes the endpoint. The router-hosted MCP native smoke proves
+a consumer-style Streamable subscription reports one route-visible subscriber
+before DELETE and zero route-visible subscribers after session deletion without
+an explicit unsubscribe. The generated router-hosted consumer-package smoke now
+exercises DELETE cleanup through public `McpStreamableHttpClient`
+subscribe/count/delete/direct-count helpers, and it also subscribes from active
+protected Streamable sessions before HTTP auth refresh rotation and refresh-token
+revocation, then uses a still-authorized direct JSON WAMP meta helper to prove
+the invalidated sessions leave zero route-visible subscribers. Pre-edit
+`bin/test-fast`, focused `router_integration_native_test.dart -n "MCP"`,
 `dart analyze packages/connectanum_router`, `bash -n bin/common.sh`, focused
 `run_mcp_consumer_package_smoke`, `git diff --check`, and full local
-`bin/verify` passed on 2026-05-16. Hosted evidence is pending until this
-code/config/docs bundle is pushed.
+`bin/verify` passed on 2026-05-16 for commit `481261f`; after the auth
+invalidation smoke extension, pre-edit `bin/test-fast`, `bash -n bin/common.sh`,
+and focused `run_mcp_consumer_package_smoke` passed locally. The latest pushed
+implementation remains `481261f` on GitHub PR #79 until the new smoke extension
+is committed and pushed. Hosted evidence for `481261f` is clean:
+push-triggered GitHub CI #25962895642 passed; push-triggered Dart Package
+Publish Dry Run #25962895635 passed; PR-triggered GitHub CI #25962896938 passed
+with `Fast Checks` and `Full Verify` green; PR-triggered Dart Package Publish
+Dry Run #25962896950 passed; and the strict deployment-chain audit passed with
+clean latest CI, hosted CI logs/annotations, and relevant hosted package dry-run
+evidence. PR #79 remains blocked only by review/merge requirements before
+release-branch promotion.
 
 Previous implementation checkpoint:
 HTTP adapter route stubs are complete locally for the post-RC HTTP route

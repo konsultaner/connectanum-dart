@@ -1323,8 +1323,21 @@ class RouterBinding {
       }
       return;
     }
-    if (matchedRoute?.action.type == HttpRouteActionType.reverseProxy ||
-        matchedRoute?.action.type == HttpRouteActionType.fastCgi) {
+    if (matchedRoute?.action.type == HttpRouteActionType.reverseProxy) {
+      try {
+        await _handleHttpReverseProxyRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+          accessLogContext: accessLogContext,
+        );
+      } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.fastCgi) {
       try {
         await _handleHttpUnsupportedAdapterRequest(
           request: request,
@@ -2262,6 +2275,457 @@ class RouterBinding {
   }
 
   Future<void> _sendHttpFileError({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required int status,
+    required String reason,
+    required String message,
+  }) {
+    return _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: status,
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': reason,
+          'message': message,
+        }),
+      ),
+    );
+  }
+
+  Future<void> _handleHttpReverseProxyRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+    required _HttpRouteAccessLogContext? accessLogContext,
+  }) async {
+    final target = _resolveHttpAdapterEndpoint(route.action);
+    final upstreamBase = target == null ? null : Uri.tryParse(target);
+    if (upstreamBase == null ||
+        (upstreamBase.scheme != 'http' && upstreamBase.scheme != 'https') ||
+        upstreamBase.host.isEmpty) {
+      await _sendHttpReverseProxyError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'reverse_proxy_target_invalid',
+        message:
+            'HTTP reverse_proxy route requires an http or https upstream target',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'reverse_proxy_misconfigured',
+      );
+      return;
+    }
+
+    final timeout = _httpRouteDurationOption(route.action, const [
+      'timeout_ms',
+      'timeoutMs',
+    ], defaultValue: const Duration(seconds: 30));
+    final maxResponseBytes =
+        _httpRouteIntOption(route.action, const [
+          'max_response_bytes',
+          'maxResponseBytes',
+        ]) ??
+        10 * 1024 * 1024;
+    final client = HttpClient()
+      ..connectionTimeout = timeout
+      ..autoUncompress = false;
+    final upstreamUri = _httpReverseProxyUri(
+      request: request,
+      route: route,
+      upstreamBase: upstreamBase,
+    );
+
+    try {
+      final response = await (() async {
+        final upstreamRequest = await client
+            .openUrl(request.method, upstreamUri)
+            .timeout(timeout);
+        upstreamRequest.followRedirects = false;
+        final body = request.body;
+        _copyHttpReverseProxyRequestHeaders(
+          request: request,
+          upstreamRequest: upstreamRequest,
+          preserveHost: _httpRouteBoolOption(route.action, const [
+            'preserve_host',
+            'preserveHost',
+          ], defaultValue: false),
+        );
+        upstreamRequest.contentLength = body.length;
+        if (body.isNotEmpty) {
+          upstreamRequest.add(body);
+        }
+        return upstreamRequest.close();
+      })().timeout(timeout);
+      final responseBody = await _readHttpReverseProxyResponseBody(
+        response,
+        maxBytes: maxResponseBytes,
+      ).timeout(timeout);
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: response.statusCode,
+          headers: _httpReverseProxyResponseHeaders(
+            response.headers,
+            bodyLength: responseBody.length,
+          ),
+          body: NativeHttpResponseBytes(responseBody),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamOrigin': upstreamBase.origin,
+        'upstreamStatus': response.statusCode,
+        'responseBytes': responseBody.length,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: response.statusCode,
+        outcome: 'reverse_proxy_completed',
+      );
+    } on TimeoutException catch (error) {
+      await _sendHttpReverseProxyError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.gatewayTimeout,
+        reason: 'reverse_proxy_timeout',
+        message: 'HTTP reverse_proxy upstream request timed out',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_timeout',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamOrigin': upstreamBase.origin,
+        'error': error.toString(),
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.gatewayTimeout,
+        outcome: 'reverse_proxy_timeout',
+        error: error,
+      );
+    } on _HttpReverseProxyResponseTooLarge catch (error) {
+      await _sendHttpReverseProxyError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.badGateway,
+        reason: 'reverse_proxy_response_too_large',
+        message: 'HTTP reverse_proxy upstream response exceeded the route cap',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_response_too_large',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamOrigin': upstreamBase.origin,
+        'maxBytes': error.maxBytes,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.badGateway,
+        outcome: 'reverse_proxy_response_too_large',
+        error: error,
+      );
+    } catch (error, stackTrace) {
+      await _sendHttpReverseProxyError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.badGateway,
+        reason: 'reverse_proxy_upstream_error',
+        message: 'HTTP reverse_proxy upstream request failed',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamOrigin': upstreamBase.origin,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.badGateway,
+        outcome: 'reverse_proxy_error',
+        error: error,
+      );
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  String? _resolveHttpAdapterEndpoint(HttpRouteAction action) {
+    final direct = action.delegate?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    for (final key in const [
+      'target',
+      'target_url',
+      'targetUrl',
+      'upstream',
+      'upstream_url',
+      'upstreamUrl',
+      'socket',
+      'socket_path',
+      'socketPath',
+    ]) {
+      final value = action.options[key];
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
+      }
+    }
+    return null;
+  }
+
+  Uri _httpReverseProxyUri({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required Uri upstreamBase,
+  }) {
+    final requestQuery = _httpReverseProxyRequestQuery(request);
+    final queryParts = [
+      if (upstreamBase.query.isNotEmpty) upstreamBase.query,
+      if (requestQuery != null && requestQuery.isNotEmpty) requestQuery,
+    ];
+    return upstreamBase.replace(
+      path: _joinHttpReverseProxyPaths(
+        upstreamBase.path,
+        _httpReverseProxyRequestPath(request, route),
+      ),
+      query: queryParts.isEmpty ? null : queryParts.join('&'),
+      fragment: null,
+    );
+  }
+
+  String _httpReverseProxyRequestPath(
+    RouterHttpRequest request,
+    HttpRouteSettings route,
+  ) {
+    var path = request.path.isEmpty ? '/' : request.path;
+    if (!_httpRouteBoolOption(route.action, const [
+      'strip_prefix',
+      'stripPrefix',
+    ], defaultValue: false)) {
+      return path;
+    }
+    final prefix = route.match.prefix ?? route.match.path;
+    if (prefix == null || prefix.isEmpty || !path.startsWith(prefix)) {
+      return path;
+    }
+    path = path.substring(prefix.length);
+    if (path.isEmpty) {
+      return '/';
+    }
+    return path.startsWith('/') ? path : '/$path';
+  }
+
+  String _joinHttpReverseProxyPaths(String basePath, String requestPath) {
+    final base = basePath.isEmpty ? '/' : basePath;
+    final request = requestPath.isEmpty ? '/' : requestPath;
+    if (base == '/') {
+      return request.startsWith('/') ? request : '/$request';
+    }
+    final normalizedBase = base.endsWith('/')
+        ? base.substring(0, base.length - 1)
+        : base;
+    final normalizedRequest = request.startsWith('/')
+        ? request.substring(1)
+        : request;
+    if (normalizedRequest.isEmpty) {
+      return normalizedBase;
+    }
+    return '$normalizedBase/$normalizedRequest';
+  }
+
+  String? _httpReverseProxyRequestQuery(RouterHttpRequest request) {
+    final configured = request.query?.trim();
+    if (configured != null && configured.isNotEmpty) {
+      return configured;
+    }
+    final parsedTarget = Uri.tryParse(request.target);
+    final parsedQuery = parsedTarget?.query.trim();
+    return parsedQuery == null || parsedQuery.isEmpty ? null : parsedQuery;
+  }
+
+  void _copyHttpReverseProxyRequestHeaders({
+    required RouterHttpRequest request,
+    required HttpClientRequest upstreamRequest,
+    required bool preserveHost,
+  }) {
+    final hopByHop = _httpReverseProxyHopByHopHeaderNames(request.headers);
+    for (final entry in request.headers.entries) {
+      final name = entry.key.trim();
+      if (name.isEmpty) {
+        continue;
+      }
+      final lower = name.toLowerCase();
+      if (hopByHop.contains(lower) ||
+          lower == HttpHeaders.contentLengthHeader ||
+          (!preserveHost && lower == HttpHeaders.hostHeader)) {
+        continue;
+      }
+      upstreamRequest.headers.set(name, entry.value, preserveHeaderCase: true);
+    }
+    final originalHost = _headerValue(request.headers, HttpHeaders.hostHeader);
+    if (originalHost != null && originalHost.trim().isNotEmpty) {
+      upstreamRequest.headers.set(
+        'x-forwarded-host',
+        originalHost.trim(),
+        preserveHeaderCase: true,
+      );
+    }
+    upstreamRequest.headers.set(
+      'x-forwarded-proto',
+      _httpReverseProxyForwardedProto(request),
+      preserveHeaderCase: true,
+    );
+  }
+
+  String _httpReverseProxyForwardedProto(RouterHttpRequest request) =>
+      request.listener.endpoint.tlsMode == TlsMode.disabled ? 'http' : 'https';
+
+  Set<String> _httpReverseProxyHopByHopHeaderNames(
+    Map<String, String> headers,
+  ) {
+    final names = <String>{
+      HttpHeaders.connectionHeader,
+      'keep-alive',
+      'proxy-authenticate',
+      'proxy-authorization',
+      'te',
+      'trailer',
+      HttpHeaders.transferEncodingHeader,
+      HttpHeaders.upgradeHeader,
+    };
+    final connection = _headerValue(headers, HttpHeaders.connectionHeader);
+    if (connection != null) {
+      for (final token in connection.split(',')) {
+        final normalized = token.trim().toLowerCase();
+        if (normalized.isNotEmpty) {
+          names.add(normalized);
+        }
+      }
+    }
+    return names;
+  }
+
+  Future<Uint8List> _readHttpReverseProxyResponseBody(
+    HttpClientResponse response, {
+    required int maxBytes,
+  }) async {
+    final builder = BytesBuilder(copy: false);
+    var total = 0;
+    await for (final chunk in response) {
+      total += chunk.length;
+      if (total > maxBytes) {
+        throw _HttpReverseProxyResponseTooLarge(maxBytes);
+      }
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
+  }
+
+  Map<String, String> _httpReverseProxyResponseHeaders(
+    HttpHeaders headers, {
+    required int bodyLength,
+  }) {
+    final headerValues = <String, String>{};
+    headers.forEach((name, values) {
+      if (values.isNotEmpty) {
+        headerValues[name] = values.join(', ');
+      }
+    });
+    final hopByHop = _httpReverseProxyHopByHopHeaderNames(headerValues);
+    final responseHeaders = <String, String>{};
+    for (final entry in headerValues.entries) {
+      final lower = entry.key.toLowerCase();
+      if (hopByHop.contains(lower) ||
+          lower == HttpHeaders.contentLengthHeader) {
+        continue;
+      }
+      responseHeaders[entry.key] = entry.value;
+    }
+    responseHeaders[HttpHeaders.contentLengthHeader] = bodyLength.toString();
+    return responseHeaders;
+  }
+
+  bool _httpRouteBoolOption(
+    HttpRouteAction action,
+    List<String> keys, {
+    required bool defaultValue,
+  }) {
+    for (final key in keys) {
+      final value = action.options[key];
+      if (value is bool) {
+        return value;
+      }
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+          return true;
+        }
+        if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+          return false;
+        }
+      }
+    }
+    return defaultValue;
+  }
+
+  int? _httpRouteIntOption(HttpRouteAction action, List<String> keys) {
+    for (final key in keys) {
+      final value = action.options[key];
+      if (value is int) {
+        return value;
+      }
+      if (value is num) {
+        return value.toInt();
+      }
+      if (value is String) {
+        final parsed = int.tryParse(value.trim());
+        if (parsed != null) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  Duration _httpRouteDurationOption(
+    HttpRouteAction action,
+    List<String> keys, {
+    required Duration defaultValue,
+  }) {
+    final milliseconds = _httpRouteIntOption(action, keys);
+    if (milliseconds == null || milliseconds <= 0) {
+      return defaultValue;
+    }
+    return Duration(milliseconds: milliseconds);
+  }
+
+  Future<void> _sendHttpReverseProxyError({
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
     required int status,
@@ -6161,6 +6625,15 @@ class _HttpFileUnsatisfiableRange extends _HttpFileRangeDecision {
   final int size;
 
   String get contentRangeHeader => 'bytes */$size';
+}
+
+class _HttpReverseProxyResponseTooLarge implements Exception {
+  const _HttpReverseProxyResponseTooLarge(this.maxBytes);
+
+  final int maxBytes;
+
+  @override
+  String toString() => 'HTTP reverse proxy response exceeded $maxBytes bytes';
 }
 
 class _HttpRouteConcurrencyDecision {

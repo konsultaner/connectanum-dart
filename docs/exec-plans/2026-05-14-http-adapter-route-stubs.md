@@ -48,3 +48,6 @@ adapters are implemented.
   `upstreamUrl`, `socket`, `socket_path`, and `socketPath`.
 - The runtime response deliberately does not echo the endpoint value, avoiding
   accidental credential disclosure in proxy target URLs.
+- Follow-up work on 2026-05-16 made `reverse_proxy` operational for buffered
+  HTTP forwarding; FastCGI remains the explicit `501` adapter stub from this
+  slice.

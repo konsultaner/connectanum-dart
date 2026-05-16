@@ -658,6 +658,7 @@ void _enqueueSyntheticHttpRequest({
   required int handle,
   required String method,
   required String target,
+  String protocol = 'http/1.1',
   required Map<String, String> headers,
   required Object? body,
   required String realm,
@@ -672,7 +673,7 @@ void _enqueueSyntheticHttpRequest({
       method: method,
       target: target,
       path: target.split('?').first,
-      protocol: 'http/1.1',
+      protocol: protocol,
       headers: headers,
       body: body == null
           ? Uint8List(0)
@@ -3878,7 +3879,147 @@ void main() {
     },
   );
 
-  test('returns explicit 501 for configured HTTP adapter stubs', () async {
+  test('forwards configured HTTP reverse proxy routes', () async {
+    final upstreamRequests = <Map<String, Object?>>[];
+    final upstream = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => upstream.close(force: true));
+    final subscription = upstream.listen((request) async {
+      final body = utf8.decode(await request.expand((chunk) => chunk).toList());
+      upstreamRequests.add({
+        'method': request.method,
+        'path': request.uri.path,
+        'query': request.uri.query,
+        'xTest': request.headers.value('x-test'),
+        'xHop': request.headers.value('x-hop'),
+        'xForwardedHost': request.headers.value('x-forwarded-host'),
+        'xForwardedProto': request.headers.value('x-forwarded-proto'),
+        'body': body,
+      });
+      request.response.statusCode = HttpStatus.created;
+      request.response.headers.contentType = ContentType.json;
+      request.response.headers.set('x-upstream', 'ok');
+      request.response.write(
+        json.encode({
+          'ok': true,
+          'method': request.method,
+          'path': request.uri.path,
+          'query': request.uri.query,
+          'body': body,
+        }),
+      );
+      await request.response.close();
+    });
+    addTearDown(subscription.cancel);
+
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: RouterSettings(
+        realms: const [],
+        listeners: [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: const [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: const HttpRouteMatch(prefix: '/proxy/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: {
+                      'target': 'http://127.0.0.1:${upstream.port}/upstream',
+                      'strip_prefix': true,
+                      'timeout_ms': 5000,
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 314,
+      handle: 3140,
+      method: 'POST',
+      target: '/proxy/service?debug=true',
+      protocol: 'https',
+      headers: const {
+        'host': 'consumer.example',
+        'content-type': 'application/json',
+        'connection': 'x-hop',
+        'x-hop': 'secret',
+        'x-test': 'reverse-proxy',
+      },
+      body: const {'request': true},
+      realm: 'router.http',
+      procedure: 'router.http.reverse_proxy',
+    );
+
+    await _waitUntil(
+      () =>
+          runtime.httpResponses[314]?.isNotEmpty == true &&
+          upstreamRequests.isNotEmpty,
+      timeout: const Duration(seconds: 2),
+    );
+
+    final upstreamRequest = upstreamRequests.single;
+    expect(upstreamRequest['method'], 'POST');
+    expect(upstreamRequest['path'], '/upstream/service');
+    expect(upstreamRequest['query'], 'debug=true');
+    expect(upstreamRequest['xTest'], 'reverse-proxy');
+    expect(upstreamRequest['xHop'], isNull);
+    expect(upstreamRequest['xForwardedHost'], 'consumer.example');
+    expect(upstreamRequest['xForwardedProto'], 'https');
+    expect(json.decode(upstreamRequest['body']! as String), {'request': true});
+
+    final response = runtime.httpResponses[314]!.single;
+    final responseBody = _jsonResponseBody(response);
+    expect(response.status, HttpStatus.created);
+    expect(response.headers['x-upstream'], 'ok');
+    expect(responseBody['ok'], isTrue);
+    expect(responseBody['path'], '/upstream/service');
+    expect(responseBody['query'], 'debug=true');
+    expect(json.decode(responseBody['body']! as String), {'request': true});
+
+    expect(
+      events.map((event) => event['type']),
+      contains('http_reverse_proxy_response_sent'),
+    );
+    expect(
+      events.map((event) => event['type']),
+      isNot(contains('http_request_dispatched')),
+    );
+  });
+
+  test('returns explicit 501 for configured FastCGI adapter stubs', () async {
     final runtime = _HandleRuntime();
     final router = Router(
       RouterConfig(
@@ -3900,13 +4041,6 @@ void main() {
             protocols: [ListenerProtocol.http],
             http: HttpListenerSettings(
               routes: [
-                HttpRouteSettings(
-                  match: HttpRouteMatch(prefix: '/proxy/'),
-                  action: HttpRouteAction(
-                    type: HttpRouteActionType.reverseProxy,
-                    options: {'target': 'http://127.0.0.1:9000'},
-                  ),
-                ),
                 HttpRouteSettings(
                   match: HttpRouteMatch(prefix: '/php/'),
                   action: HttpRouteAction(
@@ -3937,18 +4071,6 @@ void main() {
     _enqueueSyntheticHttpRequest(
       runtime: runtime,
       listenerId: listenerId,
-      connectionId: 314,
-      handle: 3140,
-      method: 'GET',
-      target: '/proxy/service',
-      headers: const {'x-test': 'reverse-proxy-stub'},
-      body: null,
-      realm: 'router.http',
-      procedure: 'router.http.reverse_proxy',
-    );
-    _enqueueSyntheticHttpRequest(
-      runtime: runtime,
-      listenerId: listenerId,
       connectionId: 315,
       handle: 3150,
       method: 'POST',
@@ -3960,17 +4082,9 @@ void main() {
     );
 
     await _waitUntil(
-      () =>
-          runtime.httpResponses[314]?.isNotEmpty == true &&
-          runtime.httpResponses[315]?.isNotEmpty == true,
+      () => runtime.httpResponses[315]?.isNotEmpty == true,
       timeout: const Duration(seconds: 2),
     );
-
-    final reverseProxyResponse = runtime.httpResponses[314]!.single;
-    final reverseProxyBody = _jsonResponseBody(reverseProxyResponse);
-    expect(reverseProxyResponse.status, HttpStatus.notImplemented);
-    expect(reverseProxyBody['reason'], 'http_adapter_not_implemented');
-    expect(reverseProxyBody['adapter'], 'reverse_proxy');
 
     final fastCgiResponse = runtime.httpResponses[315]!.single;
     final fastCgiBody = _jsonResponseBody(fastCgiResponse);
@@ -3982,7 +4096,7 @@ void main() {
       events
           .where((event) => event['type'] == 'http_adapter_not_implemented')
           .map((event) => event['adapter']),
-      containsAll(<String>['reverse_proxy', 'fastcgi']),
+      contains('fastcgi'),
     );
     expect(
       events.map((event) => event['type']),

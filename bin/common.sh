@@ -9798,6 +9798,11 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       grant,
       label: '$label-rotated',
     );
+    final rotatedSubscriptionId =
+        await _subscribeSecureStreamableForInvalidationCleanup(
+      rotatedSessionClient,
+      label: '$label-rotated',
+    );
 
     final refreshed = await authClient.refreshToken(
       refreshToken,
@@ -9829,6 +9834,15 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       acceptedMessage:
           'Streamable MCP session accepted a rotated $label access token.',
     );
+    refreshedClient = McpStreamableHttpClient.withAuthGrant(
+      _mcpEndpoint(binding, secure: true),
+      refreshed,
+    );
+    await _assertInvalidatedStreamableSubscriptionCleaned(
+      refreshedClient,
+      rotatedSubscriptionId,
+      label: '$label-rotated',
+    );
     rotatedSessionClient.close();
     rotatedSessionClient = null;
     await _assertSecureMcpRejectsBearer(
@@ -9844,10 +9858,6 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
           'HTTP auth bridge accepted a rotated $label refresh token.',
     );
 
-    refreshedClient = McpStreamableHttpClient.withAuthGrant(
-      _mcpEndpoint(binding, secure: true),
-      refreshed,
-    );
     await _smokeDirectJson(
       refreshedClient,
       serviceSession,
@@ -9864,6 +9874,11 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       refreshed,
       label: '$label-revoked',
     );
+    final revokedSubscriptionId =
+        await _subscribeSecureStreamableForInvalidationCleanup(
+      revokedSessionClient,
+      label: '$label-revoked',
+    );
     await authClient.revokeToken(
       rotatedRefreshToken,
       tokenTypeHint: 'refresh_token',
@@ -9877,6 +9892,20 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       acceptedMessage:
           'Streamable MCP session accepted a revoked $label access token.',
     );
+    final postRevokeGrant = await _issueTicketHttpGrant(binding);
+    final postRevokeClient = McpStreamableHttpClient.withAuthGrant(
+      _mcpEndpoint(binding, secure: true),
+      postRevokeGrant,
+    );
+    try {
+      await _assertInvalidatedStreamableSubscriptionCleaned(
+        postRevokeClient,
+        revokedSubscriptionId,
+        label: '$label-revoked',
+      );
+    } finally {
+      postRevokeClient.close();
+    }
     revokedSessionClient.close();
     revokedSessionClient = null;
     await _assertSecureMcpRejectsBearer(
@@ -9896,6 +9925,65 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     refreshedClient?.close();
     revokedSessionClient?.close();
     authClient.close(force: true);
+  }
+}
+
+Future<int> _subscribeSecureStreamableForInvalidationCleanup(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final subscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-auth-invalidation-cleanup-subscribe',
+    queueLimit: 1,
+  );
+  final subscriptionId = subscription.subscriptionId;
+  if (subscriptionId == null || subscriptionId <= 0) {
+    throw StateError(
+      'Secure Streamable MCP invalidation cleanup subscription did not expose '
+      'a WAMP subscription id.',
+    );
+  }
+  final subscriberCount = await client.countWampSubscriptionSubscribers(
+    subscriptionId,
+    id: '$label-auth-invalidation-cleanup-subscribers-before',
+  );
+  final visibleSubscribers = _singleMetaId(
+    subscriberCount.arguments,
+    'secure streamable invalidation cleanup subscriber count before close',
+  );
+  if (visibleSubscribers != 1) {
+    throw StateError(
+      'Secure Streamable MCP invalidation cleanup expected one visible '
+      'subscriber before close, got $visibleSubscribers.',
+    );
+  }
+  return subscriptionId;
+}
+
+Future<void> _assertInvalidatedStreamableSubscriptionCleaned(
+  McpStreamableHttpClient client,
+  int subscriptionId, {
+  required String label,
+}) async {
+  final subscriberCount = await client.countWampSubscriptionSubscribersDirect(
+    subscriptionId,
+    id: '$label-auth-invalidation-cleanup-subscribers-after',
+  );
+  final visibleSubscribers = _singleMetaId(
+    subscriberCount.arguments,
+    'secure streamable invalidation cleanup subscriber count after close',
+  );
+  if (visibleSubscribers != 0) {
+    throw StateError(
+      'Secure Streamable MCP invalidation cleanup left $visibleSubscribers '
+      'visible subscribers after auth session invalidation.',
+    );
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Direct JSON invalidation cleanup check created Streamable MCP state.',
+    );
   }
 }
 
