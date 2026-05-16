@@ -19,22 +19,50 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP custom handler route actions are complete locally for the post-RC HTTP
+HTTP handler native integration hardening is complete locally for the post-RC
+HTTP adapter-pipeline milestone. The native router integration harness now
+passes `httpRouteHandlers` into `Router.start`, and real native HTTP requests
+prove configured `handler` routes dispatch to registered Dart callbacks, expose
+the request body/target/path through `RouterHttpHandlerContext`, return
+structured JSON responses, and reject unregistered handlers with structured
+`501 handler_not_registered` responses. The required pre-edit `bin/test-fast`,
+focused native integration tests, and full local `bin/verify` passed on
+2026-05-16. Hosted CI/package/audit evidence is pending until this bundle is
+pushed.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-16-http-handler-native-integration.md`
+(complete locally; native HTTP requests now prove configured `handler` routes
+dispatch into registered Dart callbacks and reject missing handlers explicitly,
+with full local verification).
+
+Previous implementation checkpoint:
+HTTP custom handler route actions are complete for the post-RC HTTP
 adapter-pipeline milestone. The router now supports `handler` route actions
 with `custom_handler` / `customHandler` aliases, resolves handler ids from
 `action.delegate` or `action.options.handler` aliases, accepts immutable handler
 registries through `Router.start` / `RouterBinding`, dispatches matched requests
 after route auth/rate/concurrency middleware and before generic WAMP bridge
 dispatch, and returns structured `500`/`501` handler errors without falling
-through to WAMP. The required pre-edit `bin/test-fast`, focused
+through to WAMP. The implementation was committed as `b454c22` and pushed to
+GitHub PR #79. The required pre-edit `bin/test-fast`, focused
 config/native/runtime handler and adapter tests, router package analysis, and
-full local `bin/verify` passed on 2026-05-16. Hosted CI/package/audit evidence
-is pending until this code/docs bundle is pushed.
+full local `bin/verify` passed on 2026-05-16. Hosted evidence for `b454c22` is
+clean: push-triggered Dart Package Publish Dry Run #25966883773 passed;
+push-triggered GitHub CI #25966883774 passed with `Fast Checks` job
+#76331827756 and `Full Verify` job #76332099465 green; PR-triggered Dart
+Package Publish Dry Run #25966884329 passed; PR-triggered GitHub CI
+#25966884331 passed with `Fast Checks` job #76331829156 and `Full Verify` job
+#76332108193 green; and the strict deployment-chain audit passed with clean
+latest CI, hosted CI logs/annotations, and relevant hosted package dry-run
+evidence. PR #79 remains blocked only by review/merge requirements before
+release-branch promotion.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-16-http-custom-handler-route-action.md`
-(complete locally; handler route actions now dispatch to router-hosted Dart
-callbacks with config/native/runtime coverage and full local verification).
+(complete; handler route actions now dispatch to router-hosted Dart callbacks
+with config/native/runtime coverage, full local verification, and hosted
+CI/package/audit evidence).
 
 Previous implementation checkpoint:
 HTTP `fastcgi` route actions are now operational for the post-RC HTTP

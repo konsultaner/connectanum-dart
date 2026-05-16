@@ -2,7 +2,7 @@
 
 ## Status
 
-Complete locally on 2026-05-16.
+Complete on 2026-05-16.
 
 ## Goal
 
@@ -37,5 +37,8 @@ WAMP, files, reverse proxies, FastCGI, or a separate server.
 - Focused config/native/runtime handler and adapter tests passed.
 - `dart analyze packages/connectanum_router` passed.
 - Full local `bin/verify` passed before handoff.
-- Hosted CI/package/audit evidence is pending until this implementation bundle
-  is pushed.
+- Hosted push and PR CI passed with `Fast Checks` and `Full Verify` green on
+  `b454c22`.
+- Hosted push and PR Dart Package Publish Dry Run passed on `b454c22`.
+- Strict deployment-chain audit passed on `b454c22` with clean latest CI,
+  hosted CI logs/annotations, and relevant hosted package dry-run evidence.

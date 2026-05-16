@@ -461,6 +461,7 @@ class _RouterHarness {
     required String? nativeLib,
     RouterConfig? config,
     RouterSettings? settings,
+    Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
     List<int>? connectionSequence,
   }) async {
     final innerRuntime = NativeTransportRuntime(libraryPath: nativeLib);
@@ -478,6 +479,7 @@ class _RouterHarness {
     final routerSettings = settings ?? _buildSettings();
     final binding = Router(routerConfig, settings: routerSettings).start(
       runtime,
+      httpRouteHandlers: httpRouteHandlers,
       onEvent: (event) {
         if (event is Map<String, Object?>) {
           pendingEvents.add(event);
@@ -1204,6 +1206,138 @@ void main() {
           'http_file_range_not_satisfiable',
         );
         expect(rangeErrorEvent['path'], equals('/static/asset.txt'));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'dispatches configured HTTP handler routes through native runtime',
+      () async {
+        final seenTargets = <String>[];
+        final harness = await _RouterHarness.start(
+          connectionId: 9114,
+          nativeLib: nativeLib,
+          settings: const RouterSettings(
+            realms: [],
+            listeners: [
+              ListenerSettings(
+                endpoint: '127.0.0.1:0',
+                protocols: [ListenerProtocol.http],
+                http: HttpListenerSettings(
+                  routes: [
+                    HttpRouteSettings(
+                      match: HttpRouteMatch(path: '/handler/native'),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.handler,
+                        delegate: 'handler.native.echo',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          httpRouteHandlers: {
+            'handler.native.echo': (context) {
+              seenTargets.add(context.request.target);
+              expect(context.binding, isA<RouterBinding>());
+              expect(
+                context.route.action.delegate,
+                equals('handler.native.echo'),
+              );
+              expect(context.request.method, equals('POST'));
+              expect(context.request.path, equals('/handler/native'));
+              expect(jsonDecode(utf8.decode(context.request.body)), {
+                'payload': 'native',
+              });
+              return NativeHttpResponse(
+                status: HttpStatus.accepted,
+                headers: const {'x-handler': 'native'},
+                body: NativeHttpResponseJson({
+                  'target': context.request.target,
+                  'path': context.request.path,
+                }),
+              );
+            },
+          },
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        final response = await _postJson(
+          client,
+          listener.port,
+          '/handler/native?debug=true',
+          {'payload': 'native'},
+        );
+
+        expect(response.statusCode, equals(HttpStatus.accepted));
+        expect(response.headers['x-handler'], equals('native'));
+        expect(response.json, {
+          'target': '/handler/native?debug=true',
+          'path': '/handler/native',
+        });
+        expect(seenTargets, ['/handler/native?debug=true']);
+
+        final handlerEvent = await harness.nextEvent(
+          'http_handler_response_sent',
+        );
+        expect(handlerEvent['path'], equals('/handler/native'));
+        expect(handlerEvent['handler'], equals('handler.native.echo'));
+        expect(handlerEvent['status'], equals(HttpStatus.accepted));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'rejects unregistered configured HTTP handler routes through native runtime',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9115,
+          nativeLib: nativeLib,
+          settings: const RouterSettings(
+            realms: [],
+            listeners: [
+              ListenerSettings(
+                endpoint: '127.0.0.1:0',
+                protocols: [ListenerProtocol.http],
+                http: HttpListenerSettings(
+                  routes: [
+                    HttpRouteSettings(
+                      match: HttpRouteMatch(path: '/handler/missing'),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.handler,
+                        options: {'handler': 'handler.missing'},
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        final request = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/handler/missing',
+        );
+        final response = await _readJsonHttpResponse(await request.close());
+
+        expect(response.statusCode, equals(HttpStatus.notImplemented));
+        expect(response.json, containsPair('reason', 'handler_not_registered'));
+
+        final handlerEvent = await harness.nextEvent(
+          'http_handler_not_registered',
+        );
+        expect(handlerEvent['path'], equals('/handler/missing'));
+        expect(handlerEvent['handler'], equals('handler.missing'));
       },
       skip: skipReason,
     );
