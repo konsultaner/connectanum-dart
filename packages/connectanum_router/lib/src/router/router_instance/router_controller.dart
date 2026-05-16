@@ -21,6 +21,7 @@ class Router {
     RouterWorkerEntryPoint? workerEntryPoint,
     Duration workerPollInterval = const Duration(milliseconds: 1),
     RouterSettings? settings,
+    Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
     void Function(Object event)? onEvent,
     bool activateListeners = true,
   }) {
@@ -38,6 +39,7 @@ class Router {
       settings: routerSettings,
       workerEntryPoint: workerEntryPoint ?? defaultRouterWorkerEntryPoint,
       workerPollInterval: workerPollInterval,
+      httpRouteHandlers: httpRouteHandlers,
       onEvent: onEvent,
     );
     if (activateListeners) {
@@ -316,6 +318,18 @@ class Router {
           'procedure': action.type == HttpRouteActionType.reverseProxy
               ? 'router.http.reverse_proxy'
               : 'router.http.fastcgi',
+        };
+      case HttpRouteActionType.handler:
+        final handlerId = _resolveHttpRouteHandlerId(action);
+        if (handlerId == null || handlerId.isEmpty) {
+          throw StateError(
+            'HTTP handler routes require a handler id; set action.delegate or action.options.handler.',
+          );
+        }
+        return const <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': 'router.http.handler',
         };
     }
   }

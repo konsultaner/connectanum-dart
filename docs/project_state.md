@@ -19,6 +19,24 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+HTTP custom handler route actions are complete locally for the post-RC HTTP
+adapter-pipeline milestone. The router now supports `handler` route actions
+with `custom_handler` / `customHandler` aliases, resolves handler ids from
+`action.delegate` or `action.options.handler` aliases, accepts immutable handler
+registries through `Router.start` / `RouterBinding`, dispatches matched requests
+after route auth/rate/concurrency middleware and before generic WAMP bridge
+dispatch, and returns structured `500`/`501` handler errors without falling
+through to WAMP. The required pre-edit `bin/test-fast`, focused
+config/native/runtime handler and adapter tests, router package analysis, and
+full local `bin/verify` passed on 2026-05-16. Hosted CI/package/audit evidence
+is pending until this code/docs bundle is pushed.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-16-http-custom-handler-route-action.md`
+(complete locally; handler route actions now dispatch to router-hosted Dart
+callbacks with config/native/runtime coverage and full local verification).
+
+Previous implementation checkpoint:
 HTTP `fastcgi` route actions are now operational for the post-RC HTTP
 adapter-pipeline milestone. Configured FastCGI routes resolve the same adapter
 endpoint aliases as the native route table, connect to TCP or Unix FastCGI
@@ -29,8 +47,17 @@ failures to structured JSON gateway responses. Static file routes and buffered
 `reverse_proxy` route actions were already operational. Pre-edit
 `bin/test-fast`, focused reverse-proxy and FastCGI runtime tests, and
 `dart analyze packages/connectanum_router` passed locally on 2026-05-16. Full
-local `bin/verify` passed on 2026-05-16 for the FastCGI slice. Hosted evidence
-is pending until this code/docs bundle is pushed.
+local `bin/verify` passed on 2026-05-16 for the FastCGI slice. The
+implementation was committed as `0ddc028` and pushed to GitHub PR #79. Hosted
+evidence for `0ddc028` is clean: push-triggered Dart Package Publish Dry Run
+#25965895404 passed; push-triggered GitHub CI #25965895408 passed with
+`Fast Checks` job #76329227515 and `Full Verify` job #76329483911 green;
+PR-triggered Dart Package Publish Dry Run #25965896294 passed; PR-triggered
+GitHub CI #25965896302 passed with `Fast Checks` job #76329229679 and
+`Full Verify` job #76329464743 green; and the strict deployment-chain audit
+passed with clean latest CI, hosted CI logs/annotations, and relevant hosted
+package dry-run evidence. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
 
 Previous branch-head checkpoint:
 The reverse-proxy implementation plus the MCP auth-invalidation consumer-package
@@ -45,13 +72,13 @@ deployment-chain audit passed with clean latest CI, hosted CI logs/annotations,
 and relevant hosted package dry-run evidence. PR #79 remains blocked only by
 review/merge requirements before release-branch promotion.
 
-Latest completed exec plan:
-`docs/exec-plans/2026-05-16-http-fastcgi-route-action.md`
-(complete locally; FastCGI route actions now forward buffered FastCGI responder
-requests to configured upstreams, with full local verification passing before
-handoff).
-
 Previous completed exec plan:
+`docs/exec-plans/2026-05-16-http-fastcgi-route-action.md`
+(complete; FastCGI route actions now forward buffered FastCGI responder
+requests to configured upstreams, with clean local verification plus hosted
+CI/package/audit evidence before handoff).
+
+Earlier completed exec plan:
 `docs/exec-plans/2026-05-16-http-reverse-proxy-route-action.md`
 (complete; local verify and hosted CI/log/dry-run/audit evidence are clean,
 reverse proxy route actions now forward buffered HTTP requests to configured

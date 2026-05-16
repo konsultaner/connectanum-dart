@@ -43,6 +43,11 @@ FastCGI responder behind the router.
 - Focused `router_runtime_test.dart` reverse proxy forwarding test passed.
 - Focused `router_runtime_test.dart` FastCGI forwarding test passed.
 - Full local `bin/verify` passed before handoff.
+- Hosted push and PR CI passed with `Fast Checks` and `Full Verify` green on
+  `0ddc028`.
+- Hosted push and PR Dart Package Publish Dry Run passed on `0ddc028`.
+- Strict deployment-chain audit passed on `0ddc028` with clean latest CI,
+  hosted CI logs/annotations, and relevant hosted package dry-run evidence.
 
 ## Notes
 

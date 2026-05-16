@@ -4311,6 +4311,200 @@ void main() {
     );
   });
 
+  test(
+    'dispatches configured HTTP handler routes inside the binding',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: const RouterSettings(
+          realms: [],
+          listeners: [
+            ListenerSettings(
+              endpoint: '127.0.0.1:0',
+              protocols: [ListenerProtocol.http],
+              http: HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/handler'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.handler,
+                      delegate: 'handler.echo',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final seenTargets = <String>[];
+      final binding = router.start(
+        runtime,
+        httpRouteHandlers: {
+          'handler.echo': (context) {
+            seenTargets.add(context.request.target);
+            expect(context.binding, isA<RouterBinding>());
+            expect(context.route.action.delegate, 'handler.echo');
+            expect(context.request.method, 'POST');
+            expect(json.decode(utf8.decode(context.request.body)), {
+              'request': true,
+            });
+            return NativeHttpResponse(
+              status: HttpStatus.accepted,
+              headers: const {'x-handler': 'echo'},
+              body: NativeHttpResponseJson({
+                'target': context.request.target,
+                'path': context.request.path,
+              }),
+            );
+          },
+        },
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 316,
+        handle: 3160,
+        method: 'POST',
+        target: '/handler?debug=true',
+        headers: const {'content-type': 'application/json'},
+        body: const {'request': true},
+        realm: 'router.http',
+        procedure: 'router.http.handler',
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[316]?.isNotEmpty == true,
+        timeout: const Duration(seconds: 2),
+      );
+
+      expect(seenTargets, ['/handler?debug=true']);
+      final response = runtime.httpResponses[316]!.single;
+      expect(response.status, HttpStatus.accepted);
+      expect(response.headers['x-handler'], 'echo');
+      expect(_jsonResponseBody(response), {
+        'target': '/handler?debug=true',
+        'path': '/handler',
+      });
+      expect(
+        events.map((event) => event['type']),
+        contains('http_handler_response_sent'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        isNot(contains('http_request_dispatched')),
+      );
+    },
+  );
+
+  test(
+    'rejects unregistered HTTP handler routes without WAMP dispatch',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: const RouterSettings(
+          realms: [],
+          listeners: [
+            ListenerSettings(
+              endpoint: '127.0.0.1:0',
+              protocols: [ListenerProtocol.http],
+              http: HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/handler'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.handler,
+                      options: {'handler': 'missing.handler'},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 317,
+        handle: 3170,
+        method: 'GET',
+        target: '/handler',
+        headers: const {},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.handler',
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[317]?.isNotEmpty == true,
+        timeout: const Duration(seconds: 2),
+      );
+
+      final response = runtime.httpResponses[317]!.single;
+      expect(response.status, HttpStatus.notImplemented);
+      expect(
+        _jsonResponseBody(response),
+        containsPair('reason', 'handler_not_registered'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        contains('http_handler_not_registered'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        isNot(contains('http_request_dispatched')),
+      );
+    },
+  );
+
   test('routes HTTP session proxy actions through internal sessions', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettings(

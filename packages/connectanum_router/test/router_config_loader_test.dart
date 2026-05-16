@@ -580,6 +580,40 @@ void main() {
       );
     });
 
+    test('parses HTTP handler route aliases', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/healthz'},
+                    'action': <String, Object?>{
+                      'type': 'custom_handler',
+                      'handler': 'health.handler',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.action.type, HttpRouteActionType.handler);
+      expect(route.action.options['handler'], 'health.handler');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedAction = decoded.listeners.single.http!.routes.single.action;
+      expect(decodedAction.type, HttpRouteActionType.handler);
+      expect(decodedAction.options['handler'], 'health.handler');
+    });
+
     test('parses catch-all HTTP wildcard routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{

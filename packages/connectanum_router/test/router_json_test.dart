@@ -419,6 +419,47 @@ void main() {
       expect(fastCgiAction['procedure'], 'router.http.fastcgi');
     });
 
+    test('encodes HTTP handler routes for router-hosted dispatch', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/healthz'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.handler,
+                    delegate: 'health.handler',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final routes = (map['endpoints'] as List).single['http_routes'] as List;
+      final action = (routes.single as Map)['default'] as Map;
+      expect(action['type'], 'translation');
+      expect(action['realm'], 'router.http');
+      expect(action['procedure'], 'router.http.handler');
+    });
+
     test('encodes catch-all HTTP routes as native prefix fallbacks', () {
       final endpoint = Endpoint(
         host: '127.0.0.1',

@@ -785,6 +785,7 @@ enum HttpRouteActionType {
   file,
   reverseProxy,
   fastCgi,
+  handler,
   sessionProxy,
   publish,
 }
@@ -817,6 +818,10 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
     case 'fastCgi':
     case 'fastCGI':
       return HttpRouteActionType.fastCgi;
+    case 'handler':
+    case 'custom_handler':
+    case 'customHandler':
+      return HttpRouteActionType.handler;
     case 'session_proxy':
     case 'sessionProxy':
       return HttpRouteActionType.sessionProxy;
@@ -837,6 +842,7 @@ String httpRouteActionTypeToString(HttpRouteActionType type) => switch (type) {
   HttpRouteActionType.file => 'file',
   HttpRouteActionType.reverseProxy => 'reverse_proxy',
   HttpRouteActionType.fastCgi => 'fastcgi',
+  HttpRouteActionType.handler => 'handler',
   HttpRouteActionType.sessionProxy => 'session_proxy',
   HttpRouteActionType.publish => 'publish',
 };
