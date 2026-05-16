@@ -19,7 +19,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP handler native integration hardening is complete locally for the post-RC
+HTTP metrics route protocol coverage is complete locally for the post-RC HTTP
+bridge observability milestone. The configured `/metrics` HTTP bridge route now
+has native HTTP/1.1, HTTP/2, and HTTP/3 integration coverage against
+`connectanum.metrics.openmetrics`, complementing the dedicated exporter tests.
+The required pre-edit `bin/test-fast`, focused native HTTP/1.1/2/3 metrics
+route tests, `dart analyze packages/connectanum_router`, and full local
+`bin/verify` passed on 2026-05-16. Hosted CI/package/audit evidence is pending
+until this bundle is committed and pushed.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-16-http-metrics-route-protocol-coverage.md`
+(complete locally; configured metrics scrapes are now proven over native
+HTTP/1.1, HTTP/2, and HTTP/3 routes).
+
+Previous implementation checkpoint:
+HTTP handler native integration hardening is complete for the post-RC
 HTTP adapter-pipeline milestone. The native router integration harness now
 passes `httpRouteHandlers` into `Router.start`, and real native HTTP requests
 prove configured `handler` routes dispatch to registered Dart callbacks, expose
@@ -27,14 +42,22 @@ the request body/target/path through `RouterHttpHandlerContext`, return
 structured JSON responses, and reject unregistered handlers with structured
 `501 handler_not_registered` responses. The required pre-edit `bin/test-fast`,
 focused native integration tests, and full local `bin/verify` passed on
-2026-05-16. Hosted CI/package/audit evidence is pending until this bundle is
-pushed.
+2026-05-16. The implementation was committed as `beba3bc` and pushed to
+GitHub PR #79. Hosted evidence for `beba3bc` is clean: push-triggered Dart
+Package Publish Dry Run #25967833835 passed; push-triggered GitHub CI
+#25967833834 passed with `Fast Checks` job #76334369683 and `Full Verify` job
+#76334639056 green; PR-triggered Dart Package Publish Dry Run #25967834897
+passed; PR-triggered GitHub CI #25967834904 passed with `Fast Checks` job
+#76334372354 and `Full Verify` job #76334610098 green; and the strict
+deployment-chain audit passed with clean latest CI, hosted CI logs/annotations,
+and relevant hosted package dry-run evidence. PR #79 remains blocked only by
+review/merge requirements before release-branch promotion.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-16-http-handler-native-integration.md`
-(complete locally; native HTTP requests now prove configured `handler` routes
+(complete; native HTTP requests now prove configured `handler` routes
 dispatch into registered Dart callbacks and reject missing handlers explicitly,
-with full local verification).
+with full local and hosted verification).
 
 Previous implementation checkpoint:
 HTTP custom handler route actions are complete for the post-RC HTTP

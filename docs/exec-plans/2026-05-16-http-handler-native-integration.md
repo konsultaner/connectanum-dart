@@ -2,7 +2,7 @@
 
 ## Status
 
-Complete locally on 2026-05-16.
+Complete on 2026-05-16.
 
 ## Goal
 
@@ -35,5 +35,8 @@ fail explicitly without falling through to WAMP.
 - Focused native integration tests passed:
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "configured HTTP handler routes through native runtime" -r expanded`.
 - Full local `bin/verify` passed before handoff.
-- Hosted CI/package/audit evidence is pending until this implementation bundle
-  is pushed.
+- Hosted push and PR CI passed with `Fast Checks` and `Full Verify` green on
+  `beba3bc`.
+- Hosted push and PR Dart Package Publish Dry Run passed on `beba3bc`.
+- Strict deployment-chain audit passed on `beba3bc` with clean latest CI,
+  hosted CI logs/annotations, and relevant hosted package dry-run evidence.

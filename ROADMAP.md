@@ -140,7 +140,7 @@
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
   - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
     - [ ] Provide unified HTTP bridge that can surface Prometheus/Grafana exporters alongside REST→WAMP translation.
-    - [ ] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies.
+    - [x] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies. The configured `/metrics` HTTP bridge route now has native HTTP/1.1, HTTP/2, and HTTP/3 integration coverage against `connectanum.metrics.openmetrics`.
 - [x] Outbound frame bridge (`ct_send`/FFI) for CHALLENGE/WELCOME/EVENT delivery
 - [ ] End-to-end payload encryption (E2EE) strategy
   - [x] Capture the current WAMP E2EE/PPT references and land the shared Dart-side phase-1 contract (`WampE2eeProvider`, `WampCborXsalsa20Poly1305Provider`, router passthrough, and client/core coverage) without forcing router-side decryption.

@@ -3940,6 +3940,75 @@ void main() {
       await _writeOpenMetricsSnapshot(binding, 'http_metrics_scrape');
     }, skip: skipReason);
 
+    test('serves OpenMetrics payload over HTTP/2 metrics route', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9116,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(enableHttp3: false, enableMetrics: true),
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      await binding.ensureInternalServicesReady();
+
+      final listener = binding.listeners.single;
+      final response = await _getHttp2(listener.port, '/metrics');
+      expect(response.statusCode, equals(HttpStatus.ok));
+      expect(response.headers['content-type'], contains('text/plain'));
+      expect(response.body, contains('connectanum_router_realms'));
+      expect(response.body, contains('realm="realm1"'));
+      expect(response.body, contains('connectanum_router_http_events_total'));
+
+      await _writeOpenMetricsSnapshot(binding, 'http2_metrics_scrape');
+    }, skip: skipReason);
+
+    test('serves OpenMetrics payload over HTTP/3 metrics route', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9117,
+        nativeLib: nativeLib,
+        config: _buildTlsConfig(),
+        settings: _buildTlsSettings(enableMetrics: true),
+        connectionSequence: const [],
+      );
+      addTearDown(harness.dispose);
+
+      if (!harness.runtime.supportsHttp3TestClient) {
+        // ignore: avoid_print
+        print(
+          'Skipping HTTP/3 metrics route test: native runtime lacks test client',
+        );
+        return;
+      }
+
+      final binding = harness.binding;
+      await binding.ensureInternalServicesReady();
+
+      final listener = binding.listeners.single;
+      expect(
+        listener.http3Port,
+        greaterThan(0),
+        reason: 'Router did not expose an HTTP/3 port',
+      );
+
+      final response = await _runHttp3StreamRequestInIsolate(
+        nativeLib!,
+        host: '127.0.0.1',
+        port: listener.http3Port,
+        path: '/metrics',
+        method: 'GET',
+        headers: const {'x-client': 'router-http3-metrics-test'},
+        body: Uint8List(0),
+        certificatePem: _http3CaCertificatePem,
+      );
+      expect(response.status, equals(HttpStatus.ok));
+      final body = utf8.decode(response.body);
+      expect(body, contains('connectanum_router_realms'));
+      expect(body, contains('realm="realm1"'));
+      expect(body, contains('connectanum_router_http_events_total'));
+
+      await _writeOpenMetricsSnapshot(binding, 'http3_metrics_scrape');
+    }, skip: skipReason);
+
     test('streams HTTP request and response payloads end-to-end', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9104,
@@ -5559,6 +5628,50 @@ Future<String> _readHttpResponse(Socket socket) async {
   }
   await iterator.cancel();
   return utf8.decode(collected);
+}
+
+Future<({int statusCode, String body, Map<String, String> headers})> _getHttp2(
+  int port,
+  String path,
+) async {
+  final socket = await Socket.connect('127.0.0.1', port);
+  final connection = http2.ClientTransportConnection.viaSocket(socket);
+  try {
+    await connection.onInitialPeerSettingsReceived;
+    final stream = connection.makeRequest(<http2.Header>[
+      http2.Header.ascii(':method', 'GET'),
+      http2.Header.ascii(':scheme', 'http'),
+      http2.Header.ascii(':path', path),
+      http2.Header.ascii(':authority', '127.0.0.1:$port'),
+    ], endStream: true);
+
+    var statusCode = 0;
+    final headers = <String, String>{};
+    final buffer = BytesBuilder(copy: false);
+    await for (final message in stream.incomingMessages) {
+      if (message is http2.HeadersStreamMessage) {
+        for (final header in message.headers) {
+          final name = utf8.decode(header.name).toLowerCase();
+          final value = utf8.decode(header.value);
+          if (name == ':status') {
+            statusCode = int.tryParse(value) ?? statusCode;
+          } else {
+            headers[name] = value;
+          }
+        }
+      } else if (message is http2.DataStreamMessage) {
+        buffer.add(message.bytes);
+      }
+    }
+    return (
+      statusCode: statusCode,
+      body: utf8.decode(buffer.takeBytes()),
+      headers: headers,
+    );
+  } finally {
+    await connection.finish();
+    socket.destroy();
+  }
 }
 
 Future<
