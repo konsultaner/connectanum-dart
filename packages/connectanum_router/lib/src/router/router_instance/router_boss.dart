@@ -64,7 +64,7 @@ final class RouterBossLoopPacer {
   }
 }
 
-/// Coordinates worker isolates and round-robins connections across them.
+/// Coordinates worker isolates and assigns connections across them.
 class _RouterBoss {
   _RouterBoss({
     required this.runtime,
@@ -1129,9 +1129,35 @@ class _RouterBoss {
     if (_nextWorkerIndex >= _workers.length) {
       _nextWorkerIndex %= _workers.length;
     }
-    final worker = _workers[_nextWorkerIndex];
-    _nextWorkerIndex = (_nextWorkerIndex + 1) % _workers.length;
-    return worker;
+
+    var bestIndex = _nextWorkerIndex;
+    var bestWorker = _workers[bestIndex];
+    for (var offset = 1; offset < _workers.length; offset++) {
+      final index = (_nextWorkerIndex + offset) % _workers.length;
+      final candidate = _workers[index];
+      if (_hasLowerAssignmentLoad(candidate, bestWorker)) {
+        bestIndex = index;
+        bestWorker = candidate;
+      }
+    }
+
+    _nextWorkerIndex = (bestIndex + 1) % _workers.length;
+    return bestWorker;
+  }
+
+  bool _hasLowerAssignmentLoad(_WorkerHandle candidate, _WorkerHandle current) {
+    final connectionCompare = candidate.connections.length.compareTo(
+      current.connections.length,
+    );
+    if (connectionCompare != 0) {
+      return connectionCompare < 0;
+    }
+
+    final candidatePressure =
+        candidate.pendingDispatches.length + (candidate.busy ? 1 : 0);
+    final currentPressure =
+        current.pendingDispatches.length + (current.busy ? 1 : 0);
+    return candidatePressure < currentPressure;
   }
 
   bool _dispatchMessages() {

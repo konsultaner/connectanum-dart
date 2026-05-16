@@ -162,7 +162,7 @@
     - [x] Add low-cardinality host/runtime process stats to the metrics snapshot and OpenMetrics payload: operating system, Dart runtime version, available processors, current RSS, and max RSS.
   - [ ] Implement hysteresis-based scale-up/scale-down policy with configurable thresholds
   - [ ] Reassign connections gracefully during scale-down using drain flow
-  - [ ] Integrate load-aware connection assignment (least-busy/weighted policies)
+  - [x] Integrate load-aware connection assignment (least-busy/weighted policies). The router boss now selects the least-loaded worker by connection count, then dispatch pressure, while retaining cursor-based tie-breaking; runtime coverage verifies new connections avoid a currently busy worker.
   - [ ] Verify cross-worker parallelism with high-contention integration tests (parallel call/publish workloads)
 - [x] Meta event dispatch plumbing (session/subscription/registration meta)
 - [ ] Metrics counters / observability hooks

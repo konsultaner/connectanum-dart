@@ -3180,6 +3180,113 @@ void main() {
       },
     );
 
+    test('assigns new connections to the least loaded worker', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithMinWorkers(2),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _parallelWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+
+      await _waitUntil(
+        () =>
+            events
+                .whereType<Map>()
+                .where((event) => event['type'] == 'worker_registered')
+                .length >=
+            2,
+      );
+
+      runtime.enqueueConnection(listener.listenerId, 8101);
+      runtime.enqueueConnection(listener.listenerId, 8102);
+
+      await _waitUntil(() {
+        final addedConnections = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_connection_added')
+            .map((event) => event['connectionId'])
+            .toSet();
+        return addedConnections.containsAll({8101, 8102});
+      });
+
+      final handle = runtime.enqueueHandleOnly(8101);
+
+      RouterMetricsSnapshot? busySnapshot;
+      final busyDeadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(busyDeadline)) {
+        final snapshot = await binding.collectMetrics();
+        final loads = snapshot.workerLoad;
+        if (loads.length == 2 &&
+            loads.any((worker) => worker.busy && worker.connectionCount == 1) &&
+            loads.any(
+              (worker) => !worker.busy && worker.connectionCount == 1,
+            )) {
+          busySnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(busySnapshot, isNotNull, reason: 'events=$events');
+
+      runtime.enqueueConnection(listener.listenerId, 8103);
+
+      RouterMetricsSnapshot? assignedSnapshot;
+      final assignedDeadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(assignedDeadline)) {
+        final added8103 = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == 8103,
+        );
+        if (!added8103) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          continue;
+        }
+
+        final snapshot = await binding.collectMetrics();
+        final loads = snapshot.workerLoad;
+        final busyWorkers = loads.where((worker) => worker.busy).toList();
+        final idleWorkers = loads.where((worker) => !worker.busy).toList();
+        if (busyWorkers.length == 1 &&
+            busyWorkers.single.connectionCount == 1 &&
+            idleWorkers.any((worker) => worker.connectionCount == 2)) {
+          assignedSnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      expect(assignedSnapshot, isNotNull, reason: 'events=$events');
+
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_unknown_event' &&
+              event['payload'] is Map &&
+              (event['payload'] as Map)['handle'] == handle,
+        );
+      });
+    });
+
     test('shuts down worker when runtime reports missing connection', () async {
       final runtime = _HandleRuntime();
       final router = Router(
