@@ -5,7 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
-import 'dart:math' show Random;
+import 'dart:math' show Random, min;
 import 'dart:typed_data';
 import 'dart:io'
     show
@@ -23,8 +23,10 @@ import 'dart:io'
         HttpServer,
         HttpStatus,
         InternetAddress,
+        InternetAddressType,
         Platform,
         ProcessInfo,
+        Socket,
         pid;
 
 import 'package:cbor/cbor.dart';

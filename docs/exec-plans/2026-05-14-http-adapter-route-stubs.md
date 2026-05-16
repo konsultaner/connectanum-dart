@@ -49,5 +49,5 @@ adapters are implemented.
 - The runtime response deliberately does not echo the endpoint value, avoiding
   accidental credential disclosure in proxy target URLs.
 - Follow-up work on 2026-05-16 made `reverse_proxy` operational for buffered
-  HTTP forwarding; FastCGI remains the explicit `501` adapter stub from this
-  slice.
+  HTTP forwarding, and a later 2026-05-16 slice made `fastcgi` operational for
+  buffered FastCGI responder requests.

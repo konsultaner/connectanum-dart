@@ -19,26 +19,43 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP `reverse_proxy` route actions are now operational for the post-RC HTTP
-adapter-pipeline milestone. Configured reverse proxy routes resolve the same
-adapter endpoint aliases as the native route table, forward buffered HTTP
-requests to `http` / `https` upstreams with method/body/query/header
-preservation, filter hop-by-hop headers, support optional route-prefix stripping,
-set `X-Forwarded-Host` / `X-Forwarded-Proto`, return upstream status/headers/body
-through the native HTTP response path, and map invalid targets, upstream
-timeouts, oversized buffered responses, and upstream failures to structured
-JSON errors. FastCGI remains an explicit `501 Not Implemented` adapter stub.
-Pre-edit `bin/test-fast`, focused reverse-proxy and FastCGI runtime tests, and
-`dart analyze packages/connectanum_router` passed locally on 2026-05-16.
-Full local `bin/verify` passed on 2026-05-16 after the reverse-proxy runtime
-slice and the MCP auth-invalidation consumer-package smoke extension. Hosted
-evidence is pending until this code/docs bundle is pushed.
+HTTP `fastcgi` route actions are now operational for the post-RC HTTP
+adapter-pipeline milestone. Configured FastCGI routes resolve the same adapter
+endpoint aliases as the native route table, connect to TCP or Unix FastCGI
+targets, send buffered responder requests with CGI params and stdin, parse
+FastCGI stdout headers/body into native HTTP responses, and map invalid targets,
+upstream timeouts, oversized buffered responses, protocol failures, and upstream
+failures to structured JSON gateway responses. Static file routes and buffered
+`reverse_proxy` route actions were already operational. Pre-edit
+`bin/test-fast`, focused reverse-proxy and FastCGI runtime tests, and
+`dart analyze packages/connectanum_router` passed locally on 2026-05-16. Full
+local `bin/verify` passed on 2026-05-16 for the FastCGI slice. Hosted evidence
+is pending until this code/docs bundle is pushed.
+
+Previous branch-head checkpoint:
+The reverse-proxy implementation plus the MCP auth-invalidation consumer-package
+smoke extension was committed as `e7be6da` and pushed to GitHub PR #79. Hosted
+evidence for `e7be6da` is clean: push-triggered GitHub CI #25964116680 passed
+with `Fast Checks` and `Full Verify` green; push-triggered Dart Package Publish
+Dry Run #25964116689 passed; PR-triggered Dart Package Publish Dry Run
+#25964117597 passed; PR-triggered GitHub CI #25964117602 had one stalled first
+attempt without available logs, then reran successfully with `Fast Checks` job
+#76326279391 and `Full Verify` job #76326537872 green; and the strict
+deployment-chain audit passed with clean latest CI, hosted CI logs/annotations,
+and relevant hosted package dry-run evidence. PR #79 remains blocked only by
+review/merge requirements before release-branch promotion.
 
 Latest completed exec plan:
+`docs/exec-plans/2026-05-16-http-fastcgi-route-action.md`
+(complete locally; FastCGI route actions now forward buffered FastCGI responder
+requests to configured upstreams, with full local verification passing before
+handoff).
+
+Previous completed exec plan:
 `docs/exec-plans/2026-05-16-http-reverse-proxy-route-action.md`
-(complete locally; reverse proxy route actions now forward buffered HTTP
-requests to configured upstreams while FastCGI remains an explicit `501`
-adapter stub).
+(complete; local verify and hosted CI/log/dry-run/audit evidence are clean,
+reverse proxy route actions now forward buffered HTTP requests to configured
+upstreams; FastCGI was completed by the follow-up plan above).
 
 Previous local implementation checkpoint:
 Router-hosted MCP Streamable HTTP session deletion and HTTP-auth-driven session
@@ -60,16 +77,16 @@ the invalidated sessions leave zero route-visible subscribers. Pre-edit
 `run_mcp_consumer_package_smoke`, `git diff --check`, and full local
 `bin/verify` passed on 2026-05-16 for commit `481261f`; after the auth
 invalidation smoke extension, pre-edit `bin/test-fast`, `bash -n bin/common.sh`,
-and focused `run_mcp_consumer_package_smoke` passed locally. The latest pushed
-implementation remains `481261f` on GitHub PR #79 until the new smoke extension
-is committed and pushed. Hosted evidence for `481261f` is clean:
+and focused `run_mcp_consumer_package_smoke` passed locally. The auth
+invalidation smoke extension was bundled into commit `e7be6da` and pushed to
+GitHub PR #79 with the reverse-proxy slice; current branch-head hosted evidence
+is recorded above. Earlier hosted evidence for `481261f` was also clean:
 push-triggered GitHub CI #25962895642 passed; push-triggered Dart Package
 Publish Dry Run #25962895635 passed; PR-triggered GitHub CI #25962896938 passed
 with `Fast Checks` and `Full Verify` green; PR-triggered Dart Package Publish
 Dry Run #25962896950 passed; and the strict deployment-chain audit passed with
 clean latest CI, hosted CI logs/annotations, and relevant hosted package dry-run
-evidence. PR #79 remains blocked only by review/merge requirements before
-release-branch promotion.
+evidence.
 
 Previous implementation checkpoint:
 HTTP adapter route stubs are complete locally for the post-RC HTTP route
@@ -81,8 +98,8 @@ structured `501 Not Implemented` responses from the Dart binding without
 dispatching to WAMP. Runtime telemetry emits `http_adapter_not_implemented`
 without echoing configured endpoint values. Pre-edit `bin/test-fast`, focused
 adapter parser/native-config/runtime tests, `dart analyze packages/connectanum_router`,
-and full local `bin/verify` passed on 2026-05-14. Hosted evidence is pending
-until this code/config/docs bundle is pushed.
+and full local `bin/verify` passed on 2026-05-14. This adapter-stub baseline is
+now covered by the branch-head hosted evidence for `e7be6da` recorded above.
 
 Previous completed exec plan:
 `docs/exec-plans/2026-05-14-http-adapter-route-stubs.md`

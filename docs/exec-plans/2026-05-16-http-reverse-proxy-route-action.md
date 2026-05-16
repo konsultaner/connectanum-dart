@@ -4,11 +4,16 @@
 
 Complete locally on 2026-05-16.
 
+Superseded for adapter-pipeline status by
+`docs/exec-plans/2026-05-16-http-fastcgi-route-action.md`, which makes the
+remaining FastCGI adapter operational.
+
 ## Goal
 
 Turn the already-configurable `reverse_proxy` HTTP adapter route into a usable
-runtime path for downstream applications, while keeping FastCGI as an explicit
-`501 Not Implemented` adapter until its framing and process model are designed.
+runtime path for downstream applications. At the time of this slice FastCGI
+remained an explicit `501 Not Implemented` adapter until its framing and process
+model were implemented.
 
 ## Scope
 
@@ -22,15 +27,16 @@ runtime path for downstream applications, while keeping FastCGI as an explicit
 - Add timeout, bounded-response, and upstream-error responses with structured
   JSON bodies and access-log outcomes.
 - Keep hop-by-hop headers and configured upstream URLs out of telemetry.
-- Add focused runtime tests for forwarding behavior and the remaining FastCGI
-  `501` stub.
+- Add focused runtime tests for forwarding behavior and the then-remaining
+  FastCGI `501` stub.
 
 ## Out Of Scope
 
 - Streaming reverse-proxy request or response bodies.
 - Connection pooling across routed requests beyond `dart:io` defaults.
 - WebSocket upgrade proxying.
-- FastCGI / PHP-FPM framing or worker lifecycle.
+- FastCGI / PHP-FPM framing or worker lifecycle, which landed in the follow-up
+  buffered FastCGI route-action slice.
 
 ## Verification
 

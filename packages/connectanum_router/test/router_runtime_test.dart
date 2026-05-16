@@ -958,6 +958,150 @@ Future<(int, String)> _getHealth(Uri uri) async {
   }
 }
 
+const _fakeFastCgiHeaderLength = 8;
+const _fakeFastCgiParams = 4;
+const _fakeFastCgiStdin = 5;
+const _fakeFastCgiStdout = 6;
+const _fakeFastCgiEndRequest = 3;
+
+class _FakeFastCgiRequest {
+  const _FakeFastCgiRequest({required this.params, required this.stdin});
+
+  final Map<String, String> params;
+  final Uint8List stdin;
+}
+
+Future<_FakeFastCgiRequest> _readFakeFastCgiRequest(Socket socket) async {
+  final params = BytesBuilder(copy: false);
+  final stdin = BytesBuilder(copy: false);
+  var paramsComplete = false;
+  var stdinComplete = false;
+  var pending = <int>[];
+  final completer = Completer<_FakeFastCgiRequest>();
+  late final StreamSubscription<List<int>> subscription;
+
+  void completeIfReady() {
+    if (paramsComplete && stdinComplete && !completer.isCompleted) {
+      subscription.pause();
+      completer.complete(
+        _FakeFastCgiRequest(
+          params: _decodeFakeFastCgiParams(params.takeBytes()),
+          stdin: stdin.takeBytes(),
+        ),
+      );
+    }
+  }
+
+  subscription = socket.listen(
+    (chunk) {
+      if (completer.isCompleted) {
+        return;
+      }
+      pending.addAll(chunk);
+      while (pending.length >= _fakeFastCgiHeaderLength) {
+        final type = pending[1];
+        final contentLength = (pending[4] << 8) | pending[5];
+        final paddingLength = pending[6];
+        final recordLength =
+            _fakeFastCgiHeaderLength + contentLength + paddingLength;
+        if (pending.length < recordLength) {
+          break;
+        }
+        final content = Uint8List.fromList(
+          pending.sublist(
+            _fakeFastCgiHeaderLength,
+            _fakeFastCgiHeaderLength + contentLength,
+          ),
+        );
+        pending = pending.sublist(recordLength);
+        if (type == _fakeFastCgiParams) {
+          if (content.isEmpty) {
+            paramsComplete = true;
+          } else {
+            params.add(content);
+          }
+        } else if (type == _fakeFastCgiStdin) {
+          if (content.isEmpty) {
+            stdinComplete = true;
+          } else {
+            stdin.add(content);
+          }
+        }
+        completeIfReady();
+      }
+    },
+    onError: completer.completeError,
+    onDone: () {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          StateError('FastCGI request ended before stdin completed'),
+        );
+      }
+    },
+    cancelOnError: true,
+  );
+  return completer.future;
+}
+
+Map<String, String> _decodeFakeFastCgiParams(Uint8List bytes) {
+  final result = <String, String>{};
+  var offset = 0;
+  while (offset < bytes.length) {
+    final (nameLength, nameOffset) = _readFakeFastCgiLength(bytes, offset);
+    final (valueLength, valueOffset) = _readFakeFastCgiLength(
+      bytes,
+      nameOffset,
+    );
+    final nameEnd = valueOffset + nameLength;
+    final valueEnd = nameEnd + valueLength;
+    final name = utf8.decode(
+      Uint8List.sublistView(bytes, valueOffset, nameEnd),
+    );
+    final value = utf8.decode(Uint8List.sublistView(bytes, nameEnd, valueEnd));
+    result[name] = value;
+    offset = valueEnd;
+  }
+  return result;
+}
+
+(int, int) _readFakeFastCgiLength(Uint8List bytes, int offset) {
+  final first = bytes[offset];
+  if ((first & 0x80) == 0) {
+    return (first, offset + 1);
+  }
+  final length =
+      ((first & 0x7f) << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3];
+  return (length, offset + 4);
+}
+
+void _writeFakeFastCgiRecord(
+  Socket socket,
+  int type,
+  int requestId,
+  List<int> content,
+) {
+  final paddingLength = (8 - (content.length % 8)) % 8;
+  socket.add([
+    1,
+    type,
+    (requestId >> 8) & 0xff,
+    requestId & 0xff,
+    (content.length >> 8) & 0xff,
+    content.length & 0xff,
+    paddingLength,
+    0,
+  ]);
+  if (content.isNotEmpty) {
+    socket.add(content);
+  }
+  if (paddingLength > 0) {
+    socket.add(Uint8List(paddingLength));
+  }
+}
+
 void _parallelWorkerEntryPoint(Map<String, Object?> init) {
   final bossPort = init['bossPort'] as SendPort;
   final connectionId = init['connectionId'] as int;
@@ -4019,7 +4163,38 @@ void main() {
     );
   });
 
-  test('returns explicit 501 for configured FastCGI adapter stubs', () async {
+  test('forwards configured FastCGI adapter routes', () async {
+    final fastCgiRequests = <_FakeFastCgiRequest>[];
+    final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(upstream.close);
+    final subscription = upstream.listen((socket) async {
+      final fastCgiRequest = await _readFakeFastCgiRequest(socket);
+      fastCgiRequests.add(fastCgiRequest);
+      final responseBody = json.encode({
+        'ok': true,
+        'script': fastCgiRequest.params['SCRIPT_FILENAME'],
+        'query': fastCgiRequest.params['QUERY_STRING'],
+        'body': utf8.decode(fastCgiRequest.stdin),
+      });
+      _writeFakeFastCgiRecord(
+        socket,
+        _fakeFastCgiStdout,
+        1,
+        utf8.encode(
+          'Status: 202 Accepted\r\n'
+          'Content-Type: application/json\r\n'
+          'X-FastCGI: ok\r\n'
+          '\r\n'
+          '$responseBody',
+        ),
+      );
+      _writeFakeFastCgiRecord(socket, _fakeFastCgiStdout, 1, const []);
+      _writeFakeFastCgiRecord(socket, _fakeFastCgiEndRequest, 1, Uint8List(8));
+      await socket.flush();
+      await socket.close();
+    });
+    addTearDown(subscription.cancel);
+
     final runtime = _HandleRuntime();
     final router = Router(
       RouterConfig(
@@ -4033,19 +4208,24 @@ void main() {
           ),
         ],
       ),
-      settings: const RouterSettings(
-        realms: [],
+      settings: RouterSettings(
+        realms: const [],
         listeners: [
           ListenerSettings(
             endpoint: '127.0.0.1:0',
-            protocols: [ListenerProtocol.http],
+            protocols: const [ListenerProtocol.http],
             http: HttpListenerSettings(
               routes: [
                 HttpRouteSettings(
-                  match: HttpRouteMatch(prefix: '/php/'),
+                  match: const HttpRouteMatch(prefix: '/php/'),
                   action: HttpRouteAction(
                     type: HttpRouteActionType.fastCgi,
-                    delegate: 'unix:/run/php-fpm.sock',
+                    options: {
+                      'target': 'fastcgi://127.0.0.1:${upstream.port}',
+                      'document_root': '/srv/app/public',
+                      'strip_prefix': true,
+                      'timeout_ms': 5000,
+                    },
                   ),
                 ),
               ],
@@ -4074,29 +4254,56 @@ void main() {
       connectionId: 315,
       handle: 3150,
       method: 'POST',
-      target: '/php/index.php',
-      headers: const {'x-test': 'fastcgi-stub'},
+      target: '/php/index.php?debug=true',
+      protocol: 'https',
+      headers: const {
+        'host': 'consumer.example',
+        'content-type': 'application/json',
+        'x-test': 'fastcgi',
+      },
       body: const {'request': true},
       realm: 'router.http',
       procedure: 'router.http.fastcgi',
     );
 
     await _waitUntil(
-      () => runtime.httpResponses[315]?.isNotEmpty == true,
+      () =>
+          runtime.httpResponses[315]?.isNotEmpty == true &&
+          fastCgiRequests.isNotEmpty,
       timeout: const Duration(seconds: 2),
     );
 
-    final fastCgiResponse = runtime.httpResponses[315]!.single;
-    final fastCgiBody = _jsonResponseBody(fastCgiResponse);
-    expect(fastCgiResponse.status, HttpStatus.notImplemented);
-    expect(fastCgiBody['reason'], 'http_adapter_not_implemented');
-    expect(fastCgiBody['adapter'], 'fastcgi');
+    final fastCgiRequest = fastCgiRequests.single;
+    expect(fastCgiRequest.params['REQUEST_METHOD'], 'POST');
+    expect(fastCgiRequest.params['REQUEST_URI'], '/php/index.php?debug=true');
+    expect(fastCgiRequest.params['SCRIPT_NAME'], '/index.php');
+    expect(
+      fastCgiRequest.params['SCRIPT_FILENAME'],
+      '/srv/app/public/index.php',
+    );
+    expect(fastCgiRequest.params['QUERY_STRING'], 'debug=true');
+    expect(fastCgiRequest.params['CONTENT_TYPE'], 'application/json');
+    expect(fastCgiRequest.params['HTTP_X_TEST'], 'fastcgi');
+    expect(fastCgiRequest.params['HTTPS'], 'on');
+    expect(json.decode(utf8.decode(fastCgiRequest.stdin)), {'request': true});
+
+    final response = runtime.httpResponses[315]!.single;
+    final responseBody = _jsonResponseBody(response);
+    expect(
+      response.status,
+      HttpStatus.accepted,
+      reason: '$responseBody $events',
+    );
+    expect(response.headers['Content-Type'], 'application/json');
+    expect(response.headers['X-FastCGI'], 'ok');
+    expect(responseBody['ok'], isTrue);
+    expect(responseBody['script'], '/srv/app/public/index.php');
+    expect(responseBody['query'], 'debug=true');
+    expect(json.decode(responseBody['body']! as String), {'request': true});
 
     expect(
-      events
-          .where((event) => event['type'] == 'http_adapter_not_implemented')
-          .map((event) => event['adapter']),
-      contains('fastcgi'),
+      events.map((event) => event['type']),
+      contains('http_fastcgi_response_sent'),
     );
     expect(
       events.map((event) => event['type']),
