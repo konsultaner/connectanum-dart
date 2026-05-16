@@ -333,6 +333,19 @@ void main() {
     expect(processMetrics['pid'], isA<int>());
     expect(processMetrics['current_rss_bytes'], greaterThan(0));
     expect(processMetrics['max_rss_bytes'], greaterThan(0));
+    final workerMetrics =
+        routerMetrics['workers'] as List<Object?>? ?? const [];
+    expect(workerMetrics, isNotEmpty);
+    final workerMetric = workerMetrics.cast<Map<String, Object?>>().first;
+    expect(workerMetric['id'], isA<int>());
+    expect(workerMetric['isolate_hash'], isA<int>());
+    expect(workerMetric['connection_count'], greaterThanOrEqualTo(0));
+    expect(workerMetric['busy'], isA<bool>());
+    expect(workerMetric['in_flight_dispatches'], greaterThanOrEqualTo(0));
+    expect(workerMetric['dispatches_total'], greaterThanOrEqualTo(0));
+    expect(workerMetric['completed_dispatches_total'], greaterThanOrEqualTo(0));
+    expect(workerMetric['errors_total'], greaterThanOrEqualTo(0));
+    expect(workerMetric['total_busy_duration_ms'], greaterThanOrEqualTo(0));
     final transportMetrics =
         routerMetrics['transport'] as Map<String, Object?>? ?? const {};
     expect(transportMetrics['active_throttles'], equals(1));
@@ -361,6 +374,28 @@ void main() {
     expect(
       openMetricsText,
       contains('connectanum_router_process_max_resident_memory_bytes'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_busy_isolates'),
+    );
+    expect(openMetricsText, contains('connectanum_router_worker_connections'));
+    expect(openMetricsText, contains('connectanum_router_worker_busy'));
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_dispatches_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_completed_dispatches_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_dispatch_errors_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_busy_duration_ms_total'),
     );
     expect(openMetricsText, contains('realm="realm1"'));
     expect(openMetricsText, contains('connectanum_router_http_events_total'));

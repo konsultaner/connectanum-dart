@@ -6,7 +6,8 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan: none.
+Active exec plan:
+`docs/exec-plans/2026-05-16-router-worker-load-metrics.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -19,21 +20,40 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-HTTP metrics route protocol coverage is complete locally for the post-RC HTTP
+Router worker load metrics are complete locally for the post-RC observability and
+worker-pool-readiness milestone. The router metrics snapshot now includes a
+per-worker load list with connection counts, busy state, in-flight dispatches,
+dispatch/completion/error totals, and observed busy duration, and the
+OpenMetrics exporter renders those counters with stable worker/isolate labels.
+The required pre-edit `bin/test-fast`, focused
+`router_metrics_service_test.dart`, and `dart analyze packages/connectanum_router`
+passed on 2026-05-16. Full local `bin/verify` passed on 2026-05-16. Hosted
+CI/package/audit evidence is pending until this bundle is committed and pushed.
+
+Previous implementation checkpoint:
+HTTP metrics route protocol coverage is complete for the post-RC HTTP
 bridge observability milestone. The configured `/metrics` HTTP bridge route now
 has native HTTP/1.1, HTTP/2, and HTTP/3 integration coverage against
 `connectanum.metrics.openmetrics`, complementing the dedicated exporter tests.
 The required pre-edit `bin/test-fast`, focused native HTTP/1.1/2/3 metrics
 route tests, `dart analyze packages/connectanum_router`, and full local
-`bin/verify` passed on 2026-05-16. Hosted CI/package/audit evidence is pending
-until this bundle is committed and pushed.
+`bin/verify` passed on 2026-05-16. The implementation was committed as
+`e218a4c` and pushed to GitHub PR #79. Hosted evidence for `e218a4c` is clean:
+push-triggered GitHub CI #25968754290 passed with `Fast Checks` job
+#76336825294 and `Full Verify` job #76337078085 green; push-triggered Dart
+Package Publish Dry Run #25968754293 passed; PR-triggered GitHub CI
+#25968755601 passed with `Fast Checks` and `Full Verify` green; PR-triggered
+Dart Package Publish Dry Run #25968755616 passed; and the strict
+deployment-chain audit passed with clean latest CI, hosted CI logs/annotations,
+and relevant hosted package dry-run evidence. PR #79 remains blocked only by
+review/merge requirements before release-branch promotion.
 
 Latest completed exec plan:
 `docs/exec-plans/2026-05-16-http-metrics-route-protocol-coverage.md`
-(complete locally; configured metrics scrapes are now proven over native
-HTTP/1.1, HTTP/2, and HTTP/3 routes).
+(complete; configured metrics scrapes are now proven over native HTTP/1.1,
+HTTP/2, and HTTP/3 routes, with full local and hosted verification).
 
-Previous implementation checkpoint:
+Earlier implementation checkpoint:
 HTTP handler native integration hardening is complete for the post-RC
 HTTP adapter-pipeline milestone. The native router integration harness now
 passes `httpRouteHandlers` into `Router.start`, and real native HTTP requests

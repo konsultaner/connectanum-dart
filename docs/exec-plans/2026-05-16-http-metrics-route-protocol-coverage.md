@@ -1,6 +1,6 @@
 # HTTP Metrics Route Protocol Coverage
 
-Status: complete locally
+Status: complete; hosted CI and deployment-chain evidence clean
 Owner: Codex
 Created: 2026-05-16
 Last updated: 2026-05-16
@@ -43,8 +43,18 @@ a dedicated sidecar proxy.
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "OpenMetrics payload over HTTP" -r expanded --chain-stack-traces`.
 - 2026-05-16: `dart analyze packages/connectanum_router` passed.
 - 2026-05-16: Full local `bin/verify` passed.
+- 2026-05-16: Committed as `e218a4c`
+  (`test: cover metrics route protocols`) and pushed to GitHub PR #79.
+- 2026-05-16: Hosted evidence for `e218a4c` is clean: push-triggered GitHub
+  CI #25968754290 passed with `Fast Checks` job #76336825294 and
+  `Full Verify` job #76337078085 green; push-triggered Dart Package Publish
+  Dry Run #25968754293 passed; PR-triggered GitHub CI #25968755601 passed with
+  `Fast Checks` and `Full Verify` green; PR-triggered Dart Package Publish Dry
+  Run #25968755616 passed; and the strict deployment-chain audit passed with
+  clean latest CI, hosted CI logs/annotations, and relevant hosted package
+  dry-run evidence.
 
 ## Handoff
 
-Complete locally. Hosted CI/package/audit evidence is pending until the
-implementation is committed and pushed.
+Complete with clean local and hosted verification. PR #79 remains blocked only
+by review/merge requirements before release-branch promotion.

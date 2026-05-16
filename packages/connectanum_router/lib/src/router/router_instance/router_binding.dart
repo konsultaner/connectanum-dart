@@ -6498,6 +6498,93 @@ class _MetricsService {
         'connectanum_router_worker_isolates ${routerSnapshot.workerCount}',
       );
 
+    final workerLoad = routerSnapshot.workerLoad;
+    final busyWorkers = workerLoad.where((worker) => worker.busy).length;
+    buffer
+      ..writeln(
+        '# HELP connectanum_router_worker_busy_isolates Worker isolates currently processing a dispatch',
+      )
+      ..writeln('# TYPE connectanum_router_worker_busy_isolates gauge')
+      ..writeln('connectanum_router_worker_busy_isolates $busyWorkers');
+    if (workerLoad.isNotEmpty) {
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_connections Active connections assigned to each worker isolate',
+        )
+        ..writeln('# TYPE connectanum_router_worker_connections gauge');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_connections${_workerLabels(worker)} ${worker.connectionCount}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_busy 1 while a worker isolate is processing a dispatch',
+        )
+        ..writeln('# TYPE connectanum_router_worker_busy gauge');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_busy${_workerLabels(worker)} ${worker.busy ? 1 : 0}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_inflight_dispatches Current native message dispatches in flight per worker isolate',
+        )
+        ..writeln('# TYPE connectanum_router_worker_inflight_dispatches gauge');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_inflight_dispatches${_workerLabels(worker)} ${worker.inFlightDispatches}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_dispatches_total Native message dispatches assigned to each worker isolate',
+        )
+        ..writeln('# TYPE connectanum_router_worker_dispatches_total counter');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_dispatches_total${_workerLabels(worker)} ${worker.dispatchesTotal}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_completed_dispatches_total Native message dispatches completed by each worker isolate',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_completed_dispatches_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_completed_dispatches_total${_workerLabels(worker)} ${worker.completedDispatchesTotal}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_dispatch_errors_total Native message dispatches that reported worker errors',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_dispatch_errors_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_dispatch_errors_total${_workerLabels(worker)} ${worker.errorsTotal}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_busy_duration_ms_total Observed worker busy time in milliseconds',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_busy_duration_ms_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_busy_duration_ms_total${_workerLabels(worker)} ${worker.totalBusyDurationMs}',
+        );
+      }
+    }
+
     final process = routerSnapshot.process;
     if (process != null) {
       buffer
@@ -7015,6 +7102,11 @@ class _MetricsService {
         .join(',');
     return '{$formatted}';
   }
+
+  String _workerLabels(RouterWorkerLoadMetrics worker) => _formatLabels({
+    'worker_id': worker.id.toString(),
+    'isolate_hash': worker.isolateHash.toString(),
+  });
 
   bool _isMetaTopic(String topic) => topic.startsWith('wamp.');
 

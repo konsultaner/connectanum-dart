@@ -1169,7 +1169,7 @@ class _RouterBoss {
         }
         continue;
       }
-      worker.busy = true;
+      worker.markDispatchStarted(DateTime.now().toUtc());
       worker.commandPort.send(<Object?>[
         _workerCmdProcess,
         chosenConnection,
@@ -1570,8 +1570,9 @@ class _RouterBoss {
   Future<RouterMetricsSnapshot> collectMetricsSnapshot() async {
     final stateMetrics = await _fetchStateMetrics();
     final transportMetrics = _ensureTransportMetrics();
+    final timestamp = DateTime.now().toUtc();
     return RouterMetricsSnapshot(
-      timestamp: DateTime.now().toUtc(),
+      timestamp: timestamp,
       realmCount: stateMetrics.realmCount,
       sessionCount: stateMetrics.sessionCount,
       subscriptionCount: stateMetrics.subscriptionCount,
@@ -1581,6 +1582,9 @@ class _RouterBoss {
       totalPublicationsRouted: stateMetrics.totalPublicationsRouted,
       activeConnections: _connectionOwners.length,
       workerCount: _workers.length,
+      workerLoad: _workers
+          .map((worker) => worker.toMetrics(timestamp))
+          .toList(growable: false),
       alerts: _buildAlertMetrics(),
       transport: transportMetrics,
     );
@@ -1894,7 +1898,7 @@ class _RouterBoss {
     } else if (type == _workerEventReady) {
       final connectionId = message['connectionId'] as int;
       final worker = _connectionOwners[connectionId];
-      worker?.busy = false;
+      worker?.markDispatchCompleted(DateTime.now().toUtc());
       payload
         ..['type'] = 'worker_ready'
         ..['connectionId'] = connectionId;
@@ -1939,7 +1943,7 @@ class _RouterBoss {
       final connectionId = message['connectionId'] as int?;
       if (connectionId != null) {
         final worker = _connectionOwners[connectionId];
-        worker?.busy = false;
+        worker?.markDispatchCompleted(DateTime.now().toUtc(), error: true);
       }
       payload
         ..['type'] = 'worker_error'
@@ -2172,5 +2176,60 @@ class _WorkerHandle {
   final List<int> connections = [];
   int connectionCursor = 0;
   bool busy = false;
+  int dispatchesTotal = 0;
+  int completedDispatchesTotal = 0;
+  int errorsTotal = 0;
+  int totalBusyDurationUs = 0;
+  int? lastDispatchDurationUs;
+  DateTime? currentDispatchStartedAt;
   Completer<void>? drainCompleter;
+
+  void markDispatchStarted(DateTime now) {
+    busy = true;
+    dispatchesTotal += 1;
+    currentDispatchStartedAt = now;
+  }
+
+  void markDispatchCompleted(DateTime now, {bool error = false}) {
+    if (!busy && currentDispatchStartedAt == null) {
+      return;
+    }
+    final startedAt = currentDispatchStartedAt;
+    if (startedAt != null) {
+      final durationUs = now.difference(startedAt).inMicroseconds;
+      final clampedDurationUs = durationUs < 0 ? 0 : durationUs;
+      lastDispatchDurationUs = clampedDurationUs;
+      totalBusyDurationUs += clampedDurationUs;
+    }
+    currentDispatchStartedAt = null;
+    busy = false;
+    completedDispatchesTotal += 1;
+    if (error) {
+      errorsTotal += 1;
+    }
+  }
+
+  RouterWorkerLoadMetrics toMetrics(DateTime now) {
+    final startedAt = currentDispatchStartedAt;
+    final currentBusyUs = startedAt == null
+        ? null
+        : now.difference(startedAt).inMicroseconds;
+    return RouterWorkerLoadMetrics(
+      id: id,
+      isolateHash: isolateHash,
+      connectionCount: connections.length,
+      busy: busy,
+      inFlightDispatches: busy ? 1 : 0,
+      dispatchesTotal: dispatchesTotal,
+      completedDispatchesTotal: completedDispatchesTotal,
+      errorsTotal: errorsTotal,
+      totalBusyDurationMs: totalBusyDurationUs ~/ 1000,
+      currentBusyDurationMs: currentBusyUs == null
+          ? null
+          : (currentBusyUs < 0 ? 0 : currentBusyUs) ~/ 1000,
+      lastDispatchDurationMs: lastDispatchDurationUs == null
+          ? null
+          : lastDispatchDurationUs! ~/ 1000,
+    );
+  }
 }

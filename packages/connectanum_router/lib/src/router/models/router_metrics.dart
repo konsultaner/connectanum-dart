@@ -14,6 +14,7 @@ class RouterMetricsSnapshot {
     required this.totalPublicationsRouted,
     required this.activeConnections,
     required this.workerCount,
+    this.workerLoad = const <RouterWorkerLoadMetrics>[],
     this.shutdown = const RouterShutdownMetrics(),
     this.alerts = const RouterAlertMetrics(),
     this.process,
@@ -50,6 +51,9 @@ class RouterMetricsSnapshot {
   /// Number of worker isolates currently running.
   final int workerCount;
 
+  /// Per-worker load counters captured by the boss isolate.
+  final List<RouterWorkerLoadMetrics> workerLoad;
+
   /// Graceful shutdown/drain state owned by the binding.
   final RouterShutdownMetrics shutdown;
 
@@ -73,6 +77,7 @@ class RouterMetricsSnapshot {
     int? totalPublicationsRouted,
     int? activeConnections,
     int? workerCount,
+    List<RouterWorkerLoadMetrics>? workerLoad,
     RouterShutdownMetrics? shutdown,
     RouterAlertMetrics? alerts,
     RouterProcessMetrics? process,
@@ -92,6 +97,7 @@ class RouterMetricsSnapshot {
           totalPublicationsRouted ?? this.totalPublicationsRouted,
       activeConnections: activeConnections ?? this.activeConnections,
       workerCount: workerCount ?? this.workerCount,
+      workerLoad: workerLoad ?? this.workerLoad,
       shutdown: shutdown ?? this.shutdown,
       alerts: alerts ?? this.alerts,
       process: process ?? this.process,
@@ -110,10 +116,80 @@ class RouterMetricsSnapshot {
     'total_publications_routed': totalPublicationsRouted,
     'active_connections': activeConnections,
     'worker_count': workerCount,
+    'workers': workerLoad
+        .map((worker) => worker.toJson())
+        .toList(growable: false),
     'shutdown': shutdown.toJson(),
     'alerts': alerts.toJson(),
     if (process != null) 'process': process!.toJson(),
     if (transport != null) 'transport': transport!.toJson(),
+  };
+}
+
+/// Per-worker load counters observed by the router boss.
+@immutable
+class RouterWorkerLoadMetrics {
+  const RouterWorkerLoadMetrics({
+    required this.id,
+    required this.isolateHash,
+    required this.connectionCount,
+    required this.busy,
+    required this.inFlightDispatches,
+    required this.dispatchesTotal,
+    required this.completedDispatchesTotal,
+    required this.errorsTotal,
+    required this.totalBusyDurationMs,
+    this.currentBusyDurationMs,
+    this.lastDispatchDurationMs,
+  });
+
+  /// Stable worker identifier allocated by the boss.
+  final int id;
+
+  /// VM isolate hash, useful for correlating worker lifecycle events.
+  final int isolateHash;
+
+  /// Number of live connections currently assigned to this worker.
+  final int connectionCount;
+
+  /// Whether the worker is currently processing a dispatched native message.
+  final bool busy;
+
+  /// Current dispatches in flight on this worker.
+  final int inFlightDispatches;
+
+  /// Total native message dispatches assigned to this worker.
+  final int dispatchesTotal;
+
+  /// Dispatches that reported completion or error.
+  final int completedDispatchesTotal;
+
+  /// Dispatches that reported a worker error.
+  final int errorsTotal;
+
+  /// Total observed worker busy time in milliseconds.
+  final int totalBusyDurationMs;
+
+  /// Current in-flight dispatch duration in milliseconds, when busy.
+  final int? currentBusyDurationMs;
+
+  /// Most recent completed dispatch duration in milliseconds.
+  final int? lastDispatchDurationMs;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'isolate_hash': isolateHash,
+    'connection_count': connectionCount,
+    'busy': busy,
+    'in_flight_dispatches': inFlightDispatches,
+    'dispatches_total': dispatchesTotal,
+    'completed_dispatches_total': completedDispatchesTotal,
+    'errors_total': errorsTotal,
+    'total_busy_duration_ms': totalBusyDurationMs,
+    if (currentBusyDurationMs != null)
+      'current_busy_duration_ms': currentBusyDurationMs,
+    if (lastDispatchDurationMs != null)
+      'last_dispatch_duration_ms': lastDispatchDurationMs,
   };
 }
 
