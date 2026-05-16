@@ -16351,11 +16351,62 @@ Future<void> _smokeStreamableSessionLifecycle(
     eventId: eventIdAfterResume,
   );
 
+  final deleteCleanupSubscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-streamable-delete-cleanup-subscribe',
+    queueLimit: 1,
+  );
+  final deleteCleanupSubscriptionId =
+      deleteCleanupSubscription.subscriptionId;
+  if (deleteCleanupSubscriptionId == null ||
+      deleteCleanupSubscriptionId <= 0) {
+    throw StateError(
+      'Streamable MCP DELETE cleanup subscription did not expose a WAMP '
+      'subscription id.',
+    );
+  }
+  final subscriberCountBeforeDelete =
+      await client.countWampSubscriptionSubscribers(
+        deleteCleanupSubscriptionId,
+        id: '$label-streamable-delete-cleanup-subscribers-before',
+      );
+  final visibleSubscribersBeforeDelete = _singleMetaId(
+    subscriberCountBeforeDelete.arguments,
+    'streamable delete cleanup subscriber count before DELETE',
+  );
+  if (visibleSubscribersBeforeDelete != 1) {
+    throw StateError(
+      'Streamable MCP DELETE cleanup expected one visible subscriber before '
+      'DELETE, got $visibleSubscribersBeforeDelete.',
+    );
+  }
+
   await client.deleteSession(
     headers: <String, String>{'x-consumer-trace': '$label-streamable-delete'},
   );
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Streamable MCP DELETE did not clear session state.');
+  }
+
+  final subscriberCountAfterDelete =
+      await client.countWampSubscriptionSubscribersDirect(
+        deleteCleanupSubscriptionId,
+        id: '$label-streamable-delete-cleanup-subscribers-after',
+      );
+  final visibleSubscribersAfterDelete = _singleMetaId(
+    subscriberCountAfterDelete.arguments,
+    'streamable delete cleanup subscriber count after DELETE',
+  );
+  if (visibleSubscribersAfterDelete != 0) {
+    throw StateError(
+      'Streamable MCP DELETE cleanup left $visibleSubscribersAfterDelete '
+      'visible subscribers after session deletion.',
+    );
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Direct JSON subscriber-count check revived Streamable MCP state.',
+    );
   }
 
   await _assertStreamableSessionReuseRejectedAcrossMethods(

@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-14
+Last updated: 2026-05-16
 Current branch: `codex/post-rc-production-readiness` from GitHub `master`
 after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
@@ -19,6 +19,25 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Router-hosted MCP Streamable HTTP session deletion now cleans up WAMP pub/sub
+subscriptions created through that MCP endpoint. The endpoint tracks route-local
+subscription IDs, removes them on explicit `connectanum.pubsub.unsubscribe`,
+and best-effort unsubscribes any remaining IDs when DELETE removes the MCP
+session or router binding disposal removes the endpoint. The router-hosted MCP
+native smoke proves a consumer-style Streamable subscription reports one
+route-visible subscriber before DELETE and zero route-visible subscribers after
+session deletion without an explicit unsubscribe. The generated router-hosted
+consumer-package smoke now exercises the same cleanup through public
+`McpStreamableHttpClient` subscribe/count/delete/direct-count helpers, so a
+package-shaped downstream application proves the route-visible subscriber count
+drops to zero after Streamable session deletion. Pre-edit `bin/test-fast`,
+focused `router_integration_native_test.dart -n "MCP"`,
+`dart analyze packages/connectanum_router`, `bash -n bin/common.sh`, focused
+`run_mcp_consumer_package_smoke`, `git diff --check`, and full local
+`bin/verify` passed on 2026-05-16. Hosted evidence is pending until this
+code/config/docs bundle is pushed.
+
+Previous implementation checkpoint:
 HTTP adapter route stubs are complete locally for the post-RC HTTP route
 adapter-pipeline milestone. `reverse_proxy` / `reverseProxy` / `proxy` and
 `fastcgi` / `fast_cgi` / `fastCgi` / `fastCGI` route actions now parse and

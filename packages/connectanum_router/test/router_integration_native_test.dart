@@ -2763,6 +2763,8 @@ void main() {
           ((streamableSubscribe['result'] as Map)['structuredContent'] as Map)
               .cast<String, Object?>();
       final streamableHandle = streamableSubscription['handle'] as String;
+      final streamableSubscriptionId =
+          streamableSubscription['subscriptionId'] as int;
       expect(streamableSubscription['topic'], equals('app.events.audit'));
 
       final streamableSubscriptionLookup = await streamableClient
@@ -2803,18 +2805,12 @@ void main() {
         contains('streamable-service'),
       );
 
-      final streamableUnsubscribe = await streamableClient.request(
-        'tools/call',
-        id: 'streamable-pubsub-unsubscribe',
-        params: {
-          'name': 'connectanum.pubsub.unsubscribe',
-          'arguments': {'handle': streamableHandle},
-        },
-      );
-      final streamableUnsubscribeResult =
-          ((streamableUnsubscribe['result'] as Map)['structuredContent'] as Map)
-              .cast<String, Object?>();
-      expect(streamableUnsubscribeResult['unsubscribed'], isTrue);
+      final streamableSubscriberCount = await streamableClient
+          .countWampSubscriptionSubscribers(
+            streamableSubscriptionId,
+            id: 'streamable-subscription-count-before-delete',
+          );
+      expect(streamableSubscriberCount.arguments, equals([1]));
 
       final streamableSecureTopicDenied = await streamableClient.request(
         'tools/call',
@@ -2832,6 +2828,16 @@ void main() {
         jsonEncode(streamableSecureTopicDeniedResult),
         contains('Unknown declared WAMP topic: app.secure.audit'),
       );
+
+      await streamableClient.deleteSession();
+      expect(streamableClient.sessionId, isNull);
+      expect(streamableClient.lastEventId, isNull);
+      final streamableSubscriberCountAfterDelete = await directPublicMcpClient
+          .countWampSubscriptionSubscribersDirect(
+            streamableSubscriptionId,
+            id: 'streamable-subscription-count-after-delete',
+          );
+      expect(streamableSubscriberCountAfterDelete.arguments, equals([0]));
 
       final directSafeResult = await _callRouterJsonMethod(
         client,
