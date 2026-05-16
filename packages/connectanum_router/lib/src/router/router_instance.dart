@@ -3,6 +3,7 @@
 // Building blocks for Connectanum router bindings and isolate orchestration.
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math' show Random, min;

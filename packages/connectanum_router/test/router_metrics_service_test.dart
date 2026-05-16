@@ -342,10 +342,14 @@ void main() {
     expect(workerMetric['connection_count'], greaterThanOrEqualTo(0));
     expect(workerMetric['busy'], isA<bool>());
     expect(workerMetric['in_flight_dispatches'], greaterThanOrEqualTo(0));
+    expect(workerMetric['pending_dispatches'], greaterThanOrEqualTo(0));
     expect(workerMetric['dispatches_total'], greaterThanOrEqualTo(0));
+    expect(workerMetric['queued_dispatches_total'], greaterThanOrEqualTo(0));
     expect(workerMetric['completed_dispatches_total'], greaterThanOrEqualTo(0));
     expect(workerMetric['errors_total'], greaterThanOrEqualTo(0));
     expect(workerMetric['total_busy_duration_ms'], greaterThanOrEqualTo(0));
+    expect(workerMetric['total_queue_latency_ms'], greaterThanOrEqualTo(0));
+    expect(workerMetric['max_pending_dispatches'], greaterThanOrEqualTo(0));
     final transportMetrics =
         routerMetrics['transport'] as Map<String, Object?>? ?? const {};
     expect(transportMetrics['active_throttles'], equals(1));
@@ -383,7 +387,15 @@ void main() {
     expect(openMetricsText, contains('connectanum_router_worker_busy'));
     expect(
       openMetricsText,
+      contains('connectanum_router_worker_pending_dispatches'),
+    );
+    expect(
+      openMetricsText,
       contains('connectanum_router_worker_dispatches_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_queued_dispatches_total'),
     );
     expect(
       openMetricsText,
@@ -396,6 +408,18 @@ void main() {
     expect(
       openMetricsText,
       contains('connectanum_router_worker_busy_duration_ms_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_queue_latency_ms_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_oldest_pending_dispatch_age_ms'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_max_pending_dispatches'),
     );
     expect(openMetricsText, contains('realm="realm1"'));
     expect(openMetricsText, contains('connectanum_router_http_events_total'));

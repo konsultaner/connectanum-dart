@@ -6539,12 +6539,34 @@ class _MetricsService {
       }
       buffer
         ..writeln(
+          '# HELP connectanum_router_worker_pending_dispatches Native message handles prefetched by the boss and waiting for worker dispatch',
+        )
+        ..writeln('# TYPE connectanum_router_worker_pending_dispatches gauge');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_pending_dispatches${_workerLabels(worker)} ${worker.pendingDispatches}',
+        );
+      }
+      buffer
+        ..writeln(
           '# HELP connectanum_router_worker_dispatches_total Native message dispatches assigned to each worker isolate',
         )
         ..writeln('# TYPE connectanum_router_worker_dispatches_total counter');
       for (final worker in workerLoad) {
         buffer.writeln(
           'connectanum_router_worker_dispatches_total${_workerLabels(worker)} ${worker.dispatchesTotal}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_queued_dispatches_total Native message handles prefetched into worker dispatch queues',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_queued_dispatches_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_queued_dispatches_total${_workerLabels(worker)} ${worker.queuedDispatchesTotal}',
         );
       }
       buffer
@@ -6581,6 +6603,42 @@ class _MetricsService {
       for (final worker in workerLoad) {
         buffer.writeln(
           'connectanum_router_worker_busy_duration_ms_total${_workerLabels(worker)} ${worker.totalBusyDurationMs}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_queue_latency_ms_total Total observed boss-side queue latency before worker dispatch in milliseconds',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_queue_latency_ms_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_queue_latency_ms_total${_workerLabels(worker)} ${worker.totalQueueLatencyMs}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_oldest_pending_dispatch_age_ms Age of the oldest boss-prefetched dispatch waiting for a worker',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_oldest_pending_dispatch_age_ms gauge',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_oldest_pending_dispatch_age_ms${_workerLabels(worker)} ${worker.oldestPendingDispatchAgeMs ?? 0}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_max_pending_dispatches Highest observed boss-side pending dispatch queue depth',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_max_pending_dispatches gauge',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_max_pending_dispatches${_workerLabels(worker)} ${worker.maxPendingDispatches}',
         );
       }
     }

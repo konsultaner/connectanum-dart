@@ -135,12 +135,18 @@ class RouterWorkerLoadMetrics {
     required this.connectionCount,
     required this.busy,
     required this.inFlightDispatches,
+    required this.pendingDispatches,
     required this.dispatchesTotal,
+    required this.queuedDispatchesTotal,
     required this.completedDispatchesTotal,
     required this.errorsTotal,
     required this.totalBusyDurationMs,
+    required this.totalQueueLatencyMs,
+    required this.maxPendingDispatches,
     this.currentBusyDurationMs,
     this.lastDispatchDurationMs,
+    this.oldestPendingDispatchAgeMs,
+    this.lastQueueLatencyMs,
   });
 
   /// Stable worker identifier allocated by the boss.
@@ -158,8 +164,14 @@ class RouterWorkerLoadMetrics {
   /// Current dispatches in flight on this worker.
   final int inFlightDispatches;
 
+  /// Native message handles prefetched by the boss and waiting for dispatch.
+  final int pendingDispatches;
+
   /// Total native message dispatches assigned to this worker.
   final int dispatchesTotal;
+
+  /// Total native message handles prefetched into the worker dispatch queue.
+  final int queuedDispatchesTotal;
 
   /// Dispatches that reported completion or error.
   final int completedDispatchesTotal;
@@ -170,11 +182,23 @@ class RouterWorkerLoadMetrics {
   /// Total observed worker busy time in milliseconds.
   final int totalBusyDurationMs;
 
+  /// Total observed time native message handles spent queued before dispatch.
+  final int totalQueueLatencyMs;
+
+  /// Highest observed boss-side pending dispatch queue depth.
+  final int maxPendingDispatches;
+
   /// Current in-flight dispatch duration in milliseconds, when busy.
   final int? currentBusyDurationMs;
 
   /// Most recent completed dispatch duration in milliseconds.
   final int? lastDispatchDurationMs;
+
+  /// Age in milliseconds of the oldest currently pending dispatch, when any.
+  final int? oldestPendingDispatchAgeMs;
+
+  /// Most recent boss-side queue latency in milliseconds.
+  final int? lastQueueLatencyMs;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -182,14 +206,21 @@ class RouterWorkerLoadMetrics {
     'connection_count': connectionCount,
     'busy': busy,
     'in_flight_dispatches': inFlightDispatches,
+    'pending_dispatches': pendingDispatches,
     'dispatches_total': dispatchesTotal,
+    'queued_dispatches_total': queuedDispatchesTotal,
     'completed_dispatches_total': completedDispatchesTotal,
     'errors_total': errorsTotal,
     'total_busy_duration_ms': totalBusyDurationMs,
+    'total_queue_latency_ms': totalQueueLatencyMs,
+    'max_pending_dispatches': maxPendingDispatches,
     if (currentBusyDurationMs != null)
       'current_busy_duration_ms': currentBusyDurationMs,
     if (lastDispatchDurationMs != null)
       'last_dispatch_duration_ms': lastDispatchDurationMs,
+    if (oldestPendingDispatchAgeMs != null)
+      'oldest_pending_dispatch_age_ms': oldestPendingDispatchAgeMs,
+    if (lastQueueLatencyMs != null) 'last_queue_latency_ms': lastQueueLatencyMs,
   };
 }
 

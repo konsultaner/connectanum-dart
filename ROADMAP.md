@@ -158,6 +158,7 @@
 - [ ] Worker pool autoscaling
   - [ ] Collect per-worker load metrics (connection counts, pending handle depth, queue latency, host stats)
     - [x] Expose low-cost per-worker load counters through the router metrics snapshot and OpenMetrics payload: connection count, busy state, in-flight dispatches, dispatch/completion/error totals, and observed busy duration per worker isolate.
+    - [x] Add bounded boss-owned pending dispatch queues so worker metrics expose pending handle depth, queued dispatch totals, queue latency, oldest pending age, and peak pending depth.
   - [ ] Implement hysteresis-based scale-up/scale-down policy with configurable thresholds
   - [ ] Reassign connections gracefully during scale-down using drain flow
   - [ ] Integrate load-aware connection assignment (least-busy/weighted policies)

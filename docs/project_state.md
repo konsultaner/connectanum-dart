@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-16-router-worker-load-metrics.md`.
+`docs/exec-plans/2026-05-16-router-worker-dispatch-queue-metrics.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,15 +20,51 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Router worker load metrics are complete locally for the post-RC observability and
+Router worker dispatch queue metrics are complete locally for the post-RC
+observability and worker-pool-readiness milestone. The router boss now uses a
+bounded boss-owned pending dispatch queue per worker so the metrics snapshot can
+report pending native handle depth, queued dispatch totals, total queue latency,
+oldest pending dispatch age, most recent queue latency, and peak pending depth.
+Prefetched native handles are released if their connection detaches or the
+worker shuts down before dispatch, and the OpenMetrics exporter renders the new
+queue counters/gauges with stable worker/isolate labels. Pre-edit
+`bin/test-fast`, focused queue-metrics runtime coverage, full
+`router_runtime_test.dart`, `router_metrics_service_test.dart`, and
+`dart analyze packages/connectanum_router` passed on 2026-05-16. Diff hygiene
+and full local `bin/verify` also passed on 2026-05-16. Commit, push,
+and hosted evidence are pending before the next release-branch promotion.
+
+Active exec plan:
+`docs/exec-plans/2026-05-16-router-worker-dispatch-queue-metrics.md`
+(complete locally; bounded worker dispatch prefetch queues now expose pending
+handle depth and queue latency through the metrics snapshot and OpenMetrics
+exporter; hosted evidence pending).
+
+Previous implementation checkpoint:
+Router worker load metrics are complete for the post-RC observability and
 worker-pool-readiness milestone. The router metrics snapshot now includes a
 per-worker load list with connection counts, busy state, in-flight dispatches,
 dispatch/completion/error totals, and observed busy duration, and the
 OpenMetrics exporter renders those counters with stable worker/isolate labels.
 The required pre-edit `bin/test-fast`, focused
-`router_metrics_service_test.dart`, and `dart analyze packages/connectanum_router`
-passed on 2026-05-16. Full local `bin/verify` passed on 2026-05-16. Hosted
-CI/package/audit evidence is pending until this bundle is committed and pushed.
+`router_metrics_service_test.dart`, `dart analyze packages/connectanum_router`,
+and full local `bin/verify` passed on 2026-05-16. The implementation was
+committed as `1c57ced` and pushed to GitHub PR #79. Hosted evidence for
+`1c57ced` is clean: push-triggered GitHub CI #25969485228 passed with
+`Fast Checks` job #76338815539 and `Full Verify` job #76339069330 green;
+push-triggered Dart Package Publish Dry Run #25969485233 passed; PR-triggered
+GitHub CI #25969486329 passed with `Fast Checks` and `Full Verify` green;
+PR-triggered Dart Package Publish Dry Run #25969486325 passed; and the strict
+deployment-chain audit passed with clean latest CI, hosted CI
+logs/annotations, and relevant hosted package dry-run evidence. PR #79 remains
+blocked only by review/merge requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-16-router-worker-load-metrics.md`
+(complete; per-worker router load metrics now expose connection, busy,
+in-flight dispatch, dispatch/completion/error total, and busy-duration
+observability through the metrics snapshot and OpenMetrics exporter, with full
+local and hosted verification).
 
 Previous implementation checkpoint:
 HTTP metrics route protocol coverage is complete for the post-RC HTTP
@@ -48,7 +84,7 @@ deployment-chain audit passed with clean latest CI, hosted CI logs/annotations,
 and relevant hosted package dry-run evidence. PR #79 remains blocked only by
 review/merge requirements before release-branch promotion.
 
-Latest completed exec plan:
+Previous completed exec plan:
 `docs/exec-plans/2026-05-16-http-metrics-route-protocol-coverage.md`
 (complete; configured metrics scrapes are now proven over native HTTP/1.1,
 HTTP/2, and HTTP/3 routes, with full local and hosted verification).

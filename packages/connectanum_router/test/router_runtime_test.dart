@@ -26,6 +26,7 @@ import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
+import 'package:connectanum_router/src/router/models/router_metrics.dart';
 import 'package:connectanum_router/src/router/models/sni_certificate.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
@@ -554,6 +555,13 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
     }
     _pendingHandles.putIfAbsent(connectionId, Queue.new).add(handle);
     return handle;
+  }
+
+  @override
+  void enqueueConnection(int listenerId, int connectionId) {
+    if (_knownConnections.add(connectionId)) {
+      _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+    }
   }
 
   int enqueueHandleOnly(int connectionId) {
@@ -2939,6 +2947,89 @@ void main() {
           .map((event) => (event['payload'] as Map)['handle'])
           .toList();
       expect(processedHandles, containsAll([firstHandle, secondHandle]));
+    });
+
+    test('prefetches worker dispatches and reports queue metrics', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithMinWorkers(0),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _parallelWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      runtime.enqueueConnection(listener.listenerId, 9001);
+
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_registered' &&
+              event['connectionId'] == 9001,
+        );
+      });
+
+      runtime.enqueueConnection(listener.listenerId, 9002);
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == 9002,
+        );
+      });
+
+      final firstHandle = runtime.enqueueHandleOnly(9001);
+      final secondHandle = runtime.enqueueHandleOnly(9002);
+
+      RouterMetricsSnapshot? queueSnapshot;
+      final deadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(deadline)) {
+        final snapshot = await binding.collectMetrics();
+        final hasQueuedDispatch = snapshot.workerLoad.any(
+          (worker) => worker.queuedDispatchesTotal > 0,
+        );
+        if (hasQueuedDispatch) {
+          queueSnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(queueSnapshot, isNotNull, reason: 'events=$events');
+      final workerMetrics = queueSnapshot!.workerLoad.single;
+      expect(workerMetrics.queuedDispatchesTotal, greaterThanOrEqualTo(1));
+      expect(workerMetrics.maxPendingDispatches, greaterThanOrEqualTo(1));
+      expect(workerMetrics.totalQueueLatencyMs, greaterThanOrEqualTo(0));
+
+      await _waitUntil(() {
+        final processedHandles = events
+            .whereType<Map>()
+            .where(
+              (event) =>
+                  event['type'] == 'worker_unknown_event' &&
+                  event['payload'] is Map &&
+                  (event['payload'] as Map)['type'] == 'test_processed',
+            )
+            .map((event) => (event['payload'] as Map)['handle'])
+            .toSet();
+        return processedHandles.contains(firstHandle) &&
+            processedHandles.contains(secondHandle);
+      });
     });
 
     test(

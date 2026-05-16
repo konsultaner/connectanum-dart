@@ -7,6 +7,7 @@ Duration routerBossLoopDelay({
 }) => didWork ? Duration.zero : pollInterval;
 
 const int _http3RequestDrainBudgetPerConnection = 1;
+const int _workerDispatchPrefetchLimit = 8;
 
 @visibleForTesting
 final class RouterBossLoopPacer {
@@ -1137,7 +1138,20 @@ class _RouterBoss {
     var didWork = false;
     final workersSnapshot = List<_WorkerHandle>.from(_workers);
     for (final worker in workersSnapshot) {
-      if (worker.busy || worker.connections.isEmpty) {
+      if (worker.busy) {
+        continue;
+      }
+      final queued = worker.takePendingDispatch(DateTime.now().toUtc());
+      if (queued != null) {
+        worker.commandPort.send(<Object?>[
+          _workerCmdProcess,
+          queued.connectionId,
+          queued.handle,
+        ]);
+        didWork = true;
+        continue;
+      }
+      if (worker.connections.isEmpty) {
         continue;
       }
       final connections = worker.connections;
@@ -1169,6 +1183,7 @@ class _RouterBoss {
         }
         continue;
       }
+      _prefetchWorkerDispatches(worker, connections, chosenConnection);
       worker.markDispatchStarted(DateTime.now().toUtc());
       worker.commandPort.send(<Object?>[
         _workerCmdProcess,
@@ -1178,6 +1193,46 @@ class _RouterBoss {
       didWork = true;
     }
     return didWork;
+  }
+
+  void _prefetchWorkerDispatches(
+    _WorkerHandle worker,
+    List<int> connections,
+    int activeConnectionId,
+  ) {
+    if (connections.length <= 1 ||
+        worker.pendingDispatches.length >= _workerDispatchPrefetchLimit) {
+      return;
+    }
+    final snapshot = List<int>.from(connections);
+    if (snapshot.isEmpty) {
+      return;
+    }
+    final startIndex = worker.connectionCursor >= snapshot.length
+        ? 0
+        : worker.connectionCursor;
+    final now = DateTime.now().toUtc();
+    for (var i = 0; i < snapshot.length; i++) {
+      if (worker.pendingDispatches.length >= _workerDispatchPrefetchLimit) {
+        break;
+      }
+      final connectionId = snapshot[(startIndex + i) % snapshot.length];
+      if (connectionId == activeConnectionId ||
+          !worker.connections.contains(connectionId)) {
+        continue;
+      }
+      final handle = _pollHandleForConnection(connectionId);
+      if (handle == 0) {
+        continue;
+      }
+      worker.enqueuePendingDispatch(
+        _PendingWorkerDispatch(
+          connectionId: connectionId,
+          handle: handle,
+          queuedAt: now,
+        ),
+      );
+    }
   }
 
   int _pollHandleForConnection(int connectionId) {
@@ -2038,6 +2093,7 @@ class _RouterBoss {
   }
 
   void _shutdownWorker(_WorkerHandle worker, {bool terminateIsolate = false}) {
+    worker.releasePendingDispatches(runtime);
     for (final connectionId in worker.connections.toList()) {
       _connectionOwners.remove(connectionId);
       _lastActivityByConnection.remove(connectionId);
@@ -2071,6 +2127,7 @@ class _RouterBoss {
       return;
     }
     worker.connections.remove(connectionId);
+    worker.releasePendingDispatches(runtime, connectionId: connectionId);
     if (notifyWorker) {
       worker.commandPort.send(<Object?>[
         _workerCmdRemoveConnection,
@@ -2180,14 +2237,60 @@ class _WorkerHandle {
   int completedDispatchesTotal = 0;
   int errorsTotal = 0;
   int totalBusyDurationUs = 0;
+  int queuedDispatchesTotal = 0;
+  int totalQueueLatencyUs = 0;
+  int maxPendingDispatches = 0;
   int? lastDispatchDurationUs;
+  int? lastQueueLatencyUs;
   DateTime? currentDispatchStartedAt;
+  final Queue<_PendingWorkerDispatch> pendingDispatches =
+      Queue<_PendingWorkerDispatch>();
   Completer<void>? drainCompleter;
 
   void markDispatchStarted(DateTime now) {
     busy = true;
     dispatchesTotal += 1;
     currentDispatchStartedAt = now;
+  }
+
+  void enqueuePendingDispatch(_PendingWorkerDispatch dispatch) {
+    pendingDispatches.addLast(dispatch);
+    queuedDispatchesTotal += 1;
+    if (pendingDispatches.length > maxPendingDispatches) {
+      maxPendingDispatches = pendingDispatches.length;
+    }
+  }
+
+  _PendingWorkerDispatch? takePendingDispatch(DateTime now) {
+    if (pendingDispatches.isEmpty) {
+      return null;
+    }
+    final dispatch = pendingDispatches.removeFirst();
+    final latencyUs = now.difference(dispatch.queuedAt).inMicroseconds;
+    final clampedLatencyUs = latencyUs < 0 ? 0 : latencyUs;
+    lastQueueLatencyUs = clampedLatencyUs;
+    totalQueueLatencyUs += clampedLatencyUs;
+    markDispatchStarted(now);
+    return dispatch;
+  }
+
+  void releasePendingDispatches(
+    NativeRuntimeWithHandles runtime, {
+    int? connectionId,
+  }) {
+    if (pendingDispatches.isEmpty) {
+      return;
+    }
+    final kept = Queue<_PendingWorkerDispatch>();
+    while (pendingDispatches.isNotEmpty) {
+      final dispatch = pendingDispatches.removeFirst();
+      if (connectionId == null || dispatch.connectionId == connectionId) {
+        runtime.releaseMessageHandle(dispatch.handle);
+      } else {
+        kept.addLast(dispatch);
+      }
+    }
+    pendingDispatches.addAll(kept);
   }
 
   void markDispatchCompleted(DateTime now, {bool error = false}) {
@@ -2214,22 +2317,47 @@ class _WorkerHandle {
     final currentBusyUs = startedAt == null
         ? null
         : now.difference(startedAt).inMicroseconds;
+    final oldestPending = pendingDispatches.isEmpty
+        ? null
+        : now.difference(pendingDispatches.first.queuedAt).inMicroseconds;
     return RouterWorkerLoadMetrics(
       id: id,
       isolateHash: isolateHash,
       connectionCount: connections.length,
       busy: busy,
       inFlightDispatches: busy ? 1 : 0,
+      pendingDispatches: pendingDispatches.length,
       dispatchesTotal: dispatchesTotal,
+      queuedDispatchesTotal: queuedDispatchesTotal,
       completedDispatchesTotal: completedDispatchesTotal,
       errorsTotal: errorsTotal,
       totalBusyDurationMs: totalBusyDurationUs ~/ 1000,
+      totalQueueLatencyMs: totalQueueLatencyUs ~/ 1000,
+      maxPendingDispatches: maxPendingDispatches,
       currentBusyDurationMs: currentBusyUs == null
           ? null
           : (currentBusyUs < 0 ? 0 : currentBusyUs) ~/ 1000,
       lastDispatchDurationMs: lastDispatchDurationUs == null
           ? null
           : lastDispatchDurationUs! ~/ 1000,
+      oldestPendingDispatchAgeMs: oldestPending == null
+          ? null
+          : (oldestPending < 0 ? 0 : oldestPending) ~/ 1000,
+      lastQueueLatencyMs: lastQueueLatencyUs == null
+          ? null
+          : lastQueueLatencyUs! ~/ 1000,
     );
   }
+}
+
+class _PendingWorkerDispatch {
+  const _PendingWorkerDispatch({
+    required this.connectionId,
+    required this.handle,
+    required this.queuedAt,
+  });
+
+  final int connectionId;
+  final int handle;
+  final DateTime queuedAt;
 }

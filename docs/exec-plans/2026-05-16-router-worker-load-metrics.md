@@ -1,6 +1,6 @@
 # Router Worker Load Metrics
 
-Status: complete locally; hosted evidence pending
+Status: complete with hosted evidence
 Owner: Codex
 Created: 2026-05-16
 Last updated: 2026-05-16
@@ -30,8 +30,20 @@ introduced.
   passed.
 - 2026-05-16: `dart analyze packages/connectanum_router` passed.
 - 2026-05-16: Full local `bin/verify` passed.
+- 2026-05-16: Implementation committed as `1c57ced` and pushed to GitHub
+  PR #79.
+- 2026-05-16: Hosted push GitHub CI #25969485228 passed with `Fast Checks`
+  job #76338815539 and `Full Verify` job #76339069330 green.
+- 2026-05-16: Hosted push Dart Package Publish Dry Run #25969485233 passed.
+- 2026-05-16: Hosted PR GitHub CI #25969486329 passed with `Fast Checks` and
+  `Full Verify` green.
+- 2026-05-16: Hosted PR Dart Package Publish Dry Run #25969486325 passed.
+- 2026-05-16: `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI, hosted CI logs/annotations, and relevant hosted
+  package dry-run evidence. The audit still reports PR #79 as review-required
+  before release-branch promotion.
 
 ## Handoff
 
-Complete locally. Hosted CI/package/audit evidence is pending until this bundle
-is committed and pushed.
+Complete with local and hosted verification. No worker assignment or autoscaling
+behavior changed in this observability-only slice.
