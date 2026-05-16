@@ -435,7 +435,12 @@ abstract final class RouterSettingsCodec {
   }
 
   static Map<String, Object?> _workerPoolToMap(WorkerPoolSettings workerPool) {
-    return <String, Object?>{'min_workers': workerPool.minWorkers};
+    return <String, Object?>{
+      'min_workers': workerPool.minWorkers,
+      'max_workers': workerPool.maxWorkers,
+      'scale_up_pending_dispatches': workerPool.scaleUpPendingDispatches,
+      'scale_up_consecutive_ticks': workerPool.scaleUpConsecutiveTicks,
+    };
   }
 
   static Map<String, Object?> _authenticatorToMap(

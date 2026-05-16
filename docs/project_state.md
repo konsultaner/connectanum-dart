@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-16
+Last updated: 2026-05-17
 Current branch: `codex/post-rc-production-readiness` from GitHub `master`
 after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
@@ -21,6 +21,26 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Router worker scale-up hysteresis is complete locally for the post-RC
+worker-pool-readiness milestone. `WorkerPoolSettings` now supports
+`maxWorkers`, `scaleUpPendingDispatches`, and `scaleUpConsecutiveTicks`, while
+preserving fixed-size default behavior by defaulting `maxWorkers` to
+`minWorkers`. `_RouterBoss` now observes sustained queued dispatch pressure,
+waits for the configured consecutive pressure ticks, spawns up to `maxWorkers`,
+and emits a `worker_pool_scale_up` boss event. Router config parsing and codec
+round-trips cover the new settings, and router runtime coverage verifies that
+sustained backlog scales the pool and assigns a subsequent connection to the
+new worker. Scale-down thresholds and graceful drain/reassignment remain the
+next worker-pool behavior items. The required pre-edit `bin/test-fast`, focused
+worker-pool config regression, focused scale-up regression, full
+`router_config_loader_test.dart`, full `router_runtime_test.dart`,
+`dart analyze packages/connectanum_router`, `git diff --check`, post-edit
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-17. A first full
+verify attempt exposed a nondeterministic test setup where the boss cursor could
+process the fast connection first; the test now uses two slow-capable backlog
+connections so scale-up pressure is deterministic.
+
+Previous implementation checkpoint:
 Router worker high-contention parallelism coverage is complete locally for the
 post-RC worker-pool-readiness milestone. `router_runtime_test.dart` now queues
 multiple dispatch handles across a four-worker pool, deliberately stalls one
@@ -30,8 +50,19 @@ proof item while leaving autoscaling hysteresis and scale-down drain policy as
 the remaining worker-pool behavior work. The required pre-edit `bin/test-fast`,
 focused high-contention regression, full `router_runtime_test.dart`,
 `dart analyze packages/connectanum_router`, `git diff --check`, post-edit
-`bin/test-fast`, and full local `bin/verify` passed on 2026-05-16. No hosted
-evidence has been collected for this local slice yet.
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-16. The
+implementation was committed as `1033d10` and pushed to GitHub PR #79. Hosted
+evidence for `1033d10` is clean: push-triggered GitHub CI #25973759399 passed
+with `Fast Checks` job #76350227835 and `Full Verify` job #76350471250 green;
+push-triggered Dart Package Publish Dry Run #25973759380 passed with publish
+dry-run job #76350227832 green; PR-triggered GitHub CI #25973759735 passed
+with `Fast Checks` job #76350228501 and `Full Verify` job #76350470991 green;
+PR-triggered Dart Package Publish Dry Run #25973759742 passed with publish
+dry-run job #76350228507 green; and the strict deployment-chain audit passed
+with clean latest CI, hosted CI logs/annotations, relevant hosted package
+dry-run evidence, release branch protection baseline, workflow visibility, and
+GHCR router image visibility. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
 
 Previous implementation checkpoint:
 Router worker load-aware assignment is complete locally for the post-RC

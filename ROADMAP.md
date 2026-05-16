@@ -161,6 +161,8 @@
     - [x] Add bounded boss-owned pending dispatch queues so worker metrics expose pending handle depth, queued dispatch totals, queue latency, oldest pending age, and peak pending depth.
     - [x] Add low-cardinality host/runtime process stats to the metrics snapshot and OpenMetrics payload: operating system, Dart runtime version, available processors, current RSS, and max RSS.
   - [ ] Implement hysteresis-based scale-up/scale-down policy with configurable thresholds
+    - [x] Add bounded scale-up hysteresis from sustained pending dispatch pressure. Worker pool settings now expose `max_workers`, `scale_up_pending_dispatches`, and `scale_up_consecutive_ticks`; the boss scales only after consecutive pressure ticks and runtime coverage verifies new capacity receives subsequent connections.
+    - [ ] Add scale-down thresholds and graceful connection reassignment/drain.
   - [ ] Reassign connections gracefully during scale-down using drain flow
   - [x] Integrate load-aware connection assignment (least-busy/weighted policies). The router boss now selects the least-loaded worker by connection count, then dispatch pressure, while retaining cursor-based tie-breaking; runtime coverage verifies new connections avoid a currently busy worker.
   - [x] Verify cross-worker parallelism with high-contention integration tests (parallel call/publish workloads). Router runtime coverage now queues multiple dispatch handles across a four-worker pool, deliberately stalls one worker, and verifies the other workers continue processing without cross-worker head-of-line blocking.

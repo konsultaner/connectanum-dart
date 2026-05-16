@@ -1342,6 +1342,14 @@ void _idleWorkerEntryPoint(Map<String, Object?> init) {
 }
 
 RouterSettings _buildRouterSettingsWithMinWorkers(int minWorkers) {
+  return _buildRouterSettingsWithWorkerPool(
+    WorkerPoolSettings(minWorkers: minWorkers),
+  );
+}
+
+RouterSettings _buildRouterSettingsWithWorkerPool(
+  WorkerPoolSettings workerPool,
+) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
       RealmSettingsBuilder('realm1')
@@ -1370,7 +1378,7 @@ RouterSettings _buildRouterSettingsWithMinWorkers(int minWorkers) {
       'anonymous',
       const AuthenticatorDefinition(type: 'anonymous'),
     )
-    ..setWorkerPool(WorkerPoolSettings(minWorkers: minWorkers));
+    ..setWorkerPool(workerPool);
   return builder.build();
 }
 
@@ -3310,6 +3318,137 @@ void main() {
           .toSet();
       expect(processedSlowHandles, containsAll(slowHandles));
     });
+
+    test(
+      'scales up worker pool after sustained queued dispatch pressure',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithWorkerPool(
+            const WorkerPoolSettings(
+              minWorkers: 1,
+              maxWorkers: 2,
+              scaleUpPendingDispatches: 1,
+              scaleUpConsecutiveTicks: 2,
+            ),
+          ),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _parallelWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_registered',
+          ),
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8311);
+        runtime.enqueueConnection(listener.listenerId, 8321);
+
+        await _waitUntil(() {
+          final addedConnections = events
+              .whereType<Map>()
+              .where((event) => event['type'] == 'worker_connection_added')
+              .map((event) => event['connectionId'])
+              .toSet();
+          return addedConnections.containsAll({8311, 8321});
+        });
+
+        final slowHandle = runtime.enqueueHandleOnly(8311);
+        final queuedHandle = runtime.enqueueHandleOnly(8321);
+
+        final scaleUpDeadline = DateTime.now().add(const Duration(seconds: 2));
+        while (!events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_pool_scale_up',
+        )) {
+          if (DateTime.now().isAfter(scaleUpDeadline)) {
+            final snapshot = await binding.collectMetrics();
+            fail('worker pool did not scale up; events=$events; $snapshot');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_registered')
+                  .length >=
+              2,
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8332);
+
+        RouterMetricsSnapshot? scaledSnapshot;
+        final scaledDeadline = DateTime.now().add(const Duration(seconds: 2));
+        while (DateTime.now().isBefore(scaledDeadline)) {
+          final added8332 = events.whereType<Map>().any(
+            (event) =>
+                event['type'] == 'worker_connection_added' &&
+                event['connectionId'] == 8332,
+          );
+          if (!added8332) {
+            await Future<void>.delayed(const Duration(milliseconds: 5));
+            continue;
+          }
+
+          final snapshot = await binding.collectMetrics();
+          final loads = snapshot.workerLoad;
+          if (loads.length == 2 &&
+              loads.any((worker) => worker.connectionCount == 2) &&
+              loads.any((worker) => worker.connectionCount == 1)) {
+            scaledSnapshot = snapshot;
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(scaledSnapshot, isNotNull, reason: 'events=$events');
+
+        final scaledWorkerHandle = runtime.enqueueHandleOnly(8332);
+        await _waitUntil(() {
+          final processedHandles = events
+              .whereType<Map>()
+              .where(
+                (event) =>
+                    event['type'] == 'worker_unknown_event' &&
+                    event['payload'] is Map &&
+                    (event['payload'] as Map)['type'] == 'test_processed',
+              )
+              .map((event) => (event['payload'] as Map)['handle'])
+              .toSet();
+          return processedHandles.containsAll({
+            slowHandle,
+            queuedHandle,
+            scaledWorkerHandle,
+          });
+        });
+
+        final registeredWorkers = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_registered')
+            .length;
+        expect(registeredWorkers, equals(2));
+      },
+    );
 
     test('assigns new connections to the least loaded worker', () async {
       final runtime = _HandleRuntime();

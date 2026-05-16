@@ -1090,7 +1090,39 @@ class RouterConfigLoader {
     if (minWorkers < 0) {
       throw FormatException('worker_pool.min_workers must be >= 0');
     }
-    return WorkerPoolSettings(minWorkers: minWorkers);
+    final maxWorkers = _asInt(node['max_workers'], defaultValue: minWorkers);
+    if (maxWorkers < 0) {
+      throw FormatException('worker_pool.max_workers must be >= 0');
+    }
+    if (maxWorkers < minWorkers) {
+      throw FormatException(
+        'worker_pool.max_workers must be >= worker_pool.min_workers',
+      );
+    }
+    final scaleUpPendingDispatches = _asInt(
+      node['scale_up_pending_dispatches'],
+      defaultValue: 1,
+    );
+    if (scaleUpPendingDispatches < 1) {
+      throw FormatException(
+        'worker_pool.scale_up_pending_dispatches must be >= 1',
+      );
+    }
+    final scaleUpConsecutiveTicks = _asInt(
+      node['scale_up_consecutive_ticks'],
+      defaultValue: 2,
+    );
+    if (scaleUpConsecutiveTicks < 1) {
+      throw FormatException(
+        'worker_pool.scale_up_consecutive_ticks must be >= 1',
+      );
+    }
+    return WorkerPoolSettings(
+      minWorkers: minWorkers,
+      maxWorkers: maxWorkers,
+      scaleUpPendingDispatches: scaleUpPendingDispatches,
+      scaleUpConsecutiveTicks: scaleUpConsecutiveTicks,
+    );
   }
 
   static String _expectString(dynamic value, String path) {

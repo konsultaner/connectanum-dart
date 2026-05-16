@@ -140,6 +140,7 @@ class _RouterBoss {
   int _nextWorkerIndex = 0;
   int _nextWorkerId = 1;
   int _nextPendingWorkerToken = -1;
+  int _workerScaleUpPressureTicks = 0;
 
   SendPort get stateCommandPort => _stateStore.commandPort;
   SendPort get bossCommandPort => _commandPort.sendPort;
@@ -247,6 +248,7 @@ class _RouterBoss {
         didWork = await _acceptConnections(listener) || didWork;
       }
       didWork = _dispatchMessages() || didWork;
+      didWork = await _maybeScaleWorkerPool() || didWork;
       didWork = _expireIdleConnections() || didWork;
       didWork = _drainHttpRequests() || didWork;
       didWork = _drainHttp2Requests() || didWork;
@@ -274,6 +276,52 @@ class _RouterBoss {
       didWork = true;
     }
     return didWork;
+  }
+
+  Future<bool> _maybeScaleWorkerPool() async {
+    if (listeners.isEmpty || _stopping) {
+      return false;
+    }
+    final workerPool = settings.workerPool;
+    final totalWorkers = _workers.length + _pendingIsolates.length;
+    if (workerPool.maxWorkers <= workerPool.minWorkers ||
+        totalWorkers >= workerPool.maxWorkers ||
+        _workers.isEmpty) {
+      _workerScaleUpPressureTicks = 0;
+      return false;
+    }
+
+    final pendingDispatches = _workers.fold<int>(
+      0,
+      (total, worker) => total + worker.pendingDispatches.length,
+    );
+    final pressuredWorkers = _workers
+        .where((worker) => worker.busy || worker.pendingDispatches.isNotEmpty)
+        .length;
+    final hasScaleUpPressure =
+        pendingDispatches >= workerPool.scaleUpPendingDispatches &&
+        pressuredWorkers == _workers.length;
+    if (!hasScaleUpPressure) {
+      _workerScaleUpPressureTicks = 0;
+      return false;
+    }
+
+    _workerScaleUpPressureTicks += 1;
+    if (_workerScaleUpPressureTicks < workerPool.scaleUpConsecutiveTicks) {
+      return false;
+    }
+
+    _workerScaleUpPressureTicks = 0;
+    await _spawnWorker(listeners.first, _allocatePendingWorkerToken());
+    onEvent?.call({
+      'source': 'boss',
+      'type': 'worker_pool_scale_up',
+      'workers': totalWorkers + 1,
+      'maxWorkers': workerPool.maxWorkers,
+      'pendingDispatches': pendingDispatches,
+      'pressureTicks': workerPool.scaleUpConsecutiveTicks,
+    });
+    return true;
   }
 
   Future<bool> _acceptConnections(RouterListener listener) async {

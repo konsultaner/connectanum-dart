@@ -417,24 +417,70 @@ class MetricsSettings {
 
 @immutable
 class WorkerPoolSettings {
-  const WorkerPoolSettings({this.minWorkers = 1})
-    : assert(minWorkers >= 0, 'minWorkers must be >= 0');
+  const WorkerPoolSettings({
+    this.minWorkers = 1,
+    int? maxWorkers,
+    this.scaleUpPendingDispatches = 1,
+    this.scaleUpConsecutiveTicks = 2,
+  }) : maxWorkers = maxWorkers ?? minWorkers,
+       assert(minWorkers >= 0, 'minWorkers must be >= 0'),
+       assert(
+         (maxWorkers ?? minWorkers) >= minWorkers,
+         'maxWorkers must be >= minWorkers',
+       ),
+       assert(
+         scaleUpPendingDispatches >= 1,
+         'scaleUpPendingDispatches must be >= 1',
+       ),
+       assert(
+         scaleUpConsecutiveTicks >= 1,
+         'scaleUpConsecutiveTicks must be >= 1',
+       );
 
   final int minWorkers;
+  final int maxWorkers;
+  final int scaleUpPendingDispatches;
+  final int scaleUpConsecutiveTicks;
 
-  WorkerPoolSettings copyWith({int? minWorkers}) =>
-      WorkerPoolSettings(minWorkers: minWorkers ?? this.minWorkers);
+  WorkerPoolSettings copyWith({
+    int? minWorkers,
+    int? maxWorkers,
+    int? scaleUpPendingDispatches,
+    int? scaleUpConsecutiveTicks,
+  }) {
+    final nextMinWorkers = minWorkers ?? this.minWorkers;
+    final nextMaxWorkers =
+        maxWorkers ??
+        (this.maxWorkers < nextMinWorkers ? nextMinWorkers : this.maxWorkers);
+    return WorkerPoolSettings(
+      minWorkers: nextMinWorkers,
+      maxWorkers: nextMaxWorkers,
+      scaleUpPendingDispatches:
+          scaleUpPendingDispatches ?? this.scaleUpPendingDispatches,
+      scaleUpConsecutiveTicks:
+          scaleUpConsecutiveTicks ?? this.scaleUpConsecutiveTicks,
+    );
+  }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {
       return true;
     }
-    return other is WorkerPoolSettings && other.minWorkers == minWorkers;
+    return other is WorkerPoolSettings &&
+        other.minWorkers == minWorkers &&
+        other.maxWorkers == maxWorkers &&
+        other.scaleUpPendingDispatches == scaleUpPendingDispatches &&
+        other.scaleUpConsecutiveTicks == scaleUpConsecutiveTicks;
   }
 
   @override
-  int get hashCode => minWorkers.hashCode;
+  int get hashCode => Object.hash(
+    minWorkers,
+    maxWorkers,
+    scaleUpPendingDispatches,
+    scaleUpConsecutiveTicks,
+  );
 }
 
 @immutable

@@ -304,6 +304,50 @@ void main() {
       expect(alerts.cooldown, const Duration(milliseconds: 900));
       expect(alerts.throttleOnAlert, isFalse);
     });
+
+    test('parses worker pool scale-up settings', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'type': 'rawsocket',
+              'endpoint': '127.0.0.1:0',
+              'authmethods': ['anonymous'],
+            },
+          ],
+          'worker_pool': <String, Object?>{
+            'min_workers': 1,
+            'max_workers': 4,
+            'scale_up_pending_dispatches': 2,
+            'scale_up_consecutive_ticks': 3,
+          },
+        },
+      });
+
+      final workerPool = settings.workerPool;
+      expect(workerPool.minWorkers, 1);
+      expect(workerPool.maxWorkers, 4);
+      expect(workerPool.scaleUpPendingDispatches, 2);
+      expect(workerPool.scaleUpConsecutiveTicks, 3);
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final encodedWorkerPool = encoded['worker_pool']! as Map;
+      expect(encodedWorkerPool['min_workers'], 1);
+      expect(encodedWorkerPool['max_workers'], 4);
+      expect(encodedWorkerPool['scale_up_pending_dispatches'], 2);
+      expect(encodedWorkerPool['scale_up_consecutive_ticks'], 3);
+
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      expect(decoded.workerPool, workerPool);
+    });
   });
 
   group('RouterSettingsBuilder', () {
