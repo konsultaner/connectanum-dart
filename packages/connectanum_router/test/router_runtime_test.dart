@@ -3180,6 +3180,137 @@ void main() {
       },
     );
 
+    test('keeps high-contention dispatches parallel across workers', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithMinWorkers(4),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _parallelWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+
+      await _waitUntil(
+        () =>
+            events
+                .whereType<Map>()
+                .where((event) => event['type'] == 'worker_registered')
+                .length >=
+            4,
+      );
+
+      const slowConnection = 8201;
+      const fastConnections = [8202, 8203, 8204];
+      const connections = [slowConnection, ...fastConnections];
+
+      for (final connection in connections) {
+        runtime.enqueueConnection(listener.listenerId, connection);
+      }
+
+      await _waitUntil(() {
+        final addedConnections = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_connection_added')
+            .map((event) => event['connectionId'])
+            .toSet();
+        return addedConnections.containsAll(connections);
+      });
+
+      RouterMetricsSnapshot? balancedSnapshot;
+      final balancedDeadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(balancedDeadline)) {
+        final snapshot = await binding.collectMetrics();
+        final loads = snapshot.workerLoad;
+        if (loads.length == 4 &&
+            loads.every((worker) => worker.connectionCount == 1)) {
+          balancedSnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(balancedSnapshot, isNotNull, reason: 'events=$events');
+
+      final handlesByConnection = <int, List<int>>{};
+      for (final connection in connections) {
+        handlesByConnection[connection] = [
+          runtime.enqueueHandleOnly(connection),
+          runtime.enqueueHandleOnly(connection),
+        ];
+      }
+      final expectedHandles = handlesByConnection.values
+          .expand((handles) => handles)
+          .toSet();
+
+      await _waitUntil(() {
+        final processedHandles = events
+            .whereType<Map>()
+            .where((event) {
+              final payload = event['payload'];
+              return event['type'] == 'worker_unknown_event' &&
+                  payload is Map &&
+                  payload['type'] == 'test_processed';
+            })
+            .map((event) => (event['payload'] as Map)['handle'])
+            .toSet();
+        return processedHandles.containsAll(expectedHandles);
+      }, timeout: const Duration(seconds: 3));
+
+      final processedPayloads = events
+          .whereType<Map>()
+          .where((event) {
+            final payload = event['payload'];
+            return event['type'] == 'worker_unknown_event' &&
+                payload is Map &&
+                payload['type'] == 'test_processed';
+          })
+          .map((event) => event['payload'] as Map)
+          .where((payload) => expectedHandles.contains(payload['handle']))
+          .toList();
+
+      final slowFirstProcessedAt = processedPayloads
+          .where((payload) => payload['connectionId'] == slowConnection)
+          .map((payload) => payload['processedAt'] as int)
+          .reduce((a, b) => a < b ? a : b);
+
+      for (final connection in fastConnections) {
+        final fastFirstProcessedAt = processedPayloads
+            .where((payload) => payload['connectionId'] == connection)
+            .map((payload) => payload['processedAt'] as int)
+            .reduce((a, b) => a < b ? a : b);
+        expect(
+          fastFirstProcessedAt,
+          lessThan(slowFirstProcessedAt),
+          reason:
+              'connection $connection should not wait for '
+              '$slowConnection; events=$events',
+        );
+      }
+
+      final slowHandles = handlesByConnection[slowConnection]!;
+      final processedSlowHandles = processedPayloads
+          .where((payload) => payload['connectionId'] == slowConnection)
+          .map((payload) => payload['handle'])
+          .toSet();
+      expect(processedSlowHandles, containsAll(slowHandles));
+    });
+
     test('assigns new connections to the least loaded worker', () async {
       final runtime = _HandleRuntime();
       final router = Router(

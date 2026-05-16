@@ -163,7 +163,7 @@
   - [ ] Implement hysteresis-based scale-up/scale-down policy with configurable thresholds
   - [ ] Reassign connections gracefully during scale-down using drain flow
   - [x] Integrate load-aware connection assignment (least-busy/weighted policies). The router boss now selects the least-loaded worker by connection count, then dispatch pressure, while retaining cursor-based tie-breaking; runtime coverage verifies new connections avoid a currently busy worker.
-  - [ ] Verify cross-worker parallelism with high-contention integration tests (parallel call/publish workloads)
+  - [x] Verify cross-worker parallelism with high-contention integration tests (parallel call/publish workloads). Router runtime coverage now queues multiple dispatch handles across a four-worker pool, deliberately stalls one worker, and verifies the other workers continue processing without cross-worker head-of-line blocking.
 - [x] Meta event dispatch plumbing (session/subscription/registration meta)
 - [ ] Metrics counters / observability hooks
 

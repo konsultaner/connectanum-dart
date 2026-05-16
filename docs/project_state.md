@@ -21,6 +21,19 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Router worker high-contention parallelism coverage is complete locally for the
+post-RC worker-pool-readiness milestone. `router_runtime_test.dart` now queues
+multiple dispatch handles across a four-worker pool, deliberately stalls one
+worker, and verifies the other workers continue processing their own queues
+without cross-worker head-of-line blocking. This closes the roadmap parallelism
+proof item while leaving autoscaling hysteresis and scale-down drain policy as
+the remaining worker-pool behavior work. The required pre-edit `bin/test-fast`,
+focused high-contention regression, full `router_runtime_test.dart`,
+`dart analyze packages/connectanum_router`, `git diff --check`, post-edit
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-16. No hosted
+evidence has been collected for this local slice yet.
+
+Previous implementation checkpoint:
 Router worker load-aware assignment is complete locally for the post-RC
 worker-pool-readiness milestone. `_RouterBoss` now selects the least-loaded
 worker by connection count, then current dispatch pressure, while preserving
@@ -30,8 +43,18 @@ and verifies a new connection is assigned to the idle worker instead. Pre-edit
 `bin/test-fast`, the focused least-loaded-worker regression, full
 `router_runtime_test.dart`, `dart analyze packages/connectanum_router`, and
 post-edit `bin/test-fast` passed on 2026-05-16. Full local `bin/verify` also
-passed on 2026-05-16. No hosted evidence has been collected for this local
-slice yet.
+passed on 2026-05-16. The implementation was committed as `f298536` and
+pushed to GitHub PR #79. Hosted evidence for `f298536` is clean:
+push-triggered GitHub CI #25972764528 passed with `Fast Checks` job
+#76347574504 and `Full Verify` job #76347833939 green; push-triggered Dart
+Package Publish Dry Run #25972764538 passed; PR-triggered GitHub CI
+#25972765530 passed with `Fast Checks` job #76347576885 and `Full Verify` job
+#76347839208 green; PR-triggered Dart Package Publish Dry Run #25972765518
+passed; and the strict deployment-chain audit passed with clean latest CI,
+hosted CI logs/annotations, relevant hosted package dry-run evidence, release
+branch protection baseline, workflow visibility, and GHCR router image
+visibility. PR #79 remains blocked only by review/merge requirements before
+release-branch promotion.
 
 Previous implementation checkpoint:
 Router process host/runtime metrics are complete locally for the post-RC
