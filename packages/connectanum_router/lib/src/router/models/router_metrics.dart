@@ -229,12 +229,24 @@ class RouterWorkerLoadMetrics {
 class RouterProcessMetrics {
   const RouterProcessMetrics({
     required this.processId,
+    required this.operatingSystem,
+    required this.dartVersion,
+    required this.availableProcessors,
     required this.currentRssBytes,
     required this.maxRssBytes,
   });
 
   /// Operating-system process identifier.
   final int processId;
+
+  /// Operating system reported by the Dart VM.
+  final String operatingSystem;
+
+  /// Dart VM version running the router process.
+  final String dartVersion;
+
+  /// Logical processors available to the router process.
+  final int availableProcessors;
 
   /// Current resident set size in bytes.
   final int currentRssBytes;
@@ -244,6 +256,9 @@ class RouterProcessMetrics {
 
   Map<String, Object?> toJson() => {
     'pid': processId,
+    'operating_system': operatingSystem,
+    'dart_version': dartVersion,
+    'available_processors': availableProcessors,
     'current_rss_bytes': currentRssBytes,
     'max_rss_bytes': maxRssBytes,
   };

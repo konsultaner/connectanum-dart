@@ -6,8 +6,9 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan:
-`docs/exec-plans/2026-05-16-router-worker-dispatch-queue-metrics.md`.
+Active exec plan: none. Select the next implementation slice from
+`ROADMAP_NEXT.md` and `ROADMAP.md` together, with CI/deployment-chain health
+first.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,25 +21,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Router worker dispatch queue metrics are complete locally for the post-RC
-observability and worker-pool-readiness milestone. The router boss now uses a
-bounded boss-owned pending dispatch queue per worker so the metrics snapshot can
-report pending native handle depth, queued dispatch totals, total queue latency,
-oldest pending dispatch age, most recent queue latency, and peak pending depth.
-Prefetched native handles are released if their connection detaches or the
-worker shuts down before dispatch, and the OpenMetrics exporter renders the new
-queue counters/gauges with stable worker/isolate labels. Pre-edit
-`bin/test-fast`, focused queue-metrics runtime coverage, full
-`router_runtime_test.dart`, `router_metrics_service_test.dart`, and
-`dart analyze packages/connectanum_router` passed on 2026-05-16. Diff hygiene
-and full local `bin/verify` also passed on 2026-05-16. Commit, push,
-and hosted evidence are pending before the next release-branch promotion.
+Router process host/runtime metrics are complete locally for the post-RC
+observability and worker-pool-readiness milestone. The router metrics snapshot
+now extends process metrics beyond PID/RSS with the operating system, Dart
+runtime version, and available processor count, and the OpenMetrics exporter
+renders these as static process info labels plus an available-processor gauge.
+This closes the host-stats portion of the worker-pool readiness metrics item
+without adding autoscaling policy behavior yet. Pre-edit `bin/test-fast`,
+focused `router_metrics_service_test.dart`, package analysis, and
+`git diff --check` passed on 2026-05-16. Full local `bin/verify` also passed
+on 2026-05-16. Commit/push and hosted evidence are pending.
 
-Active exec plan:
+Latest completed exec plan:
 `docs/exec-plans/2026-05-16-router-worker-dispatch-queue-metrics.md`
-(complete locally; bounded worker dispatch prefetch queues now expose pending
+(complete; bounded worker dispatch prefetch queues now expose pending
 handle depth and queue latency through the metrics snapshot and OpenMetrics
-exporter; hosted evidence pending).
+exporter, with full local and hosted verification).
 
 Previous implementation checkpoint:
 Router worker load metrics are complete for the post-RC observability and

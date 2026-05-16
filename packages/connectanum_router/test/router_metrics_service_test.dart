@@ -331,6 +331,9 @@ void main() {
     final processMetrics =
         routerMetrics['process'] as Map<String, Object?>? ?? const {};
     expect(processMetrics['pid'], isA<int>());
+    expect(processMetrics['operating_system'], isA<String>());
+    expect(processMetrics['dart_version'], isA<String>());
+    expect(processMetrics['available_processors'], greaterThan(0));
     expect(processMetrics['current_rss_bytes'], greaterThan(0));
     expect(processMetrics['max_rss_bytes'], greaterThan(0));
     final workerMetrics =
@@ -371,6 +374,10 @@ void main() {
     final openMetricsText = openMetricsResult.arguments?.first as String;
     expect(openMetricsText, contains('connectanum_router_realms'));
     expect(openMetricsText, contains('connectanum_router_process_info'));
+    expect(
+      openMetricsText,
+      contains('connectanum_router_process_available_processors'),
+    );
     expect(
       openMetricsText,
       contains('connectanum_router_process_resident_memory_bytes'),

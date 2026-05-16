@@ -630,6 +630,9 @@ class RouterBinding {
 
   RouterProcessMetrics _collectProcessMetrics() => RouterProcessMetrics(
     processId: pid,
+    operatingSystem: Platform.operatingSystem,
+    dartVersion: Platform.version,
+    availableProcessors: Platform.numberOfProcessors,
     currentRssBytes: ProcessInfo.currentRss,
     maxRssBytes: ProcessInfo.maxRss,
   );
@@ -6645,13 +6648,25 @@ class _MetricsService {
 
     final process = routerSnapshot.process;
     if (process != null) {
+      final processInfoLabels = _formatLabels({
+        'pid': process.processId.toString(),
+        'os': process.operatingSystem,
+        'dart_version': process.dartVersion,
+      });
       buffer
         ..writeln(
-          '# HELP connectanum_router_process_info Static information about the router VM process',
+          '# HELP connectanum_router_process_info Static host and runtime information about the router VM process',
         )
         ..writeln('# TYPE connectanum_router_process_info gauge')
+        ..writeln('connectanum_router_process_info$processInfoLabels 1')
         ..writeln(
-          'connectanum_router_process_info{pid="${process.processId}"} 1',
+          '# HELP connectanum_router_process_available_processors Logical processors available to the router VM process',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_process_available_processors gauge',
+        )
+        ..writeln(
+          'connectanum_router_process_available_processors ${process.availableProcessors}',
         )
         ..writeln(
           '# HELP connectanum_router_process_resident_memory_bytes Current resident set size of the router VM process',

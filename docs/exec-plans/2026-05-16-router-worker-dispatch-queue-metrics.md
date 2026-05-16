@@ -1,6 +1,6 @@
 # Router Worker Dispatch Queue Metrics
 
-Status: complete locally
+Status: complete with hosted evidence
 Owner: Codex
 Created: 2026-05-16
 Last updated: 2026-05-16
@@ -37,10 +37,20 @@ load-aware assignment policy is introduced.
 - 2026-05-16: `dart analyze packages/connectanum_router` passed.
 - 2026-05-16: `git diff --check` passed.
 - 2026-05-16: Full local `bin/verify` passed.
+- 2026-05-16: Implementation committed as `07bb901` and pushed to GitHub
+  PR #79.
+- 2026-05-16: Hosted push GitHub CI #25970796791 passed with `Fast Checks`
+  job #76342330656 and `Full Verify` job #76342599474 green.
+- 2026-05-16: Hosted push Dart Package Publish Dry Run #25970796800 passed.
+- 2026-05-16: Hosted PR GitHub CI #25970797494 passed with `Fast Checks`
+  job #76342332184 and `Full Verify` job #76342593385 green.
+- 2026-05-16: Hosted PR Dart Package Publish Dry Run #25970797508 passed.
+- 2026-05-16: `bin/audit-github-deployment-chain --branch codex/post-rc-production-readiness --run-limit 1 --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run`
+  passed with clean latest CI, hosted CI logs/annotations, and relevant hosted
+  package dry-run evidence. The audit still reports PR #79 as review-required
+  before release-branch promotion.
 
 ## Handoff
 
-Complete locally. The code path is covered by focused and package-level router
-runtime tests, metrics exporter tests, package analysis, diff hygiene, and full
-workspace verification. Hosted evidence is still pending until the
-implementation is pushed.
+Complete with local and hosted verification. Autoscaling and load-aware
+assignment remain intentionally out of scope for this slice.
