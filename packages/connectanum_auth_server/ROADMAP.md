@@ -42,10 +42,12 @@ administrative tooling, and flexible storage backends.
         router ↔ Dart auth server) and resolve any protocol mismatches.
   - [ ] Add fuzz/compat tests that replay recorded auth flows from Crossbar /
         other WAMP routers.
-- [ ] CLI executable (`bin/auth_server.dart`)
-  - [ ] Argument parsing (config paths, override flags, log level).
-  - [ ] Boot `RouterRuntime` + `AuthServer` wiring, including optional auth
-        tokens and TLS/mTLS.
+- [x] CLI executable (`bin/auth_server.dart`)
+  - [x] Argument parsing (config paths, native library override, service realm,
+        internal auth identity, and deployment `--check` mode).
+  - [x] Boot native router runtime + `AuthServer` WAMP procedure binding from
+        router/auth service configuration, including configured listener
+        security.
   - [ ] Health/metrics endpoints (simple HTTP server).
 
 ---

@@ -15,7 +15,7 @@ void main() {
       : null;
 
   test(
-    'auth_server --check starts runtime and binds WAMP procedures',
+    'package executable --check starts runtime and binds WAMP procedures',
     () async {
       final repoRoot = _resolveRepoRoot();
       final tempDir = await Directory.systemTemp.createTemp(
@@ -32,7 +32,8 @@ void main() {
       final result = await Process.run(
         Platform.resolvedExecutable,
         <String>[
-          '${repoRoot.path}/packages/connectanum_auth_server/bin/auth_server.dart',
+          'run',
+          'connectanum_auth_server:auth_server',
           '--config',
           configFile.path,
           '--native-lib',

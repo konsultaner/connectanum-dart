@@ -20,21 +20,25 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Auth-server CLI runtime wiring is implemented and locally verified for
-consumer-service readiness. `packages/connectanum_auth_server/bin/auth_server.dart`
-now starts a native router runtime from configured listeners, creates an
-internal service-realm session, binds the remote-auth WAMP procedures, and
-supports `--check` for deployment/package smoke tests. The package README
-documents the CLI path, and
-`packages/connectanum_auth_server/test/auth_server_cli_test.dart` runs the
-executable against a temporary service config to prove procedure binding
-readiness. Pre-edit `bin/test-fast` first hit native runtime lock contention
-from an overlapping `bin/test-fast` process; after the lock cleared, isolated
-`bin/test-fast` passed on 2026-05-17. Focused
-`dart test packages/connectanum_auth_server/test`, post-edit `bin/test-fast`,
-`git diff --check`, the private-name/local-path scan on touched public
-docs/package paths, and full local `bin/verify` passed on 2026-05-17.
-Commit/push and hosted evidence are pending.
+Auth-server CLI runtime wiring is implemented and the follow-up package
+executable readiness slice is in progress. Commit `58609e1` pushed the runtime
+wiring: `packages/connectanum_auth_server/bin/auth_server.dart` starts a native
+router runtime from configured listeners, creates an internal service-realm
+session, binds the remote-auth WAMP procedures, and supports `--check` for
+deployment/package smoke tests. Hosted evidence for `58609e1` is clean: push
+CI #25991321778, PR CI #25991322544, push Dart Package Publish Dry Run
+#25991321771, and PR Dart Package Publish Dry Run #25991322493 passed; the
+strict audit passed for enforced branch gates, while `--require-rc-ready` still
+fails only on expected release-control blockers. The current local follow-up
+adds explicit `auth_server` executable metadata and changes
+`packages/connectanum_auth_server/test/auth_server_cli_test.dart` to run the
+documented `dart run connectanum_auth_server:auth_server --config ... --check`
+path against a temporary service config. Focused
+`dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart`,
+manual `dart run connectanum_auth_server:auth_server --help`, and post-edit
+`bin/test-fast` passed on 2026-05-17. Full local `bin/verify` also passed on
+2026-05-17. Commit/push, hosted evidence, and audit are pending for the
+follow-up.
 
 Previous implementation checkpoint:
 The Dart package publish dry-run release-order regression is implemented and
