@@ -10,6 +10,8 @@ const int _workerCmdAddConnection = 3;
 const int _workerCmdRemoveConnection = 4;
 const int _workerCmdSendMessage = 5;
 const int _workerCmdDrainConnections = 6;
+const int _workerCmdExportConnection = 7;
+const int _workerCmdForgetTransferredConnection = 8;
 
 const int _workerEventRegister = 1;
 const int _workerEventReady = 2;
@@ -25,6 +27,8 @@ const int _workerEventCallDispatchError = 11;
 const int _workerEventPublishRouted = 12;
 const int _workerEventWorkerShutdown = 13;
 const int _workerEventSessionOpened = 14;
+const int _workerEventConnectionTransferReady = 15;
+const int _workerEventConnectionTransferRejected = 16;
 
 final json_serializer.Serializer _jsonSerializer = json_serializer.Serializer();
 final cbor_serializer.Serializer _cborSerializer = cbor_serializer.Serializer();
@@ -434,6 +438,9 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       final metadata = raw.length > 3 && raw[3] is Map
           ? raw[3] as Map<Object?, Object?>
           : null;
+      final transferData = raw.length > 4 && raw[4] is Map
+          ? raw[4] as Map<Object?, Object?>
+          : null;
       connections[newConnectionId] = listenerId;
       final listener = resolveListener(listeners, settings, listenerId);
       connectionStates[newConnectionId] = WorkerConnectionState(
@@ -456,16 +463,21 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
           state.serializer ??= _serializerFromName(wsSerializer);
         }
       }
+      if (transferData != null) {
+        state?.applyTransferData(transferData);
+      }
       bossPort.send({
         'type': _workerEventConnectionAdded,
         'connectionId': newConnectionId,
         'listenerId': listenerId,
+        'workerHash': workerId,
         if (state?.protocol != null)
           'protocol': listenerProtocolToString(state!.protocol!),
         if (state?.websocketProtocol != null)
           'websocketProtocol': state!.websocketProtocol,
         if (state?.websocketSerializer != null)
           'websocketSerializer': state!.websocketSerializer,
+        if (state?.sessionId != null) 'sessionId': state!.sessionId,
       });
     } else if (command == _workerCmdRemoveConnection) {
       final removeId = raw[1] as int;
@@ -479,6 +491,44 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       bossPort.send({
         'type': _workerEventConnectionRemoved,
         'connectionId': removeId,
+        'workerHash': workerId,
+      });
+    } else if (command == _workerCmdExportConnection) {
+      final transferConnectionId = raw[1] as int;
+      final listenerId = connections[transferConnectionId];
+      final state = connectionStates[transferConnectionId];
+      final transferData = state?.toTransferData();
+      if (listenerId == null || transferData == null) {
+        bossPort.send({
+          'type': _workerEventConnectionTransferRejected,
+          'connectionId': transferConnectionId,
+          'workerHash': workerId,
+        });
+        return;
+      }
+      bossPort.send({
+        'type': _workerEventConnectionTransferReady,
+        'connectionId': transferConnectionId,
+        'listenerId': listenerId,
+        'workerHash': workerId,
+        'metadata': <String, Object?>{
+          if (state?.protocol != null)
+            'protocol': listenerProtocolToString(state!.protocol!),
+          if (state?.websocketProtocol != null)
+            'websocketProtocol': state!.websocketProtocol,
+          if (state?.websocketSerializer != null)
+            'websocketSerializer': state!.websocketSerializer,
+        },
+        'transferData': transferData,
+      });
+    } else if (command == _workerCmdForgetTransferredConnection) {
+      final transferConnectionId = raw[1] as int;
+      connections.remove(transferConnectionId);
+      connectionStates.remove(transferConnectionId);
+      bossPort.send({
+        'type': _workerEventConnectionRemoved,
+        'connectionId': transferConnectionId,
+        'workerHash': workerId,
       });
     } else if (command == _workerCmdSendMessage) {
       final connectionId = raw[1] as int;

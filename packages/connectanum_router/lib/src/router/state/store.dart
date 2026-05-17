@@ -100,6 +100,13 @@ class RouterStateStore {
         );
       case SessionCloseCommand():
         _closeSession(command.realmUri, command.sessionId);
+      case SessionTransferCommand():
+        _transferSession(
+          command.realmUri,
+          command.sessionId,
+          workerId: command.workerId,
+          connectionId: command.connectionId,
+        );
       case SubscriptionAddCommand():
         _sendGuardedReply(
           command: command,
@@ -326,6 +333,45 @@ class RouterStateStore {
     for (final regId in session.registrationIds.toList()) {
       _unregisterProcedure(realmUri, sessionId, regId);
     }
+    realm.bumpVersion();
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
+  }
+
+  void _transferSession(
+    String realmUri,
+    int sessionId, {
+    required int workerId,
+    required int connectionId,
+  }) {
+    final realm = _realms[realmUri];
+    if (realm == null) {
+      return;
+    }
+    final session = realm.sessions[sessionId];
+    if (session == null) {
+      return;
+    }
+    final replacement = SessionRecord(
+      id: session.id,
+      authId: session.authId,
+      authRole: session.authRole,
+      authMethod: session.authMethod,
+      authProvider: session.authProvider,
+      roles: Map.unmodifiable(session.roles),
+      workerId: workerId,
+      connectionId: connectionId,
+      lastActivity: session.lastActivity,
+      listener: session.listener,
+      protocol: session.protocol,
+      internalSendPort: session.internalSendPort,
+    );
+    replacement.subscriptionIds.addAll(session.subscriptionIds);
+    replacement.registrationIds.addAll(session.registrationIds);
+    replacement.pendingCalls.addAll(session.pendingCalls);
+    replacement.pendingInvocations.addAll(session.pendingInvocations);
+    realm.sessions[sessionId] = replacement;
     realm.bumpVersion();
     _eventController.add(
       StateChangedEvent(realmUri: realmUri, version: realm.version),

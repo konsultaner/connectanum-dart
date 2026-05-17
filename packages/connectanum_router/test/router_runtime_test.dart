@@ -31,6 +31,10 @@ import 'package:connectanum_router/src/router/models/router_metrics.dart';
 import 'package:connectanum_router/src/router/models/sni_certificate.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
+import 'package:connectanum_router/src/router/state/commands.dart'
+    show SessionOpenCommand;
+import 'package:connectanum_router/src/router/state/session.dart'
+    show SessionRecord;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
@@ -624,6 +628,8 @@ const int kWorkerCmdProcess = 1;
 const int kWorkerCmdShutdown = 2;
 const int kWorkerCmdAddConnection = 3;
 const int kWorkerCmdRemoveConnection = 4;
+const int kWorkerCmdExportConnection = 7;
+const int kWorkerCmdForgetTransferredConnection = 8;
 const int kWorkerEventRegister = 1;
 const int kWorkerEventReady = 2;
 const int kWorkerEventError = 3;
@@ -632,6 +638,8 @@ const int kWorkerEventConnectionAdded = 5;
 const int kWorkerEventConnectionRemoved = 6;
 const int kWorkerEventDrained = 7;
 const int kWorkerEventSessionOpened = 14;
+const int kWorkerEventConnectionTransferReady = 15;
+const int kWorkerEventConnectionTransferRejected = 16;
 const int _workerCmdDrainConnections = 6;
 
 Future<void> _waitUntil(
@@ -1231,6 +1239,225 @@ void _parallelWorkerEntryPointWithDrainDelay(
       } else {
         Timer(drainDelay, drainConnections);
       }
+    }
+  });
+}
+
+void _transferableScaleDownWorkerEntryPoint(Map<String, Object?> init) {
+  final bossPort = init['bossPort'] as SendPort;
+  final statePort = init['statePort'] as SendPort?;
+  final connectionId = init['connectionId'] as int;
+  final listenerId = init['listenerId'] as int;
+  final commandPort = ReceivePort();
+  final Map<int, int> connections = {};
+  final Map<int, int> sessions = {};
+  final workerHash = Isolate.current.hashCode;
+  final processedDelayed = <int>{};
+
+  RouterListener listenerFor(int id) => RouterListener(
+    listenerId: id,
+    endpoint: Endpoint(
+      host: '127.0.0.1',
+      port: 0,
+      tlsMode: TlsMode.disabled,
+      maxRawSocketSizeExponent: 16,
+      sniCertificates: const [],
+    ),
+    port: 0,
+    http3Port: 0,
+  );
+
+  int sessionIdFor(int id) => 900000 + id;
+
+  Map<String, Object?> transferDataFor(int id) => <String, Object?>{
+    'phase': 'open',
+    'serializer': 'json',
+    'protocol': 'rawsocket',
+    'realmUri': 'realm1',
+    'sessionId': sessions[id],
+    'authMethod': 'anonymous',
+    'welcomeDetails': <String, Object?>{
+      'realm': 'realm1',
+      'authid': 'anonymous',
+      'authmethod': 'anonymous',
+      'authprovider': 'static',
+      'authrole': 'anonymous',
+      'custom': <String, Object?>{},
+    },
+  };
+
+  void openSession(int id, int idListenerId, {int? existingSessionId}) {
+    final sessionId = existingSessionId ?? sessionIdFor(id);
+    connections[id] = idListenerId;
+    sessions[id] = sessionId;
+    if (existingSessionId == null && statePort != null) {
+      statePort.send(
+        SessionOpenCommand(
+          realmUri: 'realm1',
+          session: SessionRecord(
+            id: sessionId,
+            authId: 'anonymous',
+            authRole: 'anonymous',
+            authMethod: 'anonymous',
+            authProvider: 'static',
+            roles: const <String, Object?>{},
+            workerId: workerHash,
+            connectionId: id,
+            lastActivity: DateTime.now().toUtc(),
+            listener: listenerFor(idListenerId),
+            protocol: ListenerProtocol.rawsocket,
+          ),
+        ),
+      );
+    }
+    bossPort.send({
+      'type': kWorkerEventSessionOpened,
+      'connectionId': id,
+      'sessionId': sessionId,
+      'realmUri': 'realm1',
+    });
+  }
+
+  if (connectionId > 0) {
+    openSession(connectionId, listenerId);
+  }
+
+  bossPort.send({
+    'type': kWorkerEventRegister,
+    'connectionId': connectionId,
+    'listenerId': listenerId,
+    'commandPort': commandPort.sendPort,
+    'statePort': statePort,
+    'workerHash': workerHash,
+  });
+  bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+
+  commandPort.listen((dynamic raw) {
+    if (raw is! List || raw.isEmpty) {
+      return;
+    }
+    final command = raw[0];
+    if (command == kWorkerCmdProcess) {
+      final assignedConnection = raw[1] as int;
+      final handle = raw[2] as int;
+
+      void emitProcessed() {
+        bossPort.send({
+          'type': 'test_processed',
+          'connectionId': assignedConnection,
+          'handle': handle,
+          'workerHash': workerHash,
+          'processedAt': DateTime.now().microsecondsSinceEpoch,
+        });
+        bossPort.send({
+          'type': kWorkerEventReady,
+          'connectionId': assignedConnection,
+        });
+      }
+
+      final shouldDelay =
+          assignedConnection % 10 == 1 &&
+          !processedDelayed.contains(assignedConnection);
+      if (shouldDelay) {
+        processedDelayed.add(assignedConnection);
+        Future<void>.delayed(
+          const Duration(milliseconds: 200),
+        ).then((_) => emitProcessed());
+      } else {
+        emitProcessed();
+      }
+    } else if (command == kWorkerCmdAddConnection) {
+      final newListener = raw[1] as int;
+      final newConnection = raw[2] as int;
+      final rawTransferData = raw.length > 4 && raw[4] is Map
+          ? raw[4] as Map
+          : null;
+      final transferredSessionId = rawTransferData == null
+          ? null
+          : rawTransferData['sessionId'] as int?;
+      openSession(
+        newConnection,
+        newListener,
+        existingSessionId: transferredSessionId,
+      );
+      bossPort.send({
+        'type': kWorkerEventConnectionAdded,
+        'connectionId': newConnection,
+        'listenerId': newListener,
+        'workerHash': workerHash,
+        'sessionId': transferredSessionId,
+      });
+      bossPort.send({'type': kWorkerEventReady, 'connectionId': newConnection});
+    } else if (command == kWorkerCmdRemoveConnection) {
+      final removeConnection = raw[1] as int;
+      connections.remove(removeConnection);
+      sessions.remove(removeConnection);
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': removeConnection,
+        'workerHash': workerHash,
+      });
+    } else if (command == kWorkerCmdExportConnection) {
+      final transferConnection = raw[1] as int;
+      final transferListener = connections[transferConnection];
+      final transferSession = sessions[transferConnection];
+      if (transferListener == null || transferSession == null) {
+        bossPort.send({
+          'type': kWorkerEventConnectionTransferRejected,
+          'connectionId': transferConnection,
+          'workerHash': workerHash,
+        });
+      } else {
+        bossPort.send({
+          'type': kWorkerEventConnectionTransferReady,
+          'connectionId': transferConnection,
+          'listenerId': transferListener,
+          'workerHash': workerHash,
+          'metadata': <String, Object?>{'protocol': 'rawsocket'},
+          'transferData': transferDataFor(transferConnection),
+        });
+      }
+    } else if (command == kWorkerCmdForgetTransferredConnection) {
+      final transferConnection = raw[1] as int;
+      connections.remove(transferConnection);
+      sessions.remove(transferConnection);
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': transferConnection,
+        'workerHash': workerHash,
+      });
+    } else if (command == kWorkerCmdShutdown) {
+      commandPort.close();
+      bossPort.send({
+        'type': kWorkerEventShutdown,
+        'connectionId': connectionId,
+      });
+    } else if (command == _workerCmdDrainConnections) {
+      final reason = raw.length > 1 && raw[1] is String
+          ? raw[1] as String
+          : 'wamp.close.system_shutdown';
+      bossPort.send({
+        'type': 'test_drain',
+        'reason': reason,
+        'workerHash': workerHash,
+      });
+      for (final entry in connections.entries.toList()) {
+        bossPort.send({
+          'type': 'worker_send',
+          'connectionId': entry.key,
+          'payload': Uint8List.fromList(
+            utf8.encode(jsonEncode([MessageTypes.codeGoodbye, {}, reason])),
+          ),
+        });
+        bossPort.send({
+          'type': kWorkerEventConnectionRemoved,
+          'connectionId': entry.key,
+          'workerHash': workerHash,
+        });
+        connections.remove(entry.key);
+        sessions.remove(entry.key);
+      }
+      bossPort.send({'type': kWorkerEventDrained, 'workerHash': workerHash});
     }
   });
 }
@@ -3593,6 +3820,187 @@ void main() {
         expect(snapshot.workerPool.scaleDownTimeoutsTotal, 0);
       },
     );
+
+    test('transfers open sessions before scale-down worker shutdown', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithWorkerPool(
+          const WorkerPoolSettings(
+            minWorkers: 1,
+            maxWorkers: 2,
+            scaleUpPendingDispatches: 1,
+            scaleUpConsecutiveTicks: 1,
+            scaleDownConsecutiveTicks: 25,
+            scaleDownDrainTimeout: Duration(seconds: 2),
+          ),
+        ),
+      );
+
+      final events = <Object>[];
+      Future<void> waitFor(
+        String description,
+        bool Function() condition, {
+        Duration timeout = const Duration(seconds: 2),
+      }) async {
+        final deadline = DateTime.now().add(timeout);
+        while (!condition()) {
+          if (DateTime.now().isAfter(deadline)) {
+            fail('$description; events=$events');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+      }
+
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _transferableScaleDownWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+
+      await waitFor(
+        'initial worker was not registered',
+        () => events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_registered',
+        ),
+      );
+
+      runtime.enqueueConnection(listener.listenerId, 8611);
+      runtime.enqueueConnection(listener.listenerId, 8621);
+
+      await waitFor('initial connections were not added', () {
+        final addedConnections = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_connection_added')
+            .map((event) => event['connectionId'])
+            .toSet();
+        return addedConnections.containsAll({8611, 8621});
+      });
+
+      final slowHandle = runtime.enqueueHandleOnly(8611);
+      final queuedHandle = runtime.enqueueHandleOnly(8621);
+
+      await waitFor(
+        'worker pool did not scale up',
+        () => events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_pool_scale_up',
+        ),
+      );
+      await waitFor(
+        'second worker was not registered',
+        () =>
+            events
+                .whereType<Map>()
+                .where((event) => event['type'] == 'worker_registered')
+                .length >=
+            2,
+      );
+
+      runtime.enqueueConnection(listener.listenerId, 8632);
+      await waitFor(
+        'transfer candidate connection was not added',
+        () => events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == 8632,
+        ),
+      );
+      await waitFor(
+        'transfer candidate session was not opened',
+        () => events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_session_opened' &&
+              event['connectionId'] == 8632,
+        ),
+      );
+
+      bool hasProcessed(int handle, {int? workerHash}) {
+        return events.whereType<Map>().any((event) {
+          if (event['type'] != 'worker_unknown_event' ||
+              event['payload'] is! Map) {
+            return false;
+          }
+          final payload = event['payload'] as Map;
+          return payload['type'] == 'test_processed' &&
+              payload['handle'] == handle &&
+              (workerHash == null || payload['workerHash'] == workerHash);
+        });
+      }
+
+      await waitFor(
+        'initial backlog handles were not processed',
+        () => hasProcessed(slowHandle) && hasProcessed(queuedHandle),
+      );
+
+      await waitFor('connection was not transferred', () {
+        final ready = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_transfer_ready' &&
+              event['connectionId'] == 8632,
+        );
+        final added = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == 8632 &&
+              event['transferred'] == true,
+        );
+        return ready && added;
+      });
+
+      await waitFor(
+        'worker pool did not scale down',
+        () => events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_pool_scale_down',
+        ),
+        timeout: const Duration(seconds: 4),
+      );
+
+      final transferRejected = events.whereType<Map>().where(
+        (event) => event['type'] == 'worker_connection_transfer_rejected',
+      );
+      expect(transferRejected, isEmpty);
+
+      RouterMetricsSnapshot? scaledDownSnapshot;
+      final deadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(deadline)) {
+        final snapshot = await binding.collectMetrics();
+        if (snapshot.workerLoad.length == 1 &&
+            snapshot.workerPool.scaleDownsTotal >= 1) {
+          scaledDownSnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      expect(scaledDownSnapshot, isNotNull, reason: 'events=$events');
+      final survivingWorker = scaledDownSnapshot!.workerLoad.single;
+      expect(scaledDownSnapshot.sessionCount, 3);
+      expect(scaledDownSnapshot.activeConnections, 3);
+      expect(survivingWorker.connectionCount, 3);
+
+      final afterTransferHandle = runtime.enqueueHandleOnly(8632);
+      await waitFor(
+        'transferred connection was not processed by surviving worker',
+        () => hasProcessed(
+          afterTransferHandle,
+          workerHash: survivingWorker.isolateHash,
+        ),
+        timeout: const Duration(seconds: 4),
+      );
+    });
 
     test(
       'does not assign new connections to a worker draining for scale-down',

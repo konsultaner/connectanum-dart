@@ -1,7 +1,7 @@
 # Router Caller Auth Disclosure
 
-Status: implementation complete locally; commit, push, and hosted evidence
-refresh are pending.
+Status: complete; code is pushed and hosted deployment-chain evidence is clean
+for enforced gates.
 
 ## Goal
 
@@ -31,8 +31,22 @@ forwarded or spoofed through custom call options.
 - `git diff --check`: passed.
 - Private-name scan on touched docs: passed.
 - `bin/verify`: passed on 2026-05-17.
+- Commit `314a962`: pushed to GitHub PR #79.
+- GitHub CI #25983330491 and #25983331352: passed with `Fast Checks` and
+  `Full Verify` green.
+- Dart Package Publish Dry Run #25983330497 and #25983331308: passed.
+- Native Artifacts dry-run #25983559481: passed for preview tag `v0.1.0-rc.2`.
+- Router Image dry-run #25983562548: passed for preview tag `v0.1.0-rc.2`.
+- WAMP Profile Benchmarks #25983565524: passed.
+- Strict deployment-chain audit with latest CI/logs, package dry-run, native
+  dry-run, router-image dry-run, WAMP benchmarks, workflow visibility, GHCR
+  package visibility, and RC-readiness reporting: passed for enforced gates.
 
 ## Remaining
 
-- Commit and push the implementation with this state update.
-- Refresh hosted CI/package-dry-run evidence for the pushed checkpoint.
+- PR #79 still requires review/merge into `master` before release-branch
+  promotion.
+- A fresh operator-approved RC tag is still required for the promoted candidate;
+  the published `v0.1.0-rc.1` tag remains tied to `47bbf9c`.
+- Pub.dev publishing remains deferred until package ownership, public versions,
+  and private workspace release order are explicitly decided.

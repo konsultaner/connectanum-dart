@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-17-router-caller-auth-disclosure.md`.
+`docs/exec-plans/2026-05-17-router-worker-scale-down-reassignment.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,6 +20,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Worker scale-down reassignment is complete locally. Scale-down can now retire
+an idle excess worker that still owns open WAMP sessions by exporting the
+source worker connection state, adopting it on a surviving worker, updating
+boss connection ownership, transferring the state-store session record, and
+then asking the source worker to forget its stale copy. Non-transferable
+sessions fall back to the existing drain/shutdown path instead of stranding a
+non-accepting worker. Boss session-open telemetry now keeps the normalized
+`worker_session_opened` event type instead of leaking the raw worker event
+code. Pre-edit `bin/test-fast` passed on 2026-05-17. Focused transfer
+coverage, related scale-up/down runtime coverage, full `router_runtime_test`,
+`dart analyze packages/connectanum_router`, post-edit `bin/test-fast`,
+`git diff --check`, the private-name/local-path scan on touched docs, and full
+local `bin/verify` passed on 2026-05-17. Commit/push and hosted CI evidence are
+pending.
+
+Previous implementation checkpoint:
 Router caller auth disclosure is complete locally. Invocation dispatch now
 exposes `caller_authid` and `caller_authrole` only when caller disclosure is
 allowed by caller `disclose_me` or callee `disclose_caller`, and Dart fallback,
@@ -31,8 +47,24 @@ CALL options so clients cannot spoof `caller`, `caller_authid`,
 router-runtime, and ct_ffi CBOR invocation segment regressions passed,
 `dart analyze packages/connectanum_router` passed, `git diff --check` passed,
 the private-name scan on touched docs passed, and full local `bin/verify`
-passed on 2026-05-17. Hosted evidence still needs to refresh after this
-implementation commit is pushed.
+passed on 2026-05-17. The implementation was committed as `314a962` and
+pushed to GitHub PR #79. Hosted evidence for `314a962` is clean: push-triggered
+GitHub CI #25983330491 passed with `Fast Checks` and `Full Verify` green;
+PR-triggered GitHub CI #25983331352 passed with `Fast Checks` and
+`Full Verify` green; push-triggered Dart Package Publish Dry Run #25983330497
+passed; PR-triggered Dart Package Publish Dry Run #25983331308 passed; Native
+Artifacts dry-run #25983559481 passed all native matrix jobs plus the
+release-preview job for preview tag `v0.1.0-rc.2`; Router Image dry-run
+#25983562548 passed for preview tag `v0.1.0-rc.2`; and WAMP Profile Benchmarks
+#25983565524 passed. The strict deployment-chain audit with latest CI/logs,
+package dry-run, native release dry-run, router image dry-run, WAMP benchmark,
+workflow visibility, GHCR package visibility, and RC-readiness reporting exited
+cleanly for those enforced gates. RC readiness remains not ready only for
+operator/release-control reasons: PR #79 review/merge into `master`, choosing
+a fresh RC tag for the promoted `314a962` candidate instead of mutating the
+published `v0.1.0-rc.1` tag, refreshing native/router release evidence for
+that fresh tag, and resolving the intentionally deferred pub.dev release-order
+decision.
 
 Previous implementation checkpoint:
 Router caller disclosure policy is complete locally. Invocation dispatch now

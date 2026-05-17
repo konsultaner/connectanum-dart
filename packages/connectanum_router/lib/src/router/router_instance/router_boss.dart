@@ -108,6 +108,9 @@ class _RouterBoss {
   final Map<int, RouterListener> _listenerById = {};
   final List<_WorkerHandle> _workers = [];
   final Map<int, _WorkerHandle> _connectionOwners = {};
+  final Map<int, _WorkerHandle> _pendingConnectionTransferSources = {};
+  final Map<int, _WorkerHandle> _pendingConnectionTransferTargets = {};
+  final Map<int, Completer<void>> _pendingConnectionTransferCompleters = {};
   final Map<int, Isolate> _pendingIsolates = {};
   final Map<int, RouterListener> _httpConnectionListeners = {};
   final Map<int, NativeHttp3Connection> _http3Connections = {};
@@ -348,7 +351,7 @@ class _RouterBoss {
     }
 
     final candidate = _workers.cast<_WorkerHandle?>().lastWhere(
-      (worker) => worker != null && worker.isScaleDownIdle,
+      (worker) => worker != null && _canScaleDownWorker(worker, workerPool),
       orElse: () => null,
     );
     if (candidate == null) {
@@ -373,6 +376,68 @@ class _RouterBoss {
     return true;
   }
 
+  bool _canScaleDownWorker(
+    _WorkerHandle worker,
+    WorkerPoolSettings workerPool,
+  ) {
+    if (!worker.isScaleDownReady) {
+      return false;
+    }
+    if (worker.connections.isEmpty) {
+      return true;
+    }
+    if (_workers.length <= workerPool.minWorkers) {
+      return false;
+    }
+    final hasTransferTarget = _workers.any(
+      (candidate) => candidate != worker && candidate.isAcceptingConnections,
+    );
+    if (!hasTransferTarget) {
+      return false;
+    }
+    return worker.connections.every(_realmByConnection.containsKey);
+  }
+
+  Future<void> _transferScaleDownConnections(
+    _WorkerHandle worker,
+    WorkerPoolSettings workerPool,
+  ) async {
+    final connectionIds = worker.connections.toList(growable: false);
+    if (connectionIds.isEmpty) {
+      return;
+    }
+    final waits = <Future<void>>[];
+    for (final connectionId in connectionIds) {
+      final target = _chooseScaleDownTransferTarget(worker);
+      if (target == null) {
+        return;
+      }
+      final completer = Completer<void>();
+      _pendingConnectionTransferSources[connectionId] = worker;
+      _pendingConnectionTransferTargets[connectionId] = target;
+      _pendingConnectionTransferCompleters[connectionId] = completer;
+      waits.add(completer.future);
+      worker.commandPort.send(<Object?>[
+        _workerCmdExportConnection,
+        connectionId,
+      ]);
+    }
+    await Future.wait(waits).timeout(workerPool.scaleDownDrainTimeout);
+  }
+
+  _WorkerHandle? _chooseScaleDownTransferTarget(_WorkerHandle source) {
+    _WorkerHandle? selected;
+    for (final candidate in _workers) {
+      if (candidate == source || !candidate.isAcceptingConnections) {
+        continue;
+      }
+      if (selected == null || _hasLowerAssignmentLoad(candidate, selected)) {
+        selected = candidate;
+      }
+    }
+    return selected;
+  }
+
   Future<void> _drainAndShutdownScaledDownWorker(
     _WorkerHandle worker,
     WorkerPoolSettings workerPool,
@@ -382,13 +447,32 @@ class _RouterBoss {
     }
 
     worker.drainCompleter ??= Completer<void>();
-    worker.commandPort.send(<Object?>[
-      _workerCmdDrainConnections,
-      'wamp.close.worker_pool_scale_down',
-    ]);
 
     var timedOut = false;
     try {
+      await _transferScaleDownConnections(worker, workerPool);
+    } on TimeoutException {
+      timedOut = true;
+    } catch (error, stackTrace) {
+      _reportBossError(
+        'worker_pool_scale_down_transfer_error',
+        error,
+        stackTrace,
+      );
+    }
+
+    if (!_workers.contains(worker)) {
+      return;
+    }
+
+    try {
+      if (!_workers.contains(worker)) {
+        return;
+      }
+      worker.commandPort.send(<Object?>[
+        _workerCmdDrainConnections,
+        'wamp.close.worker_pool_scale_down',
+      ]);
       await worker.drainCompleter!.future.timeout(
         workerPool.scaleDownDrainTimeout,
       );
@@ -1949,8 +2033,8 @@ class _RouterBoss {
         _lastActivityByConnection[connectionId] = DateTime.now();
       }
       payload
-        ..['type'] = 'worker_session_opened'
-        ..addAll(message.cast<String, Object?>());
+        ..addAll(message.cast<String, Object?>())
+        ..['type'] = 'worker_session_opened';
     } else if (type == 'worker_send') {
       final connectionId = message['connectionId'] as int;
       final Uint8List payloadBytes = message['payload'] as Uint8List;
@@ -2099,10 +2183,53 @@ class _RouterBoss {
         runtime.releaseMessageHandle(handle);
       }
     } else if (type == _workerEventConnectionAdded) {
+      final connectionId = message['connectionId'] as int;
+      final workerHash = message['workerHash'] as int?;
+      final pendingTarget = _pendingConnectionTransferTargets[connectionId];
+      final isPendingTransferTarget =
+          pendingTarget != null &&
+          (workerHash == null || workerHash == pendingTarget.isolateHash);
+      if (isPendingTransferTarget) {
+        final source = _pendingConnectionTransferSources.remove(connectionId);
+        _pendingConnectionTransferTargets.remove(connectionId);
+        final completer = _pendingConnectionTransferCompleters.remove(
+          connectionId,
+        );
+        source?.connections.remove(connectionId);
+        if (!pendingTarget.connections.contains(connectionId)) {
+          pendingTarget.connections.add(connectionId);
+        }
+        _connectionOwners[connectionId] = pendingTarget;
+        final realmUri = _realmByConnection[connectionId];
+        final sessionId = message['sessionId'] as int?;
+        if (realmUri != null && sessionId != null) {
+          _stateStore.commandPort.send(
+            SessionTransferCommand(
+              realmUri: realmUri,
+              sessionId: sessionId,
+              workerId: pendingTarget.isolateHash,
+              connectionId: connectionId,
+            ),
+          );
+        }
+        source?.commandPort.send(<Object?>[
+          _workerCmdForgetTransferredConnection,
+          connectionId,
+        ]);
+        if (completer != null && !completer.isCompleted) {
+          completer.complete();
+        }
+      }
       payload
         ..['type'] = 'worker_connection_added'
-        ..['connectionId'] = message['connectionId']
+        ..['connectionId'] = connectionId
         ..['listenerId'] = message['listenerId'];
+      if (workerHash != null) {
+        payload['workerHash'] = workerHash;
+      }
+      if (isPendingTransferTarget) {
+        payload['transferred'] = true;
+      }
       final protocol = message['protocol'];
       if (protocol is String) {
         payload['protocol'] = protocol;
@@ -2117,16 +2244,72 @@ class _RouterBoss {
       }
     } else if (type == _workerEventConnectionRemoved) {
       final connectionId = message['connectionId'] as int;
-      final worker = _connectionOwners.remove(connectionId);
-      worker?.connections.remove(connectionId);
-      _httpConnectionListeners.remove(connectionId);
-      _http2ConnectionListeners.remove(connectionId);
-      _releaseHttp3Connection(connectionId);
-      _lastActivityByConnection.remove(connectionId);
-      _realmByConnection.remove(connectionId);
+      final workerHash = message['workerHash'] as int?;
+      final worker = _connectionOwners[connectionId];
+      if (workerHash != null &&
+          worker != null &&
+          worker.isolateHash != workerHash) {
+        for (final staleWorker in _workers) {
+          if (staleWorker.isolateHash == workerHash) {
+            staleWorker.connections.remove(connectionId);
+            break;
+          }
+        }
+      } else {
+        _connectionOwners.remove(connectionId);
+        worker?.connections.remove(connectionId);
+        _lastActivityByConnection.remove(connectionId);
+        _realmByConnection.remove(connectionId);
+        _webSocketSelectionByConnection.remove(connectionId);
+        _httpConnectionListeners.remove(connectionId);
+        _http2ConnectionListeners.remove(connectionId);
+        _releaseHttp3Connection(connectionId);
+      }
       payload
         ..['type'] = 'worker_connection_removed'
         ..['connectionId'] = connectionId;
+      if (workerHash != null) {
+        payload['workerHash'] = workerHash;
+      }
+    } else if (type == _workerEventConnectionTransferReady) {
+      final connectionId = message['connectionId'] as int;
+      final target = _pendingConnectionTransferTargets[connectionId];
+      if (target != null) {
+        target.commandPort.send(<Object?>[
+          _workerCmdAddConnection,
+          message['listenerId'],
+          connectionId,
+          message['metadata'],
+          message['transferData'],
+        ]);
+      }
+      payload
+        ..['type'] = 'worker_connection_transfer_ready'
+        ..['connectionId'] = connectionId
+        ..['listenerId'] = message['listenerId'];
+      final workerHash = message['workerHash'];
+      if (workerHash is int) {
+        payload['workerHash'] = workerHash;
+      }
+    } else if (type == _workerEventConnectionTransferRejected) {
+      final connectionId = message['connectionId'] as int;
+      _pendingConnectionTransferSources.remove(connectionId);
+      _pendingConnectionTransferTargets.remove(connectionId);
+      final completer = _pendingConnectionTransferCompleters.remove(
+        connectionId,
+      );
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(
+          StateError('Worker rejected transfer for connection $connectionId'),
+        );
+      }
+      payload
+        ..['type'] = 'worker_connection_transfer_rejected'
+        ..['connectionId'] = connectionId;
+      final workerHash = message['workerHash'];
+      if (workerHash is int) {
+        payload['workerHash'] = workerHash;
+      }
     } else if (type == _workerEventDrained) {
       final workerHash = message['workerHash'] as int?;
       _WorkerHandle? drainedWorker;
@@ -2290,6 +2473,7 @@ class _RouterBoss {
   void _shutdownWorker(_WorkerHandle worker, {bool terminateIsolate = false}) {
     worker.releasePendingDispatches(runtime);
     for (final connectionId in worker.connections.toList()) {
+      _clearPendingConnectionTransfer(connectionId);
       _connectionOwners.remove(connectionId);
       _lastActivityByConnection.remove(connectionId);
       _realmByConnection.remove(connectionId);
@@ -2310,6 +2494,7 @@ class _RouterBoss {
   }
 
   void _detachConnection(int connectionId, {bool notifyWorker = false}) {
+    _clearPendingConnectionTransfer(connectionId);
     final worker = _connectionOwners.remove(connectionId);
     _lastActivityByConnection.remove(connectionId);
     _realmByConnection.remove(connectionId);
@@ -2331,6 +2516,17 @@ class _RouterBoss {
     }
     _releaseHttp3Connection(connectionId);
     _webSocketSelectionByConnection.remove(connectionId);
+  }
+
+  void _clearPendingConnectionTransfer(int connectionId) {
+    _pendingConnectionTransferSources.remove(connectionId);
+    _pendingConnectionTransferTargets.remove(connectionId);
+    final completer = _pendingConnectionTransferCompleters.remove(connectionId);
+    if (completer != null && !completer.isCompleted) {
+      completer.completeError(
+        StateError('Connection $connectionId detached during transfer'),
+      );
+    }
   }
 
   void _replaceHttp3Connection(
@@ -2444,11 +2640,10 @@ class _WorkerHandle {
 
   bool get isAcceptingConnections => drainCompleter == null;
 
-  bool get isScaleDownIdle =>
-      isAcceptingConnections &&
-      connections.isEmpty &&
-      !busy &&
-      pendingDispatches.isEmpty;
+  bool get isScaleDownReady =>
+      isAcceptingConnections && !busy && pendingDispatches.isEmpty;
+
+  bool get isScaleDownIdle => isScaleDownReady && connections.isEmpty;
 
   void markDispatchStarted(DateTime now) {
     busy = true;
