@@ -21,6 +21,17 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Native artifact signing flake hardening is complete locally. The most recent
+hosted native-artifacts dry-run passed only after rerunning a transient macOS
+Apple Silicon Cosign download timeout, so the Native Artifacts workflow now
+uses `sigstore/cosign-installer@v4.1.0`, the upstream installer line that adds
+retry handling for transient curl download failures while preserving the
+installer's integrity checks. Pre-edit `bin/test-fast`, `git diff --check`,
+private-name scan on the touched workflow/state/plan paths, and full
+post-edit `bin/verify` passed on 2026-05-17. Hosted evidence must be refreshed
+after this workflow-sensitive commit is pushed.
+
+Previous implementation checkpoint:
 Router worker-pool scale-down drain no longer blocks the boss loop or accepts
 new connections onto a retiring worker. Scale-down drain now runs in the
 background after the selected idle excess worker is marked non-assignable, and
@@ -33,7 +44,29 @@ session-state migration primitive exists. The required pre-edit
 `bin/test-fast`, focused drain-assignment regression, focused worker-pool
 autoscaling regressions, `dart analyze packages/connectanum_router`,
 `git diff --check`, private-name scan, post-edit `bin/test-fast`, and full
-local `bin/verify` passed on 2026-05-17.
+local `bin/verify` passed on 2026-05-17. The implementation was committed as
+`e81b6c2` and pushed to GitHub PR #79. Hosted evidence for `e81b6c2` is clean
+for branch CI and package dry-run: push-triggered GitHub CI #25978256489
+passed with `Fast Checks` job #76362234058 and `Full Verify` job #76362448763
+green; push-triggered Dart Package Publish Dry Run #25978256490 passed with
+publish dry-run job #76362234144 green; PR-triggered GitHub CI #25978257140
+passed with `Fast Checks` job #76362235846 and `Full Verify` job #76362463677
+green; PR-triggered Dart Package Publish Dry Run #25978257147 passed with
+publish dry-run job #76362235929 green; and the strict deployment-chain audit
+exited cleanly with clean latest CI, hosted CI logs/annotations, relevant
+hosted package dry-run evidence, release branch protection baseline, workflow
+visibility, and GHCR router image visibility. Follow-up hosted release
+evidence was refreshed on `e81b6c2`: WAMP Profile Benchmarks #25978502850
+passed, Native Artifacts dry-run #25978502843 passed for preview tag
+`v0.1.0-rc.2` after rerunning a transient macOS Apple Silicon Cosign download
+timeout, and Router Image dry-run #25978502851 passed for preview tag
+`v0.1.0-rc.2`. The stricter audit with native release dry-run, router image
+dry-run, WAMP benchmark, latest CI, latest CI logs, and package dry-run
+requirements exited cleanly. RC readiness is still not ready only for
+operator/release-control reasons: PR #79 still requires review/merge before
+release-branch promotion, `v0.1.0-rc.1` remains tied to the earlier `47bbf9c`
+checkpoint, and the refreshed native/router preview evidence intentionally uses
+`v0.1.0-rc.2` rather than mutating the existing `v0.1.0-rc.1` release.
 
 Previous implementation checkpoint:
 Router worker-pool autoscaling observability is complete locally for the

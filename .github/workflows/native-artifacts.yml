@@ -66,7 +66,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.0.0
+        uses: sigstore/cosign-installer@v4.1.0
 
       - name: Package ct_ffi artifact
         id: package
