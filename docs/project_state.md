@@ -20,25 +20,32 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Auth-server CLI runtime wiring is implemented and the follow-up package
-executable readiness slice is in progress. Commit `58609e1` pushed the runtime
-wiring: `packages/connectanum_auth_server/bin/auth_server.dart` starts a native
-router runtime from configured listeners, creates an internal service-realm
-session, binds the remote-auth WAMP procedures, and supports `--check` for
-deployment/package smoke tests. Hosted evidence for `58609e1` is clean: push
-CI #25991321778, PR CI #25991322544, push Dart Package Publish Dry Run
-#25991321771, and PR Dart Package Publish Dry Run #25991322493 passed; the
-strict audit passed for enforced branch gates, while `--require-rc-ready` still
-fails only on expected release-control blockers. The current local follow-up
-adds explicit `auth_server` executable metadata and changes
+Auth-server CLI runtime wiring, documented package executable readiness, and
+CLI health/metrics readiness are implemented. Commit `58609e1` pushed the
+runtime wiring: `packages/connectanum_auth_server/bin/auth_server.dart` starts
+a native router runtime from configured listeners, creates an internal
+service-realm session, binds the remote-auth WAMP procedures, and supports
+`--check` for deployment/package smoke tests. Commit `8d2ee00` adds explicit
+`auth_server` executable metadata and changes
 `packages/connectanum_auth_server/test/auth_server_cli_test.dart` to run the
 documented `dart run connectanum_auth_server:auth_server --config ... --check`
-path against a temporary service config. Focused
-`dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart`,
-manual `dart run connectanum_auth_server:auth_server --help`, and post-edit
-`bin/test-fast` passed on 2026-05-17. Full local `bin/verify` also passed on
-2026-05-17. Commit/push, hosted evidence, and audit are pending for the
-follow-up.
+path against a temporary service config. The current follow-up reuses the
+router OpenMetrics HTTP exporter from the auth-server executable when
+`metrics.open_metrics` is enabled and proves `/healthz` plus the configured
+metrics path through the package executable smoke. Pre-edit `bin/test-fast`,
+focused auth-server CLI/package tests, `dart analyze packages/connectanum_auth_server`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
+Hosted evidence for the last pushed checkpoint `8d2ee00` is clean: push CI
+#25992722694, PR CI #25992723633, push Dart Package Publish Dry Run
+#25992722667, PR Dart Package Publish Dry Run #25992723637, Router Image
+dry-run #25993038176, and WAMP Profile Benchmarks #25993038113 all passed. The
+strict audit with latest CI/logs, package dry-run, router image dry-run, WAMP
+benchmark relevance, workflow visibility, GHCR visibility, and RC-readiness
+reporting passed for the enforced gates. The health/metrics follow-up still
+needs hosted evidence after push. RC readiness remains blocked by PR #79
+review/merge, a fresh approved RC tag/prerelease for the promoted release
+branch, and tag-matched Native Artifacts/Router Image publish evidence; pub.dev
+remains intentionally deferred.
 
 Previous implementation checkpoint:
 The Dart package publish dry-run release-order regression is implemented and
@@ -11738,11 +11745,12 @@ order.
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-05-09-router-hosted-mcp-example-error-recovery-smoke.md`
-  (complete; hosted CI evidence clean).
-  Keep hosted GitHub CI clean first, then continue router-hosted MCP
-  downstream application readiness work that does not require operator-owned
-  publish or repository-setting decisions.
+  `docs/exec-plans/2026-05-17-auth-server-cli-runtime.md`
+  (runtime wiring and package executable follow-up pushed and hosted-clean;
+  health/metrics endpoint follow-up locally verified).
+  Keep hosted GitHub CI clean first, then finish post-RC release-control
+  hardening that does not require operator-owned publish, release-tag, or
+  repository-setting decisions.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

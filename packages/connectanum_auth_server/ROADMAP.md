@@ -48,7 +48,7 @@ administrative tooling, and flexible storage backends.
   - [x] Boot native router runtime + `AuthServer` WAMP procedure binding from
         router/auth service configuration, including configured listener
         security.
-  - [ ] Health/metrics endpoints (simple HTTP server).
+  - [x] Health/metrics endpoints through the shared OpenMetrics HTTP exporter.
 
 ---
 

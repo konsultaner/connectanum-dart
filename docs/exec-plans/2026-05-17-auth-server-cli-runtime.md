@@ -1,8 +1,9 @@
 # Auth Server CLI Runtime
 
-Status: runtime wiring is pushed and hosted-clean for enforced branch gates;
-package executable follow-up is implemented locally with full verification
-passed and is ready for commit/push.
+Status: runtime wiring and package executable follow-up are pushed and
+hosted-clean for enforced branch gates. The health/metrics endpoint follow-up
+is locally verified and needs hosted evidence after push; RC release-control
+blockers remain.
 
 ## Goal
 
@@ -22,6 +23,9 @@ WAMP procedures, and reporting readiness instead of only constructing an
   exits for deployment smoke tests.
 - Add auth-server package smoke coverage that runs the executable against a
   temporary service config and proves procedure binding readiness.
+- Reuse the router OpenMetrics HTTP exporter from the auth-server executable
+  when config enables `metrics.open_metrics`, and smoke-test `/healthz` plus
+  the configured metrics path through the package executable.
 - Bundle the pending hosted-evidence bookkeeping from the completed Dart
   package dry-run slice with this implementation commit.
 - Follow up by proving the documented package executable target
@@ -61,12 +65,33 @@ WAMP procedures, and reporting readiness instead of only constructing an
   passed on 2026-05-17.
 - Follow-up post-edit `bin/test-fast`: passed on 2026-05-17.
 - Follow-up full local `bin/verify`: passed on 2026-05-17.
+- Follow-up commit/push: `8d2ee00` pushed to
+  `codex/post-rc-production-readiness`.
+- Follow-up hosted CI: push CI #25992722694 and PR CI #25992723633 passed for
+  `8d2ee00`.
+- Follow-up hosted package dry-run: push #25992722667 and PR #25992723637
+  passed for `8d2ee00`.
+- Follow-up hosted release-sensitive evidence refresh: Router Image dry-run
+  #25993038176 and WAMP Profile Benchmarks #25993038113 passed for `8d2ee00`.
+- Follow-up strict deployment-chain audit with latest CI/logs, package dry-run,
+  router image dry-run, WAMP benchmark relevance, workflow visibility, GHCR
+  visibility, and RC-readiness reporting: passed for the enforced gates on
+  2026-05-17.
+- Health/metrics follow-up pre-edit `bin/test-fast`: passed on 2026-05-17.
+- Health/metrics focused `dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`:
+  passed on 2026-05-17.
+- Health/metrics focused `dart test packages/connectanum_auth_server/test -r expanded`:
+  passed on 2026-05-17.
+- Health/metrics focused `dart analyze packages/connectanum_auth_server`:
+  passed on 2026-05-17.
+- Health/metrics post-edit `bin/test-fast`: passed on 2026-05-17.
+- Health/metrics full local `bin/verify`: passed on 2026-05-17.
 
 ## Remaining
 
-- Commit and push the follow-up package executable readiness slice, then collect
-  hosted CI/package dry-run evidence and rerun the strict audit.
+- Push the health/metrics endpoint follow-up, collect hosted CI/package dry-run
+  evidence, and rerun the strict audit.
 - Complete PR #79 review/merge into the release branch.
-- After release approval, choose a fresh RC tag for `58609e1` or its promoted
+- After release approval, choose a fresh RC tag for `8d2ee00` or its promoted
   release-branch successor, then refresh tag-matched Native Artifacts and
   Router Image evidence.

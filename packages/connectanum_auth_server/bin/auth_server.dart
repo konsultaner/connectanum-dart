@@ -81,6 +81,26 @@ Future<void> main(List<String> args) async {
       server: authServer,
       session: session,
     );
+    final metricsSettings = settings.metrics?.openMetrics;
+    if (metricsSettings != null &&
+        metricsSettings.enabled &&
+        (metricsSettings.listen?.trim().isNotEmpty ?? false)) {
+      try {
+        final server = await routerBinding.startOpenMetricsHttpServer(
+          settingsOverride: metricsSettings,
+        );
+        if (server != null) {
+          stdout.writeln(
+            'OpenMetrics exporter listening on ${server.address.address}:${server.port}${metricsSettings.path} '
+            '(healthz: /healthz)',
+          );
+        }
+      } catch (error) {
+        stderr.writeln('Failed to start OpenMetrics HTTP exporter: $error');
+        exitCode = 64;
+        return;
+      }
+    }
 
     stdout.writeln(
       'Loaded configuration from $configPath for realms: '
