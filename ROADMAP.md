@@ -304,8 +304,8 @@
 - [x] Crossbar-compatible configuration schema + validation tooling
 - [ ] Example gallery for router features
   - [x] CLI demo covering hashed credentials, `CredentialRejection`, and remote delegates (`packages/connectanum_router/example`)
-  - [ ] WebSocket transport demo (router and remote auth server)
-  - [ ] Stub remote service integration (fake challenge parity)
+  - [x] WebSocket transport demo (router and remote auth server)
+  - [x] Stub remote service integration (fake challenge parity)
 - [ ] Comprehensive WAMP feature test suites (basic and advanced)
   - [ ] Basic profile: HELLO/WELCOME, PUB/SUB, RPC, error flows
   - [ ] Advanced profile: pattern subscriptions, shared registrations, cancellation, progressive results

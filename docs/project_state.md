@@ -20,16 +20,35 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Remote-auth fake-challenge parity integration coverage is implemented.
-The live remote-auth RPC integration suite now proves that a remote
-`authenticate.hello` failure stays behind the router fake-challenge path,
-surfaces to the client as `wamp.error.authentication_failed`, and does not call
-the remote `authenticate.authenticate` procedure after the HELLO rejection.
-`ROADMAP.md` now marks the fake-challenge parity and stub remote-service
-integration-test item complete. Pre-edit `bin/test-fast`, focused
+Remote-auth fake-challenge parity integration coverage is implemented, and a
+checked public remote-auth service example now proves the downstream-consumable
+shape without private project assumptions. The live remote-auth RPC integration
+suite proves that a remote `authenticate.hello` failure stays behind the router
+fake-challenge path, surfaces to the client as
+`wamp.error.authentication_failed`, and does not call the remote
+`authenticate.authenticate` procedure after the HELLO rejection. The new
+`packages/connectanum_router/example/remote_auth_service.dart` smoke starts a
+separate auth-service router, binds `AuthServerProcedureBinding`, starts an edge
+WebSocket router that delegates ticket auth over WAMP, verifies a successful
+ticket login, and verifies unknown-user fake-challenge rejection. `ROADMAP.md`
+now marks the fake-challenge parity tests plus WebSocket/remote-auth example
+gallery items complete. Pre-edit `bin/test-fast`, focused
 `dart test packages/connectanum_router/test/remote_auth_integration_test.dart -r expanded`,
 `dart format packages/connectanum_router/test/remote_auth_integration_test.dart`,
+targeted `dart analyze packages/connectanum_router/example/remote_auth_service.dart`,
+targeted `dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit`,
+targeted `bash -lc 'source bin/common.sh; run_remote_auth_service_example_smoke'`,
 post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
+Hosted evidence for `62354a2` is clean: push CI #26000741252, PR CI
+#26000742168, push Dart Package Publish Dry Run #26000741247, and PR Dart
+Package Publish Dry Run #26000742155 passed. The strict deployment-chain audit
+with latest CI/logs, package dry-run, native release relevance, router image
+dry-run relevance, WAMP benchmark relevance, workflow visibility, GHCR
+visibility, and RC-readiness reporting passed for the enforced gates on
+2026-05-17. RC readiness remains blocked only by PR #79 review/merge into
+`master`, choosing a fresh approved RC tag/prerelease for the promoted release
+branch successor, and tag-matched Native Artifacts/Router Image publish
+evidence; pub.dev remains intentionally deferred.
 
 Previous implementation checkpoint:
 Auth-server CLI runtime wiring, documented package executable readiness, CLI

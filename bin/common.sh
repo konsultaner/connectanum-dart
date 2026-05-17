@@ -382,6 +382,28 @@ run_router_hosted_mcp_example_smoke() {
   dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
 }
 
+run_remote_auth_service_example_smoke() {
+  if ! native_runtime_supported; then
+    printf 'Native remote auth service example smoke requires Linux or macOS; skipping on %s.\n' "$(uname -s)"
+    return 0
+  fi
+
+  if ensure_rust_env; then
+    ensure_native_lib_env
+    if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+      build_native_ffi_test_release
+    fi
+  else
+    ensure_native_lib_env
+    if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+      printf 'Cargo and CONNECTANUM_NATIVE_LIB unavailable; skipping remote auth service example smoke.\n'
+      return 0
+    fi
+  fi
+
+  dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit
+}
+
 run_mcp_server_package_smoke() (
   local smoke_dir
 
