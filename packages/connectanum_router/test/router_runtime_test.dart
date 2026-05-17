@@ -505,6 +505,8 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   }) {
@@ -514,6 +516,8 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
       'invocationId': invocationId,
       'registrationId': registrationId,
       'callerSessionId': callerSessionId,
+      'callerAuthId': callerAuthId,
+      'callerAuthRole': callerAuthRole,
       'procedure': procedure,
       'receiveProgress': receiveProgress,
     });
@@ -8374,35 +8378,58 @@ void main() {
     addTearDown(binding.dispose);
 
     final callee = await binding.createInternalSession(realmUri: 'realm1');
-    final caller = await binding.createInternalSession(realmUri: 'realm1');
+    final caller = await binding.createInternalSession(
+      realmUri: 'realm1',
+      authId: 'internal-caller',
+      authRole: 'anonymous',
+    );
     addTearDown(callee.close);
     addTearDown(caller.close);
 
-    final undisclosedCaller = Completer<int?>();
+    final undisclosedCaller = Completer<Map<String, Object?>>();
     final defaultRegistration = await callee.register(
       'com.example.internal.no_disclose',
     );
     defaultRegistration.onInvoke((invocation) {
       if (!undisclosedCaller.isCompleted) {
-        undisclosedCaller.complete(invocation.details.caller);
+        undisclosedCaller.complete({
+          'caller': invocation.details.caller,
+          'caller_authid': invocation.details.custom['caller_authid'],
+          'caller_authrole': invocation.details.custom['caller_authrole'],
+        });
       }
       invocation.respondWith(arguments: const ['ok']);
     });
 
     final defaultResult = await caller
-        .call('com.example.internal.no_disclose')
+        .call(
+          'com.example.internal.no_disclose',
+          options: CallOptions(
+            custom: const {
+              'caller_authid': 'spoofed',
+              'caller_authrole': 'spoofed-role',
+            },
+          ),
+        )
         .first;
     expect(defaultResult.arguments, equals(const ['ok']));
-    expect(await undisclosedCaller.future, isNull);
+    expect(
+      await undisclosedCaller.future,
+      equals({'caller': null, 'caller_authid': null, 'caller_authrole': null}),
+    );
 
-    final disclosedCaller = Completer<int?>();
+    final disclosedCaller = Completer<Map<String, Object?>>();
     final discloseRegistration = await callee.register(
       'com.example.internal.disclose',
       options: RegisterOptions(discloseCaller: true),
     );
     discloseRegistration.onInvoke((invocation) {
       if (!disclosedCaller.isCompleted) {
-        disclosedCaller.complete(invocation.details.caller);
+        disclosedCaller.complete({
+          'caller': invocation.details.caller,
+          'caller_authid': invocation.details.custom['caller_authid'],
+          'caller_authrole': invocation.details.custom['caller_authrole'],
+        });
       }
       invocation.respondWith(arguments: const ['ok']);
     });
@@ -8411,7 +8438,14 @@ void main() {
         .call('com.example.internal.disclose')
         .first;
     expect(discloseResult.arguments, equals(const ['ok']));
-    expect(await disclosedCaller.future, equals(caller.sessionId));
+    expect(
+      await disclosedCaller.future,
+      equals({
+        'caller': caller.sessionId,
+        'caller_authid': 'internal-caller',
+        'caller_authrole': 'anonymous',
+      }),
+    );
   });
 
   test(

@@ -1,7 +1,7 @@
 # Router Caller Disclosure Policy
 
-Status: implementation complete locally; commit, push, and hosted evidence
-refresh are pending.
+Status: complete. Implementation is committed and pushed as `7de6f7c`; local
+verification and hosted CI/deployment evidence are clean.
 
 ## Goal
 
@@ -32,8 +32,18 @@ the caller or callee policy.
 - `git diff --check`: passed.
 - Private-name scan on touched docs: passed.
 - `bin/verify`: passed on 2026-05-17.
+- Push-triggered GitHub CI #25982020999: passed.
+- PR-triggered GitHub CI #25982021874: passed.
+- Push-triggered Dart Package Publish Dry Run #25982020997: passed.
+- PR-triggered Dart Package Publish Dry Run #25982021872: passed.
+- Router Image dry-run #25982272601: passed for preview tag `v0.1.0-rc.2`.
+- WAMP Profile Benchmarks #25982272605: passed.
+- Strict deployment-chain audit with latest CI/logs, package dry-run,
+  router-image dry-run, WAMP benchmark, and RC-readiness reporting: passed for
+  the refreshable branch gates.
 
 ## Remaining
 
-- Commit and push the implementation with this state update.
-- Refresh hosted CI/package-dry-run evidence for the pushed checkpoint.
+- PR #79 still needs review/merge before release-branch promotion.
+- Final RC tagging still needs operator approval for a fresh tag at the
+  promoted commit plus matching native/router evidence for that tag.

@@ -592,6 +592,8 @@ class RouterStateStore {
     final discloseCaller =
         options['disclose_me'] == true ||
         callee.details['disclose_caller'] == true;
+    final callerAuthId = discloseCaller ? callerSession?.authId : null;
+    final callerAuthRole = discloseCaller ? callerSession?.authRole : null;
     final record = PendingInvocation(
       invocationId: invocationId,
       registrationId: callee.registrationId,
@@ -614,6 +616,8 @@ class RouterStateStore {
       calleeSessionId: callee.sessionId,
       calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
       discloseCaller: discloseCaller,
+      callerAuthId: callerAuthId,
+      callerAuthRole: callerAuthRole,
       calleeInternalSendPort: calleeSession?.internalSendPort,
       callerInternalSendPort: callerSession?.internalSendPort,
     );
@@ -977,6 +981,8 @@ class InvocationDispatchResult {
     required this.calleeSessionId,
     required this.calleeConnectionId,
     required this.discloseCaller,
+    this.callerAuthId,
+    this.callerAuthRole,
     this.calleeInternalSendPort,
     this.callerInternalSendPort,
   });
@@ -986,6 +992,8 @@ class InvocationDispatchResult {
   final int calleeSessionId;
   final int calleeConnectionId;
   final bool discloseCaller;
+  final String? callerAuthId;
+  final String? callerAuthRole;
   final SendPort? calleeInternalSendPort;
   final SendPort? callerInternalSendPort;
 }

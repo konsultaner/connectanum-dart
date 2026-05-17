@@ -6,9 +6,8 @@ after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan: none. Select the next implementation slice from
-`ROADMAP_NEXT.md` and `ROADMAP.md` together, with CI/deployment-chain health
-first.
+Active exec plan:
+`docs/exec-plans/2026-05-17-router-caller-auth-disclosure.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -21,6 +20,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Router caller auth disclosure is complete locally. Invocation dispatch now
+exposes `caller_authid` and `caller_authrole` only when caller disclosure is
+allowed by caller `disclose_me` or callee `disclose_caller`, and Dart fallback,
+internal-session, and native zero-copy invocation paths consume the same
+dispatch result. Router-owned invocation detail keys are filtered out of custom
+CALL options so clients cannot spoof `caller`, `caller_authid`,
+`caller_authrole`, procedure, receive-progress, or PPT detail fields. Pre-edit
+`bin/test-fast` passed on 2026-05-17. Focused router-worker,
+router-runtime, and ct_ffi CBOR invocation segment regressions passed,
+`dart analyze packages/connectanum_router` passed, `git diff --check` passed,
+the private-name scan on touched docs passed, and full local `bin/verify`
+passed on 2026-05-17. Hosted evidence still needs to refresh after this
+implementation commit is pushed.
+
+Previous implementation checkpoint:
 Router caller disclosure policy is complete locally. Invocation dispatch now
 computes caller disclosure once from the caller `CALL` `disclose_me` option or
 the selected callee registration `disclose_caller` option, and worker,
@@ -33,11 +47,18 @@ router-worker and router-runtime disclosure regressions passed, the full
 `router_worker_session_test.dart` plus `router_runtime_test.dart` files passed,
 `dart analyze packages/connectanum_router` passed, `git diff --check` passed,
 the private-name scan on the touched docs passed, and full local `bin/verify`
-passed on 2026-05-17. Hosted evidence still needs to refresh after this
-implementation commit is pushed. Hosted evidence for the previous pushed
-checkpoint `47075b7` is clean: push-triggered GitHub CI #25981096863 passed,
-PR-triggered GitHub CI #25981096333 passed, and Dart Package Publish Dry Run
-#25981096851 passed.
+passed on 2026-05-17. The implementation was committed as `7de6f7c` and pushed
+to GitHub PR #79. Hosted evidence for `7de6f7c` is clean: push-triggered GitHub
+CI #25982020999 passed, PR-triggered GitHub CI #25982021874 passed,
+push-triggered Dart Package Publish Dry Run #25982020997 passed,
+PR-triggered Dart Package Publish Dry Run #25982021872 passed, Router Image
+dry-run #25982272601 passed for preview tag `v0.1.0-rc.2`, and WAMP Profile
+Benchmarks #25982272605 passed. The strict deployment-chain audit with latest
+CI/logs, package dry-run, router-image dry-run, WAMP benchmark, and RC-readiness
+reporting exited cleanly for those gates. RC readiness remains not ready only
+for operator/release-control reasons: PR #79 still requires review/merge,
+`v0.1.0-rc.1` remains tied to `47bbf9c`, and the final RC needs an
+operator-approved fresh tag and matching native/router evidence for that tag.
 
 Previous implementation checkpoint:
 The deployment-chain audit stale-RC next-action wording is complete. The audit

@@ -3012,6 +3012,8 @@ void main() {
           sessionId: 801,
           listener: listener,
           connectionId: 21,
+          authId: 'caller-801',
+          authRole: 'trusted-caller',
         );
         _openSession(
           stateStore,
@@ -3029,13 +3031,15 @@ void main() {
           statePort: stateStore.commandPort,
         );
 
+        final register = register_msg.Register(7001, 'com.zero.proc')
+          ..options = register_msg.RegisterOptions(discloseCaller: true);
         await handleSessionMessageForTest(
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
           connectionStates: connectionStates,
           state: calleeState,
-          message: register_msg.Register(7001, 'com.zero.proc'),
+          message: register,
           connectionId: 22,
         );
         await Future<void>.delayed(Duration.zero);
@@ -3074,6 +3078,12 @@ void main() {
             .toList();
         expect(nativeCommands, hasLength(1));
         expect(nativeCommands.single['handle'], equals(88));
+        expect(nativeCommands.single['callerSessionId'], equals(801));
+        expect(nativeCommands.single['callerAuthId'], equals('caller-801'));
+        expect(
+          nativeCommands.single['callerAuthRole'],
+          equals('trusted-caller'),
+        );
         expect(takenHandles, equals([88]));
         expect(
           bossMessages.where(
@@ -5266,6 +5276,8 @@ void main() {
           sessionId: 603,
           listener: listener,
           connectionId: 33,
+          authId: 'caller-603',
+          authRole: 'admin',
         );
         _openSession(
           stateStore,
@@ -5291,11 +5303,20 @@ void main() {
         final realmContexts = RealmContextCache(
           statePort: stateStore.commandPort,
         );
-        final call = call_msg.Call(
-          7002,
-          'com.example.disclose.caller',
-          arguments: const ['ping'],
-        );
+        final call =
+            call_msg.Call(
+                7002,
+                'com.example.disclose.caller',
+                arguments: const ['ping'],
+              )
+              ..options = call_msg.CallOptions(
+                custom: const {
+                  '_trace': 'kept',
+                  'caller': 999,
+                  'caller_authid': 'spoofed',
+                  'caller_authrole': 'spoofed-role',
+                },
+              );
 
         await handleSessionMessageForTest(
           bossPort: bossPort.sendPort,
@@ -5315,6 +5336,13 @@ void main() {
             invocationEnvelope['message'] as invocation_msg.Invocation;
         expect(invocation.registrationId, equals(registrationId));
         expect(invocation.details.caller, equals(603));
+        expect(
+          invocation.details.custom['caller_authid'],
+          equals('caller-603'),
+        );
+        expect(invocation.details.custom['caller_authrole'], equals('admin'));
+        expect(invocation.details.custom['_trace'], equals('kept'));
+        expect(invocation.details.custom, isNot(contains('caller')));
       },
     );
 

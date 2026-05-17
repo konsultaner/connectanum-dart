@@ -5,6 +5,17 @@ const bool _forwardNativePublishEventsConst = bool.fromEnvironment(
   'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
   defaultValue: false,
 );
+const Set<String> _routerOwnedInvocationDetailKeys = {
+  'caller',
+  'caller_authid',
+  'caller_authrole',
+  'procedure',
+  'receive_progress',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
 
 bool _parseForwardNativePublishFlag(String? raw) {
   if (raw == null) {
@@ -28,6 +39,41 @@ void _safeSend(SendPort port, Object? message) {
     port.send(message);
   } catch (_) {
     // Telemetry should not prevent session handling.
+  }
+}
+
+void _addFilteredInvocationCustomDetails(
+  invocation_msg.InvocationDetails details,
+  Map<String, Object?> options,
+) {
+  if (options.isEmpty) {
+    return;
+  }
+  final custom = <String, dynamic>{};
+  for (final entry in options.entries) {
+    if (!_routerOwnedInvocationDetailKeys.contains(entry.key)) {
+      custom[entry.key] = entry.value;
+    }
+  }
+  if (custom.isNotEmpty) {
+    details.custom.addAll(custom);
+  }
+}
+
+void _addCallerAuthDisclosureDetails(
+  invocation_msg.InvocationDetails details,
+  InvocationDispatchResult dispatch,
+) {
+  if (!dispatch.discloseCaller) {
+    return;
+  }
+  final callerAuthId = dispatch.callerAuthId;
+  if (callerAuthId != null) {
+    details.custom['caller_authid'] = callerAuthId;
+  }
+  final callerAuthRole = dispatch.callerAuthRole;
+  if (callerAuthRole != null) {
+    details.custom['caller_authrole'] = callerAuthRole;
   }
 }
 
@@ -1064,6 +1110,12 @@ Future<void> _handleCall({
         if (discloseCaller) {
           command['callerSessionId'] = state.sessionId;
         }
+        if (dispatch.callerAuthId != null) {
+          command['callerAuthId'] = dispatch.callerAuthId;
+        }
+        if (dispatch.callerAuthRole != null) {
+          command['callerAuthRole'] = dispatch.callerAuthRole;
+        }
         final receiveProgress = message.options?.receiveProgress;
         if (receiveProgress != null) {
           command['receiveProgress'] = receiveProgress;
@@ -1092,10 +1144,12 @@ Future<void> _handleCall({
       );
       final customOptions = message.options?.custom;
       if (customOptions != null && customOptions.isNotEmpty) {
-        invocationDetails.custom.addAll(
+        _addFilteredInvocationCustomDetails(
+          invocationDetails,
           customOptions.map((key, value) => MapEntry(key, value)),
         );
       }
+      _addCallerAuthDisclosureDetails(invocationDetails, dispatch);
       final invocation = invocation_msg.Invocation(
         dispatch.invocationId,
         dispatch.registrationId,
@@ -1367,6 +1421,9 @@ Future<void> _handleInternalInvocation({
       'options': _callOptionsToMap(message.options),
       'realmUri': realmUri,
       if (dispatch.discloseCaller) 'callerSessionId': callerSessionId,
+      if (dispatch.callerAuthId != null) 'callerAuthId': dispatch.callerAuthId,
+      if (dispatch.callerAuthRole != null)
+        'callerAuthRole': dispatch.callerAuthRole,
       'callerRequestId': message.requestId,
       'replyPort': replyPort.sendPort,
     });

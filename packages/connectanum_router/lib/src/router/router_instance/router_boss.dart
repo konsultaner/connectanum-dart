@@ -2020,6 +2020,8 @@ class _RouterBoss {
       final invocationId = message['invocationId'] as int;
       final registrationId = message['registrationId'] as int;
       final callerSessionId = message['callerSessionId'] as int?;
+      final callerAuthId = message['callerAuthId'] as String?;
+      final callerAuthRole = message['callerAuthRole'] as String?;
       final procedure = message['procedure'] as String?;
       final receiveProgress = message['receiveProgress'] as bool?;
       try {
@@ -2029,6 +2031,8 @@ class _RouterBoss {
           invocationId: invocationId,
           registrationId: registrationId,
           callerSessionId: callerSessionId,
+          callerAuthId: callerAuthId,
+          callerAuthRole: callerAuthRole,
           procedure: procedure,
           receiveProgress: receiveProgress,
         );

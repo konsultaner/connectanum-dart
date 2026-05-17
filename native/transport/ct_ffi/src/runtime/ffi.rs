@@ -897,6 +897,8 @@ fn encode_invocation_segments_json(
     invocation_id: u64,
     registration_id: u64,
     caller: Option<u64>,
+    caller_authid: Option<&str>,
+    caller_authrole: Option<&str>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
     options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
@@ -906,6 +908,18 @@ fn encode_invocation_segments_json(
         details.insert(
             "caller".into(),
             JsonValue::Number(JsonNumber::from(caller_id)),
+        );
+    }
+    if let Some(authid) = caller_authid {
+        details.insert(
+            "caller_authid".into(),
+            JsonValue::String(authid.to_string()),
+        );
+    }
+    if let Some(authrole) = caller_authrole {
+        details.insert(
+            "caller_authrole".into(),
+            JsonValue::String(authrole.to_string()),
         );
     }
     if let Some(proc_name) = procedure {
@@ -956,6 +970,8 @@ fn encode_invocation_segments_msgpack(
     invocation_id: u64,
     registration_id: u64,
     caller: Option<u64>,
+    caller_authid: Option<&str>,
+    caller_authrole: Option<&str>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
     options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
@@ -965,6 +981,18 @@ fn encode_invocation_segments_msgpack(
         details.insert(
             "caller".into(),
             JsonValue::Number(JsonNumber::from(caller_id)),
+        );
+    }
+    if let Some(authid) = caller_authid {
+        details.insert(
+            "caller_authid".into(),
+            JsonValue::String(authid.to_string()),
+        );
+    }
+    if let Some(authrole) = caller_authrole {
+        details.insert(
+            "caller_authrole".into(),
+            JsonValue::String(authrole.to_string()),
         );
     }
     if let Some(proc_name) = procedure {
@@ -1015,6 +1043,8 @@ fn encode_invocation_segments_cbor(
     invocation_id: u64,
     registration_id: u64,
     caller: Option<u64>,
+    caller_authid: Option<&str>,
+    caller_authrole: Option<&str>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
     options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
@@ -1024,6 +1054,18 @@ fn encode_invocation_segments_cbor(
         details.insert(
             "caller".into(),
             JsonValue::Number(JsonNumber::from(caller_id)),
+        );
+    }
+    if let Some(authid) = caller_authid {
+        details.insert(
+            "caller_authid".into(),
+            JsonValue::String(authid.to_string()),
+        );
+    }
+    if let Some(authrole) = caller_authrole {
+        details.insert(
+            "caller_authrole".into(),
+            JsonValue::String(authrole.to_string()),
         );
     }
     if let Some(proc_name) = procedure {
@@ -1077,6 +1119,8 @@ fn encode_invocation_segments(
     invocation_id: u64,
     registration_id: u64,
     caller: Option<u64>,
+    caller_authid: Option<&str>,
+    caller_authrole: Option<&str>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
 ) -> Result<Vec<Bytes>, c_int> {
@@ -1092,6 +1136,8 @@ fn encode_invocation_segments(
             invocation_id,
             registration_id,
             caller,
+            caller_authid,
+            caller_authrole,
             procedure,
             receive_progress,
             options,
@@ -1101,6 +1147,8 @@ fn encode_invocation_segments(
             invocation_id,
             registration_id,
             caller,
+            caller_authid,
+            caller_authrole,
             procedure,
             receive_progress,
             options,
@@ -1110,6 +1158,8 @@ fn encode_invocation_segments(
             invocation_id,
             registration_id,
             caller,
+            caller_authid,
+            caller_authrole,
             procedure,
             receive_progress,
             options,
@@ -4544,6 +4594,10 @@ pub extern "C" fn ct_forward_call_invocation(
     caller_session: u64,
     procedure_ptr: *const c_char,
     procedure_len: c_int,
+    caller_authid_ptr: *const c_char,
+    caller_authid_len: c_int,
+    caller_authrole_ptr: *const c_char,
+    caller_authrole_len: c_int,
     receive_progress_flag: c_int,
 ) -> c_int {
     if handle <= 0 {
@@ -4551,6 +4605,14 @@ pub extern "C" fn ct_forward_call_invocation(
     }
     let procedure = match read_optional_str(procedure_ptr, procedure_len) {
         Ok(proc) => proc,
+        Err(code) => return code,
+    };
+    let caller_authid = match read_optional_str(caller_authid_ptr, caller_authid_len) {
+        Ok(authid) => authid,
+        Err(code) => return code,
+    };
+    let caller_authrole = match read_optional_str(caller_authrole_ptr, caller_authrole_len) {
+        Ok(authrole) => authrole,
         Err(code) => return code,
     };
     let caller = if caller_present != 0 {
@@ -4570,6 +4632,8 @@ pub extern "C" fn ct_forward_call_invocation(
             invocation_id,
             registration_id,
             caller,
+            caller_authid.as_deref(),
+            caller_authrole.as_deref(),
             procedure.as_deref(),
             receive_progress,
         )
@@ -4837,8 +4901,17 @@ mod tests {
             kwargs: Some(kwargs),
         };
         let invocation = concat_segments(
-            encode_invocation_segments(&call, 99, 101, Some(7), Some("bench.rpc.echo"), Some(true))
-                .unwrap(),
+            encode_invocation_segments(
+                &call,
+                99,
+                101,
+                Some(7),
+                Some("alice"),
+                Some("admin"),
+                Some("bench.rpc.echo"),
+                Some(true),
+            )
+            .unwrap(),
         );
         let decoded_invocation: serde_json::Value = serde_cbor::from_slice(&invocation).unwrap();
         assert_eq!(
@@ -4849,6 +4922,8 @@ mod tests {
                 101,
                 {
                     "caller": 7,
+                    "caller_authid": "alice",
+                    "caller_authrole": "admin",
                     "procedure": "bench.rpc.echo",
                     "receive_progress": true,
                     "ppt_scheme": "x_custom_scheme",
