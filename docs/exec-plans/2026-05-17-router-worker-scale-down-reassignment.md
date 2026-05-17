@@ -1,8 +1,9 @@
 # Router Worker Scale-Down Reassignment
 
 Status: transfer implementation is pushed as `f2aeb6d` with clean hosted
-evidence. Follow-up state-store metadata preservation coverage is complete
-locally; commit/push and hosted evidence refresh are pending.
+evidence. Follow-up state-store metadata preservation coverage is pushed as
+`8616c10` with clean local and hosted validation evidence. Release-branch
+promotion remains blocked on PR review/merge and operator RC-tag approval.
 
 ## Goal
 
@@ -47,8 +48,14 @@ retiring already-connectionless workers.
   `dart analyze packages/connectanum_router`, post-edit `bin/test-fast`,
   `git diff --check`, private-name/local-path scan on touched files, and
   full `bin/verify` passed.
+- Hosted evidence for `8616c10`: push CI #25986420793, PR CI #25986421834,
+  push/PR Dart Package Publish Dry Runs #25986420795/#25986421853, Router Image
+  dry-run #25986708938, and WAMP Profile Benchmarks #25986708947 passed; strict
+  audit enforcement gates were clean.
 
 ## Remaining
 
-- Commit and push the follow-up coverage with this state update.
-- Refresh hosted CI/package-dry-run evidence for the pushed checkpoint.
+- Complete PR #79 review and merge requirements before release-branch
+  promotion.
+- After release approval, choose a fresh RC tag for the promoted head and rerun
+  native/router release evidence for that tag.

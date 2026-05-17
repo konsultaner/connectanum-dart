@@ -7,14 +7,25 @@ on:
       - master
     paths:
       - .github/workflows/wamp-profile-benchmarks.yml
+      - bin/bootstrap
       - bin/wamp-profile-validate
+      - bin/common.sh
       - bin/check-bench-artifacts
       - native/bench/**
       - native/transport/**
-      - packages/connectanum_bench/**
-      - packages/connectanum_client/**
-      - packages/connectanum_core/**
-      - packages/connectanum_router/**
+      - pubspec.yaml
+      - packages/*/pubspec.yaml
+      - packages/connectanum_auth_server/lib/**
+      - packages/connectanum_bench/bin/**
+      - packages/connectanum_bench/lib/**
+      - packages/connectanum_client/hook/**
+      - packages/connectanum_client/lib/**
+      - packages/connectanum_client/tool/install_native.dart
+      - packages/connectanum_core/lib/**
+      - packages/connectanum_router/bin/**
+      - packages/connectanum_router/hook/**
+      - packages/connectanum_router/lib/**
+      - packages/connectanum_router/tool/install_native.dart
   workflow_dispatch:
     inputs:
       router_worker_counts:

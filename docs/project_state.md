@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-17-router-worker-scale-down-reassignment.md`.
+`docs/exec-plans/2026-05-17-audit-runtime-sensitivity.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,6 +20,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Deployment-chain audit runtime sensitivity is implemented locally. Router Image
+stale-evidence detection now tracks Docker metadata, native transport code,
+router runtime package inputs, pubspecs, install helpers, and image metadata
+rendering instead of every package file. WAMP Profile Benchmark sensitivity and
+workflow path filters now track benchmark orchestration, native
+benchmark/transport inputs, package pubspecs, and benchmark runtime libraries,
+so test-only package changes do not force WAMP evidence. The audit also has a
+local `--show-sensitive-changes-since <ref>` diagnostic that prints evidence
+sensitivity groups without GitHub API access. Pre-edit `bin/test-fast`,
+`bash -n bin/audit-github-deployment-chain`, diagnostic checks against the
+prior router test-only change, an isolated temp-repo test-only/runtime-path
+sensitivity repro, `git diff --check`, private-name/local-path scan on touched
+docs/tooling/workflow paths, post-edit `bin/test-fast`, and full local
+`bin/verify` passed on 2026-05-17. Commit/push and hosted evidence are pending.
+
+Previous implementation checkpoint:
 Worker scale-down reassignment is implemented and pushed as `f2aeb6d`.
 Scale-down can now retire an idle excess worker that still owns open WAMP
 sessions by exporting the source worker connection state, adopting it on a
@@ -38,8 +54,19 @@ snapshot preserves session ownership, auth identity, subscriber, and callee
 metadata after scale-down. Focused transfer coverage, scale-focused runtime
 coverage, full `router_runtime_test`, `dart analyze packages/connectanum_router`,
 post-edit `bin/test-fast`, `git diff --check`, the private-name/local-path scan
-on touched files, and full local `bin/verify` passed on 2026-05-17. Commit/push
-and hosted evidence for this follow-up are pending.
+on touched files, and full local `bin/verify` passed on 2026-05-17. The
+follow-up was committed as `8616c10` and pushed to PR #79. Hosted evidence for
+`8616c10` is clean: push CI #25986420793, PR CI #25986421834, push/PR Dart
+Package Publish Dry Runs #25986420795/#25986421853, Router Image dry-run
+#25986708938, and WAMP Profile Benchmarks #25986708947 passed. The strict
+deployment-chain audit with latest CI/logs, package dry-run, native release
+dry-run relevance, router image dry-run, WAMP benchmark, workflow visibility,
+GHCR package visibility, and RC-readiness reporting exited cleanly for the
+enforced validation gates. RC readiness remains not ready only for
+operator/release-control reasons: PR #79 review/merge into `master`, choosing a
+fresh RC tag for the promoted `8616c10` candidate instead of mutating
+`v0.1.0-rc.1`, refreshing native/router release evidence for that fresh tag,
+and resolving the intentionally deferred pub.dev release-order decision.
 
 Previous implementation checkpoint:
 Router caller auth disclosure is complete locally. Invocation dispatch now
