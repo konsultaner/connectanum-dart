@@ -21,15 +21,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Native artifact signing flake hardening is complete locally. The most recent
-hosted native-artifacts dry-run passed only after rerunning a transient macOS
-Apple Silicon Cosign download timeout, so the Native Artifacts workflow now
-uses `sigstore/cosign-installer@v4.1.0`, the upstream installer line that adds
-retry handling for transient curl download failures while preserving the
-installer's integrity checks. Pre-edit `bin/test-fast`, `git diff --check`,
-private-name scan on the touched workflow/state/plan paths, and full
-post-edit `bin/verify` passed on 2026-05-17. Hosted evidence must be refreshed
-after this workflow-sensitive commit is pushed.
+Native artifact signing flake hardening is in follow-up after hosted evidence
+showed the first installer update was incomplete. Commit `af831f7` moved the
+Native Artifacts workflow to `sigstore/cosign-installer@v4.1.0`; local
+`bin/test-fast`, `git diff --check`, private-name scan on the touched
+workflow/state/plan paths, and full `bin/verify` passed on 2026-05-17, and
+branch/PR CI plus PR package dry-run were green. However, manually triggered
+Native Artifacts dry-run #25979718422 failed on Windows x64 during
+`Install Cosign` after repeated 502 responses for the custom-version
+`v3.0.3` Windows KMS bundle. The current follow-up updates the workflow to
+`sigstore/cosign-installer@v4.1.2`, whose default Cosign version matches its
+pinned bootstrap version and avoids that extra custom-version bundle download
+while retaining upstream digest checks. A second pre-edit `bin/test-fast`
+passed on 2026-05-17, and full post-edit `bin/verify` also passed on
+2026-05-17. Hosted Native Artifacts evidence still needs to be refreshed after
+this follow-up is pushed.
 
 Previous implementation checkpoint:
 Router worker-pool scale-down drain no longer blocks the boss loop or accepts
