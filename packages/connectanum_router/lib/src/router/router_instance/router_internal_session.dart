@@ -716,6 +716,36 @@ class RouterSession {
     );
   }
 
+  RemoteAuthenticatorDelegate createRemoteWampAuthenticatorDelegate({
+    String helloProcedure = 'authenticate.hello',
+    String authenticateProcedure = 'authenticate.authenticate',
+    String abortProcedure = 'authenticate.abort',
+    Duration callTimeout = const Duration(seconds: 5),
+    FutureOr<String?> Function()? resolveAuthToken,
+  }) {
+    return RemoteWampProcedureDelegate(
+      helloProcedure: helloProcedure,
+      authenticateProcedure: authenticateProcedure,
+      abortProcedure: abortProcedure,
+      callTimeout: callTimeout,
+      resolveAuthToken: resolveAuthToken,
+      call: (procedure, {argumentsKeywords}) async {
+        await for (final result in call(
+          procedure,
+          argumentsKeywords: argumentsKeywords,
+        )) {
+          if (!result.isProgressive()) {
+            return RemoteWampProcedureCallResult(
+              arguments: result.arguments,
+              argumentsKeywords: result.argumentsKeywords,
+            );
+          }
+        }
+        throw StateError('Remote WAMP procedure produced no final result.');
+      },
+    );
+  }
+
   Stream<result_msg.Result> callLazyPayload(
     String procedure, {
     required LazyMessagePayload payload,

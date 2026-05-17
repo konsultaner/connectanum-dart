@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 Current branch: `codex/post-rc-production-readiness` from GitHub `master`
 after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
@@ -20,20 +20,46 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-The first internal transport foundation slice is implemented locally.
-`connectanum_client` now exports `InProcessTransportPair` /
-`InProcessTransport`, a paired `AbstractTransport` implementation that keeps
-WAMP messages as Dart objects, enforces bounded peer inbound queues with
-`InProcessTransportBackpressureException`, and closes the peer side when one
-endpoint shuts down. It also keeps queued inbound messages until a receive
-listener attaches instead of draining them into a listener-less stream. Focused
-coverage proves paired message delivery, listener-attach buffering,
-backpressure, normal `Client` session handshakes over the in-process transport,
-and peer-close behavior. The focused in-process transport test directory is now
-part of both `bin/test-fast` and `bin/test-all`. Pre-edit `bin/test-fast`,
-focused `dart test packages/connectanum_client/test/transport/in_process -r expanded`,
-focused `dart analyze packages/connectanum_client/lib/src/transport/in_process_transport.dart packages/connectanum_client/test/transport/in_process/in_process_transport_test.dart packages/connectanum_client/lib/connectanum.dart`,
-post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
+The second internal auth-service embedding slice is implemented locally.
+`connectanum_router` now exports `RemoteWampProcedureDelegate` plus its
+callback/result types, and `RouterSession.createRemoteWampAuthenticatorDelegate`
+adapts internal router-session `CALL` results to the existing remote-auth WAMP
+procedure contract. `packages/connectanum_router/test/remote_auth_integration_test.dart`
+now starts an embedded auth-service realm with `AuthServerProcedureBinding`,
+drives HELLO/AUTHENTICATE through the RouterSession-backed delegate, and proves
+ticket success without opening a loopback TCP delegate connection. That focused
+remote-auth integration suite is now part of `bin/test-fast` on native-capable
+hosts. Pre-edit `bin/test-fast`, focused
+`dart analyze packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart packages/connectanum_router/lib/src/router/router_instance.dart packages/connectanum_router/lib/auth.dart packages/connectanum_router/test/remote_auth_integration_test.dart`,
+focused `dart test packages/connectanum_router/test/remote_auth_integration_test.dart -r expanded`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-18.
+`bin/dart-package-publish-dry-run` completed with zero warnings on
+2026-05-18, and `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+failed only on the known deferred pub.dev blocker:
+`connectanum_client` depends on private `connectanum_core`.
+The remaining live edge-auth work is worker-isolate
+configuration/wiring: main-isolate `RemoteAuthenticatorRegistry` delegates are
+not visible inside router worker isolates, so the external-client edge path
+still needs an explicit configured worker-safe internal delegate lane.
+The previous in-process transport foundation was committed and pushed as
+`d778896`: `connectanum_client` exports `InProcessTransportPair` /
+`InProcessTransport`, keeps WAMP messages as Dart objects, enforces bounded peer
+inbound queues with `InProcessTransportBackpressureException`, closes the peer
+side when one endpoint shuts down, and keeps queued inbound messages until a
+receive listener attaches. Focused in-process transport coverage is part of both
+`bin/test-fast` and `bin/test-all`, and local `bin/verify` passed on
+2026-05-17.
+The implementation was committed and pushed as `d778896`. Hosted evidence for
+`d778896` is clean: push CI #26004300725, PR CI #26004301387, push Dart Package
+Publish Dry Run #26004300727, PR Dart Package Publish Dry Run #26004301397,
+Router Image dry-run #26004594232, and WAMP Profile Benchmarks #26004594238
+passed. The strict deployment-chain audit with latest CI/logs, package dry-run,
+Router Image dry-run, WAMP benchmark, native release relevance, workflow
+visibility, GHCR visibility, and RC-readiness reporting passed for the enforced
+gates on 2026-05-17. RC readiness remains blocked only by PR #79 review/merge
+into `master`, choosing a fresh approved RC tag/prerelease for the promoted
+release branch successor, and tag-matched Native Artifacts/Router Image publish
+evidence; pub.dev remains intentionally deferred.
 
 Previous implementation checkpoint:
 Remote-auth fake-challenge parity integration coverage is implemented, and a
