@@ -20,21 +20,39 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Remote-auth fake-challenge parity integration coverage is implemented.
+The live remote-auth RPC integration suite now proves that a remote
+`authenticate.hello` failure stays behind the router fake-challenge path,
+surfaces to the client as `wamp.error.authentication_failed`, and does not call
+the remote `authenticate.authenticate` procedure after the HELLO rejection.
+`ROADMAP.md` now marks the fake-challenge parity and stub remote-service
+integration-test item complete. Pre-edit `bin/test-fast`, focused
+`dart test packages/connectanum_router/test/remote_auth_integration_test.dart -r expanded`,
+`dart format packages/connectanum_router/test/remote_auth_integration_test.dart`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
+
+Previous implementation checkpoint:
 Auth-server CLI runtime wiring, documented package executable readiness, CLI
 health/metrics readiness, YAML config readiness, missing-service-realm
 fail-closed coverage, and custom realm/session CLI option coverage are pushed
-and hosted-clean for enforced branch gates. A local router/auth-server config
-follow-up now enforces explicit realm auto-creation policy: `autoCreate`
-defaults to false, configured static realms are materialized at state-store
-startup, and only explicitly allow-listed `autoCreate` realms may be created
-lazily; unknown realms fail closed without noisy unexpected-error logging.
+and hosted-clean for enforced branch gates. Commit `8849602` pushed the
+router/auth-server config follow-up that enforces explicit realm auto-creation
+policy: `autoCreate` defaults to false, configured static realms are
+materialized at state-store startup, and only explicitly allow-listed
+`autoCreate` realms may be created lazily; unknown realms fail closed without
+noisy unexpected-error logging.
 Pre-edit `bin/test-fast`, focused
 `dart test packages/connectanum_router/test/state/realm_auto_create_test.dart -r expanded`,
 focused `dart test packages/connectanum_router/test/router_metrics_test.dart -r expanded`,
 focused `dart analyze packages/connectanum_router`, and post-edit
 `bin/test-fast` passed on 2026-05-17. Full local `bin/verify` passed on
-2026-05-17. Push, hosted branch gates, and deployment-chain audit evidence are
-pending for this follow-up.
+2026-05-17. Hosted evidence for `8849602` is clean: push CI #25999325183, PR
+CI #25999326277, push Dart Package Publish Dry Run #25999325178, PR Dart
+Package Publish Dry Run #25999326279, Router Image dry-run #25999630943, and
+WAMP Profile Benchmarks #25999630939 passed. The strict audit with latest
+CI/logs, package dry-run, router image dry-run, WAMP benchmark, native release
+relevance, workflow visibility, GHCR visibility, and RC-readiness reporting
+passed for the enforced gates on 2026-05-17.
 Commit `58609e1` pushed the
 runtime wiring: `packages/connectanum_auth_server/bin/auth_server.dart` starts
 a native router runtime from configured listeners, creates an internal
@@ -11791,7 +11809,8 @@ order.
   for enforced branch gates; missing-service-realm fail-closed smoke pushed and
   hosted-clean for enforced branch gates; custom realm/session CLI smoke pushed
   and hosted-clean for enforced branch gates; realm auto-creation policy
-  follow-up locally full-verified and pending hosted evidence).
+  follow-up pushed and hosted-clean for enforced branch gates plus refreshed
+  Router Image dry-run and WAMP Profile Benchmark evidence).
   Keep hosted GitHub CI clean first, then finish post-RC release-control
   hardening that does not require operator-owned publish, release-tag, or
   repository-setting decisions.

@@ -5,9 +5,9 @@ follow-up, and YAML package-executable config smoke are pushed and hosted-clean
 for enforced branch gates. The missing-service-realm fail-closed smoke is
 pushed and hosted-clean for enforced branch gates. The custom realm/session
 CLI smoke is pushed and hosted-clean for enforced branch gates. The explicit
-realm auto-creation policy follow-up is implemented and fully verified locally;
-push, hosted branch gates, and deployment-chain audit evidence remain. RC
-release-control blockers remain.
+realm auto-creation policy follow-up is pushed and hosted-clean for enforced
+branch gates, with refreshed Router Image dry-run and WAMP Profile Benchmark
+evidence. RC release-control blockers remain.
 
 ## Goal
 
@@ -172,12 +172,23 @@ WAMP procedures, and reporting readiness instead of only constructing an
   passed on 2026-05-17.
 - Realm auto-creation policy post-edit `bin/test-fast`: passed on 2026-05-17.
 - Realm auto-creation policy full local `bin/verify`: passed on 2026-05-17.
+- Realm auto-creation policy commit/push: `8849602` pushed to
+  `codex/post-rc-production-readiness`.
+- Realm auto-creation policy hosted CI: push CI #25999325183 and PR CI
+  #25999326277 passed for `8849602`.
+- Realm auto-creation policy hosted package dry-run: push #25999325178 and PR
+  #25999326279 passed for `8849602`.
+- Realm auto-creation policy hosted release-sensitive evidence refresh: Router
+  Image dry-run #25999630943 and WAMP Profile Benchmarks #25999630939 passed
+  for `8849602`.
+- Realm auto-creation policy strict deployment-chain audit with latest CI/logs,
+  package dry-run, router image dry-run, WAMP benchmark, workflow visibility,
+  GHCR visibility, native release relevance, and RC-readiness reporting:
+  passed for the enforced gates on 2026-05-17.
 
 ## Remaining
 
 - Complete PR #79 review/merge into the release branch.
-- Push, hosted branch gates, and deployment-chain audit evidence for the realm
-  auto-creation policy follow-up.
 - After release approval, choose a fresh RC tag for the latest promoted
   release-branch successor, then refresh tag-matched Native Artifacts and
   Router Image evidence.

@@ -174,6 +174,54 @@ void main() {
       skip: skipReason,
     );
 
+    test(
+      'keeps remote hello failures behind the fake challenge path',
+      () async {
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
+
+        final helloRegistration = await harness.authSession.register(
+          'authenticate.hello',
+        );
+        helloRegistration.onLazyInvokePayload((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: const <String, Object?>{
+              'status': 'failure',
+              'reason': wamp_core.Error.notAuthorized,
+              'message': 'remote hello rejected',
+            },
+          );
+        });
+        var authenticateCalls = 0;
+        final authenticateRegistration = await harness.authSession.register(
+          'authenticate.authenticate',
+        );
+        authenticateRegistration.onLazyInvokePayload((invocation) {
+          authenticateCalls += 1;
+          invocation.respondWith(
+            argumentsKeywords: const <String, Object?>{
+              'status': 'failure',
+              'reason': wamp_core.Error.notAuthorized,
+              'message': 'unexpected authenticate',
+            },
+          );
+        });
+
+        await expectLater(
+          harness.connectTicketUser(),
+          throwsA(
+            isA<client_pkg.Abort>().having(
+              (abort) => abort.reason,
+              'reason',
+              wamp_core.Error.authenticationFailed,
+            ),
+          ),
+        );
+        expect(authenticateCalls, isZero);
+      },
+      skip: skipReason,
+    );
+
     test('fails closed when the remote auth service times out', () async {
       final harness = await _RemoteAuthHarness.start(
         nativeLib: nativeLib!,

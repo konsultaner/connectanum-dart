@@ -312,7 +312,10 @@
 - [x] Auth server scaffolding (`packages/connectanum_auth_server`) providing the same authenticator API for remote deployments
 - [ ] Auth server CLI (config loader, RPC loop, health endpoints)
 - [x] Remote auth secure transport (mTLS / signed tokens) and credential rotation
-- [ ] Fake challenge parity & stub remote service integration tests
+- [x] Fake challenge parity & stub remote service integration tests. The live
+  remote-auth integration suite now covers mTLS success, auth-token and service
+  credential rotation, malformed stub payloads, timeout fail-closed behavior,
+  and HELLO rejection through the router fake-challenge path.
 - [ ] Internal transport support for embedded router↔client flows
   - [ ] Define in-process transport abstraction (frame routing with backpressure)
   - [ ] Embed internal session inside edge router to speak RemoteAuthenticatorDelegate over the new transport
