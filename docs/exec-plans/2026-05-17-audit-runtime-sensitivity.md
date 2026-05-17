@@ -1,10 +1,9 @@
 # Deployment Audit Runtime Sensitivity
 
 Status: implemented with clean local and hosted verification for the
-tooling/workflow slice. The previous worker scale-down reassignment plan is
-implementation-complete and remains blocked only by PR review/merge and
-operator RC-tag controls. A follow-up regression test now covers the local
-sensitivity diagnostic and is pending commit/push and hosted evidence.
+tooling/workflow slice and follow-up regression coverage. The previous worker
+scale-down reassignment plan is implementation-complete and remains blocked
+only by PR review/merge and operator RC-tag controls.
 
 ## Goal
 
@@ -60,8 +59,18 @@ is required only when those artifacts could change.
   the fast gate on 2026-05-17.
 - `bin/verify`: passed after wiring the checked diagnostic regression into the
   full gate on 2026-05-17.
+- Commit `0e63e23`: pushed to GitHub on
+  `codex/post-rc-production-readiness`.
+- Hosted push CI #25988974777: passed.
+- Hosted PR CI #25988975605: passed.
+- Hosted Dart Package Publish Dry Run #25988975610: passed.
+- Strict deployment-chain audit with latest CI/logs, package dry-run, workflow
+  visibility, GHCR visibility, WAMP benchmark relevance, native artifact
+  relevance, router image relevance, and RC-readiness reporting: passed for the
+  enforced gates.
 
 ## Remaining
 
-- Commit and push the regression coverage with this state update.
-- Collect required hosted evidence for the pushed regression coverage.
+- No further implementation remains for audit runtime sensitivity.
+- Complete PR #79 review/merge and operator RC-tag controls before cutting the
+  next RC from the promoted release branch.

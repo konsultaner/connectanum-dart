@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-17-audit-runtime-sensitivity.md`.
+`docs/exec-plans/2026-05-17-dart-package-dry-run-regression.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,6 +20,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+The Dart package publish dry-run release-order regression is implemented and
+locally verified. A new checked test exercises
+`bin/dart-package-publish-dry-run` in a temporary workspace with a fake `dart`
+executable, proving that default `--show-release-plan` mode reports the known
+private workspace dependency blocker without failing the zero-warning archive
+dry-run gate, while `--strict-release-ready --show-release-plan` fails on the
+same blocker until the public package release-order decision is made. The
+regression is wired into both `bin/test-fast` and `bin/test-all`. Pre-edit
+`bin/test-fast` passed on 2026-05-17. Focused
+`python3 tool/test_dart_package_publish_dry_run.py`, post-edit
+`bin/test-fast`, `git diff --check`, the private-name/local-path scan on
+touched public docs/tooling paths, and full local `bin/verify` passed on
+2026-05-17. Commit/push and hosted evidence are pending.
+
+Previous implementation checkpoint:
 Deployment-chain audit runtime sensitivity is implemented and covered by a
 checked regression. Router Image stale-evidence detection now tracks Docker
 metadata, native transport code, router runtime package inputs, pubspecs,
@@ -46,7 +61,14 @@ because no native-release-sensitive or router-image-sensitive paths changed
 after those runs. The follow-up regression test was added to `bin/test-fast`
 and `bin/test-all`; focused `python3 tool/test_audit_github_deployment_chain.py`,
 post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
-Commit/push and hosted evidence for the regression commit are pending.
+It was committed and pushed as `0e63e23`. Hosted evidence for `0e63e23` is
+clean: push CI #25988974777, PR CI #25988975605, and Dart Package Publish Dry
+Run #25988975610 passed. The strict audit with latest CI/logs, package dry-run,
+workflow visibility, GHCR visibility, WAMP benchmark relevance, native artifact
+relevance, router image relevance, and RC-readiness reporting exited cleanly
+for the enforced gates on 2026-05-17. RC readiness remains blocked by PR #79
+review/merge, fresh RC tag/release approval, and tag-matched Native Artifacts
+and Router Image evidence; pub.dev publishing remains intentionally deferred.
 
 Previous implementation checkpoint:
 Worker scale-down reassignment is implemented and pushed as `f2aeb6d`.
