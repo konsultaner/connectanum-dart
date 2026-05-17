@@ -97,6 +97,48 @@ void main() {
   );
 
   test(
+    'package executable rejects configs without the service realm',
+    () async {
+      final repoRoot = _resolveRepoRoot();
+      final tempDir = await Directory.systemTemp.createTemp(
+        'connectanum_auth_server_cli_missing_realm_',
+      );
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final configFile = File(
+        '${tempDir.path}/auth_service.json',
+      )..writeAsStringSync(jsonEncode(_authServiceConfigWithoutServiceRealm()));
+
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        <String>[
+          'run',
+          'connectanum_auth_server:auth_server',
+          '--config',
+          configFile.path,
+          '--check',
+        ],
+        workingDirectory: repoRoot.path,
+        environment: Platform.environment,
+      ).timeout(const Duration(seconds: 45));
+
+      expect(result.exitCode, 64, reason: _processOutput(result));
+      expect(
+        result.stderr,
+        contains(
+          'Configuration must define the auth service realm '
+          '"connectanum.authenticate".',
+        ),
+      );
+      expect(result.stdout, isNot(contains('Auth listener')));
+      expect(result.stdout, isNot(contains('Auth server procedures bound')));
+    },
+  );
+
+  test(
     'package executable serves configured health and metrics endpoints',
     () async {
       final repoRoot = _resolveRepoRoot();
@@ -320,6 +362,21 @@ Map<String, Object?> _authServiceConfig({bool openMetrics = false}) =>
         'worker_pool': <String, Object?>{'min_workers': 1},
       },
     };
+
+Map<String, Object?> _authServiceConfigWithoutServiceRealm() {
+  final config = _authServiceConfig();
+  final router = Map<String, Object?>.from(
+    config['router']! as Map<Object?, Object?>,
+  );
+  final realms = List<Object?>.from(router['realms']! as List<Object?>)
+    ..removeWhere(
+      (entry) =>
+          entry is Map<Object?, Object?> &&
+          entry['name'] == 'connectanum.authenticate',
+    );
+  router['realms'] = realms;
+  return <String, Object?>{'router': router};
+}
 
 String _authServiceYamlConfig() => '''
 router:

@@ -20,8 +20,9 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Auth-server CLI runtime wiring, documented package executable readiness, and
-CLI health/metrics readiness are implemented. Commit `58609e1` pushed the
+Auth-server CLI runtime wiring, documented package executable readiness, CLI
+health/metrics readiness, and YAML config readiness are pushed and
+hosted-clean for enforced branch gates. Commit `58609e1` pushed the
 runtime wiring: `packages/connectanum_auth_server/bin/auth_server.dart` starts
 a native router runtime from configured listeners, creates an internal
 service-realm session, binds the remote-auth WAMP procedures, and supports
@@ -32,26 +33,34 @@ documented `dart run connectanum_auth_server:auth_server --config ... --check`
 path against a temporary service config. Commit `1a849f5` reuses the router
 OpenMetrics HTTP exporter from the auth-server executable when
 `metrics.open_metrics` is enabled and proves `/healthz` plus the configured
-metrics path through the package executable smoke. The current YAML config
-follow-up proves the README-documented `auth_service.yaml` path through the
-same package executable, covering the shared router JSON/YAML config loader
-from the auth-server CLI surface. Pre-edit `bin/test-fast` and focused
-`dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`
-passed on 2026-05-17; full local `bin/verify` also passed for this YAML
-follow-up. Push and hosted evidence are pending. Hosted evidence for `1a849f5` is clean: push CI #25994206592,
-PR CI #25994207170, push Dart Package Publish Dry Run #25994206615, and PR
-Dart Package Publish Dry Run #25994207176 passed. Router Image dry-run
-#25993038176 and WAMP Profile Benchmarks #25993038113 remain clean and
-relevant because no router-image-sensitive or WAMP benchmark-sensitive paths
-changed since `8d2ee00`; Native Artifacts #25983559481 remains clean and
-relevant because no native-release-sensitive paths changed since `314a962`.
-The strict audit with latest CI/logs, package dry-run, router image dry-run,
-WAMP benchmark relevance, native release relevance, workflow visibility, GHCR
-visibility, and RC-readiness reporting passed for the enforced gates. RC
-readiness remains blocked by PR #79 review/merge, a fresh approved RC
-tag/prerelease for the promoted release branch, and tag-matched Native
-Artifacts/Router Image publish evidence; pub.dev remains intentionally
-deferred.
+metrics path through the package executable smoke. Commit `1f6b590` proves the
+README-documented `auth_service.yaml` path through the same package executable,
+covering the shared router JSON/YAML config loader from the auth-server CLI
+surface. Pre-edit `bin/test-fast`, focused
+`dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`,
+and full local `bin/verify` passed on 2026-05-17 for this YAML follow-up.
+Hosted evidence for `1f6b590` is clean: push CI #25995471254, PR CI
+#25995472200, push Dart Package Publish Dry Run #25995471249, and PR Dart
+Package Publish Dry Run #25995472192 passed. Router Image dry-run #25993038176
+and WAMP Profile Benchmarks #25993038113 remain clean and relevant because no
+router-image-sensitive or WAMP benchmark-sensitive paths changed since
+`8d2ee00`; Native Artifacts #25983559481 remains clean and relevant because no
+native-release-sensitive paths changed since `314a962`. The strict audit with
+latest CI/logs, package dry-run, router image dry-run, WAMP benchmark
+relevance, native release relevance, workflow visibility, GHCR visibility, and
+RC-readiness reporting passed for the enforced gates. The current
+missing-service-realm follow-up proves
+`dart run connectanum_auth_server:auth_server --check` rejects configs missing
+`connectanum.authenticate` before native runtime startup. Pre-edit
+`bin/test-fast`, focused
+`dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`,
+focused `dart analyze packages/connectanum_auth_server`, focused
+`dart test packages/connectanum_auth_server/test -r expanded`, post-edit
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-17. Push and
+hosted evidence are pending for this follow-up. RC readiness remains blocked by
+PR #79 review/merge, a fresh approved RC tag/prerelease for the promoted
+release branch, and tag-matched Native Artifacts/Router Image publish evidence;
+pub.dev remains intentionally deferred.
 
 Previous implementation checkpoint:
 The Dart package publish dry-run release-order regression is implemented and
@@ -11752,9 +11761,10 @@ order.
 
 - Active plan:
   `docs/exec-plans/2026-05-17-auth-server-cli-runtime.md`
-  (runtime wiring, package executable follow-up, and health/metrics endpoint
-  follow-up pushed and hosted-clean for enforced branch gates; YAML package
-  executable config smoke locally full-verified).
+  (runtime wiring, package executable follow-up, health/metrics endpoint
+  follow-up, and YAML package executable config smoke pushed and hosted-clean
+  for enforced branch gates; missing-service-realm fail-closed smoke locally
+  full-verified).
   Keep hosted GitHub CI clean first, then finish post-RC release-control
   hardening that does not require operator-owned publish, release-tag, or
   repository-setting decisions.

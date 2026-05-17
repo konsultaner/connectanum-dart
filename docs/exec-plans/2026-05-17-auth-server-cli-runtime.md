@@ -1,10 +1,10 @@
 # Auth Server CLI Runtime
 
-Status: runtime wiring, package executable follow-up, and health/metrics
-endpoint follow-up are pushed and hosted-clean for enforced branch gates. The
-YAML package-executable config smoke is implemented locally with full
-verification passing; push/hosted evidence and RC release-control blockers
-remain.
+Status: runtime wiring, package executable follow-up, health/metrics endpoint
+follow-up, and YAML package-executable config smoke are pushed and hosted-clean
+for enforced branch gates. The missing-service-realm fail-closed smoke is
+implemented locally with full verification passing; push/hosted evidence and RC
+release-control blockers remain.
 
 ## Goal
 
@@ -30,6 +30,8 @@ WAMP procedures, and reporting readiness instead of only constructing an
 - Prove the documented `auth_service.yaml` config path through the package
   executable so the shared router JSON/YAML config loader is covered from the
   auth-server CLI surface.
+- Prove `--check` rejects configs that omit the configured auth service realm
+  before native runtime startup.
 - Bundle the pending hosted-evidence bookkeeping from the completed Dart
   package dry-run slice with this implementation commit.
 - Follow up by proving the documented package executable target
@@ -104,12 +106,33 @@ WAMP procedures, and reporting readiness instead of only constructing an
 - YAML config focused `dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`:
   passed on 2026-05-17.
 - YAML config full local `bin/verify`: passed on 2026-05-17.
+- YAML config commit/push: `1f6b590` pushed to
+  `codex/post-rc-production-readiness`.
+- YAML config hosted CI: push CI #25995471254 and PR CI #25995472200 passed
+  for `1f6b590`.
+- YAML config hosted package dry-run: push #25995471249 and PR #25995472192
+  passed for `1f6b590`.
+- YAML config strict deployment-chain audit with latest CI/logs, package
+  dry-run, router image dry-run relevance, WAMP benchmark relevance, native
+  release relevance, workflow visibility, GHCR visibility, and RC-readiness
+  reporting: passed for the enforced gates on 2026-05-17.
+- Missing-service-realm follow-up pre-edit `bin/test-fast`: passed on
+  2026-05-17.
+- Missing-service-realm focused `dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`:
+  passed on 2026-05-17.
+- Missing-service-realm focused `dart analyze packages/connectanum_auth_server`:
+  passed on 2026-05-17.
+- Missing-service-realm focused `dart test packages/connectanum_auth_server/test -r expanded`:
+  passed on 2026-05-17.
+- Missing-service-realm post-edit `bin/test-fast`: passed on 2026-05-17.
+- Missing-service-realm full local `bin/verify`: passed on 2026-05-17.
 
 ## Remaining
 
-- Commit/push the bundled YAML config smoke code and state updates, then
-  collect hosted CI/package dry-run evidence and rerun the strict audit.
+- Commit/push the bundled missing-service-realm smoke code and state updates,
+  then collect hosted CI/package dry-run evidence and rerun the strict audit if
+  required for handoff.
 - Complete PR #79 review/merge into the release branch.
-- After release approval, choose a fresh RC tag for `1a849f5` or its promoted
-  release-branch successor, then refresh tag-matched Native Artifacts and
-  Router Image evidence.
+- After release approval, choose a fresh RC tag for the current branch head or
+  its promoted release-branch successor, then refresh tag-matched Native
+  Artifacts and Router Image evidence.
