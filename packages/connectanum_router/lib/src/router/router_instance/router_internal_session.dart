@@ -1870,7 +1870,7 @@ class _InternalSessionIsolate {
         'argumentsKeywords': argumentsKeywords,
         'options': options,
         'realmUri': _bootstrap.realmUri,
-        'callerSessionId': _bootstrap.sessionId,
+        if (dispatch.discloseCaller) 'callerSessionId': _bootstrap.sessionId,
         'callerRequestId': requestId,
         'replyPort': replyPort.sendPort,
       });
@@ -1954,7 +1954,7 @@ class _InternalSessionIsolate {
       return;
     }
 
-    final discloseCaller = options['disclose_me'] == true;
+    final discloseCaller = dispatch.discloseCaller;
     final receiveProgress = options['receive_progress'] == true;
     final invocationDetails = invocation_msg.InvocationDetails(
       discloseCaller ? _bootstrap.sessionId : null,

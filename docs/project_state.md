@@ -21,18 +21,41 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-The deployment-chain audit stale-RC next-action wording is complete locally.
-The audit now recommends choosing a fresh RC tag when an existing GitHub RC
-prerelease or selected RC tag does not cover the checked-out
-release-sensitive candidate, and treats retagging an already published RC as
-explicit release-policy approval rather than a default next step. This keeps
-the audit read-only and reduces accidental mutation risk for consumed RC
-tags/prereleases. Pre-edit `bin/test-fast` passed on 2026-05-17; focused
-`bash -n bin/audit-github-deployment-chain`, stale-wording scan, and
-stale-RC audit output inspection also passed. `git diff --check`, private-name
-scan on the touched public docs/tooling paths, and full local `bin/verify`
-passed on 2026-05-17. Hosted CI/package dry-run evidence needs to refresh after
-the implementation commit is pushed.
+Router caller disclosure policy is complete locally. Invocation dispatch now
+computes caller disclosure once from the caller `CALL` `disclose_me` option or
+the selected callee registration `disclose_caller` option, and worker,
+internal-session, and native-forward invocation paths consume that shared
+decision. This prevents internal callees from seeing caller session IDs unless
+disclosure was requested, while external/internal callees that request
+`disclose_caller` receive the caller ID even when the caller did not set
+`disclose_me`. Pre-edit `bin/test-fast` passed on 2026-05-17. Focused
+router-worker and router-runtime disclosure regressions passed, the full
+`router_worker_session_test.dart` plus `router_runtime_test.dart` files passed,
+`dart analyze packages/connectanum_router` passed, `git diff --check` passed,
+the private-name scan on the touched docs passed, and full local `bin/verify`
+passed on 2026-05-17. Hosted evidence still needs to refresh after this
+implementation commit is pushed. Hosted evidence for the previous pushed
+checkpoint `47075b7` is clean: push-triggered GitHub CI #25981096863 passed,
+PR-triggered GitHub CI #25981096333 passed, and Dart Package Publish Dry Run
+#25981096851 passed.
+
+Previous implementation checkpoint:
+The deployment-chain audit stale-RC next-action wording is complete. The audit
+now recommends choosing a fresh RC tag when an existing GitHub RC prerelease or
+selected RC tag does not cover the checked-out release-sensitive candidate, and
+treats retagging an already published RC as explicit release-policy approval
+rather than a default next step. This keeps the audit read-only and reduces
+accidental mutation risk for consumed RC tags/prereleases. Pre-edit
+`bin/test-fast` passed on 2026-05-17; focused
+`bash -n bin/audit-github-deployment-chain`, stale-wording scan, and stale-RC
+audit output inspection also passed. `git diff --check`, private-name scan on
+the touched public docs/tooling paths, and full local `bin/verify` passed on
+2026-05-17. The implementation was committed as `47075b7` and pushed to GitHub
+PR #79. Hosted evidence for `47075b7` is clean: push-triggered GitHub CI
+#25981096863 passed with `Fast Checks` and `Full Verify` green; PR-triggered
+GitHub CI #25981096333 passed with `Fast Checks` and `Full Verify` green; and
+Dart Package Publish Dry Run #25981096851 passed. PR #79 remains blocked on
+review/merge before release-branch promotion.
 
 Previous implementation checkpoint:
 Native artifact signing flake hardening is complete. Commit `af831f7` moved the

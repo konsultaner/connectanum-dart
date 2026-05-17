@@ -5224,6 +5224,101 @@ void main() {
     );
 
     test(
+      'honors callee-requested caller disclosure during CALL dispatch',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 603;
+        final calleeState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 604;
+
+        _openSession(
+          stateStore,
+          sessionId: 603,
+          listener: listener,
+          connectionId: 33,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 604,
+          listener: listener,
+          connectionId: 34,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final registerReply = ReceivePort();
+        stateStore.commandPort.send(
+          ProcedureRegisterCommand(
+            realmUri: 'realm1',
+            sessionId: 604,
+            procedure: 'com.example.disclose.caller',
+            details: const {'disclose_caller': true},
+            replyPort: registerReply.sendPort,
+          ),
+        );
+        final registrationId = await registerReply.first as int;
+        registerReply.close();
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        final call = call_msg.Call(
+          7002,
+          'com.example.disclose.caller',
+          arguments: const ['ping'],
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 33,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final invocationForward = _extractForwardMessages(bossMessages);
+        expect(invocationForward, hasLength(1));
+        final invocationEnvelope = invocationForward.single;
+        expect(invocationEnvelope['connectionId'], equals(34));
+        final invocation =
+            invocationEnvelope['message'] as invocation_msg.Invocation;
+        expect(invocation.registrationId, equals(registrationId));
+        expect(invocation.details.caller, equals(603));
+      },
+    );
+
+    test(
       'preserves lazy call payload without decoding on Dart fallback',
       () async {
         final bossMessages = <Map<String, Object?>>[];

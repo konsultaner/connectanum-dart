@@ -1029,7 +1029,7 @@ Future<void> _handleCall({
       'registrationId': dispatch.registrationId,
       'invocationId': dispatch.invocationId,
     });
-    final discloseCaller = message.options?.discloseMe == true;
+    final discloseCaller = dispatch.discloseCaller;
     final nativeMessage = incomingMessage;
     var usedZeroCopy = false;
     if (dispatch.calleeInternalSendPort != null) {
@@ -1366,7 +1366,7 @@ Future<void> _handleInternalInvocation({
       _internalMsgLazyPayload: transferredPayload,
       'options': _callOptionsToMap(message.options),
       'realmUri': realmUri,
-      'callerSessionId': callerSessionId,
+      if (dispatch.discloseCaller) 'callerSessionId': callerSessionId,
       'callerRequestId': message.requestId,
       'replyPort': replyPort.sendPort,
     });

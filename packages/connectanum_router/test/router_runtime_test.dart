@@ -22,6 +22,7 @@ import 'package:connectanum_core/connectanum_core.dart'
         PPTPayload,
         Publish,
         PublishOptions;
+import 'package:connectanum_core/connectanum_core.dart' show RegisterOptions;
 import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
@@ -8351,6 +8352,67 @@ void main() {
       );
     },
   );
+
+  test('applies caller disclosure policy across internal sessions', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithPendingProtocols(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    final callee = await binding.createInternalSession(realmUri: 'realm1');
+    final caller = await binding.createInternalSession(realmUri: 'realm1');
+    addTearDown(callee.close);
+    addTearDown(caller.close);
+
+    final undisclosedCaller = Completer<int?>();
+    final defaultRegistration = await callee.register(
+      'com.example.internal.no_disclose',
+    );
+    defaultRegistration.onInvoke((invocation) {
+      if (!undisclosedCaller.isCompleted) {
+        undisclosedCaller.complete(invocation.details.caller);
+      }
+      invocation.respondWith(arguments: const ['ok']);
+    });
+
+    final defaultResult = await caller
+        .call('com.example.internal.no_disclose')
+        .first;
+    expect(defaultResult.arguments, equals(const ['ok']));
+    expect(await undisclosedCaller.future, isNull);
+
+    final disclosedCaller = Completer<int?>();
+    final discloseRegistration = await callee.register(
+      'com.example.internal.disclose',
+      options: RegisterOptions(discloseCaller: true),
+    );
+    discloseRegistration.onInvoke((invocation) {
+      if (!disclosedCaller.isCompleted) {
+        disclosedCaller.complete(invocation.details.caller);
+      }
+      invocation.respondWith(arguments: const ['ok']);
+    });
+
+    final discloseResult = await caller
+        .call('com.example.internal.disclose')
+        .first;
+    expect(discloseResult.arguments, equals(const ['ok']));
+    expect(await disclosedCaller.future, equals(caller.sessionId));
+  });
 
   test(
     'routes lazy publish payloads across internal sessions without decoding',
