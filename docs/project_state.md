@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-17-dart-package-dry-run-regression.md`.
+`docs/exec-plans/2026-05-17-auth-server-cli-runtime.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,6 +20,23 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Auth-server CLI runtime wiring is implemented and locally verified for
+consumer-service readiness. `packages/connectanum_auth_server/bin/auth_server.dart`
+now starts a native router runtime from configured listeners, creates an
+internal service-realm session, binds the remote-auth WAMP procedures, and
+supports `--check` for deployment/package smoke tests. The package README
+documents the CLI path, and
+`packages/connectanum_auth_server/test/auth_server_cli_test.dart` runs the
+executable against a temporary service config to prove procedure binding
+readiness. Pre-edit `bin/test-fast` first hit native runtime lock contention
+from an overlapping `bin/test-fast` process; after the lock cleared, isolated
+`bin/test-fast` passed on 2026-05-17. Focused
+`dart test packages/connectanum_auth_server/test`, post-edit `bin/test-fast`,
+`git diff --check`, the private-name/local-path scan on touched public
+docs/package paths, and full local `bin/verify` passed on 2026-05-17.
+Commit/push and hosted evidence are pending.
+
+Previous implementation checkpoint:
 The Dart package publish dry-run release-order regression is implemented and
 locally verified. A new checked test exercises
 `bin/dart-package-publish-dry-run` in a temporary workspace with a fake `dart`
@@ -32,7 +49,15 @@ regression is wired into both `bin/test-fast` and `bin/test-all`. Pre-edit
 `python3 tool/test_dart_package_publish_dry_run.py`, post-edit
 `bin/test-fast`, `git diff --check`, the private-name/local-path scan on
 touched public docs/tooling paths, and full local `bin/verify` passed on
-2026-05-17. Commit/push and hosted evidence are pending.
+2026-05-17. The implementation was committed and pushed as `8777a82`. Hosted
+evidence for `8777a82` is clean: push CI #25989952453, PR CI #25989953492,
+and Dart Package Publish Dry Run #25989953493 passed. The strict audit with
+latest CI/logs, package dry-run, workflow visibility, GHCR visibility, WAMP
+benchmark relevance, native artifact relevance, router image relevance, and
+RC-readiness reporting exited cleanly for the enforced gates on 2026-05-17.
+RC readiness remains blocked by PR #79 review/merge, fresh RC tag/release
+approval, and tag-matched Native Artifacts and Router Image evidence; pub.dev
+publishing remains intentionally deferred.
 
 Previous implementation checkpoint:
 Deployment-chain audit runtime sensitivity is implemented and covered by a

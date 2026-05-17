@@ -26,6 +26,25 @@ The default procedure names are:
 
 ## Quick Start
 
+For a packaged service, provide a router configuration that contains the auth
+service listener, the `connectanum.authenticate` service realm, and the
+authenticators/realms the service should evaluate. The CLI starts the native
+runtime, binds the remote-auth WAMP procedures, and stays running until
+SIGINT/SIGTERM:
+
+```bash
+dart run connectanum_auth_server:auth_server --config auth_service.yaml
+```
+
+Use `--check` in deployment smoke tests to start the runtime, bind procedures,
+report readiness, and exit:
+
+```bash
+dart run connectanum_auth_server:auth_server --config auth_service.yaml --check
+```
+
+For embedded use, wire the same primitives directly:
+
 ```dart
 import 'package:connectanum_auth_server/connectanum_auth_server.dart';
 import 'package:connectanum_router/connectanum_router.dart';

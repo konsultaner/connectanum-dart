@@ -1,7 +1,7 @@
 # Dart Package Dry-Run Regression
 
-Status: implemented with clean local verification; commit/push and hosted
-evidence are pending.
+Status: implemented with clean local and hosted verification. No further
+implementation remains for this slice.
 
 ## Goal
 
@@ -31,8 +31,19 @@ fail until the package ownership/version/release-order decision is made.
 - `git diff --check`: passed.
 - Private-name/local-path scan on touched public docs/tooling paths: passed.
 - `bin/verify`: passed on 2026-05-17.
+- Commit `8777a82`: pushed to GitHub on
+  `codex/post-rc-production-readiness`.
+- Hosted push CI #25989952453: passed.
+- Hosted PR CI #25989953492: passed.
+- Hosted Dart Package Publish Dry Run #25989953493: passed.
+- Strict deployment-chain audit with latest CI/logs, package dry-run, workflow
+  visibility, GHCR visibility, WAMP benchmark relevance, native artifact
+  relevance, router image relevance, and RC-readiness reporting: passed for the
+  enforced gates. RC readiness remains blocked by PR #79 review/merge, fresh RC
+  tag/release approval, and tag-matched Native Artifacts and Router Image
+  evidence; pub.dev publishing remains intentionally deferred.
 
 ## Remaining
 
-- Commit and push the implementation plus state updates.
-- Collect required hosted CI/package dry-run evidence after push.
+- Complete PR #79 review/merge and operator RC-tag controls before cutting the
+  next RC from the promoted release branch.
