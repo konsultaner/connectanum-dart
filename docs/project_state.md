@@ -20,20 +20,33 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Deployment-chain audit runtime sensitivity is implemented locally. Router Image
-stale-evidence detection now tracks Docker metadata, native transport code,
-router runtime package inputs, pubspecs, install helpers, and image metadata
-rendering instead of every package file. WAMP Profile Benchmark sensitivity and
-workflow path filters now track benchmark orchestration, native
-benchmark/transport inputs, package pubspecs, and benchmark runtime libraries,
-so test-only package changes do not force WAMP evidence. The audit also has a
-local `--show-sensitive-changes-since <ref>` diagnostic that prints evidence
-sensitivity groups without GitHub API access. Pre-edit `bin/test-fast`,
+Deployment-chain audit runtime sensitivity is implemented and covered by a
+checked regression. Router Image stale-evidence detection now tracks Docker
+metadata, native transport code, router runtime package inputs, pubspecs,
+install helpers, and image metadata rendering instead of every package file.
+WAMP Profile Benchmark sensitivity and workflow path filters now track
+benchmark orchestration, native benchmark/transport inputs, package pubspecs,
+and benchmark runtime libraries, so test-only package changes do not force WAMP
+evidence. The audit also has a local `--show-sensitive-changes-since <ref>`
+diagnostic that prints evidence sensitivity groups without GitHub API access,
+and `tool/test_audit_github_deployment_chain.py` exercises that diagnostic in a
+temporary git repo. Pre-edit `bin/test-fast`,
 `bash -n bin/audit-github-deployment-chain`, diagnostic checks against the
 prior router test-only change, an isolated temp-repo test-only/runtime-path
 sensitivity repro, `git diff --check`, private-name/local-path scan on touched
 docs/tooling/workflow paths, post-edit `bin/test-fast`, and full local
-`bin/verify` passed on 2026-05-17. Commit/push and hosted evidence are pending.
+`bin/verify` passed on 2026-05-17 for the workflow/tooling implementation that
+was committed as `02d58c7`. Hosted evidence for `02d58c7` is clean:
+push CI #25987809282, PR CI #25987810049, Dart Package Publish Dry Run
+#25987810042, and WAMP Profile Benchmarks #25987816460 passed. The strict audit
+with latest CI/logs, package dry-run, WAMP benchmark, workflow visibility, GHCR
+visibility, and RC-readiness reporting exited cleanly for the enforced gates;
+Native Artifacts #25983559481 and Router Image #25986708938 remain relevant
+because no native-release-sensitive or router-image-sensitive paths changed
+after those runs. The follow-up regression test was added to `bin/test-fast`
+and `bin/test-all`; focused `python3 tool/test_audit_github_deployment_chain.py`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
+Commit/push and hosted evidence for the regression commit are pending.
 
 Previous implementation checkpoint:
 Worker scale-down reassignment is implemented and pushed as `f2aeb6d`.

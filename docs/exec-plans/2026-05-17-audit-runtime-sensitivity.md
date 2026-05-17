@@ -1,9 +1,10 @@
 # Deployment Audit Runtime Sensitivity
 
-Status: implemented locally with clean local verification. The previous worker
-scale-down reassignment plan is implementation-complete and remains blocked
-only by PR review/merge and operator RC-tag controls. Hosted evidence for this
-deployment-chain tooling/workflow change is pending push and workflow runs.
+Status: implemented with clean local and hosted verification for the
+tooling/workflow slice. The previous worker scale-down reassignment plan is
+implementation-complete and remains blocked only by PR review/merge and
+operator RC-tag controls. A follow-up regression test now covers the local
+sensitivity diagnostic and is pending commit/push and hosted evidence.
 
 ## Goal
 
@@ -24,6 +25,9 @@ is required only when those artifacts could change.
   branches.
 - Add a local diagnostic mode to the audit script that prints path sensitivity
   groups for a ref-to-HEAD comparison without requiring GitHub API access.
+- Add checked regression coverage for that local diagnostic so future audit
+  path-filter changes cannot silently reclassify router runtime tests as Router
+  Image or WAMP Profile Benchmark inputs.
 
 ## Verification
 
@@ -39,8 +43,25 @@ is required only when those artifacts could change.
 - Private-name/local-path scan on touched docs/tooling/workflow paths: passed.
 - `bin/test-fast`: passed after edits on 2026-05-17.
 - `bin/verify`: passed on 2026-05-17.
+- Commit `02d58c7`: pushed to GitHub on
+  `codex/post-rc-production-readiness`.
+- Hosted push CI #25987809282: passed.
+- Hosted PR CI #25987810049: passed.
+- Hosted Dart Package Publish Dry Run #25987810042: passed.
+- Hosted WAMP Profile Benchmarks #25987816460: passed.
+- Strict deployment-chain audit with latest CI/logs, package dry-run, WAMP
+  benchmark, workflow visibility, GHCR visibility, and RC-readiness reporting:
+  passed for the enforced gates. Native Artifacts #25983559481 and Router Image
+  #25986708938 remain relevant because no native-release-sensitive or
+  router-image-sensitive paths changed after those runs.
+- `python3 tool/test_audit_github_deployment_chain.py`: passed after adding the
+  checked diagnostic regression.
+- `bin/test-fast`: passed after wiring the checked diagnostic regression into
+  the fast gate on 2026-05-17.
+- `bin/verify`: passed after wiring the checked diagnostic regression into the
+  full gate on 2026-05-17.
 
 ## Remaining
 
-- Commit and push the implementation.
-- Collect required hosted evidence for the pushed tooling/workflow change.
+- Commit and push the regression coverage with this state update.
+- Collect required hosted evidence for the pushed regression coverage.
