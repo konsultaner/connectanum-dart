@@ -353,6 +353,22 @@ void main() {
     expect(workerMetric['total_busy_duration_ms'], greaterThanOrEqualTo(0));
     expect(workerMetric['total_queue_latency_ms'], greaterThanOrEqualTo(0));
     expect(workerMetric['max_pending_dispatches'], greaterThanOrEqualTo(0));
+    final workerPoolMetrics =
+        routerMetrics['worker_pool'] as Map<String, Object?>? ?? const {};
+    expect(workerPoolMetrics['min_workers'], equals(1));
+    expect(workerPoolMetrics['max_workers'], equals(1));
+    expect(workerPoolMetrics['pending_isolates'], greaterThanOrEqualTo(0));
+    expect(
+      workerPoolMetrics['scale_up_pressure_ticks'],
+      greaterThanOrEqualTo(0),
+    );
+    expect(workerPoolMetrics['scale_down_idle_ticks'], greaterThanOrEqualTo(0));
+    expect(workerPoolMetrics['scale_ups_total'], greaterThanOrEqualTo(0));
+    expect(workerPoolMetrics['scale_downs_total'], greaterThanOrEqualTo(0));
+    expect(
+      workerPoolMetrics['scale_down_timeouts_total'],
+      greaterThanOrEqualTo(0),
+    );
     final transportMetrics =
         routerMetrics['transport'] as Map<String, Object?>? ?? const {};
     expect(transportMetrics['active_throttles'], equals(1));
@@ -427,6 +443,38 @@ void main() {
     expect(
       openMetricsText,
       contains('connectanum_router_worker_max_pending_dispatches'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_min_workers 1'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_max_workers 1'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_pending_isolates'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_up_pressure_ticks'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_down_idle_ticks'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_ups_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_downs_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_down_timeouts_total'),
     );
     expect(openMetricsText, contains('realm="realm1"'));
     expect(openMetricsText, contains('connectanum_router_http_events_total'));

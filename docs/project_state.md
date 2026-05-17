@@ -21,6 +21,20 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Router worker-pool autoscaling observability is complete locally for the
+post-RC worker-pool-readiness milestone. The router metrics snapshot now
+includes a `worker_pool` section with configured min/max workers, pending
+isolate count, scale-up/scale-down hysteresis tick gauges, scale-up totals,
+scale-down totals, and scale-down drain-timeout totals. The OpenMetrics
+exporter emits matching low-cardinality gauges/counters, and runtime coverage
+asserts that pressure-triggered scale-up and idle scale-down update those
+counters without adding new autoscaling policy behavior. The required pre-edit
+`bin/test-fast`, focused metrics exporter regression, focused worker-pool
+autoscaling regressions, `dart analyze packages/connectanum_router`,
+`git diff --check`, private-name scan, and post-edit `bin/test-fast` passed on
+2026-05-17. Full local `bin/verify` also passed on 2026-05-17.
+
+Previous implementation checkpoint:
 Router worker scale-up/down hysteresis is complete locally for the post-RC
 worker-pool-readiness milestone. `WorkerPoolSettings` now supports
 `maxWorkers`, `scaleUpPendingDispatches`, `scaleUpConsecutiveTicks`,
@@ -39,8 +53,19 @@ worker-pool config regression, focused scale-down regression, full
 `router_config_loader_test.dart`, full `router_runtime_test.dart`,
 `dart analyze packages/connectanum_router`, `git diff --check`, private-name
 scan, post-edit `bin/test-fast`, and full local `bin/verify` passed on
-2026-05-17. Hosted evidence for this implementation is pending push and GitHub
-CI.
+2026-05-17. The implementation was committed as `666303d` and pushed to
+GitHub PR #79. Hosted evidence for `666303d` is clean: push-triggered GitHub
+CI #25976502736 passed with `Fast Checks` job #76357402195 and `Full Verify`
+job #76357618554 green; push-triggered Dart Package Publish Dry Run
+#25976502733 passed with publish dry-run job #76357402071 green;
+PR-triggered GitHub CI #25976503349 passed with `Fast Checks` job
+#76357403448 and `Full Verify` job #76357608711 green; PR-triggered Dart
+Package Publish Dry Run #25976503364 passed with publish dry-run job
+#76357403498 green; and the strict deployment-chain audit passed with clean
+latest CI, hosted CI logs/annotations, relevant hosted package dry-run
+evidence, release branch protection baseline, workflow visibility, and GHCR
+router image visibility. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
 
 Previous implementation checkpoint:
 Router worker scale-up hysteresis is complete locally for the post-RC

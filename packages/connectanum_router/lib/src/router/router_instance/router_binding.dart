@@ -6501,6 +6501,73 @@ class _MetricsService {
         'connectanum_router_worker_isolates ${routerSnapshot.workerCount}',
       );
 
+    final workerPool = routerSnapshot.workerPool;
+    buffer
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_min_workers Configured minimum worker isolates for the pool',
+      )
+      ..writeln('# TYPE connectanum_router_worker_pool_min_workers gauge')
+      ..writeln(
+        'connectanum_router_worker_pool_min_workers ${workerPool.minWorkers}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_max_workers Configured maximum worker isolates for the pool',
+      )
+      ..writeln('# TYPE connectanum_router_worker_pool_max_workers gauge')
+      ..writeln(
+        'connectanum_router_worker_pool_max_workers ${workerPool.maxWorkers}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_pending_isolates Worker isolates spawned by the boss but not yet registered',
+      )
+      ..writeln('# TYPE connectanum_router_worker_pool_pending_isolates gauge')
+      ..writeln(
+        'connectanum_router_worker_pool_pending_isolates ${workerPool.pendingIsolates}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_up_pressure_ticks Current consecutive pressure ticks toward the scale-up threshold',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_worker_pool_scale_up_pressure_ticks gauge',
+      )
+      ..writeln(
+        'connectanum_router_worker_pool_scale_up_pressure_ticks ${workerPool.scaleUpPressureTicks}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_down_idle_ticks Current consecutive idle ticks toward the scale-down threshold',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_worker_pool_scale_down_idle_ticks gauge',
+      )
+      ..writeln(
+        'connectanum_router_worker_pool_scale_down_idle_ticks ${workerPool.scaleDownIdleTicks}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_ups_total Pressure-triggered worker-pool scale-up attempts since router start',
+      )
+      ..writeln('# TYPE connectanum_router_worker_pool_scale_ups_total counter')
+      ..writeln(
+        'connectanum_router_worker_pool_scale_ups_total ${workerPool.scaleUpsTotal}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_downs_total Worker-pool scale-down retirements since router start',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_worker_pool_scale_downs_total counter',
+      )
+      ..writeln(
+        'connectanum_router_worker_pool_scale_downs_total ${workerPool.scaleDownsTotal}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_down_timeouts_total Worker-pool scale-down retirements that exceeded the drain timeout',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_worker_pool_scale_down_timeouts_total counter',
+      )
+      ..writeln(
+        'connectanum_router_worker_pool_scale_down_timeouts_total ${workerPool.scaleDownTimeoutsTotal}',
+      );
+
     final workerLoad = routerSnapshot.workerLoad;
     final busyWorkers = workerLoad.where((worker) => worker.busy).length;
     buffer

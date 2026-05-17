@@ -142,6 +142,9 @@ class _RouterBoss {
   int _nextPendingWorkerToken = -1;
   int _workerScaleUpPressureTicks = 0;
   int _workerScaleDownIdleTicks = 0;
+  int _workerPoolScaleUpsTotal = 0;
+  int _workerPoolScaleDownsTotal = 0;
+  int _workerPoolScaleDownTimeoutsTotal = 0;
 
   SendPort get stateCommandPort => _stateStore.commandPort;
   SendPort get bossCommandPort => _commandPort.sendPort;
@@ -304,6 +307,7 @@ class _RouterBoss {
         if (_workerScaleUpPressureTicks >= workerPool.scaleUpConsecutiveTicks) {
           _workerScaleUpPressureTicks = 0;
           await _spawnWorker(listeners.first, _allocatePendingWorkerToken());
+          _workerPoolScaleUpsTotal += 1;
           onEvent?.call({
             'source': 'boss',
             'type': 'worker_pool_scale_up',
@@ -386,7 +390,9 @@ class _RouterBoss {
     }
 
     _shutdownWorker(worker, terminateIsolate: timedOut);
+    _workerPoolScaleDownsTotal += 1;
     if (timedOut) {
+      _workerPoolScaleDownTimeoutsTotal += 1;
       onEvent?.call({
         'source': 'boss',
         'type': 'worker_pool_scale_down_timeout',
@@ -1801,6 +1807,16 @@ class _RouterBoss {
       workerLoad: _workers
           .map((worker) => worker.toMetrics(timestamp))
           .toList(growable: false),
+      workerPool: RouterWorkerPoolMetrics(
+        minWorkers: settings.workerPool.minWorkers,
+        maxWorkers: settings.workerPool.maxWorkers,
+        pendingIsolates: _pendingIsolates.length,
+        scaleUpPressureTicks: _workerScaleUpPressureTicks,
+        scaleDownIdleTicks: _workerScaleDownIdleTicks,
+        scaleUpsTotal: _workerPoolScaleUpsTotal,
+        scaleDownsTotal: _workerPoolScaleDownsTotal,
+        scaleDownTimeoutsTotal: _workerPoolScaleDownTimeoutsTotal,
+      ),
       alerts: _buildAlertMetrics(),
       transport: transportMetrics,
     );

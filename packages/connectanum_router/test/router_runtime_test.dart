@@ -3422,6 +3422,15 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 5));
         }
         expect(scaledSnapshot, isNotNull, reason: 'events=$events');
+        expect(scaledSnapshot!.workerPool.minWorkers, 1);
+        expect(scaledSnapshot.workerPool.maxWorkers, 2);
+        expect(scaledSnapshot.workerPool.pendingIsolates, 0);
+        expect(
+          scaledSnapshot.workerPool.scaleUpsTotal,
+          greaterThanOrEqualTo(1),
+        );
+        expect(scaledSnapshot.workerPool.scaleDownsTotal, 0);
+        expect(scaledSnapshot.workerPool.scaleDownTimeoutsTotal, 0);
 
         final scaledWorkerHandle = runtime.enqueueHandleOnly(8332);
         await _waitUntil(() {
@@ -3549,6 +3558,12 @@ void main() {
 
         final snapshot = await binding.collectMetrics();
         expect(snapshot.workerLoad, hasLength(1));
+        expect(snapshot.workerPool.minWorkers, 1);
+        expect(snapshot.workerPool.maxWorkers, 2);
+        expect(snapshot.workerPool.pendingIsolates, 0);
+        expect(snapshot.workerPool.scaleUpsTotal, greaterThanOrEqualTo(1));
+        expect(snapshot.workerPool.scaleDownsTotal, 1);
+        expect(snapshot.workerPool.scaleDownTimeoutsTotal, 0);
       },
     );
 

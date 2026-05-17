@@ -15,6 +15,7 @@ class RouterMetricsSnapshot {
     required this.activeConnections,
     required this.workerCount,
     this.workerLoad = const <RouterWorkerLoadMetrics>[],
+    this.workerPool = const RouterWorkerPoolMetrics(),
     this.shutdown = const RouterShutdownMetrics(),
     this.alerts = const RouterAlertMetrics(),
     this.process,
@@ -54,6 +55,9 @@ class RouterMetricsSnapshot {
   /// Per-worker load counters captured by the boss isolate.
   final List<RouterWorkerLoadMetrics> workerLoad;
 
+  /// Worker-pool autoscaling configuration and hysteresis counters.
+  final RouterWorkerPoolMetrics workerPool;
+
   /// Graceful shutdown/drain state owned by the binding.
   final RouterShutdownMetrics shutdown;
 
@@ -78,6 +82,7 @@ class RouterMetricsSnapshot {
     int? activeConnections,
     int? workerCount,
     List<RouterWorkerLoadMetrics>? workerLoad,
+    RouterWorkerPoolMetrics? workerPool,
     RouterShutdownMetrics? shutdown,
     RouterAlertMetrics? alerts,
     RouterProcessMetrics? process,
@@ -98,6 +103,7 @@ class RouterMetricsSnapshot {
       activeConnections: activeConnections ?? this.activeConnections,
       workerCount: workerCount ?? this.workerCount,
       workerLoad: workerLoad ?? this.workerLoad,
+      workerPool: workerPool ?? this.workerPool,
       shutdown: shutdown ?? this.shutdown,
       alerts: alerts ?? this.alerts,
       process: process ?? this.process,
@@ -119,10 +125,61 @@ class RouterMetricsSnapshot {
     'workers': workerLoad
         .map((worker) => worker.toJson())
         .toList(growable: false),
+    'worker_pool': workerPool.toJson(),
     'shutdown': shutdown.toJson(),
     'alerts': alerts.toJson(),
     if (process != null) 'process': process!.toJson(),
     if (transport != null) 'transport': transport!.toJson(),
+  };
+}
+
+/// Worker-pool autoscaling metrics observed by the router boss.
+@immutable
+class RouterWorkerPoolMetrics {
+  const RouterWorkerPoolMetrics({
+    this.minWorkers = 0,
+    this.maxWorkers = 0,
+    this.pendingIsolates = 0,
+    this.scaleUpPressureTicks = 0,
+    this.scaleDownIdleTicks = 0,
+    this.scaleUpsTotal = 0,
+    this.scaleDownsTotal = 0,
+    this.scaleDownTimeoutsTotal = 0,
+  });
+
+  /// Configured minimum worker isolates for the pool.
+  final int minWorkers;
+
+  /// Configured maximum worker isolates for the pool.
+  final int maxWorkers;
+
+  /// Worker isolates spawned by the boss but not yet registered.
+  final int pendingIsolates;
+
+  /// Current consecutive pressure ticks toward the scale-up threshold.
+  final int scaleUpPressureTicks;
+
+  /// Current consecutive idle ticks toward the scale-down threshold.
+  final int scaleDownIdleTicks;
+
+  /// Total pressure-triggered scale-up attempts since router start.
+  final int scaleUpsTotal;
+
+  /// Total scale-down retirements since router start.
+  final int scaleDownsTotal;
+
+  /// Total scale-down retirements that exceeded the drain timeout.
+  final int scaleDownTimeoutsTotal;
+
+  Map<String, Object?> toJson() => {
+    'min_workers': minWorkers,
+    'max_workers': maxWorkers,
+    'pending_isolates': pendingIsolates,
+    'scale_up_pressure_ticks': scaleUpPressureTicks,
+    'scale_down_idle_ticks': scaleDownIdleTicks,
+    'scale_ups_total': scaleUpsTotal,
+    'scale_downs_total': scaleDownsTotal,
+    'scale_down_timeouts_total': scaleDownTimeoutsTotal,
   };
 }
 
