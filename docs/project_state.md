@@ -20,20 +20,26 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Worker scale-down reassignment is complete locally. Scale-down can now retire
-an idle excess worker that still owns open WAMP sessions by exporting the
-source worker connection state, adopting it on a surviving worker, updating
-boss connection ownership, transferring the state-store session record, and
-then asking the source worker to forget its stale copy. Non-transferable
-sessions fall back to the existing drain/shutdown path instead of stranding a
-non-accepting worker. Boss session-open telemetry now keeps the normalized
-`worker_session_opened` event type instead of leaking the raw worker event
-code. Pre-edit `bin/test-fast` passed on 2026-05-17. Focused transfer
-coverage, related scale-up/down runtime coverage, full `router_runtime_test`,
-`dart analyze packages/connectanum_router`, post-edit `bin/test-fast`,
-`git diff --check`, the private-name/local-path scan on touched docs, and full
-local `bin/verify` passed on 2026-05-17. Commit/push and hosted CI evidence are
-pending.
+Worker scale-down reassignment is implemented and pushed as `f2aeb6d`.
+Scale-down can now retire an idle excess worker that still owns open WAMP
+sessions by exporting the source worker connection state, adopting it on a
+surviving worker, updating boss connection ownership, transferring the
+state-store session record, and then asking the source worker to forget its
+stale copy. Non-transferable sessions fall back to the existing drain/shutdown
+path instead of stranding a non-accepting worker. Boss session-open telemetry
+keeps the normalized `worker_session_opened` event type instead of leaking the
+raw worker event code. Hosted evidence for `f2aeb6d` is clean: push CI
+#25985038143, PR CI #25985039174, push/PR Dart Package Publish Dry Runs
+#25985038144/#25985039176, Router Image dry-run #25985357233, and WAMP Profile
+Benchmarks #25985358235 passed; the strict audit was clean for the enforced
+validation gates. Follow-up transfer-state coverage now attaches a
+subscription and registration to a transferable session and asserts the state
+snapshot preserves session ownership, auth identity, subscriber, and callee
+metadata after scale-down. Focused transfer coverage, scale-focused runtime
+coverage, full `router_runtime_test`, `dart analyze packages/connectanum_router`,
+post-edit `bin/test-fast`, `git diff --check`, the private-name/local-path scan
+on touched files, and full local `bin/verify` passed on 2026-05-17. Commit/push
+and hosted evidence for this follow-up are pending.
 
 Previous implementation checkpoint:
 Router caller auth disclosure is complete locally. Invocation dispatch now

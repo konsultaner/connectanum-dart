@@ -32,9 +32,17 @@ import 'package:connectanum_router/src/router/models/sni_certificate.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:connectanum_router/src/router/state/commands.dart'
-    show SessionOpenCommand;
+    show
+        ProcedureRegisterCommand,
+        RealmSnapshotCommand,
+        SessionOpenCommand,
+        SubscriptionAddCommand;
 import 'package:connectanum_router/src/router/state/session.dart'
     show SessionRecord;
+import 'package:connectanum_router/src/router/state/snapshot.dart'
+    show RealmSnapshot, RealmSnapshotResponse;
+import 'package:connectanum_router/src/router/state/subscription.dart'
+    show TopicMatchPolicy;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
@@ -654,6 +662,63 @@ Future<void> _waitUntil(
     }
     await Future<void>.delayed(pollInterval);
   }
+}
+
+Future<RealmSnapshot> _fetchRuntimeRealmSnapshot(SendPort commandPort) async {
+  final replyPort = ReceivePort();
+  commandPort.send(
+    RealmSnapshotCommand(
+      realmUri: 'realm1',
+      knownVersion: null,
+      replyPort: replyPort.sendPort,
+    ),
+  );
+  final response = await replyPort.first as RealmSnapshotResponse;
+  replyPort.close();
+  return response.snapshot;
+}
+
+Future<int> _addRuntimeSubscription(
+  SendPort commandPort, {
+  required int sessionId,
+  required String topic,
+}) async {
+  final replyPort = ReceivePort();
+  commandPort.send(
+    SubscriptionAddCommand(
+      realmUri: 'realm1',
+      sessionId: sessionId,
+      topic: topic,
+      matchPolicy: TopicMatchPolicy.exact,
+      details: const <String, Object?>{},
+      replyPort: replyPort.sendPort,
+    ),
+  );
+  final response = await replyPort.first;
+  replyPort.close();
+  expect(response, isA<int>());
+  return response as int;
+}
+
+Future<int> _registerRuntimeProcedure(
+  SendPort commandPort, {
+  required int sessionId,
+  required String procedure,
+}) async {
+  final replyPort = ReceivePort();
+  commandPort.send(
+    ProcedureRegisterCommand(
+      realmUri: 'realm1',
+      sessionId: sessionId,
+      procedure: procedure,
+      details: const <String, Object?>{},
+      replyPort: replyPort.sendPort,
+    ),
+  );
+  final response = await replyPort.first;
+  replyPort.close();
+  expect(response, isA<int>());
+  return response as int;
 }
 
 Map<String, Object?> _jsonResponseBody(NativeHttpResponse response) {
@@ -3870,6 +3935,9 @@ void main() {
       );
       addTearDown(binding.dispose);
       final listener = binding.listeners.single;
+      final statePort = binding.debugStatePort!;
+      const transferConnectionId = 8632;
+      const transferSessionId = 900000 + transferConnectionId;
 
       await waitFor(
         'initial worker was not registered',
@@ -3909,13 +3977,13 @@ void main() {
             2,
       );
 
-      runtime.enqueueConnection(listener.listenerId, 8632);
+      runtime.enqueueConnection(listener.listenerId, transferConnectionId);
       await waitFor(
         'transfer candidate connection was not added',
         () => events.whereType<Map>().any(
           (event) =>
               event['type'] == 'worker_connection_added' &&
-              event['connectionId'] == 8632,
+              event['connectionId'] == transferConnectionId,
         ),
       );
       await waitFor(
@@ -3923,8 +3991,19 @@ void main() {
         () => events.whereType<Map>().any(
           (event) =>
               event['type'] == 'worker_session_opened' &&
-              event['connectionId'] == 8632,
+              event['connectionId'] == transferConnectionId,
         ),
+      );
+
+      final subscriptionId = await _addRuntimeSubscription(
+        statePort,
+        sessionId: transferSessionId,
+        topic: 'com.example.transfer.topic',
+      );
+      final registrationId = await _registerRuntimeProcedure(
+        statePort,
+        sessionId: transferSessionId,
+        procedure: 'com.example.transfer.proc',
       );
 
       bool hasProcessed(int handle, {int? workerHash}) {
@@ -3949,12 +4028,12 @@ void main() {
         final ready = events.whereType<Map>().any(
           (event) =>
               event['type'] == 'worker_connection_transfer_ready' &&
-              event['connectionId'] == 8632,
+              event['connectionId'] == transferConnectionId,
         );
         final added = events.whereType<Map>().any(
           (event) =>
               event['type'] == 'worker_connection_added' &&
-              event['connectionId'] == 8632 &&
+              event['connectionId'] == transferConnectionId &&
               event['transferred'] == true,
         );
         return ready && added;
@@ -3989,9 +4068,37 @@ void main() {
       final survivingWorker = scaledDownSnapshot!.workerLoad.single;
       expect(scaledDownSnapshot.sessionCount, 3);
       expect(scaledDownSnapshot.activeConnections, 3);
+      expect(scaledDownSnapshot.subscriptionCount, greaterThanOrEqualTo(1));
+      expect(scaledDownSnapshot.registrationCount, greaterThanOrEqualTo(1));
       expect(survivingWorker.connectionCount, 3);
 
-      final afterTransferHandle = runtime.enqueueHandleOnly(8632);
+      final transferredSnapshot = await _fetchRuntimeRealmSnapshot(statePort);
+      final transferredSession = transferredSnapshot.sessions.singleWhere(
+        (session) => session.id == transferSessionId,
+      );
+      expect(transferredSession.connectionId, transferConnectionId);
+      expect(transferredSession.workerId, survivingWorker.isolateHash);
+      expect(transferredSession.authId, 'anonymous');
+      expect(transferredSession.authRole, 'anonymous');
+
+      final transferredSubscription = transferredSnapshot.subscriptions
+          .singleWhere((subscription) => subscription.id == subscriptionId);
+      expect(
+        transferredSubscription.subscribers.single.sessionId,
+        transferSessionId,
+      );
+      final transferredRegistration = transferredSnapshot.registrations
+          .singleWhere(
+            (registration) => registration.registrationId == registrationId,
+          );
+      expect(
+        transferredRegistration.callees.single.sessionId,
+        transferSessionId,
+      );
+
+      final afterTransferHandle = runtime.enqueueHandleOnly(
+        transferConnectionId,
+      );
       await waitFor(
         'transferred connection was not processed by surviving worker',
         () => hasProcessed(
