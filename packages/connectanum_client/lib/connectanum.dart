@@ -2,6 +2,7 @@ library;
 
 export 'src/client.dart';
 export 'src/protocol/session.dart';
+export 'src/transport/in_process_transport.dart';
 export 'src/transport/local_transport.dart';
 export 'src/transport/abstract_transport.dart';
 export 'src/transport/websocket/websocket_transport_serialization.dart';

@@ -7,7 +7,7 @@ RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
 Active exec plan:
-`docs/exec-plans/2026-05-17-auth-server-cli-runtime.md`.
+`docs/exec-plans/2026-05-17-in-process-client-transport.md`.
 Current milestone: post-RC GitHub deployment-chain hardening. The published
 `v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
 contains release-sensitive fixes after that tag; the next candidate needs PR
@@ -20,6 +20,22 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+The first internal transport foundation slice is implemented locally.
+`connectanum_client` now exports `InProcessTransportPair` /
+`InProcessTransport`, a paired `AbstractTransport` implementation that keeps
+WAMP messages as Dart objects, enforces bounded peer inbound queues with
+`InProcessTransportBackpressureException`, and closes the peer side when one
+endpoint shuts down. It also keeps queued inbound messages until a receive
+listener attaches instead of draining them into a listener-less stream. Focused
+coverage proves paired message delivery, listener-attach buffering,
+backpressure, normal `Client` session handshakes over the in-process transport,
+and peer-close behavior. The focused in-process transport test directory is now
+part of both `bin/test-fast` and `bin/test-all`. Pre-edit `bin/test-fast`,
+focused `dart test packages/connectanum_client/test/transport/in_process -r expanded`,
+focused `dart analyze packages/connectanum_client/lib/src/transport/in_process_transport.dart packages/connectanum_client/test/transport/in_process/in_process_transport_test.dart packages/connectanum_client/lib/connectanum.dart`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
+
+Previous implementation checkpoint:
 Remote-auth fake-challenge parity integration coverage is implemented, and a
 checked public remote-auth service example now proves the downstream-consumable
 shape without private project assumptions. The live remote-auth RPC integration
@@ -39,15 +55,15 @@ targeted `dart analyze packages/connectanum_router/example/remote_auth_service.d
 targeted `dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit`,
 targeted `bash -lc 'source bin/common.sh; run_remote_auth_service_example_smoke'`,
 post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
-Hosted evidence for `62354a2` is clean: push CI #26000741252, PR CI
-#26000742168, push Dart Package Publish Dry Run #26000741247, and PR Dart
-Package Publish Dry Run #26000742155 passed. The strict deployment-chain audit
-with latest CI/logs, package dry-run, native release relevance, router image
-dry-run relevance, WAMP benchmark relevance, workflow visibility, GHCR
-visibility, and RC-readiness reporting passed for the enforced gates on
-2026-05-17. RC readiness remains blocked only by PR #79 review/merge into
-`master`, choosing a fresh approved RC tag/prerelease for the promoted release
-branch successor, and tag-matched Native Artifacts/Router Image publish
+Hosted evidence for `61c1b74` is clean: push CI #26002300796, PR CI
+#26002302119, push Dart Package Publish Dry Run #26002300806, PR Dart Package
+Publish Dry Run #26002302108, and WAMP Profile Benchmarks #26002620358 passed.
+The strict deployment-chain audit with latest CI/logs, package dry-run, WAMP
+benchmark, native release relevance, router image dry-run relevance, workflow
+visibility, GHCR visibility, and RC-readiness reporting passed for the enforced
+gates on 2026-05-17. RC readiness remains blocked only by PR #79 review/merge
+into `master`, choosing a fresh approved RC tag/prerelease for the promoted
+release branch successor, and tag-matched Native Artifacts/Router Image publish
 evidence; pub.dev remains intentionally deferred.
 
 Previous implementation checkpoint:

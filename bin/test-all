@@ -11,6 +11,7 @@ cargo_workspace_check
 run_client_vm_tests() {
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
+  dart test packages/connectanum_client/test/transport/in_process
   dart test packages/connectanum_client/test/transport/local
   dart test packages/connectanum_client/test/transport/native/native_library_loader_test.dart
   dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
