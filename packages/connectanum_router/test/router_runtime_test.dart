@@ -1111,6 +1111,20 @@ void _writeFakeFastCgiRecord(
 }
 
 void _parallelWorkerEntryPoint(Map<String, Object?> init) {
+  _parallelWorkerEntryPointWithDrainDelay(init, Duration.zero);
+}
+
+void _delayedScaleDownWorkerEntryPoint(Map<String, Object?> init) {
+  _parallelWorkerEntryPointWithDrainDelay(
+    init,
+    const Duration(milliseconds: 500),
+  );
+}
+
+void _parallelWorkerEntryPointWithDrainDelay(
+  Map<String, Object?> init,
+  Duration drainDelay,
+) {
   final bossPort = init['bossPort'] as SendPort;
   final connectionId = init['connectionId'] as int;
   final listenerId = init['listenerId'] as int;
@@ -1189,21 +1203,29 @@ void _parallelWorkerEntryPoint(Map<String, Object?> init) {
           ? raw[1] as String
           : 'wamp.close.system_shutdown';
       bossPort.send({'type': 'test_drain', 'reason': reason});
-      for (final entry in connections.entries.toList()) {
-        bossPort.send({
-          'type': 'worker_send',
-          'connectionId': entry.key,
-          'payload': Uint8List.fromList(
-            utf8.encode(jsonEncode([MessageTypes.codeGoodbye, {}, reason])),
-          ),
-        });
-        bossPort.send({
-          'type': kWorkerEventConnectionRemoved,
-          'connectionId': entry.key,
-        });
-        connections.remove(entry.key);
+      void drainConnections() {
+        for (final entry in connections.entries.toList()) {
+          bossPort.send({
+            'type': 'worker_send',
+            'connectionId': entry.key,
+            'payload': Uint8List.fromList(
+              utf8.encode(jsonEncode([MessageTypes.codeGoodbye, {}, reason])),
+            ),
+          });
+          bossPort.send({
+            'type': kWorkerEventConnectionRemoved,
+            'connectionId': entry.key,
+          });
+          connections.remove(entry.key);
+        }
+        bossPort.send({'type': kWorkerEventDrained, 'workerHash': workerHash});
       }
-      bossPort.send({'type': kWorkerEventDrained, 'workerHash': workerHash});
+
+      if (drainDelay == Duration.zero) {
+        drainConnections();
+      } else {
+        Timer(drainDelay, drainConnections);
+      }
     }
   });
 }
@@ -3564,6 +3586,116 @@ void main() {
         expect(snapshot.workerPool.scaleUpsTotal, greaterThanOrEqualTo(1));
         expect(snapshot.workerPool.scaleDownsTotal, 1);
         expect(snapshot.workerPool.scaleDownTimeoutsTotal, 0);
+      },
+    );
+
+    test(
+      'does not assign new connections to a worker draining for scale-down',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithWorkerPool(
+            const WorkerPoolSettings(
+              minWorkers: 1,
+              maxWorkers: 2,
+              scaleUpPendingDispatches: 1,
+              scaleUpConsecutiveTicks: 1,
+              scaleDownConsecutiveTicks: 1,
+              scaleDownDrainTimeout: Duration(seconds: 2),
+            ),
+          ),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _delayedScaleDownWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_registered',
+          ),
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8511);
+        runtime.enqueueConnection(listener.listenerId, 8521);
+
+        await _waitUntil(() {
+          final addedConnections = events
+              .whereType<Map>()
+              .where((event) => event['type'] == 'worker_connection_added')
+              .map((event) => event['connectionId'])
+              .toSet();
+          return addedConnections.containsAll({8511, 8521});
+        });
+
+        runtime.enqueueHandleOnly(8511);
+        runtime.enqueueHandleOnly(8521);
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_pool_scale_up',
+          ),
+        );
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_registered')
+                  .length >=
+              2,
+        );
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) =>
+                event['type'] == 'worker_unknown_event' &&
+                event['payload'] is Map &&
+                (event['payload'] as Map)['type'] == 'test_drain',
+          ),
+        );
+
+        final duringDrain = await binding.collectMetrics();
+        final drainingWorker = duringDrain.workerLoad.singleWhere(
+          (worker) => worker.connectionCount == 0,
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8531);
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) =>
+                event['type'] == 'worker_connection_added' &&
+                event['connectionId'] == 8531,
+          ),
+        );
+
+        final afterAssignment = await binding.collectMetrics();
+        final drainingLoads = afterAssignment.workerLoad
+            .where((worker) => worker.isolateHash == drainingWorker.isolateHash)
+            .toList(growable: false);
+        expect(drainingLoads, hasLength(1));
+        expect(drainingLoads.single.connectionCount, 0);
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_pool_scale_down',
+          ),
+        );
       },
     );
 

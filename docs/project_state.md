@@ -21,6 +21,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Router worker-pool scale-down drain no longer blocks the boss loop or accepts
+new connections onto a retiring worker. Scale-down drain now runs in the
+background after the selected idle excess worker is marked non-assignable, and
+the boss suppresses overlapping scale-down drains until the current drain
+completes or times out. Runtime coverage now delays a scale-down drain,
+enqueues a new connection during that drain window, and verifies the connection
+lands on an active worker while the draining worker remains connectionless.
+Active connection/session reassignment remains deferred until a safe
+session-state migration primitive exists. The required pre-edit
+`bin/test-fast`, focused drain-assignment regression, focused worker-pool
+autoscaling regressions, `dart analyze packages/connectanum_router`,
+`git diff --check`, private-name scan, post-edit `bin/test-fast`, and full
+local `bin/verify` passed on 2026-05-17.
+
+Previous implementation checkpoint:
 Router worker-pool autoscaling observability is complete locally for the
 post-RC worker-pool-readiness milestone. The router metrics snapshot now
 includes a `worker_pool` section with configured min/max workers, pending
@@ -32,7 +47,20 @@ counters without adding new autoscaling policy behavior. The required pre-edit
 `bin/test-fast`, focused metrics exporter regression, focused worker-pool
 autoscaling regressions, `dart analyze packages/connectanum_router`,
 `git diff --check`, private-name scan, and post-edit `bin/test-fast` passed on
-2026-05-17. Full local `bin/verify` also passed on 2026-05-17.
+2026-05-17. Full local `bin/verify` also passed on 2026-05-17. The
+implementation was committed as `bccefa3` and pushed to GitHub PR #79. Hosted
+evidence for `bccefa3` is clean: push-triggered GitHub CI #25977427606 passed
+with `Fast Checks` job #76359952974 and `Full Verify` job #76360187272 green;
+push-triggered Dart Package Publish Dry Run #25977427612 passed with publish
+dry-run job #76359952965 green; PR-triggered GitHub CI #25977428269 passed
+with `Fast Checks` job #76359954798 and `Full Verify` job #76360191845 green;
+PR-triggered Dart Package Publish Dry Run #25977428266 passed with publish
+dry-run job #76359954766 green; and the strict deployment-chain audit exited
+cleanly with clean latest CI, hosted CI logs/annotations, relevant hosted
+package dry-run evidence, release branch protection baseline, workflow
+visibility, and GHCR router image visibility. RC readiness still reports PR
+#79 review/merge as the remaining release-branch promotion gate before the next
+candidate.
 
 Previous implementation checkpoint:
 Router worker scale-up/down hysteresis is complete locally for the post-RC

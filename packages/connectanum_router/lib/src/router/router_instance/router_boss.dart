@@ -334,6 +334,10 @@ class _RouterBoss {
       _workerScaleDownIdleTicks = 0;
       return false;
     }
+    if (_workers.any((worker) => !worker.isAcceptingConnections)) {
+      _workerScaleDownIdleTicks = 0;
+      return false;
+    }
 
     final hasActiveWorkerLoad = _workers.any(
       (worker) => worker.busy || worker.pendingDispatches.isNotEmpty,
@@ -358,7 +362,14 @@ class _RouterBoss {
     }
 
     _workerScaleDownIdleTicks = 0;
-    await _drainAndShutdownScaledDownWorker(candidate, workerPool);
+    unawaited(
+      _drainAndShutdownScaledDownWorker(candidate, workerPool).catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        _reportBossError('worker_pool_scale_down_error', error, stackTrace);
+      }),
+    );
     return true;
   }
 
@@ -1264,25 +1275,28 @@ class _RouterBoss {
   }
 
   _WorkerHandle? _chooseWorker() {
-    if (_workers.isEmpty) {
+    final assignableWorkers = _workers
+        .where((worker) => worker.isAcceptingConnections)
+        .toList(growable: false);
+    if (assignableWorkers.isEmpty) {
       return null;
     }
-    if (_nextWorkerIndex >= _workers.length) {
-      _nextWorkerIndex %= _workers.length;
+    if (_nextWorkerIndex >= assignableWorkers.length) {
+      _nextWorkerIndex %= assignableWorkers.length;
     }
 
     var bestIndex = _nextWorkerIndex;
-    var bestWorker = _workers[bestIndex];
-    for (var offset = 1; offset < _workers.length; offset++) {
-      final index = (_nextWorkerIndex + offset) % _workers.length;
-      final candidate = _workers[index];
+    var bestWorker = assignableWorkers[bestIndex];
+    for (var offset = 1; offset < assignableWorkers.length; offset++) {
+      final index = (_nextWorkerIndex + offset) % assignableWorkers.length;
+      final candidate = assignableWorkers[index];
       if (_hasLowerAssignmentLoad(candidate, bestWorker)) {
         bestIndex = index;
         bestWorker = candidate;
       }
     }
 
-    _nextWorkerIndex = (bestIndex + 1) % _workers.length;
+    _nextWorkerIndex = (bestIndex + 1) % assignableWorkers.length;
     return bestWorker;
   }
 
@@ -2424,11 +2438,13 @@ class _WorkerHandle {
       Queue<_PendingWorkerDispatch>();
   Completer<void>? drainCompleter;
 
+  bool get isAcceptingConnections => drainCompleter == null;
+
   bool get isScaleDownIdle =>
+      isAcceptingConnections &&
       connections.isEmpty &&
       !busy &&
-      pendingDispatches.isEmpty &&
-      drainCompleter == null;
+      pendingDispatches.isEmpty;
 
   void markDispatchStarted(DateTime now) {
     busy = true;
