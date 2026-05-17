@@ -3450,6 +3450,108 @@ void main() {
       },
     );
 
+    test(
+      'scales down idle excess workers after sustained idle ticks',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithWorkerPool(
+            const WorkerPoolSettings(
+              minWorkers: 1,
+              maxWorkers: 2,
+              scaleUpPendingDispatches: 1,
+              scaleUpConsecutiveTicks: 1,
+              scaleDownConsecutiveTicks: 2,
+              scaleDownDrainTimeout: Duration(milliseconds: 200),
+            ),
+          ),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _parallelWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_registered',
+          ),
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8411);
+        runtime.enqueueConnection(listener.listenerId, 8421);
+
+        await _waitUntil(() {
+          final addedConnections = events
+              .whereType<Map>()
+              .where((event) => event['type'] == 'worker_connection_added')
+              .map((event) => event['connectionId'])
+              .toSet();
+          return addedConnections.containsAll({8411, 8421});
+        });
+
+        runtime.enqueueHandleOnly(8411);
+        runtime.enqueueHandleOnly(8421);
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_pool_scale_up',
+          ),
+        );
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_registered')
+                  .length >=
+              2,
+        );
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_pool_scale_down',
+          ),
+        );
+
+        final scaleDownEvent = events.whereType<Map>().firstWhere(
+          (event) => event['type'] == 'worker_pool_scale_down',
+        );
+        expect(scaleDownEvent['workers'], 1);
+        expect(scaleDownEvent['minWorkers'], 1);
+        expect(scaleDownEvent['idleTicks'], 2);
+
+        final drainEvents = events.whereType<Map>().where(
+          (event) =>
+              event['type'] == 'worker_unknown_event' &&
+              event['payload'] is Map &&
+              (event['payload'] as Map)['type'] == 'test_drain',
+        );
+        expect(
+          drainEvents.map((event) => (event['payload'] as Map)['reason']),
+          contains('wamp.close.worker_pool_scale_down'),
+        );
+
+        final snapshot = await binding.collectMetrics();
+        expect(snapshot.workerLoad, hasLength(1));
+      },
+    );
+
     test('assigns new connections to the least loaded worker', () async {
       final runtime = _HandleRuntime();
       final router = Router(

@@ -1117,11 +1117,32 @@ class RouterConfigLoader {
         'worker_pool.scale_up_consecutive_ticks must be >= 1',
       );
     }
+    final scaleDownConsecutiveTicks = _asInt(
+      node['scale_down_consecutive_ticks'],
+      defaultValue: const WorkerPoolSettings().scaleDownConsecutiveTicks,
+    );
+    if (scaleDownConsecutiveTicks < 1) {
+      throw FormatException(
+        'worker_pool.scale_down_consecutive_ticks must be >= 1',
+      );
+    }
+    final scaleDownDrainTimeoutMs = _asInt(
+      node['scale_down_drain_timeout_ms'],
+      defaultValue:
+          const WorkerPoolSettings().scaleDownDrainTimeout.inMilliseconds,
+    );
+    if (scaleDownDrainTimeoutMs < 0) {
+      throw FormatException(
+        'worker_pool.scale_down_drain_timeout_ms must be >= 0',
+      );
+    }
     return WorkerPoolSettings(
       minWorkers: minWorkers,
       maxWorkers: maxWorkers,
       scaleUpPendingDispatches: scaleUpPendingDispatches,
       scaleUpConsecutiveTicks: scaleUpConsecutiveTicks,
+      scaleDownConsecutiveTicks: scaleDownConsecutiveTicks,
+      scaleDownDrainTimeout: Duration(milliseconds: scaleDownDrainTimeoutMs),
     );
   }
 

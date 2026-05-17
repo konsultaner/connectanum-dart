@@ -422,6 +422,8 @@ class WorkerPoolSettings {
     int? maxWorkers,
     this.scaleUpPendingDispatches = 1,
     this.scaleUpConsecutiveTicks = 2,
+    this.scaleDownConsecutiveTicks = 200,
+    this.scaleDownDrainTimeout = const Duration(seconds: 1),
   }) : maxWorkers = maxWorkers ?? minWorkers,
        assert(minWorkers >= 0, 'minWorkers must be >= 0'),
        assert(
@@ -435,18 +437,26 @@ class WorkerPoolSettings {
        assert(
          scaleUpConsecutiveTicks >= 1,
          'scaleUpConsecutiveTicks must be >= 1',
+       ),
+       assert(
+         scaleDownConsecutiveTicks >= 1,
+         'scaleDownConsecutiveTicks must be >= 1',
        );
 
   final int minWorkers;
   final int maxWorkers;
   final int scaleUpPendingDispatches;
   final int scaleUpConsecutiveTicks;
+  final int scaleDownConsecutiveTicks;
+  final Duration scaleDownDrainTimeout;
 
   WorkerPoolSettings copyWith({
     int? minWorkers,
     int? maxWorkers,
     int? scaleUpPendingDispatches,
     int? scaleUpConsecutiveTicks,
+    int? scaleDownConsecutiveTicks,
+    Duration? scaleDownDrainTimeout,
   }) {
     final nextMinWorkers = minWorkers ?? this.minWorkers;
     final nextMaxWorkers =
@@ -459,6 +469,10 @@ class WorkerPoolSettings {
           scaleUpPendingDispatches ?? this.scaleUpPendingDispatches,
       scaleUpConsecutiveTicks:
           scaleUpConsecutiveTicks ?? this.scaleUpConsecutiveTicks,
+      scaleDownConsecutiveTicks:
+          scaleDownConsecutiveTicks ?? this.scaleDownConsecutiveTicks,
+      scaleDownDrainTimeout:
+          scaleDownDrainTimeout ?? this.scaleDownDrainTimeout,
     );
   }
 
@@ -471,7 +485,9 @@ class WorkerPoolSettings {
         other.minWorkers == minWorkers &&
         other.maxWorkers == maxWorkers &&
         other.scaleUpPendingDispatches == scaleUpPendingDispatches &&
-        other.scaleUpConsecutiveTicks == scaleUpConsecutiveTicks;
+        other.scaleUpConsecutiveTicks == scaleUpConsecutiveTicks &&
+        other.scaleDownConsecutiveTicks == scaleDownConsecutiveTicks &&
+        other.scaleDownDrainTimeout == scaleDownDrainTimeout;
   }
 
   @override
@@ -480,6 +496,8 @@ class WorkerPoolSettings {
     maxWorkers,
     scaleUpPendingDispatches,
     scaleUpConsecutiveTicks,
+    scaleDownConsecutiveTicks,
+    scaleDownDrainTimeout,
   );
 }
 

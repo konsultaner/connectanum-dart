@@ -440,6 +440,9 @@ abstract final class RouterSettingsCodec {
       'max_workers': workerPool.maxWorkers,
       'scale_up_pending_dispatches': workerPool.scaleUpPendingDispatches,
       'scale_up_consecutive_ticks': workerPool.scaleUpConsecutiveTicks,
+      'scale_down_consecutive_ticks': workerPool.scaleDownConsecutiveTicks,
+      'scale_down_drain_timeout_ms':
+          workerPool.scaleDownDrainTimeout.inMilliseconds,
     };
   }
 

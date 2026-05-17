@@ -141,6 +141,7 @@ class _RouterBoss {
   int _nextWorkerId = 1;
   int _nextPendingWorkerToken = -1;
   int _workerScaleUpPressureTicks = 0;
+  int _workerScaleDownIdleTicks = 0;
 
   SendPort get stateCommandPort => _stateStore.commandPort;
   SendPort get bossCommandPort => _commandPort.sendPort;
@@ -284,44 +285,130 @@ class _RouterBoss {
     }
     final workerPool = settings.workerPool;
     final totalWorkers = _workers.length + _pendingIsolates.length;
-    if (workerPool.maxWorkers <= workerPool.minWorkers ||
-        totalWorkers >= workerPool.maxWorkers ||
-        _workers.isEmpty) {
+    if (workerPool.maxWorkers <= workerPool.minWorkers || _workers.isEmpty) {
       _workerScaleUpPressureTicks = 0;
+    } else if (totalWorkers < workerPool.maxWorkers) {
+      final pendingDispatches = _workers.fold<int>(
+        0,
+        (total, worker) => total + worker.pendingDispatches.length,
+      );
+      final pressuredWorkers = _workers
+          .where((worker) => worker.busy || worker.pendingDispatches.isNotEmpty)
+          .length;
+      final hasScaleUpPressure =
+          pendingDispatches >= workerPool.scaleUpPendingDispatches &&
+          pressuredWorkers == _workers.length;
+      if (hasScaleUpPressure) {
+        _workerScaleUpPressureTicks += 1;
+        _workerScaleDownIdleTicks = 0;
+        if (_workerScaleUpPressureTicks >= workerPool.scaleUpConsecutiveTicks) {
+          _workerScaleUpPressureTicks = 0;
+          await _spawnWorker(listeners.first, _allocatePendingWorkerToken());
+          onEvent?.call({
+            'source': 'boss',
+            'type': 'worker_pool_scale_up',
+            'workers': totalWorkers + 1,
+            'maxWorkers': workerPool.maxWorkers,
+            'pendingDispatches': pendingDispatches,
+            'pressureTicks': workerPool.scaleUpConsecutiveTicks,
+          });
+          return true;
+        }
+        return false;
+      }
+      _workerScaleUpPressureTicks = 0;
+    } else {
+      _workerScaleUpPressureTicks = 0;
+    }
+
+    return _maybeScaleDownWorkerPool(workerPool);
+  }
+
+  Future<bool> _maybeScaleDownWorkerPool(WorkerPoolSettings workerPool) async {
+    final excessWorkers = _workers.length - workerPool.minWorkers;
+    if (excessWorkers <= 0 || _pendingIsolates.isNotEmpty || _stopping) {
+      _workerScaleDownIdleTicks = 0;
       return false;
     }
 
-    final pendingDispatches = _workers.fold<int>(
-      0,
-      (total, worker) => total + worker.pendingDispatches.length,
+    final hasActiveWorkerLoad = _workers.any(
+      (worker) => worker.busy || worker.pendingDispatches.isNotEmpty,
     );
-    final pressuredWorkers = _workers
-        .where((worker) => worker.busy || worker.pendingDispatches.isNotEmpty)
-        .length;
-    final hasScaleUpPressure =
-        pendingDispatches >= workerPool.scaleUpPendingDispatches &&
-        pressuredWorkers == _workers.length;
-    if (!hasScaleUpPressure) {
-      _workerScaleUpPressureTicks = 0;
+    if (hasActiveWorkerLoad) {
+      _workerScaleDownIdleTicks = 0;
       return false;
     }
 
-    _workerScaleUpPressureTicks += 1;
-    if (_workerScaleUpPressureTicks < workerPool.scaleUpConsecutiveTicks) {
+    final candidate = _workers.cast<_WorkerHandle?>().lastWhere(
+      (worker) => worker != null && worker.isScaleDownIdle,
+      orElse: () => null,
+    );
+    if (candidate == null) {
+      _workerScaleDownIdleTicks = 0;
       return false;
     }
 
-    _workerScaleUpPressureTicks = 0;
-    await _spawnWorker(listeners.first, _allocatePendingWorkerToken());
+    _workerScaleDownIdleTicks += 1;
+    if (_workerScaleDownIdleTicks < workerPool.scaleDownConsecutiveTicks) {
+      return false;
+    }
+
+    _workerScaleDownIdleTicks = 0;
+    await _drainAndShutdownScaledDownWorker(candidate, workerPool);
+    return true;
+  }
+
+  Future<void> _drainAndShutdownScaledDownWorker(
+    _WorkerHandle worker,
+    WorkerPoolSettings workerPool,
+  ) async {
+    if (_stopping || !_workers.contains(worker)) {
+      return;
+    }
+
+    worker.drainCompleter ??= Completer<void>();
+    worker.commandPort.send(<Object?>[
+      _workerCmdDrainConnections,
+      'wamp.close.worker_pool_scale_down',
+    ]);
+
+    var timedOut = false;
+    try {
+      await worker.drainCompleter!.future.timeout(
+        workerPool.scaleDownDrainTimeout,
+      );
+    } on TimeoutException {
+      timedOut = true;
+    }
+
+    if (!_workers.contains(worker)) {
+      return;
+    }
+
+    _shutdownWorker(worker, terminateIsolate: timedOut);
+    if (timedOut) {
+      onEvent?.call({
+        'source': 'boss',
+        'type': 'worker_pool_scale_down_timeout',
+        'workerId': worker.id,
+        'workerHash': worker.isolateHash,
+        'timeout_ms': workerPool.scaleDownDrainTimeout.inMilliseconds,
+        'workers': _workers.length,
+        'minWorkers': workerPool.minWorkers,
+      });
+      return;
+    }
+
     onEvent?.call({
       'source': 'boss',
-      'type': 'worker_pool_scale_up',
-      'workers': totalWorkers + 1,
+      'type': 'worker_pool_scale_down',
+      'workerId': worker.id,
+      'workerHash': worker.isolateHash,
+      'workers': _workers.length,
+      'minWorkers': workerPool.minWorkers,
       'maxWorkers': workerPool.maxWorkers,
-      'pendingDispatches': pendingDispatches,
-      'pressureTicks': workerPool.scaleUpConsecutiveTicks,
+      'idleTicks': workerPool.scaleDownConsecutiveTicks,
     });
-    return true;
   }
 
   Future<bool> _acceptConnections(RouterListener listener) async {
@@ -2320,6 +2407,12 @@ class _WorkerHandle {
   final Queue<_PendingWorkerDispatch> pendingDispatches =
       Queue<_PendingWorkerDispatch>();
   Completer<void>? drainCompleter;
+
+  bool get isScaleDownIdle =>
+      connections.isEmpty &&
+      !busy &&
+      pendingDispatches.isEmpty &&
+      drainCompleter == null;
 
   void markDispatchStarted(DateTime now) {
     busy = true;

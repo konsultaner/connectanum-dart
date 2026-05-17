@@ -305,7 +305,7 @@ void main() {
       expect(alerts.throttleOnAlert, isFalse);
     });
 
-    test('parses worker pool scale-up settings', () {
+    test('parses worker pool scale settings', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
           'realms': [
@@ -328,6 +328,8 @@ void main() {
             'max_workers': 4,
             'scale_up_pending_dispatches': 2,
             'scale_up_consecutive_ticks': 3,
+            'scale_down_consecutive_ticks': 5,
+            'scale_down_drain_timeout_ms': 250,
           },
         },
       });
@@ -337,6 +339,11 @@ void main() {
       expect(workerPool.maxWorkers, 4);
       expect(workerPool.scaleUpPendingDispatches, 2);
       expect(workerPool.scaleUpConsecutiveTicks, 3);
+      expect(workerPool.scaleDownConsecutiveTicks, 5);
+      expect(
+        workerPool.scaleDownDrainTimeout,
+        const Duration(milliseconds: 250),
+      );
 
       final encoded = RouterSettingsCodec.toMap(settings);
       final encodedWorkerPool = encoded['worker_pool']! as Map;
@@ -344,6 +351,8 @@ void main() {
       expect(encodedWorkerPool['max_workers'], 4);
       expect(encodedWorkerPool['scale_up_pending_dispatches'], 2);
       expect(encodedWorkerPool['scale_up_consecutive_ticks'], 3);
+      expect(encodedWorkerPool['scale_down_consecutive_ticks'], 5);
+      expect(encodedWorkerPool['scale_down_drain_timeout_ms'], 250);
 
       final decoded = RouterSettingsCodec.fromMap(encoded);
       expect(decoded.workerPool, workerPool);
