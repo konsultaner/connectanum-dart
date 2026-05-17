@@ -4,8 +4,10 @@ Status: runtime wiring, package executable follow-up, health/metrics endpoint
 follow-up, and YAML package-executable config smoke are pushed and hosted-clean
 for enforced branch gates. The missing-service-realm fail-closed smoke is
 pushed and hosted-clean for enforced branch gates. The custom realm/session
-CLI smoke is implemented locally with full verification passing; push/hosted
-evidence and RC release-control blockers remain.
+CLI smoke is pushed and hosted-clean for enforced branch gates. The explicit
+realm auto-creation policy follow-up is implemented and fully verified locally;
+push, hosted branch gates, and deployment-chain audit evidence remain. RC
+release-control blockers remain.
 
 ## Goal
 
@@ -150,13 +152,32 @@ WAMP procedures, and reporting readiness instead of only constructing an
   passed on 2026-05-17.
 - Custom realm/session post-edit `bin/test-fast`: passed on 2026-05-17.
 - Custom realm/session full local `bin/verify`: passed on 2026-05-17.
+- Custom realm/session commit/push: `a3a21fc` pushed to
+  `codex/post-rc-production-readiness`.
+- Custom realm/session hosted CI: push CI #25997982752 and PR CI #25997983597
+  passed for `a3a21fc`.
+- Custom realm/session hosted package dry-run: push #25997982755 and PR
+  #25997983596 passed for `a3a21fc`.
+- Custom realm/session strict deployment-chain audit with latest CI/logs,
+  package dry-run, router image dry-run relevance, WAMP benchmark relevance,
+  workflow visibility, GHCR visibility, native release relevance, and
+  RC-readiness reporting: passed for the enforced gates on 2026-05-17.
+- Realm auto-creation policy follow-up pre-edit `bin/test-fast`: passed on
+  2026-05-17.
+- Realm auto-creation policy focused `dart test packages/connectanum_router/test/state/realm_auto_create_test.dart -r expanded`:
+  passed on 2026-05-17.
+- Realm auto-creation policy focused `dart test packages/connectanum_router/test/router_metrics_test.dart -r expanded`:
+  passed on 2026-05-17.
+- Realm auto-creation policy focused `dart analyze packages/connectanum_router`:
+  passed on 2026-05-17.
+- Realm auto-creation policy post-edit `bin/test-fast`: passed on 2026-05-17.
+- Realm auto-creation policy full local `bin/verify`: passed on 2026-05-17.
 
 ## Remaining
 
-- Commit/push the bundled custom realm/session smoke code and state updates,
-  then collect hosted CI/package dry-run evidence and rerun the strict audit if
-  required for handoff.
 - Complete PR #79 review/merge into the release branch.
-- After release approval, choose a fresh RC tag for the latest auth-server CLI
-  hardening commit or its promoted release-branch successor, then refresh
-  tag-matched Native Artifacts and Router Image evidence.
+- Push, hosted branch gates, and deployment-chain audit evidence for the realm
+  auto-creation policy follow-up.
+- After release approval, choose a fresh RC tag for the latest promoted
+  release-branch successor, then refresh tag-matched Native Artifacts and
+  Router Image evidence.

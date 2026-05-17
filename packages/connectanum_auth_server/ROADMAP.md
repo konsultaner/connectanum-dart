@@ -31,7 +31,7 @@ administrative tooling, and flexible storage backends.
   - [x] Implement shared loader that parses `RouterSettings` JSON/YAML manifests
         so both router and auth server share the same realm/authenticator
         definitions.
-  - [ ] Make realm auto-creation explicitly configurable: default `autoCreate`
+  - [x] Make realm auto-creation explicitly configurable: default `autoCreate`
         to `false`, add an allow-list for realms that may be auto-created, and
         ensure auth server realms honour that policy.
   - [ ] Document the config contract (schemas, validation, migration steps).

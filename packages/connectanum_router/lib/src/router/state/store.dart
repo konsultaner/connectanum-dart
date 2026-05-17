@@ -19,8 +19,23 @@ class RouterStateStore {
           StreamController<SubscriptionMetaEvent>.broadcast(),
       _registrationMetaController =
           StreamController<RegistrationMetaEvent>.broadcast(),
+      _realms = Map.fromEntries(
+        settings.realms
+            .where((realm) => !realm.autoCreate)
+            .map(
+              (realm) => MapEntry(
+                realm.name,
+                RealmRecord(realmUri: realm.name, settings: realm),
+              ),
+            ),
+      ),
       _realmConfigs = Map.fromEntries(
         settings.realms.map((realm) => MapEntry(realm.name, realm)),
+      ),
+      _autoCreateRealmAllowList = Set.unmodifiable(
+        settings.realms
+            .where((realm) => realm.autoCreate)
+            .map((realm) => realm.name),
       );
 
   final RouterSettings settings;
@@ -30,8 +45,9 @@ class RouterStateStore {
   final StreamController<SubscriptionMetaEvent> _subscriptionMetaController;
   final StreamController<RegistrationMetaEvent> _registrationMetaController;
   final WampIdAllocatorRegistry ids = WampIdAllocatorRegistry();
-  final Map<String, RealmRecord> _realms = {};
+  final Map<String, RealmRecord> _realms;
   final Map<String, RealmSettings> _realmConfigs;
+  final Set<String> _autoCreateRealmAllowList;
   int _totalInvocationsDispatched = 0;
   int _totalPublicationsRouted = 0;
 
@@ -289,7 +305,12 @@ class RouterStateStore {
     }
     final config = _realmConfigs[realmUri];
     if (config == null) {
-      throw StateError('Realm $realmUri is not configured');
+      throw StoreCommandError('Realm $realmUri is not configured');
+    }
+    if (!_autoCreateRealmAllowList.contains(realmUri)) {
+      throw StoreCommandError(
+        'Realm $realmUri is not configured for auto creation',
+      );
     }
     final record = RealmRecord(realmUri: realmUri, settings: config);
     _realms[realmUri] = record;

@@ -21,8 +21,20 @@ Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
 Auth-server CLI runtime wiring, documented package executable readiness, CLI
-health/metrics readiness, YAML config readiness, and missing-service-realm
-fail-closed coverage are pushed and hosted-clean for enforced branch gates.
+health/metrics readiness, YAML config readiness, missing-service-realm
+fail-closed coverage, and custom realm/session CLI option coverage are pushed
+and hosted-clean for enforced branch gates. A local router/auth-server config
+follow-up now enforces explicit realm auto-creation policy: `autoCreate`
+defaults to false, configured static realms are materialized at state-store
+startup, and only explicitly allow-listed `autoCreate` realms may be created
+lazily; unknown realms fail closed without noisy unexpected-error logging.
+Pre-edit `bin/test-fast`, focused
+`dart test packages/connectanum_router/test/state/realm_auto_create_test.dart -r expanded`,
+focused `dart test packages/connectanum_router/test/router_metrics_test.dart -r expanded`,
+focused `dart analyze packages/connectanum_router`, and post-edit
+`bin/test-fast` passed on 2026-05-17. Full local `bin/verify` passed on
+2026-05-17. Push, hosted branch gates, and deployment-chain audit evidence are
+pending for this follow-up.
 Commit `58609e1` pushed the
 runtime wiring: `packages/connectanum_auth_server/bin/auth_server.dart` starts
 a native router runtime from configured listeners, creates an internal
@@ -57,18 +69,23 @@ push CI #25996782228, PR CI #25996783211, push Dart Package Publish Dry Run
 strict audit with latest CI/logs, package dry-run, router image dry-run, WAMP
 benchmark relevance, native release relevance, workflow visibility, GHCR
 visibility, and RC-readiness reporting passed for the enforced gates on
-2026-05-17. The current custom realm/session follow-up proves
+2026-05-17. Commit `a3a21fc` proves
 `dart run connectanum_auth_server:auth_server --check` honors `--realm`,
 `--auth-id`, and `--auth-role` instead of only the default service realm and
 identity. Pre-edit `bin/test-fast`, focused
 `dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`,
 focused `dart analyze packages/connectanum_auth_server`, focused
 `dart test packages/connectanum_auth_server/test -r expanded`, post-edit
-`bin/test-fast`, and full local `bin/verify` passed on 2026-05-17. Push and
-hosted evidence are pending for this follow-up. RC readiness remains blocked by
-PR #79 review/merge, a fresh approved RC tag/prerelease for the promoted
-release branch, and tag-matched Native Artifacts/Router Image publish evidence;
-pub.dev remains intentionally deferred.
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-17. Hosted
+evidence for `a3a21fc` is clean: push CI #25997982752, PR CI #25997983597,
+push Dart Package Publish Dry Run #25997982755, and PR Dart Package Publish
+Dry Run #25997983596 passed. The strict audit with latest CI/logs, package
+dry-run, router image dry-run relevance, WAMP benchmark relevance, native
+release relevance, workflow visibility, GHCR visibility, and RC-readiness
+reporting passed for the enforced gates on 2026-05-17. RC readiness remains
+blocked by PR #79 review/merge, a fresh approved RC tag/prerelease for the
+promoted release branch, and tag-matched Native Artifacts/Router Image publish
+evidence; pub.dev remains intentionally deferred.
 
 Previous implementation checkpoint:
 The Dart package publish dry-run release-order regression is implemented and
@@ -11772,8 +11789,9 @@ order.
   (runtime wiring, package executable follow-up, health/metrics endpoint
   follow-up, and YAML package executable config smoke pushed and hosted-clean
   for enforced branch gates; missing-service-realm fail-closed smoke pushed and
-  hosted-clean for enforced branch gates; custom realm/session CLI smoke
-  locally full-verified).
+  hosted-clean for enforced branch gates; custom realm/session CLI smoke pushed
+  and hosted-clean for enforced branch gates; realm auto-creation policy
+  follow-up locally full-verified and pending hosted evidence).
   Keep hosted GitHub CI clean first, then finish post-RC release-control
   hardening that does not require operator-owned publish, release-tag, or
   repository-setting decisions.
