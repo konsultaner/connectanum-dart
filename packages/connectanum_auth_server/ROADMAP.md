@@ -28,7 +28,7 @@ administrative tooling, and flexible storage backends.
 ## Phase 1 – Core Service Bring-up
 
 - [ ] Reuse router configuration
-  - [ ] Implement shared loader that parses `RouterSettings` JSON/YAML manifests
+  - [x] Implement shared loader that parses `RouterSettings` JSON/YAML manifests
         so both router and auth server share the same realm/authenticator
         definitions.
   - [ ] Make realm auto-creation explicitly configurable: default `autoCreate`

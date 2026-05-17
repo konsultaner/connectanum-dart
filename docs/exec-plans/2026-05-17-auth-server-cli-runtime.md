@@ -1,9 +1,10 @@
 # Auth Server CLI Runtime
 
-Status: runtime wiring and package executable follow-up are pushed and
-hosted-clean for enforced branch gates. The health/metrics endpoint follow-up
-is locally verified and needs hosted evidence after push; RC release-control
-blockers remain.
+Status: runtime wiring, package executable follow-up, and health/metrics
+endpoint follow-up are pushed and hosted-clean for enforced branch gates. The
+YAML package-executable config smoke is implemented locally with full
+verification passing; push/hosted evidence and RC release-control blockers
+remain.
 
 ## Goal
 
@@ -26,6 +27,9 @@ WAMP procedures, and reporting readiness instead of only constructing an
 - Reuse the router OpenMetrics HTTP exporter from the auth-server executable
   when config enables `metrics.open_metrics`, and smoke-test `/healthz` plus
   the configured metrics path through the package executable.
+- Prove the documented `auth_service.yaml` config path through the package
+  executable so the shared router JSON/YAML config loader is covered from the
+  auth-server CLI surface.
 - Bundle the pending hosted-evidence bookkeeping from the completed Dart
   package dry-run slice with this implementation commit.
 - Follow up by proving the documented package executable target
@@ -86,12 +90,26 @@ WAMP procedures, and reporting readiness instead of only constructing an
   passed on 2026-05-17.
 - Health/metrics post-edit `bin/test-fast`: passed on 2026-05-17.
 - Health/metrics full local `bin/verify`: passed on 2026-05-17.
+- Health/metrics commit/push: `1a849f5` pushed to
+  `codex/post-rc-production-readiness`.
+- Health/metrics hosted CI: push CI #25994206592 and PR CI #25994207170 passed
+  for `1a849f5`.
+- Health/metrics hosted package dry-run: push #25994206615 and PR #25994207176
+  passed for `1a849f5`.
+- Health/metrics strict deployment-chain audit with latest CI/logs, package
+  dry-run, router image dry-run relevance, WAMP benchmark relevance, workflow
+  visibility, GHCR visibility, native release relevance, and RC-readiness
+  reporting: passed for the enforced gates on 2026-05-17.
+- YAML config follow-up pre-edit `bin/test-fast`: passed on 2026-05-17.
+- YAML config focused `dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`:
+  passed on 2026-05-17.
+- YAML config full local `bin/verify`: passed on 2026-05-17.
 
 ## Remaining
 
-- Push the health/metrics endpoint follow-up, collect hosted CI/package dry-run
-  evidence, and rerun the strict audit.
+- Commit/push the bundled YAML config smoke code and state updates, then
+  collect hosted CI/package dry-run evidence and rerun the strict audit.
 - Complete PR #79 review/merge into the release branch.
-- After release approval, choose a fresh RC tag for `8d2ee00` or its promoted
+- After release approval, choose a fresh RC tag for `1a849f5` or its promoted
   release-branch successor, then refresh tag-matched Native Artifacts and
   Router Image evidence.

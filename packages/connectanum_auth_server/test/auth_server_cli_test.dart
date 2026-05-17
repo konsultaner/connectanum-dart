@@ -56,6 +56,47 @@ void main() {
   );
 
   test(
+    'package executable --check loads documented YAML configuration',
+    () async {
+      final repoRoot = _resolveRepoRoot();
+      final tempDir = await Directory.systemTemp.createTemp(
+        'connectanum_auth_server_cli_yaml_',
+      );
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final configFile = File('${tempDir.path}/auth_service.yaml')
+        ..writeAsStringSync(_authServiceYamlConfig());
+
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        <String>[
+          'run',
+          'connectanum_auth_server:auth_server',
+          '--config',
+          configFile.path,
+          '--native-lib',
+          nativeLib!,
+          '--check',
+        ],
+        workingDirectory: repoRoot.path,
+        environment: <String, String>{
+          ...Platform.environment,
+          'CONNECTANUM_NATIVE_LIB': nativeLib,
+        },
+      ).timeout(const Duration(seconds: 45));
+
+      expect(result.exitCode, 0, reason: _processOutput(result));
+      expect(result.stdout, contains('Loaded configuration from'));
+      expect(result.stdout, contains('Auth server procedures bound'));
+      expect(result.stdout, contains('Auth server runtime check completed.'));
+    },
+    skip: nativeSkipReason,
+  );
+
+  test(
     'package executable serves configured health and metrics endpoints',
     () async {
       final repoRoot = _resolveRepoRoot();
@@ -279,6 +320,65 @@ Map<String, Object?> _authServiceConfig({bool openMetrics = false}) =>
         'worker_pool': <String, Object?>{'min_workers': 1},
       },
     };
+
+String _authServiceYamlConfig() => '''
+router:
+  realms:
+    - name: demo.realm
+      auth:
+        authmethods:
+          - ticket
+        ticket:
+          authenticator: ticket-basic
+      roles:
+        - name: member
+          permissions:
+            - uri: demo.
+              match: prefix
+              allow:
+                - call
+                - register
+                - subscribe
+    - name: connectanum.authenticate
+      auth:
+        authmethods:
+          - anonymous
+      roles:
+        - name: anonymous
+          permissions:
+            - uri: authenticate.
+              match: prefix
+              allow:
+                - call
+        - name: internal
+          permissions:
+            - uri: authenticate.
+              match: prefix
+              allow:
+                - register
+                - unregister
+                - call
+  listeners:
+    - endpoint: 127.0.0.1:0
+      authmethods:
+        - anonymous
+      protocols:
+        - rawsocket
+      rawsocket:
+        max_rawsocket_size_exponent: 16
+  authenticators:
+    anonymous:
+      type: anonymous
+    ticket-basic:
+      type: ticket
+      options:
+        secrets:
+          alice:
+            ticket: ticket-secret
+            role: member
+  worker_pool:
+    min_workers: 1
+''';
 
 Future<T> _waitForProcessSignal<T>(
   Future<T> signal,

@@ -29,23 +29,29 @@ service-realm session, binds the remote-auth WAMP procedures, and supports
 `auth_server` executable metadata and changes
 `packages/connectanum_auth_server/test/auth_server_cli_test.dart` to run the
 documented `dart run connectanum_auth_server:auth_server --config ... --check`
-path against a temporary service config. The current follow-up reuses the
-router OpenMetrics HTTP exporter from the auth-server executable when
+path against a temporary service config. Commit `1a849f5` reuses the router
+OpenMetrics HTTP exporter from the auth-server executable when
 `metrics.open_metrics` is enabled and proves `/healthz` plus the configured
-metrics path through the package executable smoke. Pre-edit `bin/test-fast`,
-focused auth-server CLI/package tests, `dart analyze packages/connectanum_auth_server`,
-post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
-Hosted evidence for the last pushed checkpoint `8d2ee00` is clean: push CI
-#25992722694, PR CI #25992723633, push Dart Package Publish Dry Run
-#25992722667, PR Dart Package Publish Dry Run #25992723637, Router Image
-dry-run #25993038176, and WAMP Profile Benchmarks #25993038113 all passed. The
-strict audit with latest CI/logs, package dry-run, router image dry-run, WAMP
-benchmark relevance, workflow visibility, GHCR visibility, and RC-readiness
-reporting passed for the enforced gates. The health/metrics follow-up still
-needs hosted evidence after push. RC readiness remains blocked by PR #79
-review/merge, a fresh approved RC tag/prerelease for the promoted release
-branch, and tag-matched Native Artifacts/Router Image publish evidence; pub.dev
-remains intentionally deferred.
+metrics path through the package executable smoke. The current YAML config
+follow-up proves the README-documented `auth_service.yaml` path through the
+same package executable, covering the shared router JSON/YAML config loader
+from the auth-server CLI surface. Pre-edit `bin/test-fast` and focused
+`dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`
+passed on 2026-05-17; full local `bin/verify` also passed for this YAML
+follow-up. Push and hosted evidence are pending. Hosted evidence for `1a849f5` is clean: push CI #25994206592,
+PR CI #25994207170, push Dart Package Publish Dry Run #25994206615, and PR
+Dart Package Publish Dry Run #25994207176 passed. Router Image dry-run
+#25993038176 and WAMP Profile Benchmarks #25993038113 remain clean and
+relevant because no router-image-sensitive or WAMP benchmark-sensitive paths
+changed since `8d2ee00`; Native Artifacts #25983559481 remains clean and
+relevant because no native-release-sensitive paths changed since `314a962`.
+The strict audit with latest CI/logs, package dry-run, router image dry-run,
+WAMP benchmark relevance, native release relevance, workflow visibility, GHCR
+visibility, and RC-readiness reporting passed for the enforced gates. RC
+readiness remains blocked by PR #79 review/merge, a fresh approved RC
+tag/prerelease for the promoted release branch, and tag-matched Native
+Artifacts/Router Image publish evidence; pub.dev remains intentionally
+deferred.
 
 Previous implementation checkpoint:
 The Dart package publish dry-run release-order regression is implemented and
@@ -11746,8 +11752,9 @@ order.
 
 - Active plan:
   `docs/exec-plans/2026-05-17-auth-server-cli-runtime.md`
-  (runtime wiring and package executable follow-up pushed and hosted-clean;
-  health/metrics endpoint follow-up locally verified).
+  (runtime wiring, package executable follow-up, and health/metrics endpoint
+  follow-up pushed and hosted-clean for enforced branch gates; YAML package
+  executable config smoke locally full-verified).
   Keep hosted GitHub CI clean first, then finish post-RC release-control
   hardening that does not require operator-owned publish, release-tag, or
   repository-setting decisions.
