@@ -97,6 +97,62 @@ void main() {
   );
 
   test(
+    'package executable --check honors custom realm and session identity',
+    () async {
+      final repoRoot = _resolveRepoRoot();
+      final tempDir = await Directory.systemTemp.createTemp(
+        'connectanum_auth_server_cli_custom_realm_',
+      );
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final configFile = File('${tempDir.path}/auth_service.json')
+        ..writeAsStringSync(
+          jsonEncode(
+            _authServiceConfig(
+              serviceRealm: 'auth.custom',
+              serviceRole: 'service-admin',
+            ),
+          ),
+        );
+
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        <String>[
+          'run',
+          'connectanum_auth_server:auth_server',
+          '--config',
+          configFile.path,
+          '--native-lib',
+          nativeLib!,
+          '--realm',
+          'auth.custom',
+          '--auth-id',
+          'service-runner',
+          '--auth-role',
+          'service-admin',
+          '--check',
+        ],
+        workingDirectory: repoRoot.path,
+        environment: <String, String>{
+          ...Platform.environment,
+          'CONNECTANUM_NATIVE_LIB': nativeLib,
+        },
+      ).timeout(const Duration(seconds: 45));
+
+      expect(result.exitCode, 0, reason: _processOutput(result));
+      expect(
+        result.stdout,
+        contains('Auth server procedures bound on realm auth.custom'),
+      );
+      expect(result.stdout, contains('Auth server runtime check completed.'));
+    },
+    skip: nativeSkipReason,
+  );
+
+  test(
     'package executable rejects configs without the service realm',
     () async {
       final repoRoot = _resolveRepoRoot();
@@ -242,126 +298,129 @@ void main() {
   );
 }
 
-Map<String, Object?> _authServiceConfig({bool openMetrics = false}) =>
-    <String, Object?>{
-      'router': <String, Object?>{
-        'realms': <Object?>[
+Map<String, Object?> _authServiceConfig({
+  bool openMetrics = false,
+  String serviceRealm = 'connectanum.authenticate',
+  String serviceRole = 'internal',
+}) => <String, Object?>{
+  'router': <String, Object?>{
+    'realms': <Object?>[
+      <String, Object?>{
+        'name': 'demo.realm',
+        'auth': <String, Object?>{
+          'authmethods': <Object?>['ticket'],
+          'ticket': <String, Object?>{'authenticator': 'ticket-basic'},
+        },
+        'roles': <Object?>[
           <String, Object?>{
-            'name': 'demo.realm',
-            'auth': <String, Object?>{
-              'authmethods': <Object?>['ticket'],
-              'ticket': <String, Object?>{'authenticator': 'ticket-basic'},
-            },
-            'roles': <Object?>[
+            'name': 'member',
+            'permissions': <Object?>[
               <String, Object?>{
-                'name': 'member',
-                'permissions': <Object?>[
-                  <String, Object?>{
-                    'uri': 'demo.',
-                    'match': 'prefix',
-                    'allow': <Object?>['call', 'register', 'subscribe'],
-                  },
-                ],
+                'uri': 'demo.',
+                'match': 'prefix',
+                'allow': <Object?>['call', 'register', 'subscribe'],
+              },
+            ],
+          },
+        ],
+      },
+      <String, Object?>{
+        'name': serviceRealm,
+        'auth': <String, Object?>{
+          'authmethods': <Object?>['anonymous'],
+        },
+        'roles': <Object?>[
+          <String, Object?>{
+            'name': 'anonymous',
+            'permissions': <Object?>[
+              <String, Object?>{
+                'uri': 'authenticate.',
+                'match': 'prefix',
+                'allow': <Object?>['call'],
               },
             ],
           },
           <String, Object?>{
-            'name': 'connectanum.authenticate',
-            'auth': <String, Object?>{
-              'authmethods': <Object?>['anonymous'],
-            },
-            'roles': <Object?>[
+            'name': serviceRole,
+            'permissions': <Object?>[
               <String, Object?>{
-                'name': 'anonymous',
-                'permissions': <Object?>[
-                  <String, Object?>{
-                    'uri': 'authenticate.',
-                    'match': 'prefix',
-                    'allow': <Object?>['call'],
-                  },
-                ],
-              },
-              <String, Object?>{
-                'name': 'internal',
-                'permissions': <Object?>[
-                  <String, Object?>{
-                    'uri': 'authenticate.',
-                    'match': 'prefix',
-                    'allow': <Object?>['register', 'unregister', 'call'],
-                  },
-                ],
+                'uri': 'authenticate.',
+                'match': 'prefix',
+                'allow': <Object?>['register', 'unregister', 'call'],
               },
             ],
           },
-          if (openMetrics)
+        ],
+      },
+      if (openMetrics)
+        <String, Object?>{
+          'name': 'connectanum.metrics',
+          'auth': <String, Object?>{
+            'authmethods': <Object?>['anonymous'],
+          },
+          'roles': <Object?>[
             <String, Object?>{
-              'name': 'connectanum.metrics',
-              'auth': <String, Object?>{
-                'authmethods': <Object?>['anonymous'],
-              },
-              'roles': <Object?>[
+              'name': 'metrics',
+              'permissions': <Object?>[
                 <String, Object?>{
-                  'name': 'metrics',
-                  'permissions': <Object?>[
-                    <String, Object?>{
-                      'uri': 'connectanum.metrics.',
-                      'match': 'prefix',
-                      'allow': <Object?>[
-                        'register',
-                        'unregister',
-                        'call',
-                        'subscribe',
-                        'publish',
-                      ],
-                    },
+                  'uri': 'connectanum.metrics.',
+                  'match': 'prefix',
+                  'allow': <Object?>[
+                    'register',
+                    'unregister',
+                    'call',
+                    'subscribe',
+                    'publish',
                   ],
                 },
               ],
             },
-        ],
-        'listeners': <Object?>[
-          <String, Object?>{
-            'endpoint': '127.0.0.1:0',
-            'authmethods': <Object?>['anonymous'],
-            'protocols': <Object?>['rawsocket'],
-            'rawsocket': <String, Object?>{'max_rawsocket_size_exponent': 16},
-          },
-        ],
-        'authenticators': <String, Object?>{
-          'anonymous': <String, Object?>{'type': 'anonymous'},
-          'ticket-basic': <String, Object?>{
-            'type': 'ticket',
-            'options': <String, Object?>{
-              'secrets': <String, Object?>{
-                'alice': <String, Object?>{
-                  'ticket': 'ticket-secret',
-                  'role': 'member',
-                },
-              },
+          ],
+        },
+    ],
+    'listeners': <Object?>[
+      <String, Object?>{
+        'endpoint': '127.0.0.1:0',
+        'authmethods': <Object?>['anonymous'],
+        'protocols': <Object?>['rawsocket'],
+        'rawsocket': <String, Object?>{'max_rawsocket_size_exponent': 16},
+      },
+    ],
+    'authenticators': <String, Object?>{
+      'anonymous': <String, Object?>{'type': 'anonymous'},
+      'ticket-basic': <String, Object?>{
+        'type': 'ticket',
+        'options': <String, Object?>{
+          'secrets': <String, Object?>{
+            'alice': <String, Object?>{
+              'ticket': 'ticket-secret',
+              'role': 'member',
             },
           },
         },
-        if (openMetrics)
-          'internal_realms': <Object?>[
-            <String, Object?>{
-              'name': 'connectanum.metrics',
-              'auth_id': 'metrics-daemon',
-              'auth_role': 'metrics',
-              'services': <Object?>['metrics'],
-            },
-          ],
-        if (openMetrics)
-          'metrics': <String, Object?>{
-            'open_metrics': <String, Object?>{
-              'enabled': true,
-              'listen': '127.0.0.1:0',
-              'path': '/metrics',
-              'realm': 'connectanum.metrics',
-            },
-          },
-        'worker_pool': <String, Object?>{'min_workers': 1},
       },
-    };
+    },
+    if (openMetrics)
+      'internal_realms': <Object?>[
+        <String, Object?>{
+          'name': 'connectanum.metrics',
+          'auth_id': 'metrics-daemon',
+          'auth_role': 'metrics',
+          'services': <Object?>['metrics'],
+        },
+      ],
+    if (openMetrics)
+      'metrics': <String, Object?>{
+        'open_metrics': <String, Object?>{
+          'enabled': true,
+          'listen': '127.0.0.1:0',
+          'path': '/metrics',
+          'realm': 'connectanum.metrics',
+        },
+      },
+    'worker_pool': <String, Object?>{'min_workers': 1},
+  },
+};
 
 Map<String, Object?> _authServiceConfigWithoutServiceRealm() {
   final config = _authServiceConfig();

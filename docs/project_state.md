@@ -21,8 +21,9 @@ Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
 Auth-server CLI runtime wiring, documented package executable readiness, CLI
-health/metrics readiness, and YAML config readiness are pushed and
-hosted-clean for enforced branch gates. Commit `58609e1` pushed the
+health/metrics readiness, YAML config readiness, and missing-service-realm
+fail-closed coverage are pushed and hosted-clean for enforced branch gates.
+Commit `58609e1` pushed the
 runtime wiring: `packages/connectanum_auth_server/bin/auth_server.dart` starts
 a native router runtime from configured listeners, creates an internal
 service-realm session, binds the remote-auth WAMP procedures, and supports
@@ -48,11 +49,18 @@ router-image-sensitive or WAMP benchmark-sensitive paths changed since
 native-release-sensitive paths changed since `314a962`. The strict audit with
 latest CI/logs, package dry-run, router image dry-run, WAMP benchmark
 relevance, native release relevance, workflow visibility, GHCR visibility, and
-RC-readiness reporting passed for the enforced gates. The current
-missing-service-realm follow-up proves
+RC-readiness reporting passed for the enforced gates. Commit `305449a` proves
 `dart run connectanum_auth_server:auth_server --check` rejects configs missing
-`connectanum.authenticate` before native runtime startup. Pre-edit
-`bin/test-fast`, focused
+`connectanum.authenticate` before native runtime startup and is hosted-clean:
+push CI #25996782228, PR CI #25996783211, push Dart Package Publish Dry Run
+#25996782211, and PR Dart Package Publish Dry Run #25996783217 passed. The
+strict audit with latest CI/logs, package dry-run, router image dry-run, WAMP
+benchmark relevance, native release relevance, workflow visibility, GHCR
+visibility, and RC-readiness reporting passed for the enforced gates on
+2026-05-17. The current custom realm/session follow-up proves
+`dart run connectanum_auth_server:auth_server --check` honors `--realm`,
+`--auth-id`, and `--auth-role` instead of only the default service realm and
+identity. Pre-edit `bin/test-fast`, focused
 `dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`,
 focused `dart analyze packages/connectanum_auth_server`, focused
 `dart test packages/connectanum_auth_server/test -r expanded`, post-edit
@@ -11763,8 +11771,9 @@ order.
   `docs/exec-plans/2026-05-17-auth-server-cli-runtime.md`
   (runtime wiring, package executable follow-up, health/metrics endpoint
   follow-up, and YAML package executable config smoke pushed and hosted-clean
-  for enforced branch gates; missing-service-realm fail-closed smoke locally
-  full-verified).
+  for enforced branch gates; missing-service-realm fail-closed smoke pushed and
+  hosted-clean for enforced branch gates; custom realm/session CLI smoke
+  locally full-verified).
   Keep hosted GitHub CI clean first, then finish post-RC release-control
   hardening that does not require operator-owned publish, release-tag, or
   repository-setting decisions.

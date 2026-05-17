@@ -3,8 +3,9 @@
 Status: runtime wiring, package executable follow-up, health/metrics endpoint
 follow-up, and YAML package-executable config smoke are pushed and hosted-clean
 for enforced branch gates. The missing-service-realm fail-closed smoke is
-implemented locally with full verification passing; push/hosted evidence and RC
-release-control blockers remain.
+pushed and hosted-clean for enforced branch gates. The custom realm/session
+CLI smoke is implemented locally with full verification passing; push/hosted
+evidence and RC release-control blockers remain.
 
 ## Goal
 
@@ -32,6 +33,9 @@ WAMP procedures, and reporting readiness instead of only constructing an
   auth-server CLI surface.
 - Prove `--check` rejects configs that omit the configured auth service realm
   before native runtime startup.
+- Prove `--realm`, `--auth-id`, and `--auth-role` are honored through the
+  documented package executable path, not only the default service realm and
+  internal session identity.
 - Bundle the pending hosted-evidence bookkeeping from the completed Dart
   package dry-run slice with this implementation commit.
 - Follow up by proving the documented package executable target
@@ -126,13 +130,33 @@ WAMP procedures, and reporting readiness instead of only constructing an
   passed on 2026-05-17.
 - Missing-service-realm post-edit `bin/test-fast`: passed on 2026-05-17.
 - Missing-service-realm full local `bin/verify`: passed on 2026-05-17.
+- Missing-service-realm commit/push: `305449a` pushed to
+  `codex/post-rc-production-readiness`.
+- Missing-service-realm hosted CI: push CI #25996782228 and PR CI #25996783211
+  passed for `305449a`.
+- Missing-service-realm hosted package dry-run: push #25996782211 and PR
+  #25996783217 passed for `305449a`.
+- Missing-service-realm strict deployment-chain audit with latest CI/logs,
+  package dry-run, router image dry-run relevance, WAMP benchmark relevance,
+  workflow visibility, GHCR visibility, native release relevance, and
+  RC-readiness reporting: passed for the enforced gates on 2026-05-17.
+- Custom realm/session follow-up pre-edit `bin/test-fast`: passed on
+  2026-05-17.
+- Custom realm/session focused `dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`:
+  passed on 2026-05-17.
+- Custom realm/session focused `dart analyze packages/connectanum_auth_server`:
+  passed on 2026-05-17.
+- Custom realm/session focused `dart test packages/connectanum_auth_server/test -r expanded`:
+  passed on 2026-05-17.
+- Custom realm/session post-edit `bin/test-fast`: passed on 2026-05-17.
+- Custom realm/session full local `bin/verify`: passed on 2026-05-17.
 
 ## Remaining
 
-- Commit/push the bundled missing-service-realm smoke code and state updates,
+- Commit/push the bundled custom realm/session smoke code and state updates,
   then collect hosted CI/package dry-run evidence and rerun the strict audit if
   required for handoff.
 - Complete PR #79 review/merge into the release branch.
-- After release approval, choose a fresh RC tag for the current branch head or
-  its promoted release-branch successor, then refresh tag-matched Native
-  Artifacts and Router Image evidence.
+- After release approval, choose a fresh RC tag for the latest auth-server CLI
+  hardening commit or its promoted release-branch successor, then refresh
+  tag-matched Native Artifacts and Router Image evidence.
