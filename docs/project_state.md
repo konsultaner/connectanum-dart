@@ -21,21 +21,43 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Native artifact signing flake hardening is in follow-up after hosted evidence
-showed the first installer update was incomplete. Commit `af831f7` moved the
-Native Artifacts workflow to `sigstore/cosign-installer@v4.1.0`; local
-`bin/test-fast`, `git diff --check`, private-name scan on the touched
-workflow/state/plan paths, and full `bin/verify` passed on 2026-05-17, and
-branch/PR CI plus PR package dry-run were green. However, manually triggered
-Native Artifacts dry-run #25979718422 failed on Windows x64 during
+The deployment-chain audit stale-RC next-action wording is complete locally.
+The audit now recommends choosing a fresh RC tag when an existing GitHub RC
+prerelease or selected RC tag does not cover the checked-out
+release-sensitive candidate, and treats retagging an already published RC as
+explicit release-policy approval rather than a default next step. This keeps
+the audit read-only and reduces accidental mutation risk for consumed RC
+tags/prereleases. Pre-edit `bin/test-fast` passed on 2026-05-17; focused
+`bash -n bin/audit-github-deployment-chain`, stale-wording scan, and
+stale-RC audit output inspection also passed. `git diff --check`, private-name
+scan on the touched public docs/tooling paths, and full local `bin/verify`
+passed on 2026-05-17. Hosted CI/package dry-run evidence needs to refresh after
+the implementation commit is pushed.
+
+Previous implementation checkpoint:
+Native artifact signing flake hardening is complete. Commit `af831f7` moved the
+Native Artifacts workflow to `sigstore/cosign-installer@v4.1.0`, but manually
+triggered Native Artifacts dry-run #25979718422 failed on Windows x64 during
 `Install Cosign` after repeated 502 responses for the custom-version
-`v3.0.3` Windows KMS bundle. The current follow-up updates the workflow to
+`v3.0.3` Windows KMS bundle. Commit `bd154e3` updates the workflow to
 `sigstore/cosign-installer@v4.1.2`, whose default Cosign version matches its
 pinned bootstrap version and avoids that extra custom-version bundle download
-while retaining upstream digest checks. A second pre-edit `bin/test-fast`
-passed on 2026-05-17, and full post-edit `bin/verify` also passed on
-2026-05-17. Hosted Native Artifacts evidence still needs to be refreshed after
-this follow-up is pushed.
+while retaining upstream digest checks. Local `bin/test-fast`, `git diff
+--check`, private-name scan on the touched workflow/state/plan paths, and full
+`bin/verify` passed on 2026-05-17. Hosted evidence for `bd154e3` is clean:
+push-triggered GitHub CI #25980174780 passed with `Fast Checks` and
+`Full Verify` green; PR-triggered GitHub CI #25980175503 passed with
+`Fast Checks` and `Full Verify` green; Dart Package Publish Dry Run
+#25980175508 passed; and Native Artifacts dry-run #25980182920 passed all
+native matrix jobs, including Windows x64, plus the release-preview job. The
+strict deployment-chain audit exited cleanly for latest CI/logs, package
+dry-run, native dry-run, relevant router image dry-run, relevant WAMP profile
+benchmarks, workflow visibility, default-branch protection baseline, and GHCR
+router package visibility. RC readiness remains not ready only for the
+operator/release gates: PR #79 review/merge into `master`, selecting the final
+RC tag/prerelease at the promoted commit, refreshing native/router evidence for
+that tag, and resolving the intentionally deferred pub.dev release-order
+decision.
 
 Previous implementation checkpoint:
 Router worker-pool scale-down drain no longer blocks the boss loop or accepts

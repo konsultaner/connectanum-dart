@@ -1,6 +1,6 @@
 # Exec Plan: Native Cosign Installer Retry
 
-Status: complete locally; hosted v4.1.2 evidence pending after push
+Status: complete; hosted v4.1.2 evidence clean
 Owner: Codex
 Created: 2026-05-17
 Last updated: 2026-05-17
@@ -41,6 +41,18 @@ native bundles.
 - Private-name scan on the touched workflow/state/plan paths passed on
   2026-05-17.
 - `bin/verify` passed after the v4.1.2 follow-up on 2026-05-17.
+- GitHub CI #25980174780 passed on the pushed branch head `bd154e3` with
+  `Fast Checks` and `Full Verify` green.
+- GitHub CI #25980175503 passed on PR #79 head `bd154e3` with `Fast Checks`
+  and `Full Verify` green.
+- Dart Package Publish Dry Run #25980175508 passed on `bd154e3`.
+- Native Artifacts dry-run #25980182920 passed on `bd154e3`, including the
+  Windows x64 matrix job and the release-preview job.
+- The strict deployment-chain audit passed the clean latest CI/logs, Dart
+  package dry-run, Native Artifacts dry-run, relevant Router Image dry-run,
+  relevant WAMP Profile Benchmarks, workflow visibility, release-branch
+  protection baseline, and GHCR router package visibility gates on
+  2026-05-17.
 
 ## Decision Log
 
@@ -60,6 +72,7 @@ native bundles.
 
 - The Native Artifacts workflow now uses
   `sigstore/cosign-installer@v4.1.2`.
-- Local verification is clean. Because this is workflow-sensitive, hosted
-  Native Artifacts evidence should be refreshed after the implementation commit
-  is pushed.
+- Local and hosted verification are clean. Remaining RC blockers are outside
+  this implementation slice: PR #79 review/merge, final RC tag/prerelease
+  selection, matching native/router evidence for that tag, and the deferred
+  pub.dev release-order decision.

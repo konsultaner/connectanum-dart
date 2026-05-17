@@ -421,6 +421,19 @@ is_release_candidate_tag() {
   [[ "$tag" =~ (^|[-_.])rc([0-9]+|[-_.][0-9]+)?($|[-_.]) ]]
 }
 
+print_stale_rc_tag_next_action() {
+  local selected_tag="$1"
+  local target_sha="$2"
+  local follow_up="$3"
+
+  printf '  Next action: after release approval, choose a fresh RC tag for %s instead of reusing %s, push it, then %s\n' \
+    "$target_sha" \
+    "$selected_tag" \
+    "$follow_up"
+  printf '  Retagging %s should be treated as explicit release-policy approval because published RC tags/prereleases may already be consumed.\n' \
+    "$selected_tag"
+}
+
 rc_tags_pointing_at_head() {
   local tag
 
@@ -1923,7 +1936,10 @@ print_rc_readiness() {
         printf 'GitHub RC prerelease: ready (%s)\n' "$release_tag"
       elif [[ "$release_prerelease" == "true" && "$release_draft" != "true" ]]; then
         printf 'GitHub RC prerelease: not ready; %s exists but its tag does not cover the checked-out release-sensitive candidate.\n' "$release_tag"
-        printf '  Next action: after release approval, move or create the intended RC tag at %s and create or update the non-draft GitHub prerelease.\n' "$short_head_sha"
+        print_stale_rc_tag_next_action \
+          "$release_tag" \
+          "$short_head_sha" \
+          'create or update the non-draft GitHub prerelease for that fresh tag and rerun this audit.'
         rc_ready_failed=1
       else
         printf 'GitHub RC prerelease: not ready; %s isPrerelease=%s isDraft=%s.\n' "$release_tag" "$release_prerelease" "$release_draft"
@@ -1948,7 +1964,10 @@ print_rc_readiness() {
       if [[ "$selected_rc_tag_covers_head" -eq 1 ]]; then
         printf '  Next action: rerun the Native Artifacts dry-run or prerelease publish for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
       else
-        printf '  Next action: after release approval, create or move %s to %s first, then rerun Native Artifacts evidence for that tag and rerun this audit.\n' "$selected_rc_tag" "$short_head_sha"
+        print_stale_rc_tag_next_action \
+          "$selected_rc_tag" \
+          "$short_head_sha" \
+          'rerun Native Artifacts evidence for that fresh tag and rerun this audit.'
       fi
       rc_ready_failed=1
     fi
@@ -1962,7 +1981,10 @@ print_rc_readiness() {
       if [[ "$selected_rc_tag_covers_head" -eq 1 ]]; then
         printf '  Next action: rerun the Router Image dry-run for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
       else
-        printf '  Next action: after release approval, create or move %s to %s first, then rerun Router Image evidence for that tag and rerun this audit.\n' "$selected_rc_tag" "$short_head_sha"
+        print_stale_rc_tag_next_action \
+          "$selected_rc_tag" \
+          "$short_head_sha" \
+          'rerun Router Image evidence for that fresh tag and rerun this audit.'
       fi
       rc_ready_failed=1
     fi
