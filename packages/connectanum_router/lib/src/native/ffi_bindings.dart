@@ -105,10 +105,28 @@ typedef CtForwardCallInvocationNative =
       ffi.Uint64,
       ffi.Pointer<ffi.Char>,
       ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
       ffi.Int32,
     );
 typedef CtForwardCallInvocationDart =
-    int Function(int, int, int, int, int, int, ffi.Pointer<ffi.Char>, int, int);
+    int Function(
+      int,
+      int,
+      int,
+      int,
+      int,
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+    );
 
 typedef CtForwardResultFromYieldNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Int32);

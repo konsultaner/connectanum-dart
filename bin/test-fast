@@ -16,6 +16,7 @@ run_client_fast_tests() {
 
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
+  dart test packages/connectanum_client/test/transport/in_process
   dart test packages/connectanum_client/test/transport/local
   dart test packages/connectanum_client/test/transport/native/native_library_loader_test.dart
   dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
@@ -49,6 +50,8 @@ run_bench_vm_tests() {
 }
 
 dart analyze
+python3 tool/test_audit_github_deployment_chain.py
+python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_package_native_artifact.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
@@ -58,12 +61,16 @@ run_client_fast_tests
 dart test packages/connectanum_auth_server/test
 run_bench_vm_tests
 dart test packages/connectanum_router/test/native/native_library_loader_test.dart
+run_remote_auth_service_example_smoke
 run_router_hosted_mcp_example_smoke
 run_mcp_consumer_package_smoke
 
 if ensure_rust_env; then
   if native_runtime_supported; then
     dart test packages/connectanum_router/test/native/native_runtime_test.dart --concurrency=1
+    dart test packages/connectanum_router/test/router_embedded_application_test.dart
+    dart test packages/connectanum_router/test/remote_wamp_delegate_test.dart
+    dart test packages/connectanum_router/test/remote_auth_integration_test.dart
   fi
   dart test packages/connectanum_router/test/router_worker_auth_test.dart
   CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \

@@ -6,6 +6,9 @@ repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
 publish_to: 'none'
 
+executables:
+  auth_server: auth_server
+
 environment:
   sdk: '^3.9.2'
 

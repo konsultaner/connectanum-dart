@@ -162,6 +162,419 @@ void main() {
       expect(action['procedure'], 'connectanum.mcp.handle');
     });
 
+    test('encodes method-specific HTTP route actions for native routing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: 'realm1',
+            auth: const RealmAuthSettings(methods: ['anonymous']),
+            roles: const [],
+            limits: const RealmLimitSettings(),
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(
+                    path: '/api/items',
+                    methods: ['GET', 'POST'],
+                  ),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.items.list',
+                  ),
+                  methodActions: {
+                    'POST': HttpRouteAction(
+                      type: HttpRouteActionType.rpc,
+                      realm: 'realm1',
+                      procedure: 'com.example.items.create',
+                    ),
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      expect(route, isNot(contains('default')));
+      final methods = route['methods'] as Map;
+      expect((methods['GET'] as Map)['procedure'], 'com.example.items.list');
+      expect((methods['POST'] as Map)['procedure'], 'com.example.items.create');
+    });
+
+    test('encodes HTTP session proxy routes for native routing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: 'realm1',
+            auth: const RealmAuthSettings(methods: ['anonymous']),
+            roles: const [],
+            limits: const RealmLimitSettings(),
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/proxy'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.sessionProxy,
+                    procedure: 'com.example.proxy.handle',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      final action = route['default'] as Map;
+      expect(action['type'], 'translation');
+      expect(action['realm'], 'realm1');
+      expect(action['procedure'], 'com.example.proxy.handle');
+    });
+
+    test('encodes HTTP publish routes for native enqueueing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: 'realm1',
+            auth: const RealmAuthSettings(methods: ['anonymous']),
+            roles: const [],
+            limits: const RealmLimitSettings(),
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/events'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.publish,
+                    topic: 'com.example.http.events',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      final action = route['default'] as Map;
+      expect(action['type'], 'translation');
+      expect(action['realm'], 'realm1');
+      expect(action['procedure'], 'com.example.http.events');
+    });
+
+    test('encodes HTTP file routes for native enqueueing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/static/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.file,
+                    directory: '/var/www/static',
+                    cacheControl: 'public, max-age=3600',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      expect(route['path'], '/static/');
+      expect(route['match_kind'], 'prefix');
+      final action = route['default'] as Map;
+      expect(action['type'], 'translation');
+      expect(action['realm'], 'router.http');
+      expect(action['procedure'], 'router.http.file');
+    });
+
+    test('encodes HTTP adapter route stubs for native enqueueing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/proxy/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: {'target': 'http://127.0.0.1:9000'},
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/php/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.fastCgi,
+                    delegate: 'unix:/run/php-fpm.sock',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final routes = (map['endpoints'] as List).single['http_routes'] as List;
+      final reverseProxy = routes.first as Map;
+      final reverseProxyAction = reverseProxy['default'] as Map;
+      expect(reverseProxyAction['type'], 'translation');
+      expect(reverseProxyAction['realm'], 'router.http');
+      expect(reverseProxyAction['procedure'], 'router.http.reverse_proxy');
+      final fastCgi = routes.last as Map;
+      final fastCgiAction = fastCgi['default'] as Map;
+      expect(fastCgiAction['type'], 'translation');
+      expect(fastCgiAction['realm'], 'router.http');
+      expect(fastCgiAction['procedure'], 'router.http.fastcgi');
+    });
+
+    test('encodes HTTP handler routes for router-hosted dispatch', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/healthz'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.handler,
+                    delegate: 'health.handler',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final routes = (map['endpoints'] as List).single['http_routes'] as List;
+      final action = (routes.single as Map)['default'] as Map;
+      expect(action['type'], 'translation');
+      expect(action['realm'], 'router.http');
+      expect(action['procedure'], 'router.http.handler');
+    });
+
+    test('encodes catch-all HTTP routes as native prefix fallbacks', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: 'realm1',
+            auth: const RealmAuthSettings(methods: ['anonymous']),
+            roles: const [],
+            limits: const RealmLimitSettings(),
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(catchAll: true),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.http.fallback',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      expect(route['path'], '/');
+      expect(route['match_kind'], 'prefix');
+      final action = route['default'] as Map;
+      expect(action['realm'], 'realm1');
+      expect(action['procedure'], 'com.example.http.fallback');
+    });
+
+    test('encodes deterministic HTTP shorthand routes for native routing', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: 'realm1',
+            auth: const RealmAuthSettings(methods: ['anonymous']),
+            roles: const [],
+            limits: const RealmLimitSettings(),
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reservedRealm,
+                    namespace: 'public.http',
+                    appendMethodSuffix: false,
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/api/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.namespace,
+                    realm: 'realm1',
+                    namespace: 'consumer.api',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final routes = endpointJson['http_routes'] as List;
+      final reserved = (routes.first as Map)['default'] as Map;
+      expect(reserved['type'], 'reserved_realm');
+      expect(reserved['namespace'], 'public.http');
+      expect(reserved['append_method_suffix'], isFalse);
+
+      final namespace = (routes.last as Map)['default'] as Map;
+      expect(namespace['type'], 'namespace');
+      expect(namespace['realm'], 'realm1');
+      expect(namespace['namespace'], 'consumer.api');
+      expect(namespace['append_method_suffix'], isTrue);
+    });
+
     test(
       'keeps MCP auth failures in Dart binding for CORS-aware responses',
       () {

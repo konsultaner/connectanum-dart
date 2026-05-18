@@ -28,12 +28,13 @@ artifact on GitHub's default branch:
     disable image attestations because cache-only outputs do not create
     registry image attestations
 
-Current release status: GitHub does not yet expose the router image workflow on
-the default branch, and `ghcr.io/konsultaner/connectanum-router` is not visible
-as a published package. Use the Dart runner or publish an image to your own
-registry until the deployment-chain audit records workflow and GHCR validation.
-Once the package exists, prefer immutable version tags in production manifests
-and reserve `latest` for development or fast-follow environments.
+Current release status: GitHub now publishes prerelease native bundles and the
+router image package is expected at `ghcr.io/konsultaner/connectanum-router`
+for project `v*` release tags. Before using a candidate in production, verify
+that the GitHub Release, native bundle checksums/Sigstore metadata, and matching
+router image tags all cover the same release tag. Prefer immutable version tags
+in production manifests and reserve `latest` for development or fast-follow
+environments.
 
 Maintainer-side GitHub Actions, branch protection, and release-evidence
 expectations are tracked in `docs/github_deployment_chain.md`.

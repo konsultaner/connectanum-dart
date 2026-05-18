@@ -106,6 +106,8 @@ abstract class NativeRuntimeWithHandles implements NativeRuntime {
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   });
@@ -3060,7 +3062,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         final jsonBody = body as NativeHttpResponseJson;
         return Uint8List.fromList(utf8.encode(jsonEncode(jsonBody.value)));
       case NativeHttpResponseBodyKind.file:
-        throw UnsupportedError('File responses not supported yet');
+        final fileBody = body as NativeHttpResponseFile;
+        return File(fileBody.path).readAsBytesSync();
     }
   }
 
@@ -3310,10 +3313,14 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   }) {
     final procedureBuffer = _toNativeString(procedure);
+    final callerAuthIdBuffer = _toNativeString(callerAuthId);
+    final callerAuthRoleBuffer = _toNativeString(callerAuthRole);
     try {
       final result = _bindings.ctForwardCallInvocation(
         handle,
@@ -3324,6 +3331,10 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         callerSessionId ?? 0,
         procedureBuffer.charPtr,
         procedureBuffer.length,
+        callerAuthIdBuffer.charPtr,
+        callerAuthIdBuffer.length,
+        callerAuthRoleBuffer.charPtr,
+        callerAuthRoleBuffer.length,
         receiveProgress == null ? -1 : (receiveProgress ? 1 : 0),
       );
       if (result != NativeTransportErrorCode.success) {
@@ -3331,6 +3342,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       }
     } finally {
       procedureBuffer.dispose();
+      callerAuthIdBuffer.dispose();
+      callerAuthRoleBuffer.dispose();
     }
   }
 

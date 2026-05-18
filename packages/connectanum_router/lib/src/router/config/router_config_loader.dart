@@ -113,9 +113,40 @@ class RouterConfigLoader {
           if (route is! Map<String, Object?>) {
             throw FormatException('listener.http.routes entries must be maps');
           }
-          final match = _parseHttpRouteMatch(route['match']);
-          final action = _parseHttpRouteAction(route['action']);
-          return HttpRouteSettings(match: match, action: action);
+          final methodActionsNode =
+              route['method_actions'] ??
+              route['methodActions'] ??
+              (route['methods'] is Map<String, Object?>
+                  ? route['methods']
+                  : null);
+          final methodActions = _parseHttpRouteMethodActions(methodActionsNode);
+          final actionNode = route['action'];
+          if (actionNode == null && methodActions.isEmpty) {
+            throw FormatException(
+              'listener.http.routes entries require action or methods',
+            );
+          }
+          final action = actionNode == null
+              ? methodActions.values.first
+              : _parseHttpRouteAction(actionNode);
+          final parsedMatch = _parseHttpRouteMatch(route['match']);
+          final match = actionNode == null && parsedMatch.methods.isEmpty
+              ? HttpRouteMatch(
+                  path: parsedMatch.path,
+                  prefix: parsedMatch.prefix,
+                  catchAll: parsedMatch.catchAll,
+                  host: parsedMatch.host,
+                  methods: List<String>.unmodifiable(methodActions.keys),
+                  protocols: parsedMatch.protocols,
+                  headers: parsedMatch.headers,
+                  extra: parsedMatch.extra,
+                )
+              : parsedMatch;
+          return HttpRouteSettings(
+            match: match,
+            action: action,
+            methodActions: methodActions,
+          );
         })
         .toList(growable: false);
   }
@@ -128,8 +159,29 @@ class RouterConfigLoader {
       throw FormatException('listener.http.routes.match must be a map');
     }
     final matchMap = Map<String, Object?>.from(node);
-    final path = _asNullableString(matchMap.remove('path'));
-    final prefix = _asNullableString(matchMap.remove('prefix'));
+    var path = _asNullableString(matchMap.remove('path'));
+    var prefix = _asNullableString(matchMap.remove('prefix'));
+    final catchAllNode =
+        matchMap.remove('catch_all') ??
+        matchMap.remove('catchAll') ??
+        matchMap.remove('wildcard');
+    var catchAll = _asBool(catchAllNode, defaultValue: false);
+    final pathIsWildcard = path?.trim() == '*';
+    final prefixIsWildcard = prefix?.trim() == '*';
+    if (pathIsWildcard || prefixIsWildcard) {
+      catchAll = true;
+    }
+    if (catchAll) {
+      final hasSpecificPath = path != null && !pathIsWildcard;
+      final hasSpecificPrefix = prefix != null && !prefixIsWildcard;
+      if (hasSpecificPath || hasSpecificPrefix) {
+        throw FormatException(
+          'listener.http.routes.match catch-all cannot set path or prefix',
+        );
+      }
+      path = null;
+      prefix = null;
+    }
     final host = _asNullableString(matchMap.remove('host'));
     final methods = _stringList(matchMap.remove('methods'));
     final method = _asNullableString(matchMap.remove('method'));
@@ -141,6 +193,7 @@ class RouterConfigLoader {
     return HttpRouteMatch(
       path: path,
       prefix: prefix,
+      catchAll: catchAll,
       host: host,
       methods: List.unmodifiable(combinedMethods),
       protocols: List.unmodifiable(combinedProtocols),
@@ -164,14 +217,31 @@ class RouterConfigLoader {
     );
     final namespace = _asNullableString(map.remove('namespace'));
     final appendMethodSuffix = _asNullableBool(
-      map.remove('append_method_suffix'),
+      map.remove('append_method_suffix') ?? map.remove('appendMethodSuffix'),
     );
     final topic = _asNullableString(map.remove('topic'));
     final serializer = _asNullableString(map.remove('serializer'));
-    final contentType = _asNullableString(map.remove('content_type'));
+    final contentType = _asNullableString(
+      map.remove('content_type') ?? map.remove('contentType'),
+    );
     final directory = _asNullableString(map.remove('directory'));
-    final cacheControl = _asNullableString(map.remove('cache_control'));
+    final cacheControl = _asNullableString(
+      map.remove('cache_control') ?? map.remove('cacheControl'),
+    );
     final delegate = _asNullableString(map.remove('delegate'));
+    final rateLimit = _parseHttpRouteRateLimit(
+      map.remove('rate_limit') ?? map.remove('rateLimit'),
+    );
+    final concurrencyLimit = _parseHttpRouteConcurrencyLimit(
+      map.remove('concurrency_limit') ??
+          map.remove('concurrencyLimit') ??
+          map.remove('throttle'),
+    );
+    final accessLog = _parseHttpRouteAccessLog(
+      map.remove('access_log') ??
+          map.remove('accessLog') ??
+          map.remove('logging'),
+    );
     final actionOptions =
         _asMap(map.remove('options'), allowNull: true) ?? const {};
     final extras = Map<String, Object?>.unmodifiable(map);
@@ -194,8 +264,194 @@ class RouterConfigLoader {
       directory: directory,
       cacheControl: cacheControl,
       delegate: delegate,
+      rateLimit: rateLimit,
+      concurrencyLimit: concurrencyLimit,
+      accessLog: accessLog,
       options: mergedOptions,
     );
+  }
+
+  static HttpRouteRateLimitSettings? _parseHttpRouteRateLimit(dynamic node) {
+    if (node == null) {
+      return null;
+    }
+    final map = Map<String, Object?>.from(_asMap(node)!);
+    final maxRequests = _asInt(
+      map.remove('max_requests') ??
+          map.remove('maxRequests') ??
+          map.remove('limit') ??
+          map.remove('requests'),
+      defaultValue: 60,
+    );
+    if (maxRequests <= 0) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit.max_requests must be > 0',
+      );
+    }
+    final windowMs = _asInt(
+      map.remove('window_ms') ??
+          map.remove('windowMs') ??
+          map.remove('interval_ms') ??
+          map.remove('intervalMs'),
+      defaultValue: 60000,
+    );
+    if (windowMs <= 0) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit.window_ms must be > 0',
+      );
+    }
+    final key =
+        _asNullableString(
+          map.remove('key') ??
+              map.remove('scope') ??
+              map.remove('key_by') ??
+              map.remove('keyBy'),
+        ) ??
+        'global';
+    final normalizedKey = key.trim();
+    if (normalizedKey.isEmpty) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit.key must not be empty',
+      );
+    }
+    final keyLower = normalizedKey.toLowerCase();
+    if (keyLower != 'global' &&
+        keyLower != 'connection' &&
+        keyLower != 'bearer' &&
+        !keyLower.startsWith('header:')) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit.key must be global, connection, bearer, or header:<name>',
+      );
+    }
+    if (keyLower.startsWith('header:') &&
+        normalizedKey.substring('header:'.length).trim().isEmpty) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit.header key must include a header name',
+      );
+    }
+    if (map.isNotEmpty) {
+      throw FormatException(
+        'Unknown listener.http.routes.action.rate_limit keys: ${map.keys.join(', ')}',
+      );
+    }
+    return HttpRouteRateLimitSettings(
+      maxRequests: maxRequests,
+      window: Duration(milliseconds: windowMs),
+      key: normalizedKey,
+    );
+  }
+
+  static HttpRouteConcurrencyLimitSettings? _parseHttpRouteConcurrencyLimit(
+    dynamic node,
+  ) {
+    if (node == null) {
+      return null;
+    }
+    final map = Map<String, Object?>.from(_asMap(node)!);
+    final maxConcurrent = _asInt(
+      map.remove('max_concurrent') ??
+          map.remove('maxConcurrent') ??
+          map.remove('limit') ??
+          map.remove('concurrent'),
+      defaultValue: 16,
+    );
+    if (maxConcurrent <= 0) {
+      throw FormatException(
+        'listener.http.routes.action.concurrency_limit.max_concurrent must be > 0',
+      );
+    }
+    final key =
+        _asNullableString(
+          map.remove('key') ??
+              map.remove('scope') ??
+              map.remove('key_by') ??
+              map.remove('keyBy'),
+        ) ??
+        'global';
+    final normalizedKey = key.trim();
+    if (normalizedKey.isEmpty) {
+      throw FormatException(
+        'listener.http.routes.action.concurrency_limit.key must not be empty',
+      );
+    }
+    final keyLower = normalizedKey.toLowerCase();
+    if (keyLower != 'global' &&
+        keyLower != 'connection' &&
+        keyLower != 'bearer' &&
+        !keyLower.startsWith('header:')) {
+      throw FormatException(
+        'listener.http.routes.action.concurrency_limit.key must be global, connection, bearer, or header:<name>',
+      );
+    }
+    if (keyLower.startsWith('header:') &&
+        normalizedKey.substring('header:'.length).trim().isEmpty) {
+      throw FormatException(
+        'listener.http.routes.action.concurrency_limit.header key must include a header name',
+      );
+    }
+    if (map.isNotEmpty) {
+      throw FormatException(
+        'Unknown listener.http.routes.action.concurrency_limit keys: ${map.keys.join(', ')}',
+      );
+    }
+    return HttpRouteConcurrencyLimitSettings(
+      maxConcurrent: maxConcurrent,
+      key: normalizedKey,
+    );
+  }
+
+  static HttpRouteAccessLogSettings? _parseHttpRouteAccessLog(dynamic node) {
+    if (node == null) {
+      return null;
+    }
+    if (node is bool) {
+      return HttpRouteAccessLogSettings(enabled: node);
+    }
+    final map = Map<String, Object?>.from(_asMap(node)!);
+    final enabled =
+        _asNullableBool(map.remove('enabled') ?? map.remove('enable')) ?? true;
+    final includeQuery =
+        _asNullableBool(
+          map.remove('include_query') ?? map.remove('includeQuery'),
+        ) ??
+        false;
+    final includeHeaders =
+        _asNullableBool(
+          map.remove('include_headers') ?? map.remove('includeHeaders'),
+        ) ??
+        false;
+    if (map.isNotEmpty) {
+      throw FormatException(
+        'Unknown listener.http.routes.action.access_log keys: ${map.keys.join(', ')}',
+      );
+    }
+    return HttpRouteAccessLogSettings(
+      enabled: enabled,
+      includeQuery: includeQuery,
+      includeHeaders: includeHeaders,
+    );
+  }
+
+  static Map<String, HttpRouteAction> _parseHttpRouteMethodActions(
+    dynamic node,
+  ) {
+    if (node == null) {
+      return const {};
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException(
+        'listener.http.routes method actions must be a map',
+      );
+    }
+    final actions = <String, HttpRouteAction>{};
+    for (final entry in node.entries) {
+      final method = entry.key.trim().toUpperCase();
+      if (method.isEmpty) {
+        throw FormatException('listener.http.routes method cannot be empty');
+      }
+      actions[method] = _parseHttpRouteAction(entry.value);
+    }
+    return Map<String, HttpRouteAction>.unmodifiable(actions);
   }
 
   static RawSocketListenerSettings? _deriveLegacyRawSocketSettings(
@@ -834,7 +1090,60 @@ class RouterConfigLoader {
     if (minWorkers < 0) {
       throw FormatException('worker_pool.min_workers must be >= 0');
     }
-    return WorkerPoolSettings(minWorkers: minWorkers);
+    final maxWorkers = _asInt(node['max_workers'], defaultValue: minWorkers);
+    if (maxWorkers < 0) {
+      throw FormatException('worker_pool.max_workers must be >= 0');
+    }
+    if (maxWorkers < minWorkers) {
+      throw FormatException(
+        'worker_pool.max_workers must be >= worker_pool.min_workers',
+      );
+    }
+    final scaleUpPendingDispatches = _asInt(
+      node['scale_up_pending_dispatches'],
+      defaultValue: 1,
+    );
+    if (scaleUpPendingDispatches < 1) {
+      throw FormatException(
+        'worker_pool.scale_up_pending_dispatches must be >= 1',
+      );
+    }
+    final scaleUpConsecutiveTicks = _asInt(
+      node['scale_up_consecutive_ticks'],
+      defaultValue: 2,
+    );
+    if (scaleUpConsecutiveTicks < 1) {
+      throw FormatException(
+        'worker_pool.scale_up_consecutive_ticks must be >= 1',
+      );
+    }
+    final scaleDownConsecutiveTicks = _asInt(
+      node['scale_down_consecutive_ticks'],
+      defaultValue: const WorkerPoolSettings().scaleDownConsecutiveTicks,
+    );
+    if (scaleDownConsecutiveTicks < 1) {
+      throw FormatException(
+        'worker_pool.scale_down_consecutive_ticks must be >= 1',
+      );
+    }
+    final scaleDownDrainTimeoutMs = _asInt(
+      node['scale_down_drain_timeout_ms'],
+      defaultValue:
+          const WorkerPoolSettings().scaleDownDrainTimeout.inMilliseconds,
+    );
+    if (scaleDownDrainTimeoutMs < 0) {
+      throw FormatException(
+        'worker_pool.scale_down_drain_timeout_ms must be >= 0',
+      );
+    }
+    return WorkerPoolSettings(
+      minWorkers: minWorkers,
+      maxWorkers: maxWorkers,
+      scaleUpPendingDispatches: scaleUpPendingDispatches,
+      scaleUpConsecutiveTicks: scaleUpConsecutiveTicks,
+      scaleDownConsecutiveTicks: scaleDownConsecutiveTicks,
+      scaleDownDrainTimeout: Duration(milliseconds: scaleDownDrainTimeoutMs),
+    );
   }
 
   static String _expectString(dynamic value, String path) {

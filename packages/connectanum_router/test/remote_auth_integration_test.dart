@@ -7,6 +7,18 @@ import 'dart:io';
 import 'package:connectanum_auth_server/connectanum_auth_server.dart';
 import 'package:connectanum_client/connectanum.dart' as client_pkg;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
+import 'package:connectanum_router/auth.dart'
+    show
+        AuthenticateMessage,
+        AuthenticatorContext,
+        RemoteAuthenticateRequest,
+        RemoteAuthenticateResponse,
+        RemoteAuthenticateStatus,
+        RemoteAuthenticatorDelegate,
+        RemoteHelloRequest,
+        RemoteHelloResponse,
+        RemoteHelloStatus,
+        TransportMetadata;
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:test/test.dart';
 
@@ -33,6 +45,59 @@ void main() {
         );
 
         final session = await harness.connectTicketUser();
+        addTearDown(session.close);
+
+        expect(session.authId, equals('ticket-user'));
+        expect(session.authRole, equals('member'));
+        expect(session.authProvider, equals('remote-auth-server'));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'authenticates through the embedded remote auth WAMP delegate',
+      () async {
+        final harness = await _EmbeddedRemoteAuthHarness.start(
+          nativeLib: nativeLib!,
+        );
+        addTearDown(harness.dispose);
+
+        final result = await harness.authenticateTicketUserThroughDelegate();
+
+        expect(result.hello.status, equals(RemoteHelloStatus.challenge));
+        expect(
+          result.authenticate.status,
+          equals(RemoteAuthenticateStatus.success),
+        );
+        expect(result.authenticate.success?.authId, equals('ticket-user'));
+        expect(result.authenticate.success?.authRole, equals('member'));
+        expect(
+          result.authenticate.success?.details['authprovider'],
+          equals('remote-auth-server'),
+        );
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'authenticates live ticket clients through embedded remote auth procedures',
+      () async {
+        final harness = await _EmbeddedRemoteAuthHarness.startEdge(
+          nativeLib: nativeLib!,
+        );
+        addTearDown(harness.dispose);
+
+        final client_pkg.Session session;
+        try {
+          session = await harness.connectTicketUser();
+        } on client_pkg.Abort catch (abort) {
+          fail(
+            'Unexpected auth abort: ${abort.reason} '
+            '${abort.details}',
+          );
+        } catch (error) {
+          fail('Unexpected auth error: ${error.runtimeType} $error');
+        }
         addTearDown(session.close);
 
         expect(session.authId, equals('ticket-user'));
@@ -170,6 +235,54 @@ void main() {
             ),
           ),
         );
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'keeps remote hello failures behind the fake challenge path',
+      () async {
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
+
+        final helloRegistration = await harness.authSession.register(
+          'authenticate.hello',
+        );
+        helloRegistration.onLazyInvokePayload((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: const <String, Object?>{
+              'status': 'failure',
+              'reason': wamp_core.Error.notAuthorized,
+              'message': 'remote hello rejected',
+            },
+          );
+        });
+        var authenticateCalls = 0;
+        final authenticateRegistration = await harness.authSession.register(
+          'authenticate.authenticate',
+        );
+        authenticateRegistration.onLazyInvokePayload((invocation) {
+          authenticateCalls += 1;
+          invocation.respondWith(
+            argumentsKeywords: const <String, Object?>{
+              'status': 'failure',
+              'reason': wamp_core.Error.notAuthorized,
+              'message': 'unexpected authenticate',
+            },
+          );
+        });
+
+        await expectLater(
+          harness.connectTicketUser(),
+          throwsA(
+            isA<client_pkg.Abort>().having(
+              (abort) => abort.reason,
+              'reason',
+              wamp_core.Error.authenticationFailed,
+            ),
+          ),
+        );
+        expect(authenticateCalls, isZero);
       },
       skip: skipReason,
     );
@@ -358,6 +471,171 @@ class _RemoteAuthHarness {
   }
 }
 
+class _EmbeddedRemoteAuthHarness {
+  _EmbeddedRemoteAuthHarness._({
+    required this.runtime,
+    required this.router,
+    required this.authSession,
+    required this.serviceSession,
+    required this.authServerSettings,
+    required this.delegate,
+    required this.procedures,
+  });
+
+  final NativeTransportRuntime runtime;
+  final RouterBinding router;
+  final RouterSession authSession;
+  final RouterSession serviceSession;
+  final RouterSettings authServerSettings;
+  final RemoteAuthenticatorDelegate delegate;
+  final AuthServerProcedureBinding procedures;
+  final List<client_pkg.Client> _clients = [];
+
+  static Future<_EmbeddedRemoteAuthHarness> start({
+    required String nativeLib,
+  }) async {
+    final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+    final authServerSettings = _buildAuthServerSettings();
+    final router = Router(
+      _webSocketConfig(),
+      settings: _buildEmbeddedAuthServiceRouterSettings(),
+    ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+    final authSession = await router.createInternalSession(
+      realmUri: 'connectanum.authenticate',
+      authId: 'auth-service',
+      authRole: 'internal',
+    );
+    final serviceSession = await router.createInternalSession(
+      realmUri: 'connectanum.authenticate',
+      authId: 'auth-client',
+      authRole: 'service',
+    );
+    final delegate = serviceSession.createRemoteWampAuthenticatorDelegate(
+      callTimeout: const Duration(seconds: 2),
+    );
+    final procedures = await AuthServerProcedureBinding.bind(
+      server: AuthServer(
+        settings: authServerSettings,
+        authTokens: const <String>['shared-token'],
+      ),
+      session: authSession,
+    );
+    return _EmbeddedRemoteAuthHarness._(
+      runtime: runtime,
+      router: router,
+      authSession: authSession,
+      serviceSession: serviceSession,
+      authServerSettings: authServerSettings,
+      delegate: delegate,
+      procedures: procedures,
+    );
+  }
+
+  static Future<_EmbeddedRemoteAuthHarness> startEdge({
+    required String nativeLib,
+  }) async {
+    final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+    final authServerSettings = _buildAuthServerSettings();
+    final router = Router(
+      _webSocketConfig(),
+      settings: _buildEmbeddedEdgeAuthRouterSettings(),
+    ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+    final authSession = await router.createInternalSession(
+      realmUri: 'connectanum.authenticate',
+      authId: 'auth-service',
+      authRole: 'internal',
+    );
+    final serviceSession = await router.createInternalSession(
+      realmUri: 'connectanum.authenticate',
+      authId: 'auth-client',
+      authRole: 'service',
+    );
+    final delegate = serviceSession.createRemoteWampAuthenticatorDelegate(
+      callTimeout: const Duration(seconds: 2),
+    );
+    final procedures = await AuthServerProcedureBinding.bind(
+      server: AuthServer(
+        settings: authServerSettings,
+        authTokens: const <String>['shared-token'],
+      ),
+      session: authSession,
+    );
+    return _EmbeddedRemoteAuthHarness._(
+      runtime: runtime,
+      router: router,
+      authSession: authSession,
+      serviceSession: serviceSession,
+      authServerSettings: authServerSettings,
+      delegate: delegate,
+      procedures: procedures,
+    );
+  }
+
+  Future<({RemoteHelloResponse hello, RemoteAuthenticateResponse authenticate})>
+  authenticateTicketUserThroughDelegate() async {
+    final realmSettings = authServerSettings.realms.singleWhere(
+      (realm) => realm.name == 'demo.realm',
+    );
+    final context = AuthenticatorContext(
+      realm: realmSettings,
+      sessionId: 9001,
+      transport: const TransportMetadata(connectionId: 9001),
+      helloDetails: const <String, Object?>{
+        'authid': 'ticket-user',
+        'authmethods': <String>['ticket'],
+      },
+    );
+    const transactionId = 'embedded-remote-auth-1';
+    final hello = await delegate.onHello(
+      RemoteHelloRequest(
+        realmSettings: realmSettings,
+        context: context,
+        options: const <String, Object?>{'auth_token': 'shared-token'},
+        transactionId: transactionId,
+      ),
+    );
+    final authenticate = await delegate.onAuthenticate(
+      RemoteAuthenticateRequest(
+        realmSettings: realmSettings,
+        context: context,
+        authId: hello.challenge?.authId ?? 'ticket-user',
+        authenticate: AuthenticateMessage(signature: 'ticket-secret'),
+        options: const <String, Object?>{'auth_token': 'shared-token'},
+        transactionId: transactionId,
+      ),
+    );
+    return (hello: hello, authenticate: authenticate);
+  }
+
+  Future<client_pkg.Session> connectTicketUser() async {
+    final listener = router.listeners.single;
+    final client = client_pkg.Client(
+      realm: 'demo.realm',
+      authId: 'ticket-user',
+      authenticationMethods: <client_pkg.AbstractAuthentication>[
+        client_pkg.TicketAuthentication('ticket-secret'),
+      ],
+      transport: client_pkg.WebSocketTransport.withJsonSerializer(
+        'ws://127.0.0.1:${listener.port}/ws',
+      ),
+    );
+    _clients.add(client);
+    return client.connect().first.timeout(const Duration(seconds: 10));
+  }
+
+  Future<void> dispose() async {
+    for (final client in _clients) {
+      await client.disconnect();
+    }
+    await procedures.close();
+    await serviceSession.close();
+    await authSession.close();
+    await router.dispose();
+    runtime.shutdown();
+    runtime.dispose();
+  }
+}
+
 RouterConfig _webSocketConfig({
   bool enableTls = false,
   bool requireClientAuth = false,
@@ -427,6 +705,109 @@ RouterSettings _buildAuthServerSettings() {
           ),
         ),
     );
+  return builder.build();
+}
+
+RouterSettings _buildEmbeddedAuthServiceRouterSettings() {
+  final listener = ListenerSettingsBuilder('websocket', '127.0.0.1:0')
+    ..setPath('/ws')
+    ..addProtocol(ListenerProtocol.websocket)
+    ..setWebSocketOptions(
+      const WebSocketListenerSettings(subprotocols: <String>['wamp.2.json']),
+    );
+
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('connectanum.authenticate')
+        ..setLimits(const RealmLimitSettings())
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('service')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('authenticate.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['call']),
+          ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('authenticate.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['register', 'unregister']),
+          ),
+        ),
+    )
+    ..addListenerFromBuilder(listener)
+    ..setWorkerPool(const WorkerPoolSettings(minWorkers: 1));
+  return builder.build();
+}
+
+RouterSettings _buildEmbeddedEdgeAuthRouterSettings() {
+  final listener = ListenerSettingsBuilder('websocket', '127.0.0.1:0')
+    ..setPath('/ws')
+    ..addAuthMethod('ticket')
+    ..addProtocol(ListenerProtocol.websocket)
+    ..setWebSocketOptions(
+      const WebSocketListenerSettings(subprotocols: <String>['wamp.2.json']),
+    );
+
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('connectanum.authenticate')
+        ..setLimits(const RealmLimitSettings())
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('service')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('authenticate.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['call']),
+          ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('authenticate.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['register', 'unregister']),
+          ),
+        ),
+    )
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('demo.realm')
+        ..setLimits(const RealmLimitSettings())
+        ..addAuthMethod(
+          'ticket',
+          options: const {'authenticator': 'remote-ticket'},
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('member')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('demo.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>[
+                'subscribe',
+                'call',
+                'register',
+              ]),
+          ),
+        ),
+    )
+    ..addListenerFromBuilder(listener)
+    ..addAuthenticator(
+      'remote-ticket',
+      const AuthenticatorDefinition(
+        type: 'remote',
+        options: <String, Object?>{
+          'method': 'remote',
+          'allowed_roles': <String>['member'],
+          'challenge_timeout_ms': 1000,
+          'auth_token': 'shared-token',
+          'rpc': <String, Object?>{
+            'realm': 'connectanum.authenticate',
+            'call_timeout_ms': 2000,
+            'service_auth_id': 'auth-client',
+            'service_auth_role': 'service',
+            'transport': <String, Object?>{'type': 'internal'},
+          },
+        },
+      ),
+    )
+    ..setWorkerPool(const WorkerPoolSettings(minWorkers: 1));
   return builder.build();
 }
 

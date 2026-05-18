@@ -7,6 +7,7 @@ Duration routerBossLoopDelay({
 }) => didWork ? Duration.zero : pollInterval;
 
 const int _http3RequestDrainBudgetPerConnection = 1;
+const int _workerDispatchPrefetchLimit = 8;
 
 @visibleForTesting
 final class RouterBossLoopPacer {
@@ -63,7 +64,7 @@ final class RouterBossLoopPacer {
   }
 }
 
-/// Coordinates worker isolates and round-robins connections across them.
+/// Coordinates worker isolates and assigns connections across them.
 class _RouterBoss {
   _RouterBoss({
     required this.runtime,
@@ -107,6 +108,9 @@ class _RouterBoss {
   final Map<int, RouterListener> _listenerById = {};
   final List<_WorkerHandle> _workers = [];
   final Map<int, _WorkerHandle> _connectionOwners = {};
+  final Map<int, _WorkerHandle> _pendingConnectionTransferSources = {};
+  final Map<int, _WorkerHandle> _pendingConnectionTransferTargets = {};
+  final Map<int, Completer<void>> _pendingConnectionTransferCompleters = {};
   final Map<int, Isolate> _pendingIsolates = {};
   final Map<int, RouterListener> _httpConnectionListeners = {};
   final Map<int, NativeHttp3Connection> _http3Connections = {};
@@ -139,6 +143,11 @@ class _RouterBoss {
   int _nextWorkerIndex = 0;
   int _nextWorkerId = 1;
   int _nextPendingWorkerToken = -1;
+  int _workerScaleUpPressureTicks = 0;
+  int _workerScaleDownIdleTicks = 0;
+  int _workerPoolScaleUpsTotal = 0;
+  int _workerPoolScaleDownsTotal = 0;
+  int _workerPoolScaleDownTimeoutsTotal = 0;
 
   SendPort get stateCommandPort => _stateStore.commandPort;
   SendPort get bossCommandPort => _commandPort.sendPort;
@@ -246,6 +255,7 @@ class _RouterBoss {
         didWork = await _acceptConnections(listener) || didWork;
       }
       didWork = _dispatchMessages() || didWork;
+      didWork = await _maybeScaleWorkerPool() || didWork;
       didWork = _expireIdleConnections() || didWork;
       didWork = _drainHttpRequests() || didWork;
       didWork = _drainHttp2Requests() || didWork;
@@ -273,6 +283,233 @@ class _RouterBoss {
       didWork = true;
     }
     return didWork;
+  }
+
+  Future<bool> _maybeScaleWorkerPool() async {
+    if (listeners.isEmpty || _stopping) {
+      return false;
+    }
+    final workerPool = settings.workerPool;
+    final totalWorkers = _workers.length + _pendingIsolates.length;
+    if (workerPool.maxWorkers <= workerPool.minWorkers || _workers.isEmpty) {
+      _workerScaleUpPressureTicks = 0;
+    } else if (totalWorkers < workerPool.maxWorkers) {
+      final pendingDispatches = _workers.fold<int>(
+        0,
+        (total, worker) => total + worker.pendingDispatches.length,
+      );
+      final pressuredWorkers = _workers
+          .where((worker) => worker.busy || worker.pendingDispatches.isNotEmpty)
+          .length;
+      final hasScaleUpPressure =
+          pendingDispatches >= workerPool.scaleUpPendingDispatches &&
+          pressuredWorkers == _workers.length;
+      if (hasScaleUpPressure) {
+        _workerScaleUpPressureTicks += 1;
+        _workerScaleDownIdleTicks = 0;
+        if (_workerScaleUpPressureTicks >= workerPool.scaleUpConsecutiveTicks) {
+          _workerScaleUpPressureTicks = 0;
+          await _spawnWorker(listeners.first, _allocatePendingWorkerToken());
+          _workerPoolScaleUpsTotal += 1;
+          onEvent?.call({
+            'source': 'boss',
+            'type': 'worker_pool_scale_up',
+            'workers': totalWorkers + 1,
+            'maxWorkers': workerPool.maxWorkers,
+            'pendingDispatches': pendingDispatches,
+            'pressureTicks': workerPool.scaleUpConsecutiveTicks,
+          });
+          return true;
+        }
+        return false;
+      }
+      _workerScaleUpPressureTicks = 0;
+    } else {
+      _workerScaleUpPressureTicks = 0;
+    }
+
+    return _maybeScaleDownWorkerPool(workerPool);
+  }
+
+  Future<bool> _maybeScaleDownWorkerPool(WorkerPoolSettings workerPool) async {
+    final excessWorkers = _workers.length - workerPool.minWorkers;
+    if (excessWorkers <= 0 || _pendingIsolates.isNotEmpty || _stopping) {
+      _workerScaleDownIdleTicks = 0;
+      return false;
+    }
+    if (_workers.any((worker) => !worker.isAcceptingConnections)) {
+      _workerScaleDownIdleTicks = 0;
+      return false;
+    }
+
+    final hasActiveWorkerLoad = _workers.any(
+      (worker) => worker.busy || worker.pendingDispatches.isNotEmpty,
+    );
+    if (hasActiveWorkerLoad) {
+      _workerScaleDownIdleTicks = 0;
+      return false;
+    }
+
+    final candidate = _workers.cast<_WorkerHandle?>().lastWhere(
+      (worker) => worker != null && _canScaleDownWorker(worker, workerPool),
+      orElse: () => null,
+    );
+    if (candidate == null) {
+      _workerScaleDownIdleTicks = 0;
+      return false;
+    }
+
+    _workerScaleDownIdleTicks += 1;
+    if (_workerScaleDownIdleTicks < workerPool.scaleDownConsecutiveTicks) {
+      return false;
+    }
+
+    _workerScaleDownIdleTicks = 0;
+    unawaited(
+      _drainAndShutdownScaledDownWorker(candidate, workerPool).catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        _reportBossError('worker_pool_scale_down_error', error, stackTrace);
+      }),
+    );
+    return true;
+  }
+
+  bool _canScaleDownWorker(
+    _WorkerHandle worker,
+    WorkerPoolSettings workerPool,
+  ) {
+    if (!worker.isScaleDownReady) {
+      return false;
+    }
+    if (worker.connections.isEmpty) {
+      return true;
+    }
+    if (_workers.length <= workerPool.minWorkers) {
+      return false;
+    }
+    final hasTransferTarget = _workers.any(
+      (candidate) => candidate != worker && candidate.isAcceptingConnections,
+    );
+    if (!hasTransferTarget) {
+      return false;
+    }
+    return worker.connections.every(_realmByConnection.containsKey);
+  }
+
+  Future<void> _transferScaleDownConnections(
+    _WorkerHandle worker,
+    WorkerPoolSettings workerPool,
+  ) async {
+    final connectionIds = worker.connections.toList(growable: false);
+    if (connectionIds.isEmpty) {
+      return;
+    }
+    final waits = <Future<void>>[];
+    for (final connectionId in connectionIds) {
+      final target = _chooseScaleDownTransferTarget(worker);
+      if (target == null) {
+        return;
+      }
+      final completer = Completer<void>();
+      _pendingConnectionTransferSources[connectionId] = worker;
+      _pendingConnectionTransferTargets[connectionId] = target;
+      _pendingConnectionTransferCompleters[connectionId] = completer;
+      waits.add(completer.future);
+      worker.commandPort.send(<Object?>[
+        _workerCmdExportConnection,
+        connectionId,
+      ]);
+    }
+    await Future.wait(waits).timeout(workerPool.scaleDownDrainTimeout);
+  }
+
+  _WorkerHandle? _chooseScaleDownTransferTarget(_WorkerHandle source) {
+    _WorkerHandle? selected;
+    for (final candidate in _workers) {
+      if (candidate == source || !candidate.isAcceptingConnections) {
+        continue;
+      }
+      if (selected == null || _hasLowerAssignmentLoad(candidate, selected)) {
+        selected = candidate;
+      }
+    }
+    return selected;
+  }
+
+  Future<void> _drainAndShutdownScaledDownWorker(
+    _WorkerHandle worker,
+    WorkerPoolSettings workerPool,
+  ) async {
+    if (_stopping || !_workers.contains(worker)) {
+      return;
+    }
+
+    worker.drainCompleter ??= Completer<void>();
+
+    var timedOut = false;
+    try {
+      await _transferScaleDownConnections(worker, workerPool);
+    } on TimeoutException {
+      timedOut = true;
+    } catch (error, stackTrace) {
+      _reportBossError(
+        'worker_pool_scale_down_transfer_error',
+        error,
+        stackTrace,
+      );
+    }
+
+    if (!_workers.contains(worker)) {
+      return;
+    }
+
+    try {
+      if (!_workers.contains(worker)) {
+        return;
+      }
+      worker.commandPort.send(<Object?>[
+        _workerCmdDrainConnections,
+        'wamp.close.worker_pool_scale_down',
+      ]);
+      await worker.drainCompleter!.future.timeout(
+        workerPool.scaleDownDrainTimeout,
+      );
+    } on TimeoutException {
+      timedOut = true;
+    }
+
+    if (!_workers.contains(worker)) {
+      return;
+    }
+
+    _shutdownWorker(worker, terminateIsolate: timedOut);
+    _workerPoolScaleDownsTotal += 1;
+    if (timedOut) {
+      _workerPoolScaleDownTimeoutsTotal += 1;
+      onEvent?.call({
+        'source': 'boss',
+        'type': 'worker_pool_scale_down_timeout',
+        'workerId': worker.id,
+        'workerHash': worker.isolateHash,
+        'timeout_ms': workerPool.scaleDownDrainTimeout.inMilliseconds,
+        'workers': _workers.length,
+        'minWorkers': workerPool.minWorkers,
+      });
+      return;
+    }
+
+    onEvent?.call({
+      'source': 'boss',
+      'type': 'worker_pool_scale_down',
+      'workerId': worker.id,
+      'workerHash': worker.isolateHash,
+      'workers': _workers.length,
+      'minWorkers': workerPool.minWorkers,
+      'maxWorkers': workerPool.maxWorkers,
+      'idleTicks': workerPool.scaleDownConsecutiveTicks,
+    });
   }
 
   Future<bool> _acceptConnections(RouterListener listener) async {
@@ -1122,22 +1359,64 @@ class _RouterBoss {
   }
 
   _WorkerHandle? _chooseWorker() {
-    if (_workers.isEmpty) {
+    final assignableWorkers = _workers
+        .where((worker) => worker.isAcceptingConnections)
+        .toList(growable: false);
+    if (assignableWorkers.isEmpty) {
       return null;
     }
-    if (_nextWorkerIndex >= _workers.length) {
-      _nextWorkerIndex %= _workers.length;
+    if (_nextWorkerIndex >= assignableWorkers.length) {
+      _nextWorkerIndex %= assignableWorkers.length;
     }
-    final worker = _workers[_nextWorkerIndex];
-    _nextWorkerIndex = (_nextWorkerIndex + 1) % _workers.length;
-    return worker;
+
+    var bestIndex = _nextWorkerIndex;
+    var bestWorker = assignableWorkers[bestIndex];
+    for (var offset = 1; offset < assignableWorkers.length; offset++) {
+      final index = (_nextWorkerIndex + offset) % assignableWorkers.length;
+      final candidate = assignableWorkers[index];
+      if (_hasLowerAssignmentLoad(candidate, bestWorker)) {
+        bestIndex = index;
+        bestWorker = candidate;
+      }
+    }
+
+    _nextWorkerIndex = (bestIndex + 1) % assignableWorkers.length;
+    return bestWorker;
+  }
+
+  bool _hasLowerAssignmentLoad(_WorkerHandle candidate, _WorkerHandle current) {
+    final connectionCompare = candidate.connections.length.compareTo(
+      current.connections.length,
+    );
+    if (connectionCompare != 0) {
+      return connectionCompare < 0;
+    }
+
+    final candidatePressure =
+        candidate.pendingDispatches.length + (candidate.busy ? 1 : 0);
+    final currentPressure =
+        current.pendingDispatches.length + (current.busy ? 1 : 0);
+    return candidatePressure < currentPressure;
   }
 
   bool _dispatchMessages() {
     var didWork = false;
     final workersSnapshot = List<_WorkerHandle>.from(_workers);
     for (final worker in workersSnapshot) {
-      if (worker.busy || worker.connections.isEmpty) {
+      if (worker.busy) {
+        continue;
+      }
+      final queued = worker.takePendingDispatch(DateTime.now().toUtc());
+      if (queued != null) {
+        worker.commandPort.send(<Object?>[
+          _workerCmdProcess,
+          queued.connectionId,
+          queued.handle,
+        ]);
+        didWork = true;
+        continue;
+      }
+      if (worker.connections.isEmpty) {
         continue;
       }
       final connections = worker.connections;
@@ -1169,7 +1448,8 @@ class _RouterBoss {
         }
         continue;
       }
-      worker.busy = true;
+      _prefetchWorkerDispatches(worker, connections, chosenConnection);
+      worker.markDispatchStarted(DateTime.now().toUtc());
       worker.commandPort.send(<Object?>[
         _workerCmdProcess,
         chosenConnection,
@@ -1178,6 +1458,46 @@ class _RouterBoss {
       didWork = true;
     }
     return didWork;
+  }
+
+  void _prefetchWorkerDispatches(
+    _WorkerHandle worker,
+    List<int> connections,
+    int activeConnectionId,
+  ) {
+    if (connections.length <= 1 ||
+        worker.pendingDispatches.length >= _workerDispatchPrefetchLimit) {
+      return;
+    }
+    final snapshot = List<int>.from(connections);
+    if (snapshot.isEmpty) {
+      return;
+    }
+    final startIndex = worker.connectionCursor >= snapshot.length
+        ? 0
+        : worker.connectionCursor;
+    final now = DateTime.now().toUtc();
+    for (var i = 0; i < snapshot.length; i++) {
+      if (worker.pendingDispatches.length >= _workerDispatchPrefetchLimit) {
+        break;
+      }
+      final connectionId = snapshot[(startIndex + i) % snapshot.length];
+      if (connectionId == activeConnectionId ||
+          !worker.connections.contains(connectionId)) {
+        continue;
+      }
+      final handle = _pollHandleForConnection(connectionId);
+      if (handle == 0) {
+        continue;
+      }
+      worker.enqueuePendingDispatch(
+        _PendingWorkerDispatch(
+          connectionId: connectionId,
+          handle: handle,
+          queuedAt: now,
+        ),
+      );
+    }
   }
 
   int _pollHandleForConnection(int connectionId) {
@@ -1570,8 +1890,9 @@ class _RouterBoss {
   Future<RouterMetricsSnapshot> collectMetricsSnapshot() async {
     final stateMetrics = await _fetchStateMetrics();
     final transportMetrics = _ensureTransportMetrics();
+    final timestamp = DateTime.now().toUtc();
     return RouterMetricsSnapshot(
-      timestamp: DateTime.now().toUtc(),
+      timestamp: timestamp,
       realmCount: stateMetrics.realmCount,
       sessionCount: stateMetrics.sessionCount,
       subscriptionCount: stateMetrics.subscriptionCount,
@@ -1581,6 +1902,19 @@ class _RouterBoss {
       totalPublicationsRouted: stateMetrics.totalPublicationsRouted,
       activeConnections: _connectionOwners.length,
       workerCount: _workers.length,
+      workerLoad: _workers
+          .map((worker) => worker.toMetrics(timestamp))
+          .toList(growable: false),
+      workerPool: RouterWorkerPoolMetrics(
+        minWorkers: settings.workerPool.minWorkers,
+        maxWorkers: settings.workerPool.maxWorkers,
+        pendingIsolates: _pendingIsolates.length,
+        scaleUpPressureTicks: _workerScaleUpPressureTicks,
+        scaleDownIdleTicks: _workerScaleDownIdleTicks,
+        scaleUpsTotal: _workerPoolScaleUpsTotal,
+        scaleDownsTotal: _workerPoolScaleDownsTotal,
+        scaleDownTimeoutsTotal: _workerPoolScaleDownTimeoutsTotal,
+      ),
       alerts: _buildAlertMetrics(),
       transport: transportMetrics,
     );
@@ -1699,8 +2033,8 @@ class _RouterBoss {
         _lastActivityByConnection[connectionId] = DateTime.now();
       }
       payload
-        ..['type'] = 'worker_session_opened'
-        ..addAll(message.cast<String, Object?>());
+        ..addAll(message.cast<String, Object?>())
+        ..['type'] = 'worker_session_opened';
     } else if (type == 'worker_send') {
       final connectionId = message['connectionId'] as int;
       final Uint8List payloadBytes = message['payload'] as Uint8List;
@@ -1770,6 +2104,8 @@ class _RouterBoss {
       final invocationId = message['invocationId'] as int;
       final registrationId = message['registrationId'] as int;
       final callerSessionId = message['callerSessionId'] as int?;
+      final callerAuthId = message['callerAuthId'] as String?;
+      final callerAuthRole = message['callerAuthRole'] as String?;
       final procedure = message['procedure'] as String?;
       final receiveProgress = message['receiveProgress'] as bool?;
       try {
@@ -1779,6 +2115,8 @@ class _RouterBoss {
           invocationId: invocationId,
           registrationId: registrationId,
           callerSessionId: callerSessionId,
+          callerAuthId: callerAuthId,
+          callerAuthRole: callerAuthRole,
           procedure: procedure,
           receiveProgress: receiveProgress,
         );
@@ -1845,10 +2183,53 @@ class _RouterBoss {
         runtime.releaseMessageHandle(handle);
       }
     } else if (type == _workerEventConnectionAdded) {
+      final connectionId = message['connectionId'] as int;
+      final workerHash = message['workerHash'] as int?;
+      final pendingTarget = _pendingConnectionTransferTargets[connectionId];
+      final isPendingTransferTarget =
+          pendingTarget != null &&
+          (workerHash == null || workerHash == pendingTarget.isolateHash);
+      if (isPendingTransferTarget) {
+        final source = _pendingConnectionTransferSources.remove(connectionId);
+        _pendingConnectionTransferTargets.remove(connectionId);
+        final completer = _pendingConnectionTransferCompleters.remove(
+          connectionId,
+        );
+        source?.connections.remove(connectionId);
+        if (!pendingTarget.connections.contains(connectionId)) {
+          pendingTarget.connections.add(connectionId);
+        }
+        _connectionOwners[connectionId] = pendingTarget;
+        final realmUri = _realmByConnection[connectionId];
+        final sessionId = message['sessionId'] as int?;
+        if (realmUri != null && sessionId != null) {
+          _stateStore.commandPort.send(
+            SessionTransferCommand(
+              realmUri: realmUri,
+              sessionId: sessionId,
+              workerId: pendingTarget.isolateHash,
+              connectionId: connectionId,
+            ),
+          );
+        }
+        source?.commandPort.send(<Object?>[
+          _workerCmdForgetTransferredConnection,
+          connectionId,
+        ]);
+        if (completer != null && !completer.isCompleted) {
+          completer.complete();
+        }
+      }
       payload
         ..['type'] = 'worker_connection_added'
-        ..['connectionId'] = message['connectionId']
+        ..['connectionId'] = connectionId
         ..['listenerId'] = message['listenerId'];
+      if (workerHash != null) {
+        payload['workerHash'] = workerHash;
+      }
+      if (isPendingTransferTarget) {
+        payload['transferred'] = true;
+      }
       final protocol = message['protocol'];
       if (protocol is String) {
         payload['protocol'] = protocol;
@@ -1863,16 +2244,72 @@ class _RouterBoss {
       }
     } else if (type == _workerEventConnectionRemoved) {
       final connectionId = message['connectionId'] as int;
-      final worker = _connectionOwners.remove(connectionId);
-      worker?.connections.remove(connectionId);
-      _httpConnectionListeners.remove(connectionId);
-      _http2ConnectionListeners.remove(connectionId);
-      _releaseHttp3Connection(connectionId);
-      _lastActivityByConnection.remove(connectionId);
-      _realmByConnection.remove(connectionId);
+      final workerHash = message['workerHash'] as int?;
+      final worker = _connectionOwners[connectionId];
+      if (workerHash != null &&
+          worker != null &&
+          worker.isolateHash != workerHash) {
+        for (final staleWorker in _workers) {
+          if (staleWorker.isolateHash == workerHash) {
+            staleWorker.connections.remove(connectionId);
+            break;
+          }
+        }
+      } else {
+        _connectionOwners.remove(connectionId);
+        worker?.connections.remove(connectionId);
+        _lastActivityByConnection.remove(connectionId);
+        _realmByConnection.remove(connectionId);
+        _webSocketSelectionByConnection.remove(connectionId);
+        _httpConnectionListeners.remove(connectionId);
+        _http2ConnectionListeners.remove(connectionId);
+        _releaseHttp3Connection(connectionId);
+      }
       payload
         ..['type'] = 'worker_connection_removed'
         ..['connectionId'] = connectionId;
+      if (workerHash != null) {
+        payload['workerHash'] = workerHash;
+      }
+    } else if (type == _workerEventConnectionTransferReady) {
+      final connectionId = message['connectionId'] as int;
+      final target = _pendingConnectionTransferTargets[connectionId];
+      if (target != null) {
+        target.commandPort.send(<Object?>[
+          _workerCmdAddConnection,
+          message['listenerId'],
+          connectionId,
+          message['metadata'],
+          message['transferData'],
+        ]);
+      }
+      payload
+        ..['type'] = 'worker_connection_transfer_ready'
+        ..['connectionId'] = connectionId
+        ..['listenerId'] = message['listenerId'];
+      final workerHash = message['workerHash'];
+      if (workerHash is int) {
+        payload['workerHash'] = workerHash;
+      }
+    } else if (type == _workerEventConnectionTransferRejected) {
+      final connectionId = message['connectionId'] as int;
+      _pendingConnectionTransferSources.remove(connectionId);
+      _pendingConnectionTransferTargets.remove(connectionId);
+      final completer = _pendingConnectionTransferCompleters.remove(
+        connectionId,
+      );
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(
+          StateError('Worker rejected transfer for connection $connectionId'),
+        );
+      }
+      payload
+        ..['type'] = 'worker_connection_transfer_rejected'
+        ..['connectionId'] = connectionId;
+      final workerHash = message['workerHash'];
+      if (workerHash is int) {
+        payload['workerHash'] = workerHash;
+      }
     } else if (type == _workerEventDrained) {
       final workerHash = message['workerHash'] as int?;
       _WorkerHandle? drainedWorker;
@@ -1894,7 +2331,7 @@ class _RouterBoss {
     } else if (type == _workerEventReady) {
       final connectionId = message['connectionId'] as int;
       final worker = _connectionOwners[connectionId];
-      worker?.busy = false;
+      worker?.markDispatchCompleted(DateTime.now().toUtc());
       payload
         ..['type'] = 'worker_ready'
         ..['connectionId'] = connectionId;
@@ -1939,7 +2376,7 @@ class _RouterBoss {
       final connectionId = message['connectionId'] as int?;
       if (connectionId != null) {
         final worker = _connectionOwners[connectionId];
-        worker?.busy = false;
+        worker?.markDispatchCompleted(DateTime.now().toUtc(), error: true);
       }
       payload
         ..['type'] = 'worker_error'
@@ -2034,7 +2471,9 @@ class _RouterBoss {
   }
 
   void _shutdownWorker(_WorkerHandle worker, {bool terminateIsolate = false}) {
+    worker.releasePendingDispatches(runtime);
     for (final connectionId in worker.connections.toList()) {
+      _clearPendingConnectionTransfer(connectionId);
       _connectionOwners.remove(connectionId);
       _lastActivityByConnection.remove(connectionId);
       _realmByConnection.remove(connectionId);
@@ -2055,6 +2494,7 @@ class _RouterBoss {
   }
 
   void _detachConnection(int connectionId, {bool notifyWorker = false}) {
+    _clearPendingConnectionTransfer(connectionId);
     final worker = _connectionOwners.remove(connectionId);
     _lastActivityByConnection.remove(connectionId);
     _realmByConnection.remove(connectionId);
@@ -2067,6 +2507,7 @@ class _RouterBoss {
       return;
     }
     worker.connections.remove(connectionId);
+    worker.releasePendingDispatches(runtime, connectionId: connectionId);
     if (notifyWorker) {
       worker.commandPort.send(<Object?>[
         _workerCmdRemoveConnection,
@@ -2075,6 +2516,17 @@ class _RouterBoss {
     }
     _releaseHttp3Connection(connectionId);
     _webSocketSelectionByConnection.remove(connectionId);
+  }
+
+  void _clearPendingConnectionTransfer(int connectionId) {
+    _pendingConnectionTransferSources.remove(connectionId);
+    _pendingConnectionTransferTargets.remove(connectionId);
+    final completer = _pendingConnectionTransferCompleters.remove(connectionId);
+    if (completer != null && !completer.isCompleted) {
+      completer.completeError(
+        StateError('Connection $connectionId detached during transfer'),
+      );
+    }
   }
 
   void _replaceHttp3Connection(
@@ -2172,5 +2624,138 @@ class _WorkerHandle {
   final List<int> connections = [];
   int connectionCursor = 0;
   bool busy = false;
+  int dispatchesTotal = 0;
+  int completedDispatchesTotal = 0;
+  int errorsTotal = 0;
+  int totalBusyDurationUs = 0;
+  int queuedDispatchesTotal = 0;
+  int totalQueueLatencyUs = 0;
+  int maxPendingDispatches = 0;
+  int? lastDispatchDurationUs;
+  int? lastQueueLatencyUs;
+  DateTime? currentDispatchStartedAt;
+  final Queue<_PendingWorkerDispatch> pendingDispatches =
+      Queue<_PendingWorkerDispatch>();
   Completer<void>? drainCompleter;
+
+  bool get isAcceptingConnections => drainCompleter == null;
+
+  bool get isScaleDownReady =>
+      isAcceptingConnections && !busy && pendingDispatches.isEmpty;
+
+  bool get isScaleDownIdle => isScaleDownReady && connections.isEmpty;
+
+  void markDispatchStarted(DateTime now) {
+    busy = true;
+    dispatchesTotal += 1;
+    currentDispatchStartedAt = now;
+  }
+
+  void enqueuePendingDispatch(_PendingWorkerDispatch dispatch) {
+    pendingDispatches.addLast(dispatch);
+    queuedDispatchesTotal += 1;
+    if (pendingDispatches.length > maxPendingDispatches) {
+      maxPendingDispatches = pendingDispatches.length;
+    }
+  }
+
+  _PendingWorkerDispatch? takePendingDispatch(DateTime now) {
+    if (pendingDispatches.isEmpty) {
+      return null;
+    }
+    final dispatch = pendingDispatches.removeFirst();
+    final latencyUs = now.difference(dispatch.queuedAt).inMicroseconds;
+    final clampedLatencyUs = latencyUs < 0 ? 0 : latencyUs;
+    lastQueueLatencyUs = clampedLatencyUs;
+    totalQueueLatencyUs += clampedLatencyUs;
+    markDispatchStarted(now);
+    return dispatch;
+  }
+
+  void releasePendingDispatches(
+    NativeRuntimeWithHandles runtime, {
+    int? connectionId,
+  }) {
+    if (pendingDispatches.isEmpty) {
+      return;
+    }
+    final kept = Queue<_PendingWorkerDispatch>();
+    while (pendingDispatches.isNotEmpty) {
+      final dispatch = pendingDispatches.removeFirst();
+      if (connectionId == null || dispatch.connectionId == connectionId) {
+        runtime.releaseMessageHandle(dispatch.handle);
+      } else {
+        kept.addLast(dispatch);
+      }
+    }
+    pendingDispatches.addAll(kept);
+  }
+
+  void markDispatchCompleted(DateTime now, {bool error = false}) {
+    if (!busy && currentDispatchStartedAt == null) {
+      return;
+    }
+    final startedAt = currentDispatchStartedAt;
+    if (startedAt != null) {
+      final durationUs = now.difference(startedAt).inMicroseconds;
+      final clampedDurationUs = durationUs < 0 ? 0 : durationUs;
+      lastDispatchDurationUs = clampedDurationUs;
+      totalBusyDurationUs += clampedDurationUs;
+    }
+    currentDispatchStartedAt = null;
+    busy = false;
+    completedDispatchesTotal += 1;
+    if (error) {
+      errorsTotal += 1;
+    }
+  }
+
+  RouterWorkerLoadMetrics toMetrics(DateTime now) {
+    final startedAt = currentDispatchStartedAt;
+    final currentBusyUs = startedAt == null
+        ? null
+        : now.difference(startedAt).inMicroseconds;
+    final oldestPending = pendingDispatches.isEmpty
+        ? null
+        : now.difference(pendingDispatches.first.queuedAt).inMicroseconds;
+    return RouterWorkerLoadMetrics(
+      id: id,
+      isolateHash: isolateHash,
+      connectionCount: connections.length,
+      busy: busy,
+      inFlightDispatches: busy ? 1 : 0,
+      pendingDispatches: pendingDispatches.length,
+      dispatchesTotal: dispatchesTotal,
+      queuedDispatchesTotal: queuedDispatchesTotal,
+      completedDispatchesTotal: completedDispatchesTotal,
+      errorsTotal: errorsTotal,
+      totalBusyDurationMs: totalBusyDurationUs ~/ 1000,
+      totalQueueLatencyMs: totalQueueLatencyUs ~/ 1000,
+      maxPendingDispatches: maxPendingDispatches,
+      currentBusyDurationMs: currentBusyUs == null
+          ? null
+          : (currentBusyUs < 0 ? 0 : currentBusyUs) ~/ 1000,
+      lastDispatchDurationMs: lastDispatchDurationUs == null
+          ? null
+          : lastDispatchDurationUs! ~/ 1000,
+      oldestPendingDispatchAgeMs: oldestPending == null
+          ? null
+          : (oldestPending < 0 ? 0 : oldestPending) ~/ 1000,
+      lastQueueLatencyMs: lastQueueLatencyUs == null
+          ? null
+          : lastQueueLatencyUs! ~/ 1000,
+    );
+  }
+}
+
+class _PendingWorkerDispatch {
+  const _PendingWorkerDispatch({
+    required this.connectionId,
+    required this.handle,
+    required this.queuedAt,
+  });
+
+  final int connectionId;
+  final int handle;
+  final DateTime queuedAt;
 }

@@ -417,24 +417,88 @@ class MetricsSettings {
 
 @immutable
 class WorkerPoolSettings {
-  const WorkerPoolSettings({this.minWorkers = 1})
-    : assert(minWorkers >= 0, 'minWorkers must be >= 0');
+  const WorkerPoolSettings({
+    this.minWorkers = 1,
+    int? maxWorkers,
+    this.scaleUpPendingDispatches = 1,
+    this.scaleUpConsecutiveTicks = 2,
+    this.scaleDownConsecutiveTicks = 200,
+    this.scaleDownDrainTimeout = const Duration(seconds: 1),
+  }) : maxWorkers = maxWorkers ?? minWorkers,
+       assert(minWorkers >= 0, 'minWorkers must be >= 0'),
+       assert(
+         (maxWorkers ?? minWorkers) >= minWorkers,
+         'maxWorkers must be >= minWorkers',
+       ),
+       assert(
+         scaleUpPendingDispatches >= 1,
+         'scaleUpPendingDispatches must be >= 1',
+       ),
+       assert(
+         scaleUpConsecutiveTicks >= 1,
+         'scaleUpConsecutiveTicks must be >= 1',
+       ),
+       assert(
+         scaleDownConsecutiveTicks >= 1,
+         'scaleDownConsecutiveTicks must be >= 1',
+       );
 
   final int minWorkers;
+  final int maxWorkers;
+  final int scaleUpPendingDispatches;
+  final int scaleUpConsecutiveTicks;
+  final int scaleDownConsecutiveTicks;
+  final Duration scaleDownDrainTimeout;
 
-  WorkerPoolSettings copyWith({int? minWorkers}) =>
-      WorkerPoolSettings(minWorkers: minWorkers ?? this.minWorkers);
+  WorkerPoolSettings copyWith({
+    int? minWorkers,
+    int? maxWorkers,
+    int? scaleUpPendingDispatches,
+    int? scaleUpConsecutiveTicks,
+    int? scaleDownConsecutiveTicks,
+    Duration? scaleDownDrainTimeout,
+  }) {
+    final nextMinWorkers = minWorkers ?? this.minWorkers;
+    final nextMaxWorkers =
+        maxWorkers ??
+        (this.maxWorkers < nextMinWorkers ? nextMinWorkers : this.maxWorkers);
+    return WorkerPoolSettings(
+      minWorkers: nextMinWorkers,
+      maxWorkers: nextMaxWorkers,
+      scaleUpPendingDispatches:
+          scaleUpPendingDispatches ?? this.scaleUpPendingDispatches,
+      scaleUpConsecutiveTicks:
+          scaleUpConsecutiveTicks ?? this.scaleUpConsecutiveTicks,
+      scaleDownConsecutiveTicks:
+          scaleDownConsecutiveTicks ?? this.scaleDownConsecutiveTicks,
+      scaleDownDrainTimeout:
+          scaleDownDrainTimeout ?? this.scaleDownDrainTimeout,
+    );
+  }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {
       return true;
     }
-    return other is WorkerPoolSettings && other.minWorkers == minWorkers;
+    return other is WorkerPoolSettings &&
+        other.minWorkers == minWorkers &&
+        other.maxWorkers == maxWorkers &&
+        other.scaleUpPendingDispatches == scaleUpPendingDispatches &&
+        other.scaleUpConsecutiveTicks == scaleUpConsecutiveTicks &&
+        other.scaleDownConsecutiveTicks == scaleDownConsecutiveTicks &&
+        other.scaleDownDrainTimeout == scaleDownDrainTimeout;
   }
 
   @override
-  int get hashCode => minWorkers.hashCode;
+  int get hashCode => Object.hash(
+    minWorkers,
+    maxWorkers,
+    scaleUpPendingDispatches,
+    scaleUpConsecutiveTicks,
+    scaleDownConsecutiveTicks,
+    scaleDownDrainTimeout,
+  );
 }
 
 @immutable
@@ -783,6 +847,9 @@ enum HttpRouteActionType {
   namespace,
   mcp,
   file,
+  reverseProxy,
+  fastCgi,
+  handler,
   sessionProxy,
   publish,
 }
@@ -792,10 +859,13 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
     case 'rpc':
       return HttpRouteActionType.rpc;
     case 'internal_call':
+    case 'internalCall':
       return HttpRouteActionType.internalCall;
     case 'auth':
       return HttpRouteActionType.auth;
     case 'reserved_realm':
+    case 'reservedRealm':
+    case 'reserved':
       return HttpRouteActionType.reservedRealm;
     case 'namespace':
       return HttpRouteActionType.namespace;
@@ -803,7 +873,21 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
       return HttpRouteActionType.mcp;
     case 'file':
       return HttpRouteActionType.file;
+    case 'reverse_proxy':
+    case 'reverseProxy':
+    case 'proxy':
+      return HttpRouteActionType.reverseProxy;
+    case 'fastcgi':
+    case 'fast_cgi':
+    case 'fastCgi':
+    case 'fastCGI':
+      return HttpRouteActionType.fastCgi;
+    case 'handler':
+    case 'custom_handler':
+    case 'customHandler':
+      return HttpRouteActionType.handler;
     case 'session_proxy':
+    case 'sessionProxy':
       return HttpRouteActionType.sessionProxy;
     case 'publish':
       return HttpRouteActionType.publish;
@@ -820,6 +904,9 @@ String httpRouteActionTypeToString(HttpRouteActionType type) => switch (type) {
   HttpRouteActionType.namespace => 'namespace',
   HttpRouteActionType.mcp => 'mcp',
   HttpRouteActionType.file => 'file',
+  HttpRouteActionType.reverseProxy => 'reverse_proxy',
+  HttpRouteActionType.fastCgi => 'fastcgi',
+  HttpRouteActionType.handler => 'handler',
   HttpRouteActionType.sessionProxy => 'session_proxy',
   HttpRouteActionType.publish => 'publish',
 };
@@ -829,20 +916,27 @@ class HttpRouteMatch {
   const HttpRouteMatch({
     this.path,
     this.prefix,
+    this.catchAll = false,
     this.host,
     this.methods = const [],
     this.protocols = const [],
     this.headers = const {},
     this.extra = const {},
-  });
+  }) : assert(
+         !catchAll || (path == null && prefix == null),
+         'catchAll HTTP routes cannot set path or prefix',
+       );
 
   final String? path;
   final String? prefix;
+  final bool catchAll;
   final String? host;
   final List<String> methods;
   final List<String> protocols;
   final Map<String, String> headers;
   final Map<String, Object?> extra;
+
+  bool get isCatchAll => catchAll || (path == null && prefix == null);
 
   @override
   bool operator ==(Object other) {
@@ -852,6 +946,7 @@ class HttpRouteMatch {
     return other is HttpRouteMatch &&
         other.path == path &&
         other.prefix == prefix &&
+        other.isCatchAll == isCatchAll &&
         other.host == host &&
         const ListEquality<String>().equals(other.methods, methods) &&
         const ListEquality<String>().equals(other.protocols, protocols) &&
@@ -863,12 +958,91 @@ class HttpRouteMatch {
   int get hashCode => Object.hash(
     path,
     prefix,
+    isCatchAll,
     host,
     const ListEquality<String>().hash(methods),
     const ListEquality<String>().hash(protocols),
     const MapEquality<String, String>().hash(headers),
     const DeepCollectionEquality().hash(extra),
   );
+}
+
+@immutable
+class HttpRouteRateLimitSettings {
+  const HttpRouteRateLimitSettings({
+    required this.maxRequests,
+    required this.window,
+    this.key = 'global',
+  });
+
+  final int maxRequests;
+  final Duration window;
+  final String key;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is HttpRouteRateLimitSettings &&
+        other.maxRequests == maxRequests &&
+        other.window == window &&
+        other.key == key;
+  }
+
+  @override
+  int get hashCode => Object.hash(maxRequests, window, key);
+}
+
+@immutable
+class HttpRouteConcurrencyLimitSettings {
+  const HttpRouteConcurrencyLimitSettings({
+    required this.maxConcurrent,
+    this.key = 'global',
+  });
+
+  final int maxConcurrent;
+  final String key;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is HttpRouteConcurrencyLimitSettings &&
+        other.maxConcurrent == maxConcurrent &&
+        other.key == key;
+  }
+
+  @override
+  int get hashCode => Object.hash(maxConcurrent, key);
+}
+
+@immutable
+class HttpRouteAccessLogSettings {
+  const HttpRouteAccessLogSettings({
+    this.enabled = true,
+    this.includeQuery = false,
+    this.includeHeaders = false,
+  });
+
+  final bool enabled;
+  final bool includeQuery;
+  final bool includeHeaders;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is HttpRouteAccessLogSettings &&
+        other.enabled == enabled &&
+        other.includeQuery == includeQuery &&
+        other.includeHeaders == includeHeaders;
+  }
+
+  @override
+  int get hashCode => Object.hash(enabled, includeQuery, includeHeaders);
 }
 
 @immutable
@@ -886,6 +1060,9 @@ class HttpRouteAction {
     this.directory,
     this.cacheControl,
     this.delegate,
+    this.rateLimit,
+    this.concurrencyLimit,
+    this.accessLog,
     this.options = const {},
   });
 
@@ -901,6 +1078,9 @@ class HttpRouteAction {
   final String? directory;
   final String? cacheControl;
   final String? delegate;
+  final HttpRouteRateLimitSettings? rateLimit;
+  final HttpRouteConcurrencyLimitSettings? concurrencyLimit;
+  final HttpRouteAccessLogSettings? accessLog;
   final Map<String, Object?> options;
 
   @override
@@ -921,6 +1101,9 @@ class HttpRouteAction {
         other.directory == directory &&
         other.cacheControl == cacheControl &&
         other.delegate == delegate &&
+        other.rateLimit == rateLimit &&
+        other.concurrencyLimit == concurrencyLimit &&
+        other.accessLog == accessLog &&
         const DeepCollectionEquality().equals(other.options, options);
   }
 
@@ -938,16 +1121,63 @@ class HttpRouteAction {
     directory,
     cacheControl,
     delegate,
+    rateLimit,
+    concurrencyLimit,
+    accessLog,
     const DeepCollectionEquality().hash(options),
   );
 }
 
 @immutable
 class HttpRouteSettings {
-  const HttpRouteSettings({required this.match, required this.action});
+  const HttpRouteSettings({
+    required this.match,
+    required this.action,
+    this.methodActions = const {},
+  });
 
   final HttpRouteMatch match;
   final HttpRouteAction action;
+  final Map<String, HttpRouteAction> methodActions;
+
+  HttpRouteAction actionForMethod(String method) {
+    final normalized = method.trim().toUpperCase();
+    final direct = methodActions[normalized];
+    if (direct != null) {
+      return direct;
+    }
+    for (final entry in methodActions.entries) {
+      if (entry.key.trim().toUpperCase() == normalized) {
+        return entry.value;
+      }
+    }
+    return action;
+  }
+
+  HttpRouteSettings withAction(HttpRouteAction action) {
+    return HttpRouteSettings(
+      match: match,
+      action: action,
+      methodActions: methodActions,
+    );
+  }
+
+  List<String> get explicitMethods {
+    final methods = <String>{};
+    for (final method in match.methods) {
+      final normalized = method.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        methods.add(normalized);
+      }
+    }
+    for (final method in methodActions.keys) {
+      final normalized = method.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        methods.add(normalized);
+      }
+    }
+    return methods.toList(growable: false)..sort();
+  }
 
   @override
   bool operator ==(Object other) {
@@ -956,11 +1186,19 @@ class HttpRouteSettings {
     }
     return other is HttpRouteSettings &&
         other.match == match &&
-        other.action == action;
+        other.action == action &&
+        const MapEquality<String, HttpRouteAction>().equals(
+          other.methodActions,
+          methodActions,
+        );
   }
 
   @override
-  int get hashCode => Object.hash(match, action);
+  int get hashCode => Object.hash(
+    match,
+    action,
+    const MapEquality<String, HttpRouteAction>().hash(methodActions),
+  );
 }
 
 /// Equality helpers

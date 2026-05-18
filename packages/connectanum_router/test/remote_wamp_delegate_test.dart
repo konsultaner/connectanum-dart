@@ -104,6 +104,21 @@ void main() {
       expect(config.transport.tls.allowInsecureTransport, isTrue);
     });
 
+    test('parses internal transport without socket coordinates', () {
+      final config = RemoteWampDelegateConfig.parse({
+        'rpc': <String, Object?>{
+          'realm': 'connectanum.authenticate',
+          'transport': <String, Object?>{'type': 'internal'},
+        },
+      }, _realm());
+
+      expect(config.realm, 'connectanum.authenticate');
+      expect(config.transport.type, 'internal');
+      expect(config.transport.host, isNull);
+      expect(config.transport.port, isNull);
+      expect(config.transport.url, isNull);
+    });
+
     test('rejects insecure rawsocket transport without explicit opt-in', () {
       expect(
         () => RemoteWampDelegateConfig.parse({

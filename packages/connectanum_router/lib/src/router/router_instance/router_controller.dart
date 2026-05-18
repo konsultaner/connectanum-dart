@@ -21,6 +21,7 @@ class Router {
     RouterWorkerEntryPoint? workerEntryPoint,
     Duration workerPollInterval = const Duration(milliseconds: 1),
     RouterSettings? settings,
+    Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
     void Function(Object event)? onEvent,
     bool activateListeners = true,
   }) {
@@ -38,6 +39,7 @@ class Router {
       settings: routerSettings,
       workerEntryPoint: workerEntryPoint ?? defaultRouterWorkerEntryPoint,
       workerPollInterval: workerPollInterval,
+      httpRouteHandlers: httpRouteHandlers,
       onEvent: onEvent,
     );
     if (activateListeners) {
@@ -111,8 +113,9 @@ class Router {
     RouterSettings? settings,
   ) {
     final match = route.match;
-    final path = (match.path ?? match.prefix)?.trim();
-    final matchKind = match.prefix != null && match.path == null
+    final path = match.isCatchAll ? '/' : (match.path ?? match.prefix)?.trim();
+    final matchKind =
+        match.isCatchAll || (match.prefix != null && match.path == null)
         ? 'prefix'
         : 'exact';
     final routeMap = <String, Object?>{
@@ -125,37 +128,28 @@ class Router {
     if (match.protocols.isNotEmpty) {
       routeMap['protocols'] = List<String>.from(match.protocols);
     }
-    final transportAuth = route.action.type == HttpRouteActionType.mcp
-        // MCP auth failures need route-specific CORS/MCP headers that the
-        // native listener does not have enough route metadata to produce.
-        ? const HttpRouteTransportAuthRequirements()
-        : deriveHttpRouteTransportAuth(
-            action: route.action,
-            sessionProfile: _sessionProfileForRoute(
-              action: route.action,
-              listener: listener,
-              settings: settings,
-            ),
-          );
+    final transportAuth = _httpRouteTransportAuthToNative(
+      route,
+      listener,
+      settings,
+    );
     if (transportAuth.isConfigured) {
       routeMap['transport_auth'] = transportAuth.toNativeMap();
     }
 
-    final methods = match.methods
-        .map((method) => method.trim().toUpperCase())
-        .where((method) => method.isNotEmpty)
-        .toList(growable: false);
-    if (methods.isEmpty) {
+    final methods = route.explicitMethods;
+    if (match.methods.isEmpty) {
       routeMap['default'] = _httpRouteActionToNative(
         route.action,
         listener,
         settings,
       );
-    } else {
+    }
+    if (methods.isNotEmpty) {
       final targets = <String, Object?>{};
       for (final method in methods) {
         targets[method] = _httpRouteActionToNative(
-          route.action,
+          route.actionForMethod(method),
           listener,
           settings,
         );
@@ -163,6 +157,47 @@ class Router {
       routeMap['methods'] = targets;
     }
     return routeMap;
+  }
+
+  HttpRouteTransportAuthRequirements _httpRouteTransportAuthToNative(
+    HttpRouteSettings route,
+    ListenerSettings? listener,
+    RouterSettings? settings,
+  ) {
+    final actions = <HttpRouteAction>[
+      route.action,
+      ...route.methodActions.values,
+    ];
+    if (actions.any((action) => action.type == HttpRouteActionType.mcp)) {
+      // MCP auth failures need route-specific CORS/MCP headers that the
+      // native listener does not have enough route metadata to produce.
+      return const HttpRouteTransportAuthRequirements();
+    }
+    var requireBearer = false;
+    var requireTls = false;
+    var requireMutualTls = false;
+    var allowUnauthenticatedCorsPreflight = false;
+    for (final action in actions) {
+      final requirements = deriveHttpRouteTransportAuth(
+        action: action,
+        sessionProfile: _sessionProfileForRoute(
+          action: action,
+          listener: listener,
+          settings: settings,
+        ),
+      );
+      requireBearer |= requirements.requireBearer;
+      requireTls |= requirements.requireTls;
+      requireMutualTls |= requirements.requireMutualTls;
+      allowUnauthenticatedCorsPreflight |=
+          requirements.allowUnauthenticatedCorsPreflight;
+    }
+    return HttpRouteTransportAuthRequirements(
+      requireBearer: requireBearer,
+      requireTls: requireTls,
+      requireMutualTls: requireMutualTls,
+      allowUnauthenticatedCorsPreflight: allowUnauthenticatedCorsPreflight,
+    );
   }
 
   Map<String, Object?> _httpRouteActionToNative(
@@ -173,17 +208,20 @@ class Router {
     switch (action.type) {
       case HttpRouteActionType.rpc:
       case HttpRouteActionType.internalCall:
+      case HttpRouteActionType.sessionProxy:
         final procedure = action.procedure?.trim();
         if (procedure == null || procedure.isEmpty) {
           throw StateError(
-            'HTTP RPC routes require a non-empty procedure name.',
+            'HTTP ${httpRouteActionTypeToString(action.type)} routes require a non-empty procedure name.',
           );
         }
         final realm = _resolveRouteRealm(
           action,
           listener,
           settings,
-          fallbackFromProcedure: action.type == HttpRouteActionType.internalCall
+          fallbackFromProcedure:
+              (action.type == HttpRouteActionType.internalCall ||
+                  action.type == HttpRouteActionType.sessionProxy)
               ? procedure
               : null,
         );
@@ -240,10 +278,59 @@ class Router {
           'realm': realm,
           'procedure': 'connectanum.mcp.handle',
         };
-      default:
-        throw StateError(
-          'HTTP route action ${action.type} is not yet supported for native wiring.',
-        );
+      case HttpRouteActionType.publish:
+        final topic = _resolveRouteTopic(action);
+        if (topic == null || topic.isEmpty) {
+          throw StateError(
+            'HTTP publish routes require a topic; set action.topic or action.options.topic.',
+          );
+        }
+        final realm = _resolveRouteRealm(action, listener, settings);
+        if (realm == null || realm.isEmpty) {
+          throw StateError(
+            'HTTP publish routes require a realm; specify action.realm, action.options.realm, or configure a listener/default realm.',
+          );
+        }
+        return {'type': 'translation', 'realm': realm, 'procedure': topic};
+      case HttpRouteActionType.file:
+        final directory = _resolveRouteDirectory(action);
+        if (directory == null || directory.isEmpty) {
+          throw StateError(
+            'HTTP file routes require a directory; set action.directory or action.options.directory.',
+          );
+        }
+        return const <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': 'router.http.file',
+        };
+      case HttpRouteActionType.reverseProxy:
+      case HttpRouteActionType.fastCgi:
+        final endpoint = _resolveRouteAdapterEndpoint(action);
+        if (endpoint == null || endpoint.isEmpty) {
+          throw StateError(
+            'HTTP ${httpRouteActionTypeToString(action.type)} routes require an adapter endpoint; set action.delegate or action.options.target/upstream/socket.',
+          );
+        }
+        return <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': action.type == HttpRouteActionType.reverseProxy
+              ? 'router.http.reverse_proxy'
+              : 'router.http.fastcgi',
+        };
+      case HttpRouteActionType.handler:
+        final handlerId = _resolveHttpRouteHandlerId(action);
+        if (handlerId == null || handlerId.isEmpty) {
+          throw StateError(
+            'HTTP handler routes require a handler id; set action.delegate or action.options.handler.',
+          );
+        }
+        return const <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': 'router.http.handler',
+        };
     }
   }
 
@@ -336,6 +423,63 @@ class Router {
     return null;
   }
 
+  String? _resolveRouteTopic(HttpRouteAction action) {
+    final direct = action.topic?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final optionTopic = action.options['topic'];
+    if (optionTopic is String) {
+      final trimmed = optionTopic.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveRouteDirectory(HttpRouteAction action) {
+    final direct = action.directory?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final optionDirectory = action.options['directory'];
+    if (optionDirectory is String) {
+      final trimmed = optionDirectory.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveRouteAdapterEndpoint(HttpRouteAction action) {
+    final direct = action.delegate?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    for (final key in const [
+      'target',
+      'target_url',
+      'targetUrl',
+      'upstream',
+      'upstream_url',
+      'upstreamUrl',
+      'socket',
+      'socket_path',
+      'socketPath',
+    ]) {
+      final value = action.options[key];
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
+      }
+    }
+    return null;
+  }
+
   bool _resolveAppendMethodSuffix(
     HttpRouteAction action, {
     bool defaultValue = true,
@@ -346,6 +490,10 @@ class Router {
     final optionValue = action.options['append_method_suffix'];
     if (optionValue is bool) {
       return optionValue;
+    }
+    final camelOptionValue = action.options['appendMethodSuffix'];
+    if (camelOptionValue is bool) {
+      return camelOptionValue;
     }
     return defaultValue;
   }

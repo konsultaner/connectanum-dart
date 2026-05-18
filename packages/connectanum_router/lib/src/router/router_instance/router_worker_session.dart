@@ -5,6 +5,17 @@ const bool _forwardNativePublishEventsConst = bool.fromEnvironment(
   'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
   defaultValue: false,
 );
+const Set<String> _routerOwnedInvocationDetailKeys = {
+  'caller',
+  'caller_authid',
+  'caller_authrole',
+  'procedure',
+  'receive_progress',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
 
 bool _parseForwardNativePublishFlag(String? raw) {
   if (raw == null) {
@@ -28,6 +39,41 @@ void _safeSend(SendPort port, Object? message) {
     port.send(message);
   } catch (_) {
     // Telemetry should not prevent session handling.
+  }
+}
+
+void _addFilteredInvocationCustomDetails(
+  invocation_msg.InvocationDetails details,
+  Map<String, Object?> options,
+) {
+  if (options.isEmpty) {
+    return;
+  }
+  final custom = <String, dynamic>{};
+  for (final entry in options.entries) {
+    if (!_routerOwnedInvocationDetailKeys.contains(entry.key)) {
+      custom[entry.key] = entry.value;
+    }
+  }
+  if (custom.isNotEmpty) {
+    details.custom.addAll(custom);
+  }
+}
+
+void _addCallerAuthDisclosureDetails(
+  invocation_msg.InvocationDetails details,
+  InvocationDispatchResult dispatch,
+) {
+  if (!dispatch.discloseCaller) {
+    return;
+  }
+  final callerAuthId = dispatch.callerAuthId;
+  if (callerAuthId != null) {
+    details.custom['caller_authid'] = callerAuthId;
+  }
+  final callerAuthRole = dispatch.callerAuthRole;
+  if (callerAuthRole != null) {
+    details.custom['caller_authrole'] = callerAuthRole;
   }
 }
 
@@ -956,6 +1002,463 @@ Future<void> _handlePublish({
   }
 }
 
+Future<bool> _handleStandardWampMetaCall({
+  required SendPort bossPort,
+  required RealmContextCache realmContexts,
+  required WorkerConnectionState state,
+  required int connectionId,
+  required call_msg.Call message,
+}) async {
+  if (!_isStandardMetaProcedure(message.procedure)) {
+    return false;
+  }
+
+  if (!await _authorizeStateActionOrSendError(
+    bossPort: bossPort,
+    state: state,
+    connectionId: connectionId,
+    requestType: MessageTypes.codeCall,
+    requestId: message.requestId,
+    action: AuthorizationAction.call,
+    uri: message.procedure,
+    options: _callOptionsToMap(message.options),
+  )) {
+    return true;
+  }
+
+  final context = realmContexts.contextFor(state.realmUri!);
+  final snapshot = await context.ensureSnapshot();
+  final visibleSessions = _visibleMetaSessionsForState(
+    state,
+    snapshot.sessions,
+  );
+  final visibleSessionIds = {for (final session in visibleSessions) session.id};
+  final visibleRegistrations = await _visibleMetaRegistrationsForState(
+    state,
+    snapshot.registrations,
+    connectionId: connectionId,
+  );
+  final visibleSubscriptions = await _visibleMetaSubscriptionsForState(
+    state,
+    snapshot.subscriptions,
+    connectionId: connectionId,
+  );
+
+  switch (message.procedure) {
+    case 'wamp.session.count':
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        argumentsKeywords: {'count': visibleSessions.length},
+      );
+      break;
+    case 'wamp.session.list':
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        argumentsKeywords: {
+          'session_ids': [for (final session in visibleSessions) session.id],
+        },
+      );
+      break;
+    case 'wamp.session.get':
+      final id = _wampMetaIntArgument(message, keyword: 'id');
+      final sessionInfo = visibleSessions
+          .where((session) => session.id == id)
+          .firstOrNull;
+      if (sessionInfo == null) {
+        await _sendSessionError(
+          bossPort: bossPort,
+          state: state,
+          connectionId: connectionId,
+          requestType: MessageTypes.codeCall,
+          requestId: message.requestId,
+          reason: wamp_core.Error.noSuchSession,
+        );
+        return true;
+      }
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        argumentsKeywords: {'details': _sessionDetails(sessionInfo)},
+      );
+      break;
+    case 'wamp.registration.list':
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        argumentsKeywords: _idsByProcedureMatchPolicy(visibleRegistrations),
+      );
+      break;
+    case 'wamp.registration.lookup':
+      final procedure = _wampMetaStringArgument(message, keyword: 'procedure');
+      final match = _wampMetaMatchOption(message);
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        arguments: [
+          for (final registration in visibleRegistrations)
+            if (registration.procedure == procedure &&
+                (match == null ||
+                    _procedureMatchPolicyName(registration.matchPolicy) ==
+                        match))
+              registration.registrationId,
+        ],
+      );
+      break;
+    case 'wamp.registration.match':
+      final procedure = _wampMetaStringArgument(message, keyword: 'procedure');
+      final match = visibleRegistrations.where((registration) {
+        return procedure != null &&
+            _registrationMatches(registration, procedure);
+      }).firstOrNull;
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        arguments: [if (match != null) match.registrationId],
+      );
+      break;
+    case 'wamp.registration.get':
+      final id = _wampMetaIntArgument(message, keyword: 'id');
+      final registration = _registrationById(visibleRegistrations, id);
+      if (registration == null) {
+        await _sendSessionError(
+          bossPort: bossPort,
+          state: state,
+          connectionId: connectionId,
+          requestType: MessageTypes.codeCall,
+          requestId: message.requestId,
+          reason: wamp_core.Error.noSuchProcedure,
+        );
+        return true;
+      }
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        argumentsKeywords: _registrationDetails(registration),
+      );
+      break;
+    case 'wamp.registration.list_callees':
+      final registration = _registrationById(
+        visibleRegistrations,
+        _wampMetaIntArgument(message, keyword: 'id'),
+      );
+      final visibleCallees = [
+        for (final callee
+            in registration?.callees ?? const <RegistrationRecord>[])
+          if (visibleSessionIds.contains(callee.sessionId)) callee,
+      ];
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        arguments: [for (final callee in visibleCallees) callee.sessionId],
+      );
+      break;
+    case 'wamp.registration.count_callees':
+      final registration = _registrationById(
+        visibleRegistrations,
+        _wampMetaIntArgument(message, keyword: 'id'),
+      );
+      final visibleCallees = [
+        for (final callee
+            in registration?.callees ?? const <RegistrationRecord>[])
+          if (visibleSessionIds.contains(callee.sessionId)) callee,
+      ];
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        arguments: [visibleCallees.length],
+      );
+      break;
+    case 'wamp.subscription.list':
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        argumentsKeywords: _idsBySubscriptionMatchPolicy(visibleSubscriptions),
+      );
+      break;
+    case 'wamp.subscription.lookup':
+      final topic = _wampMetaStringArgument(message, keyword: 'topic');
+      final match = _wampMetaMatchOption(message);
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        arguments: [
+          for (final subscription in visibleSubscriptions)
+            if (subscription.topic == topic &&
+                (match == null ||
+                    _topicMatchPolicyName(subscription.matchPolicy) == match))
+              subscription.id,
+        ],
+      );
+      break;
+    case 'wamp.subscription.match':
+      final topic = _wampMetaStringArgument(message, keyword: 'topic');
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        arguments: [
+          for (final subscription in visibleSubscriptions)
+            if (topic != null && _subscriptionMatches(subscription, topic))
+              subscription.id,
+        ],
+      );
+      break;
+    case 'wamp.subscription.get':
+      final subscription = _subscriptionById(
+        visibleSubscriptions,
+        _wampMetaIntArgument(message, keyword: 'id'),
+      );
+      if (subscription == null) {
+        await _sendSessionError(
+          bossPort: bossPort,
+          state: state,
+          connectionId: connectionId,
+          requestType: MessageTypes.codeCall,
+          requestId: message.requestId,
+          reason: wamp_core.Error.noSuchSubscription,
+        );
+        return true;
+      }
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        argumentsKeywords: _subscriptionDetails(subscription),
+      );
+      break;
+    case 'wamp.subscription.list_subscribers':
+      final subscription = _subscriptionById(
+        visibleSubscriptions,
+        _wampMetaIntArgument(message, keyword: 'id'),
+      );
+      final visibleSubscribers = [
+        for (final subscriber
+            in subscription?.subscribers ?? const <SubscriberRecord>[])
+          if (visibleSessionIds.contains(subscriber.sessionId)) subscriber,
+      ];
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        arguments: [
+          for (final subscriber in visibleSubscribers) subscriber.sessionId,
+        ],
+      );
+      break;
+    case 'wamp.subscription.count_subscribers':
+      final subscription = _subscriptionById(
+        visibleSubscriptions,
+        _wampMetaIntArgument(message, keyword: 'id'),
+      );
+      final visibleSubscribers = [
+        for (final subscriber
+            in subscription?.subscribers ?? const <SubscriberRecord>[])
+          if (visibleSessionIds.contains(subscriber.sessionId)) subscriber,
+      ];
+      await _sendSessionResult(
+        bossPort: bossPort,
+        state: state,
+        connectionId: connectionId,
+        requestId: message.requestId,
+        arguments: [visibleSubscribers.length],
+      );
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
+List<SessionInfo> _visibleMetaSessionsForState(
+  WorkerConnectionState state,
+  Iterable<SessionInfo> sessions,
+) {
+  return <SessionInfo>[
+    for (final candidate in sessions)
+      if (candidate.id == state.sessionId) candidate,
+  ];
+}
+
+Future<List<RegistrationSnapshot>> _visibleMetaRegistrationsForState(
+  WorkerConnectionState state,
+  Iterable<RegistrationSnapshot> registrations, {
+  required int connectionId,
+}) async {
+  final visible = <RegistrationSnapshot>[];
+  for (final registration in registrations) {
+    if (await _stateActionAuthorized(
+      state: state,
+      connectionId: connectionId,
+      action: AuthorizationAction.call,
+      uri: registration.procedure,
+    )) {
+      visible.add(registration);
+    }
+  }
+  return visible;
+}
+
+Future<List<SubscriptionSnapshot>> _visibleMetaSubscriptionsForState(
+  WorkerConnectionState state,
+  Iterable<SubscriptionSnapshot> subscriptions, {
+  required int connectionId,
+}) async {
+  final visible = <SubscriptionSnapshot>[];
+  for (final subscription in subscriptions) {
+    final canPublish = await _stateActionAuthorized(
+      state: state,
+      connectionId: connectionId,
+      action: AuthorizationAction.publish,
+      uri: subscription.topic,
+    );
+    final canSubscribe = await _stateActionAuthorized(
+      state: state,
+      connectionId: connectionId,
+      action: AuthorizationAction.subscribe,
+      uri: subscription.topic,
+    );
+    if (canPublish || canSubscribe) {
+      visible.add(subscription);
+    }
+  }
+  return visible;
+}
+
+Future<bool> _stateActionAuthorized({
+  required WorkerConnectionState state,
+  required int connectionId,
+  required AuthorizationAction action,
+  required String uri,
+}) async {
+  final realmSettings = state.realmSettings;
+  final realmUri = state.realmUri;
+  final sessionId = state.sessionId;
+  if (realmSettings == null || realmUri == null || sessionId == null) {
+    return false;
+  }
+  final welcomeDetails = state.welcomeDetails;
+  final decision = await _authorizeRealmAction(
+    realmSettings: realmSettings,
+    realmUri: realmUri,
+    action: action,
+    uri: uri,
+    sessionId: sessionId,
+    connectionId: connectionId,
+    authId: welcomeDetails?.authid,
+    authRole: welcomeDetails?.authrole,
+    authMethod: welcomeDetails?.authmethod ?? state.authMethod,
+    authProvider: welcomeDetails?.authprovider,
+    protocol: state.protocol ?? state.listenerSettings.primaryProtocol,
+    isInternal: false,
+  );
+  return decision.allowed;
+}
+
+Object? _wampMetaKeywordArgument(call_msg.Call call, String keyword) {
+  final keywords = call.argumentsKeywords;
+  if (keywords != null && keywords.containsKey(keyword)) {
+    return keywords[keyword];
+  }
+  return null;
+}
+
+String? _wampMetaStringArgument(call_msg.Call call, {required String keyword}) {
+  final keywordValue = _wampMetaKeywordArgument(call, keyword);
+  if (keywordValue is String) {
+    return keywordValue;
+  }
+  final arguments = call.arguments;
+  if (arguments != null && arguments.isNotEmpty) {
+    final value = arguments.first;
+    if (value is String) {
+      return value;
+    }
+  }
+  return null;
+}
+
+int? _wampMetaIntArgument(call_msg.Call call, {required String keyword}) {
+  final keywordValue = _wampMetaKeywordArgument(call, keyword);
+  if (keywordValue is int) {
+    return keywordValue;
+  }
+  final arguments = call.arguments;
+  if (arguments != null && arguments.isNotEmpty) {
+    final value = arguments.first;
+    if (value is int) {
+      return value;
+    }
+  }
+  return null;
+}
+
+String? _wampMetaMatchOption(call_msg.Call call) {
+  final direct = _wampMetaKeywordArgument(call, 'match');
+  if (direct is String) {
+    return direct;
+  }
+  final keywordOptions = _wampMetaKeywordArgument(call, 'options');
+  final positionalOptions = call.arguments != null && call.arguments!.length > 1
+      ? call.arguments![1]
+      : null;
+  final options = keywordOptions ?? positionalOptions;
+  if (options is Map) {
+    final match = options['match'];
+    if (match is String) {
+      return match;
+    }
+  }
+  return null;
+}
+
+Future<void> _sendSessionResult({
+  required SendPort bossPort,
+  required WorkerConnectionState state,
+  required int connectionId,
+  required int requestId,
+  List<dynamic>? arguments,
+  Map<String, dynamic>? argumentsKeywords,
+}) async {
+  await sendMessage(
+    bossPort,
+    connectionId,
+    state.serializer ?? NativeMessageSerializer.json,
+    result_msg.Result(
+      requestId,
+      result_msg.ResultDetails(),
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+    ),
+  );
+}
+
 Future<void> _handleCall({
   required SendPort bossPort,
   required SendPort? statePort,
@@ -983,6 +1486,16 @@ Future<void> _handleCall({
       reason: 'wamp.error.not_supported',
       detailsMessage: 'Router state store unavailable',
     );
+    return;
+  }
+
+  if (await _handleStandardWampMetaCall(
+    bossPort: bossPort,
+    realmContexts: realmContexts,
+    state: state,
+    connectionId: connectionId,
+    message: message,
+  )) {
     return;
   }
 
@@ -1029,7 +1542,7 @@ Future<void> _handleCall({
       'registrationId': dispatch.registrationId,
       'invocationId': dispatch.invocationId,
     });
-    final discloseCaller = message.options?.discloseMe == true;
+    final discloseCaller = dispatch.discloseCaller;
     final nativeMessage = incomingMessage;
     var usedZeroCopy = false;
     if (dispatch.calleeInternalSendPort != null) {
@@ -1064,6 +1577,12 @@ Future<void> _handleCall({
         if (discloseCaller) {
           command['callerSessionId'] = state.sessionId;
         }
+        if (dispatch.callerAuthId != null) {
+          command['callerAuthId'] = dispatch.callerAuthId;
+        }
+        if (dispatch.callerAuthRole != null) {
+          command['callerAuthRole'] = dispatch.callerAuthRole;
+        }
         final receiveProgress = message.options?.receiveProgress;
         if (receiveProgress != null) {
           command['receiveProgress'] = receiveProgress;
@@ -1092,10 +1611,12 @@ Future<void> _handleCall({
       );
       final customOptions = message.options?.custom;
       if (customOptions != null && customOptions.isNotEmpty) {
-        invocationDetails.custom.addAll(
+        _addFilteredInvocationCustomDetails(
+          invocationDetails,
           customOptions.map((key, value) => MapEntry(key, value)),
         );
       }
+      _addCallerAuthDisclosureDetails(invocationDetails, dispatch);
       final invocation = invocation_msg.Invocation(
         dispatch.invocationId,
         dispatch.registrationId,
@@ -1366,7 +1887,10 @@ Future<void> _handleInternalInvocation({
       _internalMsgLazyPayload: transferredPayload,
       'options': _callOptionsToMap(message.options),
       'realmUri': realmUri,
-      'callerSessionId': callerSessionId,
+      if (dispatch.discloseCaller) 'callerSessionId': callerSessionId,
+      if (dispatch.callerAuthId != null) 'callerAuthId': dispatch.callerAuthId,
+      if (dispatch.callerAuthRole != null)
+        'callerAuthRole': dispatch.callerAuthRole,
       'callerRequestId': message.requestId,
       'replyPort': replyPort.sendPort,
     });

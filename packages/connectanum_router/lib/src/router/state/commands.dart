@@ -90,6 +90,20 @@ class SessionCloseCommand extends RouterStateCommand {
   final int sessionId;
 }
 
+class SessionTransferCommand extends RouterStateCommand {
+  SessionTransferCommand({
+    required this.realmUri,
+    required this.sessionId,
+    required this.workerId,
+    required this.connectionId,
+  });
+
+  final String realmUri;
+  final int sessionId;
+  final int workerId;
+  final int connectionId;
+}
+
 class SubscriptionAddCommand extends RouterStateCommand {
   SubscriptionAddCommand({
     required this.realmUri,

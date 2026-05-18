@@ -11,6 +11,9 @@ current gaps with copyable snippets for the APIs that matter most in practice.
   - local router with ticket, WAMP-CRA, SCRAM, and remote-auth demo providers
 - [packages/connectanum_router/example/remote_websocket.dart](../packages/connectanum_router/example/remote_websocket.dart)
   - router with a WebSocket listener and an in-process remote auth delegate
+- [packages/connectanum_router/example/remote_auth_service.dart](../packages/connectanum_router/example/remote_auth_service.dart)
+  - edge router plus a separate remote WAMP auth service, including a
+    fake-challenge rejection smoke
 - [packages/connectanum_router/example/router_hosted_mcp.dart](../packages/connectanum_router/example/router_hosted_mcp.dart)
   - router-hosted MCP endpoint that exposes a WAMP procedure over Streamable
     HTTP and direct JSON-RPC
@@ -200,4 +203,17 @@ principal may not use are not advertised as tools. Run the checked example with
 
 ```bash
 dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
+```
+
+## Remote Auth Service Smoke
+
+Use the checked remote-auth example when you need to prove an application can
+authenticate through a separate WAMP auth service instead of an in-process
+delegate. The example starts an auth-service router, binds
+`AuthServerProcedureBinding`, starts an edge WebSocket router that delegates
+ticket authentication over WAMP, then verifies both a successful ticket login
+and an unknown-user fake-challenge rejection:
+
+```bash
+dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit
 ```

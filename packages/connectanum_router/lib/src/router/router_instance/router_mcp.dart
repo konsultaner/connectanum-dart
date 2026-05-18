@@ -1078,7 +1078,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
-    final removed = binding._removeMcpEndpointForRoute(
+    final removed = await binding._removeMcpEndpointForRoute(
       request: request,
       route: route,
       session: session,
@@ -1306,12 +1306,12 @@ extension _RouterBindingMcp on RouterBinding {
     );
   }
 
-  _RouterMcpEndpoint? _removeMcpEndpointForRoute({
+  Future<_RouterMcpEndpoint?> _removeMcpEndpointForRoute({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
     required RouterSession session,
     required String mcpSessionId,
-  }) {
+  }) async {
     final endpoint = _mcpEndpoints.remove(
       _mcpEndpointKeyForRoute(
         request: request,
@@ -1320,7 +1320,7 @@ extension _RouterBindingMcp on RouterBinding {
         mcpSessionId: mcpSessionId,
       ),
     );
-    endpoint?.dispose();
+    await endpoint?.dispose();
     return endpoint;
   }
 }
@@ -1404,12 +1404,20 @@ class _RouterMcpEndpoint {
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
   final List<mcp.JsonMap> _pendingSseMessages = <mcp.JsonMap>[];
   final Map<String, int> _sseStreamSequences = <String, int>{};
+  final Set<int> _subscriptionIds = <int>{};
   int _nextSseStream = 0;
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
 
-  void dispose() {
+  Future<void> dispose() async {
     server.shutdown();
+    final subscriptionIds = List<int>.of(_subscriptionIds);
+    _subscriptionIds.clear();
+    for (final subscriptionId in subscriptionIds) {
+      try {
+        await session.unsubscribe(subscriptionId);
+      } catch (_) {}
+    }
   }
 
   Future<Object?> handleMessage(Object? rawMessage) async {
@@ -2119,12 +2127,14 @@ class _RouterMcpEndpoint {
       request.topic,
       options: request.options,
     );
+    final subscriptionId = subscribed.subscriptionId;
+    _subscriptionIds.add(subscriptionId);
     subscribed.onEventPayload(
       (event) => onEvent(mcp.McpWampEvent.fromPayload(event)),
     );
     return mcp.McpWampSubscription(
       topic: request.topic,
-      subscriptionId: subscribed.subscriptionId,
+      subscriptionId: subscriptionId,
     );
   }
 
@@ -2132,6 +2142,7 @@ class _RouterMcpEndpoint {
     final subscriptionId = subscription.subscriptionId;
     if (subscriptionId != null) {
       await session.unsubscribe(subscriptionId);
+      _subscriptionIds.remove(subscriptionId);
     }
   }
 

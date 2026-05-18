@@ -22,13 +22,27 @@ import 'package:connectanum_core/connectanum_core.dart'
         PPTPayload,
         Publish,
         PublishOptions;
+import 'package:connectanum_core/connectanum_core.dart' show RegisterOptions;
 import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
+import 'package:connectanum_router/src/router/models/router_metrics.dart';
 import 'package:connectanum_router/src/router/models/sni_certificate.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
+import 'package:connectanum_router/src/router/state/commands.dart'
+    show
+        ProcedureRegisterCommand,
+        RealmSnapshotCommand,
+        SessionOpenCommand,
+        SubscriptionAddCommand;
+import 'package:connectanum_router/src/router/state/session.dart'
+    show SessionRecord;
+import 'package:connectanum_router/src/router/state/snapshot.dart'
+    show RealmSnapshot, RealmSnapshotResponse;
+import 'package:connectanum_router/src/router/state/subscription.dart'
+    show TopicMatchPolicy;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
@@ -503,6 +517,8 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   }) {
@@ -512,6 +528,8 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
       'invocationId': invocationId,
       'registrationId': registrationId,
       'callerSessionId': callerSessionId,
+      'callerAuthId': callerAuthId,
+      'callerAuthRole': callerAuthRole,
       'procedure': procedure,
       'receiveProgress': receiveProgress,
     });
@@ -554,6 +572,13 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
     }
     _pendingHandles.putIfAbsent(connectionId, Queue.new).add(handle);
     return handle;
+  }
+
+  @override
+  void enqueueConnection(int listenerId, int connectionId) {
+    if (_knownConnections.add(connectionId)) {
+      _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+    }
   }
 
   int enqueueHandleOnly(int connectionId) {
@@ -611,6 +636,8 @@ const int kWorkerCmdProcess = 1;
 const int kWorkerCmdShutdown = 2;
 const int kWorkerCmdAddConnection = 3;
 const int kWorkerCmdRemoveConnection = 4;
+const int kWorkerCmdExportConnection = 7;
+const int kWorkerCmdForgetTransferredConnection = 8;
 const int kWorkerEventRegister = 1;
 const int kWorkerEventReady = 2;
 const int kWorkerEventError = 3;
@@ -619,6 +646,8 @@ const int kWorkerEventConnectionAdded = 5;
 const int kWorkerEventConnectionRemoved = 6;
 const int kWorkerEventDrained = 7;
 const int kWorkerEventSessionOpened = 14;
+const int kWorkerEventConnectionTransferReady = 15;
+const int kWorkerEventConnectionTransferRejected = 16;
 const int _workerCmdDrainConnections = 6;
 
 Future<void> _waitUntil(
@@ -633,6 +662,63 @@ Future<void> _waitUntil(
     }
     await Future<void>.delayed(pollInterval);
   }
+}
+
+Future<RealmSnapshot> _fetchRuntimeRealmSnapshot(SendPort commandPort) async {
+  final replyPort = ReceivePort();
+  commandPort.send(
+    RealmSnapshotCommand(
+      realmUri: 'realm1',
+      knownVersion: null,
+      replyPort: replyPort.sendPort,
+    ),
+  );
+  final response = await replyPort.first as RealmSnapshotResponse;
+  replyPort.close();
+  return response.snapshot;
+}
+
+Future<int> _addRuntimeSubscription(
+  SendPort commandPort, {
+  required int sessionId,
+  required String topic,
+}) async {
+  final replyPort = ReceivePort();
+  commandPort.send(
+    SubscriptionAddCommand(
+      realmUri: 'realm1',
+      sessionId: sessionId,
+      topic: topic,
+      matchPolicy: TopicMatchPolicy.exact,
+      details: const <String, Object?>{},
+      replyPort: replyPort.sendPort,
+    ),
+  );
+  final response = await replyPort.first;
+  replyPort.close();
+  expect(response, isA<int>());
+  return response as int;
+}
+
+Future<int> _registerRuntimeProcedure(
+  SendPort commandPort, {
+  required int sessionId,
+  required String procedure,
+}) async {
+  final replyPort = ReceivePort();
+  commandPort.send(
+    ProcedureRegisterCommand(
+      realmUri: 'realm1',
+      sessionId: sessionId,
+      procedure: procedure,
+      details: const <String, Object?>{},
+      replyPort: replyPort.sendPort,
+    ),
+  );
+  final response = await replyPort.first;
+  replyPort.close();
+  expect(response, isA<int>());
+  return response as int;
 }
 
 Map<String, Object?> _jsonResponseBody(NativeHttpResponse response) {
@@ -658,6 +744,7 @@ void _enqueueSyntheticHttpRequest({
   required int handle,
   required String method,
   required String target,
+  String protocol = 'http/1.1',
   required Map<String, String> headers,
   required Object? body,
   required String realm,
@@ -672,7 +759,7 @@ void _enqueueSyntheticHttpRequest({
       method: method,
       target: target,
       path: target.split('?').first,
-      protocol: 'http/1.1',
+      protocol: protocol,
       headers: headers,
       body: body == null
           ? Uint8List(0)
@@ -957,7 +1044,165 @@ Future<(int, String)> _getHealth(Uri uri) async {
   }
 }
 
+const _fakeFastCgiHeaderLength = 8;
+const _fakeFastCgiParams = 4;
+const _fakeFastCgiStdin = 5;
+const _fakeFastCgiStdout = 6;
+const _fakeFastCgiEndRequest = 3;
+
+class _FakeFastCgiRequest {
+  const _FakeFastCgiRequest({required this.params, required this.stdin});
+
+  final Map<String, String> params;
+  final Uint8List stdin;
+}
+
+Future<_FakeFastCgiRequest> _readFakeFastCgiRequest(Socket socket) async {
+  final params = BytesBuilder(copy: false);
+  final stdin = BytesBuilder(copy: false);
+  var paramsComplete = false;
+  var stdinComplete = false;
+  var pending = <int>[];
+  final completer = Completer<_FakeFastCgiRequest>();
+  late final StreamSubscription<List<int>> subscription;
+
+  void completeIfReady() {
+    if (paramsComplete && stdinComplete && !completer.isCompleted) {
+      subscription.pause();
+      completer.complete(
+        _FakeFastCgiRequest(
+          params: _decodeFakeFastCgiParams(params.takeBytes()),
+          stdin: stdin.takeBytes(),
+        ),
+      );
+    }
+  }
+
+  subscription = socket.listen(
+    (chunk) {
+      if (completer.isCompleted) {
+        return;
+      }
+      pending.addAll(chunk);
+      while (pending.length >= _fakeFastCgiHeaderLength) {
+        final type = pending[1];
+        final contentLength = (pending[4] << 8) | pending[5];
+        final paddingLength = pending[6];
+        final recordLength =
+            _fakeFastCgiHeaderLength + contentLength + paddingLength;
+        if (pending.length < recordLength) {
+          break;
+        }
+        final content = Uint8List.fromList(
+          pending.sublist(
+            _fakeFastCgiHeaderLength,
+            _fakeFastCgiHeaderLength + contentLength,
+          ),
+        );
+        pending = pending.sublist(recordLength);
+        if (type == _fakeFastCgiParams) {
+          if (content.isEmpty) {
+            paramsComplete = true;
+          } else {
+            params.add(content);
+          }
+        } else if (type == _fakeFastCgiStdin) {
+          if (content.isEmpty) {
+            stdinComplete = true;
+          } else {
+            stdin.add(content);
+          }
+        }
+        completeIfReady();
+      }
+    },
+    onError: completer.completeError,
+    onDone: () {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          StateError('FastCGI request ended before stdin completed'),
+        );
+      }
+    },
+    cancelOnError: true,
+  );
+  return completer.future;
+}
+
+Map<String, String> _decodeFakeFastCgiParams(Uint8List bytes) {
+  final result = <String, String>{};
+  var offset = 0;
+  while (offset < bytes.length) {
+    final (nameLength, nameOffset) = _readFakeFastCgiLength(bytes, offset);
+    final (valueLength, valueOffset) = _readFakeFastCgiLength(
+      bytes,
+      nameOffset,
+    );
+    final nameEnd = valueOffset + nameLength;
+    final valueEnd = nameEnd + valueLength;
+    final name = utf8.decode(
+      Uint8List.sublistView(bytes, valueOffset, nameEnd),
+    );
+    final value = utf8.decode(Uint8List.sublistView(bytes, nameEnd, valueEnd));
+    result[name] = value;
+    offset = valueEnd;
+  }
+  return result;
+}
+
+(int, int) _readFakeFastCgiLength(Uint8List bytes, int offset) {
+  final first = bytes[offset];
+  if ((first & 0x80) == 0) {
+    return (first, offset + 1);
+  }
+  final length =
+      ((first & 0x7f) << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3];
+  return (length, offset + 4);
+}
+
+void _writeFakeFastCgiRecord(
+  Socket socket,
+  int type,
+  int requestId,
+  List<int> content,
+) {
+  final paddingLength = (8 - (content.length % 8)) % 8;
+  socket.add([
+    1,
+    type,
+    (requestId >> 8) & 0xff,
+    requestId & 0xff,
+    (content.length >> 8) & 0xff,
+    content.length & 0xff,
+    paddingLength,
+    0,
+  ]);
+  if (content.isNotEmpty) {
+    socket.add(content);
+  }
+  if (paddingLength > 0) {
+    socket.add(Uint8List(paddingLength));
+  }
+}
+
 void _parallelWorkerEntryPoint(Map<String, Object?> init) {
+  _parallelWorkerEntryPointWithDrainDelay(init, Duration.zero);
+}
+
+void _delayedScaleDownWorkerEntryPoint(Map<String, Object?> init) {
+  _parallelWorkerEntryPointWithDrainDelay(
+    init,
+    const Duration(milliseconds: 500),
+  );
+}
+
+void _parallelWorkerEntryPointWithDrainDelay(
+  Map<String, Object?> init,
+  Duration drainDelay,
+) {
   final bossPort = init['bossPort'] as SendPort;
   final connectionId = init['connectionId'] as int;
   final listenerId = init['listenerId'] as int;
@@ -1036,6 +1281,231 @@ void _parallelWorkerEntryPoint(Map<String, Object?> init) {
           ? raw[1] as String
           : 'wamp.close.system_shutdown';
       bossPort.send({'type': 'test_drain', 'reason': reason});
+      void drainConnections() {
+        for (final entry in connections.entries.toList()) {
+          bossPort.send({
+            'type': 'worker_send',
+            'connectionId': entry.key,
+            'payload': Uint8List.fromList(
+              utf8.encode(jsonEncode([MessageTypes.codeGoodbye, {}, reason])),
+            ),
+          });
+          bossPort.send({
+            'type': kWorkerEventConnectionRemoved,
+            'connectionId': entry.key,
+          });
+          connections.remove(entry.key);
+        }
+        bossPort.send({'type': kWorkerEventDrained, 'workerHash': workerHash});
+      }
+
+      if (drainDelay == Duration.zero) {
+        drainConnections();
+      } else {
+        Timer(drainDelay, drainConnections);
+      }
+    }
+  });
+}
+
+void _transferableScaleDownWorkerEntryPoint(Map<String, Object?> init) {
+  final bossPort = init['bossPort'] as SendPort;
+  final statePort = init['statePort'] as SendPort?;
+  final connectionId = init['connectionId'] as int;
+  final listenerId = init['listenerId'] as int;
+  final commandPort = ReceivePort();
+  final Map<int, int> connections = {};
+  final Map<int, int> sessions = {};
+  final workerHash = Isolate.current.hashCode;
+  final processedDelayed = <int>{};
+
+  RouterListener listenerFor(int id) => RouterListener(
+    listenerId: id,
+    endpoint: Endpoint(
+      host: '127.0.0.1',
+      port: 0,
+      tlsMode: TlsMode.disabled,
+      maxRawSocketSizeExponent: 16,
+      sniCertificates: const [],
+    ),
+    port: 0,
+    http3Port: 0,
+  );
+
+  int sessionIdFor(int id) => 900000 + id;
+
+  Map<String, Object?> transferDataFor(int id) => <String, Object?>{
+    'phase': 'open',
+    'serializer': 'json',
+    'protocol': 'rawsocket',
+    'realmUri': 'realm1',
+    'sessionId': sessions[id],
+    'authMethod': 'anonymous',
+    'welcomeDetails': <String, Object?>{
+      'realm': 'realm1',
+      'authid': 'anonymous',
+      'authmethod': 'anonymous',
+      'authprovider': 'static',
+      'authrole': 'anonymous',
+      'custom': <String, Object?>{},
+    },
+  };
+
+  void openSession(int id, int idListenerId, {int? existingSessionId}) {
+    final sessionId = existingSessionId ?? sessionIdFor(id);
+    connections[id] = idListenerId;
+    sessions[id] = sessionId;
+    if (existingSessionId == null && statePort != null) {
+      statePort.send(
+        SessionOpenCommand(
+          realmUri: 'realm1',
+          session: SessionRecord(
+            id: sessionId,
+            authId: 'anonymous',
+            authRole: 'anonymous',
+            authMethod: 'anonymous',
+            authProvider: 'static',
+            roles: const <String, Object?>{},
+            workerId: workerHash,
+            connectionId: id,
+            lastActivity: DateTime.now().toUtc(),
+            listener: listenerFor(idListenerId),
+            protocol: ListenerProtocol.rawsocket,
+          ),
+        ),
+      );
+    }
+    bossPort.send({
+      'type': kWorkerEventSessionOpened,
+      'connectionId': id,
+      'sessionId': sessionId,
+      'realmUri': 'realm1',
+    });
+  }
+
+  if (connectionId > 0) {
+    openSession(connectionId, listenerId);
+  }
+
+  bossPort.send({
+    'type': kWorkerEventRegister,
+    'connectionId': connectionId,
+    'listenerId': listenerId,
+    'commandPort': commandPort.sendPort,
+    'statePort': statePort,
+    'workerHash': workerHash,
+  });
+  bossPort.send({'type': kWorkerEventReady, 'connectionId': connectionId});
+
+  commandPort.listen((dynamic raw) {
+    if (raw is! List || raw.isEmpty) {
+      return;
+    }
+    final command = raw[0];
+    if (command == kWorkerCmdProcess) {
+      final assignedConnection = raw[1] as int;
+      final handle = raw[2] as int;
+
+      void emitProcessed() {
+        bossPort.send({
+          'type': 'test_processed',
+          'connectionId': assignedConnection,
+          'handle': handle,
+          'workerHash': workerHash,
+          'processedAt': DateTime.now().microsecondsSinceEpoch,
+        });
+        bossPort.send({
+          'type': kWorkerEventReady,
+          'connectionId': assignedConnection,
+        });
+      }
+
+      final shouldDelay =
+          assignedConnection % 10 == 1 &&
+          !processedDelayed.contains(assignedConnection);
+      if (shouldDelay) {
+        processedDelayed.add(assignedConnection);
+        Future<void>.delayed(
+          const Duration(milliseconds: 200),
+        ).then((_) => emitProcessed());
+      } else {
+        emitProcessed();
+      }
+    } else if (command == kWorkerCmdAddConnection) {
+      final newListener = raw[1] as int;
+      final newConnection = raw[2] as int;
+      final rawTransferData = raw.length > 4 && raw[4] is Map
+          ? raw[4] as Map
+          : null;
+      final transferredSessionId = rawTransferData == null
+          ? null
+          : rawTransferData['sessionId'] as int?;
+      openSession(
+        newConnection,
+        newListener,
+        existingSessionId: transferredSessionId,
+      );
+      bossPort.send({
+        'type': kWorkerEventConnectionAdded,
+        'connectionId': newConnection,
+        'listenerId': newListener,
+        'workerHash': workerHash,
+        'sessionId': transferredSessionId,
+      });
+      bossPort.send({'type': kWorkerEventReady, 'connectionId': newConnection});
+    } else if (command == kWorkerCmdRemoveConnection) {
+      final removeConnection = raw[1] as int;
+      connections.remove(removeConnection);
+      sessions.remove(removeConnection);
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': removeConnection,
+        'workerHash': workerHash,
+      });
+    } else if (command == kWorkerCmdExportConnection) {
+      final transferConnection = raw[1] as int;
+      final transferListener = connections[transferConnection];
+      final transferSession = sessions[transferConnection];
+      if (transferListener == null || transferSession == null) {
+        bossPort.send({
+          'type': kWorkerEventConnectionTransferRejected,
+          'connectionId': transferConnection,
+          'workerHash': workerHash,
+        });
+      } else {
+        bossPort.send({
+          'type': kWorkerEventConnectionTransferReady,
+          'connectionId': transferConnection,
+          'listenerId': transferListener,
+          'workerHash': workerHash,
+          'metadata': <String, Object?>{'protocol': 'rawsocket'},
+          'transferData': transferDataFor(transferConnection),
+        });
+      }
+    } else if (command == kWorkerCmdForgetTransferredConnection) {
+      final transferConnection = raw[1] as int;
+      connections.remove(transferConnection);
+      sessions.remove(transferConnection);
+      bossPort.send({
+        'type': kWorkerEventConnectionRemoved,
+        'connectionId': transferConnection,
+        'workerHash': workerHash,
+      });
+    } else if (command == kWorkerCmdShutdown) {
+      commandPort.close();
+      bossPort.send({
+        'type': kWorkerEventShutdown,
+        'connectionId': connectionId,
+      });
+    } else if (command == _workerCmdDrainConnections) {
+      final reason = raw.length > 1 && raw[1] is String
+          ? raw[1] as String
+          : 'wamp.close.system_shutdown';
+      bossPort.send({
+        'type': 'test_drain',
+        'reason': reason,
+        'workerHash': workerHash,
+      });
       for (final entry in connections.entries.toList()) {
         bossPort.send({
           'type': 'worker_send',
@@ -1047,8 +1517,10 @@ void _parallelWorkerEntryPoint(Map<String, Object?> init) {
         bossPort.send({
           'type': kWorkerEventConnectionRemoved,
           'connectionId': entry.key,
+          'workerHash': workerHash,
         });
         connections.remove(entry.key);
+        sessions.remove(entry.key);
       }
       bossPort.send({'type': kWorkerEventDrained, 'workerHash': workerHash});
     }
@@ -1189,6 +1661,14 @@ void _idleWorkerEntryPoint(Map<String, Object?> init) {
 }
 
 RouterSettings _buildRouterSettingsWithMinWorkers(int minWorkers) {
+  return _buildRouterSettingsWithWorkerPool(
+    WorkerPoolSettings(minWorkers: minWorkers),
+  );
+}
+
+RouterSettings _buildRouterSettingsWithWorkerPool(
+  WorkerPoolSettings workerPool,
+) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
       RealmSettingsBuilder('realm1')
@@ -1217,7 +1697,7 @@ RouterSettings _buildRouterSettingsWithMinWorkers(int minWorkers) {
       'anonymous',
       const AuthenticatorDefinition(type: 'anonymous'),
     )
-    ..setWorkerPool(WorkerPoolSettings(minWorkers: minWorkers));
+    ..setWorkerPool(workerPool);
   return builder.build();
 }
 
@@ -1629,6 +2109,328 @@ RouterSettings _buildRouterSettingsWithHttpProtocolRoute() {
                   action: HttpRouteAction(
                     type: HttpRouteActionType.rpc,
                     procedure: 'com.example.api.h2',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpMethodRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(
+                    path: '/api/get-only',
+                    methods: ['GET'],
+                  ),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    procedure: 'com.example.api.get',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpMethodActionRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/items', methods: ['GET']),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.items.list',
+                  ),
+                  methodActions: {
+                    'POST': HttpRouteAction(
+                      type: HttpRouteActionType.rpc,
+                      realm: 'realm1',
+                      procedure: 'com.example.items.create',
+                    ),
+                  },
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpRateLimitRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/limited'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.api.limited',
+                    rateLimit: HttpRouteRateLimitSettings(
+                      maxRequests: 1,
+                      window: Duration(seconds: 30),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpConcurrencyLimitRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/throttled'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.api.throttled',
+                    concurrencyLimit: HttpRouteConcurrencyLimitSettings(
+                      maxConcurrent: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpAccessLogRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api/logged'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.api.logged',
+                    accessLog: HttpRouteAccessLogSettings(
+                      includeQuery: true,
+                      includeHeaders: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpCatchAllRoute() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(catchAll: true),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    realm: 'realm1',
+                    procedure: 'com.example.http.fallback',
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/auth'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.auth,
+                    sessionProfile: 'public-http',
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    );
+  return builder.build();
+}
+
+RouterSettings _buildRouterSettingsWithHttpShorthandRoutes() {
+  PermissionSettingsBuilder allowBridgeOperations() =>
+      PermissionSettingsBuilder('')
+        ..setMatchPolicy(PermissionMatchPolicy.prefix)
+        ..allowOperations(const ['call', 'register', 'unregister']);
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('router.http')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')
+            ..addPermissionFromBuilder(allowBridgeOperations()),
+        ),
+    )
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('anonymous')
+            ..addPermissionFromBuilder(allowBridgeOperations()),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reservedRealm,
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/tasks/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.namespace,
+                    realm: 'realm1',
+                    namespace: 'consumer.api',
                   ),
                 ),
               ],
@@ -2474,6 +3276,89 @@ void main() {
       expect(processedHandles, containsAll([firstHandle, secondHandle]));
     });
 
+    test('prefetches worker dispatches and reports queue metrics', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithMinWorkers(0),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _parallelWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      runtime.enqueueConnection(listener.listenerId, 9001);
+
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_registered' &&
+              event['connectionId'] == 9001,
+        );
+      });
+
+      runtime.enqueueConnection(listener.listenerId, 9002);
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == 9002,
+        );
+      });
+
+      final firstHandle = runtime.enqueueHandleOnly(9001);
+      final secondHandle = runtime.enqueueHandleOnly(9002);
+
+      RouterMetricsSnapshot? queueSnapshot;
+      final deadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(deadline)) {
+        final snapshot = await binding.collectMetrics();
+        final hasQueuedDispatch = snapshot.workerLoad.any(
+          (worker) => worker.queuedDispatchesTotal > 0,
+        );
+        if (hasQueuedDispatch) {
+          queueSnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(queueSnapshot, isNotNull, reason: 'events=$events');
+      final workerMetrics = queueSnapshot!.workerLoad.single;
+      expect(workerMetrics.queuedDispatchesTotal, greaterThanOrEqualTo(1));
+      expect(workerMetrics.maxPendingDispatches, greaterThanOrEqualTo(1));
+      expect(workerMetrics.totalQueueLatencyMs, greaterThanOrEqualTo(0));
+
+      await _waitUntil(() {
+        final processedHandles = events
+            .whereType<Map>()
+            .where(
+              (event) =>
+                  event['type'] == 'worker_unknown_event' &&
+                  event['payload'] is Map &&
+                  (event['payload'] as Map)['type'] == 'test_processed',
+            )
+            .map((event) => (event['payload'] as Map)['handle'])
+            .toSet();
+        return processedHandles.contains(firstHandle) &&
+            processedHandles.contains(secondHandle);
+      });
+    });
+
     test(
       'spawns additional workers until minimum worker count is satisfied',
       () async {
@@ -2621,6 +3506,825 @@ void main() {
         expect(slowProcessed - fastProcessed, greaterThanOrEqualTo(100000));
       },
     );
+
+    test('keeps high-contention dispatches parallel across workers', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithMinWorkers(4),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _parallelWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+
+      await _waitUntil(
+        () =>
+            events
+                .whereType<Map>()
+                .where((event) => event['type'] == 'worker_registered')
+                .length >=
+            4,
+      );
+
+      const slowConnection = 8201;
+      const fastConnections = [8202, 8203, 8204];
+      const connections = [slowConnection, ...fastConnections];
+
+      for (final connection in connections) {
+        runtime.enqueueConnection(listener.listenerId, connection);
+      }
+
+      await _waitUntil(() {
+        final addedConnections = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_connection_added')
+            .map((event) => event['connectionId'])
+            .toSet();
+        return addedConnections.containsAll(connections);
+      });
+
+      RouterMetricsSnapshot? balancedSnapshot;
+      final balancedDeadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(balancedDeadline)) {
+        final snapshot = await binding.collectMetrics();
+        final loads = snapshot.workerLoad;
+        if (loads.length == 4 &&
+            loads.every((worker) => worker.connectionCount == 1)) {
+          balancedSnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(balancedSnapshot, isNotNull, reason: 'events=$events');
+
+      final handlesByConnection = <int, List<int>>{};
+      for (final connection in connections) {
+        handlesByConnection[connection] = [
+          runtime.enqueueHandleOnly(connection),
+          runtime.enqueueHandleOnly(connection),
+        ];
+      }
+      final expectedHandles = handlesByConnection.values
+          .expand((handles) => handles)
+          .toSet();
+
+      await _waitUntil(() {
+        final processedHandles = events
+            .whereType<Map>()
+            .where((event) {
+              final payload = event['payload'];
+              return event['type'] == 'worker_unknown_event' &&
+                  payload is Map &&
+                  payload['type'] == 'test_processed';
+            })
+            .map((event) => (event['payload'] as Map)['handle'])
+            .toSet();
+        return processedHandles.containsAll(expectedHandles);
+      }, timeout: const Duration(seconds: 3));
+
+      final processedPayloads = events
+          .whereType<Map>()
+          .where((event) {
+            final payload = event['payload'];
+            return event['type'] == 'worker_unknown_event' &&
+                payload is Map &&
+                payload['type'] == 'test_processed';
+          })
+          .map((event) => event['payload'] as Map)
+          .where((payload) => expectedHandles.contains(payload['handle']))
+          .toList();
+
+      final slowFirstProcessedAt = processedPayloads
+          .where((payload) => payload['connectionId'] == slowConnection)
+          .map((payload) => payload['processedAt'] as int)
+          .reduce((a, b) => a < b ? a : b);
+
+      for (final connection in fastConnections) {
+        final fastFirstProcessedAt = processedPayloads
+            .where((payload) => payload['connectionId'] == connection)
+            .map((payload) => payload['processedAt'] as int)
+            .reduce((a, b) => a < b ? a : b);
+        expect(
+          fastFirstProcessedAt,
+          lessThan(slowFirstProcessedAt),
+          reason:
+              'connection $connection should not wait for '
+              '$slowConnection; events=$events',
+        );
+      }
+
+      final slowHandles = handlesByConnection[slowConnection]!;
+      final processedSlowHandles = processedPayloads
+          .where((payload) => payload['connectionId'] == slowConnection)
+          .map((payload) => payload['handle'])
+          .toSet();
+      expect(processedSlowHandles, containsAll(slowHandles));
+    });
+
+    test(
+      'scales up worker pool after sustained queued dispatch pressure',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithWorkerPool(
+            const WorkerPoolSettings(
+              minWorkers: 1,
+              maxWorkers: 2,
+              scaleUpPendingDispatches: 1,
+              scaleUpConsecutiveTicks: 2,
+            ),
+          ),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _parallelWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_registered',
+          ),
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8311);
+        runtime.enqueueConnection(listener.listenerId, 8321);
+
+        await _waitUntil(() {
+          final addedConnections = events
+              .whereType<Map>()
+              .where((event) => event['type'] == 'worker_connection_added')
+              .map((event) => event['connectionId'])
+              .toSet();
+          return addedConnections.containsAll({8311, 8321});
+        });
+
+        final slowHandle = runtime.enqueueHandleOnly(8311);
+        final queuedHandle = runtime.enqueueHandleOnly(8321);
+
+        final scaleUpDeadline = DateTime.now().add(const Duration(seconds: 2));
+        while (!events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_pool_scale_up',
+        )) {
+          if (DateTime.now().isAfter(scaleUpDeadline)) {
+            final snapshot = await binding.collectMetrics();
+            fail('worker pool did not scale up; events=$events; $snapshot');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_registered')
+                  .length >=
+              2,
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8332);
+
+        RouterMetricsSnapshot? scaledSnapshot;
+        final scaledDeadline = DateTime.now().add(const Duration(seconds: 2));
+        while (DateTime.now().isBefore(scaledDeadline)) {
+          final added8332 = events.whereType<Map>().any(
+            (event) =>
+                event['type'] == 'worker_connection_added' &&
+                event['connectionId'] == 8332,
+          );
+          if (!added8332) {
+            await Future<void>.delayed(const Duration(milliseconds: 5));
+            continue;
+          }
+
+          final snapshot = await binding.collectMetrics();
+          final loads = snapshot.workerLoad;
+          if (loads.length == 2 &&
+              loads.any((worker) => worker.connectionCount == 2) &&
+              loads.any((worker) => worker.connectionCount == 1)) {
+            scaledSnapshot = snapshot;
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(scaledSnapshot, isNotNull, reason: 'events=$events');
+        expect(scaledSnapshot!.workerPool.minWorkers, 1);
+        expect(scaledSnapshot.workerPool.maxWorkers, 2);
+        expect(scaledSnapshot.workerPool.pendingIsolates, 0);
+        expect(
+          scaledSnapshot.workerPool.scaleUpsTotal,
+          greaterThanOrEqualTo(1),
+        );
+        expect(scaledSnapshot.workerPool.scaleDownsTotal, 0);
+        expect(scaledSnapshot.workerPool.scaleDownTimeoutsTotal, 0);
+
+        final scaledWorkerHandle = runtime.enqueueHandleOnly(8332);
+        await _waitUntil(() {
+          final processedHandles = events
+              .whereType<Map>()
+              .where(
+                (event) =>
+                    event['type'] == 'worker_unknown_event' &&
+                    event['payload'] is Map &&
+                    (event['payload'] as Map)['type'] == 'test_processed',
+              )
+              .map((event) => (event['payload'] as Map)['handle'])
+              .toSet();
+          return processedHandles.containsAll({
+            slowHandle,
+            queuedHandle,
+            scaledWorkerHandle,
+          });
+        });
+
+        final registeredWorkers = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_registered')
+            .length;
+        expect(registeredWorkers, equals(2));
+      },
+    );
+
+    test(
+      'scales down idle excess workers after sustained idle ticks',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithWorkerPool(
+            const WorkerPoolSettings(
+              minWorkers: 1,
+              maxWorkers: 2,
+              scaleUpPendingDispatches: 1,
+              scaleUpConsecutiveTicks: 1,
+              scaleDownConsecutiveTicks: 2,
+              scaleDownDrainTimeout: Duration(milliseconds: 200),
+            ),
+          ),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _parallelWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_registered',
+          ),
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8411);
+        runtime.enqueueConnection(listener.listenerId, 8421);
+
+        await _waitUntil(() {
+          final addedConnections = events
+              .whereType<Map>()
+              .where((event) => event['type'] == 'worker_connection_added')
+              .map((event) => event['connectionId'])
+              .toSet();
+          return addedConnections.containsAll({8411, 8421});
+        });
+
+        runtime.enqueueHandleOnly(8411);
+        runtime.enqueueHandleOnly(8421);
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_pool_scale_up',
+          ),
+        );
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_registered')
+                  .length >=
+              2,
+        );
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_pool_scale_down',
+          ),
+        );
+
+        final scaleDownEvent = events.whereType<Map>().firstWhere(
+          (event) => event['type'] == 'worker_pool_scale_down',
+        );
+        expect(scaleDownEvent['workers'], 1);
+        expect(scaleDownEvent['minWorkers'], 1);
+        expect(scaleDownEvent['idleTicks'], 2);
+
+        final drainEvents = events.whereType<Map>().where(
+          (event) =>
+              event['type'] == 'worker_unknown_event' &&
+              event['payload'] is Map &&
+              (event['payload'] as Map)['type'] == 'test_drain',
+        );
+        expect(
+          drainEvents.map((event) => (event['payload'] as Map)['reason']),
+          contains('wamp.close.worker_pool_scale_down'),
+        );
+
+        final snapshot = await binding.collectMetrics();
+        expect(snapshot.workerLoad, hasLength(1));
+        expect(snapshot.workerPool.minWorkers, 1);
+        expect(snapshot.workerPool.maxWorkers, 2);
+        expect(snapshot.workerPool.pendingIsolates, 0);
+        expect(snapshot.workerPool.scaleUpsTotal, greaterThanOrEqualTo(1));
+        expect(snapshot.workerPool.scaleDownsTotal, 1);
+        expect(snapshot.workerPool.scaleDownTimeoutsTotal, 0);
+      },
+    );
+
+    test('transfers open sessions before scale-down worker shutdown', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithWorkerPool(
+          const WorkerPoolSettings(
+            minWorkers: 1,
+            maxWorkers: 2,
+            scaleUpPendingDispatches: 1,
+            scaleUpConsecutiveTicks: 1,
+            scaleDownConsecutiveTicks: 25,
+            scaleDownDrainTimeout: Duration(seconds: 2),
+          ),
+        ),
+      );
+
+      final events = <Object>[];
+      Future<void> waitFor(
+        String description,
+        bool Function() condition, {
+        Duration timeout = const Duration(seconds: 2),
+      }) async {
+        final deadline = DateTime.now().add(timeout);
+        while (!condition()) {
+          if (DateTime.now().isAfter(deadline)) {
+            fail('$description; events=$events');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+      }
+
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _transferableScaleDownWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      final statePort = binding.debugStatePort!;
+      const transferConnectionId = 8632;
+      const transferSessionId = 900000 + transferConnectionId;
+
+      await waitFor(
+        'initial worker was not registered',
+        () => events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_registered',
+        ),
+      );
+
+      runtime.enqueueConnection(listener.listenerId, 8611);
+      runtime.enqueueConnection(listener.listenerId, 8621);
+
+      await waitFor('initial connections were not added', () {
+        final addedConnections = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_connection_added')
+            .map((event) => event['connectionId'])
+            .toSet();
+        return addedConnections.containsAll({8611, 8621});
+      });
+
+      final slowHandle = runtime.enqueueHandleOnly(8611);
+      final queuedHandle = runtime.enqueueHandleOnly(8621);
+
+      await waitFor(
+        'worker pool did not scale up',
+        () => events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_pool_scale_up',
+        ),
+      );
+      await waitFor(
+        'second worker was not registered',
+        () =>
+            events
+                .whereType<Map>()
+                .where((event) => event['type'] == 'worker_registered')
+                .length >=
+            2,
+      );
+
+      runtime.enqueueConnection(listener.listenerId, transferConnectionId);
+      await waitFor(
+        'transfer candidate connection was not added',
+        () => events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == transferConnectionId,
+        ),
+      );
+      await waitFor(
+        'transfer candidate session was not opened',
+        () => events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_session_opened' &&
+              event['connectionId'] == transferConnectionId,
+        ),
+      );
+
+      final subscriptionId = await _addRuntimeSubscription(
+        statePort,
+        sessionId: transferSessionId,
+        topic: 'com.example.transfer.topic',
+      );
+      final registrationId = await _registerRuntimeProcedure(
+        statePort,
+        sessionId: transferSessionId,
+        procedure: 'com.example.transfer.proc',
+      );
+
+      bool hasProcessed(int handle, {int? workerHash}) {
+        return events.whereType<Map>().any((event) {
+          if (event['type'] != 'worker_unknown_event' ||
+              event['payload'] is! Map) {
+            return false;
+          }
+          final payload = event['payload'] as Map;
+          return payload['type'] == 'test_processed' &&
+              payload['handle'] == handle &&
+              (workerHash == null || payload['workerHash'] == workerHash);
+        });
+      }
+
+      await waitFor(
+        'initial backlog handles were not processed',
+        () => hasProcessed(slowHandle) && hasProcessed(queuedHandle),
+      );
+
+      await waitFor('connection was not transferred', () {
+        final ready = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_transfer_ready' &&
+              event['connectionId'] == transferConnectionId,
+        );
+        final added = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == transferConnectionId &&
+              event['transferred'] == true,
+        );
+        return ready && added;
+      });
+
+      await waitFor(
+        'worker pool did not scale down',
+        () => events.whereType<Map>().any(
+          (event) => event['type'] == 'worker_pool_scale_down',
+        ),
+        timeout: const Duration(seconds: 4),
+      );
+
+      final transferRejected = events.whereType<Map>().where(
+        (event) => event['type'] == 'worker_connection_transfer_rejected',
+      );
+      expect(transferRejected, isEmpty);
+
+      RouterMetricsSnapshot? scaledDownSnapshot;
+      final deadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(deadline)) {
+        final snapshot = await binding.collectMetrics();
+        if (snapshot.workerLoad.length == 1 &&
+            snapshot.workerPool.scaleDownsTotal >= 1) {
+          scaledDownSnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      expect(scaledDownSnapshot, isNotNull, reason: 'events=$events');
+      final survivingWorker = scaledDownSnapshot!.workerLoad.single;
+      expect(scaledDownSnapshot.sessionCount, 3);
+      expect(scaledDownSnapshot.activeConnections, 3);
+      expect(scaledDownSnapshot.subscriptionCount, greaterThanOrEqualTo(1));
+      expect(scaledDownSnapshot.registrationCount, greaterThanOrEqualTo(1));
+      expect(survivingWorker.connectionCount, 3);
+
+      final transferredSnapshot = await _fetchRuntimeRealmSnapshot(statePort);
+      final transferredSession = transferredSnapshot.sessions.singleWhere(
+        (session) => session.id == transferSessionId,
+      );
+      expect(transferredSession.connectionId, transferConnectionId);
+      expect(transferredSession.workerId, survivingWorker.isolateHash);
+      expect(transferredSession.authId, 'anonymous');
+      expect(transferredSession.authRole, 'anonymous');
+
+      final transferredSubscription = transferredSnapshot.subscriptions
+          .singleWhere((subscription) => subscription.id == subscriptionId);
+      expect(
+        transferredSubscription.subscribers.single.sessionId,
+        transferSessionId,
+      );
+      final transferredRegistration = transferredSnapshot.registrations
+          .singleWhere(
+            (registration) => registration.registrationId == registrationId,
+          );
+      expect(
+        transferredRegistration.callees.single.sessionId,
+        transferSessionId,
+      );
+
+      final afterTransferHandle = runtime.enqueueHandleOnly(
+        transferConnectionId,
+      );
+      await waitFor(
+        'transferred connection was not processed by surviving worker',
+        () => hasProcessed(
+          afterTransferHandle,
+          workerHash: survivingWorker.isolateHash,
+        ),
+        timeout: const Duration(seconds: 4),
+      );
+    });
+
+    test(
+      'does not assign new connections to a worker draining for scale-down',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithWorkerPool(
+            const WorkerPoolSettings(
+              minWorkers: 1,
+              maxWorkers: 2,
+              scaleUpPendingDispatches: 1,
+              scaleUpConsecutiveTicks: 1,
+              scaleDownConsecutiveTicks: 1,
+              scaleDownDrainTimeout: Duration(seconds: 2),
+            ),
+          ),
+        );
+
+        final events = <Object>[];
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _delayedScaleDownWorkerEntryPoint,
+          onEvent: events.add,
+          workerPollInterval: const Duration(milliseconds: 1),
+        );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single;
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_registered',
+          ),
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8511);
+        runtime.enqueueConnection(listener.listenerId, 8521);
+
+        await _waitUntil(() {
+          final addedConnections = events
+              .whereType<Map>()
+              .where((event) => event['type'] == 'worker_connection_added')
+              .map((event) => event['connectionId'])
+              .toSet();
+          return addedConnections.containsAll({8511, 8521});
+        });
+
+        runtime.enqueueHandleOnly(8511);
+        runtime.enqueueHandleOnly(8521);
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_pool_scale_up',
+          ),
+        );
+        await _waitUntil(
+          () =>
+              events
+                  .whereType<Map>()
+                  .where((event) => event['type'] == 'worker_registered')
+                  .length >=
+              2,
+        );
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) =>
+                event['type'] == 'worker_unknown_event' &&
+                event['payload'] is Map &&
+                (event['payload'] as Map)['type'] == 'test_drain',
+          ),
+        );
+
+        final duringDrain = await binding.collectMetrics();
+        final drainingWorker = duringDrain.workerLoad.singleWhere(
+          (worker) => worker.connectionCount == 0,
+        );
+
+        runtime.enqueueConnection(listener.listenerId, 8531);
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) =>
+                event['type'] == 'worker_connection_added' &&
+                event['connectionId'] == 8531,
+          ),
+        );
+
+        final afterAssignment = await binding.collectMetrics();
+        final drainingLoads = afterAssignment.workerLoad
+            .where((worker) => worker.isolateHash == drainingWorker.isolateHash)
+            .toList(growable: false);
+        expect(drainingLoads, hasLength(1));
+        expect(drainingLoads.single.connectionCount, 0);
+
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) => event['type'] == 'worker_pool_scale_down',
+          ),
+        );
+      },
+    );
+
+    test('assigns new connections to the least loaded worker', () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithMinWorkers(2),
+      );
+
+      final events = <Object>[];
+      final binding = router.start(
+        runtime,
+        workerEntryPoint: _parallelWorkerEntryPoint,
+        onEvent: events.add,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+
+      await _waitUntil(
+        () =>
+            events
+                .whereType<Map>()
+                .where((event) => event['type'] == 'worker_registered')
+                .length >=
+            2,
+      );
+
+      runtime.enqueueConnection(listener.listenerId, 8101);
+      runtime.enqueueConnection(listener.listenerId, 8102);
+
+      await _waitUntil(() {
+        final addedConnections = events
+            .whereType<Map>()
+            .where((event) => event['type'] == 'worker_connection_added')
+            .map((event) => event['connectionId'])
+            .toSet();
+        return addedConnections.containsAll({8101, 8102});
+      });
+
+      final handle = runtime.enqueueHandleOnly(8101);
+
+      RouterMetricsSnapshot? busySnapshot;
+      final busyDeadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(busyDeadline)) {
+        final snapshot = await binding.collectMetrics();
+        final loads = snapshot.workerLoad;
+        if (loads.length == 2 &&
+            loads.any((worker) => worker.busy && worker.connectionCount == 1) &&
+            loads.any(
+              (worker) => !worker.busy && worker.connectionCount == 1,
+            )) {
+          busySnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(busySnapshot, isNotNull, reason: 'events=$events');
+
+      runtime.enqueueConnection(listener.listenerId, 8103);
+
+      RouterMetricsSnapshot? assignedSnapshot;
+      final assignedDeadline = DateTime.now().add(const Duration(seconds: 2));
+      while (DateTime.now().isBefore(assignedDeadline)) {
+        final added8103 = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_added' &&
+              event['connectionId'] == 8103,
+        );
+        if (!added8103) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          continue;
+        }
+
+        final snapshot = await binding.collectMetrics();
+        final loads = snapshot.workerLoad;
+        final busyWorkers = loads.where((worker) => worker.busy).toList();
+        final idleWorkers = loads.where((worker) => !worker.busy).toList();
+        if (busyWorkers.length == 1 &&
+            busyWorkers.single.connectionCount == 1 &&
+            idleWorkers.any((worker) => worker.connectionCount == 2)) {
+          assignedSnapshot = snapshot;
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      expect(assignedSnapshot, isNotNull, reason: 'events=$events');
+
+      await _waitUntil(() {
+        return events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_unknown_event' &&
+              event['payload'] is Map &&
+              (event['payload'] as Map)['handle'] == handle,
+        );
+      });
+    });
 
     test('shuts down worker when runtime reports missing connection', () async {
       final runtime = _HandleRuntime();
@@ -2998,6 +4702,1309 @@ void main() {
     expect((body as NativeHttpResponseText).text, 'OK');
   });
 
+  test('maps HTTP response helper bodies into native responses', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithSessionProfiles(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    final tempDir = await Directory.systemTemp.createTemp(
+      'connectanum-http-file-',
+    );
+    addTearDown(() async {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+    final staticFile = File(
+      '${tempDir.path}${Platform.pathSeparator}contract.txt',
+    );
+    await staticFile.writeAsString('file-contract-ok');
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    addTearDown(internalSession.close);
+    final registered = await internalSession.register('com.example.api.health');
+    registered.onInvoke((invocation) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      switch (context!.request.target) {
+        case '/api/health?kind=bytes':
+          context.sendBytes(
+            body: Uint8List.fromList([0, 1, 2, 255]),
+            status: 202,
+            headers: const {'content-type': 'application/octet-stream'},
+          );
+          break;
+        case '/api/health?kind=json':
+          context.sendJson(
+            body: const {'ok': true, 'kind': 'json'},
+            status: 201,
+            headers: const {'x-contract': 'json'},
+          );
+          break;
+        case '/api/health?kind=file':
+          context.sendFile(
+            path: staticFile.path,
+            status: 203,
+            headers: const {'content-type': 'text/plain'},
+          );
+          break;
+        default:
+          fail('Unexpected HTTP target ${context.request.target}');
+      }
+    });
+
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 301,
+      handle: 3010,
+      method: 'GET',
+      target: '/api/health?kind=bytes',
+      headers: const {'x-test': 'bytes'},
+      body: null,
+      realm: 'realm1',
+      procedure: 'com.example.api.health',
+    );
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 302,
+      handle: 3020,
+      method: 'GET',
+      target: '/api/health?kind=json',
+      headers: const {'x-test': 'json'},
+      body: null,
+      realm: 'realm1',
+      procedure: 'com.example.api.health',
+    );
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 303,
+      handle: 3030,
+      method: 'GET',
+      target: '/api/health?kind=file',
+      headers: const {'x-test': 'file'},
+      body: null,
+      realm: 'realm1',
+      procedure: 'com.example.api.health',
+    );
+
+    await _waitUntil(
+      () =>
+          (runtime.httpResponses[301]?.isNotEmpty ?? false) &&
+          (runtime.httpResponses[302]?.isNotEmpty ?? false) &&
+          (runtime.httpResponses[303]?.isNotEmpty ?? false),
+    );
+
+    final bytesResponse = runtime.httpResponses[301]!.single;
+    expect(bytesResponse.status, 202);
+    expect(bytesResponse.headers['content-type'], 'application/octet-stream');
+    final bytesBody = bytesResponse.body;
+    expect(bytesBody, isA<NativeHttpResponseBytes>());
+    expect(
+      (bytesBody as NativeHttpResponseBytes).bytes,
+      orderedEquals([0, 1, 2, 255]),
+    );
+
+    final jsonResponse = runtime.httpResponses[302]!.single;
+    expect(jsonResponse.status, 201);
+    expect(
+      jsonResponse.headers['content-type'],
+      'application/json; charset=utf-8',
+    );
+    expect(jsonResponse.headers['x-contract'], 'json');
+    final jsonBody = jsonResponse.body;
+    expect(jsonBody, isA<NativeHttpResponseJson>());
+    expect((jsonBody as NativeHttpResponseJson).value, {
+      'ok': true,
+      'kind': 'json',
+    });
+
+    final fileResponse = runtime.httpResponses[303]!.single;
+    expect(fileResponse.status, 203);
+    expect(fileResponse.headers['content-type'], 'text/plain');
+    final fileBody = fileResponse.body;
+    expect(fileBody, isA<NativeHttpResponseFile>());
+    expect((fileBody as NativeHttpResponseFile).path, staticFile.path);
+
+    final readyEvents = events
+        .where((event) => event['type'] == 'http_response_ready')
+        .map((event) => event['response'] as Map)
+        .toList(growable: false);
+    expect(
+      readyEvents,
+      contains(
+        allOf(
+          containsPair('status', 203),
+          containsPair('bodyKind', 'file'),
+          containsPair('filePath', staticFile.path),
+        ),
+      ),
+    );
+  });
+
+  test(
+    'serves configured HTTP file routes directly from the binding',
+    () async {
+      final runtime = _HandleRuntime();
+      final tempDir = await Directory.systemTemp.createTemp(
+        'connectanum-http-static-route-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final staticFile = File(
+        '${tempDir.path}${Platform.pathSeparator}hello.txt',
+      );
+      const fileContents = 'static route ok';
+      await staticFile.writeAsString(fileContents);
+      final outsideDir = await Directory.systemTemp.createTemp(
+        'connectanum-http-static-outside-',
+      );
+      addTearDown(() async {
+        if (await outsideDir.exists()) {
+          await outsideDir.delete(recursive: true);
+        }
+      });
+      final outsideFile = File(
+        '${outsideDir.path}${Platform.pathSeparator}secret.txt',
+      );
+      await outsideFile.writeAsString('outside static root');
+      await Link(
+        '${tempDir.path}${Platform.pathSeparator}escape.txt',
+      ).create(outsideFile.path);
+
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: RouterSettings(
+          realms: const [],
+          listeners: [
+            ListenerSettings(
+              endpoint: '127.0.0.1:0',
+              protocols: const [ListenerProtocol.http],
+              http: HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: const HttpRouteMatch(prefix: '/static/'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.file,
+                      directory: tempDir.path,
+                      cacheControl: 'public, max-age=3600',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 304,
+        handle: 3040,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: const {'x-test': 'file-route'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 305,
+        handle: 3050,
+        method: 'GET',
+        target: '/static/../secret.txt',
+        headers: const {'x-test': 'file-route-traversal'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 306,
+        handle: 3060,
+        method: 'GET',
+        target: '/static/escape.txt',
+        headers: const {'x-test': 'file-route-symlink-escape'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 307,
+        handle: 3070,
+        method: 'HEAD',
+        target: '/static/hello.txt',
+        headers: const {'x-test': 'file-route-head'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[304]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[305]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[306]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[307]?.isNotEmpty ?? false),
+      );
+
+      final ok = runtime.httpResponses[304]!.single;
+      expect(ok.status, HttpStatus.ok);
+      expect(
+        ok.headers[HttpHeaders.contentTypeHeader],
+        'text/plain; charset=utf-8',
+      );
+      expect(
+        ok.headers[HttpHeaders.cacheControlHeader],
+        'public, max-age=3600',
+      );
+      expect(
+        ok.headers[HttpHeaders.contentLengthHeader],
+        utf8.encode(fileContents).length.toString(),
+      );
+      expect(ok.headers['accept-ranges'], 'bytes');
+      final etag = ok.headers[HttpHeaders.etagHeader]!;
+      final lastModified = ok.headers[HttpHeaders.lastModifiedHeader]!;
+      expect(etag, startsWith('W/"'));
+      expect(ok.body, isA<NativeHttpResponseFile>());
+      expect(
+        (ok.body as NativeHttpResponseFile).path,
+        staticFile.resolveSymbolicLinksSync(),
+      );
+
+      final traversal = runtime.httpResponses[305]!.single;
+      expect(traversal.status, HttpStatus.notFound);
+      expect(_jsonResponseBody(traversal)['reason'], 'file_not_found');
+
+      final symlinkEscape = runtime.httpResponses[306]!.single;
+      expect(symlinkEscape.status, HttpStatus.forbidden);
+      expect(_jsonResponseBody(symlinkEscape)['reason'], 'file_forbidden');
+
+      final head = runtime.httpResponses[307]!.single;
+      expect(head.status, HttpStatus.ok);
+      expect(
+        head.headers[HttpHeaders.contentLengthHeader],
+        utf8.encode(fileContents).length.toString(),
+      );
+      expect(head.body, isA<NativeHttpResponseBytes>());
+      expect((head.body as NativeHttpResponseBytes).bytes, isEmpty);
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 310,
+        handle: 3100,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: const {'range': 'bytes=7-11'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 311,
+        handle: 3110,
+        method: 'HEAD',
+        target: '/static/hello.txt',
+        headers: const {'range': 'bytes=-2'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 312,
+        handle: 3120,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: const {'range': 'bytes=99-100'},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 313,
+        handle: 3130,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: {'range': 'bytes=0-5', 'if-range': lastModified},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 314,
+        handle: 3140,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: {'range': 'bytes=0-5', 'if-range': etag},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 315,
+        handle: 3150,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: const {
+          'range': 'bytes=0-5',
+          'if-range': 'Wed, 21 Oct 2015 07:28:00 GMT',
+        },
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[310]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[311]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[312]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[313]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[314]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[315]?.isNotEmpty ?? false),
+      );
+
+      final partial = runtime.httpResponses[310]!.single;
+      expect(partial.status, HttpStatus.partialContent);
+      expect(partial.headers[HttpHeaders.contentLengthHeader], '5');
+      expect(partial.headers['content-range'], 'bytes 7-11/15');
+      expect(partial.headers['accept-ranges'], 'bytes');
+      expect(partial.body, isA<NativeHttpResponseBytes>());
+      expect(
+        utf8.decode((partial.body as NativeHttpResponseBytes).bytes),
+        'route',
+      );
+
+      final partialHead = runtime.httpResponses[311]!.single;
+      expect(partialHead.status, HttpStatus.partialContent);
+      expect(partialHead.headers[HttpHeaders.contentLengthHeader], '2');
+      expect(partialHead.headers['content-range'], 'bytes 13-14/15');
+      expect(partialHead.body, isA<NativeHttpResponseBytes>());
+      expect((partialHead.body as NativeHttpResponseBytes).bytes, isEmpty);
+
+      final unsatisfiable = runtime.httpResponses[312]!.single;
+      expect(unsatisfiable.status, HttpStatus.requestedRangeNotSatisfiable);
+      expect(unsatisfiable.headers[HttpHeaders.contentLengthHeader], '0');
+      expect(unsatisfiable.headers['content-range'], 'bytes */15');
+      expect(unsatisfiable.body, isA<NativeHttpResponseBytes>());
+      expect((unsatisfiable.body as NativeHttpResponseBytes).bytes, isEmpty);
+
+      final dateIfRange = runtime.httpResponses[313]!.single;
+      expect(dateIfRange.status, HttpStatus.partialContent);
+      expect(dateIfRange.headers[HttpHeaders.contentLengthHeader], '6');
+      expect(dateIfRange.headers['content-range'], 'bytes 0-5/15');
+      expect(dateIfRange.body, isA<NativeHttpResponseBytes>());
+      expect(
+        utf8.decode((dateIfRange.body as NativeHttpResponseBytes).bytes),
+        'static',
+      );
+
+      final weakEtagIfRange = runtime.httpResponses[314]!.single;
+      expect(weakEtagIfRange.status, HttpStatus.ok);
+      expect(
+        weakEtagIfRange.headers[HttpHeaders.contentLengthHeader],
+        utf8.encode(fileContents).length.toString(),
+      );
+      expect(weakEtagIfRange.headers.containsKey('content-range'), isFalse);
+      expect(weakEtagIfRange.body, isA<NativeHttpResponseFile>());
+
+      final staleDateIfRange = runtime.httpResponses[315]!.single;
+      expect(staleDateIfRange.status, HttpStatus.ok);
+      expect(
+        staleDateIfRange.headers[HttpHeaders.contentLengthHeader],
+        utf8.encode(fileContents).length.toString(),
+      );
+      expect(staleDateIfRange.headers.containsKey('content-range'), isFalse);
+      expect(staleDateIfRange.body, isA<NativeHttpResponseFile>());
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 308,
+        handle: 3080,
+        method: 'GET',
+        target: '/static/hello.txt',
+        headers: {'if-none-match': etag},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 309,
+        handle: 3090,
+        method: 'HEAD',
+        target: '/static/hello.txt',
+        headers: {'if-modified-since': lastModified},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.file',
+      );
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[308]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[309]?.isNotEmpty ?? false),
+      );
+
+      final etagNotModified = runtime.httpResponses[308]!.single;
+      expect(etagNotModified.status, HttpStatus.notModified);
+      expect(etagNotModified.headers[HttpHeaders.etagHeader], etag);
+      expect(
+        etagNotModified.headers.containsKey(HttpHeaders.contentLengthHeader),
+        isFalse,
+      );
+      expect(etagNotModified.body, isA<NativeHttpResponseBytes>());
+      expect((etagNotModified.body as NativeHttpResponseBytes).bytes, isEmpty);
+
+      final dateNotModified = runtime.httpResponses[309]!.single;
+      expect(dateNotModified.status, HttpStatus.notModified);
+      expect(
+        dateNotModified.headers[HttpHeaders.lastModifiedHeader],
+        lastModified,
+      );
+      expect(dateNotModified.body, isA<NativeHttpResponseBytes>());
+      expect((dateNotModified.body as NativeHttpResponseBytes).bytes, isEmpty);
+      expect(
+        events.map((event) => event['type']),
+        contains('http_file_response_sent'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        contains('http_file_not_modified'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        contains('http_file_partial_response_sent'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        contains('http_file_range_not_satisfiable'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        isNot(contains('http_request_dispatched')),
+      );
+    },
+  );
+
+  test('forwards configured HTTP reverse proxy routes', () async {
+    final upstreamRequests = <Map<String, Object?>>[];
+    final upstream = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => upstream.close(force: true));
+    final subscription = upstream.listen((request) async {
+      final body = utf8.decode(await request.expand((chunk) => chunk).toList());
+      upstreamRequests.add({
+        'method': request.method,
+        'path': request.uri.path,
+        'query': request.uri.query,
+        'xTest': request.headers.value('x-test'),
+        'xHop': request.headers.value('x-hop'),
+        'xForwardedHost': request.headers.value('x-forwarded-host'),
+        'xForwardedProto': request.headers.value('x-forwarded-proto'),
+        'body': body,
+      });
+      request.response.statusCode = HttpStatus.created;
+      request.response.headers.contentType = ContentType.json;
+      request.response.headers.set('x-upstream', 'ok');
+      request.response.write(
+        json.encode({
+          'ok': true,
+          'method': request.method,
+          'path': request.uri.path,
+          'query': request.uri.query,
+          'body': body,
+        }),
+      );
+      await request.response.close();
+    });
+    addTearDown(subscription.cancel);
+
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: RouterSettings(
+        realms: const [],
+        listeners: [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: const [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: const HttpRouteMatch(prefix: '/proxy/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: {
+                      'target': 'http://127.0.0.1:${upstream.port}/upstream',
+                      'strip_prefix': true,
+                      'timeout_ms': 5000,
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 314,
+      handle: 3140,
+      method: 'POST',
+      target: '/proxy/service?debug=true',
+      protocol: 'https',
+      headers: const {
+        'host': 'consumer.example',
+        'content-type': 'application/json',
+        'connection': 'x-hop',
+        'x-hop': 'secret',
+        'x-test': 'reverse-proxy',
+      },
+      body: const {'request': true},
+      realm: 'router.http',
+      procedure: 'router.http.reverse_proxy',
+    );
+
+    await _waitUntil(
+      () =>
+          runtime.httpResponses[314]?.isNotEmpty == true &&
+          upstreamRequests.isNotEmpty,
+      timeout: const Duration(seconds: 2),
+    );
+
+    final upstreamRequest = upstreamRequests.single;
+    expect(upstreamRequest['method'], 'POST');
+    expect(upstreamRequest['path'], '/upstream/service');
+    expect(upstreamRequest['query'], 'debug=true');
+    expect(upstreamRequest['xTest'], 'reverse-proxy');
+    expect(upstreamRequest['xHop'], isNull);
+    expect(upstreamRequest['xForwardedHost'], 'consumer.example');
+    expect(upstreamRequest['xForwardedProto'], 'https');
+    expect(json.decode(upstreamRequest['body']! as String), {'request': true});
+
+    final response = runtime.httpResponses[314]!.single;
+    final responseBody = _jsonResponseBody(response);
+    expect(response.status, HttpStatus.created);
+    expect(response.headers['x-upstream'], 'ok');
+    expect(responseBody['ok'], isTrue);
+    expect(responseBody['path'], '/upstream/service');
+    expect(responseBody['query'], 'debug=true');
+    expect(json.decode(responseBody['body']! as String), {'request': true});
+
+    expect(
+      events.map((event) => event['type']),
+      contains('http_reverse_proxy_response_sent'),
+    );
+    expect(
+      events.map((event) => event['type']),
+      isNot(contains('http_request_dispatched')),
+    );
+  });
+
+  test('forwards configured FastCGI adapter routes', () async {
+    final fastCgiRequests = <_FakeFastCgiRequest>[];
+    final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(upstream.close);
+    final subscription = upstream.listen((socket) async {
+      final fastCgiRequest = await _readFakeFastCgiRequest(socket);
+      fastCgiRequests.add(fastCgiRequest);
+      final responseBody = json.encode({
+        'ok': true,
+        'script': fastCgiRequest.params['SCRIPT_FILENAME'],
+        'query': fastCgiRequest.params['QUERY_STRING'],
+        'body': utf8.decode(fastCgiRequest.stdin),
+      });
+      _writeFakeFastCgiRecord(
+        socket,
+        _fakeFastCgiStdout,
+        1,
+        utf8.encode(
+          'Status: 202 Accepted\r\n'
+          'Content-Type: application/json\r\n'
+          'X-FastCGI: ok\r\n'
+          '\r\n'
+          '$responseBody',
+        ),
+      );
+      _writeFakeFastCgiRecord(socket, _fakeFastCgiStdout, 1, const []);
+      _writeFakeFastCgiRecord(socket, _fakeFastCgiEndRequest, 1, Uint8List(8));
+      await socket.flush();
+      await socket.close();
+    });
+    addTearDown(subscription.cancel);
+
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: RouterSettings(
+        realms: const [],
+        listeners: [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: const [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: const HttpRouteMatch(prefix: '/php/'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.fastCgi,
+                    options: {
+                      'target': 'fastcgi://127.0.0.1:${upstream.port}',
+                      'document_root': '/srv/app/public',
+                      'strip_prefix': true,
+                      'timeout_ms': 5000,
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 315,
+      handle: 3150,
+      method: 'POST',
+      target: '/php/index.php?debug=true',
+      protocol: 'https',
+      headers: const {
+        'host': 'consumer.example',
+        'content-type': 'application/json',
+        'x-test': 'fastcgi',
+      },
+      body: const {'request': true},
+      realm: 'router.http',
+      procedure: 'router.http.fastcgi',
+    );
+
+    await _waitUntil(
+      () =>
+          runtime.httpResponses[315]?.isNotEmpty == true &&
+          fastCgiRequests.isNotEmpty,
+      timeout: const Duration(seconds: 2),
+    );
+
+    final fastCgiRequest = fastCgiRequests.single;
+    expect(fastCgiRequest.params['REQUEST_METHOD'], 'POST');
+    expect(fastCgiRequest.params['REQUEST_URI'], '/php/index.php?debug=true');
+    expect(fastCgiRequest.params['SCRIPT_NAME'], '/index.php');
+    expect(
+      fastCgiRequest.params['SCRIPT_FILENAME'],
+      '/srv/app/public/index.php',
+    );
+    expect(fastCgiRequest.params['QUERY_STRING'], 'debug=true');
+    expect(fastCgiRequest.params['CONTENT_TYPE'], 'application/json');
+    expect(fastCgiRequest.params['HTTP_X_TEST'], 'fastcgi');
+    expect(fastCgiRequest.params['HTTPS'], 'on');
+    expect(json.decode(utf8.decode(fastCgiRequest.stdin)), {'request': true});
+
+    final response = runtime.httpResponses[315]!.single;
+    final responseBody = _jsonResponseBody(response);
+    expect(
+      response.status,
+      HttpStatus.accepted,
+      reason: '$responseBody $events',
+    );
+    expect(response.headers['Content-Type'], 'application/json');
+    expect(response.headers['X-FastCGI'], 'ok');
+    expect(responseBody['ok'], isTrue);
+    expect(responseBody['script'], '/srv/app/public/index.php');
+    expect(responseBody['query'], 'debug=true');
+    expect(json.decode(responseBody['body']! as String), {'request': true});
+
+    expect(
+      events.map((event) => event['type']),
+      contains('http_fastcgi_response_sent'),
+    );
+    expect(
+      events.map((event) => event['type']),
+      isNot(contains('http_request_dispatched')),
+    );
+  });
+
+  test(
+    'dispatches configured HTTP handler routes inside the binding',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: const RouterSettings(
+          realms: [],
+          listeners: [
+            ListenerSettings(
+              endpoint: '127.0.0.1:0',
+              protocols: [ListenerProtocol.http],
+              http: HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/handler'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.handler,
+                      delegate: 'handler.echo',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final seenTargets = <String>[];
+      final binding = router.start(
+        runtime,
+        httpRouteHandlers: {
+          'handler.echo': (context) {
+            seenTargets.add(context.request.target);
+            expect(context.binding, isA<RouterBinding>());
+            expect(context.route.action.delegate, 'handler.echo');
+            expect(context.request.method, 'POST');
+            expect(json.decode(utf8.decode(context.request.body)), {
+              'request': true,
+            });
+            return NativeHttpResponse(
+              status: HttpStatus.accepted,
+              headers: const {'x-handler': 'echo'},
+              body: NativeHttpResponseJson({
+                'target': context.request.target,
+                'path': context.request.path,
+              }),
+            );
+          },
+        },
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 316,
+        handle: 3160,
+        method: 'POST',
+        target: '/handler?debug=true',
+        headers: const {'content-type': 'application/json'},
+        body: const {'request': true},
+        realm: 'router.http',
+        procedure: 'router.http.handler',
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[316]?.isNotEmpty == true,
+        timeout: const Duration(seconds: 2),
+      );
+
+      expect(seenTargets, ['/handler?debug=true']);
+      final response = runtime.httpResponses[316]!.single;
+      expect(response.status, HttpStatus.accepted);
+      expect(response.headers['x-handler'], 'echo');
+      expect(_jsonResponseBody(response), {
+        'target': '/handler?debug=true',
+        'path': '/handler',
+      });
+      expect(
+        events.map((event) => event['type']),
+        contains('http_handler_response_sent'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        isNot(contains('http_request_dispatched')),
+      );
+    },
+  );
+
+  test(
+    'rejects unregistered HTTP handler routes without WAMP dispatch',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: const RouterSettings(
+          realms: [],
+          listeners: [
+            ListenerSettings(
+              endpoint: '127.0.0.1:0',
+              protocols: [ListenerProtocol.http],
+              http: HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/handler'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.handler,
+                      options: {'handler': 'missing.handler'},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 317,
+        handle: 3170,
+        method: 'GET',
+        target: '/handler',
+        headers: const {},
+        body: null,
+        realm: 'router.http',
+        procedure: 'router.http.handler',
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[317]?.isNotEmpty == true,
+        timeout: const Duration(seconds: 2),
+      );
+
+      final response = runtime.httpResponses[317]!.single;
+      expect(response.status, HttpStatus.notImplemented);
+      expect(
+        _jsonResponseBody(response),
+        containsPair('reason', 'handler_not_registered'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        contains('http_handler_not_registered'),
+      );
+      expect(
+        events.map((event) => event['type']),
+        isNot(contains('http_request_dispatched')),
+      );
+    },
+  );
+
+  test('routes HTTP session proxy actions through internal sessions', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettings(
+      realms: [
+        RealmSettings(
+          name: 'realm1',
+          auth: const RealmAuthSettings(methods: ['anonymous']),
+          roles: [
+            RoleSettings(
+              name: 'anonymous',
+              permissions: [
+                PermissionSettings(
+                  uri: '',
+                  matchPolicy: PermissionMatchPolicy.prefix,
+                  allow: const ['call', 'register', 'unregister'],
+                  deny: const [],
+                  disclose: const DiscloseSettings(),
+                ),
+              ],
+            ),
+          ],
+          limits: const RealmLimitSettings(),
+        ),
+      ],
+      listeners: const [
+        ListenerSettings(
+          endpoint: '127.0.0.1:0',
+          protocols: [ListenerProtocol.rawsocket, ListenerProtocol.http],
+          http: HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: HttpRouteMatch(path: '/proxy/task'),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.sessionProxy,
+                  procedure: 'com.example.proxy.task',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      authenticators: const {
+        'anonymous': AuthenticatorDefinition(type: 'anonymous'),
+      },
+    );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings,
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 44;
+
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    addTearDown(internalSession.close);
+    final registered = await internalSession.register('com.example.proxy.task');
+    registered.onInvoke((invocation) {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      expect(context!.request.path, '/proxy/task');
+      context.sendJson(body: const {'proxied': true}, status: 202);
+    });
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 3,
+        method: 'POST',
+        target: '/proxy/task',
+        path: '/proxy/task',
+        protocol: 'http/1.1',
+        headers: const {'x-proxy': 'session'},
+        body: Uint8List.fromList(utf8.encode('{"task":true}')),
+      ),
+    );
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_request_dispatched'),
+      timeout: const Duration(seconds: 2),
+    );
+    final dispatchEvent = events.firstWhere(
+      (event) => event['type'] == 'http_request_dispatched',
+    );
+    expect(dispatchEvent['realm'], 'realm1');
+    expect(dispatchEvent['procedure'], 'com.example.proxy.task');
+    expect(dispatchEvent['listenerId'], listenerId);
+    expect(dispatchEvent['connectionId'], connectionId);
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty == true,
+      timeout: const Duration(seconds: 2),
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, 202);
+    expect(response.body, isA<NativeHttpResponseJson>());
+    expect((response.body as NativeHttpResponseJson).value, {'proxied': true});
+  });
+
+  test('routes HTTP publish actions through internal sessions', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettings(
+      realms: [
+        RealmSettings(
+          name: 'realm1',
+          auth: const RealmAuthSettings(methods: ['anonymous']),
+          roles: [
+            RoleSettings(
+              name: 'anonymous',
+              permissions: [
+                PermissionSettings(
+                  uri: '',
+                  matchPolicy: PermissionMatchPolicy.prefix,
+                  allow: const ['publish', 'subscribe'],
+                  deny: const [],
+                  disclose: const DiscloseSettings(),
+                ),
+              ],
+            ),
+          ],
+          limits: const RealmLimitSettings(),
+        ),
+      ],
+      listeners: const [
+        ListenerSettings(
+          endpoint: '127.0.0.1:0',
+          protocols: [ListenerProtocol.rawsocket, ListenerProtocol.http],
+          http: HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: HttpRouteMatch(path: '/events/task'),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.publish,
+                  topic: 'com.example.http.events',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      authenticators: const {
+        'anonymous': AuthenticatorDefinition(type: 'anonymous'),
+      },
+    );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings,
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 45;
+
+    final subscriber = await binding.createInternalSession(realmUri: 'realm1');
+    addTearDown(subscriber.close);
+    final publishedEvents = <Map<String, Object?>>[];
+    final subscription = await subscriber.subscribe('com.example.http.events');
+    subscription.onEvent((event) {
+      publishedEvents.add(
+        Map<String, Object?>.from(event.argumentsKeywords ?? const {}),
+      );
+    });
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 4,
+        method: 'POST',
+        target: '/events/task',
+        path: '/events/task',
+        protocol: 'http/1.1',
+        headers: const {'x-event': 'task'},
+        body: Uint8List.fromList(utf8.encode('{"task":true}')),
+      ),
+    );
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_request_published'),
+      timeout: const Duration(seconds: 2),
+    );
+    final publishEvent = events.firstWhere(
+      (event) => event['type'] == 'http_request_published',
+    );
+    expect(publishEvent['realm'], 'realm1');
+    expect(publishEvent['topic'], 'com.example.http.events');
+    expect(publishEvent['listenerId'], listenerId);
+    expect(publishEvent['connectionId'], connectionId);
+    expect(publishEvent['publicationId'], isA<int>());
+
+    await _waitUntil(
+      () => publishedEvents.isNotEmpty,
+      timeout: const Duration(seconds: 2),
+    );
+    final published = publishedEvents.single;
+    final http = published['_http'] as Map;
+    expect(http['method'], 'POST');
+    expect(http['path'], '/events/task');
+    expect(http['procedure'], 'com.example.http.events');
+    final connection = published['_connection'] as Map;
+    expect(connection['listenerId'], listenerId);
+    expect(connection['connectionId'], connectionId);
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty == true,
+      timeout: const Duration(seconds: 2),
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.accepted);
+    expect(response.body, isA<NativeHttpResponseJson>());
+    final body = (response.body as NativeHttpResponseJson).value as Map;
+    expect(body['status'], 'published');
+    expect(body['topic'], 'com.example.http.events');
+    expect(body['publicationId'], isA<int>());
+  });
+
   test('creates internal sessions from session profile defaults', () async {
     final runtime = _HandleRuntime();
     final router = Router(
@@ -3364,12 +6371,677 @@ void main() {
         () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
       );
       final response = runtime.httpResponses[connectionId]!.single;
-      expect(response.status, HttpStatus.notFound);
+      expect(response.status, HttpStatus.upgradeRequired);
+      expect(response.headers['x-connectanum-allowed-protocols'], 'http/2');
+      expect(response.headers[HttpHeaders.upgradeHeader], 'h2');
       final jsonBody = _jsonResponseBody(response);
-      expect(jsonBody['reason'], 'route_not_found');
+      expect(jsonBody['reason'], 'upgrade_required');
+      expect(jsonBody['allowedProtocols'], const ['http/2']);
       expect(
         events.any((event) => event['type'] == 'http_request_dispatched'),
         isFalse,
+      );
+    },
+  );
+
+  test('honors typed HTTP route method restrictions before dispatch', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpMethodRoute(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 156;
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 115,
+        method: 'POST',
+        target: '/api/get-only',
+        path: '/api/get-only',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.get',
+      ),
+    );
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.methodNotAllowed);
+    expect(response.headers[HttpHeaders.allowHeader], 'GET');
+    final jsonBody = _jsonResponseBody(response);
+    expect(jsonBody['reason'], 'method_not_allowed');
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+  });
+
+  test(
+    'honors method-specific HTTP route actions in runtime matching',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpMethodActionRoute(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 157;
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 116,
+          method: 'POST',
+          target: '/api/items',
+          path: '/api/items',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.items.create',
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any((event) => event['type'] == 'http_request_dispatched'),
+      );
+      final dispatchEvent = events.firstWhere(
+        (event) => event['type'] == 'http_request_dispatched',
+      );
+      expect(dispatchEvent['realm'], 'realm1');
+      expect(dispatchEvent['procedure'], 'com.example.items.create');
+      expect(
+        runtime.httpResponses[connectionId]?.any(
+              (response) => response.status == HttpStatus.methodNotAllowed,
+            ) ??
+            false,
+        isFalse,
+      );
+    },
+  );
+
+  test('rate-limits HTTP routes before dispatch', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpRateLimitRoute(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    runtime.setConnectionProtocol(158, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      158,
+      NativeHttpHandshake.synthetic(
+        handle: 117,
+        method: 'GET',
+        target: '/api/limited',
+        path: '/api/limited',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.limited',
+      ),
+    );
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_request_dispatched'),
+    );
+
+    runtime.setConnectionProtocol(159, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      159,
+      NativeHttpHandshake.synthetic(
+        handle: 118,
+        method: 'GET',
+        target: '/api/limited',
+        path: '/api/limited',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.limited',
+      ),
+    );
+
+    await _waitUntil(() => runtime.httpResponses[159]?.isNotEmpty ?? false);
+    final response = runtime.httpResponses[159]!.single;
+    expect(response.status, HttpStatus.tooManyRequests);
+    expect(response.headers[HttpHeaders.retryAfterHeader], isNotNull);
+    expect(response.headers['x-ratelimit-limit'], '1');
+    expect(response.headers['x-ratelimit-remaining'], '0');
+    final jsonBody = _jsonResponseBody(response);
+    expect(jsonBody['reason'], 'rate_limited');
+    expect(
+      events.where((event) => event['type'] == 'http_request_dispatched'),
+      hasLength(1),
+    );
+    expect(
+      events.any((event) => event['type'] == 'http_route_rate_limited'),
+      isTrue,
+    );
+  });
+
+  test(
+    'throttles concurrent HTTP routes and releases completed slots',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpConcurrencyLimitRoute(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      final releaseFirst = Completer<void>();
+      var invocationCount = 0;
+      final internalSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final registered = await internalSession.register(
+        'com.example.api.throttled',
+      );
+      registered.onInvoke((invocation) async {
+        invocationCount += 1;
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        await releaseFirst.future;
+        context!.sendText(body: 'OK');
+      });
+
+      runtime.setConnectionProtocol(160, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        160,
+        NativeHttpHandshake.synthetic(
+          handle: 120,
+          method: 'GET',
+          target: '/api/throttled',
+          path: '/api/throttled',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.throttled',
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any((event) => event['type'] == 'http_request_dispatched'),
+      );
+      await _waitUntil(() => invocationCount == 1);
+
+      runtime.setConnectionProtocol(161, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        161,
+        NativeHttpHandshake.synthetic(
+          handle: 121,
+          method: 'GET',
+          target: '/api/throttled',
+          path: '/api/throttled',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.throttled',
+        ),
+      );
+
+      await _waitUntil(() => runtime.httpResponses[161]?.isNotEmpty ?? false);
+      final throttled = runtime.httpResponses[161]!.single;
+      expect(throttled.status, HttpStatus.tooManyRequests);
+      expect(throttled.headers['x-concurrency-limit'], '1');
+      expect(throttled.headers['x-concurrency-current'], '1');
+      expect(_jsonResponseBody(throttled)['reason'], 'concurrency_limited');
+      expect(invocationCount, 1);
+      expect(
+        events.where((event) => event['type'] == 'http_request_dispatched'),
+        hasLength(1),
+      );
+      expect(
+        events.any(
+          (event) => event['type'] == 'http_route_concurrency_limited',
+        ),
+        isTrue,
+      );
+
+      releaseFirst.complete();
+      await _waitUntil(() => runtime.httpResponses[160]?.isNotEmpty ?? false);
+      expect(runtime.httpResponses[160]!.single.status, HttpStatus.ok);
+
+      runtime.setConnectionProtocol(162, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        162,
+        NativeHttpHandshake.synthetic(
+          handle: 122,
+          method: 'GET',
+          target: '/api/throttled',
+          path: '/api/throttled',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.throttled',
+        ),
+      );
+
+      await _waitUntil(() => runtime.httpResponses[162]?.isNotEmpty ?? false);
+      expect(runtime.httpResponses[162]!.single.status, HttpStatus.ok);
+      expect(invocationCount, 2);
+    },
+  );
+
+  test('logs HTTP route access start and completion events', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpAccessLogRoute(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    final internalSession = await binding.createInternalSession(
+      realmUri: 'realm1',
+    );
+    final registered = await internalSession.register('com.example.api.logged');
+    registered.onInvoke((invocation) async {
+      final context = HttpInvocationContext.maybeFromInvocation(invocation);
+      expect(context, isNotNull);
+      context!.sendJson(body: const {'ok': true}, status: HttpStatus.created);
+    });
+
+    runtime.setConnectionProtocol(163, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      163,
+      NativeHttpHandshake.synthetic(
+        handle: 123,
+        method: 'GET',
+        target: '/api/logged?trace=1',
+        path: '/api/logged',
+        protocol: 'http/1.1',
+        headers: const {
+          HttpHeaders.cookieHeader: 'session=secret-token',
+          'x-request-id': 'req-1',
+        },
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.api.logged',
+        query: 'trace=1',
+      ),
+    );
+
+    await _waitUntil(() => runtime.httpResponses[163]?.isNotEmpty ?? false);
+    expect(runtime.httpResponses[163]!.single.status, HttpStatus.created);
+
+    final started = events.firstWhere(
+      (event) => event['type'] == 'http_route_access_started',
+    );
+    expect(started['method'], 'GET');
+    expect(started['path'], '/api/logged');
+    expect(started['query'], 'trace=1');
+    expect(started['action'], 'rpc');
+    expect(started['procedure'], 'com.example.api.logged');
+    final headers = (started['headers'] as Map).cast<String, String>();
+    expect(headers[HttpHeaders.cookieHeader], '<redacted>');
+    expect(headers['x-request-id'], 'req-1');
+
+    final completed = events.firstWhere(
+      (event) => event['type'] == 'http_route_access_completed',
+    );
+    expect(completed['status'], HttpStatus.created);
+    expect(completed['outcome'], 'completed');
+    expect(completed['durationMs'], isA<int>());
+    expect(completed['procedure'], 'com.example.api.logged');
+  });
+
+  test('uses catch-all HTTP routes only after more specific matches', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpCatchAllRoute(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    runtime.setConnectionProtocol(211, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      211,
+      NativeHttpHandshake.synthetic(
+        handle: 2110,
+        method: 'GET',
+        target: '/auth',
+        path: '/auth',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.http.fallback',
+      ),
+    );
+
+    runtime.setConnectionProtocol(212, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      212,
+      NativeHttpHandshake.synthetic(
+        handle: 2120,
+        method: 'GET',
+        target: '/unknown/path',
+        path: '/unknown/path',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'realm1',
+        procedure: 'com.example.http.fallback',
+      ),
+    );
+
+    await _waitUntil(
+      () =>
+          (runtime.httpResponses[211]?.any(
+                (response) => response.status == HttpStatus.methodNotAllowed,
+              ) ??
+              false) &&
+          events.any(
+            (event) =>
+                event['type'] == 'http_request_dispatched' &&
+                event['connectionId'] == 212,
+          ),
+    );
+    expect(
+      events.any(
+        (event) =>
+            event['type'] == 'http_request_dispatched' &&
+            event['connectionId'] == 211,
+      ),
+      isFalse,
+    );
+    final fallbackDispatch = events.firstWhere(
+      (event) =>
+          event['type'] == 'http_request_dispatched' &&
+          event['connectionId'] == 212,
+    );
+    expect(fallbackDispatch['procedure'], 'com.example.http.fallback');
+  });
+
+  test(
+    'derives deterministic HTTP shorthand targets in Dart runtime',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpShorthandRoutes(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      final reservedSession = await binding.createInternalSession(
+        realmUri: 'router.http',
+      );
+      final reservedRegistration = await reservedSession.register('index.get');
+      reservedRegistration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        expect(context!.request.realm, 'router.http');
+        expect(context.request.procedure, 'index.get');
+        context.sendJson(body: {'ok': true, 'route': 'reserved'});
+      });
+
+      final namespaceSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final namespaceRegistration = await namespaceSession.register(
+        'consumer.api.tasks.42.post',
+      );
+      namespaceRegistration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        expect(context!.request.realm, 'realm1');
+        expect(context.request.procedure, 'consumer.api.tasks.42.post');
+        context.sendJson(body: {'ok': true, 'route': 'namespace'});
+      });
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      runtime.setConnectionProtocol(221, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        221,
+        NativeHttpHandshake.synthetic(
+          handle: 2210,
+          method: 'GET',
+          target: '/',
+          path: '/',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+        ),
+      );
+
+      runtime.setConnectionProtocol(222, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        222,
+        NativeHttpHandshake.synthetic(
+          handle: 2220,
+          method: 'POST',
+          target: '/tasks/42',
+          path: '/tasks/42',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+        ),
+      );
+
+      await _waitUntil(
+        () =>
+            events
+                .where((event) => event['type'] == 'http_request_dispatched')
+                .length >=
+            2,
+      );
+
+      final dispatches = events
+          .where((event) => event['type'] == 'http_request_dispatched')
+          .toList();
+      expect(
+        dispatches,
+        contains(
+          allOf(
+            containsPair('connectionId', 221),
+            containsPair('realm', 'router.http'),
+            containsPair('procedure', 'index.get'),
+          ),
+        ),
+      );
+      expect(
+        dispatches,
+        contains(
+          allOf(
+            containsPair('connectionId', 222),
+            containsPair('realm', 'realm1'),
+            containsPair('procedure', 'consumer.api.tasks.42.post'),
+          ),
+        ),
+      );
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[221]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[222]?.isNotEmpty ?? false),
       );
     },
   );
@@ -5199,6 +8871,97 @@ void main() {
       );
     },
   );
+
+  test('applies caller disclosure policy across internal sessions', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithPendingProtocols(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    final callee = await binding.createInternalSession(realmUri: 'realm1');
+    final caller = await binding.createInternalSession(
+      realmUri: 'realm1',
+      authId: 'internal-caller',
+      authRole: 'anonymous',
+    );
+    addTearDown(callee.close);
+    addTearDown(caller.close);
+
+    final undisclosedCaller = Completer<Map<String, Object?>>();
+    final defaultRegistration = await callee.register(
+      'com.example.internal.no_disclose',
+    );
+    defaultRegistration.onInvoke((invocation) {
+      if (!undisclosedCaller.isCompleted) {
+        undisclosedCaller.complete({
+          'caller': invocation.details.caller,
+          'caller_authid': invocation.details.custom['caller_authid'],
+          'caller_authrole': invocation.details.custom['caller_authrole'],
+        });
+      }
+      invocation.respondWith(arguments: const ['ok']);
+    });
+
+    final defaultResult = await caller
+        .call(
+          'com.example.internal.no_disclose',
+          options: CallOptions(
+            custom: const {
+              'caller_authid': 'spoofed',
+              'caller_authrole': 'spoofed-role',
+            },
+          ),
+        )
+        .first;
+    expect(defaultResult.arguments, equals(const ['ok']));
+    expect(
+      await undisclosedCaller.future,
+      equals({'caller': null, 'caller_authid': null, 'caller_authrole': null}),
+    );
+
+    final disclosedCaller = Completer<Map<String, Object?>>();
+    final discloseRegistration = await callee.register(
+      'com.example.internal.disclose',
+      options: RegisterOptions(discloseCaller: true),
+    );
+    discloseRegistration.onInvoke((invocation) {
+      if (!disclosedCaller.isCompleted) {
+        disclosedCaller.complete({
+          'caller': invocation.details.caller,
+          'caller_authid': invocation.details.custom['caller_authid'],
+          'caller_authrole': invocation.details.custom['caller_authrole'],
+        });
+      }
+      invocation.respondWith(arguments: const ['ok']);
+    });
+
+    final discloseResult = await caller
+        .call('com.example.internal.disclose')
+        .first;
+    expect(discloseResult.arguments, equals(const ['ok']));
+    expect(
+      await disclosedCaller.future,
+      equals({
+        'caller': caller.sessionId,
+        'caller_authid': 'internal-caller',
+        'caller_authrole': 'anonymous',
+      }),
+    );
+  });
 
   test(
     'routes lazy publish payloads across internal sessions without decoding',

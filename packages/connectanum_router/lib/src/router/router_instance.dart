@@ -3,20 +3,31 @@
 // Building blocks for Connectanum router bindings and isolate orchestration.
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:isolate';
-import 'dart:math' show Random;
+import 'dart:math' show Random, min;
 import 'dart:typed_data';
 import 'dart:io'
     show
         ContentType,
+        Directory,
+        File,
+        FileStat,
+        FileSystemEntityType,
+        HttpDate,
+        HttpClient,
+        HttpClientRequest,
+        HttpClientResponse,
         HttpHeaders,
         HttpRequest,
         HttpServer,
         HttpStatus,
         InternetAddress,
+        InternetAddressType,
         Platform,
         ProcessInfo,
+        Socket,
         pid;
 
 import 'package:cbor/cbor.dart';
@@ -104,6 +115,7 @@ import 'config/router_settings_codec.dart';
 import 'auth/authorization.dart';
 import 'auth/default_authenticators.dart';
 import 'auth/http_auth_provider.dart';
+import 'auth/remote_authenticator.dart' show RemoteAuthenticatorDelegate;
 import 'auth/remote_wamp_delegate.dart';
 import 'auth/security.dart';
 
