@@ -1,8 +1,8 @@
 # In-Process Client Transport
 
-Status: fifth embedded-application readiness slice is implemented locally after
-the fourth router/auth-service embedding slice was committed and pushed as
-`061dc7f`. The RC path for embedded router work stays on the existing
+Status: fifth embedded-application readiness slice was committed and pushed as
+`ce3a8af`. Local and hosted verification gates are clean for the implemented
+transport plan. The RC path for embedded router work stays on the existing
 `RouterSession` bridge. A lower-level router endpoint backed by
 `InProcessTransportPair` is deferred until a consumer integration needs a
 normal `connectanum_client.Client` handshake over an in-memory router endpoint.
@@ -130,7 +130,20 @@ serve as the frame pipe for embedded router/auth-server chaining.
   passed on 2026-05-18.
 - Post-edit `bin/test-fast`: passed on 2026-05-18.
 - Full local `bin/verify`: passed on 2026-05-18.
+- Hosted evidence for `ce3a8af` is clean: push CI #26012108038, PR CI
+  #26012109092, push Dart Package Publish Dry Run #26012108034, PR Dart
+  Package Publish Dry Run #26012109096, Router Image dry-run #26012127003,
+  and WAMP Profile Benchmarks #26012126993 passed on 2026-05-18.
+- Strict deployment-chain audit with latest CI/logs, package dry-run, Router
+  Image dry-run, WAMP benchmark, native release relevance, workflow visibility,
+  GHCR visibility, and RC-readiness reporting passed for the enforced gates on
+  2026-05-18. RC readiness remains blocked by PR #79 review/merge, fresh RC
+  tag/prerelease approval, and tag-matched Native Artifacts/Router Image
+  release evidence; pub.dev remains intentionally deferred.
 
 ## Remaining
 
-- Push and gather hosted CI/dry-run evidence for this local checkpoint.
+- No implementation remains in this transport plan. Next release-track work is
+  PR #79 review/merge into `master`, operator approval for the next RC tag /
+  prerelease, and tag-matched Native Artifacts plus Router Image release
+  evidence.

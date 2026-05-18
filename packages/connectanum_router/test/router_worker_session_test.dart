@@ -774,6 +774,122 @@ void main() {
       );
     });
 
+    test('rejects non-standard CANCEL killall mode', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final callerState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      callerState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 773;
+      final calleeState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      calleeState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 774;
+
+      _openSession(
+        stateStore,
+        sessionId: 773,
+        listener: listener,
+        connectionId: 133,
+      );
+      _openSession(
+        stateStore,
+        sessionId: 774,
+        listener: listener,
+        connectionId: 134,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final registerReply = ReceivePort();
+      stateStore.commandPort.send(
+        ProcedureRegisterCommand(
+          realmUri: 'realm1',
+          sessionId: 774,
+          procedure: 'com.example.nonstandard_cancel',
+          details: const {},
+          replyPort: registerReply.sendPort,
+        ),
+      );
+      await registerReply.first;
+      registerReply.close();
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      final call = call_msg.Call(9811, 'com.example.nonstandard_cancel');
+
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+        state: callerState,
+        message: call,
+        connectionId: 133,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final invocationForward = _extractForwardMessages(bossMessages);
+      expect(invocationForward, hasLength(1));
+      final invocation =
+          invocationForward.single['message'] as invocation_msg.Invocation;
+      final invocationId = invocation.requestId;
+      bossMessages.clear();
+
+      final cancelOptions = cancel_msg.CancelOptions()..mode = 'killall';
+      final cancel = cancel_msg.Cancel(9811, options: cancelOptions);
+
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+        state: callerState,
+        message: cancel,
+        connectionId: 133,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(_extractForwardMessages(bossMessages), isEmpty);
+      final workerSend = _extractWorkerSend(bossMessages);
+      final frame =
+          jsonDecode(utf8.decode(workerSend['payload'] as Uint8List))
+              as List<dynamic>;
+      expect(frame.first, equals(MessageTypes.codeError));
+      expect(frame[1], equals(MessageTypes.codeCancel));
+      expect(frame[2], equals(9811));
+      expect(frame[4], equals(wamp_core.Error.invalidArgument));
+      final details = frame[3] as Map<String, Object?>;
+      expect(details['message'], contains('Unsupported cancel mode: killall'));
+
+      final remainingInvocation = await realmContexts
+          .contextFor('realm1')
+          .getInvocation(invocationId);
+      expect(remainingInvocation, isNotNull);
+    });
+
     test('returns no_such_invocation on CANCEL store failure', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()

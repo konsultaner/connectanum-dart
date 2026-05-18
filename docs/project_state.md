@@ -20,11 +20,28 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-The fifth internal embedded-application readiness slice is implemented
-locally. The router-side internal lane stays on `RouterSession` for RC
-readiness; mapping a lower-level router endpoint onto `InProcessTransportPair`
-is deferred until a consumer integration needs a normal `Client` handshake over
-an in-memory router endpoint. `RouterSession` now exposes client-like
+The WAMP cancel-mode conformance slice is implemented locally. The router now
+has a focused worker-session regression proving that non-standard
+`CANCEL.Options.mode: "killall"` is rejected as `wamp.error.invalid_argument`
+without interrupting the callee or completing the active invocation. `ROADMAP.md`
+now marks call cancellation complete for the WAMP-defined `skip`, `kill`, and
+`killnowait` modes and clarifies that `wamp.session.kill_all` is a separate
+session meta procedure concept, not a CANCEL option. Focused
+`dart analyze packages/connectanum_router/test/router_worker_session_test.dart`,
+focused
+`dart test packages/connectanum_router/test/router_worker_session_test.dart --name "rejects non-standard CANCEL killall mode" --chain-stack-traces`,
+and focused
+`dart test packages/connectanum_router/test/router_worker_session_test.dart --name "CANCEL|cancel" --chain-stack-traces`
+passed on 2026-05-18. Post-edit `bin/test-fast` and full local `bin/verify`
+also passed on 2026-05-18.
+
+Previous implementation checkpoint:
+The fifth internal embedded-application readiness slice was committed and
+pushed as `ce3a8af`. The router-side internal lane stays on `RouterSession`
+for RC readiness; mapping a lower-level router endpoint onto
+`InProcessTransportPair` is deferred until a consumer integration needs a
+normal `Client` handshake over an in-memory router endpoint. `RouterSession`
+now exposes client-like
 single-result RPC helpers plus registration/subscription handler helpers, so
 embedded services and consumer applications can call, register, and subscribe
 without stream-final-result boilerplate or socket coordinates. The new
@@ -37,6 +54,14 @@ hosts. Focused
 focused
 `dart test packages/connectanum_router/test/router_embedded_application_test.dart -r expanded`,
 post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-18.
+Hosted evidence for `ce3a8af` is clean for the enforced branch gates: push CI
+#26012108038, PR CI #26012109092, push Dart Package Publish Dry Run
+#26012108034, PR Dart Package Publish Dry Run #26012109096, Router Image
+dry-run #26012127003, and WAMP Profile Benchmarks #26012126993 passed. The
+strict deployment-chain audit with latest CI/logs, package dry-run, Router
+Image dry-run, WAMP benchmark, native release relevance, workflow visibility,
+GHCR visibility, and RC-readiness reporting passed for the enforced gates on
+2026-05-18.
 RC readiness remains blocked by PR #79 review/merge into `master`, choosing a
 fresh approved RC tag/prerelease for the promoted branch successor, and
 tag-matched Native Artifacts/Router Image publish evidence; pub.dev remains
