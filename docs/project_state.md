@@ -20,6 +20,15 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+`bin/test-all` browser WebSocket retry reporting is hardened locally. Non-final
+retry attempts now force the expanded `package:test` reporter so the known
+retryable browser-manager startup flake can be retried without emitting GitHub
+Actions `##[error]` annotations; the final attempt still uses the default
+reporter so real failures remain visible. Pre-edit `bin/test-fast`,
+`bash -n bin/test-all`, the focused Chrome-discovered browser invocation with
+`--reporter=expanded`, and full local `bin/verify` passed on 2026-05-18.
+
+Previous implementation checkpoint:
 Ordinary WAMP meta procedure access is implemented and locally verified for
 downstream/consumer applications that use normal WAMP clients instead of the
 router-hosted MCP/direct JSON facade. Router worker sessions now intercept the
@@ -32,7 +41,17 @@ matrix and a live native-backed WebSocket client smoke proving a normal client
 can call the meta API without private project assumptions. Pre-edit
 `bin/test-fast`, focused router analyzer, the focused worker-session meta test,
 the focused live WebSocket meta smoke, post-edit `bin/test-fast`, and full local
-`bin/verify` passed on 2026-05-18.
+`bin/verify` passed on 2026-05-18. The slice was committed and pushed as
+`c474136`; hosted push/PR CI and push/PR Dart Package Publish Dry Run runs
+completed successfully for that head on 2026-05-18. Because this changed router
+worker-session code, fresh release-sensitive hosted evidence was collected:
+Router Image dry-run #26016479082 and WAMP Profile Benchmarks #26016479089
+passed for `c474136`. The strict deployment-chain audit with latest CI/logs,
+Dart package dry-run, Router Image dry-run, WAMP benchmark, native release
+relevance, workflow visibility, GHCR visibility, and RC-readiness reporting
+passed for the enforced gates. RC readiness remains blocked by PR #79
+review/merge, a fresh approved RC tag/prerelease, and tag-matched
+Native/Router release evidence; pub.dev remains intentionally deferred.
 
 Previous implementation checkpoint:
 The WAMP cancel-mode conformance slice is implemented locally. The router now

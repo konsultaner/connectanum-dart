@@ -59,16 +59,23 @@ run_client_browser_websocket_tests() {
   local attempt=1
   local max_attempts=3
   local output_file
+  local reporter_args
   local status
 
   while (( attempt <= max_attempts )); do
     output_file="$(mktemp)"
+    reporter_args=()
+    if (( attempt < max_attempts )); then
+      reporter_args=(--reporter=expanded)
+    fi
+
     set +e
     dart test \
       test/transport/websocket/websocket_transport_web_test.dart \
       -p chrome \
       --timeout=5m \
       --concurrency=1 \
+      "${reporter_args[@]}" \
       2>&1 | tee "$output_file"
     status="${PIPESTATUS[0]}"
     set -e
