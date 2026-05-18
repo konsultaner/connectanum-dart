@@ -20,13 +20,35 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Deployment-chain CI log auditing is hardened locally. `--scan-latest-ci-logs`
+and `--require-clean-latest-ci-logs` now enumerate all completed CI runs for the
+checked-out head on the audited branch before scanning logs and warning/error
+annotations, so a clean latest PR CI run can no longer mask a noisy same-head
+push CI run. Coverage includes a fake-`gh` regression where the latest CI run is
+clean but an older same-head CI run has warning/log noise, plus the clean
+same-head multi-run path. Pre-edit `bin/test-fast`,
+`bash -n bin/audit-github-deployment-chain`, py-compile for
+`tool/test_audit_github_deployment_chain.py`, focused Python unittest coverage,
+a real same-head CI-log audit over PR CI #26017884769 and push CI #26017883326,
+and post-edit `bin/test-fast` passed on 2026-05-18. Full local `bin/verify`
+also passed on 2026-05-18.
+
+Previous implementation checkpoint:
 `bin/test-all` browser WebSocket retry reporting is hardened locally. Non-final
 retry attempts now force the expanded `package:test` reporter so the known
 retryable browser-manager startup flake can be retried without emitting GitHub
 Actions `##[error]` annotations; the final attempt still uses the default
 reporter so real failures remain visible. Pre-edit `bin/test-fast`,
 `bash -n bin/test-all`, the focused Chrome-discovered browser invocation with
-`--reporter=expanded`, and full local `bin/verify` passed on 2026-05-18.
+`--reporter=expanded`, and full local `bin/verify` passed on 2026-05-18. The
+slice was committed and pushed as `b097379`; hosted PR CI #26017884769, push CI
+#26017883326, and PR Dart Package Publish Dry Run #26017884785 completed
+successfully for that head. The strict deployment-chain audit with latest
+CI/logs, Dart package dry-run, native release evidence, Router Image dry-run,
+WAMP benchmark, workflow visibility, GHCR visibility, and RC-readiness reporting
+passed the enforced gates. RC readiness remains blocked by PR #79 review/merge,
+a fresh approved RC tag/prerelease, and tag-matched Native/Router release
+evidence; pub.dev remains intentionally deferred.
 
 Previous implementation checkpoint:
 Ordinary WAMP meta procedure access is implemented and locally verified for

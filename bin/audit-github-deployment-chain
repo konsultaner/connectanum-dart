@@ -29,11 +29,13 @@ Options:
                              audited branch completed with exactly the expected
                              main jobs and no skipped, pending, or failed jobs.
   --scan-latest-ci-logs      Print high-signal warning/skipped-test/noisy
-                             runtime matches from the latest CI run logs.
+                             runtime matches from completed CI run logs for
+                             the checked-out head on the audited branch.
   --require-clean-latest-ci-logs
-                             Exit non-zero if the latest CI run logs contain
-                             high-signal warning/skipped-test/noisy runtime
-                             matches, or if the run is not complete and green.
+                             Exit non-zero if any checked-out-head CI run logs
+                             contain high-signal warning/skipped-test/noisy
+                             runtime matches, or if any such run is not
+                             complete and green.
   --show-dart-package-publish-dry-run
                              Print the latest dedicated Dart package publish
                              dry-run workflow evidence.
@@ -647,6 +649,73 @@ latest_ci_run_id() {
   latest_workflow_run_id CI
 }
 
+ci_run_rows_for_checked_out_head() {
+  local preferred_run_id="${1:-}"
+  local current_head_sha
+  local scan_limit="$run_limit"
+  local rows
+  local row
+  local run_id
+  local run_head_sha
+  local run_status
+  local run_conclusion
+  local seen_run_ids=""
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$scan_limit" -lt 20 ]]; then
+    scan_limit=20
+  fi
+
+  if [[ -n "$preferred_run_id" ]]; then
+    rows="$(
+      "$gh_bin" run view "$preferred_run_id" \
+        --repo "$repository" \
+        --json status,conclusion,headSha \
+        --jq '[.headSha, .status, (.conclusion // "pending")] | @tsv' \
+        2>/dev/null || true
+    )"
+    IFS=$'\t' read -r run_head_sha run_status run_conclusion <<<"$rows"
+    if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+      printf '%s\t%s\t%s\n' "$preferred_run_id" "$run_status" "$run_conclusion"
+      seen_run_ids="${seen_run_ids}${preferred_run_id}"$'\n'
+    fi
+  fi
+
+  rows="$(
+    "$gh_bin" run list \
+      --repo "$repository" \
+      --branch "$branch" \
+      --workflow CI \
+      --limit "$scan_limit" \
+      --json databaseId,headSha,status,conclusion \
+      --jq '.[] | [.databaseId, .headSha, .status, (.conclusion // "pending")] | @tsv' \
+      2>/dev/null || true
+  )"
+  rows+="$(
+    printf '\n'
+    "$gh_bin" run list \
+      --repo "$repository" \
+      --branch "$branch" \
+      --limit "$scan_limit" \
+      --json name,databaseId,headSha,status,conclusion \
+      --jq '.[] | select(.name == "CI") | [.databaseId, .headSha, .status, (.conclusion // "pending")] | @tsv' \
+      2>/dev/null || true
+  )"
+
+  while IFS= read -r row; do
+    [[ -n "$row" ]] || continue
+    IFS=$'\t' read -r run_id run_head_sha run_status run_conclusion <<<"$row"
+    [[ -n "$run_id" ]] || continue
+    [[ "$run_head_sha" == "$current_head_sha" ]] || continue
+    if printf '%s' "$seen_run_ids" | grep -Fxq "$run_id"; then
+      continue
+    fi
+
+    printf '%s\t%s\t%s\n' "$run_id" "$run_status" "$run_conclusion"
+    seen_run_ids="${seen_run_ids}${run_id}"$'\n'
+  done <<<"$rows"
+}
+
 latest_dart_package_publish_dry_run_id() {
   latest_workflow_run_id "$dart_package_publish_workflow"
 }
@@ -940,6 +1009,7 @@ print_sensitive_changes_since() {
 
 print_latest_ci_log_scan() {
   local run_id="$1"
+  local label="${2:-CI}"
   local log_file
   local failed=0
 
@@ -948,13 +1018,13 @@ print_latest_ci_log_scan() {
   if ! "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
     printf 'Finding: could not download logs for CI run #%s.\n' "$run_id"
     failed=1
-  elif ! print_run_log_file_scan "$log_file" CI; then
+  elif ! print_run_log_file_scan "$log_file" "$label"; then
     failed=1
   fi
 
   rm -f "$log_file"
 
-  if ! print_run_annotation_scan "$run_id" CI; then
+  if ! print_run_annotation_scan "$run_id" "$label"; then
     failed=1
   fi
 
@@ -2482,6 +2552,7 @@ if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
     printf 'Finding: no CI run found for branch %s.\n' "$branch"
     latest_ci_log_failed=1
   else
+    latest_ci_log_run_rows="$(ci_run_rows_for_checked_out_head "$latest_ci_id")"
     latest_ci_log_summary="$(
       "$gh_bin" run view "$latest_ci_id" \
         --repo "$repository" \
@@ -2498,13 +2569,27 @@ if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
     )"
     IFS=$'\t' read -r latest_ci_log_status latest_ci_log_conclusion <<<"$latest_ci_log_state"
 
-    if [[ "$require_clean_latest_ci_logs" -eq 1 && ( "$latest_ci_log_status" != "completed" || "$latest_ci_log_conclusion" != "success" ) ]]; then
-      printf 'Finding: latest CI logs are not a complete green signal yet: %s/%s.\n' "$latest_ci_log_status" "$latest_ci_log_conclusion"
+    if [[ -z "$latest_ci_log_run_rows" ]]; then
+      printf 'Finding: no CI run for branch %s covers the checked-out head %s.\n' "$branch" "$(git rev-parse --short HEAD)"
       latest_ci_log_failed=1
-    fi
+    else
+      latest_ci_log_run_count="$(printf '%s\n' "$latest_ci_log_run_rows" | sed '/^$/d' | wc -l | tr -d ' ')"
+      printf 'Checked-out head CI log scan covers %s run(s) for branch %s.\n' "$latest_ci_log_run_count" "$branch"
 
-    if ! print_latest_ci_log_scan "$latest_ci_id"; then
-      latest_ci_log_failed=1
+      while IFS=$'\t' read -r ci_log_run_id ci_log_run_status ci_log_run_conclusion; do
+        [[ -n "$ci_log_run_id" ]] || continue
+
+        printf '\nRun: CI #%s %s/%s\n' "$ci_log_run_id" "$ci_log_run_status" "$ci_log_run_conclusion"
+        if [[ "$require_clean_latest_ci_logs" -eq 1 && ( "$ci_log_run_status" != "completed" || "$ci_log_run_conclusion" != "success" ) ]]; then
+          printf 'Finding: CI run #%s logs are not a complete green signal yet: %s/%s.\n' "$ci_log_run_id" "$ci_log_run_status" "$ci_log_run_conclusion"
+          latest_ci_log_failed=1
+          continue
+        fi
+
+        if ! print_latest_ci_log_scan "$ci_log_run_id" "CI run #${ci_log_run_id}"; then
+          latest_ci_log_failed=1
+        fi
+      done <<<"$latest_ci_log_run_rows"
     fi
   fi
 fi
