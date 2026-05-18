@@ -20,7 +20,24 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-The second internal auth-service embedding slice is implemented locally.
+The third internal auth-service embedding slice is implemented locally.
+`rpc.transport.type: internal` now configures worker-local remote-auth WAMP
+procedure delegates from router settings. Each worker registers the configured
+internal delegate, opens a worker-local caller session in the auth-service
+realm, dispatches HELLO/AUTHENTICATE to embedded auth procedures through the
+router state store, and decodes lazy internal callee responses without relying
+on main-isolate `RemoteAuthenticatorRegistry` state. The live
+`remote_auth_integration_test.dart` smoke now proves an external WebSocket
+ticket client authenticates through embedded auth-service procedures without a
+loopback delegate connection, and `remote_wamp_delegate_test.dart` covers the
+internal transport config parser. Focused router analyze, focused
+`remote_wamp_delegate_test.dart` + `remote_auth_integration_test.dart`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-18.
+Hosted evidence is pending for this slice after push.
+
+Previous implementation checkpoint:
+The second internal auth-service embedding slice was committed and pushed as
+`45be6c9`.
 `connectanum_router` now exports `RemoteWampProcedureDelegate` plus its
 callback/result types, and `RouterSession.createRemoteWampAuthenticatorDelegate`
 adapts internal router-session `CALL` results to the existing remote-auth WAMP
@@ -37,10 +54,20 @@ post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-18.
 2026-05-18, and `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
 failed only on the known deferred pub.dev blocker:
 `connectanum_client` depends on private `connectanum_core`.
-The remaining live edge-auth work is worker-isolate
-configuration/wiring: main-isolate `RemoteAuthenticatorRegistry` delegates are
-not visible inside router worker isolates, so the external-client edge path
-still needs an explicit configured worker-safe internal delegate lane.
+Hosted evidence for `45be6c9` is clean for the enforced branch gates: push CI
+#26006154488, PR CI #26006155386, push Dart Package Publish Dry Run
+#26006154487, PR Dart Package Publish Dry Run #26006155388, Router Image
+dry-run #26006447749, and WAMP Profile Benchmarks #26006660851 passed. The
+first WAMP benchmark run for the commit (#26006447736) passed but was replaced
+for audit purposes because its logs contained one `Connection reset by peer`
+line. The strict deployment-chain audit with latest CI/logs, package dry-run,
+Router Image dry-run, WAMP benchmark, native release relevance, workflow
+visibility, GHCR visibility, and RC-readiness reporting passed for the enforced
+gates on 2026-05-18.
+RC readiness remains blocked by PR #79 review/merge into `master`, choosing a
+fresh approved RC tag/prerelease for the promoted branch successor, and
+tag-matched Native Artifacts/Router Image publish evidence; pub.dev remains
+intentionally deferred.
 The previous in-process transport foundation was committed and pushed as
 `d778896`: `connectanum_client` exports `InProcessTransportPair` /
 `InProcessTransport`, keeps WAMP messages as Dart objects, enforces bounded peer

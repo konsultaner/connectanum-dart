@@ -234,6 +234,240 @@ Future<int> allocateSessionId(SendPort? statePort) async {
   return id;
 }
 
+void _registerInternalRemoteWampDelegatesForWorker({
+  required RouterSettings settings,
+  required SendPort statePort,
+  required RealmContextCache realmContexts,
+  required int workerId,
+}) {
+  for (final config in collectRemoteWampDelegateConfigsForSettings(settings)) {
+    if (config.transport.type != 'internal') {
+      continue;
+    }
+    final caller = _WorkerInternalRemoteWampProcedureCaller(
+      config: config,
+      statePort: statePort,
+      realmContexts: realmContexts,
+      workerId: workerId,
+    );
+    RemoteWampDelegateRegistry.registerInternal(
+      config,
+      RemoteWampProcedureDelegate(
+        call: caller.call,
+        helloProcedure: config.helloProcedure,
+        authenticateProcedure: config.authenticateProcedure,
+        abortProcedure: config.abortProcedure,
+        callTimeout: config.callTimeout,
+        resolveAuthToken: config.resolveAuthToken,
+      ),
+    );
+  }
+}
+
+class _WorkerInternalRemoteWampProcedureCaller {
+  _WorkerInternalRemoteWampProcedureCaller({
+    required this.config,
+    required this.statePort,
+    required this.realmContexts,
+    required this.workerId,
+  });
+
+  final RemoteWampDelegateConfig config;
+  final SendPort statePort;
+  final RealmContextCache realmContexts;
+  final int workerId;
+
+  int? _sessionId;
+  Future<int>? _openingSession;
+  int _nextRequestId = 1;
+
+  Future<RemoteWampProcedureCallResult> call(
+    String procedure, {
+    Map<String, Object?>? argumentsKeywords,
+  }) async {
+    final sessionId = await _ensureSession();
+    final requestId = _nextRequestId++;
+    final context = realmContexts.contextFor(config.realm);
+    final dispatch = await context.dispatchInvocation(
+      callerSessionId: sessionId,
+      requestId: requestId,
+      procedure: procedure,
+    );
+    final calleePort = dispatch.calleeInternalSendPort;
+    var invocationCompleted = false;
+
+    Future<void> completeInvocation() async {
+      if (invocationCompleted) {
+        return;
+      }
+      invocationCompleted = true;
+      try {
+        await context.completeInvocation(dispatch.invocationId);
+      } catch (_) {
+        // The auth decision already has a terminal response; completion is
+        // best-effort cleanup for the router state store.
+      }
+    }
+
+    if (calleePort == null) {
+      await completeInvocation();
+      throw StateError(
+        'Remote auth procedure $procedure is not bound to an internal session.',
+      );
+    }
+
+    final replyPort = ReceivePort();
+    final payload = _buildTransferredLazyPayload(
+      argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+    );
+    try {
+      calleePort.send({
+        'type': 'invocation',
+        'invocationId': dispatch.invocationId,
+        'registrationId': dispatch.registrationId,
+        'procedure': procedure,
+        _internalMsgLazyPayload: payload,
+        'argumentsKeywords': argumentsKeywords,
+        'options': const <String, Object?>{},
+        'realmUri': config.realm,
+        if (dispatch.discloseCaller) 'callerSessionId': sessionId,
+        if (dispatch.callerAuthId != null)
+          'callerAuthId': dispatch.callerAuthId,
+        if (dispatch.callerAuthRole != null)
+          'callerAuthRole': dispatch.callerAuthRole,
+        'callerRequestId': requestId,
+        'replyPort': replyPort.sendPort,
+      });
+
+      await for (final rawResponse in replyPort) {
+        if (rawResponse is! Map) {
+          await completeInvocation();
+          throw StateError(
+            'Internal remote auth procedure $procedure returned an invalid '
+            'response.',
+          );
+        }
+        final response = (_materializeTransferredValue(rawResponse) as Map)
+            .cast<Object?, Object?>();
+        final type = response['type'];
+        if (type == 'result') {
+          final progress = response['progress'] == true;
+          if (progress) {
+            continue;
+          }
+          final lazyPayload = _lazyPayloadFromTransferredWithPpt(
+            response[_internalMsgLazyPayload],
+            pptScheme: response['pptScheme'] as String?,
+            pptSerializer: response['pptSerializer'] as String?,
+            pptCipher: response['pptCipher'] as String?,
+            pptKeyId: response['pptKeyId'] as String?,
+          );
+          await completeInvocation();
+          return RemoteWampProcedureCallResult(
+            arguments:
+                (response['arguments'] as List?)?.cast<dynamic>() ??
+                lazyPayload?.arguments,
+            argumentsKeywords:
+                (response['argumentsKeywords'] as Map?)
+                    ?.cast<String, dynamic>() ??
+                lazyPayload?.argumentsKeywords,
+          );
+        }
+        if (type == 'error' || type == _internalMsgCallError) {
+          final lazyPayload = _lazyPayloadFromTransferredWithPpt(
+            response[_internalMsgLazyPayload],
+          );
+          await completeInvocation();
+          throw wamp_core.Error(
+            MessageTypes.codeCall,
+            requestId,
+            (response['details'] as Map?)?.cast<String, dynamic>() ??
+                const <String, dynamic>{},
+            (response['error'] as String?) ?? wamp_core.Error.runtimeError,
+            arguments:
+                (response['arguments'] as List?)?.cast<dynamic>() ??
+                lazyPayload?.arguments,
+            argumentsKeywords:
+                (response['argumentsKeywords'] as Map?)
+                    ?.cast<String, dynamic>() ??
+                lazyPayload?.argumentsKeywords,
+          );
+        }
+        await completeInvocation();
+        throw StateError(
+          'Internal remote auth procedure $procedure returned unexpected '
+          'response type $type.',
+        );
+      }
+      await completeInvocation();
+      throw StateError(
+        'Internal remote auth procedure $procedure closed without a response.',
+      );
+    } finally {
+      replyPort.close();
+      if (!invocationCompleted) {
+        await completeInvocation();
+      }
+    }
+  }
+
+  Future<int> _ensureSession() {
+    final existing = _sessionId;
+    if (existing != null) {
+      return Future<int>.value(existing);
+    }
+    return _openingSession ??= _openSession();
+  }
+
+  Future<int> _openSession() async {
+    try {
+      final sessionId = await allocateSessionId(statePort);
+      final endpoint = Endpoint(
+        host: 'internal',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final listenerSettings = ListenerSettings(
+        type: 'rawsocket',
+        endpoint: '${endpoint.host}:${endpoint.port}',
+      );
+      final listener = RouterListener(
+        listenerId: -sessionId,
+        endpoint: endpoint,
+        port: 0,
+        http3Port: 0,
+        settings: listenerSettings,
+      );
+      statePort.send(
+        RealmEnsureCommand(realmUri: config.realm, options: const {}),
+      );
+      statePort.send(
+        SessionOpenCommand(
+          realmUri: config.realm,
+          session: SessionRecord(
+            id: sessionId,
+            authId: config.authId ?? 'remote-auth-worker',
+            authRole: config.authRole ?? 'internal',
+            authMethod: 'internal',
+            authProvider: 'remote-wamp-internal',
+            roles: const <String, Object?>{},
+            workerId: workerId,
+            connectionId: -sessionId,
+            lastActivity: DateTime.now(),
+            listener: listener,
+            protocol: ListenerProtocol.rawsocket,
+          ),
+        ),
+      );
+      _sessionId = sessionId;
+      return sessionId;
+    } finally {
+      _openingSession = null;
+    }
+  }
+}
+
 /// Default worker entry point that materialises native message handles in an
 /// isolate and hands them over to the router once available.
 void defaultRouterWorkerEntryPoint(Map<String, Object?> init) {
@@ -257,8 +491,6 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       ? RouterSettingsCodec.fromMap(settingsMap)
       : RouterSettings(realms: const [], listeners: const [], metrics: null);
   _workerAuthorizationProviderCache = RealmAuthorizationProviderCache(settings);
-
-  unawaited(RemoteWampDelegateRegistry.warmUpForSettings(settings));
 
   final decoder = NativeMessageHandleDecoder(libraryPath: libraryPath);
   final commandPort = ReceivePort();
@@ -317,6 +549,15 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   }
 
   final workerId = Isolate.current.hashCode;
+  if (statePort != null && realmContexts != null) {
+    _registerInternalRemoteWampDelegatesForWorker(
+      settings: settings,
+      statePort: statePort,
+      realmContexts: realmContexts,
+      workerId: workerId,
+    );
+  }
+  unawaited(RemoteWampDelegateRegistry.warmUpForSettings(settings));
 
   bossPort.send({
     'type': 'worker_debug',

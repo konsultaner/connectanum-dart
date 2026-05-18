@@ -68,6 +68,7 @@ run_mcp_consumer_package_smoke
 if ensure_rust_env; then
   if native_runtime_supported; then
     dart test packages/connectanum_router/test/native/native_runtime_test.dart --concurrency=1
+    dart test packages/connectanum_router/test/remote_wamp_delegate_test.dart
     dart test packages/connectanum_router/test/remote_auth_integration_test.dart
   fi
   dart test packages/connectanum_router/test/router_worker_auth_test.dart

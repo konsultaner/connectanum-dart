@@ -261,6 +261,12 @@ class RemoteWampTransportConfig {
               ? Map<String, dynamic>.from(headers.cast<Object?, Object?>())
               : const <String, dynamic>{},
         );
+      case 'internal':
+        return RemoteWampTransportConfig._(
+          type: type,
+          serializer: serializer,
+          tls: tls,
+        );
       default:
         throw ArgumentError('Unsupported rpc.transport.type "$type".');
     }
@@ -1229,28 +1235,56 @@ class _RemoteWampPayloadCodec {
 }
 
 class RemoteWampDelegateRegistry {
-  static final Map<String, WampRemoteAuthenticatorDelegate> _delegates =
-      <String, WampRemoteAuthenticatorDelegate>{};
+  static final Map<String, RemoteAuthenticatorDelegate> _delegates =
+      <String, RemoteAuthenticatorDelegate>{};
 
-  static WampRemoteAuthenticatorDelegate forConfig(
+  static RemoteAuthenticatorDelegate forConfig(
     RemoteWampDelegateConfig config,
   ) {
+    if (config.transport.type == 'internal') {
+      final delegate = _delegates[config.cacheKey()];
+      if (delegate == null) {
+        throw StateError(
+          'Internal remote WAMP delegate is not registered for this worker.',
+        );
+      }
+      return delegate;
+    }
     return _delegates.putIfAbsent(
       config.cacheKey(),
       () => WampRemoteAuthenticatorDelegate(config),
     );
   }
 
+  static void registerInternal(
+    RemoteWampDelegateConfig config,
+    RemoteAuthenticatorDelegate delegate,
+  ) {
+    if (config.transport.type != 'internal') {
+      throw ArgumentError.value(
+        config.transport.type,
+        'config.transport.type',
+        'Expected internal transport.',
+      );
+    }
+    _delegates[config.cacheKey()] = delegate;
+  }
+
   static Future<void> warmUpForSettings(RouterSettings settings) async {
-    final futures = collectRemoteWampDelegateConfigsForSettings(
-      settings,
-    ).map((config) => forConfig(config).warmUpSession());
+    final futures = collectRemoteWampDelegateConfigsForSettings(settings)
+        .where((config) => config.transport.type != 'internal')
+        .map(
+          (config) => (forConfig(config) as WampRemoteAuthenticatorDelegate)
+              .warmUpSession(),
+        );
     await Future.wait(futures, eagerError: false);
   }
 
   static void clear() {
     for (final delegate in _delegates.values) {
-      delegate._invalidateSession();
+      if (delegate is WampRemoteAuthenticatorDelegate) {
+        delegate._invalidateSession();
+      }
     }
     _delegates.clear();
   }

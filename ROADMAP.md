@@ -267,11 +267,11 @@
     - [ ] Add internal transport support for router ↔ auth server chaining:
       - [x] Define the first in-process transport primitive with backpressure: `connectanum_client` now exports `InProcessTransportPair` / `InProcessTransport`, preserves WAMP messages as Dart objects, throws `InProcessTransportBackpressureException` on bounded peer queues, keeps queued messages until a receive listener attaches, and covers delivery, backpressure, normal client session handshakes, and peer-close behavior in the fast/full gates.
       - [x] Add a RouterSession-backed remote WAMP procedure delegate: `connectanum_router` now exports `RemoteWampProcedureDelegate`, `RouterSession.createRemoteWampAuthenticatorDelegate` adapts internal `CALL` results to the remote-auth WAMP contract, and the embedded auth-service smoke proves HELLO/AUTHENTICATE success without a loopback TCP delegate connection.
-      - [ ] Add worker-isolate/config wiring so live edge routers can select a worker-safe internal remote-auth delegate lane.
+      - [x] Add worker-isolate/config wiring so live edge routers can select a worker-safe internal remote-auth delegate lane. `rpc.transport.type: internal` now installs per-worker internal WAMP procedure delegates from router settings, opens a worker-local caller session in the auth-service realm, and dispatches HELLO/AUTHENTICATE to embedded auth procedures without using main-isolate `RemoteAuthenticatorRegistry` state.
       - [ ] Auth server hosts a router instance plus internal client that drives credential providers.
-      - [ ] Ensure configuration allows switching between TCP delegates and in-process delegates for testing.
-      - [ ] Extend unit/integration tests to cover internal-transport authentication flow.
-      - [ ] Prerequisite: RPC invocation and PUB/SUB dispatch must be implemented so the router can forward authentication RPCs end-to-end.
+      - [x] Ensure configuration allows switching between TCP delegates and in-process delegates for testing.
+      - [x] Extend unit/integration tests to cover internal-transport authentication flow.
+      - [x] Prerequisite: RPC invocation and PUB/SUB dispatch must be implemented so the router can forward authentication RPCs end-to-end. The internal remote-auth delegate now exercises `RealmContext.dispatchInvocation` against embedded auth procedures in worker isolates, while existing router pub/sub coverage remains in the fast/full gates.
     - [ ] Add shared message-flow abstraction (PUB/SUB ~ REGISTER/CALL):
       - [ ] Extract reusable primitives for routing requests, tracking responders, and emitting replies/events.
       - [ ] Ensure new abstraction is covered by unit tests for both publish/event and call/result paths.
@@ -320,9 +320,9 @@
 - [ ] Internal transport support for embedded router↔client flows
   - [x] Define in-process transport abstraction (frame routing with backpressure). `connectanum_client` now exports `InProcessTransportPair` / `InProcessTransport`, preserves WAMP messages as Dart objects, throws `InProcessTransportBackpressureException` on bounded peer queues, keeps queued messages until a receive listener attaches, and covers delivery, backpressure, normal client session handshakes, and peer-close behavior in the fast/full gates.
   - [x] Embed internal session bridge for remote-auth WAMP procedures. `RouterSession.createRemoteWampAuthenticatorDelegate` lets an internal router session speak the existing `RemoteAuthenticatorDelegate` contract, and the embedded auth-service smoke exercises HELLO/AUTHENTICATE through that bridge.
-  - [ ] Wire worker-safe configuration so external edge sessions can select the internal delegate lane instead of depending on main-isolate delegate registration
+  - [x] Wire worker-safe configuration so external edge sessions can select the internal delegate lane instead of depending on main-isolate delegate registration
   - [ ] Auth server runs router instance + internal client that talks to credential providers
-  - [ ] Wire configuration knobs for selecting internal vs TCP transports
+  - [x] Wire configuration knobs for selecting internal vs TCP transports
   - [ ] Migrate existing delegate tests/examples to the internal transport once available
 - [ ] End-to-end smoke tests (native runtime ↔ router ↔ client)
 - [ ] Benchmarks (throughput/latency per worker configuration)
