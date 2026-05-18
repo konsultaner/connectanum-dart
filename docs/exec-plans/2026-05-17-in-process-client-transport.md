@@ -1,11 +1,11 @@
 # In-Process Client Transport
 
-Status: fourth router/auth-service embedding slice is implemented locally after
-the first transport-foundation slice plus the second and third
-RouterSession-backed/internal-delegate slices were pushed and hosted-clean.
-`connectanum_auth_server` now owns the reusable router/internal-session
-lifecycle through `AuthServerRouterBinding`, the packaged executable uses that
-binding, and focused package coverage plus post-edit `bin/test-fast` are clean.
+Status: fifth embedded-application readiness slice is implemented locally after
+the fourth router/auth-service embedding slice was committed and pushed as
+`061dc7f`. The RC path for embedded router work stays on the existing
+`RouterSession` bridge. A lower-level router endpoint backed by
+`InProcessTransportPair` is deferred until a consumer integration needs a
+normal `connectanum_client.Client` handshake over an in-memory router endpoint.
 
 ## Goal
 
@@ -43,6 +43,14 @@ serve as the frame pipe for embedded router/auth-server chaining.
 - Wire the packaged `auth_server` executable through that binding and prove a
   binding-owned router serves ticket-backed remote auth through an internal
   WAMP delegate.
+- Keep the next internal lane on `RouterSession` for RC readiness instead of
+  introducing a lower-level in-process router endpoint without a concrete
+  consumer need.
+- Add client-like `RouterSession` helpers for single-result RPC calls plus
+  registration/subscription handler setup.
+- Prove a neutral embedded service/application pair can use those helpers for
+  RPC and pub/sub without socket coordinates, and wire that smoke into
+  `bin/test-fast` on native-capable hosts.
 
 ## Verification
 
@@ -106,12 +114,23 @@ serve as the frame pipe for embedded router/auth-server chaining.
   passed on 2026-05-18.
 - Post-edit `bin/test-fast`: passed on 2026-05-18.
 - Full local `bin/verify`: passed on 2026-05-18.
+- Hosted evidence for `061dc7f` is clean: push CI #26010391730, PR CI
+  #26010392680, push Dart Package Publish Dry Run #26010391747, PR Dart
+  Package Publish Dry Run #26010392674, and WAMP Profile Benchmarks
+  #26010764055 passed on 2026-05-18.
+- Strict deployment-chain audit with latest CI/logs, package dry-run, Router
+  Image dry-run relevance, WAMP benchmark, native release relevance, workflow
+  visibility, GHCR visibility, and RC-readiness reporting passed for the
+  enforced gates on 2026-05-18. RC readiness remains blocked by PR #79
+  review/merge, fresh RC tag/prerelease approval, and tag-matched release
+  evidence; pub.dev remains intentionally deferred.
+- Focused `dart analyze packages/connectanum_router/lib/src/router/router_instance.dart packages/connectanum_router/test/router_embedded_application_test.dart`:
+  passed on 2026-05-18.
+- Focused `dart test packages/connectanum_router/test/router_embedded_application_test.dart -r expanded`:
+  passed on 2026-05-18.
+- Post-edit `bin/test-fast`: passed on 2026-05-18.
+- Full local `bin/verify`: passed on 2026-05-18.
 
 ## Remaining
 
-- Decide whether the next internal lane should connect through the existing
-  `RouterSession` bridge or map a lower-level internal endpoint onto
-  `InProcessTransportPair`.
-- Gather full local `bin/verify`, hosted CI/dry-run evidence, and strict audit
-  evidence for the local `AuthServerRouterBinding` checkpoint after it is
-  pushed.
+- Push and gather hosted CI/dry-run evidence for this local checkpoint.

@@ -631,6 +631,38 @@ class RouterSession {
     return registered;
   }
 
+  Future<registered_msg.Registered> registerHandler(
+    String procedure,
+    FutureOr<void> Function(invocation_msg.Invocation invocation) onInvoke, {
+    register_msg.RegisterOptions? options,
+  }) async {
+    final registered = await register(procedure, options: options);
+    registered.onInvoke(onInvoke);
+    return registered;
+  }
+
+  Future<registered_msg.Registered> registerPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(invocation_msg.InvocationPayload invocation)
+    onInvoke, {
+    register_msg.RegisterOptions? options,
+  }) async {
+    final registered = await register(procedure, options: options);
+    registered.onInvokePayload(onInvoke);
+    return registered;
+  }
+
+  Future<registered_msg.Registered> registerLazyPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(invocation_msg.LazyInvocationPayload invocation)
+    onInvoke, {
+    register_msg.RegisterOptions? options,
+  }) async {
+    final registered = await register(procedure, options: options);
+    registered.onLazyInvokePayload(onInvoke);
+    return registered;
+  }
+
   Future<void> unregister(int registrationId) async {
     await _sendCommand(_internalCmdUnregister, <String, Object?>{
       'registrationId': registrationId,
@@ -652,6 +684,36 @@ class RouterSession {
             as int;
     final subscribed = subscribed_msg.Subscribed(requestId, subscriptionId);
     _subscriptions[subscriptionId] = subscribed;
+    return subscribed;
+  }
+
+  Future<subscribed_msg.Subscribed> subscribeHandler(
+    String topic,
+    void Function(event_msg.Event event) onEvent, {
+    subscribe_msg.SubscribeOptions? options,
+  }) async {
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onEvent(onEvent);
+    return subscribed;
+  }
+
+  Future<subscribed_msg.Subscribed> subscribePayloadHandler(
+    String topic,
+    void Function(event_msg.EventPayload event) onEvent, {
+    subscribe_msg.SubscribeOptions? options,
+  }) async {
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onEventPayload(onEvent);
+    return subscribed;
+  }
+
+  Future<subscribed_msg.Subscribed> subscribeLazyPayloadHandler(
+    String topic,
+    void Function(event_msg.LazyEventPayload event) onEvent, {
+    subscribe_msg.SubscribeOptions? options,
+  }) async {
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onLazyEventPayload(onEvent);
     return subscribed;
   }
 
@@ -783,6 +845,105 @@ class RouterSession {
       });
     }
     return controller.stream;
+  }
+
+  Future<result_msg.Result> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    return callSingleWithLazyPayload(
+      procedure,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  Future<result_msg.Result> callSingleWithLazyPayload(
+    String procedure, {
+    required LazyMessagePayload payload,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) async {
+    final result = await callSingleLazyPayloadView(
+      procedure,
+      payload: payload,
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+    return result_msg.resultFromLazyPayload(result);
+  }
+
+  Future<ResultPayload> callSinglePayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    return callSinglePayloadWithLazyPayload(
+      procedure,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  Future<ResultPayload> callSinglePayloadWithLazyPayload(
+    String procedure, {
+    required LazyMessagePayload payload,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) async {
+    final result = await callSingleLazyPayloadView(
+      procedure,
+      payload: payload,
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+    return result.toPayload();
+  }
+
+  Future<result_msg.LazyResultPayload> callSingleLazyPayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    return callSingleLazyPayloadView(
+      procedure,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  Future<result_msg.LazyResultPayload> callSingleLazyPayloadView(
+    String procedure, {
+    required LazyMessagePayload payload,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) async {
+    final result = await callLazyPayload(
+      procedure,
+      payload: payload,
+      options: options,
+      cancelCompleter: cancelCompleter,
+    ).firstWhere((result) => !result.isProgressive());
+    return result.toLazyResultPayload(anchor: result);
   }
 
   Map<String, Object?> _registerOptionsToMap(

@@ -20,7 +20,31 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-The fourth internal auth-service embedding slice is implemented locally.
+The fifth internal embedded-application readiness slice is implemented
+locally. The router-side internal lane stays on `RouterSession` for RC
+readiness; mapping a lower-level router endpoint onto `InProcessTransportPair`
+is deferred until a consumer integration needs a normal `Client` handshake over
+an in-memory router endpoint. `RouterSession` now exposes client-like
+single-result RPC helpers plus registration/subscription handler helpers, so
+embedded services and consumer applications can call, register, and subscribe
+without stream-final-result boilerplate or socket coordinates. The new
+`router_embedded_application_test.dart` starts a real native-backed router,
+creates neutral service/application internal sessions, proves RPC through
+`callSinglePayload`/`registerHandler`, proves pub/sub through
+`subscribePayloadHandler`, and is wired into `bin/test-fast` on native-capable
+hosts. Focused
+`dart analyze packages/connectanum_router/lib/src/router/router_instance.dart packages/connectanum_router/test/router_embedded_application_test.dart`,
+focused
+`dart test packages/connectanum_router/test/router_embedded_application_test.dart -r expanded`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-18.
+RC readiness remains blocked by PR #79 review/merge into `master`, choosing a
+fresh approved RC tag/prerelease for the promoted branch successor, and
+tag-matched Native Artifacts/Router Image publish evidence; pub.dev remains
+intentionally deferred.
+
+Previous implementation checkpoint:
+The fourth internal auth-service embedding slice was committed and pushed as
+`061dc7f`.
 `connectanum_auth_server` now exposes `AuthServerRouterBinding`, a reusable
 lifecycle helper that can start an owned router/runtime or attach to an
 existing `RouterBinding`, create the internal auth-service session, bind the
@@ -33,7 +57,14 @@ ticket-backed remote auth through an internal WAMP delegate without test-only
 harness assumptions. Focused `dart analyze packages/connectanum_auth_server`,
 focused `dart test packages/connectanum_auth_server/test -r expanded`, and
 post-edit `bin/test-fast` passed on 2026-05-18. Full local `bin/verify`
-passed on 2026-05-18; hosted evidence is pending for this local checkpoint.
+passed on 2026-05-18. Hosted evidence for `061dc7f` is clean for the enforced
+branch gates: push CI #26010391730, PR CI #26010392680, push Dart Package
+Publish Dry Run #26010391747, PR Dart Package Publish Dry Run #26010392674,
+and WAMP Profile Benchmarks #26010764055 passed. The strict
+deployment-chain audit with latest CI/logs, package dry-run, Router Image
+dry-run relevance, WAMP benchmark, native release relevance, workflow
+visibility, GHCR visibility, and RC-readiness reporting passed for the
+enforced gates on 2026-05-18.
 RC readiness remains blocked by PR #79 review/merge into `master`, choosing a
 fresh approved RC tag/prerelease for the promoted branch successor, and
 tag-matched Native Artifacts/Router Image publish evidence; pub.dev remains
