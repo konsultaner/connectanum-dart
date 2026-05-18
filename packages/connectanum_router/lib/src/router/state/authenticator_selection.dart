@@ -143,11 +143,17 @@ AuthenticatorSelection? createAuthenticatorSelectionForMethod({
 TransportMetadata buildTransportMetadata({
   required RouterListener listener,
   required int connectionId,
+  String? protocol,
+  String? websocketProtocol,
+  String? websocketSerializer,
 }) {
   return TransportMetadata(
     connectionId: connectionId,
     peerAddress: null,
     isEncrypted: listener.endpoint.tlsMode != TlsMode.disabled,
+    protocol: protocol,
+    websocketProtocol: websocketProtocol,
+    websocketSerializer: websocketSerializer,
   );
 }
 

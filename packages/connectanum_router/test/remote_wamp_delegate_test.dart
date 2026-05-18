@@ -3,7 +3,9 @@ library;
 
 import 'dart:io';
 
+import 'package:connectanum_router/src/router/auth/remote_authenticator.dart';
 import 'package:connectanum_router/src/router/auth/remote_wamp_delegate.dart';
+import 'package:connectanum_router/src/router/config/authenticator.dart';
 import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 import 'package:connectanum_router/src/router/config/router_settings.dart';
 import 'package:test/test.dart';
@@ -203,6 +205,60 @@ void main() {
         await config.connectionFingerprint(),
         isNot(equals(fingerprintBefore)),
       );
+    });
+  });
+
+  group('RemoteWampProcedureDelegate', () {
+    test('forwards negotiated transport metadata in hello payloads', () async {
+      Map<String, Object?>? capturedPayload;
+      final delegate = RemoteWampProcedureDelegate(
+        call: (procedure, {argumentsKeywords}) async {
+          expect(procedure, 'authenticate.hello');
+          capturedPayload = argumentsKeywords;
+          return const RemoteWampProcedureCallResult(
+            argumentsKeywords: <String, Object?>{
+              'status': 'success',
+              'authId': 'user-1',
+              'authRole': 'member',
+            },
+          );
+        },
+      );
+      final realm = _realm();
+
+      final response = await delegate.onHello(
+        RemoteHelloRequest(
+          realmSettings: realm,
+          context: AuthenticatorContext(
+            realm: realm,
+            sessionId: 123,
+            transport: const TransportMetadata(
+              connectionId: 456,
+              peerAddress: '127.0.0.1:54321',
+              isEncrypted: true,
+              protocol: 'websocket',
+              websocketProtocol: 'wamp.2.cbor',
+              websocketSerializer: 'cbor',
+            ),
+            helloDetails: const <String, Object?>{
+              'authid': 'user-1',
+              'authmethods': <String>['ticket'],
+            },
+          ),
+          options: const <String, Object?>{},
+          transactionId: 'txn-1',
+        ),
+      );
+
+      expect(response.status, RemoteHelloStatus.success);
+      final hello = capturedPayload?['hello'] as Map<String, Object?>?;
+      final transport = hello?['transport'] as Map<String, Object?>?;
+      expect(transport, containsPair('connectionId', 456));
+      expect(transport, containsPair('peerAddress', '127.0.0.1:54321'));
+      expect(transport, containsPair('isEncrypted', true));
+      expect(transport, containsPair('protocol', 'websocket'));
+      expect(transport, containsPair('websocketProtocol', 'wamp.2.cbor'));
+      expect(transport, containsPair('websocketSerializer', 'cbor'));
     });
   });
 }

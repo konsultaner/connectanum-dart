@@ -4728,6 +4728,7 @@ class RouterBinding {
       transport: buildTransportMetadata(
         listener: request.listener,
         connectionId: request.connectionId,
+        protocol: request.protocol,
       ),
       helloDetails: helloDetails,
     );
@@ -5314,6 +5315,7 @@ class RouterBinding {
         transport: buildTransportMetadata(
           listener: request.listener,
           connectionId: request.connectionId,
+          protocol: request.protocol,
         ),
         sessionProfileName: sessionProfile?.name,
       ),

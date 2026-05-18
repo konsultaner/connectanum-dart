@@ -21,11 +21,24 @@ class TransportMetadata {
     required this.connectionId,
     this.peerAddress,
     this.isEncrypted = false,
+    this.protocol,
+    this.websocketProtocol,
+    this.websocketSerializer,
   });
 
   final int connectionId;
   final String? peerAddress;
   final bool isEncrypted;
+
+  /// Transport protocol reported by the router/runtime, for example
+  /// `rawsocket`, `websocket`, `http/1.1`, `http/2`, or `http/3`.
+  final String? protocol;
+
+  /// Negotiated WAMP-over-WebSocket subprotocol, when applicable.
+  final String? websocketProtocol;
+
+  /// Serializer advertised by the negotiated WebSocket subprotocol.
+  final String? websocketSerializer;
 }
 
 /// Represents the AUTHENTICATE frame from a client.

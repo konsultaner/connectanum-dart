@@ -980,6 +980,13 @@ class _RemoteWampPayloadCodec {
           if (request.context.transport.peerAddress != null)
             'peerAddress': request.context.transport.peerAddress,
           'isEncrypted': request.context.transport.isEncrypted,
+          if (request.context.transport.protocol != null)
+            'protocol': request.context.transport.protocol,
+          if (request.context.transport.websocketProtocol != null)
+            'websocketProtocol': request.context.transport.websocketProtocol,
+          if (request.context.transport.websocketSerializer != null)
+            'websocketSerializer':
+                request.context.transport.websocketSerializer,
         },
       },
       'auth_token': ?authToken,

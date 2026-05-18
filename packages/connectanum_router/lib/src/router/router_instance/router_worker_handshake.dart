@@ -148,6 +148,13 @@ Future<void> _handleHello(
       transport: buildTransportMetadata(
         listener: state.listener,
         connectionId: connectionId,
+        protocol: listenerProtocolToString(
+          state.protocol ??
+              state.listenerSettings.primaryProtocol ??
+              ListenerProtocol.rawsocket,
+        ),
+        websocketProtocol: state.websocketProtocol,
+        websocketSerializer: state.websocketSerializer,
       ),
       helloDetails: helloDetailsToMap(hello.details),
     );

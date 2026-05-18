@@ -20,18 +20,44 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
-Deployment-chain CI log auditing is hardened locally. `--scan-latest-ci-logs`
-and `--require-clean-latest-ci-logs` now enumerate all completed CI runs for the
-checked-out head on the audited branch before scanning logs and warning/error
-annotations, so a clean latest PR CI run can no longer mask a noisy same-head
-push CI run. Coverage includes a fake-`gh` regression where the latest CI run is
-clean but an older same-head CI run has warning/log noise, plus the clean
-same-head multi-run path. Pre-edit `bin/test-fast`,
+Router auth/session transport metadata is implemented locally and verified for
+downstream/consumer authentication readiness. `TransportMetadata` now carries
+the negotiated protocol plus WebSocket subprotocol and serializer when known.
+Worker WAMP handshakes populate those fields from the native/runtime listener
+state, HTTP auth bridge and bearer-provider contexts carry the request protocol,
+and remote WAMP auth HELLO payloads forward the metadata to auth services.
+Coverage includes the worker remote-auth regression for WebSocket protocol
+metadata, a direct `RemoteWampProcedureDelegate` payload regression, focused
+analyzer coverage for the touched router files, focused
+`remote_wamp_delegate_test.dart` + `router_worker_auth_test.dart`, pre-edit
+`bin/test-fast`, and final full local `bin/verify` on 2026-05-18. Hosted
+CI/dry-run evidence is pending for the next pushed head. RC readiness remains
+blocked by PR #79 review/merge, a fresh approved RC tag/prerelease, and
+tag-matched Native/Router release evidence; pub.dev remains intentionally
+deferred.
+
+Previous implementation checkpoint:
+Deployment-chain CI log auditing is hardened and hosted-verified.
+`--scan-latest-ci-logs` and `--require-clean-latest-ci-logs` now enumerate all
+completed CI runs for the checked-out head on the audited branch before scanning
+logs and warning/error annotations, so a clean latest PR CI run can no longer
+mask a noisy same-head push CI run. Coverage includes a fake-`gh` regression
+where the latest CI run is clean but an older same-head CI run has warning/log
+noise, plus the clean same-head multi-run path. Pre-edit `bin/test-fast`,
 `bash -n bin/audit-github-deployment-chain`, py-compile for
 `tool/test_audit_github_deployment_chain.py`, focused Python unittest coverage,
 a real same-head CI-log audit over PR CI #26017884769 and push CI #26017883326,
 and post-edit `bin/test-fast` passed on 2026-05-18. Full local `bin/verify`
-also passed on 2026-05-18.
+also passed on 2026-05-18. The slice was committed and pushed as `28839c2`;
+hosted PR CI #26020392447, push CI #26020390424, and PR Dart Package Publish
+Dry Run #26020392500 completed successfully for that head. The strict
+deployment-chain audit with latest CI/logs, Dart package dry-run, native release
+evidence, Router Image dry-run, WAMP benchmark, workflow visibility, GHCR
+visibility, and RC-readiness reporting passed the enforced gates on
+2026-05-18, and the CI log gate scanned both same-head CI runs. RC readiness
+remains blocked by PR #79 review/merge, a fresh approved RC tag/prerelease, and
+tag-matched Native/Router release evidence; pub.dev remains intentionally
+deferred.
 
 Previous implementation checkpoint:
 `bin/test-all` browser WebSocket retry reporting is hardened locally. Non-final
