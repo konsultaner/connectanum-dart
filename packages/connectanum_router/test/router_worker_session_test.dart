@@ -2845,6 +2845,229 @@ void main() {
       expect(frame[4], equals(wamp_core.Error.noSuchProcedure));
     });
 
+    test('serves standard WAMP meta procedure calls directly', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final callerState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      callerState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 702;
+
+      _openSession(
+        stateStore,
+        sessionId: 702,
+        listener: listener,
+        connectionId: 46,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final registerReply = ReceivePort();
+      stateStore.commandPort.send(
+        ProcedureRegisterCommand(
+          realmUri: 'realm1',
+          sessionId: 702,
+          procedure: 'com.direct.meta.proc',
+          details: const {},
+          replyPort: registerReply.sendPort,
+        ),
+      );
+      final registrationId = await registerReply.first as int;
+      registerReply.close();
+
+      final subscribeReply = ReceivePort();
+      stateStore.commandPort.send(
+        SubscriptionAddCommand(
+          realmUri: 'realm1',
+          sessionId: 702,
+          topic: 'com.direct.meta.topic',
+          matchPolicy: TopicMatchPolicy.exact,
+          details: const {},
+          replyPort: subscribeReply.sendPort,
+        ),
+      );
+      final subscriptionId = await subscribeReply.first as int;
+      subscribeReply.close();
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      addTearDown(realmContexts.dispose);
+
+      Future<List<dynamic>> callMeta(call_msg.Call call) async {
+        bossMessages.clear();
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 46,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final workerSend = _extractWorkerSend(bossMessages);
+        return jsonDecode(utf8.decode(workerSend['payload'] as Uint8List))
+            as List<dynamic>;
+      }
+
+      final sessionCount = await callMeta(
+        call_msg.Call(4201, 'wamp.session.count'),
+      );
+      expect(sessionCount.first, equals(MessageTypes.codeResult));
+      expect(sessionCount[1], equals(4201));
+      expect((sessionCount[4] as Map<String, Object?>)['count'], equals(1));
+
+      final sessionList = await callMeta(
+        call_msg.Call(4202, 'wamp.session.list'),
+      );
+      expect(
+        ((sessionList[4] as Map<String, Object?>)['session_ids'] as List),
+        equals([702]),
+      );
+
+      final sessionGet = await callMeta(
+        call_msg.Call(4203, 'wamp.session.get', arguments: [702]),
+      );
+      expect(
+        ((sessionGet[4] as Map<String, Object?>)['details']
+            as Map<String, Object?>)['id'],
+        equals(702),
+      );
+
+      final registrationList = await callMeta(
+        call_msg.Call(4204, 'wamp.registration.list'),
+      );
+      expect(
+        (registrationList[4] as Map<String, Object?>)['exact'],
+        contains(registrationId),
+      );
+
+      final registrationLookup = await callMeta(
+        call_msg.Call(
+          4205,
+          'wamp.registration.lookup',
+          argumentsKeywords: const {
+            'procedure': 'com.direct.meta.proc',
+            'match': 'exact',
+          },
+        ),
+      );
+      expect(registrationLookup[3], equals([registrationId]));
+
+      final registrationMatch = await callMeta(
+        call_msg.Call(
+          4206,
+          'wamp.registration.match',
+          arguments: const ['com.direct.meta.proc'],
+        ),
+      );
+      expect(registrationMatch[3], equals([registrationId]));
+
+      final registrationGet = await callMeta(
+        call_msg.Call(
+          4207,
+          'wamp.registration.get',
+          arguments: [registrationId],
+        ),
+      );
+      expect(
+        (registrationGet[4] as Map<String, Object?>)['uri'],
+        equals('com.direct.meta.proc'),
+      );
+
+      final callees = await callMeta(
+        call_msg.Call(
+          4208,
+          'wamp.registration.list_callees',
+          arguments: [registrationId],
+        ),
+      );
+      expect(callees[3], equals([702]));
+
+      final calleeCount = await callMeta(
+        call_msg.Call(
+          4209,
+          'wamp.registration.count_callees',
+          arguments: [registrationId],
+        ),
+      );
+      expect(calleeCount[3], equals([1]));
+
+      final subscriptionList = await callMeta(
+        call_msg.Call(4210, 'wamp.subscription.list'),
+      );
+      expect(
+        (subscriptionList[4] as Map<String, Object?>)['exact'],
+        contains(subscriptionId),
+      );
+
+      final subscriptionLookup = await callMeta(
+        call_msg.Call(
+          4211,
+          'wamp.subscription.lookup',
+          argumentsKeywords: const {
+            'topic': 'com.direct.meta.topic',
+            'match': 'exact',
+          },
+        ),
+      );
+      expect(subscriptionLookup[3], equals([subscriptionId]));
+
+      final subscriptionMatch = await callMeta(
+        call_msg.Call(
+          4212,
+          'wamp.subscription.match',
+          arguments: const ['com.direct.meta.topic'],
+        ),
+      );
+      expect(subscriptionMatch[3], equals([subscriptionId]));
+
+      final subscriptionGet = await callMeta(
+        call_msg.Call(
+          4213,
+          'wamp.subscription.get',
+          arguments: [subscriptionId],
+        ),
+      );
+      expect(
+        (subscriptionGet[4] as Map<String, Object?>)['uri'],
+        equals('com.direct.meta.topic'),
+      );
+
+      final subscribers = await callMeta(
+        call_msg.Call(
+          4214,
+          'wamp.subscription.list_subscribers',
+          arguments: [subscriptionId],
+        ),
+      );
+      expect(subscribers[3], equals([702]));
+
+      final subscriberCount = await callMeta(
+        call_msg.Call(
+          4215,
+          'wamp.subscription.count_subscribers',
+          arguments: [subscriptionId],
+        ),
+      );
+      expect(subscriberCount[3], equals([1]));
+    });
+
     test('rejects second REGISTER for non-shared procedure', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()

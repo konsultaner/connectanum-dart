@@ -287,7 +287,10 @@
 
 ### Introspection & Testing
 
-- [ ] WAMP meta API (session, subscription, registration listings)
+- [x] WAMP meta API (session, subscription, registration listings). Ordinary
+  WAMP `CALL`s now serve standard session, registration, and subscription meta
+  listings/details directly from router worker sessions, with
+  authorization-scoped visibility and live WebSocket client coverage.
 - [ ] Caller tracing & diagnostic events
 - [ ] Administrative control interface (pause/resume realm, drain connections)
 - [ ] Replay/testing hooks (record & replay message streams)

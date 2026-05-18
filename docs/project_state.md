@@ -20,6 +20,21 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+Ordinary WAMP meta procedure access is implemented and locally verified for
+downstream/consumer applications that use normal WAMP clients instead of the
+router-hosted MCP/direct JSON facade. Router worker sessions now intercept the
+standard session, registration, and subscription meta procedure URIs before
+normal registration dispatch, return authorization-scoped listings/details, and
+surface standard `no_such_session`, `no_such_procedure`, and
+`no_such_subscription` errors for missing IDs. Coverage includes a direct
+worker-session regression for the full session/registration/subscription meta
+matrix and a live native-backed WebSocket client smoke proving a normal client
+can call the meta API without private project assumptions. Pre-edit
+`bin/test-fast`, focused router analyzer, the focused worker-session meta test,
+the focused live WebSocket meta smoke, post-edit `bin/test-fast`, and full local
+`bin/verify` passed on 2026-05-18.
+
+Previous implementation checkpoint:
 The WAMP cancel-mode conformance slice is implemented locally. The router now
 has a focused worker-session regression proving that non-standard
 `CANCEL.Options.mode: "killall"` is rejected as `wamp.error.invalid_argument`
@@ -33,7 +48,16 @@ focused
 and focused
 `dart test packages/connectanum_router/test/router_worker_session_test.dart --name "CANCEL|cancel" --chain-stack-traces`
 passed on 2026-05-18. Post-edit `bin/test-fast` and full local `bin/verify`
-also passed on 2026-05-18.
+also passed on 2026-05-18. The slice was committed and pushed as `198ef74`;
+hosted push/PR CI and push/PR Dart Package Publish Dry Run runs completed
+successfully for that head on 2026-05-18. The deployment-chain sensitivity
+scan found no Native Artifacts, Router Image, or WAMP Profile Benchmark input
+changes since the previous hosted router/benchmark evidence. The strict branch
+audit passed the enforced gates for latest CI/logs, Dart package dry-run,
+workflow visibility, GHCR router package visibility, and relevant
+Native/Router/WAMP evidence; RC readiness remains blocked by PR #79
+review/merge, a fresh approved RC tag/prerelease, and tag-matched Native
+Artifacts/Router Image release evidence.
 
 Previous implementation checkpoint:
 The fifth internal embedded-application readiness slice was committed and
