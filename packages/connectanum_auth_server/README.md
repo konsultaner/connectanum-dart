@@ -17,6 +17,9 @@ Status: workspace package, currently `publish_to: none`.
 - `AuthServerProcedureBinding`
   Registers the WAMP procedures that expose the remote-auth contract on a
   router session.
+- `AuthServerRouterBinding`
+  Starts or attaches to a router binding, creates the internal service session,
+  registers auth procedures, and owns shutdown for embedded auth services.
 
 The default procedure names are:
 
@@ -73,13 +76,14 @@ Future<void> main() async {
 
   final authServer = AuthServer(settings: settings);
 
-  final runtime = NativeTransportRuntime()..start();
-  final router = Router(
-    RouterConfig(
+  final binding = await AuthServerRouterBinding.start(
+    server: authServer,
+    config: RouterConfig(
       endpoints: [
         Endpoint(
           host: '127.0.0.1',
           port: 8085,
+          tlsMode: TlsMode.disabled,
           webSocketPath: '/ws',
           maxRawSocketSizeExponent: 16,
         ),
@@ -91,18 +95,7 @@ Future<void> main() async {
           ))
         .build(),
   );
-
-  final binding = router.start(runtime);
-  final session = await binding.createInternalSession(
-    realmUri: 'connectanum.authenticate',
-    authId: 'auth-service',
-    authRole: 'internal',
-  );
-
-  await AuthServerProcedureBinding.bind(
-    server: authServer,
-    session: session,
-  );
+  // Keep `binding` alive while the embedded auth service should run.
 }
 ```
 

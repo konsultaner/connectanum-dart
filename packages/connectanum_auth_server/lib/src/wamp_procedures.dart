@@ -6,6 +6,172 @@ import 'package:connectanum_router/connectanum_router.dart';
 
 import 'auth_server.dart';
 
+class AuthServerRouterBinding {
+  AuthServerRouterBinding._({
+    required this.router,
+    required this.session,
+    required this.procedures,
+    NativeTransportRuntime? ownedRuntime,
+    bool ownsRouter = false,
+  }) : _ownedRuntime = ownedRuntime,
+       _ownsRouter = ownsRouter;
+
+  final RouterBinding router;
+  final RouterSession session;
+  final AuthServerProcedureBinding procedures;
+
+  final NativeTransportRuntime? _ownedRuntime;
+  final bool _ownsRouter;
+  bool _closed = false;
+
+  static Future<AuthServerRouterBinding> start({
+    required AuthServer server,
+    required RouterConfig config,
+    required RouterSettings settings,
+    String? nativeLibPath,
+    String realmUri = 'connectanum.authenticate',
+    String authId = 'auth-service',
+    String authRole = 'internal',
+    String helloProcedure = 'authenticate.hello',
+    String authenticateProcedure = 'authenticate.authenticate',
+    String abortProcedure = 'authenticate.abort',
+    Duration workerPollInterval = const Duration(milliseconds: 1),
+    Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
+    void Function(Object event)? onEvent,
+  }) async {
+    final runtime = NativeTransportRuntime(libraryPath: nativeLibPath);
+    RouterBinding? router;
+    try {
+      runtime.start();
+      router = Router(config, settings: settings).start(
+        runtime,
+        workerPollInterval: workerPollInterval,
+        httpRouteHandlers: httpRouteHandlers,
+        onEvent: onEvent,
+      );
+      return await _bind(
+        server: server,
+        router: router,
+        realmUri: realmUri,
+        authId: authId,
+        authRole: authRole,
+        helloProcedure: helloProcedure,
+        authenticateProcedure: authenticateProcedure,
+        abortProcedure: abortProcedure,
+        ownedRuntime: runtime,
+        ownsRouter: true,
+      );
+    } catch (_) {
+      try {
+        await router?.dispose();
+      } catch (_) {}
+      try {
+        runtime.shutdown();
+      } catch (_) {}
+      runtime.dispose();
+      rethrow;
+    }
+  }
+
+  static Future<AuthServerRouterBinding> bind({
+    required AuthServer server,
+    required RouterBinding router,
+    String realmUri = 'connectanum.authenticate',
+    String authId = 'auth-service',
+    String authRole = 'internal',
+    String helloProcedure = 'authenticate.hello',
+    String authenticateProcedure = 'authenticate.authenticate',
+    String abortProcedure = 'authenticate.abort',
+  }) {
+    return _bind(
+      server: server,
+      router: router,
+      realmUri: realmUri,
+      authId: authId,
+      authRole: authRole,
+      helloProcedure: helloProcedure,
+      authenticateProcedure: authenticateProcedure,
+      abortProcedure: abortProcedure,
+    );
+  }
+
+  static Future<AuthServerRouterBinding> _bind({
+    required AuthServer server,
+    required RouterBinding router,
+    required String realmUri,
+    required String authId,
+    required String authRole,
+    required String helloProcedure,
+    required String authenticateProcedure,
+    required String abortProcedure,
+    NativeTransportRuntime? ownedRuntime,
+    bool ownsRouter = false,
+  }) async {
+    final session = await router.createInternalSession(
+      realmUri: realmUri,
+      authId: authId,
+      authRole: authRole,
+    );
+    AuthServerProcedureBinding? procedures;
+    try {
+      procedures = await AuthServerProcedureBinding.bind(
+        server: server,
+        session: session,
+        helloProcedure: helloProcedure,
+        authenticateProcedure: authenticateProcedure,
+        abortProcedure: abortProcedure,
+      );
+      return AuthServerRouterBinding._(
+        router: router,
+        session: session,
+        procedures: procedures,
+        ownedRuntime: ownedRuntime,
+        ownsRouter: ownsRouter,
+      );
+    } catch (_) {
+      try {
+        await procedures?.close();
+      } catch (_) {}
+      try {
+        await session.close();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  Future<void> close() async {
+    if (_closed) {
+      return;
+    }
+    _closed = true;
+
+    Object? firstError;
+
+    Future<void> record(FutureOr<void> Function() action) async {
+      try {
+        await action();
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+
+    await record(procedures.close);
+    await record(session.close);
+    if (_ownsRouter) {
+      await record(router.dispose);
+    }
+    final runtime = _ownedRuntime;
+    if (runtime != null) {
+      await record(runtime.shutdown);
+      await record(runtime.dispose);
+    }
+
+    if (firstError != null) {
+      throw firstError!;
+    }
+  }
+}
+
 class AuthServerProcedureBinding {
   AuthServerProcedureBinding._({
     required AuthServer server,

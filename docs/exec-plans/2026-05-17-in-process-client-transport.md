@@ -1,10 +1,11 @@
 # In-Process Client Transport
 
-Status: third router/auth-service embedding slice is implemented locally after
-the first transport-foundation slice and second RouterSession-backed delegate
-slice were pushed and hosted-clean. The router now supports
-`rpc.transport.type: internal` for worker-safe embedded remote-auth WAMP
-delegates, and the live external-client smoke is part of `bin/test-fast`.
+Status: fourth router/auth-service embedding slice is implemented locally after
+the first transport-foundation slice plus the second and third
+RouterSession-backed/internal-delegate slices were pushed and hosted-clean.
+`connectanum_auth_server` now owns the reusable router/internal-session
+lifecycle through `AuthServerRouterBinding`, the packaged executable uses that
+binding, and focused package coverage plus post-edit `bin/test-fast` are clean.
 
 ## Goal
 
@@ -35,6 +36,13 @@ serve as the frame pipe for embedded router/auth-server chaining.
   `RemoteAuthenticatorRegistry` state.
 - Prove a live external WebSocket client can authenticate through embedded
   auth-service procedures using `rpc.transport.type: internal`.
+- Add an auth-server package binding that owns or attaches to a router,
+  creates the internal auth-service session, binds remote-auth procedures, and
+  closes the owned lifecycle without requiring callers to copy router test
+  harness setup.
+- Wire the packaged `auth_server` executable through that binding and prove a
+  binding-owned router serves ticket-backed remote auth through an internal
+  WAMP delegate.
 
 ## Verification
 
@@ -61,7 +69,6 @@ serve as the frame pipe for embedded router/auth-server chaining.
   passed on 2026-05-18.
 - Post-edit `bin/test-fast`: passed on 2026-05-18.
 - Full local `bin/verify`: passed on 2026-05-18.
-- Full local `bin/verify`: passed on 2026-05-18.
 - `bin/dart-package-publish-dry-run`: passed with zero warnings on
   2026-05-18.
 - `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`:
@@ -82,11 +89,29 @@ serve as the frame pipe for embedded router/auth-server chaining.
 - Focused `dart test packages/connectanum_router/test/remote_wamp_delegate_test.dart packages/connectanum_router/test/remote_auth_integration_test.dart -r expanded`:
   passed on 2026-05-18.
 - Post-edit `bin/test-fast`: passed on 2026-05-18.
+- Full local `bin/verify`: passed on 2026-05-18.
+- Hosted evidence for `4182604` is clean: push CI #26008200446, PR CI
+  #26008201496, push Dart Package Publish Dry Run #26008200445, PR Dart
+  Package Publish Dry Run #26008201527, Router Image dry-run #26008469700,
+  and WAMP Profile Benchmarks #26008469701 passed on 2026-05-18.
+- Strict deployment-chain audit with latest CI/logs, package dry-run, Router
+  Image dry-run, WAMP benchmark, native release relevance, workflow visibility,
+  GHCR visibility, and RC-readiness reporting passed for the enforced gates on
+  2026-05-18. RC readiness remains blocked by PR review/merge, fresh RC
+  tag/prerelease approval, and tag-matched release evidence; pub.dev remains
+  intentionally deferred.
+- Focused `dart analyze packages/connectanum_auth_server`: passed on
+  2026-05-18.
+- Focused `dart test packages/connectanum_auth_server/test -r expanded`:
+  passed on 2026-05-18.
+- Post-edit `bin/test-fast`: passed on 2026-05-18.
+- Full local `bin/verify`: passed on 2026-05-18.
 
 ## Remaining
 
 - Decide whether the next internal lane should connect through the existing
   `RouterSession` bridge or map a lower-level internal endpoint onto
   `InProcessTransportPair`.
-- Decide when `connectanum_auth_server` should own a router instance plus
-  internal client lifecycle for credential-provider-backed embedded auth.
+- Gather full local `bin/verify`, hosted CI/dry-run evidence, and strict audit
+  evidence for the local `AuthServerRouterBinding` checkpoint after it is
+  pushed.

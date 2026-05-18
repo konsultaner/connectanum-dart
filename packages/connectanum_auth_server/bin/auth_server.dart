@@ -27,7 +27,7 @@ Future<void> main(List<String> args) async {
 
   NativeTransportRuntime? runtime;
   RouterBinding? routerBinding;
-  AuthServerProcedureBinding? procedureBinding;
+  AuthServerRouterBinding? authBinding;
   try {
     final configPath = parsed.configPath;
     final settings = await RouterConfigLoaderIo.fromFile(configPath);
@@ -72,14 +72,12 @@ Future<void> main(List<String> args) async {
       settings: settings,
     );
     routerBinding = router.start(runtime);
-    final session = await routerBinding.createInternalSession(
+    authBinding = await AuthServerRouterBinding.bind(
+      server: authServer,
+      router: routerBinding,
       realmUri: parsed.realm,
       authId: parsed.authId,
       authRole: parsed.authRole,
-    );
-    procedureBinding = await AuthServerProcedureBinding.bind(
-      server: authServer,
-      session: session,
     );
     final metricsSettings = settings.metrics?.openMetrics;
     if (metricsSettings != null &&
@@ -114,9 +112,9 @@ Future<void> main(List<String> args) async {
     }
     stdout.writeln(
       'Auth server procedures bound on realm ${parsed.realm}: '
-      '${procedureBinding.helloProcedure}, '
-      '${procedureBinding.authenticateProcedure}, '
-      '${procedureBinding.abortProcedure}.',
+      '${authBinding.procedures.helloProcedure}, '
+      '${authBinding.procedures.authenticateProcedure}, '
+      '${authBinding.procedures.abortProcedure}.',
     );
     if (parsed.check) {
       stdout.writeln('Auth server runtime check completed.');
@@ -144,7 +142,7 @@ Future<void> main(List<String> args) async {
     exitCode = 1;
   } finally {
     try {
-      await procedureBinding?.close();
+      await authBinding?.close();
     } catch (_) {}
     try {
       await routerBinding?.dispose();
