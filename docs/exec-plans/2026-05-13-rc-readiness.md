@@ -247,6 +247,13 @@ decision because `connectanum_client` still depends on private
   and resource-prompt batch calls. Pre-change `bin/test-fast` passed.
   Post-change `bash -n bin/common.sh`, `bin/test-fast`, and full local
   `bin/verify` passed.
+- 2026-05-19: The deployment-chain audit now requires latest hosted CI job and
+  CI-log evidence to cover the checked-out commit exactly, rejecting stale
+  green branch runs before they can satisfy `--require-clean-latest-ci`,
+  `--require-clean-latest-ci-logs`, or RC readiness. A fake-`gh` regression is
+  wired into `bin/test-fast` and `bin/test-all`. Focused Bash syntax checks,
+  the fake-`gh` audit regression, the real current-head CI/log audit, and a
+  fresh `bin/test-fast` passed locally.
 
 ## Handoff
 
@@ -255,16 +262,20 @@ Active. Router image dry-run build blockers found on `f2f8720`, `7f54fbb`, and
 router-hosted MCP consumer smoke logs, the Router Image workflow/audit path is
 hardened against Node 20 deprecation annotations, and the router-hosted MCP
 consumer smoke now rejects missing credentials across protected direct JSON and
-Streamable resource/prompt helper paths. Hosted CI evidence is clean for
-`e25c0c7`; relevant Dart package, native release, and router image dry-run
-evidence is still clean; and the strict deployment-chain audit passes the
-clean CI/log, Dart package dry-run, native release dry-run, router image
-dry-run, and router package visibility gates. The audit now verifies public
-GHCR registry metadata before falling back to GitHub Packages metadata, and the
-router package visibility gate passes because
+Streamable resource/prompt helper paths. The deployment-chain audit now rejects
+stale hosted CI/log runs whose `headSha` does not match the checked-out commit,
+so RC readiness cannot accidentally rely on older green branch evidence.
+Hosted CI evidence is clean for the previous implementation head, and the
+current local audit confirmed CI/log evidence still covers the checked-out head
+before this audit-hardening commit. Relevant Dart package, native release, and
+router image dry-run evidence is still clean; and the strict deployment-chain
+audit passes the Dart package dry-run, native release dry-run, router image
+dry-run, and router package visibility gates when CI/log evidence is current.
+The audit verifies public GHCR registry metadata before falling back to GitHub
+Packages metadata, and the router package visibility gate passes because
 `ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
 `v0.1.0-rc.1` and a manifest digest. Continue with RC tag/prerelease selection
 for the current head. The audit inventories stale local and GitHub RC tags and
 reports that the existing `v0.1.0-rc.1` tag points at the older `47bbf9c`
-commit in both sources, not the last hosted-evidence head `e25c0c7`; retagging
-or choosing a follow-up RC tag remains a release decision.
+commit in both sources, not the current candidate head; retagging or choosing
+a follow-up RC tag remains a release decision.

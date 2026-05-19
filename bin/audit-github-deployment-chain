@@ -20,14 +20,16 @@ Options:
   --run-limit <count>       Latest branch runs to print. Defaults to 6.
   --require-clean-latest-ci
                              Exit non-zero unless the latest CI run on the
-                             audited branch completed with exactly the expected
-                             main jobs and no skipped, pending, or failed jobs.
+                             audited branch covers the checked-out head and
+                             completed with exactly the expected main jobs and
+                             no skipped, pending, or failed jobs.
   --scan-latest-ci-logs      Print high-signal warning/skipped-test/noisy
                              runtime matches from the latest CI run logs.
   --require-clean-latest-ci-logs
                              Exit non-zero if the latest CI run logs contain
                              high-signal warning/skipped-test/noisy runtime
-                             matches, or if the run is not complete and green.
+                             matches, if the run is not complete and green, or
+                             if the run does not cover the checked-out head.
   --show-dart-package-publish-dry-run
                              Print the latest dedicated Dart package publish
                              dry-run workflow evidence.
@@ -1351,24 +1353,32 @@ print_required_checks_plan() {
 }
 
 print_latest_ci_next_action() {
+  local current_head_sha
+
   if [[ -z "${latest_ci_id:-}" ]]; then
     printf '  Next action: trigger or wait for a CI run on %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$branch" "$branch"
   elif [[ "${latest_ci_status:-}" != "completed" ]]; then
     printf '  Next action: wait for CI run #%s to complete, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$latest_ci_id" "$branch"
   elif [[ "${latest_ci_conclusion:-}" != "success" ]]; then
     printf '  Next action: inspect CI run #%s, fix the failed/skipped/missing job signal, push a new candidate, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$latest_ci_id" "$branch"
+  elif current_head_sha="$(git rev-parse HEAD 2>/dev/null)" && [[ -n "${latest_ci_head_sha:-}" && "$latest_ci_head_sha" != "$current_head_sha" ]]; then
+    printf '  Next action: push or wait for CI on checked-out head %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "${current_head_sha:0:7}" "$branch"
   else
     printf '  Next action: inspect CI run #%s for unexpected or missing jobs, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci after the job set matches release policy.\n' "$latest_ci_id" "$branch"
   fi
 }
 
 print_latest_ci_log_next_action() {
+  local current_head_sha
+
   if [[ -z "${latest_ci_id:-}" ]]; then
     printf '  Next action: trigger or wait for a CI run on %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$branch" "$branch"
   elif [[ "${latest_ci_log_status:-}" != "completed" ]]; then
     printf '  Next action: wait for CI run #%s to complete so logs are downloadable, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$latest_ci_id" "$branch"
   elif [[ "${latest_ci_log_conclusion:-}" != "success" ]]; then
     printf '  Next action: resolve CI run #%s before treating hosted logs as release evidence, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$latest_ci_id" "$branch"
+  elif current_head_sha="$(git rev-parse HEAD 2>/dev/null)" && [[ -n "${latest_ci_log_head_sha:-}" && "$latest_ci_log_head_sha" != "$current_head_sha" ]]; then
+    printf '  Next action: push or wait for CI logs on checked-out head %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "${current_head_sha:0:7}" "$branch"
   else
     printf '  Next action: inspect the hosted log findings above, fix any real warning/noise source or retry if GitHub log download failed, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci-logs.\n' "$branch"
   fi
@@ -1625,8 +1635,10 @@ router_image_dry_run_failed=0
 latest_ci_id=""
 latest_ci_status=""
 latest_ci_conclusion=""
+latest_ci_head_sha=""
 latest_ci_log_status=""
 latest_ci_log_conclusion=""
+latest_ci_log_head_sha=""
 required_contexts=""
 
 if [[ "$branch_protected" == "true" ]]; then
@@ -1845,14 +1857,22 @@ if [[ "$check_clean_latest_ci" -eq 1 ]]; then
     latest_ci_state="$(
       "$gh_bin" run view "$latest_ci_id" \
         --repo "$repository" \
-        --json status,conclusion \
-        --jq '[.status, (.conclusion // "pending")] | @tsv'
+        --json status,conclusion,headSha \
+        --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
     )"
-    IFS=$'\t' read -r latest_ci_status latest_ci_conclusion <<<"$latest_ci_state"
+    IFS=$'\t' read -r latest_ci_status latest_ci_conclusion latest_ci_head_sha <<<"$latest_ci_state"
 
     if [[ "$latest_ci_status" != "completed" || "$latest_ci_conclusion" != "success" ]]; then
       printf 'Finding: latest CI run is not green: %s/%s.\n' "$latest_ci_status" "$latest_ci_conclusion"
       latest_ci_failed=1
+    fi
+
+    current_head_sha="$(git rev-parse HEAD)"
+    if [[ "$latest_ci_head_sha" != "$current_head_sha" ]]; then
+      printf 'Finding: latest CI run does not cover checked-out head: run head %s, checked-out head %s.\n' "${latest_ci_head_sha:0:7}" "${current_head_sha:0:7}"
+      latest_ci_failed=1
+    else
+      printf 'Latest CI run covers checked-out head: yes.\n'
     fi
 
     latest_ci_jobs="$(
@@ -1920,14 +1940,22 @@ if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
     latest_ci_log_state="$(
       "$gh_bin" run view "$latest_ci_id" \
         --repo "$repository" \
-        --json status,conclusion \
-        --jq '[.status, (.conclusion // "pending")] | @tsv'
+        --json status,conclusion,headSha \
+        --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
     )"
-    IFS=$'\t' read -r latest_ci_log_status latest_ci_log_conclusion <<<"$latest_ci_log_state"
+    IFS=$'\t' read -r latest_ci_log_status latest_ci_log_conclusion latest_ci_log_head_sha <<<"$latest_ci_log_state"
 
     if [[ "$require_clean_latest_ci_logs" -eq 1 && ( "$latest_ci_log_status" != "completed" || "$latest_ci_log_conclusion" != "success" ) ]]; then
       printf 'Finding: latest CI logs are not a complete green signal yet: %s/%s.\n' "$latest_ci_log_status" "$latest_ci_log_conclusion"
       latest_ci_log_failed=1
+    fi
+
+    current_head_sha="$(git rev-parse HEAD)"
+    if [[ "$latest_ci_log_head_sha" != "$current_head_sha" ]]; then
+      printf 'Finding: latest CI logs do not cover checked-out head: run head %s, checked-out head %s.\n' "${latest_ci_log_head_sha:0:7}" "${current_head_sha:0:7}"
+      latest_ci_log_failed=1
+    else
+      printf 'Latest CI logs cover checked-out head: yes.\n'
     fi
 
     if ! print_latest_ci_log_scan "$latest_ci_id"; then
