@@ -13,7 +13,7 @@ AUDIT_SCRIPT = REPO_ROOT / "bin" / "audit-github-deployment-chain"
 class AuditGithubDeploymentChainTest(unittest.TestCase):
     def test_clean_latest_ci_requires_checked_out_head(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
-        stale_head = self._git("rev-parse", "HEAD~1")
+        stale_head = self._different_sha(current_head)
 
         result = self._run_audit(stale_head)
 
@@ -29,7 +29,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
     def test_clean_latest_ci_logs_requires_checked_out_head(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
-        stale_head = self._git("rev-parse", "HEAD~1")
+        stale_head = self._different_sha(current_head)
 
         result = self._run_audit(stale_head, "--require-clean-latest-ci-logs")
 
@@ -52,6 +52,10 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             cwd=REPO_ROOT,
             text=True,
         ).strip()
+
+    def _different_sha(self, sha: str) -> str:
+        replacement = "0" if sha[0] != "0" else "1"
+        return f"{replacement}{sha[1:]}"
 
     def _run_audit(
         self,

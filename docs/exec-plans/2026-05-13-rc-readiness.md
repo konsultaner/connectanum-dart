@@ -254,6 +254,10 @@ decision because `connectanum_client` still depends on private
   wired into `bin/test-fast` and `bin/test-all`. Focused Bash syntax checks,
   the fake-`gh` audit regression, the real current-head CI/log audit, and a
   fresh `bin/test-fast` passed locally.
+- 2026-05-19: The fake-`gh` exact-head audit regression now synthesizes stale
+  run SHAs instead of resolving `HEAD~1`, keeping the test valid in shallow
+  GitHub Actions checkouts. Focused Bash syntax checks, the fake-`gh`
+  regression, `git diff --check`, and `bin/test-fast` passed locally.
 
 ## Handoff
 
@@ -265,12 +269,12 @@ consumer smoke now rejects missing credentials across protected direct JSON and
 Streamable resource/prompt helper paths. The deployment-chain audit now rejects
 stale hosted CI/log runs whose `headSha` does not match the checked-out commit,
 so RC readiness cannot accidentally rely on older green branch evidence.
-Hosted CI evidence is clean for the previous implementation head, and the
-current local audit confirmed CI/log evidence still covers the checked-out head
-before this audit-hardening commit. Relevant Dart package, native release, and
-router image dry-run evidence is still clean; and the strict deployment-chain
-audit passes the Dart package dry-run, native release dry-run, router image
-dry-run, and router package visibility gates when CI/log evidence is current.
+The exact-head fake-`gh` regression is shallow-clone safe, so GitHub Fast
+Checks can run it from the default one-commit checkout. Relevant Dart package,
+native release, and router image dry-run evidence is still clean; and the
+strict deployment-chain audit passes the Dart package dry-run, native release
+dry-run, router image dry-run, and router package visibility gates when CI/log
+evidence is current.
 The audit verifies public GHCR registry metadata before falling back to GitHub
 Packages metadata, and the router package visibility gate passes because
 `ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag

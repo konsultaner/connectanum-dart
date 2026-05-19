@@ -2,9 +2,10 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: GitHub CI/log exact-head audit hardening on
-top of router-hosted MCP protected resource/prompt auth-rejection smoke
-coverage and GitHub RC tag evidence audit hardening.
+Last reviewed branch checkpoint: shallow-clone-safe GitHub CI/log exact-head
+audit regression coverage on top of router-hosted MCP protected
+resource/prompt auth-rejection smoke coverage and GitHub RC tag evidence audit
+hardening.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
