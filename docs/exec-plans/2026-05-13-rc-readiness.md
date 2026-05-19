@@ -103,11 +103,29 @@ decision because `connectanum_client` still depends on private
   accepts both project and native dry-run release-intent lines. Pre-change
   `bin/test-fast`, focused local validation, and full local `bin/verify`
   passed before commit.
+- 2026-05-19: Commit `f2f8720` (`ci: harden native artifact dry-run evidence`)
+  was pushed to both configured remotes. GitHub `CI` run `26090478456`
+  completed successfully with `Fast Checks` and `Full Verify` green. GitHub
+  `Native Artifacts` run `26090497983` completed successfully for
+  `v0.1.0-rc.1-validation.f2f8720`; all five platform jobs and the dry-run
+  release-preview job passed, no GitHub Release mutation occurred, and the
+  `native-release-preview` artifact was uploaded. The deployment-chain audit
+  passed the clean latest CI, clean latest CI logs, clean relevant Dart package
+  publish dry-run, and clean native release dry-run gates for `add-router`.
+- 2026-05-19: GitHub `Router Image` dry-run `26091104743` for
+  `0.1.0-rc.1-validation.f2f8720` failed before publishing because
+  `deploy/docker/Dockerfile` copied a root `pubspec.lock` that is not checked
+  in for this workspace. The Dockerfile now copies only `pubspec.yaml` before
+  `dart pub get`, matching the workspace's generated-lockfile build path.
+  Local Docker validation is blocked because the local Docker daemon is not
+  running; full local `bin/verify` passed before commit.
 
 ## Handoff
 
-Active. The current local slice hardens native artifact dry-run evidence after
-the validation dry-run exposed transient Cosign OIDC failures. Continue with
-commit/push, hosted branch gates, a fresh Native Artifacts validation dry-run
-from the pushed workflow, router image package visibility, RC tag/prerelease
-selection for the current head, and final RC audit evidence.
+Active. The current local slice fixes the router image dry-run Dockerfile
+lockfile assumption. Continue with commit/push, a fresh non-mutating Router
+Image dry-run from the pushed workflow, router image package visibility, RC
+tag/prerelease selection for the current head, hosted release workflows, and
+final RC audit evidence. The existing `v0.1.0-rc.1` GitHub tag points at the
+older `47bbf9c` commit, so retagging or choosing a follow-up RC tag remains a
+release decision.

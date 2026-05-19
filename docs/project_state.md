@@ -2,9 +2,8 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: native release dry-run audit and Sigstore
-retry hardening on top of `8058104` (`test: harden native wamp worker
-readiness`).
+Last reviewed branch checkpoint: router image dry-run Dockerfile lockfile fix
+on top of `f2f8720` (`ci: harden native artifact dry-run evidence`).
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -418,8 +417,20 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: native release dry-run audit and Sigstore
-retry hardening is complete locally. GitHub `Native Artifacts` run
+Current implementation checkpoint: router image dry-run build fix is in
+progress locally. GitHub `Router Image` dry-run `26091104743` for
+`0.1.0-rc.1-validation.f2f8720` failed before publishing because
+`deploy/docker/Dockerfile` attempted to copy a root `pubspec.lock` that is not
+checked in for this workspace. The Dockerfile now copies only `pubspec.yaml`
+before `dart pub get`, letting the container build generate its own lockfile.
+Local Docker validation is blocked because the local Docker daemon is not
+running; full local `bin/verify` passed on 2026-05-19 before commit.
+Previous pushed implementation commit:
+`f2f8720` (`ci: harden native artifact dry-run evidence`; hosted CI and
+deployment-chain evidence clean).
+Previous implementation checkpoint: native release dry-run audit and Sigstore
+retry hardening is complete, pushed, and hosted evidence is clean. GitHub
+`Native Artifacts` run
 `26088923120` completed successfully for `v0.1.0-rc.1`, but that tag already
 exists on GitHub at commit `47bbf9c`, so it cannot provide no-mutation
 current-head evidence. A follow-up validation dry-run, GitHub `Native
@@ -431,9 +442,17 @@ and the deployment-chain audit now accepts both project and native dry-run
 release-intent lines. Pre-change `bin/test-fast` passed on 2026-05-19, and
 focused local checks passed for `bash -n bin/audit-github-deployment-chain`,
 workflow YAML parsing, `git diff --check`, and the audit dry-run intent parser.
-Full local `bin/verify` passed on 2026-05-19 before commit. RC readiness
-remains blocked by current-head hosted native dry-run evidence, invisible
-`ghcr.io/konsultaner/connectanum-router`, and missing current-head RC
+Full local `bin/verify` passed on 2026-05-19 before commit. Commit `f2f8720`
+(`ci: harden native artifact dry-run evidence`) was pushed to both configured
+remotes. GitHub `CI` run `26090478456` completed successfully with `Fast
+Checks` and `Full Verify` green. GitHub `Native Artifacts` run `26090497983`
+completed successfully for `v0.1.0-rc.1-validation.f2f8720`; all five platform
+jobs and the dry-run release-preview job passed, the audit confirmed the
+dry-run avoided GitHub Release mutation, and the uploaded `native-release-preview`
+artifact was present. The deployment-chain audit passed the clean latest CI,
+clean latest CI logs, clean relevant Dart package publish dry-run, and clean
+native release dry-run gates for `add-router`. RC readiness remains blocked by
+invisible `ghcr.io/konsultaner/connectanum-router` and missing current-head RC
 tag/prerelease; pub.dev publishing remains intentionally deferred.
 Previous pushed implementation commit:
 `8058104` (`test: harden native wamp worker readiness`; hosted CI and
