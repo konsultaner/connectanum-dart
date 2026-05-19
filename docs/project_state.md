@@ -418,15 +418,26 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: RC tag evidence audit hardening is complete
-locally. `bin/audit-github-deployment-chain --show-rc-readiness` now lists
+Current implementation checkpoint: GitHub RC tag evidence audit hardening is
+complete locally. `bin/audit-github-deployment-chain --show-rc-readiness` now
+uses both local and GitHub RC tags for the checked-out-head tag gate, and the
+RC-readiness view inventories stale tags from both sources when no RC tag
+points at the candidate head. Pre-change `bin/test-fast`, Bash syntax, help
+output, and the focused RC-readiness audit passed on 2026-05-19. The focused
+audit now reports both local and GitHub `v0.1.0-rc.1 -> 47bbf9c` as stale for
+checked-out head `cbe1e1d`, so the remaining release decision is explicit:
+move the stale tag under release policy or choose a follow-up RC tag.
+Previous implementation checkpoint: RC tag evidence audit hardening is complete
+and pushed. `bin/audit-github-deployment-chain --show-rc-readiness` now lists
 existing local RC tags when no RC tag points at the checked-out head, including
-the target commit and whether each tag is stale for the current candidate. The
-focused audit now reports `v0.1.0-rc.1 -> 47bbf9c` as stale for checked-out head
-`65caf71`, so the remaining release decision is explicit: either move the
-stale tag under release policy or choose a follow-up RC tag. Pre-change
-`bin/test-fast`, Bash syntax, help output, and the focused RC-readiness audit
-passed on 2026-05-19; full local `bin/verify` also passed.
+the target commit and whether each tag is stale for the current candidate.
+Commit `cbe1e1d` (`ci: report stale rc tag evidence`) was pushed to both
+configured remotes. GitHub CI run `26108394380` passed with `Fast Checks` and
+`Full Verify` green. The strict deployment-chain audit passed clean latest CI,
+clean latest CI logs, clean relevant Dart package publish dry-run, clean native
+release dry-run, clean router image dry-run, and router package visibility
+gates. RC readiness remains blocked only on current-head RC tag/prerelease
+selection; pub.dev publishing remains deferred.
 Previous implementation checkpoint: router package visibility audit hardening
 is complete and pushed. `bin/audit-github-deployment-chain
 --require-router-package` now probes public GHCR registry pull metadata first
@@ -1240,15 +1251,28 @@ at the older `47bbf9c` commit.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - RC tag evidence audit hardening is complete locally.
+  - GitHub RC tag evidence audit hardening is complete locally.
+    `bin/audit-github-deployment-chain --show-rc-readiness` now uses both
+    local and GitHub RC tags for the checked-out-head tag gate, and it prints
+    stale-tag inventories from both sources when no RC tag points at the
+    candidate head. Pre-change `bin/test-fast`, Bash syntax, help output, and
+    the focused RC-readiness audit passed on 2026-05-19. The focused audit now
+    reports both local and GitHub `v0.1.0-rc.1 -> 47bbf9c` as stale for
+    checked-out head `cbe1e1d`.
+  - RC tag evidence audit hardening is complete and pushed.
     `bin/audit-github-deployment-chain --show-rc-readiness` now inventories
     existing local RC tags when no RC tag points at the checked-out head,
     including each target commit and stale/current status. Pre-change
     `bin/test-fast`, Bash syntax, help output, and the focused RC-readiness
-    audit passed on 2026-05-19; full local `bin/verify` also passed. The audit
-    now reports `v0.1.0-rc.1 -> 47bbf9c` as stale for checked-out head
-    `65caf71`, so the remaining action is an explicit release decision to move
-    the stale tag under policy or choose a follow-up RC tag.
+    audit passed on 2026-05-19; full local `bin/verify` also passed. Commit
+    `cbe1e1d` (`ci: report stale rc tag evidence`) was pushed to both
+    configured remotes. GitHub CI run `26108394380` passed with `Fast Checks`
+    and `Full Verify` green, and the strict deployment-chain audit passed the
+    clean CI/log, Dart package dry-run, native release dry-run, router image
+    dry-run, and router package visibility gates. The audit now reports
+    `v0.1.0-rc.1 -> 47bbf9c` as stale for checked-out head `cbe1e1d`, so the
+    remaining action is an explicit release decision to move the stale tag
+    under policy or choose a follow-up RC tag.
   - Router package visibility audit hardening is complete and pushed.
     `bin/audit-github-deployment-chain --require-router-package` now probes
     public GHCR registry pull metadata, validates a manifest digest, and falls
