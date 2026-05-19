@@ -22,6 +22,9 @@ decision because `connectanum_client` still depends on private
   RC definition: GitHub prerelease readiness can pass when pub.dev publishing is
   intentionally deferred and the only strict Dart package blocker is the known
   private `connectanum_core` dependency.
+- Add an explicit non-mutating Router Image dry-run audit gate so container
+  build validation is tracked separately from GHCR package visibility/publish
+  approval.
 - Promote `add-router` into the GitHub default branch used for releases.
 - Configure required GitHub status checks for `Fast Checks` and `Full Verify`.
 - Run local release gates, hosted CI, hosted package dry-run evidence, WAMP
@@ -56,6 +59,7 @@ decision because `connectanum_client` still depends on private
 - `bin/test-fast`
 - `bash -n bin/audit-github-deployment-chain`
 - `bin/audit-github-deployment-chain --help`
+- `bin/audit-github-deployment-chain --branch add-router --require-clean-router-image-dry-run`
 - `bin/dart-package-publish-dry-run`
 - `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
   is expected to fail only on the known private `connectanum_core` dependency.
@@ -136,13 +140,30 @@ decision because `connectanum_client` still depends on private
   scalar/pointer buffers. `cargo fmt --all --check` from `native/transport`,
   `git diff --check`, and full local `bin/verify` passed on 2026-05-19 for
   this Rust 1.85 compatibility fix.
+- 2026-05-19: Commit `6d681ab` (`fix: support rust 1.85 ffi defaults`) was
+  pushed to both configured remotes. GitHub CI run `26093400216` passed, GitHub
+  `Router Image` dry-run `26093405157` passed for
+  `0.1.0-rc.1-validation.6d681ab`, and GitHub `Native Artifacts` dry-run
+  `26094664567` passed for `v0.1.0-rc.1-validation.6d681ab` with all five
+  `ct_ffi` platform jobs and release-preview upload green. The deployment-chain
+  audit passed clean latest CI, clean latest CI logs, clean relevant Dart
+  package publish dry-run, and clean native release dry-run gates for
+  `add-router`. RC readiness still requires router image package visibility and
+  current-head RC tag/prerelease selection; pub.dev remains deferred.
+- 2026-05-19: The deployment-chain audit now exposes
+  `--show-router-image-dry-run` and `--require-clean-router-image-dry-run`.
+  The gate verifies the latest relevant manual Router Image dry-run completed
+  successfully, uploaded `router-image-preview`, skipped GHCR login, completed
+  the multi-arch build step, and still covers checked-out router image inputs.
+  The gate passed locally against GitHub `Router Image` dry-run `26093405157`;
+  GHCR package visibility remains a separate publish/approval gate.
 
 ## Handoff
 
-Active. The current local slice fixes the router image dry-run Rust 1.85 FFI
-default compatibility failure and has passed full local `bin/verify`. Continue
-with commit/push, a fresh non-mutating Router Image dry-run from the pushed
-workflow, router image package visibility, RC tag/prerelease selection for the
-current head, hosted release workflows, and final RC audit evidence. The
-existing `v0.1.0-rc.1` GitHub tag points at the older `47bbf9c` commit, so
-retagging or choosing a follow-up RC tag remains a release decision.
+Active. Router image dry-run build blockers found on `f2f8720`, `7f54fbb`, and
+`f30aa7f` are fixed, hosted evidence is clean on `6d681ab`, and the deployment
+audit can now require that dry-run evidence directly. Continue with router
+image package visibility/publish approval, RC tag/prerelease selection for the
+current head, and final RC audit evidence. The existing `v0.1.0-rc.1` GitHub
+tag points at the older `47bbf9c` commit, so retagging or choosing a follow-up
+RC tag remains a release decision.

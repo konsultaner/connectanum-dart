@@ -2,8 +2,9 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: router image Rust 1.85 FFI default fix on top
-of `f30aa7f` (`ci: fix router image compile output`).
+Last reviewed branch checkpoint: explicit Router Image dry-run audit gating on
+top of hosted router image and native artifact validation for `6d681ab`
+(`fix: support rust 1.85 ffi defaults`).
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -417,8 +418,15 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: router image Rust 1.85 compatibility fix is
-in progress locally. GitHub `Router Image` dry-run `26091104743` for
+Current implementation checkpoint: the deployment-chain audit now has an
+explicit non-mutating Router Image dry-run gate
+(`--require-clean-router-image-dry-run`) that verifies the latest relevant
+manual dry-run completed, uploaded `router-image-preview`, skipped GHCR login,
+completed the multi-arch build step, and still covers checked-out router image
+inputs. The gate passed locally against GitHub `Router Image` dry-run
+`26093405157` for `0.1.0-rc.1-validation.6d681ab`. The preceding router image
+Rust 1.85 compatibility fix is complete, pushed, and hosted evidence is clean.
+GitHub `Router Image` dry-run `26091104743` for
 `0.1.0-rc.1-validation.f2f8720` failed before publishing because
 `deploy/docker/Dockerfile` attempted to copy a root `pubspec.lock` that is not
 checked in for this workspace. Commit `7f54fbb` copied only `pubspec.yaml`
@@ -436,11 +444,19 @@ provides explicit zeroed defaults for those `repr(C)` scalar/pointer buffers.
 Local Docker validation is blocked because the local Docker daemon is not
 running. Local Rust 1.85 release build for `ct_ffi`, `cargo fmt --all --check`
 from `native/transport`, `git diff --check`, and full local `bin/verify`
-passed on 2026-05-19.
-Previous pushed implementation commit:
-`f30aa7f` (`ci: fix router image compile output`; hosted CI clean; router
-image dry-run advanced to the Rust 1.85 compatibility failure now fixed
-locally).
+passed on 2026-05-19. Commit `6d681ab` was pushed to both configured remotes;
+GitHub CI run `26093400216`, GitHub `Router Image` dry-run `26093405157` for
+`0.1.0-rc.1-validation.6d681ab`, and GitHub `Native Artifacts` dry-run
+`26094664567` for `v0.1.0-rc.1-validation.6d681ab` all passed. The
+deployment-chain audit passed clean latest CI, clean latest CI logs, clean
+relevant Dart package publish dry-run, clean native release dry-run, and clean
+router image dry-run gates for `add-router`. RC readiness remains blocked by
+invisible
+`ghcr.io/konsultaner/connectanum-router` package visibility and missing
+current-head RC tag/prerelease selection; pub.dev publication remains deferred.
+Last router image build implementation commit:
+`6d681ab` (`fix: support rust 1.85 ffi defaults`; hosted CI, router image
+dry-run, native artifact dry-run, and deployment-chain audit gates clean).
 Previous implementation checkpoint: native release dry-run audit and Sigstore
 retry hardening is complete, pushed, and hosted evidence is clean. GitHub
 `Native Artifacts` run
