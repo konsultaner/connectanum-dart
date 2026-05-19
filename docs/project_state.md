@@ -418,14 +418,29 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: router package visibility audit hardening is
-complete locally. `bin/audit-github-deployment-chain --require-router-package`
-now probes public GHCR registry pull metadata first by reading the visible tag
-list and validating a manifest digest, then falls back to GitHub Packages
-metadata for compatibility. Pre-change `bin/test-fast` passed. Focused checks
-for Bash syntax, help output, `git diff --check`, the router package visibility
-audit, and full local `bin/verify` passed on 2026-05-19. The package visibility
-gate reported public registry tag
+Current implementation checkpoint: RC tag evidence audit hardening is complete
+locally. `bin/audit-github-deployment-chain --show-rc-readiness` now lists
+existing local RC tags when no RC tag points at the checked-out head, including
+the target commit and whether each tag is stale for the current candidate. The
+focused audit now reports `v0.1.0-rc.1 -> 47bbf9c` as stale for checked-out head
+`65caf71`, so the remaining release decision is explicit: either move the
+stale tag under release policy or choose a follow-up RC tag. Pre-change
+`bin/test-fast`, Bash syntax, help output, and the focused RC-readiness audit
+passed on 2026-05-19; full local `bin/verify` also passed.
+Previous implementation checkpoint: router package visibility audit hardening
+is complete and pushed. `bin/audit-github-deployment-chain
+--require-router-package` now probes public GHCR registry pull metadata first
+by reading the visible tag list and validating a manifest digest, then falls
+back to GitHub Packages metadata for compatibility. Pre-change `bin/test-fast`
+passed. Focused checks for Bash syntax, help output, `git diff --check`, the
+router package visibility audit, and full local `bin/verify` passed on
+2026-05-19. Commit `65caf71` (`ci: audit ghcr router package visibility`) was
+pushed to both configured remotes. GitHub CI run `26105461957` passed with
+`Fast Checks` and `Full Verify` green. The strict deployment-chain audit passed
+clean latest CI, clean latest CI logs, clean relevant Dart package publish
+dry-run, clean native release dry-run, clean router image dry-run, and router
+package visibility gates. The package visibility gate reported public registry
+tag
 `v0.1.0-rc.1` with manifest digest
 `sha256:45d168f29a2b4c1c187ed21ff18c0f0539703b66c2709422cc414b360966b737`.
 The RC-readiness audit confirmed that readiness is now blocked on current-head
@@ -1225,14 +1240,28 @@ at the older `47bbf9c` commit.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Router package visibility audit hardening is complete locally.
+  - RC tag evidence audit hardening is complete locally.
+    `bin/audit-github-deployment-chain --show-rc-readiness` now inventories
+    existing local RC tags when no RC tag points at the checked-out head,
+    including each target commit and stale/current status. Pre-change
+    `bin/test-fast`, Bash syntax, help output, and the focused RC-readiness
+    audit passed on 2026-05-19; full local `bin/verify` also passed. The audit
+    now reports `v0.1.0-rc.1 -> 47bbf9c` as stale for checked-out head
+    `65caf71`, so the remaining action is an explicit release decision to move
+    the stale tag under policy or choose a follow-up RC tag.
+  - Router package visibility audit hardening is complete and pushed.
     `bin/audit-github-deployment-chain --require-router-package` now probes
     public GHCR registry pull metadata, validates a manifest digest, and falls
     back to GitHub Packages metadata only as a compatibility path. Pre-change
     `bin/test-fast`, focused Bash/help/diff checks, the focused package
     visibility audit, an RC-readiness audit, and full local `bin/verify`
-    completed on 2026-05-19; all required local gates passed. The package
-    visibility gate reports public tag
+    completed on 2026-05-19; all required local gates passed. Commit
+    `65caf71` (`ci: audit ghcr router package visibility`) was pushed to both
+    configured remotes. GitHub CI run `26105461957` passed with `Fast Checks`
+    and `Full Verify` green, and the strict deployment-chain audit passed the
+    clean CI/log, Dart package dry-run, native release dry-run, router image
+    dry-run, and router package visibility gates. The package visibility gate
+    reports public tag
     `v0.1.0-rc.1` with manifest digest
     `sha256:45d168f29a2b4c1c187ed21ff18c0f0539703b66c2709422cc414b360966b737`.
     RC readiness still requires current-head RC tag/prerelease selection.

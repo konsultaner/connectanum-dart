@@ -65,7 +65,8 @@ Options:
                              the baseline required status checks to the audited
                              protected branch.
   --show-rc-readiness        Print a non-mutating release-candidate readiness
-                             summary for the current checked-out head.
+                             summary for the current checked-out head,
+                             including stale local RC tag evidence.
   --require-rc-ready         Exit non-zero unless the current checked-out head
                              has release-candidate evidence: clean hosted CI
                              and logs, hosted Dart package publish dry-run
@@ -424,6 +425,52 @@ is_release_candidate_tag() {
   local tag="$1"
 
   [[ "$tag" =~ (^|[-_.])rc([0-9]+|[-_.][0-9]+)?($|[-_.]) ]]
+}
+
+local_rc_tags_summary() {
+  local target_sha="$1"
+  local tag
+  local tag_sha
+  local status
+
+  while IFS= read -r tag; do
+    [[ -n "$tag" ]] || continue
+    if ! is_release_candidate_tag "$tag"; then
+      continue
+    fi
+
+    tag_sha="$(git rev-list -n 1 "$tag" 2>/dev/null || true)"
+    [[ -n "$tag_sha" ]] || continue
+
+    if [[ "$tag_sha" == "$target_sha" ]]; then
+      status="current"
+    else
+      status="stale for checked-out head"
+    fi
+
+    printf '%s\t%s\t%s\n' "$tag" "$tag_sha" "$status"
+  done < <(git tag --list | sort)
+}
+
+print_local_rc_tags_summary() {
+  local target_sha="$1"
+  local existing_rc_tags
+  local tag
+  local tag_sha
+  local status
+
+  existing_rc_tags="$(local_rc_tags_summary "$target_sha")"
+
+  if [[ -z "$existing_rc_tags" ]]; then
+    printf 'Existing local RC tags: none found.\n'
+    return
+  fi
+
+  printf 'Existing local RC tags:\n'
+  while IFS=$'\t' read -r tag tag_sha status; do
+    [[ -n "$tag" ]] || continue
+    printf -- '- %s -> %s (%s)\n' "$tag" "${tag_sha:0:7}" "$status"
+  done <<<"$existing_rc_tags"
 }
 
 strict_dart_output_is_deferred_pub_dev_only() {
@@ -1353,7 +1400,8 @@ print_rc_readiness() {
 
   if [[ -z "$rc_tags" ]]; then
     printf 'RC tag on checked-out head: not ready; no local tag with an rc segment points at %s.\n' "$short_head_sha"
-    printf '  Next action: choose the RC version, create a tag such as v<version>-rc.1 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
+    print_local_rc_tags_summary "$head_sha"
+    printf '  Next action: choose whether release policy should move an existing stale RC tag or create a follow-up tag such as v<version>-rc.2 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
     rc_ready_failed=1
   else
     printf 'RC tag on checked-out head: ready\n'

@@ -100,7 +100,9 @@ package release-order plan so the current `connectanum_core` ->
 `connectanum_client` dependency decision is visible in the same output. For
 each not-ready gate, the RC view also prints a concrete next action so the
 remaining operator/release choices can be followed without re-reading the full
-deployment plan.
+deployment plan. When no local RC tag points at the checked-out head, the same
+view also inventories existing local RC tags and reports whether each one is
+stale for the current candidate.
 
 Use the router package gate before treating the router image release path as
 ready:
@@ -110,8 +112,9 @@ bin/audit-github-deployment-chain --branch add-router --require-router-package
 ```
 
 That mode is also read-only. It intentionally exits non-zero until
-`ghcr.io/konsultaner/connectanum-router` is visible through the GitHub Packages
-API after the router image workflow is promoted and validated.
+`ghcr.io/konsultaner/connectanum-router` is visible through public GHCR
+registry metadata or, as a compatibility fallback, through GitHub Packages
+metadata after the router image workflow is promoted and validated.
 
 Use the workflow visibility gate before treating checked-in workflows as
 available on GitHub Actions:
@@ -240,6 +243,23 @@ For the latest branch-head status, run the clean-CI audit command above. The
 items below are pinned deployment-chain checkpoints, not a replacement for the
 live audit:
 
+- `add-router` router package visibility checkpoint `65caf71` passed GitHub
+  `CI` run `26105461957`: `Fast Checks` and `Full Verify` completed
+  successfully.
+- The strict deployment-chain audit passed for `65caf71` on 2026-05-19 with
+  `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
+  `--require-clean-dart-package-publish-dry-run`,
+  `--require-clean-native-release-dry-run`,
+  `--require-clean-router-image-dry-run`, and `--require-router-package`.
+  The router package visibility gate reported public registry tag
+  `v0.1.0-rc.1` with manifest digest
+  `sha256:45d168f29a2b4c1c187ed21ff18c0f0539703b66c2709422cc414b360966b737`.
+  The RC-readiness view now reports the existing local tag `v0.1.0-rc.1` as
+  stale because it points at `47bbf9c`, not the checked-out head. Local
+  `bin/verify` passed after the audit change.
+  RC readiness remains blocked on current-head RC tag/prerelease selection;
+  pub.dev publishing remains deferred for package ownership, version, and
+  release-order decisions.
 - `add-router` release-readiness checkpoint `a523dab` passed GitHub `CI` run
   `25258282648`: `Fast Checks` completed in 5m51s and `Full Verify` completed
   in 8m03s.
