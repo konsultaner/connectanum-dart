@@ -157,13 +157,28 @@ decision because `connectanum_client` still depends on private
   the multi-arch build step, and still covers checked-out router image inputs.
   The gate passed locally against GitHub `Router Image` dry-run `26093405157`;
   GHCR package visibility remains a separate publish/approval gate.
+- 2026-05-19: Commit `d01afce` (`ci: gate router image dry-run evidence`) was
+  pushed to both configured remotes. GitHub CI run `26096473969` passed, and
+  the strict deployment-chain audit passed clean latest CI, clean latest CI
+  logs, clean relevant Dart package publish dry-run, clean native release
+  dry-run, and clean router image dry-run gates for `add-router`. RC readiness
+  remains blocked by router image package visibility/publish approval and
+  current-head RC tag/prerelease selection; pub.dev remains deferred.
+- 2026-05-19: Native HTTP/1 keep-alive idle timeouts are now treated as quiet
+  lifecycle closures in `ct_core`, keeping generated router-hosted MCP
+  consumer-package smoke logs clean while preserving diagnostics for
+  non-timeout protocol and I/O read errors. Pre-change `bin/test-fast` passed
+  and exposed the timeout diagnostic noise. Focused native regression,
+  generated consumer-package smoke output scan, `git diff --check`, and full
+  local `bin/verify` passed.
 
 ## Handoff
 
 Active. Router image dry-run build blockers found on `f2f8720`, `7f54fbb`, and
-`f30aa7f` are fixed, hosted evidence is clean on `6d681ab`, and the deployment
-audit can now require that dry-run evidence directly. Continue with router
-image package visibility/publish approval, RC tag/prerelease selection for the
-current head, and final RC audit evidence. The existing `v0.1.0-rc.1` GitHub
-tag points at the older `47bbf9c` commit, so retagging or choosing a follow-up
-RC tag remains a release decision.
+`f30aa7f` are fixed, hosted evidence is clean on `6d681ab`, the deployment
+audit can require router image dry-run evidence directly, and native HTTP/1
+idle-timeout diagnostics no longer pollute router-hosted MCP consumer smoke
+logs. Continue with router image package visibility/publish approval, RC
+tag/prerelease selection for the current head, and final RC audit evidence.
+The existing `v0.1.0-rc.1` GitHub tag points at the older `47bbf9c` commit, so
+retagging or choosing a follow-up RC tag remains a release decision.

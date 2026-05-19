@@ -2,9 +2,10 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: explicit Router Image dry-run audit gating on
-top of hosted router image and native artifact validation for `6d681ab`
-(`fix: support rust 1.85 ffi defaults`).
+Last reviewed branch checkpoint: native HTTP/1 keep-alive idle-timeout
+log-cleanliness for router-hosted MCP consumer smoke on top of explicit Router
+Image dry-run audit gating (`d01afce`, `ci: gate router image dry-run
+evidence`).
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -418,7 +419,16 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: the deployment-chain audit now has an
+Current implementation checkpoint: native HTTP/1 keep-alive idle timeouts now
+close quietly instead of emitting `http/1 connection read error` diagnostics
+from the native runtime, while non-timeout HTTP/1 protocol and I/O read errors
+remain logged. Pre-change `bin/test-fast` passed and exposed the generated
+router-hosted MCP consumer-package smoke timeout noise. Focused
+`cargo test -p ct_core http1_read_error_logging_skips_expected_idle_timeouts`,
+focused generated consumer-package smoke with an output scan for the removed
+diagnostic, `git diff --check`, and full local `bin/verify` passed on
+2026-05-19.
+Previous implementation checkpoint: the deployment-chain audit now has an
 explicit non-mutating Router Image dry-run gate
 (`--require-clean-router-image-dry-run`) that verifies the latest relevant
 manual dry-run completed, uploaded `router-image-preview`, skipped GHCR login,
@@ -454,6 +464,9 @@ router image dry-run gates for `add-router`. RC readiness remains blocked by
 invisible
 `ghcr.io/konsultaner/connectanum-router` package visibility and missing
 current-head RC tag/prerelease selection; pub.dev publication remains deferred.
+Last deployment-chain audit implementation commit:
+`d01afce` (`ci: gate router image dry-run evidence`; hosted CI and strict local
+deployment-chain audit gates clean).
 Last router image build implementation commit:
 `6d681ab` (`fix: support rust 1.85 ffi defaults`; hosted CI, router image
 dry-run, native artifact dry-run, and deployment-chain audit gates clean).
@@ -1167,6 +1180,17 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - Native HTTP/1 keep-alive idle-timeout log-cleanliness is complete locally.
+    The native runtime now treats HTTP/1 idle timeouts as expected connection
+    lifecycle closures instead of printing `http/1 connection read error`,
+    preserving diagnostics for non-timeout protocol and I/O errors. Pre-change
+    `bin/test-fast` passed and exposed the generated router-hosted MCP
+    consumer-package smoke timeout diagnostic. Focused
+    `cargo test -p ct_core
+    http1_read_error_logging_skips_expected_idle_timeouts`, focused generated
+    consumer-package smoke with output scan, `git diff --check`, and full local
+    `bin/verify` passed on 2026-05-19. Hosted CI and deployment-chain evidence
+    are pending for the implementation commit.
   - MCP consumer package raw Streamable HTTP WAMP API/pubsub CORS smoke is
     complete and pushed in commit `cc2640d`
     (`test: cover mcp streamable wamp cors`). The slice extends the neutral

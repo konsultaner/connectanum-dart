@@ -5042,6 +5042,10 @@ fn has_bearer_header_string(headers: &[(String, String)]) -> bool {
     })
 }
 
+fn should_log_http1_read_error(err: &protocol::NegotiationError) -> bool {
+    !matches!(err, protocol::NegotiationError::Timeout)
+}
+
 fn has_bearer_header_bytes(headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> bool {
     headers.iter().any(|(name, value)| {
         std::str::from_utf8(name.as_ref())
@@ -5143,10 +5147,12 @@ async fn serve_http_connection(
                     Ok(Some(value)) => value,
                     Ok(None) => break,
                     Err(err) => {
-                        eprintln!(
-                            "http/1 connection read error for listener {:?}: {:?}",
-                            listener_id, err
-                        );
+                        if should_log_http1_read_error(&err) {
+                            eprintln!(
+                                "http/1 connection read error for listener {:?}: {:?}",
+                                listener_id, err
+                            );
+                        }
                         break;
                     }
                 }
@@ -7251,6 +7257,22 @@ mod tests {
         assert!(matches!(
             parse_runtime_worker_threads(Some("abc")),
             Err(Error::InvalidRuntimeThreadCount(_))
+        ));
+    }
+
+    #[test]
+    fn http1_read_error_logging_skips_expected_idle_timeouts() {
+        assert!(!should_log_http1_read_error(
+            &protocol::NegotiationError::Timeout
+        ));
+        assert!(should_log_http1_read_error(
+            &protocol::NegotiationError::Protocol("bad request".into())
+        ));
+        assert!(should_log_http1_read_error(
+            &protocol::NegotiationError::Io(io::Error::new(
+                io::ErrorKind::ConnectionReset,
+                "reset",
+            ))
         ));
     }
 
