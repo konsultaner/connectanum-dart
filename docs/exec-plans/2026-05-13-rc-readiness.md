@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## Problem
 
@@ -292,6 +292,13 @@ decision because `connectanum_client` still depends on private
   `bin/test-fast`, focused Bash syntax, the audit regression module,
   `git diff --check`, a real read-only `master` RC-readiness audit, and full
   local `bin/verify` passed. No RC tag or GitHub Release was created or moved.
+- 2026-05-20: The stale-RC fake-`gh` regression now also synthesizes local,
+  GitHub, and GHCR validation/dry-run RC tags. It asserts that duplicate local
+  and GitHub stale numeric tags produce exactly one `v0.1.0-rc.2` suggestion
+  and that validation/dry-run RC tags do not become follow-up release-tag
+  suggestions. Pre-change `bin/test-fast`, focused Bash syntax, the audit
+  regression module, `git diff --check`, and full local `bin/verify` passed.
+  No RC tag or GitHub Release was created or moved.
 
 ## Handoff
 
@@ -311,7 +318,8 @@ router package visibility gate passes because
 Continue with RC tag/prerelease selection for `2eced84`. The audit inventories
 stale local and GitHub RC tags and reports that the existing `v0.1.0-rc.1` tag
 points at older commit `47bbf9c`, not the current candidate head. It now
-suggests `v0.1.0-rc.2` as the next numeric follow-up tag while still reporting
-RC prerelease selection as not-ready. Moving the stale tag or approving a
-follow-up RC tag remains a release decision. No RC tag or GitHub Release was
-created or moved during the master-promotion or audit-tooling work.
+suggests `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while
+still reporting RC prerelease selection as not-ready, and validation/dry-run RC
+tags are not treated as follow-up release candidates. Moving the stale tag or
+approving a follow-up RC tag remains a release decision. No RC tag or GitHub
+Release was created or moved during the master-promotion or audit-tooling work.

@@ -97,6 +97,18 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             "requires release approval before pushing)",
             result.stdout,
         )
+        self.assertEqual(
+            result.stdout.count(
+                "- v0.1.0-rc.2 (next numeric tag after v0.1.0-rc.1; "
+                "requires release approval before pushing)"
+            ),
+            1,
+            result.stdout,
+        )
+        self.assertNotIn(
+            "- v0.1.0-rc-validation-dry-run (next numeric",
+            result.stdout,
+        )
         self.assertIn(
             "GitHub RC prerelease: not ready; no RC tag selected.",
             result.stdout,
@@ -727,6 +739,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
                     if [[ "${1:-}" == "ls-remote" && "${2:-}" == "--tags" ]]; then
                       printf '%s\\trefs/tags/v0.1.0-rc.1\\n' "$FAKE_STALE_HEAD"
+                      printf '%s\\trefs/tags/v0.1.0-rc-validation-dry-run\\n' "$FAKE_STALE_HEAD"
                       exit 0
                     fi
 
@@ -736,12 +749,15 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
                     if [[ "${1:-}" == "tag" && "${2:-}" == "--list" ]]; then
                       printf 'v0.1.0-rc.1\\n'
+                      printf 'v0.1.0-rc-validation-dry-run\\n'
                       exit 0
                     fi
 
-                    if [[ "${1:-}" == "rev-list" && "${2:-}" == "-n" && "${3:-}" == "1" && "${4:-}" == "v0.1.0-rc.1" ]]; then
-                      printf '%s\\n' "$FAKE_STALE_HEAD"
-                      exit 0
+                    if [[ "${1:-}" == "rev-list" && "${2:-}" == "-n" && "${3:-}" == "1" ]]; then
+                      if [[ "${4:-}" == "v0.1.0-rc.1" || "${4:-}" == "v0.1.0-rc-validation-dry-run" ]]; then
+                        printf '%s\\n' "$FAKE_STALE_HEAD"
+                        exit 0
+                      fi
                     fi
 
                     exec "$REAL_GIT" "$@"
@@ -761,9 +777,12 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         printf '{"token":"fake-token"}'
                         ;;
                       *tags/list*)
-                        printf '{"name":"konsultaner/connectanum-router","tags":["v0.1.0-rc.1"]}'
+                        printf '{"name":"konsultaner/connectanum-router","tags":["v0.1.0-rc.1","v0.1.0-rc-validation-dry-run"]}'
                         ;;
                       *manifests/v0.1.0-rc.1*)
+                        printf 'HTTP/2 200\\r\\ndocker-content-digest: sha256:abcdef\\r\\n'
+                        ;;
+                      *manifests/v0.1.0-rc-validation-dry-run*)
                         printf 'HTTP/2 200\\r\\ndocker-content-digest: sha256:abcdef\\r\\n'
                         ;;
                       *)

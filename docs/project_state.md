@@ -2,12 +2,12 @@
 
 Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: RC-readiness audit tooling now suggests
-non-mutating follow-up RC tag candidates from existing stale numeric RC tags,
-with local full verification clean. GitHub `master` remains promoted at
-`2eced84` with current-head hosted CI, package dry-run, native release dry-run,
-router image dry-run, WAMP profile, kTLS, and strict deployment-chain audit
-evidence.
+Last reviewed branch checkpoint: RC-readiness audit tooling now has regression
+coverage proving stale numeric RC tags suggest a single non-mutating follow-up
+tag while validation/dry-run RC tags do not become release-tag suggestions.
+Local full verification is clean. GitHub `master` remains promoted at `2eced84`
+with current-head hosted CI, package dry-run, native release dry-run, router
+image dry-run, WAMP profile, kTLS, and strict deployment-chain audit evidence.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` now contains the validated branch
