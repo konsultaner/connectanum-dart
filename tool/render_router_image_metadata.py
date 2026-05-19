@@ -100,8 +100,11 @@ def resolve_router_image_metadata(
     normalized_ref_type = ref_type.strip()
     normalized_ref_name = ref_name.strip()
     if normalized_ref_type == "tag" and normalized_ref_name.startswith("v"):
+        exact_git_tag = _validate_docker_tag(normalized_ref_name)
         version = _validate_docker_tag(normalized_ref_name[1:])
-        tags.append(f"{image}:{version}")
+        tags.append(f"{image}:{exact_git_tag}")
+        if exact_git_tag != version:
+            tags.append(f"{image}:{version}")
         labels.append(f"org.opencontainers.image.version={version}")
 
         if _STABLE_SEMVER_RE.fullmatch(version):

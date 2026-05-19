@@ -53,6 +53,65 @@ class RouterHttpRequest {
     realm: realm,
     procedure: procedure,
   );
+
+  HttpRequestSnapshot toSnapshotWithTarget(
+    int requestId, {
+    String? realm,
+    String? procedure,
+  }) => HttpRequestSnapshot(
+    id: requestId,
+    method: method,
+    target: target,
+    path: path,
+    protocol: protocol,
+    version: version,
+    headers: headers,
+    nativeBody: _body,
+    query: query,
+    realm: realm ?? this.realm,
+    procedure: procedure ?? this.procedure,
+  );
+}
+
+/// Context passed to router-hosted HTTP route handlers.
+class RouterHttpHandlerContext {
+  const RouterHttpHandlerContext({
+    required this.binding,
+    required this.request,
+    required this.route,
+  });
+
+  final RouterBinding binding;
+  final RouterHttpRequest request;
+  final HttpRouteSettings route;
+}
+
+/// Handles an HTTP route directly inside the Dart router binding.
+typedef RouterHttpRouteHandler =
+    FutureOr<NativeHttpResponse> Function(RouterHttpHandlerContext context);
+
+String? _resolveHttpRouteHandlerId(HttpRouteAction action) {
+  final direct = action.delegate?.trim();
+  if (direct != null && direct.isNotEmpty) {
+    return direct;
+  }
+  for (final key in const [
+    'handler',
+    'handler_id',
+    'handlerId',
+    'callback',
+    'callback_id',
+    'callbackId',
+  ]) {
+    final value = action.options[key];
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+  }
+  return null;
 }
 
 /// Public façade that wires the Dart router to the native transport runtime.
@@ -69,8 +128,12 @@ class RouterBinding {
     required this.settings,
     this.workerEntryPoint = defaultRouterWorkerEntryPoint,
     this.workerPollInterval = const Duration(milliseconds: 1),
+    Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
     this.onEvent,
-  }) : _pendingEndpoints = List<Endpoint>.unmodifiable(endpoints),
+  }) : httpRouteHandlers = Map<String, RouterHttpRouteHandler>.unmodifiable(
+         httpRouteHandlers,
+       ),
+       _pendingEndpoints = List<Endpoint>.unmodifiable(endpoints),
        _listenerSettingsByEndpoint = Map<String, ListenerSettings>.fromEntries(
          settings.listeners.map(
            (listener) => MapEntry(
@@ -85,6 +148,7 @@ class RouterBinding {
   final RouterSettings settings;
   final RouterWorkerEntryPoint workerEntryPoint;
   final Duration workerPollInterval;
+  final Map<String, RouterHttpRouteHandler> httpRouteHandlers;
   final void Function(Object event)? onEvent;
 
   final List<Endpoint> _pendingEndpoints;
@@ -101,6 +165,8 @@ class RouterBinding {
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
   final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
   final Map<String, Future<HttpAuthProvider>> _httpAuthProviderCache = {};
+  final Map<String, _HttpRouteRateLimitState> _httpRouteRateLimitStates = {};
+  final Map<String, int> _httpRouteConcurrencyCounts = {};
   final Map<String, ListenerSettings> _listenerSettingsByEndpoint;
   final Map<int, ListenerSettings?> _listenerConfigById = {};
   final Random _random = Random.secure();
@@ -564,6 +630,9 @@ class RouterBinding {
 
   RouterProcessMetrics _collectProcessMetrics() => RouterProcessMetrics(
     processId: pid,
+    operatingSystem: Platform.operatingSystem,
+    dartVersion: Platform.version,
+    availableProcessors: Platform.numberOfProcessors,
     currentRssBytes: ProcessInfo.currentRss,
     maxRssBytes: ProcessInfo.maxRss,
   );
@@ -929,7 +998,7 @@ class RouterBinding {
     await _metricsService?.dispose();
     _metricsService = null;
     for (final endpoint in _mcpEndpoints.values.toList()) {
-      endpoint.dispose();
+      await endpoint.dispose();
     }
     _mcpEndpoints.clear();
     for (final session in _internalSessions.toList()) {
@@ -972,7 +1041,17 @@ class RouterBinding {
     if (_metricsService?.ownsSession(session) == true) {
       _metricsService = null;
     }
-    _mcpEndpoints.removeWhere((_, endpoint) => endpoint.ownsSession(session));
+    final removedMcpEndpoints = <_RouterMcpEndpoint>[];
+    _mcpEndpoints.removeWhere((_, endpoint) {
+      final ownsSession = endpoint.ownsSession(session);
+      if (ownsSession) {
+        removedMcpEndpoints.add(endpoint);
+      }
+      return ownsSession;
+    });
+    for (final endpoint in removedMcpEndpoints) {
+      unawaited(endpoint.dispose());
+    }
   }
 
   @visibleForTesting
@@ -1048,6 +1127,35 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    if (routeMatch.isProtocolNotAllowed) {
+      final headers = <String, String>{
+        'x-connectanum-allowed-protocols': routeMatch.allowedProtocols.join(
+          ', ',
+        ),
+      };
+      final upgradeHeader = _httpUpgradeHeaderForProtocols(
+        routeMatch.allowedProtocols,
+      );
+      if (upgradeHeader != null) {
+        headers[HttpHeaders.upgradeHeader] = upgradeHeader;
+      }
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.upgradeRequired,
+          headers: headers,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'upgrade_required',
+            'message': 'HTTP protocol is not allowed for this route',
+            'allowedProtocols': routeMatch.allowedProtocols,
+          }),
+        ),
+      );
+      retainedHandshake?.release();
+      return;
+    }
     if (routeMatch.isNotFound && listenerSettings?.http != null) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -1064,6 +1172,10 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    final accessLogContext = _startHttpRouteAccessLog(
+      request: request,
+      route: matchedRoute,
+    );
     final transportAuthFailure = _evaluateHttpRouteTransportAuth(
       request: request,
       route: matchedRoute,
@@ -1106,9 +1218,94 @@ class RouterBinding {
           }),
         ),
       );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: transportAuthFailure.status,
+        outcome: transportAuthFailure.reason,
+      );
       retainedHandshake?.release();
       return;
     }
+    final rateLimitFailure = _evaluateHttpRouteRateLimit(
+      request: request,
+      route: matchedRoute,
+    );
+    if (rateLimitFailure != null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.tooManyRequests,
+          headers: rateLimitFailure.headers,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'rate_limited',
+            'message': 'HTTP route rate limit exceeded',
+            'retryAfterMs': rateLimitFailure.retryAfter.inMilliseconds,
+          }),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_route_rate_limited',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'method': request.method,
+        'key': rateLimitFailure.key,
+        'retryAfterMs': rateLimitFailure.retryAfter.inMilliseconds,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.tooManyRequests,
+        outcome: 'rate_limited',
+      );
+      retainedHandshake?.release();
+      return;
+    }
+    final concurrencyDecision = _acquireHttpRouteConcurrencySlot(
+      request: request,
+      route: matchedRoute,
+    );
+    if (concurrencyDecision.failure != null) {
+      final failure = concurrencyDecision.failure!;
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.tooManyRequests,
+          headers: failure.headers,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'concurrency_limited',
+            'message': 'HTTP route concurrency limit exceeded',
+            'current': failure.current,
+            'limit': failure.limit,
+          }),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_route_concurrency_limited',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'method': request.method,
+        'key': failure.key,
+        'current': failure.current,
+        'limit': failure.limit,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.tooManyRequests,
+        outcome: 'concurrency_limited',
+      );
+      retainedHandshake?.release();
+      return;
+    }
+    final concurrencyToken = concurrencyDecision.token;
     if (matchedRoute?.action.type == HttpRouteActionType.auth) {
       try {
         await _handleHttpAuthRequest(
@@ -1119,6 +1316,8 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } finally {
+        _finishHttpRouteAccessLog(accessLogContext, outcome: 'auth_completed');
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
         retainedHandshake?.release();
       }
       return;
@@ -1134,13 +1333,96 @@ class RouterBinding {
           sessionProfile: sessionProfile,
         );
       } finally {
+        _finishHttpRouteAccessLog(accessLogContext, outcome: 'mcp_completed');
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.publish) {
+      try {
+        await _handleHttpPublishRequest(
+          request: request,
+          handshake: retainedHandshake,
+          listenerSettings: listenerSettings,
+          route: matchedRoute!,
+          sessionProfile: sessionProfile,
+        );
+      } finally {
+        _finishHttpRouteAccessLog(
+          accessLogContext,
+          outcome: 'publish_completed',
+        );
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.file) {
+      try {
+        await _handleHttpFileRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+          accessLogContext: accessLogContext,
+        );
+      } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.reverseProxy) {
+      try {
+        await _handleHttpReverseProxyRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+          accessLogContext: accessLogContext,
+        );
+      } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.fastCgi) {
+      try {
+        await _handleHttpFastCgiRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+          accessLogContext: accessLogContext,
+        );
+      } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.handler) {
+      try {
+        await _handleHttpRouteHandlerRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+          accessLogContext: accessLogContext,
+        );
+      } finally {
+        _releaseHttpRouteConcurrencySlot(concurrencyToken);
         retainedHandshake?.release();
       }
       return;
     }
 
-    final realmUri = request.realm;
-    final procedure = request.procedure;
+    final dispatchTarget = _resolveHttpRouteDispatchTarget(
+      request: request,
+      route: matchedRoute,
+      listenerSettings: listenerSettings,
+      sessionProfile: sessionProfile,
+    );
+    final realmUri = dispatchTarget.realm;
+    final procedure = dispatchTarget.procedure;
     if (realmUri == null || realmUri.isEmpty) {
       onEvent?.call({
         'source': 'binding',
@@ -1149,6 +1431,8 @@ class RouterBinding {
         'connectionId': request.connectionId,
         'endpoint': request.endpoint,
       });
+      _finishHttpRouteAccessLog(accessLogContext, outcome: 'unmapped_realm');
+      _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
     }
@@ -1161,12 +1445,21 @@ class RouterBinding {
         'endpoint': request.endpoint,
         'realm': realmUri,
       });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        outcome: 'unmapped_procedure',
+      );
+      _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
     }
 
     final httpRequestId = _nextHttpRequestId++;
-    final snapshot = request.toSnapshot(httpRequestId);
+    final snapshot = request.toSnapshotWithTarget(
+      httpRequestId,
+      realm: realmUri,
+      procedure: procedure,
+    );
     final nativeLibraryPath = runtime is NativeRuntimeWithHandles
         ? (runtime as NativeRuntimeWithHandles).libraryPathHint
         : null;
@@ -1212,6 +1505,12 @@ class RouterBinding {
               }),
             ),
           );
+          _finishHttpRouteAccessLog(
+            accessLogContext,
+            status: HttpStatus.unauthorized,
+            outcome: 'unauthorized',
+          );
+          _releaseHttpRouteConcurrencySlot(concurrencyToken);
           retainedHandshake?.release();
           return;
         }
@@ -1237,6 +1536,12 @@ class RouterBinding {
           }),
         ),
       );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.unauthorized,
+        outcome: error.reason,
+      );
+      _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
     } catch (error, stackTrace) {
@@ -1251,6 +1556,12 @@ class RouterBinding {
         'error': error.toString(),
         'stackTrace': stackTrace.toString(),
       });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        outcome: 'session_error',
+        error: error,
+      );
+      _releaseHttpRouteConcurrencySlot(concurrencyToken);
       retainedHandshake?.release();
       return;
     }
@@ -1272,6 +1583,8 @@ class RouterBinding {
       snapshot: snapshot,
       session: session,
       handshake: retainedHandshake,
+      concurrencyToken: concurrencyToken,
+      accessLog: accessLogContext,
     );
     _pendingHttpCalls[httpRequestId] = pending;
 
@@ -1326,6 +1639,7 @@ class RouterBinding {
               'connectionId': request.connectionId,
               'response': responsePayload.toEventPayload(),
             });
+            pending.httpStatus = responsePayload.status;
             if (responsePayload.progress || pending.responseStream != null) {
               final sent = _forwardStreamingResponseChunk(
                 pending,
@@ -1416,6 +1730,7 @@ class RouterBinding {
     } catch (error, stackTrace) {
       _pendingHttpCalls.remove(httpRequestId);
       subscription?.cancel();
+      _releaseHttpRouteConcurrencySlot(pending.concurrencyToken);
       onEvent?.call({
         'source': 'binding',
         'type': 'http_request_dispatch_error',
@@ -1427,6 +1742,11 @@ class RouterBinding {
         'error': error.toString(),
         'stackTrace': stackTrace.toString(),
       });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        outcome: 'dispatch_error',
+        error: error,
+      );
       retainedHandshake?.release();
       return;
     }
@@ -1506,6 +1826,2005 @@ class RouterBinding {
     ].join(':');
   }
 
+  Future<void> _handleHttpPublishRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required ListenerSettings? listenerSettings,
+    required HttpRouteSettings route,
+    required SessionProfileSettings? sessionProfile,
+  }) async {
+    final action = route.action;
+    final topic = _resolveHttpRouteTopicForBinding(action);
+    if (topic == null) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_unmapped_topic',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'route_topic_missing',
+            'message': 'HTTP publish route is missing a topic',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final requestRealm = _nonEmptyHttpRouteString(request.realm);
+    final routeRealm = _resolveHttpRouteRealmForBinding(
+      action,
+      listenerSettings: listenerSettings,
+      sessionProfile: sessionProfile,
+    );
+    final profileRealm = _nonEmptyHttpRouteString(sessionProfile?.realm);
+    final resolvedRealmUri = _firstNonEmptyString(
+      profileRealm,
+      requestRealm,
+      routeRealm,
+    );
+    if (resolvedRealmUri == null) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_unmapped_realm',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'topic': topic,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'route_realm_missing',
+            'message': 'HTTP publish route is missing a target realm',
+          }),
+        ),
+      );
+      return;
+    }
+
+    RouterSession session;
+    try {
+      final bearer = _extractBearerToken(request.headers);
+      if (bearer != null) {
+        session = await _authenticatedHttpSessionForToken(
+          token: bearer,
+          request: request,
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile,
+        );
+      } else {
+        final allowsAnonymous = httpSessionProfileAllowsAnonymous(
+          sessionProfile,
+        );
+        final requiresBridgeAuth =
+            sessionProfile != null &&
+            sessionProfile.auth.methods.isNotEmpty &&
+            !allowsAnonymous;
+        if (requiresBridgeAuth) {
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: handshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.unauthorized,
+              headers: _httpUnauthorizedHeaders(
+                realm: resolvedRealmUri,
+                authPath: _httpAuthPathFor(listenerSettings?.http),
+              ),
+              body: NativeHttpResponseJson(<String, Object?>{
+                'status': 'error',
+                'reason': 'unauthorized',
+                'message': 'Bearer token required',
+              }),
+            ),
+          );
+          return;
+        }
+        session = await _ensureInternalSession(
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile?.name,
+        );
+      }
+    } on _HttpUnauthorized catch (error) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          headers: _httpUnauthorizedHeaders(
+            realm: resolvedRealmUri,
+            authPath: _httpAuthPathFor(listenerSettings?.http),
+          ),
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': error.reason,
+            if (error.message != null) 'message': error.message,
+          }),
+        ),
+      );
+      return;
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_session_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      return;
+    }
+
+    final httpRequestId = _nextHttpRequestId++;
+    final snapshot = request.toSnapshotWithTarget(
+      httpRequestId,
+      realm: resolvedRealmUri,
+      procedure: topic,
+    );
+    final nativeLibraryPath = runtime is NativeRuntimeWithHandles
+        ? (runtime as NativeRuntimeWithHandles).libraryPathHint
+        : null;
+    final requestPayload = snapshot.toInvocationPayload(
+      nativeLibraryPath: nativeLibraryPath,
+    );
+    final keywords = <String, Object?>{
+      '_http': <String, Object?>{...requestPayload},
+      '_connection': <String, Object?>{
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+      },
+    };
+
+    try {
+      final published = await session.publish(
+        topic,
+        argumentsKeywords: Map<String, dynamic>.from(keywords),
+        options: publish_msg.PublishOptions(acknowledge: true),
+      );
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.accepted,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'published',
+            'topic': topic,
+            if (published != null) 'publicationId': published.publicationId,
+          }),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_request_published',
+        'httpRequestId': httpRequestId,
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        if (published != null) 'publicationId': published.publicationId,
+      });
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_error',
+        'httpRequestId': httpRequestId,
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'publish_failed',
+            'message': error.toString(),
+          }),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleHttpFileRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+    required _HttpRouteAccessLogContext? accessLogContext,
+  }) async {
+    final action = route.action;
+    final optionDirectory = action.options['directory'];
+    final directory =
+        _nonEmptyHttpRouteString(action.directory) ??
+        (optionDirectory is String
+            ? _nonEmptyHttpRouteString(optionDirectory)
+            : null);
+    if (directory == null) {
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'file_directory_missing',
+        message: 'HTTP file route is missing a directory',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'file_misconfigured',
+      );
+      return;
+    }
+
+    final segments = _httpFileRouteSegments(request, route);
+    if (segments == null || segments.isEmpty) {
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route did not resolve a file',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notFound,
+        outcome: 'file_not_found',
+      );
+      return;
+    }
+
+    String rootPath;
+    try {
+      rootPath = Directory(directory).resolveSymbolicLinksSync();
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_directory_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'directory': directory,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'file_directory_unavailable',
+        message: 'HTTP file route directory is unavailable',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'file_directory_unavailable',
+        error: error,
+      );
+      return;
+    }
+
+    final candidatePath = _joinHttpFilePath(rootPath, segments);
+    final candidate = File(candidatePath);
+    final stat = candidate.statSync();
+    if (stat.type != FileSystemEntityType.file) {
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route target was not found',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notFound,
+        outcome: 'file_not_found',
+      );
+      return;
+    }
+
+    String filePath;
+    try {
+      filePath = candidate.resolveSymbolicLinksSync();
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_resolve_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route target was not found',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notFound,
+        outcome: 'file_not_found',
+      );
+      return;
+    }
+
+    if (!_isHttpFileInsideRoot(filePath, rootPath)) {
+      await _sendHttpFileError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.forbidden,
+        reason: 'file_forbidden',
+        message: 'HTTP file route target is outside the configured directory',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.forbidden,
+        outcome: 'file_forbidden',
+      );
+      return;
+    }
+
+    final method = request.method.toUpperCase();
+    final modified = stat.modified.toUtc();
+    final etag = _httpFileEtag(stat);
+    final headers = <String, String>{};
+    headers[HttpHeaders.contentLengthHeader] = stat.size.toString();
+    headers[HttpHeaders.etagHeader] = etag;
+    headers[HttpHeaders.lastModifiedHeader] = HttpDate.format(modified);
+    headers['accept-ranges'] = 'bytes';
+    final contentType = _httpFileContentType(action, filePath);
+    if (contentType != null) {
+      headers[HttpHeaders.contentTypeHeader] = contentType;
+    }
+    final optionCacheControl =
+        action.options['cache_control'] ?? action.options['cacheControl'];
+    final cacheControl =
+        _nonEmptyHttpRouteString(action.cacheControl) ??
+        (optionCacheControl is String
+            ? _nonEmptyHttpRouteString(optionCacheControl)
+            : null);
+    if (cacheControl != null) {
+      headers[HttpHeaders.cacheControlHeader] = cacheControl;
+    }
+
+    if ((method == 'GET' || method == 'HEAD') &&
+        _httpFileNotModified(request, etag: etag, modified: modified)) {
+      headers.remove(HttpHeaders.contentLengthHeader);
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.notModified,
+          headers: headers,
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_not_modified',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'filePath': filePath,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notModified,
+        outcome: 'file_not_modified',
+      );
+      return;
+    }
+
+    final range = method == 'GET' || method == 'HEAD'
+        ? _httpFileRangeForRequest(
+            request,
+            size: stat.size,
+            etag: etag,
+            modified: modified,
+          )
+        : null;
+    if (range is _HttpFileUnsatisfiableRange) {
+      headers[HttpHeaders.contentLengthHeader] = '0';
+      headers['content-range'] = range.contentRangeHeader;
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.requestedRangeNotSatisfiable,
+          headers: headers,
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_range_not_satisfiable',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'filePath': filePath,
+        'size': stat.size,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.requestedRangeNotSatisfiable,
+        outcome: 'file_range_not_satisfiable',
+      );
+      return;
+    }
+    if (range is _HttpFileByteRange) {
+      headers[HttpHeaders.contentLengthHeader] = range.length.toString();
+      headers['content-range'] = range.contentRangeHeader;
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.partialContent,
+          headers: headers,
+          body: method == 'HEAD'
+              ? NativeHttpResponseBytes(Uint8List(0))
+              : NativeHttpResponseBytes(
+                  _readHttpFileRangeBytes(filePath, range),
+                ),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_partial_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'filePath': filePath,
+        'start': range.start,
+        'end': range.end,
+        'size': range.size,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.partialContent,
+        outcome: 'file_partial_completed',
+      );
+      return;
+    }
+
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.ok,
+        headers: headers,
+        body: method == 'HEAD'
+            ? NativeHttpResponseBytes(Uint8List(0))
+            : NativeHttpResponseFile(filePath),
+      ),
+    );
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_file_response_sent',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'path': request.path,
+      'filePath': filePath,
+    });
+    _finishHttpRouteAccessLog(
+      accessLogContext,
+      status: HttpStatus.ok,
+      outcome: 'file_completed',
+    );
+  }
+
+  Future<void> _sendHttpFileError({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required int status,
+    required String reason,
+    required String message,
+  }) {
+    return _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: status,
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': reason,
+          'message': message,
+        }),
+      ),
+    );
+  }
+
+  Future<void> _handleHttpReverseProxyRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+    required _HttpRouteAccessLogContext? accessLogContext,
+  }) async {
+    final target = _resolveHttpAdapterEndpoint(route.action);
+    final upstreamBase = target == null ? null : Uri.tryParse(target);
+    if (upstreamBase == null ||
+        (upstreamBase.scheme != 'http' && upstreamBase.scheme != 'https') ||
+        upstreamBase.host.isEmpty) {
+      await _sendHttpReverseProxyError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'reverse_proxy_target_invalid',
+        message:
+            'HTTP reverse_proxy route requires an http or https upstream target',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'reverse_proxy_misconfigured',
+      );
+      return;
+    }
+
+    final timeout = _httpRouteDurationOption(route.action, const [
+      'timeout_ms',
+      'timeoutMs',
+    ], defaultValue: const Duration(seconds: 30));
+    final maxResponseBytes =
+        _httpRouteIntOption(route.action, const [
+          'max_response_bytes',
+          'maxResponseBytes',
+        ]) ??
+        10 * 1024 * 1024;
+    final client = HttpClient()
+      ..connectionTimeout = timeout
+      ..autoUncompress = false;
+    final upstreamUri = _httpReverseProxyUri(
+      request: request,
+      route: route,
+      upstreamBase: upstreamBase,
+    );
+
+    try {
+      final response = await (() async {
+        final upstreamRequest = await client
+            .openUrl(request.method, upstreamUri)
+            .timeout(timeout);
+        upstreamRequest.followRedirects = false;
+        final body = request.body;
+        _copyHttpReverseProxyRequestHeaders(
+          request: request,
+          upstreamRequest: upstreamRequest,
+          preserveHost: _httpRouteBoolOption(route.action, const [
+            'preserve_host',
+            'preserveHost',
+          ], defaultValue: false),
+        );
+        upstreamRequest.contentLength = body.length;
+        if (body.isNotEmpty) {
+          upstreamRequest.add(body);
+        }
+        return upstreamRequest.close();
+      })().timeout(timeout);
+      final responseBody = await _readHttpReverseProxyResponseBody(
+        response,
+        maxBytes: maxResponseBytes,
+      ).timeout(timeout);
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: response.statusCode,
+          headers: _httpReverseProxyResponseHeaders(
+            response.headers,
+            bodyLength: responseBody.length,
+          ),
+          body: NativeHttpResponseBytes(responseBody),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamOrigin': upstreamBase.origin,
+        'upstreamStatus': response.statusCode,
+        'responseBytes': responseBody.length,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: response.statusCode,
+        outcome: 'reverse_proxy_completed',
+      );
+    } on TimeoutException catch (error) {
+      await _sendHttpReverseProxyError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.gatewayTimeout,
+        reason: 'reverse_proxy_timeout',
+        message: 'HTTP reverse_proxy upstream request timed out',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_timeout',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamOrigin': upstreamBase.origin,
+        'error': error.toString(),
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.gatewayTimeout,
+        outcome: 'reverse_proxy_timeout',
+        error: error,
+      );
+    } on _HttpReverseProxyResponseTooLarge catch (error) {
+      await _sendHttpReverseProxyError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.badGateway,
+        reason: 'reverse_proxy_response_too_large',
+        message: 'HTTP reverse_proxy upstream response exceeded the route cap',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_response_too_large',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamOrigin': upstreamBase.origin,
+        'maxBytes': error.maxBytes,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.badGateway,
+        outcome: 'reverse_proxy_response_too_large',
+        error: error,
+      );
+    } catch (error, stackTrace) {
+      await _sendHttpReverseProxyError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.badGateway,
+        reason: 'reverse_proxy_upstream_error',
+        message: 'HTTP reverse_proxy upstream request failed',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamOrigin': upstreamBase.origin,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.badGateway,
+        outcome: 'reverse_proxy_error',
+        error: error,
+      );
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  String? _resolveHttpAdapterEndpoint(HttpRouteAction action) {
+    final direct = action.delegate?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    for (final key in const [
+      'target',
+      'target_url',
+      'targetUrl',
+      'upstream',
+      'upstream_url',
+      'upstreamUrl',
+      'socket',
+      'socket_path',
+      'socketPath',
+    ]) {
+      final value = action.options[key];
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
+      }
+    }
+    return null;
+  }
+
+  Uri _httpReverseProxyUri({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required Uri upstreamBase,
+  }) {
+    final requestQuery = _httpReverseProxyRequestQuery(request);
+    final queryParts = [
+      if (upstreamBase.query.isNotEmpty) upstreamBase.query,
+      if (requestQuery != null && requestQuery.isNotEmpty) requestQuery,
+    ];
+    return upstreamBase.replace(
+      path: _joinHttpReverseProxyPaths(
+        upstreamBase.path,
+        _httpReverseProxyRequestPath(request, route),
+      ),
+      query: queryParts.isEmpty ? null : queryParts.join('&'),
+      fragment: null,
+    );
+  }
+
+  String _httpReverseProxyRequestPath(
+    RouterHttpRequest request,
+    HttpRouteSettings route,
+  ) {
+    var path = request.path.isEmpty ? '/' : request.path;
+    if (!_httpRouteBoolOption(route.action, const [
+      'strip_prefix',
+      'stripPrefix',
+    ], defaultValue: false)) {
+      return path;
+    }
+    final prefix = route.match.prefix ?? route.match.path;
+    if (prefix == null || prefix.isEmpty || !path.startsWith(prefix)) {
+      return path;
+    }
+    path = path.substring(prefix.length);
+    if (path.isEmpty) {
+      return '/';
+    }
+    return path.startsWith('/') ? path : '/$path';
+  }
+
+  String _joinHttpReverseProxyPaths(String basePath, String requestPath) {
+    final base = basePath.isEmpty ? '/' : basePath;
+    final request = requestPath.isEmpty ? '/' : requestPath;
+    if (base == '/') {
+      return request.startsWith('/') ? request : '/$request';
+    }
+    final normalizedBase = base.endsWith('/')
+        ? base.substring(0, base.length - 1)
+        : base;
+    final normalizedRequest = request.startsWith('/')
+        ? request.substring(1)
+        : request;
+    if (normalizedRequest.isEmpty) {
+      return normalizedBase;
+    }
+    return '$normalizedBase/$normalizedRequest';
+  }
+
+  String? _httpReverseProxyRequestQuery(RouterHttpRequest request) {
+    final configured = request.query?.trim();
+    if (configured != null && configured.isNotEmpty) {
+      return configured;
+    }
+    final parsedTarget = Uri.tryParse(request.target);
+    final parsedQuery = parsedTarget?.query.trim();
+    return parsedQuery == null || parsedQuery.isEmpty ? null : parsedQuery;
+  }
+
+  void _copyHttpReverseProxyRequestHeaders({
+    required RouterHttpRequest request,
+    required HttpClientRequest upstreamRequest,
+    required bool preserveHost,
+  }) {
+    final hopByHop = _httpReverseProxyHopByHopHeaderNames(request.headers);
+    for (final entry in request.headers.entries) {
+      final name = entry.key.trim();
+      if (name.isEmpty) {
+        continue;
+      }
+      final lower = name.toLowerCase();
+      if (hopByHop.contains(lower) ||
+          lower == HttpHeaders.contentLengthHeader ||
+          (!preserveHost && lower == HttpHeaders.hostHeader)) {
+        continue;
+      }
+      upstreamRequest.headers.set(name, entry.value, preserveHeaderCase: true);
+    }
+    final originalHost = _headerValue(request.headers, HttpHeaders.hostHeader);
+    if (originalHost != null && originalHost.trim().isNotEmpty) {
+      upstreamRequest.headers.set(
+        'x-forwarded-host',
+        originalHost.trim(),
+        preserveHeaderCase: true,
+      );
+    }
+    upstreamRequest.headers.set(
+      'x-forwarded-proto',
+      _httpReverseProxyForwardedProto(request),
+      preserveHeaderCase: true,
+    );
+  }
+
+  String _httpReverseProxyForwardedProto(RouterHttpRequest request) =>
+      request.listener.endpoint.tlsMode == TlsMode.disabled ? 'http' : 'https';
+
+  Set<String> _httpReverseProxyHopByHopHeaderNames(
+    Map<String, String> headers,
+  ) {
+    final names = <String>{
+      HttpHeaders.connectionHeader,
+      'keep-alive',
+      'proxy-authenticate',
+      'proxy-authorization',
+      'te',
+      'trailer',
+      HttpHeaders.transferEncodingHeader,
+      HttpHeaders.upgradeHeader,
+    };
+    final connection = _headerValue(headers, HttpHeaders.connectionHeader);
+    if (connection != null) {
+      for (final token in connection.split(',')) {
+        final normalized = token.trim().toLowerCase();
+        if (normalized.isNotEmpty) {
+          names.add(normalized);
+        }
+      }
+    }
+    return names;
+  }
+
+  Future<Uint8List> _readHttpReverseProxyResponseBody(
+    HttpClientResponse response, {
+    required int maxBytes,
+  }) async {
+    final builder = BytesBuilder(copy: false);
+    var total = 0;
+    await for (final chunk in response) {
+      total += chunk.length;
+      if (total > maxBytes) {
+        throw _HttpReverseProxyResponseTooLarge(maxBytes);
+      }
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
+  }
+
+  Map<String, String> _httpReverseProxyResponseHeaders(
+    HttpHeaders headers, {
+    required int bodyLength,
+  }) {
+    final headerValues = <String, String>{};
+    headers.forEach((name, values) {
+      if (values.isNotEmpty) {
+        headerValues[name] = values.join(', ');
+      }
+    });
+    final hopByHop = _httpReverseProxyHopByHopHeaderNames(headerValues);
+    final responseHeaders = <String, String>{};
+    for (final entry in headerValues.entries) {
+      final lower = entry.key.toLowerCase();
+      if (hopByHop.contains(lower) ||
+          lower == HttpHeaders.contentLengthHeader) {
+        continue;
+      }
+      responseHeaders[entry.key] = entry.value;
+    }
+    responseHeaders[HttpHeaders.contentLengthHeader] = bodyLength.toString();
+    return responseHeaders;
+  }
+
+  bool _httpRouteBoolOption(
+    HttpRouteAction action,
+    List<String> keys, {
+    required bool defaultValue,
+  }) {
+    for (final key in keys) {
+      final value = action.options[key];
+      if (value is bool) {
+        return value;
+      }
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+          return true;
+        }
+        if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+          return false;
+        }
+      }
+    }
+    return defaultValue;
+  }
+
+  int? _httpRouteIntOption(HttpRouteAction action, List<String> keys) {
+    for (final key in keys) {
+      final value = action.options[key];
+      if (value is int) {
+        return value;
+      }
+      if (value is num) {
+        return value.toInt();
+      }
+      if (value is String) {
+        final parsed = int.tryParse(value.trim());
+        if (parsed != null) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  Duration _httpRouteDurationOption(
+    HttpRouteAction action,
+    List<String> keys, {
+    required Duration defaultValue,
+  }) {
+    final milliseconds = _httpRouteIntOption(action, keys);
+    if (milliseconds == null || milliseconds <= 0) {
+      return defaultValue;
+    }
+    return Duration(milliseconds: milliseconds);
+  }
+
+  Future<void> _sendHttpReverseProxyError({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required int status,
+    required String reason,
+    required String message,
+  }) {
+    return _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: status,
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': reason,
+          'message': message,
+        }),
+      ),
+    );
+  }
+
+  Future<void> _handleHttpRouteHandlerRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+    required _HttpRouteAccessLogContext? accessLogContext,
+  }) async {
+    final handlerId = _resolveHttpRouteHandlerId(route.action);
+    if (handlerId == null || handlerId.isEmpty) {
+      await _sendHttpRouteHandlerError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'handler_misconfigured',
+        message: 'HTTP handler route requires a configured handler id',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'handler_misconfigured',
+      );
+      return;
+    }
+
+    final handler = httpRouteHandlers[handlerId];
+    if (handler == null) {
+      await _sendHttpRouteHandlerError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notImplemented,
+        reason: 'handler_not_registered',
+        message: 'HTTP route handler is not registered',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_handler_not_registered',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'handler': handlerId,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.notImplemented,
+        outcome: 'handler_not_registered',
+      );
+      return;
+    }
+
+    try {
+      final response = await handler(
+        RouterHttpHandlerContext(binding: this, request: request, route: route),
+      );
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: response,
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_handler_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'handler': handlerId,
+        'status': response.status,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: response.status,
+        outcome: 'handler_completed',
+      );
+    } catch (error, stackTrace) {
+      await _sendHttpRouteHandlerError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'handler_error',
+        message: 'HTTP route handler failed',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_handler_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'handler': handlerId,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'handler_error',
+        error: error,
+      );
+    }
+  }
+
+  Future<void> _sendHttpRouteHandlerError({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required int status,
+    required String reason,
+    required String message,
+  }) {
+    return _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: status,
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': reason,
+          'message': message,
+        }),
+      ),
+    );
+  }
+
+  Future<void> _handleHttpFastCgiRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+    required _HttpRouteAccessLogContext? accessLogContext,
+  }) async {
+    final target = _resolveHttpAdapterEndpoint(route.action);
+    final endpoint = target == null ? null : _httpFastCgiEndpoint(target);
+    if (endpoint == null) {
+      await _sendHttpFastCgiError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'fastcgi_target_invalid',
+        message:
+            'HTTP fastcgi route requires a tcp, fastcgi, fcgi, or unix socket target',
+      );
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.internalServerError,
+        outcome: 'fastcgi_misconfigured',
+      );
+      return;
+    }
+
+    final timeout = _httpRouteDurationOption(route.action, const [
+      'timeout_ms',
+      'timeoutMs',
+    ], defaultValue: const Duration(seconds: 30));
+    final maxResponseBytes =
+        _httpRouteIntOption(route.action, const [
+          'max_response_bytes',
+          'maxResponseBytes',
+        ]) ??
+        10 * 1024 * 1024;
+
+    try {
+      final response = await _httpFastCgiExchange(
+        endpoint: endpoint,
+        params: _httpFastCgiParams(request, route),
+        stdin: request.body,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+      ).timeout(timeout);
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: response.status,
+          headers: response.headers,
+          body: NativeHttpResponseBytes(response.body),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamKind': endpoint.kind,
+        if (endpoint.host != null) 'upstreamHost': endpoint.host,
+        if (endpoint.port != null) 'upstreamPort': endpoint.port,
+        'upstreamStatus': response.status,
+        'responseBytes': response.body.length,
+        if (response.stderr.isNotEmpty) 'stderrBytes': response.stderr.length,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: response.status,
+        outcome: 'fastcgi_completed',
+      );
+    } on TimeoutException catch (error) {
+      await _sendHttpFastCgiError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.gatewayTimeout,
+        reason: 'fastcgi_timeout',
+        message: 'HTTP fastcgi upstream request timed out',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_timeout',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamKind': endpoint.kind,
+        if (endpoint.host != null) 'upstreamHost': endpoint.host,
+        if (endpoint.port != null) 'upstreamPort': endpoint.port,
+        'error': error.toString(),
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.gatewayTimeout,
+        outcome: 'fastcgi_timeout',
+        error: error,
+      );
+    } on _HttpFastCgiResponseTooLarge catch (error) {
+      await _sendHttpFastCgiError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.badGateway,
+        reason: 'fastcgi_response_too_large',
+        message: 'HTTP fastcgi upstream response exceeded the route cap',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_response_too_large',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamKind': endpoint.kind,
+        if (endpoint.host != null) 'upstreamHost': endpoint.host,
+        if (endpoint.port != null) 'upstreamPort': endpoint.port,
+        'maxBytes': error.maxBytes,
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.badGateway,
+        outcome: 'fastcgi_response_too_large',
+        error: error,
+      );
+    } on _HttpFastCgiProtocolException catch (error) {
+      await _sendHttpFastCgiError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.badGateway,
+        reason: 'fastcgi_protocol_error',
+        message: 'HTTP fastcgi upstream returned an invalid FastCGI response',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_protocol_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamKind': endpoint.kind,
+        if (endpoint.host != null) 'upstreamHost': endpoint.host,
+        if (endpoint.port != null) 'upstreamPort': endpoint.port,
+        'error': error.toString(),
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.badGateway,
+        outcome: 'fastcgi_protocol_error',
+        error: error,
+      );
+    } catch (error, stackTrace) {
+      await _sendHttpFastCgiError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.badGateway,
+        reason: 'fastcgi_upstream_error',
+        message: 'HTTP fastcgi upstream request failed',
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'path': request.path,
+        'upstreamKind': endpoint.kind,
+        if (endpoint.host != null) 'upstreamHost': endpoint.host,
+        if (endpoint.port != null) 'upstreamPort': endpoint.port,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      _finishHttpRouteAccessLog(
+        accessLogContext,
+        status: HttpStatus.badGateway,
+        outcome: 'fastcgi_error',
+        error: error,
+      );
+    }
+  }
+
+  _HttpFastCgiEndpoint? _httpFastCgiEndpoint(String target) {
+    final trimmed = target.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    if (trimmed.startsWith('/')) {
+      return _HttpFastCgiEndpoint.unix(trimmed);
+    }
+    final uri = Uri.tryParse(trimmed);
+    if (uri != null && uri.scheme == 'unix') {
+      final path = uri.path.trim();
+      if (path.isNotEmpty) {
+        return _HttpFastCgiEndpoint.unix(path);
+      }
+      final legacyPath = trimmed.substring('unix:'.length).trim();
+      if (legacyPath.isNotEmpty) {
+        return _HttpFastCgiEndpoint.unix(legacyPath);
+      }
+      return null;
+    }
+    if (uri != null &&
+        (uri.scheme == 'tcp' ||
+            uri.scheme == 'fastcgi' ||
+            uri.scheme == 'fcgi') &&
+        uri.host.isNotEmpty &&
+        uri.hasPort) {
+      return _HttpFastCgiEndpoint.tcp(uri.host, uri.port);
+    }
+    final hostPort = RegExp(r'^([^:]+):([0-9]+)$').firstMatch(trimmed);
+    if (hostPort != null) {
+      final port = int.tryParse(hostPort.group(2)!);
+      if (port != null && port > 0 && port <= 65535) {
+        return _HttpFastCgiEndpoint.tcp(hostPort.group(1)!, port);
+      }
+    }
+    return null;
+  }
+
+  Future<_HttpFastCgiResponse> _httpFastCgiExchange({
+    required _HttpFastCgiEndpoint endpoint,
+    required Map<String, String> params,
+    required Uint8List stdin,
+    required Duration timeout,
+    required int maxResponseBytes,
+  }) async {
+    final socket = await _openHttpFastCgiSocket(endpoint, timeout);
+    try {
+      const requestId = 1;
+      _writeHttpFastCgiRecord(
+        socket,
+        _fastCgiBeginRequest,
+        requestId,
+        Uint8List.fromList(const [0, _fastCgiResponder, 0, 0, 0, 0, 0, 0]),
+      );
+      _writeHttpFastCgiNameValueRecords(socket, requestId, params);
+      _writeHttpFastCgiRecord(socket, _fastCgiParams, requestId, Uint8List(0));
+      _writeHttpFastCgiRecords(socket, _fastCgiStdin, requestId, stdin);
+      _writeHttpFastCgiRecord(socket, _fastCgiStdin, requestId, Uint8List(0));
+      await socket.flush().timeout(timeout);
+      return await _readHttpFastCgiResponse(
+        socket,
+        requestId: requestId,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+      );
+    } finally {
+      socket.destroy();
+    }
+  }
+
+  Future<Socket> _openHttpFastCgiSocket(
+    _HttpFastCgiEndpoint endpoint,
+    Duration timeout,
+  ) {
+    if (endpoint.unixPath != null) {
+      return Socket.connect(
+        InternetAddress(endpoint.unixPath!, type: InternetAddressType.unix),
+        0,
+      ).timeout(timeout);
+    }
+    return Socket.connect(endpoint.host!, endpoint.port!).timeout(timeout);
+  }
+
+  Map<String, String> _httpFastCgiParams(
+    RouterHttpRequest request,
+    HttpRouteSettings route,
+  ) {
+    final action = route.action;
+    final scriptName =
+        _httpFastCgiRouteOption(action, const ['script_name', 'scriptName']) ??
+        _httpReverseProxyRequestPath(request, route);
+    final documentRoot = _httpFastCgiRouteOption(action, const [
+      'document_root',
+      'documentRoot',
+      'root',
+    ]);
+    final scriptFilename =
+        _httpFastCgiRouteOption(action, const [
+          'script_filename',
+          'scriptFilename',
+        ]) ??
+        (documentRoot == null
+            ? scriptName
+            : _joinHttpFastCgiPath(documentRoot, scriptName));
+    final query = _httpReverseProxyRequestQuery(request) ?? '';
+    final requestUri = query.isEmpty ? request.path : '${request.path}?$query';
+    final serverName = _headerValue(request.headers, HttpHeaders.hostHeader);
+    final contentType = _headerValue(
+      request.headers,
+      HttpHeaders.contentTypeHeader,
+    );
+    final params = <String, String>{
+      'GATEWAY_INTERFACE': 'CGI/1.1',
+      'SERVER_SOFTWARE': 'connectanum-router',
+      'REQUEST_METHOD': request.method,
+      'REQUEST_URI': requestUri,
+      'DOCUMENT_URI': scriptName,
+      'SCRIPT_NAME': scriptName,
+      'SCRIPT_FILENAME': scriptFilename,
+      'QUERY_STRING': query,
+      'SERVER_PROTOCOL':
+          'HTTP/${request.version == 2 ? '2' : (request.version == 3 ? '3' : '1.1')}',
+      'SERVER_NAME': serverName == null
+          ? request.listener.endpoint.host
+          : serverName.split(':').first,
+      'SERVER_PORT': request.listener.endpoint.port.toString(),
+      'REMOTE_ADDR': '',
+      'REMOTE_PORT': '',
+      'HTTPS': request.protocol == 'https' ? 'on' : 'off',
+      'CONTENT_LENGTH': request.body.length.toString(),
+    };
+    if (contentType != null) {
+      params['CONTENT_TYPE'] = contentType;
+    }
+    for (final entry in request.headers.entries) {
+      final lower = entry.key.toLowerCase();
+      if (lower == HttpHeaders.contentTypeHeader ||
+          lower == HttpHeaders.contentLengthHeader) {
+        continue;
+      }
+      final name = 'HTTP_${entry.key.toUpperCase().replaceAll('-', '_')}';
+      params[name] = entry.value;
+    }
+    return params;
+  }
+
+  String? _httpFastCgiRouteOption(HttpRouteAction action, List<String> keys) {
+    for (final key in keys) {
+      final value = action.options[key];
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
+      }
+    }
+    return null;
+  }
+
+  String _joinHttpFastCgiPath(String root, String scriptName) {
+    final trimmedRoot = root.endsWith('/')
+        ? root.substring(0, root.length - 1)
+        : root;
+    final relative = scriptName.startsWith('/')
+        ? scriptName.substring(1)
+        : scriptName;
+    return '$trimmedRoot/$relative';
+  }
+
+  void _writeHttpFastCgiNameValueRecords(
+    Socket socket,
+    int requestId,
+    Map<String, String> params,
+  ) {
+    final bytes = BytesBuilder(copy: false);
+    for (final entry in params.entries) {
+      final name = utf8.encode(entry.key);
+      final value = utf8.encode(entry.value);
+      _writeHttpFastCgiLength(bytes, name.length);
+      _writeHttpFastCgiLength(bytes, value.length);
+      bytes.add(name);
+      bytes.add(value);
+    }
+    _writeHttpFastCgiRecords(
+      socket,
+      _fastCgiParams,
+      requestId,
+      bytes.takeBytes(),
+    );
+  }
+
+  void _writeHttpFastCgiLength(BytesBuilder builder, int length) {
+    if (length < 128) {
+      builder.addByte(length);
+      return;
+    }
+    builder.add([
+      ((length >> 24) & 0x7f) | 0x80,
+      (length >> 16) & 0xff,
+      (length >> 8) & 0xff,
+      length & 0xff,
+    ]);
+  }
+
+  void _writeHttpFastCgiRecords(
+    Socket socket,
+    int type,
+    int requestId,
+    Uint8List content,
+  ) {
+    var offset = 0;
+    while (offset < content.length) {
+      final chunkLength = min(0xffff, content.length - offset);
+      _writeHttpFastCgiRecord(
+        socket,
+        type,
+        requestId,
+        Uint8List.sublistView(content, offset, offset + chunkLength),
+      );
+      offset += chunkLength;
+    }
+  }
+
+  void _writeHttpFastCgiRecord(
+    Socket socket,
+    int type,
+    int requestId,
+    Uint8List content,
+  ) {
+    final paddingLength = (8 - (content.length % 8)) % 8;
+    socket.add([
+      _fastCgiVersion,
+      type,
+      (requestId >> 8) & 0xff,
+      requestId & 0xff,
+      (content.length >> 8) & 0xff,
+      content.length & 0xff,
+      paddingLength,
+      0,
+    ]);
+    if (content.isNotEmpty) {
+      socket.add(content);
+    }
+    if (paddingLength > 0) {
+      socket.add(Uint8List(paddingLength));
+    }
+  }
+
+  Future<_HttpFastCgiResponse> _readHttpFastCgiResponse(
+    Socket socket, {
+    required int requestId,
+    required Duration timeout,
+    required int maxResponseBytes,
+  }) async {
+    final stdout = BytesBuilder(copy: false);
+    final stderr = BytesBuilder(copy: false);
+    var pending = <int>[];
+    await for (final chunk in socket.timeout(timeout)) {
+      pending.addAll(chunk);
+      while (pending.length >= _fastCgiHeaderLength) {
+        final type = pending[1];
+        final recordRequestId = (pending[2] << 8) | pending[3];
+        final contentLength = (pending[4] << 8) | pending[5];
+        final paddingLength = pending[6];
+        final recordLength =
+            _fastCgiHeaderLength + contentLength + paddingLength;
+        if (pending.length < recordLength) {
+          break;
+        }
+        final content = Uint8List.fromList(
+          pending.sublist(
+            _fastCgiHeaderLength,
+            _fastCgiHeaderLength + contentLength,
+          ),
+        );
+        pending = pending.sublist(recordLength);
+        if (recordRequestId != requestId) {
+          continue;
+        }
+        switch (type) {
+          case _fastCgiStdout:
+            stdout.add(content);
+            if (stdout.length > maxResponseBytes) {
+              throw _HttpFastCgiResponseTooLarge(maxResponseBytes);
+            }
+            break;
+          case _fastCgiStderr:
+            stderr.add(content);
+            break;
+          case _fastCgiEndRequest:
+            if (content.length < 8) {
+              throw const _HttpFastCgiProtocolException(
+                'FastCGI END_REQUEST record is too short',
+              );
+            }
+            final appStatus =
+                (content[0] << 24) |
+                (content[1] << 16) |
+                (content[2] << 8) |
+                content[3];
+            final protocolStatus = content[4];
+            if (protocolStatus != _fastCgiRequestComplete) {
+              throw _HttpFastCgiProtocolException(
+                'FastCGI protocol status $protocolStatus',
+              );
+            }
+            if (appStatus != 0 && stdout.length == 0) {
+              throw _HttpFastCgiProtocolException(
+                'FastCGI application exited with status $appStatus',
+              );
+            }
+            return _parseHttpFastCgiStdout(
+              stdout.takeBytes(),
+              stderr: stderr.takeBytes(),
+            );
+        }
+      }
+    }
+    throw const _HttpFastCgiProtocolException(
+      'FastCGI connection closed before END_REQUEST',
+    );
+  }
+
+  _HttpFastCgiResponse _parseHttpFastCgiStdout(
+    Uint8List stdout, {
+    required Uint8List stderr,
+  }) {
+    final crlfEnd = _indexOfHttpFastCgiHeaderTerminator(stdout, const [
+      13,
+      10,
+      13,
+      10,
+    ]);
+    final lfEnd = crlfEnd < 0
+        ? _indexOfHttpFastCgiHeaderTerminator(stdout, const [10, 10])
+        : -1;
+    final headerEnd = crlfEnd >= 0 ? crlfEnd : lfEnd;
+    final separatorLength = crlfEnd >= 0 ? 4 : (lfEnd >= 0 ? 2 : 0);
+    if (headerEnd < 0) {
+      return _HttpFastCgiResponse(
+        status: HttpStatus.ok,
+        headers: <String, String>{
+          HttpHeaders.contentLengthHeader: stdout.length.toString(),
+        },
+        body: stdout,
+        stderr: stderr,
+      );
+    }
+    final headerText = latin1.decode(
+      Uint8List.sublistView(stdout, 0, headerEnd),
+      allowInvalid: true,
+    );
+    final body = Uint8List.sublistView(stdout, headerEnd + separatorLength);
+    var status = HttpStatus.ok;
+    final headers = <String, String>{};
+    for (final line in headerText.split(RegExp(r'\r?\n'))) {
+      if (line.trim().isEmpty) {
+        continue;
+      }
+      final colon = line.indexOf(':');
+      if (colon <= 0) {
+        continue;
+      }
+      final name = line.substring(0, colon).trim();
+      final value = line.substring(colon + 1).trim();
+      if (name.toLowerCase() == 'status') {
+        final parsedStatus = int.tryParse(value.split(' ').first);
+        if (parsedStatus != null) {
+          status = parsedStatus;
+        }
+        continue;
+      }
+      headers.update(
+        name,
+        (existing) => '$existing, $value',
+        ifAbsent: () {
+          return value;
+        },
+      );
+    }
+    headers[HttpHeaders.contentLengthHeader] = body.length.toString();
+    return _HttpFastCgiResponse(
+      status: status,
+      headers: headers,
+      body: body,
+      stderr: stderr,
+    );
+  }
+
+  int _indexOfHttpFastCgiHeaderTerminator(Uint8List bytes, List<int> pattern) {
+    if (pattern.isEmpty || bytes.length < pattern.length) {
+      return -1;
+    }
+    for (var i = 0; i <= bytes.length - pattern.length; i++) {
+      var matches = true;
+      for (var j = 0; j < pattern.length; j++) {
+        if (bytes[i + j] != pattern[j]) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  Future<void> _sendHttpFastCgiError({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required int status,
+    required String reason,
+    required String message,
+  }) {
+    return _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: status,
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': reason,
+          'message': message,
+        }),
+      ),
+    );
+  }
+
+  List<String>? _httpFileRouteSegments(
+    RouterHttpRequest request,
+    HttpRouteSettings route,
+  ) {
+    final requestPath = _normalizePath(request.path);
+    final match = route.match;
+    String relativePath;
+    if (match.isCatchAll) {
+      relativePath = requestPath.substring(1);
+    } else if (match.prefix != null) {
+      final prefix = _normalizePath(match.prefix!);
+      if (requestPath == prefix) {
+        relativePath = '';
+      } else if (prefix == '/') {
+        relativePath = requestPath.substring(1);
+      } else if (prefix.endsWith('/')) {
+        relativePath = requestPath.substring(prefix.length);
+      } else {
+        relativePath = requestPath.substring(prefix.length + 1);
+      }
+    } else {
+      final path = _normalizePath(match.path ?? requestPath);
+      if (requestPath != path) {
+        return null;
+      }
+      final slash = requestPath.lastIndexOf('/');
+      relativePath = slash >= 0
+          ? requestPath.substring(slash + 1)
+          : requestPath;
+    }
+    return _safeHttpFileSegments(relativePath);
+  }
+
+  List<String>? _safeHttpFileSegments(String relativePath) {
+    final segments = <String>[];
+    for (final rawSegment in relativePath.split('/')) {
+      if (rawSegment.isEmpty) {
+        continue;
+      }
+      final String segment;
+      try {
+        segment = Uri.decodeComponent(rawSegment);
+      } on FormatException {
+        return null;
+      }
+      if (segment.isEmpty ||
+          segment == '.' ||
+          segment == '..' ||
+          segment.contains('/') ||
+          segment.contains(r'\') ||
+          segment.contains('\u0000')) {
+        return null;
+      }
+      segments.add(segment);
+    }
+    return segments;
+  }
+
+  String _joinHttpFilePath(String rootPath, List<String> segments) {
+    final separator = Platform.pathSeparator;
+    var current = rootPath;
+    for (final segment in segments) {
+      current = current.endsWith(separator)
+          ? '$current$segment'
+          : '$current$separator$segment';
+    }
+    return current;
+  }
+
+  bool _isHttpFileInsideRoot(String filePath, String rootPath) {
+    final separator = Platform.pathSeparator;
+    final normalizedRoot = rootPath.endsWith(separator)
+        ? rootPath.substring(0, rootPath.length - 1)
+        : rootPath;
+    return filePath == normalizedRoot ||
+        filePath.startsWith('$normalizedRoot$separator');
+  }
+
+  String? _httpFileContentType(HttpRouteAction action, String filePath) {
+    final optionContentType =
+        action.options['content_type'] ?? action.options['contentType'];
+    final configured =
+        _nonEmptyHttpRouteString(action.contentType) ??
+        (optionContentType is String
+            ? _nonEmptyHttpRouteString(optionContentType)
+            : null);
+    if (configured != null) {
+      return configured;
+    }
+    final dot = filePath.lastIndexOf('.');
+    if (dot < 0 || dot == filePath.length - 1) {
+      return null;
+    }
+    return switch (filePath.substring(dot + 1).toLowerCase()) {
+      'css' => 'text/css; charset=utf-8',
+      'gif' => 'image/gif',
+      'htm' || 'html' => 'text/html; charset=utf-8',
+      'ico' => 'image/x-icon',
+      'jpeg' || 'jpg' => 'image/jpeg',
+      'js' || 'mjs' => 'text/javascript; charset=utf-8',
+      'json' => 'application/json; charset=utf-8',
+      'png' => 'image/png',
+      'svg' => 'image/svg+xml',
+      'txt' || 'text' => 'text/plain; charset=utf-8',
+      'wasm' => 'application/wasm',
+      _ => null,
+    };
+  }
+
+  String _httpFileEtag(FileStat stat) {
+    final size = stat.size.toRadixString(16);
+    final modified = stat.modified.toUtc().millisecondsSinceEpoch.toRadixString(
+      16,
+    );
+    return 'W/"$size-$modified"';
+  }
+
+  bool _httpFileNotModified(
+    RouterHttpRequest request, {
+    required String etag,
+    required DateTime modified,
+  }) {
+    final ifNoneMatch = _headerValue(
+      request.headers,
+      HttpHeaders.ifNoneMatchHeader,
+    );
+    if (ifNoneMatch != null) {
+      return _httpFileEtagMatches(ifNoneMatch, etag);
+    }
+    final ifModifiedSince = _headerValue(
+      request.headers,
+      HttpHeaders.ifModifiedSinceHeader,
+    );
+    if (ifModifiedSince == null) {
+      return false;
+    }
+    try {
+      final since = HttpDate.parse(ifModifiedSince).toUtc();
+      final modifiedSeconds = DateTime.fromMillisecondsSinceEpoch(
+        (modified.millisecondsSinceEpoch ~/ 1000) * 1000,
+        isUtc: true,
+      );
+      return !modifiedSeconds.isAfter(since);
+    } on FormatException {
+      return false;
+    }
+  }
+
+  bool _httpFileEtagMatches(String header, String etag) {
+    for (final rawTag in header.split(',')) {
+      final tag = rawTag.trim();
+      if (tag == '*') {
+        return true;
+      }
+      if (_normalizeHttpFileEtag(tag) == _normalizeHttpFileEtag(etag)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String _normalizeHttpFileEtag(String value) {
+    final trimmed = value.trim();
+    if (trimmed.startsWith('W/')) {
+      return trimmed.substring(2).trim();
+    }
+    return trimmed;
+  }
+
+  _HttpFileRangeDecision? _httpFileRangeForRequest(
+    RouterHttpRequest request, {
+    required int size,
+    required String etag,
+    required DateTime modified,
+  }) {
+    final header = _headerValue(request.headers, 'range');
+    if (header == null) {
+      return null;
+    }
+    final ifRange = _headerValue(request.headers, 'if-range');
+    if (ifRange != null &&
+        !_httpFileIfRangeMatches(ifRange, etag: etag, modified: modified)) {
+      return null;
+    }
+
+    final value = header.trim();
+    const prefix = 'bytes=';
+    if (!value.toLowerCase().startsWith(prefix)) {
+      return null;
+    }
+    final spec = value.substring(prefix.length).trim();
+    if (spec.isEmpty || spec.contains(',')) {
+      return null;
+    }
+    final dash = spec.indexOf('-');
+    if (dash < 0) {
+      return _HttpFileUnsatisfiableRange(size);
+    }
+    final startPart = spec.substring(0, dash).trim();
+    final endPart = spec.substring(dash + 1).trim();
+    if (startPart.isEmpty && endPart.isEmpty) {
+      return _HttpFileUnsatisfiableRange(size);
+    }
+    if (size <= 0) {
+      return _HttpFileUnsatisfiableRange(size);
+    }
+
+    if (startPart.isEmpty) {
+      final suffixLength = int.tryParse(endPart);
+      if (suffixLength == null || suffixLength <= 0) {
+        return _HttpFileUnsatisfiableRange(size);
+      }
+      final start = suffixLength >= size ? 0 : size - suffixLength;
+      return _HttpFileByteRange(start: start, end: size - 1, size: size);
+    }
+
+    final start = int.tryParse(startPart);
+    if (start == null || start < 0 || start >= size) {
+      return _HttpFileUnsatisfiableRange(size);
+    }
+    final int end;
+    if (endPart.isEmpty) {
+      end = size - 1;
+    } else {
+      final parsedEnd = int.tryParse(endPart);
+      if (parsedEnd == null || parsedEnd < start) {
+        return _HttpFileUnsatisfiableRange(size);
+      }
+      end = parsedEnd >= size ? size - 1 : parsedEnd;
+    }
+    return _HttpFileByteRange(start: start, end: end, size: size);
+  }
+
+  bool _httpFileIfRangeMatches(
+    String header, {
+    required String etag,
+    required DateTime modified,
+  }) {
+    final trimmed = header.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    if (trimmed.startsWith('"') || trimmed.startsWith('W/')) {
+      final current = etag.trim();
+      // If-Range uses strong entity-tag comparison; weak validators never
+      // authorize a partial response.
+      if (trimmed.startsWith('W/') || current.startsWith('W/')) {
+        return false;
+      }
+      return trimmed == current;
+    }
+    try {
+      final since = HttpDate.parse(trimmed).toUtc();
+      final modifiedSeconds = DateTime.fromMillisecondsSinceEpoch(
+        (modified.millisecondsSinceEpoch ~/ 1000) * 1000,
+        isUtc: true,
+      );
+      return !modifiedSeconds.isAfter(since);
+    } on FormatException {
+      return false;
+    }
+  }
+
+  Uint8List _readHttpFileRangeBytes(String filePath, _HttpFileByteRange range) {
+    final file = File(filePath).openSync();
+    try {
+      file.setPositionSync(range.start);
+      final bytes = Uint8List(range.length);
+      var offset = 0;
+      while (offset < range.length) {
+        final read = file.readIntoSync(bytes, offset, range.length);
+        if (read == 0) {
+          break;
+        }
+        offset += read;
+      }
+      if (offset == bytes.length) {
+        return bytes;
+      }
+      return Uint8List.sublistView(bytes, 0, offset);
+    } finally {
+      file.closeSync();
+    }
+  }
+
   SessionProfileSettings? _resolveHttpSessionProfile({
     required ListenerSettings? listenerSettings,
     required HttpRouteSettings? route,
@@ -1520,6 +3839,180 @@ class RouterBinding {
     return _resolveSessionProfile(profileName);
   }
 
+  _HttpRouteDispatchTarget _resolveHttpRouteDispatchTarget({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+    required ListenerSettings? listenerSettings,
+    required SessionProfileSettings? sessionProfile,
+  }) {
+    final requestRealm = _nonEmptyHttpRouteString(request.realm);
+    final requestProcedure = _nonEmptyHttpRouteString(request.procedure);
+    if (requestRealm != null && requestProcedure != null) {
+      return _HttpRouteDispatchTarget(
+        realm: requestRealm,
+        procedure: requestProcedure,
+      );
+    }
+    final action = route?.action;
+    if (action == null) {
+      return _HttpRouteDispatchTarget(
+        realm: requestRealm,
+        procedure: requestProcedure,
+      );
+    }
+    switch (action.type) {
+      case HttpRouteActionType.rpc:
+      case HttpRouteActionType.internalCall:
+      case HttpRouteActionType.sessionProxy:
+        final procedure =
+            requestProcedure ?? _nonEmptyHttpRouteString(action.procedure);
+        return _HttpRouteDispatchTarget(
+          realm:
+              requestRealm ??
+              _resolveHttpRouteRealmForBinding(
+                action,
+                listenerSettings: listenerSettings,
+                sessionProfile: sessionProfile,
+                fallbackFromProcedure:
+                    (action.type == HttpRouteActionType.internalCall ||
+                        action.type == HttpRouteActionType.sessionProxy)
+                    ? procedure
+                    : null,
+              ),
+          procedure: procedure,
+        );
+      case HttpRouteActionType.reservedRealm:
+        return _HttpRouteDispatchTarget(
+          realm: requestRealm ?? 'router.http',
+          procedure:
+              requestProcedure ??
+              _materializeHttpRouteProcedure(
+                namespace: _resolveHttpRouteNamespaceForBinding(action),
+                path: request.path,
+                method: request.method,
+                appendMethodSuffix: _resolveHttpRouteAppendMethodSuffix(action),
+              ),
+        );
+      case HttpRouteActionType.namespace:
+        return _HttpRouteDispatchTarget(
+          realm:
+              requestRealm ??
+              _resolveHttpRouteRealmForBinding(
+                action,
+                listenerSettings: listenerSettings,
+                sessionProfile: sessionProfile,
+              ),
+          procedure:
+              requestProcedure ??
+              _materializeHttpRouteProcedure(
+                namespace: _resolveHttpRouteNamespaceForBinding(action),
+                path: request.path,
+                method: request.method,
+                appendMethodSuffix: _resolveHttpRouteAppendMethodSuffix(action),
+              ),
+        );
+      default:
+        return _HttpRouteDispatchTarget(
+          realm: requestRealm,
+          procedure: requestProcedure,
+        );
+    }
+  }
+
+  String? _resolveHttpRouteRealmForBinding(
+    HttpRouteAction action, {
+    required ListenerSettings? listenerSettings,
+    required SessionProfileSettings? sessionProfile,
+    String? fallbackFromProcedure,
+  }) {
+    final directRealm = _nonEmptyHttpRouteString(action.realm);
+    if (directRealm != null) {
+      return directRealm;
+    }
+    final optionRealm =
+        action.options['realm'] ?? action.options['targetRealm'];
+    if (optionRealm is String && optionRealm.trim().isNotEmpty) {
+      return optionRealm.trim();
+    }
+    final profileRealm = _nonEmptyHttpRouteString(sessionProfile?.realm);
+    if (profileRealm != null) {
+      return profileRealm;
+    }
+    final listenerRealm = listenerSettings?.options['realm'];
+    if (listenerRealm is String && listenerRealm.trim().isNotEmpty) {
+      return listenerRealm.trim();
+    }
+    final realmNames = settings.realms.map((realm) => realm.name).toSet();
+    if (realmNames.length == 1) {
+      return realmNames.single;
+    }
+    if (fallbackFromProcedure != null) {
+      final lastDot = fallbackFromProcedure.lastIndexOf('.');
+      if (lastDot > 0) {
+        return fallbackFromProcedure.substring(0, lastDot);
+      }
+    }
+    return null;
+  }
+
+  String? _resolveHttpRouteNamespaceForBinding(HttpRouteAction action) {
+    final directNamespace = _nonEmptyHttpRouteString(action.namespace);
+    if (directNamespace != null) {
+      return directNamespace;
+    }
+    final optionNamespace = action.options['namespace'];
+    if (optionNamespace is String && optionNamespace.trim().isNotEmpty) {
+      return optionNamespace.trim();
+    }
+    return null;
+  }
+
+  String? _resolveHttpRouteTopicForBinding(HttpRouteAction action) {
+    final directTopic = _nonEmptyHttpRouteString(action.topic);
+    if (directTopic != null) {
+      return directTopic;
+    }
+    final optionTopic = action.options['topic'];
+    if (optionTopic is String && optionTopic.trim().isNotEmpty) {
+      return optionTopic.trim();
+    }
+    return null;
+  }
+
+  bool _resolveHttpRouteAppendMethodSuffix(HttpRouteAction action) {
+    if (action.appendMethodSuffix != null) {
+      return action.appendMethodSuffix!;
+    }
+    final snake = action.options['append_method_suffix'];
+    if (snake is bool) {
+      return snake;
+    }
+    final camel = action.options['appendMethodSuffix'];
+    if (camel is bool) {
+      return camel;
+    }
+    return true;
+  }
+
+  String _materializeHttpRouteProcedure({
+    required String? namespace,
+    required String path,
+    required String method,
+    required bool appendMethodSuffix,
+  }) {
+    final segments = <String>[
+      ..._httpRouteNamespaceSegments(namespace),
+      ..._httpRoutePathSegments(path),
+    ];
+    if (segments.isEmpty) {
+      segments.add('index');
+    }
+    if (appendMethodSuffix) {
+      segments.add(method.trim().toLowerCase());
+    }
+    return segments.join('.');
+  }
+
   _HttpRouteMatchResult _matchHttpRoute(
     HttpListenerSettings? httpSettings,
     RouterHttpRequest request,
@@ -1528,15 +4021,38 @@ class RouterBinding {
       return const _HttpRouteMatchResult.notFound();
     }
     final allowedMethods = <String>{};
+    final allowedProtocols = <String>{};
+    HttpRouteSettings? bestRoute;
+    var bestPriority = -1;
     for (final route in httpSettings.routes) {
       if (_httpRouteMatchesRequest(route, request)) {
-        return _HttpRouteMatchResult.route(route);
+        final action = route.actionForMethod(request.method);
+        final effectiveRoute = action == route.action
+            ? route
+            : route.withAction(action);
+        final priority = _httpRoutePriority(route);
+        if (priority > bestPriority) {
+          bestRoute = effectiveRoute;
+          bestPriority = priority;
+        }
+        continue;
       }
-      if (_httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
-        allowedMethods.addAll(
-          route.match.methods.map((method) => method.trim().toUpperCase()),
+      if (_httpRouteMatchesRequest(route, request, ignoreProtocol: true)) {
+        allowedProtocols.addAll(
+          route.match.protocols.map((protocol) => protocol.trim()),
         );
       }
+      if (route.match.methods.isNotEmpty &&
+          _httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
+        allowedMethods.addAll(route.explicitMethods);
+      }
+    }
+    if (bestRoute != null) {
+      return _HttpRouteMatchResult.route(bestRoute);
+    }
+    if (allowedProtocols.isNotEmpty) {
+      final normalized = allowedProtocols.toList(growable: false)..sort();
+      return _HttpRouteMatchResult.protocolNotAllowed(normalized);
     }
     if (allowedMethods.isNotEmpty) {
       final normalized = allowedMethods.toList(growable: false)..sort();
@@ -1545,16 +4061,29 @@ class RouterBinding {
     return const _HttpRouteMatchResult.notFound();
   }
 
+  int _httpRoutePriority(HttpRouteSettings route) {
+    if (route.match.isCatchAll) {
+      return 1;
+    }
+    final path = (route.match.path ?? route.match.prefix)?.trim();
+    if (path == null || path.isEmpty) {
+      return 1;
+    }
+    return path.length;
+  }
+
   bool _httpRouteMatchesRequest(
     HttpRouteSettings route,
     RouterHttpRequest request, {
     bool ignoreMethod = false,
+    bool ignoreProtocol = false,
   }) {
     final match = route.match;
-    if (match.path != null && match.path != request.path) {
+    if (!match.isCatchAll && match.path != null && match.path != request.path) {
       return false;
     }
-    if (match.path == null &&
+    if (!match.isCatchAll &&
+        match.path == null &&
         match.prefix != null &&
         !request.path.startsWith(match.prefix!)) {
       return false;
@@ -1574,7 +4103,7 @@ class RouterBinding {
         return false;
       }
     }
-    if (match.protocols.isNotEmpty) {
+    if (!ignoreProtocol && match.protocols.isNotEmpty) {
       final requestProtocol = request.protocol.trim().toLowerCase();
       final allowedProtocols = match.protocols.map(
         (protocol) => protocol.trim().toLowerCase(),
@@ -1585,9 +4114,7 @@ class RouterBinding {
     }
     if (!ignoreMethod && match.methods.isNotEmpty) {
       final requestMethod = request.method.trim().toUpperCase();
-      final allowed = match.methods.map(
-        (method) => method.trim().toUpperCase(),
-      );
+      final allowed = route.explicitMethods;
       if (!allowed.contains(requestMethod)) {
         return false;
       }
@@ -1605,6 +4132,23 @@ class RouterBinding {
       }
     }
     return true;
+  }
+
+  String? _httpUpgradeHeaderForProtocols(List<String> protocols) {
+    final values = <String>{};
+    for (final protocol in protocols) {
+      final normalized = protocol.trim().toLowerCase();
+      if (normalized == 'http/2' || normalized == 'h2') {
+        values.add('h2');
+      } else if (normalized == 'http/3' || normalized == 'h3') {
+        values.add('h3');
+      }
+    }
+    if (values.isEmpty) {
+      return null;
+    }
+    final sorted = values.toList(growable: false)..sort();
+    return sorted.join(', ');
   }
 
   _HttpRouteTransportAuthFailure? _evaluateHttpRouteTransportAuth({
@@ -1656,6 +4200,275 @@ class RouterBinding {
       );
     }
     return null;
+  }
+
+  _HttpRouteRateLimitFailure? _evaluateHttpRouteRateLimit({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+  }) {
+    if (route == null) {
+      return null;
+    }
+    final action = route.actionForMethod(request.method);
+    final rateLimit = action.rateLimit;
+    if (rateLimit == null) {
+      return null;
+    }
+    final now = DateTime.now().toUtc();
+    _httpRouteRateLimitStates.removeWhere(
+      (_, state) => !now.isBefore(state.resetAt),
+    );
+    final key = _httpRouteRateLimitKey(
+      request: request,
+      route: route,
+      action: action,
+      rateLimit: rateLimit,
+    );
+    final existing = _httpRouteRateLimitStates[key];
+    if (existing == null) {
+      _httpRouteRateLimitStates[key] = _HttpRouteRateLimitState(
+        count: 1,
+        resetAt: now.add(rateLimit.window),
+      );
+      return null;
+    }
+    if (existing.count >= rateLimit.maxRequests) {
+      final retryAfter = existing.resetAt.difference(now);
+      return _HttpRouteRateLimitFailure(
+        key: key,
+        retryAfter: retryAfter.isNegative ? Duration.zero : retryAfter,
+        limit: rateLimit.maxRequests,
+        remaining: 0,
+        resetAt: existing.resetAt,
+      );
+    }
+    existing.count += 1;
+    return null;
+  }
+
+  _HttpRouteAccessLogContext? _startHttpRouteAccessLog({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+  }) {
+    if (route == null) {
+      return null;
+    }
+    final action = route.actionForMethod(request.method);
+    final accessLog = action.accessLog;
+    if (accessLog == null || !accessLog.enabled) {
+      return null;
+    }
+    final startedAt = DateTime.now().toUtc();
+    final context = _HttpRouteAccessLogContext(
+      startedAt: startedAt,
+      request: request,
+      route: route,
+      action: action,
+    );
+    final event = _httpRouteAccessLogBaseEvent(
+      type: 'http_route_access_started',
+      request: request,
+      context: context,
+    );
+    if (accessLog.includeQuery && request.query != null) {
+      event['query'] = request.query;
+    }
+    if (accessLog.includeHeaders) {
+      event['headers'] = _redactedHttpRouteAccessLogHeaders(request.headers);
+    }
+    onEvent?.call(event);
+    return context;
+  }
+
+  void _finishHttpRouteAccessLog(
+    _HttpRouteAccessLogContext? context, {
+    int? status,
+    required String outcome,
+    Object? error,
+  }) {
+    if (context == null || context.completed) {
+      return;
+    }
+    context.completed = true;
+    final elapsed = DateTime.now().toUtc().difference(context.startedAt);
+    final event = _httpRouteAccessLogBaseEvent(
+      type: 'http_route_access_completed',
+      request: context.request,
+      context: context,
+    );
+    event['durationMs'] = elapsed.inMilliseconds;
+    event['outcome'] = outcome;
+    if (status != null) {
+      event['status'] = status;
+    }
+    if (error != null) {
+      event['error'] = error.toString();
+    }
+    onEvent?.call(event);
+  }
+
+  Map<String, Object?> _httpRouteAccessLogBaseEvent({
+    required String type,
+    required RouterHttpRequest request,
+    required _HttpRouteAccessLogContext context,
+  }) {
+    return <String, Object?>{
+      'source': 'binding',
+      'type': type,
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'method': request.method,
+      'path': request.path,
+      'target': request.target,
+      'protocol': request.protocol,
+      'action': httpRouteActionTypeToString(context.action.type),
+      if (context.route.match.path != null)
+        'routePath': context.route.match.path,
+      if (context.route.match.prefix != null)
+        'routePrefix': context.route.match.prefix,
+      if (context.route.match.catchAll) 'routeCatchAll': true,
+      if (context.action.realm != null) 'realm': context.action.realm,
+      if (context.action.procedure != null)
+        'procedure': context.action.procedure,
+      if (context.action.topic != null) 'topic': context.action.topic,
+    };
+  }
+
+  Map<String, String> _redactedHttpRouteAccessLogHeaders(
+    Map<String, String> headers,
+  ) {
+    const sensitiveHeaders = {
+      'authorization',
+      'cookie',
+      'proxy-authorization',
+      'set-cookie',
+    };
+    return Map<String, String>.unmodifiable(
+      headers.map((name, value) {
+        final normalized = name.trim().toLowerCase();
+        return MapEntry(
+          name,
+          sensitiveHeaders.contains(normalized) ? '<redacted>' : value,
+        );
+      }),
+    );
+  }
+
+  _HttpRouteConcurrencyDecision _acquireHttpRouteConcurrencySlot({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+  }) {
+    if (route == null) {
+      return const _HttpRouteConcurrencyDecision.none();
+    }
+    final action = route.actionForMethod(request.method);
+    final concurrencyLimit = action.concurrencyLimit;
+    if (concurrencyLimit == null) {
+      return const _HttpRouteConcurrencyDecision.none();
+    }
+    final key = _httpRouteConcurrencyLimitKey(
+      request: request,
+      route: route,
+      action: action,
+      concurrencyLimit: concurrencyLimit,
+    );
+    final current = _httpRouteConcurrencyCounts[key] ?? 0;
+    if (current >= concurrencyLimit.maxConcurrent) {
+      return _HttpRouteConcurrencyDecision.failure(
+        _HttpRouteConcurrencyFailure(
+          key: key,
+          limit: concurrencyLimit.maxConcurrent,
+          current: current,
+        ),
+      );
+    }
+    _httpRouteConcurrencyCounts[key] = current + 1;
+    return _HttpRouteConcurrencyDecision.acquired(
+      _HttpRouteConcurrencyToken(key: key),
+    );
+  }
+
+  void _releaseHttpRouteConcurrencySlot(_HttpRouteConcurrencyToken? token) {
+    if (token == null) {
+      return;
+    }
+    final current = _httpRouteConcurrencyCounts[token.key];
+    if (current == null || current <= 1) {
+      _httpRouteConcurrencyCounts.remove(token.key);
+      return;
+    }
+    _httpRouteConcurrencyCounts[token.key] = current - 1;
+  }
+
+  String _httpRouteRateLimitKey({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required HttpRouteAction action,
+    required HttpRouteRateLimitSettings rateLimit,
+  }) => _httpRouteMiddlewareKey(
+    request: request,
+    route: route,
+    action: action,
+    keyStrategy: rateLimit.key,
+  );
+
+  String _httpRouteConcurrencyLimitKey({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required HttpRouteAction action,
+    required HttpRouteConcurrencyLimitSettings concurrencyLimit,
+  }) => _httpRouteMiddlewareKey(
+    request: request,
+    route: route,
+    action: action,
+    keyStrategy: concurrencyLimit.key,
+  );
+
+  String _httpRouteMiddlewareKey({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required HttpRouteAction action,
+    required String keyStrategy,
+  }) {
+    final routeKey =
+        route.match.path ??
+        route.match.prefix ??
+        (route.match.isCatchAll ? '*' : request.path);
+    final actionKey =
+        action.procedure ??
+        action.topic ??
+        action.namespace ??
+        httpRouteActionTypeToString(action.type);
+    final trimmedStrategy = keyStrategy.trim();
+    final normalized = trimmedStrategy.toLowerCase();
+    final subject = switch (normalized) {
+      'global' => 'global',
+      'connection' => 'connection:${request.connectionId}',
+      'bearer' =>
+        'bearer:${_extractBearerToken(request.headers) ?? 'anonymous'}',
+      _ when normalized.startsWith('header:') => _httpRouteMiddlewareHeaderKey(
+        request,
+        trimmedStrategy.substring('header:'.length),
+      ),
+      _ => 'global',
+    };
+    return [
+      request.listenerId,
+      routeKey,
+      request.method.toUpperCase(),
+      actionKey,
+      subject,
+    ].join('|');
+  }
+
+  String _httpRouteMiddlewareHeaderKey(
+    RouterHttpRequest request,
+    String headerName,
+  ) {
+    final normalizedHeader = headerName.trim().toLowerCase();
+    final value = _headerValue(request.headers, normalizedHeader)?.trim();
+    return 'header:$normalizedHeader:${value == null || value.isEmpty ? 'missing' : value}';
   }
 
   Future<void> _handleHttpAuthRequest({
@@ -1915,6 +4728,7 @@ class RouterBinding {
       transport: buildTransportMetadata(
         listener: request.listener,
         connectionId: request.connectionId,
+        protocol: request.protocol,
       ),
       helloDetails: helloDetails,
     );
@@ -2501,6 +5315,7 @@ class RouterBinding {
         transport: buildTransportMetadata(
           listener: request.listener,
           connectionId: request.connectionId,
+          protocol: request.protocol,
         ),
         sessionProfileName: sessionProfile?.name,
       ),
@@ -2920,8 +5735,14 @@ class RouterBinding {
           body: NativeHttpResponseJson(payload.bodyJson),
         );
       case HttpResponseBodyKind.file:
-        throw UnsupportedError(
-          'File-backed HTTP responses are not supported yet.',
+        final filePath = payload.filePath;
+        if (filePath == null) {
+          throw StateError('File-backed HTTP response missing file path.');
+        }
+        return NativeHttpResponse(
+          status: payload.status,
+          headers: headers,
+          body: NativeHttpResponseFile(filePath),
         );
     }
   }
@@ -3035,6 +5856,7 @@ class RouterBinding {
         headers: headers,
       );
       pending.directResponseStream = descriptor;
+      pending.httpStatus = status;
       return descriptor;
     } on UnsupportedError catch (error, stackTrace) {
       onEvent?.call({
@@ -3118,6 +5940,14 @@ class RouterBinding {
     }
     pending?.subscription.cancel();
     pending?.handshake?.release();
+    _releaseHttpRouteConcurrencySlot(pending?.concurrencyToken);
+    if (pending != null) {
+      _finishHttpRouteAccessLog(
+        pending.accessLog,
+        status: pending.httpStatus,
+        outcome: 'completed',
+      );
+    }
   }
 
   void _scheduleInternalBootstrap() {
@@ -3216,6 +6046,52 @@ class RouterBinding {
 String _endpointKey(String host, int port) =>
     '${host.trim().toLowerCase()}:$port';
 
+String? _nonEmptyHttpRouteString(String? value) {
+  final trimmed = value?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
+List<String> _httpRouteNamespaceSegments(String? namespace) {
+  final trimmed = namespace?.trim().replaceAll(RegExp(r'^\.+|\.+$'), '');
+  if (trimmed == null || trimmed.isEmpty) {
+    return const <String>[];
+  }
+  return [trimmed];
+}
+
+List<String> _httpRoutePathSegments(String path) {
+  final stripped = (path.isEmpty ? '/' : path).trim().replaceAll(
+    RegExp(r'^/+|/+$'),
+    '',
+  );
+  if (stripped.isEmpty) {
+    return const <String>[];
+  }
+  return stripped
+      .split('/')
+      .where((segment) => segment.isNotEmpty)
+      .map(_sanitizeHttpRouteSegment)
+      .toList(growable: false);
+}
+
+String _sanitizeHttpRouteSegment(String segment) {
+  final buffer = StringBuffer();
+  for (final codeUnit in segment.codeUnits) {
+    final char = String.fromCharCode(codeUnit);
+    if ((codeUnit >= 0x30 && codeUnit <= 0x39) ||
+        (codeUnit >= 0x41 && codeUnit <= 0x5A) ||
+        (codeUnit >= 0x61 && codeUnit <= 0x7A)) {
+      buffer.write(char.toLowerCase());
+    } else if (char == '_' || char == '-') {
+      buffer.write('_');
+    } else {
+      buffer.write('_');
+    }
+  }
+  final value = buffer.toString();
+  return value.isEmpty ? 'index' : value;
+}
+
 String _normalizeConfiguredEndpoint(String endpoint) {
   final trimmed = endpoint.trim();
   if (trimmed.isEmpty) {
@@ -3240,6 +6116,16 @@ String _normalizeConfiguredEndpoint(String endpoint) {
   final portPart = trimmed.substring(lastColon + 1);
   final port = int.tryParse(portPart) ?? 0;
   return _endpointKey(hostPart, port);
+}
+
+class _HttpRouteDispatchTarget {
+  const _HttpRouteDispatchTarget({
+    required this.realm,
+    required this.procedure,
+  });
+
+  final String? realm;
+  final String? procedure;
 }
 
 /// Tracks additional per-connection bookkeeping for the binding.
@@ -3269,17 +6155,22 @@ class _PendingHttpCall {
     required this.snapshot,
     required this.session,
     this.handshake,
+    this.concurrencyToken,
+    this.accessLog,
   });
 
   final int id;
   final RouterHttpRequest request;
   final HttpRequestSnapshot snapshot;
   final RouterSession session;
+  final _HttpRouteConcurrencyToken? concurrencyToken;
+  final _HttpRouteAccessLogContext? accessLog;
   late StreamSubscription<result_msg.Result> subscription;
   NativeHttpHandshake? handshake;
   NativeHttpResponseStream? responseStream;
   NativeHttpResponseStreamDescriptor? directResponseStream;
   bool directResponseStreamCompleted = false;
+  int? httpStatus;
 }
 
 class _MetricsService {
@@ -3612,15 +6503,239 @@ class _MetricsService {
         'connectanum_router_worker_isolates ${routerSnapshot.workerCount}',
       );
 
-    final process = routerSnapshot.process;
-    if (process != null) {
+    final workerPool = routerSnapshot.workerPool;
+    buffer
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_min_workers Configured minimum worker isolates for the pool',
+      )
+      ..writeln('# TYPE connectanum_router_worker_pool_min_workers gauge')
+      ..writeln(
+        'connectanum_router_worker_pool_min_workers ${workerPool.minWorkers}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_max_workers Configured maximum worker isolates for the pool',
+      )
+      ..writeln('# TYPE connectanum_router_worker_pool_max_workers gauge')
+      ..writeln(
+        'connectanum_router_worker_pool_max_workers ${workerPool.maxWorkers}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_pending_isolates Worker isolates spawned by the boss but not yet registered',
+      )
+      ..writeln('# TYPE connectanum_router_worker_pool_pending_isolates gauge')
+      ..writeln(
+        'connectanum_router_worker_pool_pending_isolates ${workerPool.pendingIsolates}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_up_pressure_ticks Current consecutive pressure ticks toward the scale-up threshold',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_worker_pool_scale_up_pressure_ticks gauge',
+      )
+      ..writeln(
+        'connectanum_router_worker_pool_scale_up_pressure_ticks ${workerPool.scaleUpPressureTicks}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_down_idle_ticks Current consecutive idle ticks toward the scale-down threshold',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_worker_pool_scale_down_idle_ticks gauge',
+      )
+      ..writeln(
+        'connectanum_router_worker_pool_scale_down_idle_ticks ${workerPool.scaleDownIdleTicks}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_ups_total Pressure-triggered worker-pool scale-up attempts since router start',
+      )
+      ..writeln('# TYPE connectanum_router_worker_pool_scale_ups_total counter')
+      ..writeln(
+        'connectanum_router_worker_pool_scale_ups_total ${workerPool.scaleUpsTotal}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_downs_total Worker-pool scale-down retirements since router start',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_worker_pool_scale_downs_total counter',
+      )
+      ..writeln(
+        'connectanum_router_worker_pool_scale_downs_total ${workerPool.scaleDownsTotal}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_worker_pool_scale_down_timeouts_total Worker-pool scale-down retirements that exceeded the drain timeout',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_worker_pool_scale_down_timeouts_total counter',
+      )
+      ..writeln(
+        'connectanum_router_worker_pool_scale_down_timeouts_total ${workerPool.scaleDownTimeoutsTotal}',
+      );
+
+    final workerLoad = routerSnapshot.workerLoad;
+    final busyWorkers = workerLoad.where((worker) => worker.busy).length;
+    buffer
+      ..writeln(
+        '# HELP connectanum_router_worker_busy_isolates Worker isolates currently processing a dispatch',
+      )
+      ..writeln('# TYPE connectanum_router_worker_busy_isolates gauge')
+      ..writeln('connectanum_router_worker_busy_isolates $busyWorkers');
+    if (workerLoad.isNotEmpty) {
       buffer
         ..writeln(
-          '# HELP connectanum_router_process_info Static information about the router VM process',
+          '# HELP connectanum_router_worker_connections Active connections assigned to each worker isolate',
+        )
+        ..writeln('# TYPE connectanum_router_worker_connections gauge');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_connections${_workerLabels(worker)} ${worker.connectionCount}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_busy 1 while a worker isolate is processing a dispatch',
+        )
+        ..writeln('# TYPE connectanum_router_worker_busy gauge');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_busy${_workerLabels(worker)} ${worker.busy ? 1 : 0}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_inflight_dispatches Current native message dispatches in flight per worker isolate',
+        )
+        ..writeln('# TYPE connectanum_router_worker_inflight_dispatches gauge');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_inflight_dispatches${_workerLabels(worker)} ${worker.inFlightDispatches}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_pending_dispatches Native message handles prefetched by the boss and waiting for worker dispatch',
+        )
+        ..writeln('# TYPE connectanum_router_worker_pending_dispatches gauge');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_pending_dispatches${_workerLabels(worker)} ${worker.pendingDispatches}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_dispatches_total Native message dispatches assigned to each worker isolate',
+        )
+        ..writeln('# TYPE connectanum_router_worker_dispatches_total counter');
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_dispatches_total${_workerLabels(worker)} ${worker.dispatchesTotal}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_queued_dispatches_total Native message handles prefetched into worker dispatch queues',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_queued_dispatches_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_queued_dispatches_total${_workerLabels(worker)} ${worker.queuedDispatchesTotal}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_completed_dispatches_total Native message dispatches completed by each worker isolate',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_completed_dispatches_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_completed_dispatches_total${_workerLabels(worker)} ${worker.completedDispatchesTotal}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_dispatch_errors_total Native message dispatches that reported worker errors',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_dispatch_errors_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_dispatch_errors_total${_workerLabels(worker)} ${worker.errorsTotal}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_busy_duration_ms_total Observed worker busy time in milliseconds',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_busy_duration_ms_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_busy_duration_ms_total${_workerLabels(worker)} ${worker.totalBusyDurationMs}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_queue_latency_ms_total Total observed boss-side queue latency before worker dispatch in milliseconds',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_queue_latency_ms_total counter',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_queue_latency_ms_total${_workerLabels(worker)} ${worker.totalQueueLatencyMs}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_oldest_pending_dispatch_age_ms Age of the oldest boss-prefetched dispatch waiting for a worker',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_oldest_pending_dispatch_age_ms gauge',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_oldest_pending_dispatch_age_ms${_workerLabels(worker)} ${worker.oldestPendingDispatchAgeMs ?? 0}',
+        );
+      }
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_worker_max_pending_dispatches Highest observed boss-side pending dispatch queue depth',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_worker_max_pending_dispatches gauge',
+        );
+      for (final worker in workerLoad) {
+        buffer.writeln(
+          'connectanum_router_worker_max_pending_dispatches${_workerLabels(worker)} ${worker.maxPendingDispatches}',
+        );
+      }
+    }
+
+    final process = routerSnapshot.process;
+    if (process != null) {
+      final processInfoLabels = _formatLabels({
+        'pid': process.processId.toString(),
+        'os': process.operatingSystem,
+        'dart_version': process.dartVersion,
+      });
+      buffer
+        ..writeln(
+          '# HELP connectanum_router_process_info Static host and runtime information about the router VM process',
         )
         ..writeln('# TYPE connectanum_router_process_info gauge')
+        ..writeln('connectanum_router_process_info$processInfoLabels 1')
         ..writeln(
-          'connectanum_router_process_info{pid="${process.processId}"} 1',
+          '# HELP connectanum_router_process_available_processors Logical processors available to the router VM process',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_process_available_processors gauge',
+        )
+        ..writeln(
+          'connectanum_router_process_available_processors ${process.availableProcessors}',
         )
         ..writeln(
           '# HELP connectanum_router_process_resident_memory_bytes Current resident set size of the router VM process',
@@ -4130,6 +7245,11 @@ class _MetricsService {
     return '{$formatted}';
   }
 
+  String _workerLabels(RouterWorkerLoadMetrics worker) => _formatLabels({
+    'worker_id': worker.id.toString(),
+    'isolate_hash': worker.isolateHash.toString(),
+  });
+
   bool _isMetaTopic(String topic) => topic.startsWith('wamp.');
 
   bool _isMetaProcedure(String procedure) => procedure.startsWith('wamp.');
@@ -4353,7 +7473,11 @@ class _HttpRefreshTokenRecord {
 }
 
 class _HttpRouteMatchResult {
-  const _HttpRouteMatchResult._({this.route, this.allowedMethods = const []});
+  const _HttpRouteMatchResult._({
+    this.route,
+    this.allowedMethods = const [],
+    this.allowedProtocols = const [],
+  });
 
   const _HttpRouteMatchResult.route(HttpRouteSettings route)
     : this._(route: route);
@@ -4361,13 +7485,19 @@ class _HttpRouteMatchResult {
   const _HttpRouteMatchResult.methodNotAllowed(List<String> allowedMethods)
     : this._(allowedMethods: allowedMethods);
 
+  const _HttpRouteMatchResult.protocolNotAllowed(List<String> allowedProtocols)
+    : this._(allowedProtocols: allowedProtocols);
+
   const _HttpRouteMatchResult.notFound() : this._();
 
   final HttpRouteSettings? route;
   final List<String> allowedMethods;
+  final List<String> allowedProtocols;
 
   bool get isMethodNotAllowed => route == null && allowedMethods.isNotEmpty;
-  bool get isNotFound => route == null && allowedMethods.isEmpty;
+  bool get isProtocolNotAllowed => route == null && allowedProtocols.isNotEmpty;
+  bool get isNotFound =>
+      route == null && allowedMethods.isEmpty && allowedProtocols.isEmpty;
 }
 
 class _HttpRouteTransportAuthFailure {
@@ -4402,6 +7532,185 @@ class _HttpRouteTransportAuthFailure {
   final String reason;
   final String message;
   final bool bearerChallenge;
+}
+
+class _HttpRouteRateLimitState {
+  _HttpRouteRateLimitState({required this.count, required this.resetAt});
+
+  int count;
+  final DateTime resetAt;
+}
+
+class _HttpRouteRateLimitFailure {
+  const _HttpRouteRateLimitFailure({
+    required this.key,
+    required this.retryAfter,
+    required this.limit,
+    required this.remaining,
+    required this.resetAt,
+  });
+
+  final String key;
+  final Duration retryAfter;
+  final int limit;
+  final int remaining;
+  final DateTime resetAt;
+
+  Map<String, String> get headers => <String, String>{
+    HttpHeaders.retryAfterHeader: _retryAfterSeconds(retryAfter).toString(),
+    'x-ratelimit-limit': limit.toString(),
+    'x-ratelimit-remaining': remaining.toString(),
+    'x-ratelimit-reset': resetAt.toIso8601String(),
+  };
+
+  static int _retryAfterSeconds(Duration retryAfter) {
+    final milliseconds = retryAfter.inMilliseconds;
+    if (milliseconds <= 0) {
+      return 0;
+    }
+    return (milliseconds + 999) ~/ 1000;
+  }
+}
+
+class _HttpRouteAccessLogContext {
+  _HttpRouteAccessLogContext({
+    required this.startedAt,
+    required this.request,
+    required this.route,
+    required this.action,
+  });
+
+  final DateTime startedAt;
+  final RouterHttpRequest request;
+  final HttpRouteSettings route;
+  final HttpRouteAction action;
+  bool completed = false;
+}
+
+abstract class _HttpFileRangeDecision {
+  const _HttpFileRangeDecision();
+}
+
+class _HttpFileByteRange extends _HttpFileRangeDecision {
+  const _HttpFileByteRange({
+    required this.start,
+    required this.end,
+    required this.size,
+  });
+
+  final int start;
+  final int end;
+  final int size;
+
+  int get length => end - start + 1;
+
+  String get contentRangeHeader => 'bytes $start-$end/$size';
+}
+
+class _HttpFileUnsatisfiableRange extends _HttpFileRangeDecision {
+  const _HttpFileUnsatisfiableRange(this.size);
+
+  final int size;
+
+  String get contentRangeHeader => 'bytes */$size';
+}
+
+class _HttpReverseProxyResponseTooLarge implements Exception {
+  const _HttpReverseProxyResponseTooLarge(this.maxBytes);
+
+  final int maxBytes;
+
+  @override
+  String toString() => 'HTTP reverse proxy response exceeded $maxBytes bytes';
+}
+
+const _fastCgiVersion = 1;
+const _fastCgiHeaderLength = 8;
+const _fastCgiBeginRequest = 1;
+const _fastCgiEndRequest = 3;
+const _fastCgiParams = 4;
+const _fastCgiStdin = 5;
+const _fastCgiStdout = 6;
+const _fastCgiStderr = 7;
+const _fastCgiResponder = 1;
+const _fastCgiRequestComplete = 0;
+
+class _HttpFastCgiEndpoint {
+  const _HttpFastCgiEndpoint.tcp(this.host, this.port) : unixPath = null;
+
+  const _HttpFastCgiEndpoint.unix(this.unixPath) : host = null, port = null;
+
+  final String? host;
+  final int? port;
+  final String? unixPath;
+
+  String get kind => unixPath == null ? 'tcp' : 'unix';
+}
+
+class _HttpFastCgiResponse {
+  const _HttpFastCgiResponse({
+    required this.status,
+    required this.headers,
+    required this.body,
+    required this.stderr,
+  });
+
+  final int status;
+  final Map<String, String> headers;
+  final Uint8List body;
+  final Uint8List stderr;
+}
+
+class _HttpFastCgiResponseTooLarge implements Exception {
+  const _HttpFastCgiResponseTooLarge(this.maxBytes);
+
+  final int maxBytes;
+
+  @override
+  String toString() => 'HTTP FastCGI response exceeded $maxBytes bytes';
+}
+
+class _HttpFastCgiProtocolException implements Exception {
+  const _HttpFastCgiProtocolException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class _HttpRouteConcurrencyDecision {
+  const _HttpRouteConcurrencyDecision.none() : token = null, failure = null;
+
+  const _HttpRouteConcurrencyDecision.acquired(this.token) : failure = null;
+
+  const _HttpRouteConcurrencyDecision.failure(this.failure) : token = null;
+
+  final _HttpRouteConcurrencyToken? token;
+  final _HttpRouteConcurrencyFailure? failure;
+}
+
+class _HttpRouteConcurrencyToken {
+  const _HttpRouteConcurrencyToken({required this.key});
+
+  final String key;
+}
+
+class _HttpRouteConcurrencyFailure {
+  const _HttpRouteConcurrencyFailure({
+    required this.key,
+    required this.limit,
+    required this.current,
+  });
+
+  final String key;
+  final int limit;
+  final int current;
+
+  Map<String, String> get headers => <String, String>{
+    'x-concurrency-limit': limit.toString(),
+    'x-concurrency-current': current.toString(),
+  };
 }
 
 class _HttpUnauthorized implements Exception {

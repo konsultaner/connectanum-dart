@@ -1,26 +1,1775 @@
 # Project State
 
-Last updated: 2026-05-13
-Current branch: GitHub `master` promoted from the router workspace
-(`codex/rc-master-promotion` local working branch tracks `github/master`).
+Last updated: 2026-05-19
+Current branch: `codex/post-rc-production-readiness` from GitHub `master`
+after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
 (`v0.1.0-rc.1`; non-draft GitHub prerelease with native bundles and router
 image publish evidence).
-Active exec plan: none. Use `ROADMAP_NEXT.md` and `ROADMAP.md` to select the
-next milestone.
-Current milestone: `v0.1.0-rc.1` is GitHub-RC ready for downstream-consuming
-applications. MCP is RC-ready for the first candidate: router-hosted endpoints,
-auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
-resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
-coverage are in place. Further MCP helper permutations are post-RC polish
-unless consumer integration exposes a real correctness bug. Pub.dev publishing
-remains deferred until package ownership, public versions, and release order
-for the private workspace packages are explicitly decided.
+Active exec plan:
+`docs/exec-plans/2026-05-17-in-process-client-transport.md`.
+Current milestone: post-RC GitHub deployment-chain hardening. The published
+`v0.1.0-rc.1` checkpoint is valid for its tagged commit, but the current branch
+contains release-sensitive fixes after that tag; the next candidate needs PR
+review/merge into the release branch, an operator-approved RC tag, and matching
+native/router release evidence. MCP is RC-ready for the first candidate:
+router-hosted endpoints, auth/session correctness, direct JSON/meta API, WAMP
+pub/sub coverage, resources/prompts, Streamable HTTP compatibility, and
+consumer-package smoke coverage are in place. Further MCP helper permutations
+are post-RC polish unless consumer integration exposes a real correctness bug.
+Pub.dev publishing remains deferred until package ownership, public versions,
+and release order for the private workspace packages are explicitly decided.
+Current implementation checkpoint:
+The internal remote-auth example/smoke now defaults to the in-process delegate
+lane for downstream/consumer application readiness. The runnable
+`packages/connectanum_router/example/remote_auth_service.dart` example starts a
+single edge router with both the auth-service and application realms when no
+delegate flag is supplied, binds `AuthServerProcedureBinding` through an
+internal `RouterSession`, and configures `remote-ticket` with
+`rpc.transport.type: internal`. The explicit `--rawsocket-delegate` mode keeps
+the old two-router raw-socket compatibility path available for operator
+testing. `ROADMAP.md` now marks the embedded internal transport/auth-server
+subtasks complete, including auth-server router ownership and migration of
+delegate examples/tests to the internal lane. Focused
+`dart analyze packages/connectanum_router/example/remote_auth_service.dart`,
+focused default in-process
+`dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit`,
+focused compatibility
+`dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit --rawsocket-delegate`,
+and pre-edit `bin/test-fast` passed on 2026-05-19. Full local `bin/verify`
+passed on 2026-05-19. RC readiness remains blocked by PR #79 review/merge, a
+fresh approved RC tag/prerelease, and tag-matched Native/Router release
+evidence; pub.dev remains intentionally deferred.
+
+Previous implementation checkpoint:
+Router auth/session transport metadata is implemented locally and verified for
+downstream/consumer authentication readiness. `TransportMetadata` now carries
+the negotiated protocol plus WebSocket subprotocol and serializer when known.
+Worker WAMP handshakes populate those fields from the native/runtime listener
+state, HTTP auth bridge and bearer-provider contexts carry the request protocol,
+and remote WAMP auth HELLO payloads forward the metadata to auth services.
+Coverage includes the worker remote-auth regression for WebSocket protocol
+metadata, a direct `RemoteWampProcedureDelegate` payload regression, focused
+analyzer coverage for the touched router files, focused
+`remote_wamp_delegate_test.dart` + `router_worker_auth_test.dart`, pre-edit
+`bin/test-fast`, and final full local `bin/verify` on 2026-05-18. The slice was
+committed and pushed as `0a65737`; hosted PR CI #26024202781, push CI
+#26024201187, PR Dart Package Publish Dry Run #26024202800, push Dart Package
+Publish Dry Run #26024201202, Router Image dry-run #26024887679, and WAMP
+Profile Benchmarks #26024887667 completed successfully for that head. The
+strict deployment-chain audit with latest CI/logs, Dart package dry-run, Router
+Image dry-run, WAMP benchmark, native release relevance, workflow visibility,
+GHCR visibility, and RC-readiness reporting passed the enforced gates on
+2026-05-18. RC readiness remains blocked by PR #79 review/merge, a fresh
+approved RC tag/prerelease, and tag-matched Native/Router release evidence;
+pub.dev remains intentionally deferred.
+
+Previous implementation checkpoint:
+Deployment-chain CI log auditing is hardened and hosted-verified.
+`--scan-latest-ci-logs` and `--require-clean-latest-ci-logs` now enumerate all
+completed CI runs for the checked-out head on the audited branch before scanning
+logs and warning/error annotations, so a clean latest PR CI run can no longer
+mask a noisy same-head push CI run. Coverage includes a fake-`gh` regression
+where the latest CI run is clean but an older same-head CI run has warning/log
+noise, plus the clean same-head multi-run path. Pre-edit `bin/test-fast`,
+`bash -n bin/audit-github-deployment-chain`, py-compile for
+`tool/test_audit_github_deployment_chain.py`, focused Python unittest coverage,
+a real same-head CI-log audit over PR CI #26017884769 and push CI #26017883326,
+and post-edit `bin/test-fast` passed on 2026-05-18. Full local `bin/verify`
+also passed on 2026-05-18. The slice was committed and pushed as `28839c2`;
+hosted PR CI #26020392447, push CI #26020390424, and PR Dart Package Publish
+Dry Run #26020392500 completed successfully for that head. The strict
+deployment-chain audit with latest CI/logs, Dart package dry-run, native release
+evidence, Router Image dry-run, WAMP benchmark, workflow visibility, GHCR
+visibility, and RC-readiness reporting passed the enforced gates on
+2026-05-18, and the CI log gate scanned both same-head CI runs. RC readiness
+remains blocked by PR #79 review/merge, a fresh approved RC tag/prerelease, and
+tag-matched Native/Router release evidence; pub.dev remains intentionally
+deferred.
+
+Previous implementation checkpoint:
+`bin/test-all` browser WebSocket retry reporting is hardened locally. Non-final
+retry attempts now force the expanded `package:test` reporter so the known
+retryable browser-manager startup flake can be retried without emitting GitHub
+Actions `##[error]` annotations; the final attempt still uses the default
+reporter so real failures remain visible. Pre-edit `bin/test-fast`,
+`bash -n bin/test-all`, the focused Chrome-discovered browser invocation with
+`--reporter=expanded`, and full local `bin/verify` passed on 2026-05-18. The
+slice was committed and pushed as `b097379`; hosted PR CI #26017884769, push CI
+#26017883326, and PR Dart Package Publish Dry Run #26017884785 completed
+successfully for that head. The strict deployment-chain audit with latest
+CI/logs, Dart package dry-run, native release evidence, Router Image dry-run,
+WAMP benchmark, workflow visibility, GHCR visibility, and RC-readiness reporting
+passed the enforced gates. RC readiness remains blocked by PR #79 review/merge,
+a fresh approved RC tag/prerelease, and tag-matched Native/Router release
+evidence; pub.dev remains intentionally deferred.
+
+Previous implementation checkpoint:
+Ordinary WAMP meta procedure access is implemented and locally verified for
+downstream/consumer applications that use normal WAMP clients instead of the
+router-hosted MCP/direct JSON facade. Router worker sessions now intercept the
+standard session, registration, and subscription meta procedure URIs before
+normal registration dispatch, return authorization-scoped listings/details, and
+surface standard `no_such_session`, `no_such_procedure`, and
+`no_such_subscription` errors for missing IDs. Coverage includes a direct
+worker-session regression for the full session/registration/subscription meta
+matrix and a live native-backed WebSocket client smoke proving a normal client
+can call the meta API without private project assumptions. Pre-edit
+`bin/test-fast`, focused router analyzer, the focused worker-session meta test,
+the focused live WebSocket meta smoke, post-edit `bin/test-fast`, and full local
+`bin/verify` passed on 2026-05-18. The slice was committed and pushed as
+`c474136`; hosted push/PR CI and push/PR Dart Package Publish Dry Run runs
+completed successfully for that head on 2026-05-18. Because this changed router
+worker-session code, fresh release-sensitive hosted evidence was collected:
+Router Image dry-run #26016479082 and WAMP Profile Benchmarks #26016479089
+passed for `c474136`. The strict deployment-chain audit with latest CI/logs,
+Dart package dry-run, Router Image dry-run, WAMP benchmark, native release
+relevance, workflow visibility, GHCR visibility, and RC-readiness reporting
+passed for the enforced gates. RC readiness remains blocked by PR #79
+review/merge, a fresh approved RC tag/prerelease, and tag-matched
+Native/Router release evidence; pub.dev remains intentionally deferred.
+
+Previous implementation checkpoint:
+The WAMP cancel-mode conformance slice is implemented locally. The router now
+has a focused worker-session regression proving that non-standard
+`CANCEL.Options.mode: "killall"` is rejected as `wamp.error.invalid_argument`
+without interrupting the callee or completing the active invocation. `ROADMAP.md`
+now marks call cancellation complete for the WAMP-defined `skip`, `kill`, and
+`killnowait` modes and clarifies that `wamp.session.kill_all` is a separate
+session meta procedure concept, not a CANCEL option. Focused
+`dart analyze packages/connectanum_router/test/router_worker_session_test.dart`,
+focused
+`dart test packages/connectanum_router/test/router_worker_session_test.dart --name "rejects non-standard CANCEL killall mode" --chain-stack-traces`,
+and focused
+`dart test packages/connectanum_router/test/router_worker_session_test.dart --name "CANCEL|cancel" --chain-stack-traces`
+passed on 2026-05-18. Post-edit `bin/test-fast` and full local `bin/verify`
+also passed on 2026-05-18. The slice was committed and pushed as `198ef74`;
+hosted push/PR CI and push/PR Dart Package Publish Dry Run runs completed
+successfully for that head on 2026-05-18. The deployment-chain sensitivity
+scan found no Native Artifacts, Router Image, or WAMP Profile Benchmark input
+changes since the previous hosted router/benchmark evidence. The strict branch
+audit passed the enforced gates for latest CI/logs, Dart package dry-run,
+workflow visibility, GHCR router package visibility, and relevant
+Native/Router/WAMP evidence; RC readiness remains blocked by PR #79
+review/merge, a fresh approved RC tag/prerelease, and tag-matched Native
+Artifacts/Router Image release evidence.
+
+Previous implementation checkpoint:
+The fifth internal embedded-application readiness slice was committed and
+pushed as `ce3a8af`. The router-side internal lane stays on `RouterSession`
+for RC readiness; mapping a lower-level router endpoint onto
+`InProcessTransportPair` is deferred until a consumer integration needs a
+normal `Client` handshake over an in-memory router endpoint. `RouterSession`
+now exposes client-like
+single-result RPC helpers plus registration/subscription handler helpers, so
+embedded services and consumer applications can call, register, and subscribe
+without stream-final-result boilerplate or socket coordinates. The new
+`router_embedded_application_test.dart` starts a real native-backed router,
+creates neutral service/application internal sessions, proves RPC through
+`callSinglePayload`/`registerHandler`, proves pub/sub through
+`subscribePayloadHandler`, and is wired into `bin/test-fast` on native-capable
+hosts. Focused
+`dart analyze packages/connectanum_router/lib/src/router/router_instance.dart packages/connectanum_router/test/router_embedded_application_test.dart`,
+focused
+`dart test packages/connectanum_router/test/router_embedded_application_test.dart -r expanded`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-18.
+Hosted evidence for `ce3a8af` is clean for the enforced branch gates: push CI
+#26012108038, PR CI #26012109092, push Dart Package Publish Dry Run
+#26012108034, PR Dart Package Publish Dry Run #26012109096, Router Image
+dry-run #26012127003, and WAMP Profile Benchmarks #26012126993 passed. The
+strict deployment-chain audit with latest CI/logs, package dry-run, Router
+Image dry-run, WAMP benchmark, native release relevance, workflow visibility,
+GHCR visibility, and RC-readiness reporting passed for the enforced gates on
+2026-05-18.
+RC readiness remains blocked by PR #79 review/merge into `master`, choosing a
+fresh approved RC tag/prerelease for the promoted branch successor, and
+tag-matched Native Artifacts/Router Image publish evidence; pub.dev remains
+intentionally deferred.
+
+Previous implementation checkpoint:
+The fourth internal auth-service embedding slice was committed and pushed as
+`061dc7f`.
+`connectanum_auth_server` now exposes `AuthServerRouterBinding`, a reusable
+lifecycle helper that can start an owned router/runtime or attach to an
+existing `RouterBinding`, create the internal auth-service session, bind the
+remote-auth WAMP procedures, and close the procedure/session/router/runtime
+chain idempotently. The packaged `auth_server` executable now uses the same
+binding for its internal session/procedure lifecycle, and the package README
+documents the helper for embedded auth-service use. The new
+`auth_server_router_binding_test.dart` proves a binding-owned router can serve
+ticket-backed remote auth through an internal WAMP delegate without test-only
+harness assumptions. Focused `dart analyze packages/connectanum_auth_server`,
+focused `dart test packages/connectanum_auth_server/test -r expanded`, and
+post-edit `bin/test-fast` passed on 2026-05-18. Full local `bin/verify`
+passed on 2026-05-18. Hosted evidence for `061dc7f` is clean for the enforced
+branch gates: push CI #26010391730, PR CI #26010392680, push Dart Package
+Publish Dry Run #26010391747, PR Dart Package Publish Dry Run #26010392674,
+and WAMP Profile Benchmarks #26010764055 passed. The strict
+deployment-chain audit with latest CI/logs, package dry-run, Router Image
+dry-run relevance, WAMP benchmark, native release relevance, workflow
+visibility, GHCR visibility, and RC-readiness reporting passed for the
+enforced gates on 2026-05-18.
+RC readiness remains blocked by PR #79 review/merge into `master`, choosing a
+fresh approved RC tag/prerelease for the promoted branch successor, and
+tag-matched Native Artifacts/Router Image publish evidence; pub.dev remains
+intentionally deferred.
+
+Previous implementation checkpoint:
+The third internal auth-service embedding slice was committed and pushed as
+`4182604`.
+`rpc.transport.type: internal` now configures worker-local remote-auth WAMP
+procedure delegates from router settings. Each worker registers the configured
+internal delegate, opens a worker-local caller session in the auth-service
+realm, dispatches HELLO/AUTHENTICATE to embedded auth procedures through the
+router state store, and decodes lazy internal callee responses without relying
+on main-isolate `RemoteAuthenticatorRegistry` state. The live
+`remote_auth_integration_test.dart` smoke now proves an external WebSocket
+ticket client authenticates through embedded auth-service procedures without a
+loopback delegate connection, and `remote_wamp_delegate_test.dart` covers the
+internal transport config parser. Focused router analyze, focused
+`remote_wamp_delegate_test.dart` + `remote_auth_integration_test.dart`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-18.
+Hosted evidence for `4182604` is clean for the enforced branch gates: push CI
+#26008200446, PR CI #26008201496, push Dart Package Publish Dry Run
+#26008200445, PR Dart Package Publish Dry Run #26008201527, Router Image
+dry-run #26008469700, and WAMP Profile Benchmarks #26008469701 passed. The
+strict deployment-chain audit with latest CI/logs, package dry-run, Router
+Image dry-run, WAMP benchmark, native release relevance, workflow visibility,
+GHCR visibility, and RC-readiness reporting passed for the enforced gates on
+2026-05-18.
+RC readiness remains blocked by PR #79 review/merge into `master`, choosing a
+fresh approved RC tag/prerelease for the promoted branch successor, and
+tag-matched Native Artifacts/Router Image publish evidence; pub.dev remains
+intentionally deferred.
+
+Previous implementation checkpoint:
+The second internal auth-service embedding slice was committed and pushed as
+`45be6c9`.
+`connectanum_router` now exports `RemoteWampProcedureDelegate` plus its
+callback/result types, and `RouterSession.createRemoteWampAuthenticatorDelegate`
+adapts internal router-session `CALL` results to the existing remote-auth WAMP
+procedure contract. `packages/connectanum_router/test/remote_auth_integration_test.dart`
+now starts an embedded auth-service realm with `AuthServerProcedureBinding`,
+drives HELLO/AUTHENTICATE through the RouterSession-backed delegate, and proves
+ticket success without opening a loopback TCP delegate connection. That focused
+remote-auth integration suite is now part of `bin/test-fast` on native-capable
+hosts. Pre-edit `bin/test-fast`, focused
+`dart analyze packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart packages/connectanum_router/lib/src/router/router_instance.dart packages/connectanum_router/lib/auth.dart packages/connectanum_router/test/remote_auth_integration_test.dart`,
+focused `dart test packages/connectanum_router/test/remote_auth_integration_test.dart -r expanded`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-18.
+`bin/dart-package-publish-dry-run` completed with zero warnings on
+2026-05-18, and `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+failed only on the known deferred pub.dev blocker:
+`connectanum_client` depends on private `connectanum_core`.
+Hosted evidence for `45be6c9` is clean for the enforced branch gates: push CI
+#26006154488, PR CI #26006155386, push Dart Package Publish Dry Run
+#26006154487, PR Dart Package Publish Dry Run #26006155388, Router Image
+dry-run #26006447749, and WAMP Profile Benchmarks #26006660851 passed. The
+first WAMP benchmark run for the commit (#26006447736) passed but was replaced
+for audit purposes because its logs contained one `Connection reset by peer`
+line. The strict deployment-chain audit with latest CI/logs, package dry-run,
+Router Image dry-run, WAMP benchmark, native release relevance, workflow
+visibility, GHCR visibility, and RC-readiness reporting passed for the enforced
+gates on 2026-05-18.
+RC readiness remains blocked by PR #79 review/merge into `master`, choosing a
+fresh approved RC tag/prerelease for the promoted branch successor, and
+tag-matched Native Artifacts/Router Image publish evidence; pub.dev remains
+intentionally deferred.
+The previous in-process transport foundation was committed and pushed as
+`d778896`: `connectanum_client` exports `InProcessTransportPair` /
+`InProcessTransport`, keeps WAMP messages as Dart objects, enforces bounded peer
+inbound queues with `InProcessTransportBackpressureException`, closes the peer
+side when one endpoint shuts down, and keeps queued inbound messages until a
+receive listener attaches. Focused in-process transport coverage is part of both
+`bin/test-fast` and `bin/test-all`, and local `bin/verify` passed on
+2026-05-17.
+The implementation was committed and pushed as `d778896`. Hosted evidence for
+`d778896` is clean: push CI #26004300725, PR CI #26004301387, push Dart Package
+Publish Dry Run #26004300727, PR Dart Package Publish Dry Run #26004301397,
+Router Image dry-run #26004594232, and WAMP Profile Benchmarks #26004594238
+passed. The strict deployment-chain audit with latest CI/logs, package dry-run,
+Router Image dry-run, WAMP benchmark, native release relevance, workflow
+visibility, GHCR visibility, and RC-readiness reporting passed for the enforced
+gates on 2026-05-17. RC readiness remains blocked only by PR #79 review/merge
+into `master`, choosing a fresh approved RC tag/prerelease for the promoted
+release branch successor, and tag-matched Native Artifacts/Router Image publish
+evidence; pub.dev remains intentionally deferred.
+
+Previous implementation checkpoint:
+Remote-auth fake-challenge parity integration coverage is implemented, and a
+checked public remote-auth service example now proves the downstream-consumable
+shape without private project assumptions. The live remote-auth RPC integration
+suite proves that a remote `authenticate.hello` failure stays behind the router
+fake-challenge path, surfaces to the client as
+`wamp.error.authentication_failed`, and does not call the remote
+`authenticate.authenticate` procedure after the HELLO rejection. The new
+`packages/connectanum_router/example/remote_auth_service.dart` smoke starts a
+separate auth-service router, binds `AuthServerProcedureBinding`, starts an edge
+WebSocket router that delegates ticket auth over WAMP, verifies a successful
+ticket login, and verifies unknown-user fake-challenge rejection. `ROADMAP.md`
+now marks the fake-challenge parity tests plus WebSocket/remote-auth example
+gallery items complete. Pre-edit `bin/test-fast`, focused
+`dart test packages/connectanum_router/test/remote_auth_integration_test.dart -r expanded`,
+`dart format packages/connectanum_router/test/remote_auth_integration_test.dart`,
+targeted `dart analyze packages/connectanum_router/example/remote_auth_service.dart`,
+targeted `dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit`,
+targeted `bash -lc 'source bin/common.sh; run_remote_auth_service_example_smoke'`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
+Hosted evidence for `61c1b74` is clean: push CI #26002300796, PR CI
+#26002302119, push Dart Package Publish Dry Run #26002300806, PR Dart Package
+Publish Dry Run #26002302108, and WAMP Profile Benchmarks #26002620358 passed.
+The strict deployment-chain audit with latest CI/logs, package dry-run, WAMP
+benchmark, native release relevance, router image dry-run relevance, workflow
+visibility, GHCR visibility, and RC-readiness reporting passed for the enforced
+gates on 2026-05-17. RC readiness remains blocked only by PR #79 review/merge
+into `master`, choosing a fresh approved RC tag/prerelease for the promoted
+release branch successor, and tag-matched Native Artifacts/Router Image publish
+evidence; pub.dev remains intentionally deferred.
+
+Previous implementation checkpoint:
+Auth-server CLI runtime wiring, documented package executable readiness, CLI
+health/metrics readiness, YAML config readiness, missing-service-realm
+fail-closed coverage, and custom realm/session CLI option coverage are pushed
+and hosted-clean for enforced branch gates. Commit `8849602` pushed the
+router/auth-server config follow-up that enforces explicit realm auto-creation
+policy: `autoCreate` defaults to false, configured static realms are
+materialized at state-store startup, and only explicitly allow-listed
+`autoCreate` realms may be created lazily; unknown realms fail closed without
+noisy unexpected-error logging.
+Pre-edit `bin/test-fast`, focused
+`dart test packages/connectanum_router/test/state/realm_auto_create_test.dart -r expanded`,
+focused `dart test packages/connectanum_router/test/router_metrics_test.dart -r expanded`,
+focused `dart analyze packages/connectanum_router`, and post-edit
+`bin/test-fast` passed on 2026-05-17. Full local `bin/verify` passed on
+2026-05-17. Hosted evidence for `8849602` is clean: push CI #25999325183, PR
+CI #25999326277, push Dart Package Publish Dry Run #25999325178, PR Dart
+Package Publish Dry Run #25999326279, Router Image dry-run #25999630943, and
+WAMP Profile Benchmarks #25999630939 passed. The strict audit with latest
+CI/logs, package dry-run, router image dry-run, WAMP benchmark, native release
+relevance, workflow visibility, GHCR visibility, and RC-readiness reporting
+passed for the enforced gates on 2026-05-17.
+Commit `58609e1` pushed the
+runtime wiring: `packages/connectanum_auth_server/bin/auth_server.dart` starts
+a native router runtime from configured listeners, creates an internal
+service-realm session, binds the remote-auth WAMP procedures, and supports
+`--check` for deployment/package smoke tests. Commit `8d2ee00` adds explicit
+`auth_server` executable metadata and changes
+`packages/connectanum_auth_server/test/auth_server_cli_test.dart` to run the
+documented `dart run connectanum_auth_server:auth_server --config ... --check`
+path against a temporary service config. Commit `1a849f5` reuses the router
+OpenMetrics HTTP exporter from the auth-server executable when
+`metrics.open_metrics` is enabled and proves `/healthz` plus the configured
+metrics path through the package executable smoke. Commit `1f6b590` proves the
+README-documented `auth_service.yaml` path through the same package executable,
+covering the shared router JSON/YAML config loader from the auth-server CLI
+surface. Pre-edit `bin/test-fast`, focused
+`dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`,
+and full local `bin/verify` passed on 2026-05-17 for this YAML follow-up.
+Hosted evidence for `1f6b590` is clean: push CI #25995471254, PR CI
+#25995472200, push Dart Package Publish Dry Run #25995471249, and PR Dart
+Package Publish Dry Run #25995472192 passed. Router Image dry-run #25993038176
+and WAMP Profile Benchmarks #25993038113 remain clean and relevant because no
+router-image-sensitive or WAMP benchmark-sensitive paths changed since
+`8d2ee00`; Native Artifacts #25983559481 remains clean and relevant because no
+native-release-sensitive paths changed since `314a962`. The strict audit with
+latest CI/logs, package dry-run, router image dry-run, WAMP benchmark
+relevance, native release relevance, workflow visibility, GHCR visibility, and
+RC-readiness reporting passed for the enforced gates. Commit `305449a` proves
+`dart run connectanum_auth_server:auth_server --check` rejects configs missing
+`connectanum.authenticate` before native runtime startup and is hosted-clean:
+push CI #25996782228, PR CI #25996783211, push Dart Package Publish Dry Run
+#25996782211, and PR Dart Package Publish Dry Run #25996783217 passed. The
+strict audit with latest CI/logs, package dry-run, router image dry-run, WAMP
+benchmark relevance, native release relevance, workflow visibility, GHCR
+visibility, and RC-readiness reporting passed for the enforced gates on
+2026-05-17. Commit `a3a21fc` proves
+`dart run connectanum_auth_server:auth_server --check` honors `--realm`,
+`--auth-id`, and `--auth-role` instead of only the default service realm and
+identity. Pre-edit `bin/test-fast`, focused
+`dart test packages/connectanum_auth_server/test/auth_server_cli_test.dart -r expanded`,
+focused `dart analyze packages/connectanum_auth_server`, focused
+`dart test packages/connectanum_auth_server/test -r expanded`, post-edit
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-17. Hosted
+evidence for `a3a21fc` is clean: push CI #25997982752, PR CI #25997983597,
+push Dart Package Publish Dry Run #25997982755, and PR Dart Package Publish
+Dry Run #25997983596 passed. The strict audit with latest CI/logs, package
+dry-run, router image dry-run relevance, WAMP benchmark relevance, native
+release relevance, workflow visibility, GHCR visibility, and RC-readiness
+reporting passed for the enforced gates on 2026-05-17. RC readiness remains
+blocked by PR #79 review/merge, a fresh approved RC tag/prerelease for the
+promoted release branch, and tag-matched Native Artifacts/Router Image publish
+evidence; pub.dev remains intentionally deferred.
+
+Previous implementation checkpoint:
+The Dart package publish dry-run release-order regression is implemented and
+locally verified. A new checked test exercises
+`bin/dart-package-publish-dry-run` in a temporary workspace with a fake `dart`
+executable, proving that default `--show-release-plan` mode reports the known
+private workspace dependency blocker without failing the zero-warning archive
+dry-run gate, while `--strict-release-ready --show-release-plan` fails on the
+same blocker until the public package release-order decision is made. The
+regression is wired into both `bin/test-fast` and `bin/test-all`. Pre-edit
+`bin/test-fast` passed on 2026-05-17. Focused
+`python3 tool/test_dart_package_publish_dry_run.py`, post-edit
+`bin/test-fast`, `git diff --check`, the private-name/local-path scan on
+touched public docs/tooling paths, and full local `bin/verify` passed on
+2026-05-17. The implementation was committed and pushed as `8777a82`. Hosted
+evidence for `8777a82` is clean: push CI #25989952453, PR CI #25989953492,
+and Dart Package Publish Dry Run #25989953493 passed. The strict audit with
+latest CI/logs, package dry-run, workflow visibility, GHCR visibility, WAMP
+benchmark relevance, native artifact relevance, router image relevance, and
+RC-readiness reporting exited cleanly for the enforced gates on 2026-05-17.
+RC readiness remains blocked by PR #79 review/merge, fresh RC tag/release
+approval, and tag-matched Native Artifacts and Router Image evidence; pub.dev
+publishing remains intentionally deferred.
+
+Previous implementation checkpoint:
+Deployment-chain audit runtime sensitivity is implemented and covered by a
+checked regression. Router Image stale-evidence detection now tracks Docker
+metadata, native transport code, router runtime package inputs, pubspecs,
+install helpers, and image metadata rendering instead of every package file.
+WAMP Profile Benchmark sensitivity and workflow path filters now track
+benchmark orchestration, native benchmark/transport inputs, package pubspecs,
+and benchmark runtime libraries, so test-only package changes do not force WAMP
+evidence. The audit also has a local `--show-sensitive-changes-since <ref>`
+diagnostic that prints evidence sensitivity groups without GitHub API access,
+and `tool/test_audit_github_deployment_chain.py` exercises that diagnostic in a
+temporary git repo. Pre-edit `bin/test-fast`,
+`bash -n bin/audit-github-deployment-chain`, diagnostic checks against the
+prior router test-only change, an isolated temp-repo test-only/runtime-path
+sensitivity repro, `git diff --check`, private-name/local-path scan on touched
+docs/tooling/workflow paths, post-edit `bin/test-fast`, and full local
+`bin/verify` passed on 2026-05-17 for the workflow/tooling implementation that
+was committed as `02d58c7`. Hosted evidence for `02d58c7` is clean:
+push CI #25987809282, PR CI #25987810049, Dart Package Publish Dry Run
+#25987810042, and WAMP Profile Benchmarks #25987816460 passed. The strict audit
+with latest CI/logs, package dry-run, WAMP benchmark, workflow visibility, GHCR
+visibility, and RC-readiness reporting exited cleanly for the enforced gates;
+Native Artifacts #25983559481 and Router Image #25986708938 remain relevant
+because no native-release-sensitive or router-image-sensitive paths changed
+after those runs. The follow-up regression test was added to `bin/test-fast`
+and `bin/test-all`; focused `python3 tool/test_audit_github_deployment_chain.py`,
+post-edit `bin/test-fast`, and full local `bin/verify` passed on 2026-05-17.
+It was committed and pushed as `0e63e23`. Hosted evidence for `0e63e23` is
+clean: push CI #25988974777, PR CI #25988975605, and Dart Package Publish Dry
+Run #25988975610 passed. The strict audit with latest CI/logs, package dry-run,
+workflow visibility, GHCR visibility, WAMP benchmark relevance, native artifact
+relevance, router image relevance, and RC-readiness reporting exited cleanly
+for the enforced gates on 2026-05-17. RC readiness remains blocked by PR #79
+review/merge, fresh RC tag/release approval, and tag-matched Native Artifacts
+and Router Image evidence; pub.dev publishing remains intentionally deferred.
+
+Previous implementation checkpoint:
+Worker scale-down reassignment is implemented and pushed as `f2aeb6d`.
+Scale-down can now retire an idle excess worker that still owns open WAMP
+sessions by exporting the source worker connection state, adopting it on a
+surviving worker, updating boss connection ownership, transferring the
+state-store session record, and then asking the source worker to forget its
+stale copy. Non-transferable sessions fall back to the existing drain/shutdown
+path instead of stranding a non-accepting worker. Boss session-open telemetry
+keeps the normalized `worker_session_opened` event type instead of leaking the
+raw worker event code. Hosted evidence for `f2aeb6d` is clean: push CI
+#25985038143, PR CI #25985039174, push/PR Dart Package Publish Dry Runs
+#25985038144/#25985039176, Router Image dry-run #25985357233, and WAMP Profile
+Benchmarks #25985358235 passed; the strict audit was clean for the enforced
+validation gates. Follow-up transfer-state coverage now attaches a
+subscription and registration to a transferable session and asserts the state
+snapshot preserves session ownership, auth identity, subscriber, and callee
+metadata after scale-down. Focused transfer coverage, scale-focused runtime
+coverage, full `router_runtime_test`, `dart analyze packages/connectanum_router`,
+post-edit `bin/test-fast`, `git diff --check`, the private-name/local-path scan
+on touched files, and full local `bin/verify` passed on 2026-05-17. The
+follow-up was committed as `8616c10` and pushed to PR #79. Hosted evidence for
+`8616c10` is clean: push CI #25986420793, PR CI #25986421834, push/PR Dart
+Package Publish Dry Runs #25986420795/#25986421853, Router Image dry-run
+#25986708938, and WAMP Profile Benchmarks #25986708947 passed. The strict
+deployment-chain audit with latest CI/logs, package dry-run, native release
+dry-run relevance, router image dry-run, WAMP benchmark, workflow visibility,
+GHCR package visibility, and RC-readiness reporting exited cleanly for the
+enforced validation gates. RC readiness remains not ready only for
+operator/release-control reasons: PR #79 review/merge into `master`, choosing a
+fresh RC tag for the promoted `8616c10` candidate instead of mutating
+`v0.1.0-rc.1`, refreshing native/router release evidence for that fresh tag,
+and resolving the intentionally deferred pub.dev release-order decision.
+
+Previous implementation checkpoint:
+Router caller auth disclosure is complete locally. Invocation dispatch now
+exposes `caller_authid` and `caller_authrole` only when caller disclosure is
+allowed by caller `disclose_me` or callee `disclose_caller`, and Dart fallback,
+internal-session, and native zero-copy invocation paths consume the same
+dispatch result. Router-owned invocation detail keys are filtered out of custom
+CALL options so clients cannot spoof `caller`, `caller_authid`,
+`caller_authrole`, procedure, receive-progress, or PPT detail fields. Pre-edit
+`bin/test-fast` passed on 2026-05-17. Focused router-worker,
+router-runtime, and ct_ffi CBOR invocation segment regressions passed,
+`dart analyze packages/connectanum_router` passed, `git diff --check` passed,
+the private-name scan on touched docs passed, and full local `bin/verify`
+passed on 2026-05-17. The implementation was committed as `314a962` and
+pushed to GitHub PR #79. Hosted evidence for `314a962` is clean: push-triggered
+GitHub CI #25983330491 passed with `Fast Checks` and `Full Verify` green;
+PR-triggered GitHub CI #25983331352 passed with `Fast Checks` and
+`Full Verify` green; push-triggered Dart Package Publish Dry Run #25983330497
+passed; PR-triggered Dart Package Publish Dry Run #25983331308 passed; Native
+Artifacts dry-run #25983559481 passed all native matrix jobs plus the
+release-preview job for preview tag `v0.1.0-rc.2`; Router Image dry-run
+#25983562548 passed for preview tag `v0.1.0-rc.2`; and WAMP Profile Benchmarks
+#25983565524 passed. The strict deployment-chain audit with latest CI/logs,
+package dry-run, native release dry-run, router image dry-run, WAMP benchmark,
+workflow visibility, GHCR package visibility, and RC-readiness reporting exited
+cleanly for those enforced gates. RC readiness remains not ready only for
+operator/release-control reasons: PR #79 review/merge into `master`, choosing
+a fresh RC tag for the promoted `314a962` candidate instead of mutating the
+published `v0.1.0-rc.1` tag, refreshing native/router release evidence for
+that fresh tag, and resolving the intentionally deferred pub.dev release-order
+decision.
+
+Previous implementation checkpoint:
+Router caller disclosure policy is complete locally. Invocation dispatch now
+computes caller disclosure once from the caller `CALL` `disclose_me` option or
+the selected callee registration `disclose_caller` option, and worker,
+internal-session, and native-forward invocation paths consume that shared
+decision. This prevents internal callees from seeing caller session IDs unless
+disclosure was requested, while external/internal callees that request
+`disclose_caller` receive the caller ID even when the caller did not set
+`disclose_me`. Pre-edit `bin/test-fast` passed on 2026-05-17. Focused
+router-worker and router-runtime disclosure regressions passed, the full
+`router_worker_session_test.dart` plus `router_runtime_test.dart` files passed,
+`dart analyze packages/connectanum_router` passed, `git diff --check` passed,
+the private-name scan on the touched docs passed, and full local `bin/verify`
+passed on 2026-05-17. The implementation was committed as `7de6f7c` and pushed
+to GitHub PR #79. Hosted evidence for `7de6f7c` is clean: push-triggered GitHub
+CI #25982020999 passed, PR-triggered GitHub CI #25982021874 passed,
+push-triggered Dart Package Publish Dry Run #25982020997 passed,
+PR-triggered Dart Package Publish Dry Run #25982021872 passed, Router Image
+dry-run #25982272601 passed for preview tag `v0.1.0-rc.2`, and WAMP Profile
+Benchmarks #25982272605 passed. The strict deployment-chain audit with latest
+CI/logs, package dry-run, router-image dry-run, WAMP benchmark, and RC-readiness
+reporting exited cleanly for those gates. RC readiness remains not ready only
+for operator/release-control reasons: PR #79 still requires review/merge,
+`v0.1.0-rc.1` remains tied to `47bbf9c`, and the final RC needs an
+operator-approved fresh tag and matching native/router evidence for that tag.
+
+Previous implementation checkpoint:
+The deployment-chain audit stale-RC next-action wording is complete. The audit
+now recommends choosing a fresh RC tag when an existing GitHub RC prerelease or
+selected RC tag does not cover the checked-out release-sensitive candidate, and
+treats retagging an already published RC as explicit release-policy approval
+rather than a default next step. This keeps the audit read-only and reduces
+accidental mutation risk for consumed RC tags/prereleases. Pre-edit
+`bin/test-fast` passed on 2026-05-17; focused
+`bash -n bin/audit-github-deployment-chain`, stale-wording scan, and stale-RC
+audit output inspection also passed. `git diff --check`, private-name scan on
+the touched public docs/tooling paths, and full local `bin/verify` passed on
+2026-05-17. The implementation was committed as `47075b7` and pushed to GitHub
+PR #79. Hosted evidence for `47075b7` is clean: push-triggered GitHub CI
+#25981096863 passed with `Fast Checks` and `Full Verify` green; PR-triggered
+GitHub CI #25981096333 passed with `Fast Checks` and `Full Verify` green; and
+Dart Package Publish Dry Run #25981096851 passed. PR #79 remains blocked on
+review/merge before release-branch promotion.
+
+Previous implementation checkpoint:
+Native artifact signing flake hardening is complete. Commit `af831f7` moved the
+Native Artifacts workflow to `sigstore/cosign-installer@v4.1.0`, but manually
+triggered Native Artifacts dry-run #25979718422 failed on Windows x64 during
+`Install Cosign` after repeated 502 responses for the custom-version
+`v3.0.3` Windows KMS bundle. Commit `bd154e3` updates the workflow to
+`sigstore/cosign-installer@v4.1.2`, whose default Cosign version matches its
+pinned bootstrap version and avoids that extra custom-version bundle download
+while retaining upstream digest checks. Local `bin/test-fast`, `git diff
+--check`, private-name scan on the touched workflow/state/plan paths, and full
+`bin/verify` passed on 2026-05-17. Hosted evidence for `bd154e3` is clean:
+push-triggered GitHub CI #25980174780 passed with `Fast Checks` and
+`Full Verify` green; PR-triggered GitHub CI #25980175503 passed with
+`Fast Checks` and `Full Verify` green; Dart Package Publish Dry Run
+#25980175508 passed; and Native Artifacts dry-run #25980182920 passed all
+native matrix jobs, including Windows x64, plus the release-preview job. The
+strict deployment-chain audit exited cleanly for latest CI/logs, package
+dry-run, native dry-run, relevant router image dry-run, relevant WAMP profile
+benchmarks, workflow visibility, default-branch protection baseline, and GHCR
+router package visibility. RC readiness remains not ready only for the
+operator/release gates: PR #79 review/merge into `master`, selecting the final
+RC tag/prerelease at the promoted commit, refreshing native/router evidence for
+that tag, and resolving the intentionally deferred pub.dev release-order
+decision.
+
+Previous implementation checkpoint:
+Router worker-pool scale-down drain no longer blocks the boss loop or accepts
+new connections onto a retiring worker. Scale-down drain now runs in the
+background after the selected idle excess worker is marked non-assignable, and
+the boss suppresses overlapping scale-down drains until the current drain
+completes or times out. Runtime coverage now delays a scale-down drain,
+enqueues a new connection during that drain window, and verifies the connection
+lands on an active worker while the draining worker remains connectionless.
+Active connection/session reassignment remains deferred until a safe
+session-state migration primitive exists. The required pre-edit
+`bin/test-fast`, focused drain-assignment regression, focused worker-pool
+autoscaling regressions, `dart analyze packages/connectanum_router`,
+`git diff --check`, private-name scan, post-edit `bin/test-fast`, and full
+local `bin/verify` passed on 2026-05-17. The implementation was committed as
+`e81b6c2` and pushed to GitHub PR #79. Hosted evidence for `e81b6c2` is clean
+for branch CI and package dry-run: push-triggered GitHub CI #25978256489
+passed with `Fast Checks` job #76362234058 and `Full Verify` job #76362448763
+green; push-triggered Dart Package Publish Dry Run #25978256490 passed with
+publish dry-run job #76362234144 green; PR-triggered GitHub CI #25978257140
+passed with `Fast Checks` job #76362235846 and `Full Verify` job #76362463677
+green; PR-triggered Dart Package Publish Dry Run #25978257147 passed with
+publish dry-run job #76362235929 green; and the strict deployment-chain audit
+exited cleanly with clean latest CI, hosted CI logs/annotations, relevant
+hosted package dry-run evidence, release branch protection baseline, workflow
+visibility, and GHCR router image visibility. Follow-up hosted release
+evidence was refreshed on `e81b6c2`: WAMP Profile Benchmarks #25978502850
+passed, Native Artifacts dry-run #25978502843 passed for preview tag
+`v0.1.0-rc.2` after rerunning a transient macOS Apple Silicon Cosign download
+timeout, and Router Image dry-run #25978502851 passed for preview tag
+`v0.1.0-rc.2`. The stricter audit with native release dry-run, router image
+dry-run, WAMP benchmark, latest CI, latest CI logs, and package dry-run
+requirements exited cleanly. RC readiness is still not ready only for
+operator/release-control reasons: PR #79 still requires review/merge before
+release-branch promotion, `v0.1.0-rc.1` remains tied to the earlier `47bbf9c`
+checkpoint, and the refreshed native/router preview evidence intentionally uses
+`v0.1.0-rc.2` rather than mutating the existing `v0.1.0-rc.1` release.
+
+Previous implementation checkpoint:
+Router worker-pool autoscaling observability is complete locally for the
+post-RC worker-pool-readiness milestone. The router metrics snapshot now
+includes a `worker_pool` section with configured min/max workers, pending
+isolate count, scale-up/scale-down hysteresis tick gauges, scale-up totals,
+scale-down totals, and scale-down drain-timeout totals. The OpenMetrics
+exporter emits matching low-cardinality gauges/counters, and runtime coverage
+asserts that pressure-triggered scale-up and idle scale-down update those
+counters without adding new autoscaling policy behavior. The required pre-edit
+`bin/test-fast`, focused metrics exporter regression, focused worker-pool
+autoscaling regressions, `dart analyze packages/connectanum_router`,
+`git diff --check`, private-name scan, and post-edit `bin/test-fast` passed on
+2026-05-17. Full local `bin/verify` also passed on 2026-05-17. The
+implementation was committed as `bccefa3` and pushed to GitHub PR #79. Hosted
+evidence for `bccefa3` is clean: push-triggered GitHub CI #25977427606 passed
+with `Fast Checks` job #76359952974 and `Full Verify` job #76360187272 green;
+push-triggered Dart Package Publish Dry Run #25977427612 passed with publish
+dry-run job #76359952965 green; PR-triggered GitHub CI #25977428269 passed
+with `Fast Checks` job #76359954798 and `Full Verify` job #76360191845 green;
+PR-triggered Dart Package Publish Dry Run #25977428266 passed with publish
+dry-run job #76359954766 green; and the strict deployment-chain audit exited
+cleanly with clean latest CI, hosted CI logs/annotations, relevant hosted
+package dry-run evidence, release branch protection baseline, workflow
+visibility, and GHCR router image visibility. RC readiness still reports PR
+#79 review/merge as the remaining release-branch promotion gate before the next
+candidate.
+
+Previous implementation checkpoint:
+Router worker scale-up/down hysteresis is complete locally for the post-RC
+worker-pool-readiness milestone. `WorkerPoolSettings` now supports
+`maxWorkers`, `scaleUpPendingDispatches`, `scaleUpConsecutiveTicks`,
+`scaleDownConsecutiveTicks`, and `scaleDownDrainTimeout`, while preserving
+fixed-size default behavior by defaulting `maxWorkers` to `minWorkers`.
+`_RouterBoss` scales up only after sustained queued dispatch pressure and now
+scales down only when the whole pool is idle, retiring a connectionless excess
+worker through the existing worker drain/shutdown flow and emitting
+`worker_pool_scale_down`. A first full `bin/verify` attempt exposed an
+oscillation risk where a connectionless worker could be retired while another
+worker still had queued work; scale-down now resets idle ticks whenever any
+worker is busy or has pending dispatches. Active connection/session
+reassignment remains a separate post-RC item until a safe session-state
+migration primitive exists. The required pre-edit `bin/test-fast`, focused
+worker-pool config regression, focused scale-down regression, full
+`router_config_loader_test.dart`, full `router_runtime_test.dart`,
+`dart analyze packages/connectanum_router`, `git diff --check`, private-name
+scan, post-edit `bin/test-fast`, and full local `bin/verify` passed on
+2026-05-17. The implementation was committed as `666303d` and pushed to
+GitHub PR #79. Hosted evidence for `666303d` is clean: push-triggered GitHub
+CI #25976502736 passed with `Fast Checks` job #76357402195 and `Full Verify`
+job #76357618554 green; push-triggered Dart Package Publish Dry Run
+#25976502733 passed with publish dry-run job #76357402071 green;
+PR-triggered GitHub CI #25976503349 passed with `Fast Checks` job
+#76357403448 and `Full Verify` job #76357608711 green; PR-triggered Dart
+Package Publish Dry Run #25976503364 passed with publish dry-run job
+#76357403498 green; and the strict deployment-chain audit passed with clean
+latest CI, hosted CI logs/annotations, relevant hosted package dry-run
+evidence, release branch protection baseline, workflow visibility, and GHCR
+router image visibility. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
+
+Previous implementation checkpoint:
+Router worker scale-up hysteresis is complete locally for the post-RC
+worker-pool-readiness milestone. `WorkerPoolSettings` now supports
+`maxWorkers`, `scaleUpPendingDispatches`, and `scaleUpConsecutiveTicks`, while
+preserving fixed-size default behavior by defaulting `maxWorkers` to
+`minWorkers`. `_RouterBoss` now observes sustained queued dispatch pressure,
+waits for the configured consecutive pressure ticks, spawns up to `maxWorkers`,
+and emits a `worker_pool_scale_up` boss event. Router config parsing and codec
+round-trips cover the new settings, and router runtime coverage verifies that
+sustained backlog scales the pool and assigns a subsequent connection to the
+new worker. Scale-down thresholds and graceful drain/reassignment remain the
+next worker-pool behavior items. The required pre-edit `bin/test-fast`, focused
+worker-pool config regression, focused scale-up regression, full
+`router_config_loader_test.dart`, full `router_runtime_test.dart`,
+`dart analyze packages/connectanum_router`, `git diff --check`, post-edit
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-17. A first full
+verify attempt exposed a nondeterministic test setup where the boss cursor could
+process the fast connection first; the test now uses two slow-capable backlog
+connections so scale-up pressure is deterministic. The implementation was
+committed as `2807909` and pushed to GitHub PR #79. Hosted evidence for
+`2807909` is clean: push-triggered GitHub CI #25975471543 passed with
+`Fast Checks` job #76354733635 and `Full Verify` job #76354951438 green;
+push-triggered Dart Package Publish Dry Run #25975471534 passed with publish
+dry-run job #76354733560 green; PR-triggered GitHub CI #25975472319 passed
+with `Fast Checks` job #76354735621 and `Full Verify` job #76354950980 green;
+PR-triggered Dart Package Publish Dry Run #25975472328 passed with publish
+dry-run job #76354735658 green; and the strict deployment-chain audit passed
+with clean latest CI, hosted CI logs/annotations, relevant hosted package
+dry-run evidence, release branch protection baseline, workflow visibility, and
+GHCR router image visibility. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
+
+Previous implementation checkpoint:
+Router worker high-contention parallelism coverage is complete locally for the
+post-RC worker-pool-readiness milestone. `router_runtime_test.dart` now queues
+multiple dispatch handles across a four-worker pool, deliberately stalls one
+worker, and verifies the other workers continue processing their own queues
+without cross-worker head-of-line blocking. This closes the roadmap parallelism
+proof item while leaving autoscaling hysteresis and scale-down drain policy as
+the remaining worker-pool behavior work. The required pre-edit `bin/test-fast`,
+focused high-contention regression, full `router_runtime_test.dart`,
+`dart analyze packages/connectanum_router`, `git diff --check`, post-edit
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-16. The
+implementation was committed as `1033d10` and pushed to GitHub PR #79. Hosted
+evidence for `1033d10` is clean: push-triggered GitHub CI #25973759399 passed
+with `Fast Checks` job #76350227835 and `Full Verify` job #76350471250 green;
+push-triggered Dart Package Publish Dry Run #25973759380 passed with publish
+dry-run job #76350227832 green; PR-triggered GitHub CI #25973759735 passed
+with `Fast Checks` job #76350228501 and `Full Verify` job #76350470991 green;
+PR-triggered Dart Package Publish Dry Run #25973759742 passed with publish
+dry-run job #76350228507 green; and the strict deployment-chain audit passed
+with clean latest CI, hosted CI logs/annotations, relevant hosted package
+dry-run evidence, release branch protection baseline, workflow visibility, and
+GHCR router image visibility. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
+
+Previous implementation checkpoint:
+Router worker load-aware assignment is complete locally for the post-RC
+worker-pool-readiness milestone. `_RouterBoss` now selects the least-loaded
+worker by connection count, then current dispatch pressure, while preserving
+the existing cursor as the deterministic tie-breaker. `router_runtime_test.dart`
+now covers the regression where the cursor points at a currently busy worker
+and verifies a new connection is assigned to the idle worker instead. Pre-edit
+`bin/test-fast`, the focused least-loaded-worker regression, full
+`router_runtime_test.dart`, `dart analyze packages/connectanum_router`, and
+post-edit `bin/test-fast` passed on 2026-05-16. Full local `bin/verify` also
+passed on 2026-05-16. The implementation was committed as `f298536` and
+pushed to GitHub PR #79. Hosted evidence for `f298536` is clean:
+push-triggered GitHub CI #25972764528 passed with `Fast Checks` job
+#76347574504 and `Full Verify` job #76347833939 green; push-triggered Dart
+Package Publish Dry Run #25972764538 passed; PR-triggered GitHub CI
+#25972765530 passed with `Fast Checks` job #76347576885 and `Full Verify` job
+#76347839208 green; PR-triggered Dart Package Publish Dry Run #25972765518
+passed; and the strict deployment-chain audit passed with clean latest CI,
+hosted CI logs/annotations, relevant hosted package dry-run evidence, release
+branch protection baseline, workflow visibility, and GHCR router image
+visibility. PR #79 remains blocked only by review/merge requirements before
+release-branch promotion.
+
+Previous implementation checkpoint:
+Router process host/runtime metrics are complete locally for the post-RC
+observability and worker-pool-readiness milestone. The router metrics snapshot
+now extends process metrics beyond PID/RSS with the operating system, Dart
+runtime version, and available processor count, and the OpenMetrics exporter
+renders these as static process info labels plus an available-processor gauge.
+This closes the host-stats portion of the worker-pool readiness metrics item
+without adding autoscaling policy behavior yet. Pre-edit `bin/test-fast`,
+focused `router_metrics_service_test.dart`, package analysis, and
+`git diff --check` passed on 2026-05-16. Full local `bin/verify` also passed
+on 2026-05-16. The implementation was committed as `5ff1015` and pushed to
+GitHub PR #79. Hosted evidence for `5ff1015` is clean: push-triggered GitHub
+CI #25971650438 passed with `Fast Checks` job #76344599853 and `Full Verify`
+job #76344848483 green; push-triggered Dart Package Publish Dry Run
+#25971650443 passed; PR-triggered GitHub CI #25971651331 passed with
+`Fast Checks` job #76344602032 and `Full Verify` job #76344817191 green;
+PR-triggered Dart Package Publish Dry Run #25971651349 passed; and the strict
+deployment-chain audit passed with clean latest CI logs/annotations and clean
+relevant package dry-run evidence. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
+
 Latest completed exec plan:
+`docs/exec-plans/2026-05-16-router-worker-dispatch-queue-metrics.md`
+(complete; bounded worker dispatch prefetch queues now expose pending
+handle depth and queue latency through the metrics snapshot and OpenMetrics
+exporter, with full local and hosted verification).
+
+Previous implementation checkpoint:
+Router worker load metrics are complete for the post-RC observability and
+worker-pool-readiness milestone. The router metrics snapshot now includes a
+per-worker load list with connection counts, busy state, in-flight dispatches,
+dispatch/completion/error totals, and observed busy duration, and the
+OpenMetrics exporter renders those counters with stable worker/isolate labels.
+The required pre-edit `bin/test-fast`, focused
+`router_metrics_service_test.dart`, `dart analyze packages/connectanum_router`,
+and full local `bin/verify` passed on 2026-05-16. The implementation was
+committed as `1c57ced` and pushed to GitHub PR #79. Hosted evidence for
+`1c57ced` is clean: push-triggered GitHub CI #25969485228 passed with
+`Fast Checks` job #76338815539 and `Full Verify` job #76339069330 green;
+push-triggered Dart Package Publish Dry Run #25969485233 passed; PR-triggered
+GitHub CI #25969486329 passed with `Fast Checks` and `Full Verify` green;
+PR-triggered Dart Package Publish Dry Run #25969486325 passed; and the strict
+deployment-chain audit passed with clean latest CI, hosted CI
+logs/annotations, and relevant hosted package dry-run evidence. PR #79 remains
+blocked only by review/merge requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-16-router-worker-load-metrics.md`
+(complete; per-worker router load metrics now expose connection, busy,
+in-flight dispatch, dispatch/completion/error total, and busy-duration
+observability through the metrics snapshot and OpenMetrics exporter, with full
+local and hosted verification).
+
+Previous implementation checkpoint:
+HTTP metrics route protocol coverage is complete for the post-RC HTTP
+bridge observability milestone. The configured `/metrics` HTTP bridge route now
+has native HTTP/1.1, HTTP/2, and HTTP/3 integration coverage against
+`connectanum.metrics.openmetrics`, complementing the dedicated exporter tests.
+The required pre-edit `bin/test-fast`, focused native HTTP/1.1/2/3 metrics
+route tests, `dart analyze packages/connectanum_router`, and full local
+`bin/verify` passed on 2026-05-16. The implementation was committed as
+`e218a4c` and pushed to GitHub PR #79. Hosted evidence for `e218a4c` is clean:
+push-triggered GitHub CI #25968754290 passed with `Fast Checks` job
+#76336825294 and `Full Verify` job #76337078085 green; push-triggered Dart
+Package Publish Dry Run #25968754293 passed; PR-triggered GitHub CI
+#25968755601 passed with `Fast Checks` and `Full Verify` green; PR-triggered
+Dart Package Publish Dry Run #25968755616 passed; and the strict
+deployment-chain audit passed with clean latest CI, hosted CI logs/annotations,
+and relevant hosted package dry-run evidence. PR #79 remains blocked only by
+review/merge requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-16-http-metrics-route-protocol-coverage.md`
+(complete; configured metrics scrapes are now proven over native HTTP/1.1,
+HTTP/2, and HTTP/3 routes, with full local and hosted verification).
+
+Earlier implementation checkpoint:
+HTTP handler native integration hardening is complete for the post-RC
+HTTP adapter-pipeline milestone. The native router integration harness now
+passes `httpRouteHandlers` into `Router.start`, and real native HTTP requests
+prove configured `handler` routes dispatch to registered Dart callbacks, expose
+the request body/target/path through `RouterHttpHandlerContext`, return
+structured JSON responses, and reject unregistered handlers with structured
+`501 handler_not_registered` responses. The required pre-edit `bin/test-fast`,
+focused native integration tests, and full local `bin/verify` passed on
+2026-05-16. The implementation was committed as `beba3bc` and pushed to
+GitHub PR #79. Hosted evidence for `beba3bc` is clean: push-triggered Dart
+Package Publish Dry Run #25967833835 passed; push-triggered GitHub CI
+#25967833834 passed with `Fast Checks` job #76334369683 and `Full Verify` job
+#76334639056 green; PR-triggered Dart Package Publish Dry Run #25967834897
+passed; PR-triggered GitHub CI #25967834904 passed with `Fast Checks` job
+#76334372354 and `Full Verify` job #76334610098 green; and the strict
+deployment-chain audit passed with clean latest CI, hosted CI logs/annotations,
+and relevant hosted package dry-run evidence. PR #79 remains blocked only by
+review/merge requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-16-http-handler-native-integration.md`
+(complete; native HTTP requests now prove configured `handler` routes
+dispatch into registered Dart callbacks and reject missing handlers explicitly,
+with full local and hosted verification).
+
+Previous implementation checkpoint:
+HTTP custom handler route actions are complete for the post-RC HTTP
+adapter-pipeline milestone. The router now supports `handler` route actions
+with `custom_handler` / `customHandler` aliases, resolves handler ids from
+`action.delegate` or `action.options.handler` aliases, accepts immutable handler
+registries through `Router.start` / `RouterBinding`, dispatches matched requests
+after route auth/rate/concurrency middleware and before generic WAMP bridge
+dispatch, and returns structured `500`/`501` handler errors without falling
+through to WAMP. The implementation was committed as `b454c22` and pushed to
+GitHub PR #79. The required pre-edit `bin/test-fast`, focused
+config/native/runtime handler and adapter tests, router package analysis, and
+full local `bin/verify` passed on 2026-05-16. Hosted evidence for `b454c22` is
+clean: push-triggered Dart Package Publish Dry Run #25966883773 passed;
+push-triggered GitHub CI #25966883774 passed with `Fast Checks` job
+#76331827756 and `Full Verify` job #76332099465 green; PR-triggered Dart
+Package Publish Dry Run #25966884329 passed; PR-triggered GitHub CI
+#25966884331 passed with `Fast Checks` job #76331829156 and `Full Verify` job
+#76332108193 green; and the strict deployment-chain audit passed with clean
+latest CI, hosted CI logs/annotations, and relevant hosted package dry-run
+evidence. PR #79 remains blocked only by review/merge requirements before
+release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-16-http-custom-handler-route-action.md`
+(complete; handler route actions now dispatch to router-hosted Dart callbacks
+with config/native/runtime coverage, full local verification, and hosted
+CI/package/audit evidence).
+
+Previous implementation checkpoint:
+HTTP `fastcgi` route actions are now operational for the post-RC HTTP
+adapter-pipeline milestone. Configured FastCGI routes resolve the same adapter
+endpoint aliases as the native route table, connect to TCP or Unix FastCGI
+targets, send buffered responder requests with CGI params and stdin, parse
+FastCGI stdout headers/body into native HTTP responses, and map invalid targets,
+upstream timeouts, oversized buffered responses, protocol failures, and upstream
+failures to structured JSON gateway responses. Static file routes and buffered
+`reverse_proxy` route actions were already operational. Pre-edit
+`bin/test-fast`, focused reverse-proxy and FastCGI runtime tests, and
+`dart analyze packages/connectanum_router` passed locally on 2026-05-16. Full
+local `bin/verify` passed on 2026-05-16 for the FastCGI slice. The
+implementation was committed as `0ddc028` and pushed to GitHub PR #79. Hosted
+evidence for `0ddc028` is clean: push-triggered Dart Package Publish Dry Run
+#25965895404 passed; push-triggered GitHub CI #25965895408 passed with
+`Fast Checks` job #76329227515 and `Full Verify` job #76329483911 green;
+PR-triggered Dart Package Publish Dry Run #25965896294 passed; PR-triggered
+GitHub CI #25965896302 passed with `Fast Checks` job #76329229679 and
+`Full Verify` job #76329464743 green; and the strict deployment-chain audit
+passed with clean latest CI, hosted CI logs/annotations, and relevant hosted
+package dry-run evidence. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
+
+Previous branch-head checkpoint:
+The reverse-proxy implementation plus the MCP auth-invalidation consumer-package
+smoke extension was committed as `e7be6da` and pushed to GitHub PR #79. Hosted
+evidence for `e7be6da` is clean: push-triggered GitHub CI #25964116680 passed
+with `Fast Checks` and `Full Verify` green; push-triggered Dart Package Publish
+Dry Run #25964116689 passed; PR-triggered Dart Package Publish Dry Run
+#25964117597 passed; PR-triggered GitHub CI #25964117602 had one stalled first
+attempt without available logs, then reran successfully with `Fast Checks` job
+#76326279391 and `Full Verify` job #76326537872 green; and the strict
+deployment-chain audit passed with clean latest CI, hosted CI logs/annotations,
+and relevant hosted package dry-run evidence. PR #79 remains blocked only by
+review/merge requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-16-http-fastcgi-route-action.md`
+(complete; FastCGI route actions now forward buffered FastCGI responder
+requests to configured upstreams, with clean local verification plus hosted
+CI/package/audit evidence before handoff).
+
+Earlier completed exec plan:
+`docs/exec-plans/2026-05-16-http-reverse-proxy-route-action.md`
+(complete; local verify and hosted CI/log/dry-run/audit evidence are clean,
+reverse proxy route actions now forward buffered HTTP requests to configured
+upstreams; FastCGI was completed by the follow-up plan above).
+
+Previous local implementation checkpoint:
+Router-hosted MCP Streamable HTTP session deletion and HTTP-auth-driven session
+invalidation now have explicit downstream-application smoke coverage for WAMP
+pub/sub subscription cleanup. The endpoint tracks route-local subscription IDs,
+removes them on explicit `connectanum.pubsub.unsubscribe`, and best-effort
+unsubscribes any remaining IDs when DELETE removes the MCP session or router
+binding disposal removes the endpoint. The router-hosted MCP native smoke proves
+a consumer-style Streamable subscription reports one route-visible subscriber
+before DELETE and zero route-visible subscribers after session deletion without
+an explicit unsubscribe. The generated router-hosted consumer-package smoke now
+exercises DELETE cleanup through public `McpStreamableHttpClient`
+subscribe/count/delete/direct-count helpers, and it also subscribes from active
+protected Streamable sessions before HTTP auth refresh rotation and refresh-token
+revocation, then uses a still-authorized direct JSON WAMP meta helper to prove
+the invalidated sessions leave zero route-visible subscribers. Pre-edit
+`bin/test-fast`, focused `router_integration_native_test.dart -n "MCP"`,
+`dart analyze packages/connectanum_router`, `bash -n bin/common.sh`, focused
+`run_mcp_consumer_package_smoke`, `git diff --check`, and full local
+`bin/verify` passed on 2026-05-16 for commit `481261f`; after the auth
+invalidation smoke extension, pre-edit `bin/test-fast`, `bash -n bin/common.sh`,
+and focused `run_mcp_consumer_package_smoke` passed locally. The auth
+invalidation smoke extension was bundled into commit `e7be6da` and pushed to
+GitHub PR #79 with the reverse-proxy slice; current branch-head hosted evidence
+is recorded above. Earlier hosted evidence for `481261f` was also clean:
+push-triggered GitHub CI #25962895642 passed; push-triggered Dart Package
+Publish Dry Run #25962895635 passed; PR-triggered GitHub CI #25962896938 passed
+with `Fast Checks` and `Full Verify` green; PR-triggered Dart Package Publish
+Dry Run #25962896950 passed; and the strict deployment-chain audit passed with
+clean latest CI, hosted CI logs/annotations, and relevant hosted package dry-run
+evidence.
+
+Previous implementation checkpoint:
+HTTP adapter route stubs are complete locally for the post-RC HTTP route
+adapter-pipeline milestone. `reverse_proxy` / `reverseProxy` / `proxy` and
+`fastcgi` / `fast_cgi` / `fastCgi` / `fastCGI` route actions now parse and
+round-trip through settings, validate that an adapter endpoint was configured
+before native config emission, enqueue through native HTTP routing, and return
+structured `501 Not Implemented` responses from the Dart binding without
+dispatching to WAMP. Runtime telemetry emits `http_adapter_not_implemented`
+without echoing configured endpoint values. Pre-edit `bin/test-fast`, focused
+adapter parser/native-config/runtime tests, `dart analyze packages/connectanum_router`,
+and full local `bin/verify` passed on 2026-05-14. This adapter-stub baseline is
+now covered by the branch-head hosted evidence for `e7be6da` recorded above.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-adapter-route-stubs.md`
+(complete locally; reverse proxy and FastCGI route actions are now
+configuration-visible stubs that fail explicitly with `501 Not Implemented`
+instead of unknown config or accidental WAMP dispatch).
+
+Previous implementation checkpoint:
+HTTP file route `If-Range` validation and CI browser verification hardening
+are complete for release readiness. The `If-Range` slice pins date validator
+behavior, ensures weak entity tags do not match `If-Range`, and preserves
+full-response fallback when the validator does not match. It was committed as
+`b4abb76` and pushed to GitHub PR #79; push-triggered CI and hosted Dart
+package dry-runs passed, but PR-triggered `Full Verify` failed twice while
+loading the Chrome/Dart2Wasm websocket test with the `package:test`
+browser-manager error `Cannot add stream while adding stream`. The follow-up
+CI fix was committed as `33092fb` and keeps the browser test required while
+adding a narrow retry in `bin/test-all` for only that test-runner startup
+signature. Pre-edit `bin/test-fast`, focused binding/native route tests,
+focused browser websocket test, `dart analyze packages/connectanum_router`,
+`bash -n bin/test-all`, `git diff --check`, and full local `bin/verify` passed
+on 2026-05-14. Latest branch-head hosted evidence is clean:
+push-triggered GitHub CI #25879814425 passed; PR-triggered GitHub CI
+#25879814731 passed with `Fast Checks` and `Full Verify` green;
+PR-triggered Dart Package Publish Dry Run #25879814810 passed; and the
+deployment-chain audit passed with clean latest CI/logs plus clean hosted
+package dry-run evidence. PR #79 remains blocked only by review/merge
+requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-file-route-if-range-validation.md`
+(complete; configured HTTP `file` routes now validate `If-Range` dates, fall
+back to full responses for weak entity tags or stale validators, and latest
+branch-head CI/package/audit evidence is clean after the browser runner retry
+wrapper).
+
+Previous implementation checkpoint:
+HTTP file route range request hardening is complete for release readiness.
+Configured HTTP `file` route responses now advertise byte-range support,
+return `206 Partial Content` with `Content-Range` and range-specific
+`Content-Length` for single `Range: bytes=...` `GET`/`HEAD` requests, and
+return `416 Range Not Satisfiable` with `Content-Range: bytes */<size>` for
+unsatisfiable single ranges. Matching conditional validators still return
+`304 Not Modified` before range handling. Pre-edit `bin/test-fast`, focused
+binding/native route tests, `dart analyze packages/connectanum_router`,
+`git diff --check`, and full local `bin/verify` passed on 2026-05-14. The
+implementation was committed as `74293b9` and pushed to GitHub PR #79.
+Push-triggered GitHub CI #25875434489 passed with `Fast Checks` and
+`Full Verify` green; push-triggered Dart Package Publish Dry Run #25875434528
+passed; PR-triggered latest GitHub CI #25875438471 passed with
+`Fast Checks` and `Full Verify` green; PR-triggered latest Dart Package Publish
+Dry Run #25875438511 passed; and the deployment-chain audit passed with clean
+latest CI/logs plus clean hosted package dry-run evidence. PR #79 remains
+blocked only by review/merge requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-file-route-range-requests.md`
+(complete; configured HTTP `file` routes now advertise byte-range support,
+serve single-range `GET`/`HEAD` requests with `206 Partial Content`, reject
+unsatisfiable single ranges with `416 Range Not Satisfiable`, and have clean
+local plus hosted CI/package/audit evidence).
+
+Previous implementation checkpoint:
+HTTP file route cache validation is complete for release readiness.
+Configured HTTP `file` route responses now include deterministic weak `ETag`
+and `Last-Modified` headers, and matching `If-None-Match` /
+`If-Modified-Since` validators return `304 Not Modified` without a body on
+`GET` and `HEAD` through both binding-level and native HTTP paths. Pre-edit
+`bin/test-fast`, focused binding/native route tests,
+`dart analyze packages/connectanum_router`, `git diff --check`, and full
+local `bin/verify` passed on 2026-05-14. The implementation was committed as
+`294760e` and pushed to GitHub PR #79. Push-triggered GitHub CI #25872653461
+passed with `Fast Checks` and `Full Verify` green; push-triggered Dart Package
+Publish Dry Run #25872653327 passed; PR-triggered latest GitHub CI #25872661493
+passed with `Fast Checks` and `Full Verify` green; PR-triggered latest Dart
+Package Publish Dry Run #25872659372 passed; and the deployment-chain audit
+passed with clean latest CI/logs plus clean hosted package dry-run evidence.
+PR #79 remains blocked only by review/merge requirements before release-branch
+promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-file-route-cache-validation.md`
+(complete; configured HTTP `file` routes now emit `ETag` and `Last-Modified`
+validators and return `304 Not Modified` for matching conditional `GET`/`HEAD`
+requests through both binding-level and native HTTP paths).
+
+Previous implementation checkpoint:
+HTTP file route HEAD/content-length hardening is complete for release
+readiness. Successful file-route responses now include deterministic
+`Content-Length`, and `HEAD` returns the same metadata as `GET` without sending
+a file body through both binding-level and native HTTP paths. Pre-edit
+`bin/test-fast`, focused binding/native route tests,
+`dart analyze packages/connectanum_router`, `git diff --check`, and full
+local `bin/verify` passed on 2026-05-14. The implementation was committed as
+`90cb23d` and pushed to GitHub PR #79. Push-triggered GitHub CI #25870513225
+passed with `Fast Checks` and `Full Verify` green; push-triggered Dart Package
+Publish Dry Run #25870513185 passed; PR-triggered latest GitHub CI #25870523008
+passed with `Fast Checks` and `Full Verify` green; PR-triggered latest Dart
+Package Publish Dry Run #25870523053 passed; and the deployment-chain audit
+passed with clean latest CI/logs plus clean hosted package dry-run evidence.
+PR #79 remains blocked only by review/merge requirements before release-branch
+promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-file-route-head-content-length.md`
+(complete; successful HTTP `file` route responses now include deterministic
+`Content-Length`, and `HEAD` returns the same headers/status as `GET` without a
+file body through both the router binding and native HTTP runtime path).
+
+Previous implementation checkpoint:
+HTTP static file route actions are complete for release readiness.
+The existing `HttpRouteActionType.file` settings surface now has native route
+enqueue wiring, binding-level file serving before WAMP dispatch, configured
+directory validation, path traversal/symlink escape protection, common content
+type inference, and cache-control response headers. Pre-edit `bin/test-fast`
+passed on 2026-05-14; focused config/native-config/runtime tests passed; and
+the focused native HTTP route round-trip test passed. Full `bin/verify` passed
+on 2026-05-14. The implementation was committed as `0eb89aa` and pushed to
+GitHub PR #79. PR-triggered GitHub CI #25868250887 passed with `Fast Checks`
+and `Full Verify` green on `0eb89aa`; PR-triggered Dart Package Publish Dry
+Run #25868251230 passed; and the deployment-chain audit passed with clean
+latest CI/logs plus clean hosted package dry-run evidence. PR #79 remains
+blocked only by review/merge requirements before release-branch promotion.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-static-file-route-action.md`
+(complete; configured HTTP `file` routes now enqueue through native routing,
+serve from the Dart router binding before WAMP dispatch, reject traversal and
+symlink escapes, apply content-type/cache-control headers, and have clean local
+plus hosted CI/package/audit evidence).
+
+Previous implementation checkpoint:
+HTTP response file call-contract coverage is complete locally for release
+readiness.
+`HttpInvocationContext.sendFile` now maps to `NativeHttpResponseFile`, the
+native Dart runtime encodes file response bodies through the existing buffered
+HTTP send path, and runtime/native tests cover bytes, JSON, and file response
+helpers plus native file response round-trip behavior. The existing native HTTP
+response round-trip test no longer depends on the zero-copy publish feature
+flag. Pre-edit `bin/test-fast` passed on 2026-05-14; focused runtime and native
+HTTP file/round-trip tests passed locally; `git diff --check` passed; and
+`bin/verify` passed on 2026-05-14. The implementation was committed as
+`53b4976` and pushed to GitHub PR #79. PR-triggered GitHub CI #25864917191
+passed with `Fast Checks` and `Full Verify` green on `53b4976`; PR-triggered
+Dart Package Publish Dry Run #25864917111 passed; and the deployment-chain
+audit passed with clean latest CI/logs plus clean hosted package dry-run
+evidence. PR #79 remains blocked only by review/merge requirements before
+release-branch promotion.
+
+Earlier completed exec plan:
+`docs/exec-plans/2026-05-14-http-response-file-call-contract.md`
+(complete; file-backed HTTP responses now dispatch through the router binding,
+native HTTP clients receive file contents, helper body mapping has bytes, JSON,
+and file coverage, and the existing native HTTP round-trip test runs without the
+zero-copy publish feature flag).
+
+Earlier implementation checkpoint:
+HTTP route access-log middleware is complete for release readiness. HTTP route
+actions now have typed per-route access-log settings, config aliases parse and
+round-trip through the settings codec, and the Dart router binding emits
+structured start/completion events with duration, outcome, status when
+available, optional query/header fields, and sensitive-header redaction.
+Pre-edit `bin/test-fast` passed on 2026-05-14; focused config-loader/codec and
+runtime access-log tests passed locally; `git diff --check` passed; and
+`bin/verify` passed on 2026-05-14. The implementation was committed as
+`7904822` and pushed to GitHub PR #79. PR-triggered GitHub CI #25862587507
+passed with `Fast Checks` and `Full Verify` green on `7904822`; PR-triggered
+Dart Package Publish Dry Run #25862587325 passed; and the deployment-chain
+audit passed with clean latest CI/logs plus clean hosted package dry-run
+evidence.
+
+Earlier completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-access-log-middleware.md`
+(complete; per-route HTTP access logging now parses, encodes, emits
+structured start/completion events, redacts sensitive optional headers, and has
+clean hosted CI/package/audit evidence).
+
+Previous implementation checkpoint:
+HTTP route concurrency throttling is complete locally for release readiness.
+HTTP route actions now have typed per-route concurrency-limit settings, config
+aliases parse and round-trip through the settings codec, the Dart router
+binding rejects excess in-flight requests before WAMP/MCP dispatch, and
+acquired slots are released when immediate or pending HTTP requests complete.
+Pre-edit `bin/test-fast` passed on 2026-05-14; focused config-loader/codec and
+runtime concurrency-throttle tests passed locally; `git diff --check` passed;
+and `bin/verify` passed on 2026-05-14. The implementation was committed as
+`18a1563` and pushed to GitHub PR #79. PR-triggered GitHub CI #25860173425
+passed with `Fast Checks` and `Full Verify` green on `18a1563`; PR-triggered
+Dart Package Publish Dry Run #25860173360 passed; and the deployment-chain
+audit passed with clean latest CI/logs plus clean hosted package dry-run
+evidence.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-concurrency-throttle.md`
+(complete; per-route HTTP concurrency throttling now parses, encodes,
+enforces before dispatch, returns structured `429` responses, releases slots on
+completion, and has clean hosted CI/package/audit evidence).
+
+Previous implementation checkpoint:
+HTTP route rate-limit middleware is complete for release readiness. HTTP route
+actions now have typed per-route rate-limit settings, config aliases parse and
+round-trip through the settings codec, the Dart router binding enforces the
+limit before WAMP/MCP dispatch, and exceeded routes return structured
+`429 Too Many Requests` responses with retry/rate-limit headers while emitting
+`http_route_rate_limited`. Pre-edit `bin/test-fast` passed on 2026-05-14;
+focused config-loader/codec and runtime rate-limit tests passed locally;
+`git diff --check` passed; and `bin/verify` passed on 2026-05-14. The
+implementation was committed as `4c8e3c5` and pushed to GitHub PR #79.
+PR-triggered GitHub CI #25858492092 passed with `Fast Checks` and
+`Full Verify` green on `4c8e3c5`; PR-triggered Dart Package Publish Dry Run
+#25858492076 passed; and the deployment-chain audit passed with clean latest
+CI/logs plus clean hosted package dry-run evidence.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-rate-limit-middleware.md`
+(complete; per-route HTTP rate-limit middleware now parses, encodes, enforces
+before dispatch, returns structured `429` responses, and has clean hosted
+CI/package/audit evidence).
+
+Previous implementation checkpoint:
+HTTP publish route action wiring is complete for release readiness. The public
+`publish` HTTP route action and `topic` field already exist in the settings
+surface; it now maps to native translation route entries for request enqueueing,
+publishes the standard HTTP request context through Dart runtime internal
+sessions, and returns acknowledged `202` JSON responses. Pre-edit
+`bin/test-fast` passed on 2026-05-14; focused config-loader, native-config JSON,
+and runtime publish-route tests passed locally; and `bin/verify` passed on
+2026-05-14. The implementation was committed as `5d8ff5b` and pushed to GitHub
+PR #79. PR-triggered GitHub CI #25856957962 passed with `Fast Checks` and
+`Full Verify` green on `5d8ff5b`; PR-triggered Dart Package Publish Dry Run
+#25856957965 passed; and the deployment-chain audit passed with clean latest
+CI/logs plus clean hosted package dry-run evidence.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-publish-route-action.md`
+(complete; `publish` routes now parse, encode, publish via router internal
+sessions, and return acknowledged HTTP responses).
+
+Previous implementation checkpoint:
+HTTP session-proxy route action wiring is complete for release readiness. The
+public `session_proxy` / `sessionProxy` HTTP route action already existed in the
+settings surface; it now maps to native translation route entries and the Dart
+synthetic/non-native runtime dispatch target uses the same internal-session call
+path as `internal_call`. Pre-edit `bin/test-fast` passed on 2026-05-14; focused
+config-loader, native-config JSON, and runtime session-proxy tests passed
+locally; a first `bin/verify` attempt hit a transient HTTP/3 response-streaming
+handshake timeout; the focused native HTTP/3 test passed immediately; and the
+full `bin/verify` rerun passed on 2026-05-14. The implementation was committed
+as `12b6ec1` and pushed to GitHub PR #79. PR-triggered GitHub CI #25855439878
+passed with `Fast Checks` and `Full Verify` green on `12b6ec1`; PR-triggered
+Dart Package Publish Dry Run #25855439876 passed; and the deployment-chain
+audit passed with clean latest CI/logs plus clean hosted package dry-run
+evidence.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-session-proxy-route-action.md`
+(complete; `session_proxy` routes now parse, encode, and dispatch through
+internal router sessions).
+
+Previous implementation checkpoint:
+Native HTTP translation-table mapping is complete for release readiness. The
+Dart/router config layer already supports explicit WAMP realm/procedure
+targets, per-method overrides, route protocol gates, and catch-all fallbacks;
+the native runtime now has HTTP/1.1 regression coverage proving a translation
+route with a method-specific override enqueues the expected WAMP
+realm/procedure target before Dart dispatch. Pre-edit `bin/test-fast`, the
+focused native `ct_core` translation-route regression, and `bin/verify` passed
+on 2026-05-14. The implementation was committed as `95e5827` and pushed to
+GitHub PR #79. PR-triggered GitHub CI #25853437436 passed with `Fast Checks`
+and `Full Verify` green on `95e5827`; PR-triggered Dart Package Publish Dry
+Run #25853437435 passed; and the deployment-chain audit passed with clean
+latest CI/logs plus clean hosted package dry-run evidence.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-native-http-translation-table-mapping.md`
+(complete; explicit HTTP path/method/protocol translation routes now have
+native runtime evidence that the queued request carries the selected WAMP
+realm/procedure target before Dart dispatch, and the roadmap parent is closed).
+
+Previous implementation checkpoint:
+Native HTTP namespace route mapping is complete for release readiness. The
+existing Dart/native config surfaces already support `type: namespace`, and the
+native runtime now has HTTP/1.1 regression coverage proving a namespace route
+enqueues the derived WAMP realm/procedure target, including
+path/query/method/protocol metadata, before Dart dispatch. Pre-edit
+`bin/test-fast`, the focused native `ct_core` namespace-route regression, and
+`bin/verify` passed on 2026-05-14. The implementation was committed as
+`4337eee` and pushed to GitHub PR #79. PR-triggered GitHub CI #25852022424
+passed with `Fast Checks` and `Full Verify` green on `4337eee`;
+PR-triggered Dart Package Publish Dry Run #25852022270 passed; and the
+deployment-chain audit passed with clean latest CI/logs plus clean hosted
+package dry-run evidence.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-native-http-namespace-route-mapping.md`
+(complete; native HTTP namespace route mapping now has runtime evidence that
+path segments derive the expected WAMP namespace procedure before Dart
+dispatch, and the roadmap item is closed).
+
+Previous implementation checkpoint:
+HTTP bridge route shorthand is complete for release readiness:
+`reserved_realm` and `namespace` routes already encode to native
+deterministic targets, and Dart runtime dispatch now derives matching targets
+for synthetic/non-native handshakes. Config parsing also accepts Dart-style
+aliases such as `reservedRealm`, `reserved`, `internalCall`, `sessionProxy`,
+and `appendMethodSuffix`. Pre-edit `bin/test-fast` passed on 2026-05-14;
+focused config-loader, native JSON, and runtime shorthand tests passed; and
+`bin/verify` passed on 2026-05-14. The implementation was committed as
+`f3079e8` and pushed to GitHub PR #79. PR-triggered GitHub CI #25849798467
+passed with `Fast Checks` and `Full Verify` green on `f3079e8`;
+PR-triggered Dart Package Publish Dry Run #25849798445 passed; and the
+deployment-chain audit passed with clean latest CI/logs plus clean hosted
+package dry-run evidence.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-deterministic-namespace-shorthand.md`
+(complete; deterministic reserved-realm and namespace HTTP shorthand routes now
+derive matching WAMP dispatch targets in Dart synthetic/non-native runtime
+paths and accept common Dart-style config aliases).
+
+Previous implementation checkpoint:
+HTTP bridge route configuration now supports catch-all fallback matches through
+empty matches, explicit `catch_all` / `catchAll` / `wildcard` config, and
+`path: "*"`. Native config generation serializes catch-all routes as
+`match_kind: "prefix"` on `/`, and the Dart synthetic runtime now selects the
+most specific matching route so a catch-all fallback cannot shadow exact or
+longer-prefix routes. Pre-edit `bin/test-fast` passed on 2026-05-14; focused
+router config-loader, native-config JSON, and runtime catch-all tests passed;
+`git diff --check` passed; and `bin/verify` passed on 2026-05-14. The
+implementation was committed as `649d925` and pushed to GitHub PR #79.
+PR-triggered GitHub CI #25847918490 passed with `Fast Checks` and
+`Full Verify` green on `649d925`; PR-triggered Dart Package Publish Dry Run
+#25847918488 passed; and the deployment-chain audit passed with clean latest
+CI/logs plus clean hosted package dry-run evidence.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-catch-all-fallback.md`
+(complete; catch-all HTTP fallback routes now bridge the Dart settings surface
+to native prefix fallback routing with most-specific Dart synthetic matching).
+
+Previous implementation checkpoint:
+HTTP bridge route configuration now supports method-specific action maps in
+the Dart settings/API layer, matching the native `http_routes[].methods`
+runtime model. Routes can be configured with explicit `method_actions` /
+`methodActions`, or with native-style route-level `methods` maps when no
+default action is desired. Native config generation emits distinct method
+targets, codec round-trips preserve the method action map, and the Dart
+synthetic runtime uses the combined method allow list so method-specific targets
+do not get rejected before dispatch. Pre-edit `bin/test-fast` passed on
+2026-05-14; focused router config-loader, native-config JSON, and runtime
+method-action tests passed; `git diff --check` passed; and `bin/verify` passed
+on 2026-05-14.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-method-action-maps.md`
+(complete; method-specific HTTP route action maps now bridge the Dart settings
+surface to the native per-method target model).
+
+Previous implementation checkpoint:
+HTTP route method/protocol whitelists are now code-backed as release-ready.
+Existing route `methods` / `protocols` enforcement was verified with new native
+and Dart runtime regressions: route resolution reports sorted allowed methods,
+native HTTP/1.1 returns 405 with `Allow` before enqueueing a WAMP-backed HTTP
+request, and the Dart synthetic runtime path returns 405 before dispatch as
+well. Pre-edit `bin/test-fast` passed on 2026-05-14; focused native and Dart
+method-gate tests passed; and `bin/verify` passed on 2026-05-14.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-http-route-method-gate-coverage.md`
+(complete; HTTP bridge method/protocol whitelist enforcement now has native and
+Dart runtime evidence and the roadmap item is closed).
+
+Previous implementation checkpoint:
+`bin/audit-github-deployment-chain --show-rc-readiness` now keeps stale-tag
+operator guidance coherent. When the selected RC tag does not cover the
+checked-out release-sensitive candidate, Native Artifacts and Router Image
+evidence mismatch next actions now first tell the operator to create or move
+the selected tag to the checked-out candidate, then rerun the hosted evidence
+for that tag. Pre-edit `bin/test-fast` passed on 2026-05-14; `bash -n
+bin/audit-github-deployment-chain` passed; `git diff --check` passed; the
+focused RC-readiness audit printed the corrected stale-tag next actions; and
+`bin/verify` passed on 2026-05-14.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-rc-stale-tag-evidence-next-actions.md`
+(complete; stale selected RC tags now tell operators to fix the tag before
+refreshing native/router hosted evidence).
+
+Previous implementation checkpoint:
+`bin/audit-github-deployment-chain --show-rc-readiness` now cross-checks the
+selected RC tag against hosted native release evidence and Router Image dry-run
+preview tags. This prevents mixed RC evidence from looking coherent, such as
+the current stale selected `v0.1.0-rc.1` tag paired with Native Artifacts and
+Router Image dry-run evidence for `v0.1.0-rc.2`. `bin/test-fast` passed before
+edits on 2026-05-14; `bash -n bin/audit-github-deployment-chain` passed;
+`git diff --check` passed; the focused `--show-rc-readiness` audit now reports
+the Native Artifacts and Router Image RC tag mismatches explicitly; and
+`bin/verify` passed on 2026-05-14. RC readiness still reports expected
+release-promotion blockers: PR #79 review/merge into `master`, choosing and
+approving the final RC tag, rerunning native/router evidence for that same tag,
+and deferred pub.dev release-order decisions.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-rc-evidence-tag-consistency.md`
+(complete; RC readiness now verifies native/router hosted evidence tags match
+the selected RC tag).
+
+Previous implementation checkpoint:
+`bin/audit-github-deployment-chain --show-required-checks-plan` now targets the
+release protection branch and preserves that branch's required-check strictness,
+matching the `--strict` audit baseline. This keeps PR-branch audits from
+printing an operator plan for the intentionally unprotected candidate branch
+while still preserving the separate audited-branch protection finding.
+`bin/test-fast` passed before edits on 2026-05-14; `bash -n
+bin/audit-github-deployment-chain` passed; focused `--show-required-checks-plan`
+output printed `Target branch: master`, `Fast Checks`, `Full Verify`, and
+`Require up-to-date branches: true`; and the strict release-evidence audit with
+`--show-required-checks-plan` plus `--show-rc-readiness` passed locally against
+the latest hosted evidence. RC readiness still reports only expected
+release-promotion blockers: PR #79 review/merge into `master`, the stale
+`v0.1.0-rc.1` tag/prerelease, and deferred pub.dev release-order decisions.
+`git diff --check` and `bin/verify` also passed on 2026-05-14. The
+implementation was committed as `47df05d` and pushed to GitHub PR #79.
+PR-triggered Dart Package Publish Dry Run #25840116608 passed on `47df05d`.
+Push-triggered GitHub CI #25840115547 and PR-triggered GitHub CI #25840116609
+passed on `47df05d`, with `Fast Checks` and `Full Verify` green in both runs.
+The strict release-evidence deployment-chain audit passed on `47df05d` with
+clean latest CI/logs, clean hosted warning/error annotations, clean Dart package
+dry-run, clean Native Artifacts dry-run, clean Router Image dry-run, clean WAMP
+Profile Benchmarks, visible workflows, visible router package, and the
+required-checks operator plan targeting `master`. `--show-rc-readiness` still
+reports only expected release-promotion blockers: PR #79 review/merge into
+`master`, the stale `v0.1.0-rc.1` tag/prerelease, and deferred pub.dev
+release-order decisions.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-required-checks-plan-release-branch.md`
+(complete; required-checks operator guidance now targets the release branch
+baseline and hosted evidence is clean for `47df05d`).
+
+Previous implementation checkpoint:
+`bin/audit-github-deployment-chain --strict` now enforces the default release
+branch protection baseline instead of failing solely because an audited
+release-candidate PR branch is intentionally unprotected. The audit still prints
+the audited-branch protection finding, and `--show-rc-readiness` still reports
+release-promotion blockers separately. `bin/test-fast` passed before edits on
+2026-05-14; `bash -n bin/audit-github-deployment-chain` passed; and the strict
+release-evidence audit passed locally with the release branch baseline ready,
+clean hosted CI/logs, clean Dart package dry-run, clean Native Artifacts dry-run,
+clean Router Image dry-run, clean WAMP Profile Benchmarks, visible workflows,
+and visible router package. RC readiness still reports only expected
+release-promotion blockers: PR #79 review/merge into `master`, the stale
+`v0.1.0-rc.1` tag/prerelease, and deferred pub.dev release-order decisions.
+`git diff --check` and `bin/verify` also passed on 2026-05-14. The
+implementation was committed as `6def1cc` and pushed to GitHub PR #79. GitHub
+CI #25838841442 and PR-triggered CI #25838842681 passed with `Fast Checks` and
+`Full Verify` green; PR-triggered Dart Package Publish Dry Run #25838842682
+passed. The strict release-evidence deployment-chain audit passed on `6def1cc`
+with clean latest CI/logs, clean hosted warning/error annotations, clean Dart
+package dry-run, clean Native Artifacts dry-run, clean Router Image dry-run,
+clean WAMP Profile Benchmarks, visible workflows, and visible router package.
+`--show-rc-readiness` still reports only expected release-promotion blockers:
+PR #79 review/merge into `master`, the stale `v0.1.0-rc.1` tag/prerelease, and
+deferred pub.dev release-order decisions.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-strict-release-branch-audit.md`
+(complete; strict audit now uses the release branch baseline and hosted
+evidence is clean for `6def1cc`).
+
+Previous implementation checkpoint:
+The deployment-chain audit is being hardened so hosted warning/noise signals are
+part of release-sensitive workflow evidence, not a separate manual check. The
+audit now reuses the existing raw-log warning/skipped/noisy pattern scan and
+adds GitHub check-run warning/error annotation scans for CI, Dart Package
+Publish Dry Run, Native Artifacts, Router Image, and WAMP Profile Benchmarks.
+Pre-edit `bin/test-fast` passed on 2026-05-14, shell syntax passed for the
+audit script, and focused hosted audit checks passed for the current branch
+with clean logs plus zero warning/error annotations across CI, package
+dry-run, Native Artifacts, Router Image, and WAMP Profile Benchmarks.
+`git diff --check` and `bin/verify` also passed on 2026-05-14. The
+implementation was committed as `ee02b83` and pushed to GitHub PR #79.
+PR-triggered GitHub CI #25837416171 and #25837417462 passed with `Fast Checks`
+and `Full Verify` green; PR-triggered Dart Package Publish Dry Run #25837417460
+passed. The release-evidence deployment-chain audit passed on `ee02b83` with
+clean latest CI/logs, zero warning/error annotations for CI and dedicated hosted
+gates, relevant Dart package dry-run, relevant Native Artifacts dry-run,
+relevant Router Image dry-run, relevant WAMP Profile Benchmarks, visible
+workflows, and router package visibility checks enabled. `--show-rc-readiness`
+still reports only expected release-promotion blockers: PR #79 review/merge
+into `master`, the stale `v0.1.0-rc.1` tag/prerelease, and deferred pub.dev
+release-order decisions.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-hosted-workflow-warning-scan-audit.md`
+(complete; hosted CI, package dry-run, release-evidence audit, and new
+log/annotation scans are clean).
+
+Previous implementation checkpoint:
+Generated GitHub Release notes now distinguish standalone native bundle
+releases, project release candidates/prereleases, and stable project releases.
+Future `v*-*` prerelease notes include release status, tag, and commit metadata,
+describe the native bundles as prerelease integration artifacts, and still list
+matching router image tags for project tags. The Native Artifacts workflow now
+titles project prereleases as `Connectanum <tag> (prerelease)`, and the public
+deployment guide no longer says the router image workflow/package is absent;
+it tells consumers to verify GitHub Release, native checksum/Sigstore, and
+router image tag alignment before production use. Local `bin/test-fast`,
+focused release-tooling tests, Python syntax compilation, workflow YAML
+parsing, sample RC release-note rendering, `git diff --check`, and `bin/verify`
+passed on 2026-05-14. The next RC still needs review/merge of PR #79, then an
+operator-approved tag/prerelease at the promoted release-sensitive candidate.
+Native Artifacts dry-run #25835145241 refreshed native release evidence for
+`c3a31d6`, but the Windows x64 job emitted a hosted `windows-2025` runner-label
+redirect notice. The follow-up workflow cleanup changes the Windows x64 native
+artifact runner label to `windows-2025-vs2026`; local YAML parsing,
+`git diff --check`, `bin/test-fast`, and `bin/verify` passed on 2026-05-14, and
+commit `f7b13ef` is pushed to GitHub PR #79. GitHub CI #25835905426 and
+PR-triggered CI #25835906336 passed with `Fast Checks` and `Full Verify` green;
+PR-triggered Dart Package Publish Dry Run #25835906345 passed; Native Artifacts
+dry-run #25836267858 passed with all five platform bundle jobs, release-preview
+job, and no Windows runner-label redirect annotation. The strict
+deployment-chain audit passed on `f7b13ef` with clean latest CI/logs, relevant
+Dart package dry-run, relevant Native Artifacts dry-run, relevant Router Image
+dry-run, relevant WAMP Profile Benchmarks, and router package visibility checks
+enabled. `--require-rc-ready` still fails only on expected release-promotion
+items: PR #79 review/merge into `master`, moving or creating the intended RC tag
+at `f7b13ef`, updating the GitHub prerelease, and the intentionally deferred
+pub.dev release-order decisions.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-native-artifacts-windows-runner-label.md`
+(complete; Native Artifacts Windows x64 uses the current hosted runner label and
+the warning-clean dry-run evidence is refreshed).
+
+Earlier completed exec plan:
+`docs/exec-plans/2026-05-14-release-note-readability.md` (complete; generated
+RC/stable GitHub release notes and native-artifact prerelease titles are clearer
+for consumers).
+
+Previous implementation checkpoint:
+The deployment-chain audit now reports candidate pull request promotion state
+for non-default release candidates. `--show-rc-readiness` includes a release
+branch promotion gate, so the audit no longer looks RC-ready while PR #79 is
+still `BLOCKED` / `REVIEW_REQUIRED` against `master`. Focused shell syntax,
+whitespace, show-only audit, strict deployment-chain audit, and expected
+`--require-rc-ready` failure checks passed on 2026-05-14. `bin/verify` also
+passed on 2026-05-14. The next RC still needs review/merge of PR #79, then an
+operator-approved tag/prerelease at the promoted release-sensitive candidate.
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-candidate-pr-audit-status.md` (complete; RC
+readiness now reports candidate PR promotion state and blocks on review/merge
+policy before tag/prerelease promotion).
+
+Previous implementation checkpoint:
+The deployment-chain audit now treats an existing GitHub RC prerelease as stale
+when its tag is behind release-sensitive changes. `--show-rc-readiness` no
+longer prints `GitHub RC prerelease: ready` for the old `v0.1.0-rc.1`
+prerelease while the checked-out candidate has newer release-sensitive commits;
+instead it reports that the prerelease does not cover the checked-out
+candidate and points the operator to create or move the intended RC tag after
+release approval. Focused shell syntax, whitespace, and RC-readiness output
+checks passed on 2026-05-14, and `bin/verify` passed. Commit `b28436f` is
+pushed to GitHub PR #79; PR checks are green with CI runs #25831328134 and
+#25831330204 (`Fast Checks` and `Full Verify`) plus Dart Package Publish Dry
+Run #25831330185. The strict deployment-chain audit passed on `b28436f` with
+clean latest CI/logs, relevant Dart package dry-run, relevant Native Artifacts
+dry-run, relevant Router Image dry-run, relevant WAMP Profile Benchmarks, and
+router package visibility requirements enabled. `--show-rc-readiness` now
+correctly reports the existing `v0.1.0-rc.1` prerelease as not ready for
+`b28436f`; the next RC still needs an operator-approved tag/prerelease at the
+current release-sensitive candidate. Local `bin/dart-package-publish-dry-run`
+also passed with zero package warnings on 2026-05-14, and
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+failed only on the expected deferred pub.dev release-order blocker
+(`connectanum_core -> connectanum_client`).
+
+Previous completed exec plan:
+`docs/exec-plans/2026-05-14-stale-rc-prerelease-audit.md` (complete; stale RC
+prereleases are no longer reported as ready for newer release-sensitive heads).
+
+Previous implementation checkpoint:
+The deployment-chain audit output now separates audited-branch protection from
+the default release branch protection baseline. Candidate branch audits still
+report whether the PR branch is protected, but they also print the `master`
+release branch baseline and required checks before the workflow/hosted-gate
+sections, making RC audit evidence easier to read without changing branch
+protection settings or release policy. Focused `bash -n`, `git diff --check`,
+candidate-branch audit, and strict `master` audit checks passed on 2026-05-13.
+Hosted PR checks passed on `e8365e8`: Fast Checks and Full Verify in CI runs
+#25830021890 and #25830023179, plus Dart Package Publish Dry Run
+#25830023207. The strict deployment-chain audit passed on `e8365e8` with clean
+latest CI/logs, relevant Dart package dry-run, relevant Native Artifacts
+dry-run, relevant Router Image dry-run, relevant WAMP Profile Benchmarks, and
+router package visibility requirements enabled. These latest evidence updates
+are docs-only bookkeeping after commit `e8365e8` and should be bundled with the
+next code/config implementation commit rather than pushed alone.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-release-branch-protection-audit-clarity.md`
+(complete; candidate-branch audits now show the release/default branch
+protection baseline explicitly).
+
+Previous implementation checkpoint:
+The deployment-chain audit now treats WAMP Profile Benchmarks as a first-class
+RC readiness gate instead of manual reviewer evidence. Commit `2d9c3f2` added
+`--show-wamp-profile-benchmarks` and
+`--require-clean-wamp-profile-benchmarks`, made `--require-rc-ready` evaluate
+that gate, and expanded the WAMP benchmark workflow trigger to
+`packages/connectanum_core/**` changes because serializers and message behavior
+there affect WAMP benchmark validity. Local `bin/test-fast`, shell syntax/help
+checks, workflow YAML parsing, focused WAMP benchmark audit checks, and
+`bin/verify` passed on 2026-05-13. Hosted PR checks passed on `2d9c3f2`: Fast
+Checks and Full Verify in CI runs #25829242364 and #25829293318, plus Dart
+Package Publish Dry Run #25829293308. Hosted WAMP Profile Benchmarks run
+#25829247215 also passed on `2d9c3f2` with `Linux WAMP profile gates`
+completing in 7m44s and uploading a 31-file artifact bundle. The strict
+deployment-chain audit passed with clean latest CI/logs, relevant Dart package
+dry-run, relevant Native Artifacts dry-run, relevant Router Image dry-run, the
+new WAMP benchmark gate, and router package visibility requirements enabled.
+These state updates are docs-only bookkeeping after commit `2d9c3f2` and should
+be bundled with the next code/config implementation commit rather than pushed
+alone.
+
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-wamp-profile-benchmark-audit-gate.md` (complete;
+RC audit now requires clean, relevant hosted WAMP Profile Benchmarks evidence).
+
+Previous implementation checkpoint:
+The Router Image workflow now uses Docker setup action `v4` majors that declare
+`runs.using: node24`, removing the future Node.js runtime deprecation
+annotation emitted by the old action major. The workflow also configures Git's
+default initial branch before checkout so Router Image dry-run logs no longer
+include the checkout-time `git init` branch-name warning hint. Local
+`bin/test-fast`, workflow YAML parsing, `git diff --check`, and `bin/verify`
+passed on 2026-05-13. Hosted CI #25825256743 passed on
+`codex/post-rc-production-readiness` at `ae9ff88` with Fast Checks and Full
+Verify green; hosted Router Image dry-run #25825262531 passed at the same
+commit in 3m1s, its logs had no warning/deprecation matches, and the strict
+deployment-chain audit passed with clean latest CI/logs, relevant native
+release dry-run evidence, relevant Router Image dry-run evidence, and router
+package visibility requirements enabled. PR #79
+(`codex/post-rc-production-readiness` into `master`) is ready for review for this
+deployment-chain hardening slice. Its PR-triggered checks also passed at
+`ae9ff88`: `Fast Checks` and `Full Verify` in GitHub Actions run #25825933313,
+plus `Publish Dry Run` in run #25825933310. After installing the GitHub CLI in
+the local automation environment, the strict deployment-chain audit passed with
+full hosted log access for PR-triggered CI #25825933313, clean CI logs,
+relevant Dart package dry-run, relevant Native Artifacts dry-run, relevant
+Router Image dry-run, and router package visibility requirements enabled. The
+PR is mergeable but blocked by GitHub review policy (`REVIEW_REQUIRED`), not by
+implementation or CI. Manual WAMP Profile Benchmarks run #25827390502 also
+passed on the PR head `ae9ff88`: `Linux WAMP profile gates` completed in
+8m11s and uploaded WAMP profile artifacts. Local
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+also matched the expected first-RC stance: `connectanum_client` publish
+dry-runs with zero warnings, and the only strict release-readiness blocker is
+the intentionally deferred private-package release-order decision
+(`connectanum_core -> connectanum_client`). The PR body has been refreshed with
+the PR-triggered CI, package dry-run, WAMP benchmark, strict audit, and expected
+pub.dev deferral evidence for reviewer handoff.
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-router-image-node24-actions.md` (complete; Router
+Image dry-run uses Node 24 Docker setup actions and warning-clean checkout
+logs).
+Previous implementation checkpoint:
+The deployment-chain audit now requires hosted Router Image dry-run evidence
+before accepting the router image deployment chain as RC-ready. Local
+`bin/test-fast`, audit syntax/help checks, a show-only branch audit, and
+`bin/verify` passed on 2026-05-13. Hosted GitHub CI #25821472623 passed on
+`codex/post-rc-production-readiness` at `67c46be`; Router Image dry-run
+#25822055247 passed at the same commit with `router-image-preview` metadata for
+`ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.2` and non-mutating
+`dry_run=true` / `publish=false` / `provenance=false` / `sbom=false` state. The
+strict deployment-chain audit with clean latest CI/logs, native release
+dry-run, Router Image dry-run, and router package visibility requirements
+passed after the hosted dry-run.
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-router-image-dry-run-audit.md` (complete; RC
+readiness now requires hosted Router Image dry-run evidence).
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-explicit-rc-tag-audit.md` (complete; deployment
+audit can evaluate a requested RC tag and matching router image manifest).
+Latest post-RC implementation checkpoint:
+The deployment-chain audit now accepts `--rc-tag <tag>` so the next intended RC
+candidate can be checked explicitly. RC readiness reports whether the requested
+tag is at `HEAD`, behind release-sensitive changes, missing locally, or not an
+RC-shaped tag, and router image visibility fallback now checks the requested
+candidate tag instead of older reachable RC evidence. Local `bin/test-fast`,
+audit syntax/help checks, focused stale-tag and temporary-head-tag audit checks,
+and `bin/verify` passed on 2026-05-13 for this checkpoint. Hosted GitHub CI
+#25818605350 passed on `codex/post-rc-production-readiness` at `3e44f09`, and
+the branch audit with clean latest CI/log requirements plus router package
+visibility passed while detecting the router image through the public GHCR
+registry manifest. Native Artifacts dry-run #25819608906 also passed on
+`codex/post-rc-production-readiness` at `3e44f09` for requested preview tag
+`v0.1.0-rc.2`: all five `ct_ffi` platform artifact jobs and the release
+preview job passed, the audit confirmed no GitHub Release was created for that
+tag, `native-release-preview` was uploaded, and the native-release evidence
+covers the checked-out head.
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-native-release-router-image-tags.md` (complete;
+native GitHub Release notes now list concrete router image tags for `v*`
+project releases).
+Previous post-RC implementation checkpoint:
+Native GitHub Release notes now reuse the router image metadata resolver for
+`v*` project release tags. Future RC/stable release notes list the exact Git
+tag image alias and normalized semver image alias, while standalone
+`ct-ffi-v*` native-bundle releases continue to state that no router image tag is
+implied. Local `bin/test-fast`, Python syntax compilation, focused native
+release-note tests, a sample `v0.1.0-rc.1` render, and `bin/verify` passed on
+2026-05-13 for this checkpoint. Hosted GitHub CI #25816244654 passed on
+`codex/post-rc-production-readiness` at `4634831`, and the branch audit with
+clean latest CI/log requirements plus router package visibility passed while
+detecting the router image through the public GHCR registry manifest.
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-router-image-tag-aliases.md` (complete; router
+image tag-push metadata now publishes both exact `v*` Git tag aliases and
+normalized semver aliases).
+Previous post-RC implementation checkpoint:
+Router image tag-push metadata now emits both the exact Git tag form and the
+normalized semver form for `v*` refs. A future `v0.1.0-rc.1` tag push resolves
+to both `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` and
+`ghcr.io/konsultaner/connectanum-router:0.1.0-rc.1`, while stable `vX.Y.Z`
+tags keep `:X.Y`, `:X`, and `:latest` aliases. Local `bin/test-fast`, Python
+syntax compilation, focused router image metadata tests, a sample
+`v0.1.0-rc.1` render, and `bin/verify` passed on 2026-05-13 for this
+checkpoint. Hosted GitHub CI #25814049258 passed on
+`codex/post-rc-production-readiness` at `7215164`, and the branch audit with
+clean latest CI/log requirements plus router package visibility passed while
+detecting the router image through the public GHCR registry manifest.
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-ghcr-registry-audit-fallback.md` (complete; router
+image visibility checks now use the public GHCR registry manifest before
+falling back to Docker buildx).
+Previous post-RC implementation checkpoint:
+The deployment-chain audit now validates public router image visibility through
+the GHCR registry token and manifest endpoint before falling back to Docker
+buildx. This keeps `--require-router-package` reliable when the local GitHub
+token lacks `read:packages` and a clean Docker config hides Docker CLI plugins.
+Local `bin/test-fast`, focused audit syntax/help/router-package checks with a
+clean `DOCKER_CONFIG`, and `bin/verify` passed on 2026-05-13 for this
+checkpoint. Hosted GitHub CI #25811942431 passed on
+`codex/post-rc-production-readiness` at `011e99b`, and the branch audit with
+clean latest CI/log requirements passed while detecting
+`ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` through the public GHCR
+registry manifest.
+Previous completed exec plan:
+`docs/exec-plans/2026-05-13-http1-idle-log-cleanliness.md` (complete; HTTP/1
+keep-alive idle timeouts now close quietly in the native connection loop).
+Previous post-RC implementation checkpoint:
+HTTP/1 keep-alive idle timeouts no longer print read-error diagnostics during
+normal idle connection closure, keeping generated router-hosted MCP consumer
+smoke output cleaner while preserving non-timeout protocol/I/O diagnostics.
+Local `bin/test-fast`, focused `cargo test -p ct_core`, a focused generated MCP
+consumer smoke with output checked for the removed diagnostic, and `bin/verify`
+passed on 2026-05-13 for this checkpoint. Hosted GitHub CI #25809250168 passed
+on `codex/post-rc-production-readiness` at `b85f044`, and the branch audit with
+clean latest CI/log requirements passed.
+Previous completed exec plan:
 `docs/exec-plans/2026-05-13-rc-readiness.md` (complete; GitHub default branch
 promoted, required checks configured, hosted CI clean, native prerelease and
 router image published for `v0.1.0-rc.1`, final RC audit ready with pub.dev
 release-order intentionally deferred).
+Previous post-RC implementation checkpoint:
+Native HTTP route protocol mismatches now return `426 Upgrade Required` before
+WAMP/Dart dispatch on real native HTTP requests, including allowed protocol
+metadata and HTTP/1.1 `Upgrade` hints. Local `bin/test-fast`, focused
+`ct_core` protocol-gate tests, and `bin/verify` passed on 2026-05-13 for this
+checkpoint. Hosted GitHub CI #25806702206 passed on
+`codex/post-rc-production-readiness` at `b6a8d1e`, and the branch audit with
+clean latest CI/log requirements passed.
+Previous post-RC implementation checkpoint:
+HTTP route protocol mismatches now return `426 upgrade_required` before WAMP
+dispatch, including allowed protocol response metadata. Local `bin/test-fast`,
+focused router protocol restriction test, and `bin/verify` passed on
+2026-05-13 for this checkpoint.
+Latest completed exec plan:
+`docs/exec-plans/2026-05-13-native-http-protocol-gate.md` (complete; native
+HTTP route protocol mismatches reject with 426 before dispatch).
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).
@@ -10349,11 +12098,17 @@ order.
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-05-09-router-hosted-mcp-example-error-recovery-smoke.md`
-  (complete; hosted CI evidence clean).
-  Keep hosted GitHub CI clean first, then continue router-hosted MCP
-  downstream application readiness work that does not require operator-owned
-  publish or repository-setting decisions.
+  `docs/exec-plans/2026-05-17-auth-server-cli-runtime.md`
+  (runtime wiring, package executable follow-up, health/metrics endpoint
+  follow-up, and YAML package executable config smoke pushed and hosted-clean
+  for enforced branch gates; missing-service-realm fail-closed smoke pushed and
+  hosted-clean for enforced branch gates; custom realm/session CLI smoke pushed
+  and hosted-clean for enforced branch gates; realm auto-creation policy
+  follow-up pushed and hosted-clean for enforced branch gates plus refreshed
+  Router Image dry-run and WAMP Profile Benchmark evidence).
+  Keep hosted GitHub CI clean first, then finish post-RC release-control
+  hardening that does not require operator-owned publish, release-tag, or
+  repository-setting decisions.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

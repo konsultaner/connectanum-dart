@@ -19,8 +19,23 @@ class RouterStateStore {
           StreamController<SubscriptionMetaEvent>.broadcast(),
       _registrationMetaController =
           StreamController<RegistrationMetaEvent>.broadcast(),
+      _realms = Map.fromEntries(
+        settings.realms
+            .where((realm) => !realm.autoCreate)
+            .map(
+              (realm) => MapEntry(
+                realm.name,
+                RealmRecord(realmUri: realm.name, settings: realm),
+              ),
+            ),
+      ),
       _realmConfigs = Map.fromEntries(
         settings.realms.map((realm) => MapEntry(realm.name, realm)),
+      ),
+      _autoCreateRealmAllowList = Set.unmodifiable(
+        settings.realms
+            .where((realm) => realm.autoCreate)
+            .map((realm) => realm.name),
       );
 
   final RouterSettings settings;
@@ -30,8 +45,9 @@ class RouterStateStore {
   final StreamController<SubscriptionMetaEvent> _subscriptionMetaController;
   final StreamController<RegistrationMetaEvent> _registrationMetaController;
   final WampIdAllocatorRegistry ids = WampIdAllocatorRegistry();
-  final Map<String, RealmRecord> _realms = {};
+  final Map<String, RealmRecord> _realms;
   final Map<String, RealmSettings> _realmConfigs;
+  final Set<String> _autoCreateRealmAllowList;
   int _totalInvocationsDispatched = 0;
   int _totalPublicationsRouted = 0;
 
@@ -100,6 +116,13 @@ class RouterStateStore {
         );
       case SessionCloseCommand():
         _closeSession(command.realmUri, command.sessionId);
+      case SessionTransferCommand():
+        _transferSession(
+          command.realmUri,
+          command.sessionId,
+          workerId: command.workerId,
+          connectionId: command.connectionId,
+        );
       case SubscriptionAddCommand():
         _sendGuardedReply(
           command: command,
@@ -282,7 +305,12 @@ class RouterStateStore {
     }
     final config = _realmConfigs[realmUri];
     if (config == null) {
-      throw StateError('Realm $realmUri is not configured');
+      throw StoreCommandError('Realm $realmUri is not configured');
+    }
+    if (!_autoCreateRealmAllowList.contains(realmUri)) {
+      throw StoreCommandError(
+        'Realm $realmUri is not configured for auto creation',
+      );
     }
     final record = RealmRecord(realmUri: realmUri, settings: config);
     _realms[realmUri] = record;
@@ -326,6 +354,45 @@ class RouterStateStore {
     for (final regId in session.registrationIds.toList()) {
       _unregisterProcedure(realmUri, sessionId, regId);
     }
+    realm.bumpVersion();
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
+  }
+
+  void _transferSession(
+    String realmUri,
+    int sessionId, {
+    required int workerId,
+    required int connectionId,
+  }) {
+    final realm = _realms[realmUri];
+    if (realm == null) {
+      return;
+    }
+    final session = realm.sessions[sessionId];
+    if (session == null) {
+      return;
+    }
+    final replacement = SessionRecord(
+      id: session.id,
+      authId: session.authId,
+      authRole: session.authRole,
+      authMethod: session.authMethod,
+      authProvider: session.authProvider,
+      roles: Map.unmodifiable(session.roles),
+      workerId: workerId,
+      connectionId: connectionId,
+      lastActivity: session.lastActivity,
+      listener: session.listener,
+      protocol: session.protocol,
+      internalSendPort: session.internalSendPort,
+    );
+    replacement.subscriptionIds.addAll(session.subscriptionIds);
+    replacement.registrationIds.addAll(session.registrationIds);
+    replacement.pendingCalls.addAll(session.pendingCalls);
+    replacement.pendingInvocations.addAll(session.pendingInvocations);
+    realm.sessions[sessionId] = replacement;
     realm.bumpVersion();
     _eventController.add(
       StateChangedEvent(realmUri: realmUri, version: realm.version),
@@ -589,6 +656,11 @@ class RouterStateStore {
     }
     final callerSession = realm.sessions[callerSessionId];
     final calleeSession = realm.sessions[callee.sessionId];
+    final discloseCaller =
+        options['disclose_me'] == true ||
+        callee.details['disclose_caller'] == true;
+    final callerAuthId = discloseCaller ? callerSession?.authId : null;
+    final callerAuthRole = discloseCaller ? callerSession?.authRole : null;
     final record = PendingInvocation(
       invocationId: invocationId,
       registrationId: callee.registrationId,
@@ -610,6 +682,9 @@ class RouterStateStore {
       registrationId: callee.registrationId,
       calleeSessionId: callee.sessionId,
       calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
+      discloseCaller: discloseCaller,
+      callerAuthId: callerAuthId,
+      callerAuthRole: callerAuthRole,
       calleeInternalSendPort: calleeSession?.internalSendPort,
       callerInternalSendPort: callerSession?.internalSendPort,
     );
@@ -972,6 +1047,9 @@ class InvocationDispatchResult {
     required this.registrationId,
     required this.calleeSessionId,
     required this.calleeConnectionId,
+    required this.discloseCaller,
+    this.callerAuthId,
+    this.callerAuthRole,
     this.calleeInternalSendPort,
     this.callerInternalSendPort,
   });
@@ -980,6 +1058,9 @@ class InvocationDispatchResult {
   final int registrationId;
   final int calleeSessionId;
   final int calleeConnectionId;
+  final bool discloseCaller;
+  final String? callerAuthId;
+  final String? callerAuthRole;
   final SendPort? calleeInternalSendPort;
   final SendPort? callerInternalSendPort;
 }

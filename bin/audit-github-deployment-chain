@@ -17,25 +17,34 @@ Options:
                              GITHUB_REPOSITORY or konsultaner/connectanum-dart.
   --branch <branch>         Branch to inspect. Defaults to the repository
                              default branch.
+  --rc-tag <tag>            Release-candidate tag to evaluate. Defaults to RC
+                             tags at HEAD, then the newest reachable RC tag.
   --run-limit <count>       Latest branch runs to print. Defaults to 6.
+  --show-sensitive-changes-since <ref>
+                             Print local changed paths since ref grouped by
+                             deployment-chain evidence sensitivity, then exit
+                             before GitHub API inspection.
   --require-clean-latest-ci
                              Exit non-zero unless the latest CI run on the
                              audited branch completed with exactly the expected
                              main jobs and no skipped, pending, or failed jobs.
   --scan-latest-ci-logs      Print high-signal warning/skipped-test/noisy
-                             runtime matches from the latest CI run logs.
+                             runtime matches from completed CI run logs for
+                             the checked-out head on the audited branch.
   --require-clean-latest-ci-logs
-                             Exit non-zero if the latest CI run logs contain
-                             high-signal warning/skipped-test/noisy runtime
-                             matches, or if the run is not complete and green.
+                             Exit non-zero if any checked-out-head CI run logs
+                             contain high-signal warning/skipped-test/noisy
+                             runtime matches, or if any such run is not
+                             complete and green.
   --show-dart-package-publish-dry-run
                              Print the latest dedicated Dart package publish
                              dry-run workflow evidence.
   --require-clean-dart-package-publish-dry-run
                              Exit non-zero unless the latest relevant Dart
                              package publish dry-run workflow completed
-                             successfully and still covers the checked-out
-                             package-publishing inputs.
+                             successfully, has no hosted warning/error
+                             annotations or noisy log lines, and still covers
+                             the checked-out package-publishing inputs.
   --show-native-release-dry-run
                              Print the latest dedicated native release dry-run
                              workflow evidence.
@@ -43,8 +52,29 @@ Options:
                              Exit non-zero unless the latest relevant Native
                              Artifacts dry-run workflow completed successfully,
                              uploaded the preview artifact, avoided release
-                             mutation, and still covers the checked-out native
-                             release inputs.
+                             mutation, has no hosted warning/error annotations
+                             or noisy log lines, and still covers the
+                             checked-out native release inputs.
+  --show-router-image-dry-run
+                             Print the latest dedicated router image dry-run
+                             workflow evidence.
+  --require-clean-router-image-dry-run
+                             Exit non-zero unless the latest relevant Router
+                             Image dry-run workflow completed successfully,
+                             uploaded the preview artifact, avoided GHCR
+                             mutation, has no hosted warning/error annotations
+                             or noisy log lines, and still covers the
+                             checked-out router image inputs.
+  --show-wamp-profile-benchmarks
+                             Print the latest dedicated WAMP profile benchmark
+                             workflow evidence.
+  --require-clean-wamp-profile-benchmarks
+                             Exit non-zero unless the latest relevant WAMP
+                             Profile Benchmarks workflow completed
+                             successfully, uploaded its artifact bundle, has no
+                             hosted warning/error annotations or noisy log
+                             lines, and still covers the checked-out WAMP
+                             benchmark inputs.
   --require-router-package   Exit non-zero unless the GHCR router package is
                              visible through the GitHub Packages API or a
                              public registry manifest for the RC tag.
@@ -53,29 +83,33 @@ Options:
                              discoverable through the GitHub Actions API.
   --show-required-checks-plan
                              Print the non-mutating operator plan for adding
-                             the baseline required status checks to the audited
-                             protected branch.
+                             the baseline required status checks to the release
+                             protection branch.
   --show-rc-readiness        Print a non-mutating release-candidate readiness
                              summary for the current checked-out head.
   --require-rc-ready         Exit non-zero unless the current checked-out head
                              has release-candidate evidence: clean hosted CI
                              and logs, hosted Dart package publish dry-run
                              evidence, hosted native release dry-run or
-                             prerelease publish evidence, baseline
+                             prerelease publish evidence, hosted router image
+                             dry-run evidence, hosted WAMP profile benchmark
+                             evidence, baseline
                              default-branch protection, visible workflows,
                              visible router package, an RC GitHub prerelease,
                              and either strict Dart package dry-run readiness
                              or the documented first-RC pub.dev deferral where
                              connectanum_client is blocked only by private
                              connectanum_core.
-  --strict                  Exit non-zero when the branch lacks the baseline
-                             required checks expected for protected releases.
+  --strict                  Exit non-zero when the release branch lacks the
+                             baseline required checks expected for protected
+                             releases.
   -h, --help                Show this help text.
 USAGE
 }
 
 repository="${GITHUB_REPOSITORY:-konsultaner/connectanum-dart}"
 branch=""
+requested_rc_tag=""
 run_limit=6
 strict=0
 check_clean_latest_ci=0
@@ -88,11 +122,16 @@ require_clean_dart_package_publish_dry_run=0
 check_native_release_dry_run=0
 require_clean_native_release_dry_run=0
 accept_native_prerelease_evidence=0
+check_router_image_dry_run=0
+require_clean_router_image_dry_run=0
+check_wamp_profile_benchmarks=0
+require_clean_wamp_profile_benchmarks=0
 require_router_package=0
 require_workflows_visible=0
 show_required_checks_plan=0
 show_rc_readiness=0
 require_rc_ready=0
+show_sensitive_changes_since=""
 expected_ci_jobs=('Fast Checks' 'Full Verify')
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')
@@ -106,7 +145,17 @@ expected_native_release_jobs=(
   'Publish GitHub Release'
 )
 expected_native_release_asset_count=30
+router_image_workflow='Router Image'
+expected_router_image_jobs=('Publish Router Image')
+wamp_profile_benchmarks_workflow='WAMP Profile Benchmarks'
+expected_wamp_profile_benchmark_jobs=('Linux WAMP profile gates')
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
+latest_native_release_evidence_tag=''
+latest_native_release_evidence_mode=''
+latest_router_image_dry_run_tags=''
+candidate_pr_ready=0
+candidate_pr_status_summary='not evaluated'
+candidate_pr_next_action=''
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -134,6 +183,18 @@ while [[ $# -gt 0 ]]; do
       branch="${1#--branch=}"
       shift
       ;;
+    --rc-tag)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --rc-tag.\n' >&2
+        exit 64
+      }
+      requested_rc_tag="$2"
+      shift 2
+      ;;
+    --rc-tag=*)
+      requested_rc_tag="${1#--rc-tag=}"
+      shift
+      ;;
     --run-limit)
       [[ $# -ge 2 ]] || {
         printf 'Expected a value after --run-limit.\n' >&2
@@ -144,6 +205,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --run-limit=*)
       run_limit="${1#--run-limit=}"
+      shift
+      ;;
+    --show-sensitive-changes-since)
+      [[ $# -ge 2 ]] || {
+        printf 'Expected a value after --show-sensitive-changes-since.\n' >&2
+        exit 64
+      }
+      show_sensitive_changes_since="$2"
+      shift 2
+      ;;
+    --show-sensitive-changes-since=*)
+      show_sensitive_changes_since="${1#--show-sensitive-changes-since=}"
       shift
       ;;
     --require-clean-latest-ci)
@@ -180,6 +253,24 @@ while [[ $# -gt 0 ]]; do
       require_clean_native_release_dry_run=1
       shift
       ;;
+    --show-router-image-dry-run)
+      check_router_image_dry_run=1
+      shift
+      ;;
+    --require-clean-router-image-dry-run)
+      check_router_image_dry_run=1
+      require_clean_router_image_dry_run=1
+      shift
+      ;;
+    --show-wamp-profile-benchmarks)
+      check_wamp_profile_benchmarks=1
+      shift
+      ;;
+    --require-clean-wamp-profile-benchmarks)
+      check_wamp_profile_benchmarks=1
+      require_clean_wamp_profile_benchmarks=1
+      shift
+      ;;
     --require-router-package)
       require_router_package=1
       shift
@@ -199,6 +290,8 @@ while [[ $# -gt 0 ]]; do
       scan_latest_ci_logs=1
       check_dart_package_publish_dry_run=1
       check_native_release_dry_run=1
+      check_router_image_dry_run=1
+      check_wamp_profile_benchmarks=1
       accept_native_prerelease_evidence=1
       shift
       ;;
@@ -210,6 +303,10 @@ while [[ $# -gt 0 ]]; do
       scan_latest_ci_logs=1
       check_dart_package_publish_dry_run=1
       check_native_release_dry_run=1
+      check_router_image_dry_run=1
+      check_wamp_profile_benchmarks=1
+      require_clean_router_image_dry_run=1
+      require_clean_wamp_profile_benchmarks=1
       accept_native_prerelease_evidence=1
       shift
       ;;
@@ -237,7 +334,7 @@ fi
 cd_repo_root
 
 gh_bin="${GH_BIN:-}"
-if [[ -z "$gh_bin" ]]; then
+if [[ -z "$show_sensitive_changes_since" && -z "$gh_bin" ]]; then
   if command -v gh >/dev/null 2>&1; then
     gh_bin="$(command -v gh)"
   elif [[ -x "$HOME/bin/gh" ]]; then
@@ -246,6 +343,8 @@ if [[ -z "$gh_bin" ]]; then
     printf 'Missing required command: gh. Set GH_BIN to the GitHub CLI path if it is not on PATH.\n' >&2
     exit 1
   fi
+elif [[ -n "$show_sensitive_changes_since" && -z "$gh_bin" ]]; then
+  gh_bin="gh"
 fi
 
 api_jq() {
@@ -311,10 +410,49 @@ is_expected_native_release_job() {
   return 1
 }
 
+is_expected_router_image_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_router_image_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+is_expected_wamp_profile_benchmark_job() {
+  local candidate="$1"
+  local expected_job
+
+  for expected_job in "${expected_wamp_profile_benchmark_jobs[@]}"; do
+    if [[ "$candidate" == "$expected_job" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 is_release_candidate_tag() {
   local tag="$1"
 
   [[ "$tag" =~ (^|[-_.])rc([0-9]+|[-_.][0-9]+)?($|[-_.]) ]]
+}
+
+print_stale_rc_tag_next_action() {
+  local selected_tag="$1"
+  local target_sha="$2"
+  local follow_up="$3"
+
+  printf '  Next action: after release approval, choose a fresh RC tag for %s instead of reusing %s, push it, then %s\n' \
+    "$target_sha" \
+    "$selected_tag" \
+    "$follow_up"
+  printf '  Retagging %s should be treated as explicit release-policy approval because published RC tags/prereleases may already be consumed.\n' \
+    "$selected_tag"
 }
 
 rc_tags_pointing_at_head() {
@@ -348,6 +486,11 @@ rc_tags_merged_into_head() {
 rc_candidate_tags_for_head() {
   local head_tags
 
+  if [[ -n "$requested_rc_tag" ]]; then
+    printf '%s\n' "$requested_rc_tag"
+    return
+  fi
+
   head_tags="$(rc_tags_pointing_at_head)"
   if [[ -n "$head_tags" ]]; then
     printf '%s\n' "$head_tags"
@@ -374,15 +517,77 @@ rc_readiness_sensitive_changes_since() {
   done
 }
 
+ghcr_registry_manifest_exists() {
+  local image="$1"
+  local reference
+  local repository_path
+  local tag
+  local token
+
+  [[ "$image" == ghcr.io/*:* ]] || return 1
+  command -v curl >/dev/null 2>&1 || return 127
+  command -v python3 >/dev/null 2>&1 || return 127
+
+  reference="${image#ghcr.io/}"
+  repository_path="${reference%:*}"
+  tag="${reference##*:}"
+
+  [[ -n "$repository_path" && "$repository_path" != "$reference" ]] || return 1
+  [[ -n "$tag" ]] || return 1
+
+  token="$(
+    curl -fsSLG \
+      --connect-timeout 10 \
+      --max-time 30 \
+      --data-urlencode 'service=ghcr.io' \
+      --data-urlencode "scope=repository:${repository_path}:pull" \
+      'https://ghcr.io/token' \
+      2>/dev/null \
+      | python3 -c 'import json, sys; print(json.load(sys.stdin).get("token", ""))' \
+        2>/dev/null
+  )" || return 1
+
+  [[ -n "$token" ]] || return 1
+
+  curl -fsSI \
+    --connect-timeout 10 \
+    --max-time 30 \
+    -H "Authorization: Bearer ${token}" \
+    -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+    "https://ghcr.io/v2/${repository_path}/manifests/${tag}" \
+    >/dev/null 2>&1
+}
+
 inspect_router_image_manifest() {
   local image="$1"
 
-  if command -v docker >/dev/null 2>&1; then
+  if ghcr_registry_manifest_exists "$image"; then
+    return 0
+  fi
+
+  if command -v docker >/dev/null 2>&1 && docker buildx version >/dev/null 2>&1; then
     docker buildx imagetools inspect "$image" >/dev/null 2>&1
     return $?
   fi
 
-  return 127
+  return 1
+}
+
+router_image_dry_run_tags_include_rc_tag() {
+  local rc_tag="$1"
+  local preview_ref
+  local preview_tag
+  local unprefixed_rc_tag="${rc_tag#v}"
+
+  while IFS= read -r preview_ref; do
+    [[ -n "$preview_ref" ]] || continue
+    preview_tag="${preview_ref##*:}"
+    if [[ "$preview_tag" == "$rc_tag" || "$preview_tag" == "$unprefixed_rc_tag" ]]; then
+      return 0
+    fi
+  done <<<"$latest_router_image_dry_run_tags"
+
+  return 1
 }
 
 strict_dart_output_is_deferred_pub_dev_only() {
@@ -444,12 +649,189 @@ latest_ci_run_id() {
   latest_workflow_run_id CI
 }
 
+ci_run_rows_for_checked_out_head() {
+  local preferred_run_id="${1:-}"
+  local current_head_sha
+  local scan_limit="$run_limit"
+  local rows
+  local row
+  local run_id
+  local run_head_sha
+  local run_status
+  local run_conclusion
+  local seen_run_ids=""
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$scan_limit" -lt 20 ]]; then
+    scan_limit=20
+  fi
+
+  if [[ -n "$preferred_run_id" ]]; then
+    rows="$(
+      "$gh_bin" run view "$preferred_run_id" \
+        --repo "$repository" \
+        --json status,conclusion,headSha \
+        --jq '[.headSha, .status, (.conclusion // "pending")] | @tsv' \
+        2>/dev/null || true
+    )"
+    IFS=$'\t' read -r run_head_sha run_status run_conclusion <<<"$rows"
+    if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+      printf '%s\t%s\t%s\n' "$preferred_run_id" "$run_status" "$run_conclusion"
+      seen_run_ids="${seen_run_ids}${preferred_run_id}"$'\n'
+    fi
+  fi
+
+  rows="$(
+    "$gh_bin" run list \
+      --repo "$repository" \
+      --branch "$branch" \
+      --workflow CI \
+      --limit "$scan_limit" \
+      --json databaseId,headSha,status,conclusion \
+      --jq '.[] | [.databaseId, .headSha, .status, (.conclusion // "pending")] | @tsv' \
+      2>/dev/null || true
+  )"
+  rows+="$(
+    printf '\n'
+    "$gh_bin" run list \
+      --repo "$repository" \
+      --branch "$branch" \
+      --limit "$scan_limit" \
+      --json name,databaseId,headSha,status,conclusion \
+      --jq '.[] | select(.name == "CI") | [.databaseId, .headSha, .status, (.conclusion // "pending")] | @tsv' \
+      2>/dev/null || true
+  )"
+
+  while IFS= read -r row; do
+    [[ -n "$row" ]] || continue
+    IFS=$'\t' read -r run_id run_head_sha run_status run_conclusion <<<"$row"
+    [[ -n "$run_id" ]] || continue
+    [[ "$run_head_sha" == "$current_head_sha" ]] || continue
+    if printf '%s' "$seen_run_ids" | grep -Fxq "$run_id"; then
+      continue
+    fi
+
+    printf '%s\t%s\t%s\n' "$run_id" "$run_status" "$run_conclusion"
+    seen_run_ids="${seen_run_ids}${run_id}"$'\n'
+  done <<<"$rows"
+}
+
 latest_dart_package_publish_dry_run_id() {
   latest_workflow_run_id "$dart_package_publish_workflow"
 }
 
 latest_native_release_dry_run_id() {
   latest_workflow_run_id "$native_release_workflow"
+}
+
+latest_router_image_dry_run_id() {
+  latest_workflow_run_id "$router_image_workflow"
+}
+
+latest_wamp_profile_benchmarks_id() {
+  latest_workflow_run_id "$wamp_profile_benchmarks_workflow"
+}
+
+print_run_log_file_scan() {
+  local log_file="$1"
+  local label="$2"
+  local matches_file
+
+  matches_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-run-log-matches.XXXXXX")"
+
+  if LC_ALL=C grep -Eai "$ci_log_issue_pattern" "$log_file" >"$matches_file"; then
+    printf 'Potential hosted %s log issues matching: %s\n' "$label" "$ci_log_issue_pattern"
+    awk '
+      NR <= 200 { print "- " $0 }
+      END {
+        if (NR > 200) {
+          printf("- ... truncated %d additional matching lines\n", NR - 200)
+        }
+      }
+    ' "$matches_file"
+    rm -f "$matches_file"
+    return 1
+  fi
+
+  printf 'Latest %s log scan is clean: no warning/deprecation/skipped/reset/connection-noise patterns found.\n' "$label"
+  rm -f "$matches_file"
+  return 0
+}
+
+print_run_annotation_scan() {
+  local run_id="$1"
+  local label="$2"
+  local jobs_file
+  local annotations_file
+  local job_annotations_file
+  local job_name
+  local job_id
+  local failed=0
+
+  jobs_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-run-jobs.XXXXXX")"
+  annotations_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-run-annotations.XXXXXX")"
+  job_annotations_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-run-job-annotations.XXXXXX")"
+
+  if ! "$gh_bin" api "repos/${repository}/actions/runs/${run_id}/jobs?per_page=100" \
+    --jq '.jobs[] | [.name, .id] | @tsv' \
+    >"$jobs_file"; then
+    printf 'Finding: could not inspect GitHub check-run annotations for %s run #%s.\n' "$label" "$run_id"
+    rm -f "$jobs_file" "$annotations_file" "$job_annotations_file"
+    return 1
+  fi
+
+  if [[ ! -s "$jobs_file" ]]; then
+    printf 'Finding: %s run #%s has no inspectable check runs for annotation scanning.\n' "$label" "$run_id"
+    rm -f "$jobs_file" "$annotations_file" "$job_annotations_file"
+    return 1
+  fi
+
+  while IFS=$'\t' read -r job_name job_id; do
+    [[ -n "$job_name" && -n "$job_id" ]] || continue
+    : >"$job_annotations_file"
+
+    if ! "$gh_bin" api "repos/${repository}/check-runs/${job_id}/annotations?per_page=100" \
+      --jq '.[] | select(.annotation_level == "warning" or .annotation_level == "failure") | [.annotation_level, (.path // ""), ((.start_line // "") | tostring), ((.message // "") | gsub("[\r\n\t]+"; " "))] | @tsv' \
+      >"$job_annotations_file"; then
+      printf 'Finding: could not inspect GitHub check-run annotations for %s job %s.\n' "$label" "$job_name"
+      failed=1
+      continue
+    fi
+
+    if [[ -s "$job_annotations_file" ]]; then
+      awk -v job="$job_name" -F '\t' '
+        {
+          location = ""
+          if ($2 != "") {
+            location = " (" $2
+            if ($3 != "") {
+              location = location ":" $3
+            }
+            location = location ")"
+          }
+          printf("- %s: %s: %s%s\n", job, $1, $4, location)
+        }
+      ' "$job_annotations_file" >>"$annotations_file"
+    fi
+  done <"$jobs_file"
+
+  if [[ -s "$annotations_file" ]]; then
+    printf 'Potential hosted %s warning/error annotations:\n' "$label"
+    awk '
+      NR <= 200 { print }
+      END {
+        if (NR > 200) {
+          printf("- ... truncated %d additional annotations\n", NR - 200)
+        }
+      }
+    ' "$annotations_file"
+    failed=1
+  elif [[ "$failed" -eq 0 ]]; then
+    printf 'Latest %s annotation scan is clean: no warning/error annotations found.\n' "$label"
+  fi
+
+  rm -f "$jobs_file" "$annotations_file" "$job_annotations_file"
+  return "$failed"
 }
 
 dart_package_publish_sensitive_changes_since() {
@@ -496,37 +878,157 @@ native_release_sensitive_changes_since() {
   done
 }
 
+router_image_sensitive_changes_since() {
+  local base="$1"
+  local path
+
+  git diff --name-only "${base}..HEAD" | while IFS= read -r path; do
+    case "$path" in
+      .github/workflows/router-image.yml|\
+      deploy/docker/*|\
+      deploy/docker/**|\
+      native/transport/*|\
+      native/transport/**|\
+      packages/*/pubspec.yaml|\
+      packages/connectanum_client/hook/*|\
+      packages/connectanum_client/hook/**|\
+      packages/connectanum_client/lib/*|\
+      packages/connectanum_client/lib/**|\
+      packages/connectanum_client/tool/install_native.dart|\
+      packages/connectanum_core/lib/*|\
+      packages/connectanum_core/lib/**|\
+      packages/connectanum_mcp/lib/*|\
+      packages/connectanum_mcp/lib/**|\
+      packages/connectanum_router/bin/*|\
+      packages/connectanum_router/bin/**|\
+      packages/connectanum_router/hook/*|\
+      packages/connectanum_router/hook/**|\
+      packages/connectanum_router/lib/*|\
+      packages/connectanum_router/lib/**|\
+      packages/connectanum_router/tool/install_native.dart|\
+      pubspec.yaml|\
+      tool/render_router_image_metadata.py)
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+wamp_profile_benchmark_sensitive_changes_since() {
+  local base="$1"
+  local path
+
+  git diff --name-only "${base}..HEAD" | while IFS= read -r path; do
+    case "$path" in
+      .github/workflows/wamp-profile-benchmarks.yml|\
+      bin/bootstrap|\
+      bin/check-bench-artifacts|\
+      bin/common.sh|\
+      bin/wamp-profile-validate|\
+      native/bench/*|\
+      native/bench/**|\
+      native/transport/*|\
+      native/transport/**|\
+      packages/*/pubspec.yaml|\
+      packages/connectanum_auth_server/lib/*|\
+      packages/connectanum_auth_server/lib/**|\
+      packages/connectanum_bench/bin/*|\
+      packages/connectanum_bench/bin/**|\
+      packages/connectanum_bench/lib/*|\
+      packages/connectanum_bench/lib/**|\
+      packages/connectanum_client/hook/*|\
+      packages/connectanum_client/hook/**|\
+      packages/connectanum_client/lib/*|\
+      packages/connectanum_client/lib/**|\
+      packages/connectanum_client/tool/install_native.dart|\
+      packages/connectanum_core/lib/*|\
+      packages/connectanum_core/lib/**|\
+      packages/connectanum_router/bin/*|\
+      packages/connectanum_router/bin/**|\
+      packages/connectanum_router/hook/*|\
+      packages/connectanum_router/hook/**|\
+      packages/connectanum_router/lib/*|\
+      packages/connectanum_router/lib/**|\
+      packages/connectanum_router/tool/install_native.dart|\
+      pubspec.yaml)
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+print_sensitive_changes_section() {
+  local title="$1"
+  local changed_paths="$2"
+  local path
+
+  printf '## %s\n\n' "$title"
+  if [[ -z "$changed_paths" ]]; then
+    printf 'No sensitive changes.\n\n'
+    return
+  fi
+
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    printf '%s\n' "- $path"
+  done <<<"$changed_paths"
+  printf '\n'
+}
+
+print_sensitive_changes_since() {
+  local base="$1"
+  local base_sha
+  local head_sha
+  local changed_paths
+
+  if ! base_sha="$(git rev-parse --verify "${base}^{commit}" 2>/dev/null)"; then
+    printf 'Could not resolve --show-sensitive-changes-since ref: %s\n' "$base" >&2
+    return 1
+  fi
+  head_sha="$(git rev-parse HEAD)"
+
+  printf '# Deployment-Chain Sensitive Changes\n\n'
+  printf 'Base ref: %s (%s)\n' "$base" "${base_sha:0:12}"
+  printf 'Head: %s\n\n' "${head_sha:0:12}"
+
+  changed_paths="$(dart_package_publish_sensitive_changes_since "$base")"
+  print_sensitive_changes_section 'Dart Package Publish Dry Run' "$changed_paths"
+
+  changed_paths="$(native_release_sensitive_changes_since "$base")"
+  print_sensitive_changes_section 'Native Artifacts' "$changed_paths"
+
+  changed_paths="$(router_image_sensitive_changes_since "$base")"
+  print_sensitive_changes_section 'Router Image' "$changed_paths"
+
+  changed_paths="$(wamp_profile_benchmark_sensitive_changes_since "$base")"
+  print_sensitive_changes_section 'WAMP Profile Benchmarks' "$changed_paths"
+
+  changed_paths="$(rc_readiness_sensitive_changes_since "$base")"
+  print_sensitive_changes_section 'RC Readiness' "$changed_paths"
+}
+
 print_latest_ci_log_scan() {
   local run_id="$1"
+  local label="${2:-CI}"
   local log_file
-  local matches_file
+  local failed=0
 
   log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-ci-log.XXXXXX")"
-  matches_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-ci-log-matches.XXXXXX")"
 
   if ! "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
     printf 'Finding: could not download logs for CI run #%s.\n' "$run_id"
-    rm -f "$log_file" "$matches_file"
-    return 1
+    failed=1
+  elif ! print_run_log_file_scan "$log_file" "$label"; then
+    failed=1
   fi
 
-  if LC_ALL=C grep -Eai "$ci_log_issue_pattern" "$log_file" >"$matches_file"; then
-    printf 'Potential hosted CI log issues matching: %s\n' "$ci_log_issue_pattern"
-    awk '
-      NR <= 200 { print "- " $0 }
-      END {
-        if (NR > 200) {
-          printf("- ... truncated %d additional matching lines\n", NR - 200)
-        }
-      }
-    ' "$matches_file"
-    rm -f "$log_file" "$matches_file"
-    return 1
+  rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$label"; then
+    failed=1
   fi
 
-  printf 'Latest CI log scan is clean: no warning/deprecation/skipped/reset/connection-noise patterns found.\n'
-  rm -f "$log_file" "$matches_file"
-  return 0
+  return "$failed"
 }
 
 print_dart_package_publish_dry_run_gate() {
@@ -543,6 +1045,7 @@ print_dart_package_publish_dry_run_gate() {
   local job_conclusion
   local expected_job
   local changed_paths
+  local log_file
   local failed=0
 
   run_id="$(latest_dart_package_publish_dry_run_id)"
@@ -608,6 +1111,21 @@ print_dart_package_publish_dry_run_gate() {
         failed=1
       fi
     done
+  fi
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-package-publish-log.XXXXXX")"
+  if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    if ! print_run_log_file_scan "$log_file" "$dart_package_publish_workflow"; then
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download logs for Dart package publish dry-run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$dart_package_publish_workflow"; then
+    failed=1
   fi
 
   current_head_sha="$(git rev-parse HEAD)"
@@ -748,6 +1266,8 @@ print_native_release_dry_run_gate() {
       failed=1
     else
       IFS=$'\t' read -r release_tag release_scope release_mode <<<"$release_intent"
+      latest_native_release_evidence_tag="$release_tag"
+      latest_native_release_evidence_mode="$release_mode"
 
       if [[ "$release_mode" == "dry-run" ]]; then
         printf 'Native release dry-run intent: accepted (%s, %s).\n' "$release_tag" "$release_scope"
@@ -806,11 +1326,19 @@ print_native_release_dry_run_gate() {
         failed=1
       fi
     fi
+
+    if ! print_run_log_file_scan "$log_file" "$native_release_workflow"; then
+      failed=1
+    fi
   else
     printf 'Finding: could not download logs for Native Artifacts run #%s.\n' "$run_id"
     failed=1
   fi
   rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$native_release_workflow"; then
+    failed=1
+  fi
 
   current_head_sha="$(git rev-parse HEAD)"
   if [[ "$run_head_sha" == "$current_head_sha" ]]; then
@@ -840,6 +1368,333 @@ print_native_release_dry_run_gate() {
     else
       printf 'Latest Native Artifacts dry-run is clean and relevant.\n'
     fi
+  fi
+
+  return "$failed"
+}
+
+print_router_image_dry_run_gate() {
+  local run_id
+  local run_summary
+  local run_state
+  local run_status
+  local run_conclusion
+  local run_head_sha
+  local run_event
+  local current_head_sha
+  local run_jobs
+  local job_name
+  local job_status
+  local job_conclusion
+  local expected_job
+  local changed_paths
+  local log_file
+  local preview_dir
+  local metadata_file=""
+  local preview_tags=""
+  local failed=0
+
+  run_id="$(latest_router_image_dry_run_id)"
+
+  if [[ -z "$run_id" ]]; then
+    printf 'Finding: no Router Image workflow run found for branch %s.\n' "$branch"
+    return 1
+  fi
+
+  run_summary="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,url,displayTitle,event \
+      --jq '"Run: Router Image #'"$run_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nTitle: \(.displayTitle)\nEvent: \(.event)\nURL: \(.url)"'
+  )"
+  printf '%s\n' "$run_summary"
+
+  run_state="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,event \
+      --jq '[.status, (.conclusion // "pending"), .headSha, .event] | @tsv'
+  )"
+  IFS=$'\t' read -r run_status run_conclusion run_head_sha run_event <<<"$run_state"
+
+  if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+    printf 'Finding: latest Router Image dry-run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
+    failed=1
+  fi
+
+  if [[ "$run_event" != "workflow_dispatch" ]]; then
+    printf 'Finding: latest Router Image evidence was not a manual dry-run dispatch: %s.\n' "$run_event"
+    failed=1
+  fi
+
+  run_jobs="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json jobs \
+      --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+  )"
+
+  if [[ -z "$run_jobs" ]]; then
+    printf 'Finding: latest Router Image dry-run has no inspectable jobs.\n'
+    failed=1
+  else
+    while IFS=$'\t' read -r job_name job_status job_conclusion; do
+      [[ -n "$job_name" ]] || continue
+      printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+      if ! is_expected_router_image_job "$job_name"; then
+        printf 'Finding: latest Router Image dry-run contains unexpected job: %s\n' "$job_name"
+        failed=1
+      fi
+
+      if [[ "$job_conclusion" == "skipped" ]]; then
+        printf 'Finding: latest Router Image dry-run job was skipped: %s\n' "$job_name"
+        failed=1
+      elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+        printf 'Finding: latest Router Image dry-run job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+        failed=1
+      fi
+    done <<<"$run_jobs"
+
+    for expected_job in "${expected_router_image_jobs[@]}"; do
+      if ! printf '%s\n' "$run_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+        printf 'Finding: latest Router Image dry-run is missing expected job: %s\n' "$expected_job"
+        failed=1
+      fi
+    done
+  fi
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-router-image-log.XXXXXX")"
+  if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    if grep -Fq 'Artifact router-image-preview has been successfully uploaded!' "$log_file"; then
+      printf 'Router image preview artifact upload: ready (router-image-preview).\n'
+    else
+      printf 'Finding: latest Router Image dry-run did not log router-image-preview upload.\n'
+      failed=1
+    fi
+
+    if ! print_run_log_file_scan "$log_file" "$router_image_workflow"; then
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download logs for Router Image run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$router_image_workflow"; then
+    failed=1
+  fi
+
+  preview_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-image-preview.XXXXXX")"
+  if "$gh_bin" run download "$run_id" --repo "$repository" --pattern router-image-preview --dir "$preview_dir" >/dev/null 2>&1; then
+    metadata_file="$(find "$preview_dir" -type f -name 'router-image-metadata.md' -print -quit)"
+    if [[ -z "$metadata_file" ]]; then
+      printf 'Finding: router-image-preview artifact does not contain router-image-metadata.md.\n'
+      failed=1
+    else
+      if grep -Fq -- '- Mode: `dry-run`' "$metadata_file" \
+        && grep -Fq -- '- Publish: `false`' "$metadata_file" \
+        && grep -Fq -- '- Provenance: `false`' "$metadata_file" \
+        && grep -Fq -- '- SBOM: `false`' "$metadata_file"; then
+        printf 'Router image dry-run metadata: ready (dry-run, publish=false, provenance=false, sbom=false).\n'
+      else
+        printf 'Finding: router image preview metadata is not a non-mutating dry-run.\n'
+        failed=1
+      fi
+
+      preview_tags="$(
+        sed -n '/^### Tags$/,/^### Labels$/p' "$metadata_file" \
+          | grep -E '^- `ghcr\.io/.+`$' \
+          | sed 's/^- `//; s/`$//' \
+          || true
+      )"
+
+      if [[ -z "$preview_tags" ]]; then
+        printf 'Finding: router image preview metadata did not list GHCR tags.\n'
+        failed=1
+      else
+        latest_router_image_dry_run_tags="$preview_tags"
+        printf 'Router image dry-run preview tags:\n'
+        while IFS= read -r preview_tag; do
+          [[ -n "$preview_tag" ]] || continue
+          printf -- '- %s\n' "$preview_tag"
+        done <<<"$preview_tags"
+      fi
+    fi
+  else
+    printf 'Finding: could not download router-image-preview artifact for Router Image run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -rf "$preview_dir"
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+    printf 'Router image dry-run covers checked-out head: yes.\n'
+  else
+    if ! git cat-file -e "${run_head_sha}^{commit}" 2>/dev/null; then
+      printf 'Finding: cannot compare Router Image dry-run head %s with checked-out head; commit is not available locally.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif ! changed_paths="$(router_image_sensitive_changes_since "$run_head_sha")"; then
+      printf 'Finding: failed to compare router-image-sensitive paths since %s.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif [[ -n "$changed_paths" ]]; then
+      printf 'Finding: checked-out head has router-image-sensitive changes after dry-run head %s:\n' "${run_head_sha:0:7}"
+      while IFS= read -r changed_path; do
+        [[ -n "$changed_path" ]] || continue
+        printf -- '- %s\n' "$changed_path"
+      done <<<"$changed_paths"
+      failed=1
+    else
+      printf 'Router image dry-run covers checked-out router image inputs: yes; checked-out head differs from dry-run head %s, but no router-image-sensitive paths changed since then.\n' "${run_head_sha:0:7}"
+    fi
+  fi
+
+  if [[ "$failed" -eq 0 ]]; then
+    printf 'Latest Router Image dry-run is clean and relevant.\n'
+  fi
+
+  return "$failed"
+}
+
+print_wamp_profile_benchmark_gate() {
+  local run_id
+  local run_summary
+  local run_state
+  local run_status
+  local run_conclusion
+  local run_head_sha
+  local current_head_sha
+  local run_jobs
+  local job_name
+  local job_status
+  local job_conclusion
+  local expected_job
+  local changed_paths
+  local artifact_dir
+  local artifact_file_count
+  local log_file
+  local failed=0
+
+  run_id="$(latest_wamp_profile_benchmarks_id)"
+
+  if [[ -z "$run_id" ]]; then
+    printf 'Finding: no WAMP Profile Benchmarks workflow run found for branch %s.\n' "$branch"
+    return 1
+  fi
+
+  run_summary="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha,url,displayTitle,event \
+      --jq '"Run: WAMP Profile Benchmarks #'"$run_id"' \(.status)/\(.conclusion // "pending") @ \(.headSha[0:7])\nTitle: \(.displayTitle)\nEvent: \(.event)\nURL: \(.url)"'
+  )"
+  printf '%s\n' "$run_summary"
+
+  run_state="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json status,conclusion,headSha \
+      --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
+  )"
+  IFS=$'\t' read -r run_status run_conclusion run_head_sha <<<"$run_state"
+
+  if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+    printf 'Finding: latest WAMP Profile Benchmarks run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
+    failed=1
+  fi
+
+  run_jobs="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json jobs \
+      --jq '.jobs[] | [.name, .status, (.conclusion // "pending")] | @tsv'
+  )"
+
+  if [[ -z "$run_jobs" ]]; then
+    printf 'Finding: latest WAMP Profile Benchmarks run has no inspectable jobs.\n'
+    failed=1
+  else
+    while IFS=$'\t' read -r job_name job_status job_conclusion; do
+      [[ -n "$job_name" ]] || continue
+      printf -- '- %s: %s/%s\n' "$job_name" "$job_status" "$job_conclusion"
+
+      if ! is_expected_wamp_profile_benchmark_job "$job_name"; then
+        printf 'Finding: latest WAMP Profile Benchmarks run contains unexpected job: %s\n' "$job_name"
+        failed=1
+      fi
+
+      if [[ "$job_conclusion" == "skipped" ]]; then
+        printf 'Finding: latest WAMP Profile Benchmarks job was skipped: %s\n' "$job_name"
+        failed=1
+      elif [[ "$job_status" != "completed" || "$job_conclusion" != "success" ]]; then
+        printf 'Finding: latest WAMP Profile Benchmarks job is not green: %s (%s/%s)\n' "$job_name" "$job_status" "$job_conclusion"
+        failed=1
+      fi
+    done <<<"$run_jobs"
+
+    for expected_job in "${expected_wamp_profile_benchmark_jobs[@]}"; do
+      if ! printf '%s\n' "$run_jobs" | cut -f1 | grep -Fxq "$expected_job"; then
+        printf 'Finding: latest WAMP Profile Benchmarks run is missing expected job: %s\n' "$expected_job"
+        failed=1
+      fi
+    done
+  fi
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-wamp-profile-log.XXXXXX")"
+  if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
+    if ! print_run_log_file_scan "$log_file" "$wamp_profile_benchmarks_workflow"; then
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download logs for WAMP Profile Benchmarks run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -f "$log_file"
+
+  if ! print_run_annotation_scan "$run_id" "$wamp_profile_benchmarks_workflow"; then
+    failed=1
+  fi
+
+  artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-wamp-profile-artifacts.XXXXXX")"
+  if "$gh_bin" run download "$run_id" --repo "$repository" --pattern wamp-profile-benchmark-artifacts --dir "$artifact_dir" >/dev/null 2>&1; then
+    artifact_file_count="$(find "$artifact_dir" -type f | wc -l | tr -d '[:space:]')"
+    if [[ "$artifact_file_count" =~ ^[0-9]+$ && "$artifact_file_count" -gt 0 ]]; then
+      printf 'WAMP profile benchmark artifact bundle: ready (%s files).\n' "$artifact_file_count"
+    else
+      printf 'Finding: WAMP profile benchmark artifact bundle is empty.\n'
+      failed=1
+    fi
+  else
+    printf 'Finding: could not download wamp-profile-benchmark-artifacts for WAMP Profile Benchmarks run #%s.\n' "$run_id"
+    failed=1
+  fi
+  rm -rf "$artifact_dir"
+
+  current_head_sha="$(git rev-parse HEAD)"
+  if [[ "$run_head_sha" == "$current_head_sha" ]]; then
+    printf 'WAMP Profile Benchmarks cover checked-out head: yes.\n'
+  else
+    if ! git cat-file -e "${run_head_sha}^{commit}" 2>/dev/null; then
+      printf 'Finding: cannot compare WAMP Profile Benchmarks head %s with checked-out head; commit is not available locally.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif ! changed_paths="$(wamp_profile_benchmark_sensitive_changes_since "$run_head_sha")"; then
+      printf 'Finding: failed to compare WAMP benchmark-sensitive paths since %s.\n' "${run_head_sha:0:7}"
+      failed=1
+    elif [[ -n "$changed_paths" ]]; then
+      printf 'Finding: checked-out head has WAMP benchmark-sensitive changes after benchmark head %s:\n' "${run_head_sha:0:7}"
+      while IFS= read -r changed_path; do
+        [[ -n "$changed_path" ]] || continue
+        printf -- '- %s\n' "$changed_path"
+      done <<<"$changed_paths"
+      failed=1
+    else
+      printf 'WAMP Profile Benchmarks cover checked-out WAMP inputs: yes; checked-out head differs from benchmark head %s, but no WAMP benchmark-sensitive paths changed since then.\n' "${run_head_sha:0:7}"
+    fi
+  fi
+
+  if [[ "$failed" -eq 0 ]]; then
+    printf 'Latest WAMP Profile Benchmarks run is clean and relevant.\n'
   fi
 
   return "$failed"
@@ -900,6 +1755,111 @@ print_required_checks_plan() {
   printf '```\n'
 }
 
+print_candidate_pr_status() {
+  local pr_rows
+  local pr_number
+  local pr_url
+  local pr_draft
+  local pr_merge_state
+  local pr_review_decision
+  local pr_head_oid
+  local current_head_sha
+  local pr_count=0
+  local all_ready=1
+  local primary_pr_number=''
+  local primary_pr_merge_state=''
+  local primary_pr_review_decision=''
+
+  candidate_pr_ready=0
+  candidate_pr_status_summary='not ready'
+  candidate_pr_next_action="open or update a PR from ${branch} to ${default_branch}, satisfy review/merge requirements, merge it, then cut the RC from the promoted release branch."
+
+  printf '\n## Candidate Pull Request Status\n\n'
+
+  if [[ "$branch" == "$default_branch" ]]; then
+    candidate_pr_ready=1
+    candidate_pr_status_summary="audited branch is the default release branch (${default_branch})"
+    candidate_pr_next_action=''
+    printf 'Audited branch is the default release branch; no PR promotion is required.\n'
+    return 0
+  fi
+
+  pr_rows="$(
+    "$gh_bin" pr list \
+      --repo "$repository" \
+      --head "$branch" \
+      --base "$default_branch" \
+      --state open \
+      --limit 5 \
+      --json number,url,isDraft,mergeStateStatus,reviewDecision,headRefOid \
+      --jq '.[] | [.number, .url, (.isDraft | tostring), (.mergeStateStatus // "UNKNOWN"), (.reviewDecision // ""), (.headRefOid // "")] | @tsv' \
+      2>/dev/null || true
+  )"
+
+  if [[ -z "$pr_rows" ]]; then
+    candidate_pr_status_summary="no open PR from ${branch} to ${default_branch}"
+    printf 'Open PR: not found for %s -> %s.\n' "$branch" "$default_branch"
+    printf 'Finding: audited branch is not currently represented by an open release-promotion PR.\n'
+    return 0
+  fi
+
+  current_head_sha="$(git rev-parse HEAD)"
+
+  while IFS=$'\t' read -r pr_number pr_url pr_draft pr_merge_state pr_review_decision pr_head_oid; do
+    [[ -n "$pr_number" ]] || continue
+    pr_count=$((pr_count + 1))
+    if [[ "$pr_count" -eq 1 ]]; then
+      primary_pr_number="$pr_number"
+      primary_pr_merge_state="$pr_merge_state"
+      primary_pr_review_decision="$pr_review_decision"
+    fi
+    printf -- '- PR #%s: %s\n' "$pr_number" "$pr_url"
+    printf '  Draft: %s\n' "$pr_draft"
+    printf '  Merge state: %s\n' "$pr_merge_state"
+    printf '  Review decision: %s\n' "${pr_review_decision:-none}"
+    if [[ -n "$pr_head_oid" ]]; then
+      printf '  Head: %s\n' "${pr_head_oid:0:7}"
+    fi
+
+    if [[ "$pr_draft" == "true" ]]; then
+      printf '  Finding: PR is still a draft.\n'
+      all_ready=0
+    fi
+    if [[ -n "$pr_head_oid" && "$pr_head_oid" != "$current_head_sha" ]]; then
+      printf '  Finding: PR head %s does not match checked-out head %s.\n' "${pr_head_oid:0:7}" "${current_head_sha:0:7}"
+      all_ready=0
+    fi
+    if [[ "$pr_merge_state" != "CLEAN" ]]; then
+      printf '  Finding: PR merge state is not clean.\n'
+      all_ready=0
+    fi
+    if [[ "$pr_review_decision" == "REVIEW_REQUIRED" || "$pr_review_decision" == "CHANGES_REQUESTED" ]]; then
+      printf '  Finding: PR review decision blocks release-branch promotion.\n'
+      all_ready=0
+    fi
+  done <<<"$pr_rows"
+
+  if [[ "$pr_count" -gt 1 ]]; then
+    printf 'Finding: multiple open PRs target %s from %s; release-promotion evidence is ambiguous.\n' "$default_branch" "$branch"
+    candidate_pr_status_summary="multiple open PRs from ${branch} to ${default_branch}"
+    all_ready=0
+  fi
+
+  if [[ "$all_ready" -eq 1 ]]; then
+    candidate_pr_ready=1
+    candidate_pr_status_summary="PR #${primary_pr_number} is merge-ready for ${default_branch}"
+    candidate_pr_next_action=''
+    printf 'Candidate PR promotion gate: ready; merge the reviewed PR before cutting the RC from %s.\n' "$default_branch"
+  else
+    if [[ "$pr_count" -eq 1 ]]; then
+      candidate_pr_status_summary="PR #${primary_pr_number} is ${primary_pr_merge_state}/${primary_pr_review_decision:-none} for ${default_branch}"
+      candidate_pr_next_action="complete review/merge requirements for PR #${primary_pr_number}, merge it into ${default_branch}, then cut the RC from the promoted release branch."
+    fi
+    printf 'Candidate PR promotion gate: not ready.\n'
+    printf '  Next action: %s\n' "$candidate_pr_next_action"
+  fi
+}
+
 print_latest_ci_next_action() {
   if [[ -z "${latest_ci_id:-}" ]]; then
     printf '  Next action: trigger or wait for a CI run on %s, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-latest-ci.\n' "$branch" "$branch"
@@ -934,6 +1894,7 @@ print_rc_readiness() {
   local rc_tag_sha
   local rc_changed_paths
   local selected_rc_tag=""
+  local selected_rc_tag_covers_head=0
   local selected_rc_release_state=""
   local strict_dart_output
 
@@ -993,6 +1954,32 @@ print_rc_readiness() {
     rc_ready_failed=1
   fi
 
+  if [[ "$check_router_image_dry_run" -eq 1 ]]; then
+    if [[ "$router_image_dry_run_failed" -eq 0 ]]; then
+      printf 'Router image hosted dry-run gate: ready\n'
+    else
+      printf 'Router image hosted dry-run gate: not ready\n'
+      printf '  Next action: run the Router Image workflow with dry_run=true for the intended RC image tag, wait for it to finish, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-router-image-dry-run.\n' "$branch"
+      rc_ready_failed=1
+    fi
+  else
+    printf 'Router image hosted dry-run gate: not evaluated; use --show-router-image-dry-run or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
+  if [[ "$check_wamp_profile_benchmarks" -eq 1 ]]; then
+    if [[ "$wamp_profile_benchmarks_failed" -eq 0 ]]; then
+      printf 'WAMP profile benchmark gate: ready\n'
+    else
+      printf 'WAMP profile benchmark gate: not ready\n'
+      printf '  Next action: run the WAMP Profile Benchmarks workflow for %s, wait for it to finish, then rerun bin/audit-github-deployment-chain --branch %s --require-clean-wamp-profile-benchmarks.\n' "$branch" "$branch"
+      rc_ready_failed=1
+    fi
+  else
+    printf 'WAMP profile benchmark gate: not evaluated; use --show-wamp-profile-benchmarks or --require-rc-ready.\n'
+    rc_ready_failed=1
+  fi
+
   if [[ "$release_missing_required_checks" -eq 0 ]]; then
     printf 'Default branch protection baseline: ready (%s requires %s)\n' "$release_protection_branch" "${release_required_contexts:-none}"
   else
@@ -1004,6 +1991,16 @@ print_rc_readiness() {
       printf 'Default branch protection baseline: not ready; %s must require release-critical CI checks (current: %s).\n' "$release_protection_branch" "${release_required_contexts:-none}"
     fi
     printf '  Next action: run bin/audit-github-deployment-chain --branch %s --show-required-checks-plan and apply the reviewed GitHub branch-protection change only after operator approval.\n' "$release_protection_branch"
+    rc_ready_failed=1
+  fi
+
+  if [[ "$candidate_pr_ready" -eq 1 ]]; then
+    printf 'Release branch promotion gate: ready; %s.\n' "$candidate_pr_status_summary"
+  else
+    printf 'Release branch promotion gate: not ready; %s.\n' "$candidate_pr_status_summary"
+    if [[ -n "$candidate_pr_next_action" ]]; then
+      printf '  Next action: %s\n' "$candidate_pr_next_action"
+    fi
     rc_ready_failed=1
   fi
 
@@ -1023,42 +2020,75 @@ print_rc_readiness() {
     rc_ready_failed=1
   fi
 
-  rc_tags="$(
-    rc_tags_pointing_at_head
-  )"
-
-  if [[ -z "$rc_tags" ]]; then
-    rc_reachable_tags="$(rc_tags_merged_into_head | head -n 1)"
-    if [[ -z "$rc_reachable_tags" ]]; then
-      printf 'RC tag on checked-out head: not ready; no local tag with an rc segment points at or is merged into %s.\n' "$short_head_sha"
-      printf '  Next action: choose the RC version, create a tag such as v<version>-rc.1 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
+  if [[ -n "$requested_rc_tag" ]]; then
+    if ! is_release_candidate_tag "$requested_rc_tag"; then
+      printf 'RC tag on checked-out head: not ready; requested tag %s does not look like a release-candidate tag.\n' "$requested_rc_tag"
+      printf '  Next action: choose an RC tag such as v<version>-rc.1, then rerun with --rc-tag <tag>.\n'
       rc_ready_failed=1
     else
-      selected_rc_tag="$rc_reachable_tags"
-      rc_tag_sha="$(git rev-list -n 1 "$selected_rc_tag")"
-      if ! rc_changed_paths="$(rc_readiness_sensitive_changes_since "$rc_tag_sha")"; then
-        printf 'RC tag on checked-out head: not ready; failed to compare %s with %s.\n' "$selected_rc_tag" "$short_head_sha"
+      selected_rc_tag="$requested_rc_tag"
+      if ! rc_tag_sha="$(git rev-list -n 1 "$requested_rc_tag" 2>/dev/null)"; then
+        printf 'RC tag on checked-out head: not ready; requested tag %s does not exist locally.\n' "$requested_rc_tag"
+        printf '  Next action: fetch tags or create %s at %s, push it, then create or update the GitHub prerelease after release approval.\n' "$requested_rc_tag" "$short_head_sha"
+        rc_ready_failed=1
+      elif [[ "$rc_tag_sha" == "$(git rev-parse HEAD)" ]]; then
+        printf 'RC tag on checked-out head: ready via requested tag %s at %s.\n' "$requested_rc_tag" "${rc_tag_sha:0:7}"
+        selected_rc_tag_covers_head=1
+      elif ! rc_changed_paths="$(rc_readiness_sensitive_changes_since "$rc_tag_sha")"; then
+        printf 'RC tag on checked-out head: not ready; failed to compare requested tag %s with %s.\n' "$requested_rc_tag" "$short_head_sha"
         rc_ready_failed=1
       elif [[ -n "$rc_changed_paths" ]]; then
-        printf 'RC tag on checked-out head: not ready; %s is at %s and release-sensitive changes exist after it:\n' "$selected_rc_tag" "${rc_tag_sha:0:7}"
+        printf 'RC tag on checked-out head: not ready; requested tag %s is at %s and release-sensitive changes exist after it:\n' "$requested_rc_tag" "${rc_tag_sha:0:7}"
         while IFS= read -r rc_changed_path; do
           [[ -n "$rc_changed_path" ]] || continue
           printf -- '- %s\n' "$rc_changed_path"
         done <<<"$rc_changed_paths"
         rc_ready_failed=1
       else
-        printf 'RC tag on checked-out head: ready via %s at %s; only audit/project-state bookkeeping changed after the tag.\n' "$selected_rc_tag" "${rc_tag_sha:0:7}"
+        printf 'RC tag on checked-out head: ready via requested tag %s at %s; only audit/project-state bookkeeping changed after the tag.\n' "$requested_rc_tag" "${rc_tag_sha:0:7}"
+        selected_rc_tag_covers_head=1
       fi
     fi
   else
-    printf 'RC tag on checked-out head: ready\n'
-    while IFS= read -r rc_tag; do
-      [[ -n "$rc_tag" ]] || continue
-      printf -- '- %s\n' "$rc_tag"
-      if [[ -z "$selected_rc_tag" ]]; then
-        selected_rc_tag="$rc_tag"
+    rc_tags="$(
+      rc_tags_pointing_at_head
+    )"
+
+    if [[ -z "$rc_tags" ]]; then
+      rc_reachable_tags="$(rc_tags_merged_into_head | head -n 1)"
+      if [[ -z "$rc_reachable_tags" ]]; then
+        printf 'RC tag on checked-out head: not ready; no local tag with an rc segment points at or is merged into %s.\n' "$short_head_sha"
+        printf '  Next action: choose the RC version, create a tag such as v<version>-rc.1 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
+        rc_ready_failed=1
+      else
+        selected_rc_tag="$rc_reachable_tags"
+        rc_tag_sha="$(git rev-list -n 1 "$selected_rc_tag")"
+        if ! rc_changed_paths="$(rc_readiness_sensitive_changes_since "$rc_tag_sha")"; then
+          printf 'RC tag on checked-out head: not ready; failed to compare %s with %s.\n' "$selected_rc_tag" "$short_head_sha"
+          rc_ready_failed=1
+        elif [[ -n "$rc_changed_paths" ]]; then
+          printf 'RC tag on checked-out head: not ready; %s is at %s and release-sensitive changes exist after it:\n' "$selected_rc_tag" "${rc_tag_sha:0:7}"
+          while IFS= read -r rc_changed_path; do
+            [[ -n "$rc_changed_path" ]] || continue
+            printf -- '- %s\n' "$rc_changed_path"
+          done <<<"$rc_changed_paths"
+          rc_ready_failed=1
+        else
+          printf 'RC tag on checked-out head: ready via %s at %s; only audit/project-state bookkeeping changed after the tag.\n' "$selected_rc_tag" "${rc_tag_sha:0:7}"
+          selected_rc_tag_covers_head=1
+        fi
       fi
-    done <<<"$rc_tags"
+    else
+      printf 'RC tag on checked-out head: ready\n'
+      selected_rc_tag_covers_head=1
+      while IFS= read -r rc_tag; do
+        [[ -n "$rc_tag" ]] || continue
+        printf -- '- %s\n' "$rc_tag"
+        if [[ -z "$selected_rc_tag" ]]; then
+          selected_rc_tag="$rc_tag"
+        fi
+      done <<<"$rc_tags"
+    fi
   fi
 
   if [[ -n "$selected_rc_tag" ]]; then
@@ -1070,8 +2100,15 @@ print_rc_readiness() {
         2>/dev/null
     )"; then
       IFS=$'\t' read -r release_tag release_prerelease release_draft <<<"$selected_rc_release_state"
-      if [[ "$release_prerelease" == "true" && "$release_draft" != "true" ]]; then
+      if [[ "$release_prerelease" == "true" && "$release_draft" != "true" && "$selected_rc_tag_covers_head" -eq 1 ]]; then
         printf 'GitHub RC prerelease: ready (%s)\n' "$release_tag"
+      elif [[ "$release_prerelease" == "true" && "$release_draft" != "true" ]]; then
+        printf 'GitHub RC prerelease: not ready; %s exists but its tag does not cover the checked-out release-sensitive candidate.\n' "$release_tag"
+        print_stale_rc_tag_next_action \
+          "$release_tag" \
+          "$short_head_sha" \
+          'create or update the non-draft GitHub prerelease for that fresh tag and rerun this audit.'
+        rc_ready_failed=1
       else
         printf 'GitHub RC prerelease: not ready; %s isPrerelease=%s isDraft=%s.\n' "$release_tag" "$release_prerelease" "$release_draft"
         rc_ready_failed=1
@@ -1085,6 +2122,40 @@ print_rc_readiness() {
     printf 'GitHub RC prerelease: not ready; no RC tag selected.\n'
     printf '  Next action: select and push an RC tag before creating the GitHub prerelease.\n'
     rc_ready_failed=1
+  fi
+
+  if [[ -n "$selected_rc_tag" && "$check_native_release_dry_run" -eq 1 && "$native_release_dry_run_failed" -eq 0 ]]; then
+    if [[ "$latest_native_release_evidence_tag" == "$selected_rc_tag" ]]; then
+      printf 'Native release evidence RC tag: ready (%s, %s).\n' "$latest_native_release_evidence_tag" "$latest_native_release_evidence_mode"
+    else
+      printf 'Native release evidence RC tag: not ready; latest Native Artifacts evidence is for %s, but selected RC tag is %s.\n' "${latest_native_release_evidence_tag:-unknown}" "$selected_rc_tag"
+      if [[ "$selected_rc_tag_covers_head" -eq 1 ]]; then
+        printf '  Next action: rerun the Native Artifacts dry-run or prerelease publish for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
+      else
+        print_stale_rc_tag_next_action \
+          "$selected_rc_tag" \
+          "$short_head_sha" \
+          'rerun Native Artifacts evidence for that fresh tag and rerun this audit.'
+      fi
+      rc_ready_failed=1
+    fi
+  fi
+
+  if [[ -n "$selected_rc_tag" && "$check_router_image_dry_run" -eq 1 && "$router_image_dry_run_failed" -eq 0 ]]; then
+    if router_image_dry_run_tags_include_rc_tag "$selected_rc_tag"; then
+      printf 'Router image evidence RC tag: ready (%s).\n' "$selected_rc_tag"
+    else
+      printf 'Router image evidence RC tag: not ready; latest Router Image dry-run tags do not include %s or %s.\n' "$selected_rc_tag" "${selected_rc_tag#v}"
+      if [[ "$selected_rc_tag_covers_head" -eq 1 ]]; then
+        printf '  Next action: rerun the Router Image dry-run for %s after release approval, then rerun this audit.\n' "$selected_rc_tag"
+      else
+        print_stale_rc_tag_next_action \
+          "$selected_rc_tag" \
+          "$short_head_sha" \
+          'rerun Router Image evidence for that fresh tag and rerun this audit.'
+      fi
+      rc_ready_failed=1
+    fi
   fi
 
   if [[ -x bin/dart-package-publish-dry-run ]]; then
@@ -1117,7 +2188,15 @@ print_rc_readiness() {
 }
 
 if [[ -z "$branch" ]]; then
+  if [[ -n "$show_sensitive_changes_since" ]]; then
+    print_sensitive_changes_since "$show_sensitive_changes_since"
+    exit $?
+  fi
+
   branch="$(api_jq "" '.default_branch')"
+elif [[ -n "$show_sensitive_changes_since" ]]; then
+  print_sensitive_changes_since "$show_sensitive_changes_since"
+  exit $?
 fi
 
 repo_visibility="$(api_jq "" '.visibility')"
@@ -1139,7 +2218,7 @@ printf 'Allow auto-merge: %s\n' "$allow_auto_merge"
 printf 'Delete branch on merge: %s\n' "$delete_branch_on_merge"
 printf 'Repository rulesets: %s\n\n' "${ruleset_count:-unknown}"
 
-printf '## Branch Protection\n\n'
+printf '## Audited Branch Protection\n\n'
 
 if [[ -z "$branch_protected" ]]; then
   printf 'Branch exists/protection status: unknown\n'
@@ -1147,18 +2226,22 @@ if [[ -z "$branch_protected" ]]; then
   exit 1
 fi
 
+printf 'Audited branch: %s\n' "$branch"
 printf 'Protected: %s\n' "$branch_protected"
 
 missing_required_checks=0
 release_missing_required_checks=0
 release_branch_protected=""
 release_required_contexts=""
+release_status_strict=""
 missing_visible_workflow=0
 missing_router_package=0
 latest_ci_failed=0
 latest_ci_log_failed=0
 dart_package_publish_dry_run_failed=0
 native_release_dry_run_failed=0
+router_image_dry_run_failed=0
+wamp_profile_benchmarks_failed=0
 latest_ci_id=""
 latest_ci_status=""
 latest_ci_conclusion=""
@@ -1212,12 +2295,16 @@ if [[ "$branch_protected" == "true" ]]; then
 else
   printf 'Required status checks: none\n'
   printf 'Finding: branch is not protected.\n'
+  if [[ "$branch" != "$release_protection_branch" ]]; then
+    printf 'Note: audited branch is not the default release branch; RC readiness uses the release branch baseline below.\n'
+  fi
   missing_required_checks=1
 fi
 
 if [[ "$release_protection_branch" == "$branch" ]]; then
   release_branch_protected="$branch_protected"
   release_required_contexts="$required_contexts"
+  release_status_strict="${status_strict:-}"
   release_missing_required_checks="$missing_required_checks"
 else
   release_branch_protected="$(api_jq_optional "branches/${release_protection_branch}" '.protected')"
@@ -1226,6 +2313,11 @@ else
       api_jq_optional \
         "branches/${release_protection_branch}/protection" \
         '((.required_status_checks.contexts // []) + ((.required_status_checks.checks // []) | map(.context))) | unique | join(", ")'
+    )"
+    release_status_strict="$(
+      api_jq_optional \
+        "branches/${release_protection_branch}/protection" \
+        '.required_status_checks.strict // false'
     )"
     for expected_check in "${expected_ci_jobs[@]}"; do
       if [[ "$release_required_contexts" != *"$expected_check"* ]]; then
@@ -1237,9 +2329,31 @@ else
   fi
 fi
 
-if [[ "$show_required_checks_plan" -eq 1 ]]; then
-  print_required_checks_plan "$branch" "$branch_protected" "${status_strict:-false}"
+printf '\n## Release Branch Protection Baseline\n\n'
+printf 'Release protection branch: %s\n' "$release_protection_branch"
+if [[ -z "$release_branch_protected" ]]; then
+  printf 'Protected: unknown\n'
+  printf 'Finding: could not inspect release protection branch %s.\n' "$release_protection_branch"
+elif [[ "$release_branch_protected" == "true" ]]; then
+  printf 'Protected: true\n'
+  printf 'Required status checks: %s\n' "${release_required_contexts:-none}"
+  printf 'Require up-to-date branches: %s\n' "${release_status_strict:-unknown}"
+  if [[ "$release_missing_required_checks" -eq 0 ]]; then
+    printf 'Baseline: ready for release-critical checks.\n'
+  else
+    printf 'Finding: release branch is missing required release-critical checks.\n'
+  fi
+else
+  printf 'Protected: %s\n' "$release_branch_protected"
+  printf 'Required status checks: none\n'
+  printf 'Finding: release branch is not protected.\n'
 fi
+
+if [[ "$show_required_checks_plan" -eq 1 ]]; then
+  print_required_checks_plan "$release_protection_branch" "$release_branch_protected" "${release_status_strict:-false}"
+fi
+
+print_candidate_pr_status
 
 printf '\n## Active Workflows\n\n'
 api_jq_optional \
@@ -1438,6 +2552,7 @@ if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
     printf 'Finding: no CI run found for branch %s.\n' "$branch"
     latest_ci_log_failed=1
   else
+    latest_ci_log_run_rows="$(ci_run_rows_for_checked_out_head "$latest_ci_id")"
     latest_ci_log_summary="$(
       "$gh_bin" run view "$latest_ci_id" \
         --repo "$repository" \
@@ -1454,13 +2569,27 @@ if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
     )"
     IFS=$'\t' read -r latest_ci_log_status latest_ci_log_conclusion <<<"$latest_ci_log_state"
 
-    if [[ "$require_clean_latest_ci_logs" -eq 1 && ( "$latest_ci_log_status" != "completed" || "$latest_ci_log_conclusion" != "success" ) ]]; then
-      printf 'Finding: latest CI logs are not a complete green signal yet: %s/%s.\n' "$latest_ci_log_status" "$latest_ci_log_conclusion"
+    if [[ -z "$latest_ci_log_run_rows" ]]; then
+      printf 'Finding: no CI run for branch %s covers the checked-out head %s.\n' "$branch" "$(git rev-parse --short HEAD)"
       latest_ci_log_failed=1
-    fi
+    else
+      latest_ci_log_run_count="$(printf '%s\n' "$latest_ci_log_run_rows" | sed '/^$/d' | wc -l | tr -d ' ')"
+      printf 'Checked-out head CI log scan covers %s run(s) for branch %s.\n' "$latest_ci_log_run_count" "$branch"
 
-    if ! print_latest_ci_log_scan "$latest_ci_id"; then
-      latest_ci_log_failed=1
+      while IFS=$'\t' read -r ci_log_run_id ci_log_run_status ci_log_run_conclusion; do
+        [[ -n "$ci_log_run_id" ]] || continue
+
+        printf '\nRun: CI #%s %s/%s\n' "$ci_log_run_id" "$ci_log_run_status" "$ci_log_run_conclusion"
+        if [[ "$require_clean_latest_ci_logs" -eq 1 && ( "$ci_log_run_status" != "completed" || "$ci_log_run_conclusion" != "success" ) ]]; then
+          printf 'Finding: CI run #%s logs are not a complete green signal yet: %s/%s.\n' "$ci_log_run_id" "$ci_log_run_status" "$ci_log_run_conclusion"
+          latest_ci_log_failed=1
+          continue
+        fi
+
+        if ! print_latest_ci_log_scan "$ci_log_run_id" "CI run #${ci_log_run_id}"; then
+          latest_ci_log_failed=1
+        fi
+      done <<<"$latest_ci_log_run_rows"
     fi
   fi
 fi
@@ -1478,6 +2607,22 @@ if [[ "$check_native_release_dry_run" -eq 1 ]]; then
 
   if ! print_native_release_dry_run_gate; then
     native_release_dry_run_failed=1
+  fi
+fi
+
+if [[ "$check_router_image_dry_run" -eq 1 ]]; then
+  printf '\n## Latest Router Image Dry Run\n\n'
+
+  if ! print_router_image_dry_run_gate; then
+    router_image_dry_run_failed=1
+  fi
+fi
+
+if [[ "$check_wamp_profile_benchmarks" -eq 1 ]]; then
+  printf '\n## Latest WAMP Profile Benchmarks\n\n'
+
+  if ! print_wamp_profile_benchmark_gate; then
+    wamp_profile_benchmarks_failed=1
   fi
 fi
 
@@ -1508,6 +2653,16 @@ if [[ "$require_clean_native_release_dry_run" -eq 1 && "$native_release_dry_run_
   exit 1
 fi
 
+if [[ "$require_clean_router_image_dry_run" -eq 1 && "$router_image_dry_run_failed" -ne 0 ]]; then
+  printf '\nRouter image dry-run audit failed.\n' >&2
+  exit 1
+fi
+
+if [[ "$require_clean_wamp_profile_benchmarks" -eq 1 && "$wamp_profile_benchmarks_failed" -ne 0 ]]; then
+  printf '\nWAMP profile benchmark audit failed.\n' >&2
+  exit 1
+fi
+
 if [[ "$require_router_package" -eq 1 && "$missing_router_package" -ne 0 ]]; then
   printf '\nRouter package visibility audit failed.\n' >&2
   exit 1
@@ -1518,8 +2673,8 @@ if [[ "$require_workflows_visible" -eq 1 && "$missing_visible_workflow" -ne 0 ]]
   exit 1
 fi
 
-if [[ "$strict" -eq 1 && ( "$missing_required_checks" -ne 0 || "$missing_visible_workflow" -ne 0 ) ]]; then
-  printf '\nStrict audit failed: protected release branches should require Fast Checks and Full Verify, and checked-in workflows should be visible to GitHub Actions.\n' >&2
+if [[ "$strict" -eq 1 && ( "$release_missing_required_checks" -ne 0 || "$missing_visible_workflow" -ne 0 ) ]]; then
+  printf '\nStrict audit failed: the release branch should require Fast Checks and Full Verify, and checked-in workflows should be visible to GitHub Actions.\n' >&2
   exit 1
 fi
 

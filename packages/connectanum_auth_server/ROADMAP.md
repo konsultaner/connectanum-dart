@@ -28,10 +28,10 @@ administrative tooling, and flexible storage backends.
 ## Phase 1 – Core Service Bring-up
 
 - [ ] Reuse router configuration
-  - [ ] Implement shared loader that parses `RouterSettings` JSON/YAML manifests
+  - [x] Implement shared loader that parses `RouterSettings` JSON/YAML manifests
         so both router and auth server share the same realm/authenticator
         definitions.
-  - [ ] Make realm auto-creation explicitly configurable: default `autoCreate`
+  - [x] Make realm auto-creation explicitly configurable: default `autoCreate`
         to `false`, add an allow-list for realms that may be auto-created, and
         ensure auth server realms honour that policy.
   - [ ] Document the config contract (schemas, validation, migration steps).
@@ -42,11 +42,13 @@ administrative tooling, and flexible storage backends.
         router ↔ Dart auth server) and resolve any protocol mismatches.
   - [ ] Add fuzz/compat tests that replay recorded auth flows from Crossbar /
         other WAMP routers.
-- [ ] CLI executable (`bin/auth_server.dart`)
-  - [ ] Argument parsing (config paths, override flags, log level).
-  - [ ] Boot `RouterRuntime` + `AuthServer` wiring, including optional auth
-        tokens and TLS/mTLS.
-  - [ ] Health/metrics endpoints (simple HTTP server).
+- [x] CLI executable (`bin/auth_server.dart`)
+  - [x] Argument parsing (config paths, native library override, service realm,
+        internal auth identity, and deployment `--check` mode).
+  - [x] Boot native router runtime + `AuthServer` WAMP procedure binding from
+        router/auth service configuration, including configured listener
+        security.
+  - [x] Health/metrics endpoints through the shared OpenMetrics HTTP exporter.
 
 ---
 

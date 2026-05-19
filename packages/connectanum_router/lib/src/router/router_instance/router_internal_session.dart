@@ -312,18 +312,15 @@ class RouterSession {
         message['pptCipher'] as String? ?? options['ppt_cipher'] as String?,
         message['pptKeyId'] as String? ?? options['ppt_keyid'] as String?,
       );
-      if (options.isNotEmpty) {
-        // Remove fields already consumed to avoid duplication.
-        final custom = Map<String, dynamic>.from(options)
-          ..remove('receive_progress')
-          ..remove('ppt_scheme')
-          ..remove('ppt_serializer')
-          ..remove('ppt_cipher')
-          ..remove('ppt_keyid');
-        if (custom.isNotEmpty) {
-          details.custom.addAll(custom);
-        }
+      final callerAuthId = message['callerAuthId'] as String?;
+      if (callerAuthId != null) {
+        details.custom['caller_authid'] = callerAuthId;
       }
+      final callerAuthRole = message['callerAuthRole'] as String?;
+      if (callerAuthRole != null) {
+        details.custom['caller_authrole'] = callerAuthRole;
+      }
+      _addFilteredInvocationCustomDetails(details, options);
       final transferredPayload = _materializeTransferredValue(
         message[_internalMsgLazyPayload],
       );
@@ -634,6 +631,38 @@ class RouterSession {
     return registered;
   }
 
+  Future<registered_msg.Registered> registerHandler(
+    String procedure,
+    FutureOr<void> Function(invocation_msg.Invocation invocation) onInvoke, {
+    register_msg.RegisterOptions? options,
+  }) async {
+    final registered = await register(procedure, options: options);
+    registered.onInvoke(onInvoke);
+    return registered;
+  }
+
+  Future<registered_msg.Registered> registerPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(invocation_msg.InvocationPayload invocation)
+    onInvoke, {
+    register_msg.RegisterOptions? options,
+  }) async {
+    final registered = await register(procedure, options: options);
+    registered.onInvokePayload(onInvoke);
+    return registered;
+  }
+
+  Future<registered_msg.Registered> registerLazyPayloadHandler(
+    String procedure,
+    FutureOr<void> Function(invocation_msg.LazyInvocationPayload invocation)
+    onInvoke, {
+    register_msg.RegisterOptions? options,
+  }) async {
+    final registered = await register(procedure, options: options);
+    registered.onLazyInvokePayload(onInvoke);
+    return registered;
+  }
+
   Future<void> unregister(int registrationId) async {
     await _sendCommand(_internalCmdUnregister, <String, Object?>{
       'registrationId': registrationId,
@@ -655,6 +684,36 @@ class RouterSession {
             as int;
     final subscribed = subscribed_msg.Subscribed(requestId, subscriptionId);
     _subscriptions[subscriptionId] = subscribed;
+    return subscribed;
+  }
+
+  Future<subscribed_msg.Subscribed> subscribeHandler(
+    String topic,
+    void Function(event_msg.Event event) onEvent, {
+    subscribe_msg.SubscribeOptions? options,
+  }) async {
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onEvent(onEvent);
+    return subscribed;
+  }
+
+  Future<subscribed_msg.Subscribed> subscribePayloadHandler(
+    String topic,
+    void Function(event_msg.EventPayload event) onEvent, {
+    subscribe_msg.SubscribeOptions? options,
+  }) async {
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onEventPayload(onEvent);
+    return subscribed;
+  }
+
+  Future<subscribed_msg.Subscribed> subscribeLazyPayloadHandler(
+    String topic,
+    void Function(event_msg.LazyEventPayload event) onEvent, {
+    subscribe_msg.SubscribeOptions? options,
+  }) async {
+    final subscribed = await subscribe(topic, options: options);
+    subscribed.onLazyEventPayload(onEvent);
     return subscribed;
   }
 
@@ -719,6 +778,36 @@ class RouterSession {
     );
   }
 
+  RemoteAuthenticatorDelegate createRemoteWampAuthenticatorDelegate({
+    String helloProcedure = 'authenticate.hello',
+    String authenticateProcedure = 'authenticate.authenticate',
+    String abortProcedure = 'authenticate.abort',
+    Duration callTimeout = const Duration(seconds: 5),
+    FutureOr<String?> Function()? resolveAuthToken,
+  }) {
+    return RemoteWampProcedureDelegate(
+      helloProcedure: helloProcedure,
+      authenticateProcedure: authenticateProcedure,
+      abortProcedure: abortProcedure,
+      callTimeout: callTimeout,
+      resolveAuthToken: resolveAuthToken,
+      call: (procedure, {argumentsKeywords}) async {
+        await for (final result in call(
+          procedure,
+          argumentsKeywords: argumentsKeywords,
+        )) {
+          if (!result.isProgressive()) {
+            return RemoteWampProcedureCallResult(
+              arguments: result.arguments,
+              argumentsKeywords: result.argumentsKeywords,
+            );
+          }
+        }
+        throw StateError('Remote WAMP procedure produced no final result.');
+      },
+    );
+  }
+
   Stream<result_msg.Result> callLazyPayload(
     String procedure, {
     required LazyMessagePayload payload,
@@ -756,6 +845,105 @@ class RouterSession {
       });
     }
     return controller.stream;
+  }
+
+  Future<result_msg.Result> callSingle(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    return callSingleWithLazyPayload(
+      procedure,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  Future<result_msg.Result> callSingleWithLazyPayload(
+    String procedure, {
+    required LazyMessagePayload payload,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) async {
+    final result = await callSingleLazyPayloadView(
+      procedure,
+      payload: payload,
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+    return result_msg.resultFromLazyPayload(result);
+  }
+
+  Future<ResultPayload> callSinglePayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    return callSinglePayloadWithLazyPayload(
+      procedure,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  Future<ResultPayload> callSinglePayloadWithLazyPayload(
+    String procedure, {
+    required LazyMessagePayload payload,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) async {
+    final result = await callSingleLazyPayloadView(
+      procedure,
+      payload: payload,
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+    return result.toPayload();
+  }
+
+  Future<result_msg.LazyResultPayload> callSingleLazyPayload(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    return callSingleLazyPayloadView(
+      procedure,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: options,
+      cancelCompleter: cancelCompleter,
+    );
+  }
+
+  Future<result_msg.LazyResultPayload> callSingleLazyPayloadView(
+    String procedure, {
+    required LazyMessagePayload payload,
+    call_msg.CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) async {
+    final result = await callLazyPayload(
+      procedure,
+      payload: payload,
+      options: options,
+      cancelCompleter: cancelCompleter,
+    ).firstWhere((result) => !result.isProgressive());
+    return result.toLazyResultPayload(anchor: result);
   }
 
   Map<String, Object?> _registerOptionsToMap(
@@ -1870,7 +2058,11 @@ class _InternalSessionIsolate {
         'argumentsKeywords': argumentsKeywords,
         'options': options,
         'realmUri': _bootstrap.realmUri,
-        'callerSessionId': _bootstrap.sessionId,
+        if (dispatch.discloseCaller) 'callerSessionId': _bootstrap.sessionId,
+        if (dispatch.callerAuthId != null)
+          'callerAuthId': dispatch.callerAuthId,
+        if (dispatch.callerAuthRole != null)
+          'callerAuthRole': dispatch.callerAuthRole,
         'callerRequestId': requestId,
         'replyPort': replyPort.sendPort,
       });
@@ -1954,7 +2146,7 @@ class _InternalSessionIsolate {
       return;
     }
 
-    final discloseCaller = options['disclose_me'] == true;
+    final discloseCaller = dispatch.discloseCaller;
     final receiveProgress = options['receive_progress'] == true;
     final invocationDetails = invocation_msg.InvocationDetails(
       discloseCaller ? _bootstrap.sessionId : null,
@@ -1965,17 +2157,8 @@ class _InternalSessionIsolate {
       options['ppt_cipher'] as String?,
       options['ppt_keyid'] as String?,
     );
-    if (options.isNotEmpty) {
-      final custom = Map<String, dynamic>.from(options)
-        ..remove('receive_progress')
-        ..remove('ppt_scheme')
-        ..remove('ppt_serializer')
-        ..remove('ppt_cipher')
-        ..remove('ppt_keyid');
-      if (custom.isNotEmpty) {
-        invocationDetails.custom.addAll(custom);
-      }
-    }
+    _addFilteredInvocationCustomDetails(invocationDetails, options);
+    _addCallerAuthDisclosureDetails(invocationDetails, dispatch);
     final invocation = invocation_msg.Invocation(
       dispatch.invocationId,
       dispatch.registrationId,
@@ -2145,6 +2328,8 @@ class _InternalSessionIsolate {
           'pptCipher': (decodedMessage['options'] as Map?)?['ppt_cipher'],
           'pptKeyId': (decodedMessage['options'] as Map?)?['ppt_keyid'],
           'callerSessionId': decodedMessage['callerSessionId'],
+          'callerAuthId': decodedMessage['callerAuthId'],
+          'callerAuthRole': decodedMessage['callerAuthRole'],
           'callerRequestId': decodedMessage['callerRequestId'],
           'replyPort': responsePort.sendPort,
         });

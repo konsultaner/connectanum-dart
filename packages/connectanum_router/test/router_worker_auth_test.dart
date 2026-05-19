@@ -624,6 +624,10 @@ void main() {
       );
 
       final context = _HandshakeHarness(routerSettings, serializer);
+      context.state
+        ..protocol = ListenerProtocol.websocket
+        ..websocketProtocol = 'wamp.2.json'
+        ..websocketSerializer = 'json';
       await context.performHello(authMethod: 'remote', authId: 'user-1');
       final authenticate = Authenticate(signature: 'delegate-token')
         ..extra = {'nonce': context.lastChallenge!.extra.nonce};
@@ -631,6 +635,18 @@ void main() {
 
       expect(context.lastWelcome, isNotNull);
       expect(context.openedSessions.single.authRole, equals('member'));
+      expect(
+        delegate.lastHelloRequest?.context.transport.protocol,
+        'websocket',
+      );
+      expect(
+        delegate.lastHelloRequest?.context.transport.websocketProtocol,
+        'wamp.2.json',
+      );
+      expect(
+        delegate.lastHelloRequest?.context.transport.websocketSerializer,
+        'json',
+      );
     });
 
     test('aborts when delegate rejects authenticate', () async {
@@ -1406,12 +1422,14 @@ class _UnavailableRemoteDelegate implements RemoteAuthenticatorDelegate {
 
 class _TestRemoteDelegate implements RemoteAuthenticatorDelegate {
   String? lastTransactionId;
+  RemoteHelloRequest? lastHelloRequest;
 
   @override
   Future<RemoteHelloResponse> onHello(RemoteHelloRequest request) async {
     final authId =
         request.context.helloDetails['authid'] as String? ?? 'unknown';
     lastTransactionId = request.transactionId;
+    lastHelloRequest = request;
     return RemoteHelloResponse.challenge(
       RemoteChallenge(
         challenge: const {'challenge': 'remote'},

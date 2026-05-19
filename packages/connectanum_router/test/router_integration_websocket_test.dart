@@ -161,6 +161,120 @@ void main() {
     );
 
     test(
+      'serves standard WAMP meta procedure calls to client sessions',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        final url = 'ws://127.0.0.1:${listener.port}/ws';
+        final client = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+        );
+        final session = await client.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('client connect timeout'),
+        );
+        addTearDown(session.close);
+
+        await session
+            .register('com.example.ws.meta.proc')
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('registration timeout'),
+            );
+        await session
+            .subscribe('com.example.ws.meta.topic')
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('subscription timeout'),
+            );
+
+        final sessionList = await session
+            .callSinglePayload('wamp.session.list')
+            .timeout(const Duration(seconds: 10));
+        expect(
+          sessionList.argumentsKeywords?['session_ids'],
+          contains(session.id),
+        );
+
+        final sessionGet = await session
+            .callSinglePayload('wamp.session.get', arguments: [session.id])
+            .timeout(const Duration(seconds: 10));
+        expect(
+          (sessionGet.argumentsKeywords?['details']
+              as Map<String, Object?>)['id'],
+          equals(session.id),
+        );
+
+        final registrationMatch = await session
+            .callSinglePayload(
+              'wamp.registration.match',
+              arguments: const ['com.example.ws.meta.proc'],
+            )
+            .timeout(const Duration(seconds: 10));
+        final registrationId = registrationMatch.arguments?.single as int;
+
+        final registrationGet = await session
+            .callSinglePayload(
+              'wamp.registration.get',
+              arguments: [registrationId],
+            )
+            .timeout(const Duration(seconds: 10));
+        expect(
+          registrationGet.argumentsKeywords?['uri'],
+          equals('com.example.ws.meta.proc'),
+        );
+
+        final callees = await session
+            .callSinglePayload(
+              'wamp.registration.list_callees',
+              arguments: [registrationId],
+            )
+            .timeout(const Duration(seconds: 10));
+        expect(callees.arguments, contains(session.id));
+
+        final subscriptionMatch = await session
+            .callSinglePayload(
+              'wamp.subscription.match',
+              arguments: const ['com.example.ws.meta.topic'],
+            )
+            .timeout(const Duration(seconds: 10));
+        final subscriptionId = subscriptionMatch.arguments?.single as int;
+
+        final subscriptionGet = await session
+            .callSinglePayload(
+              'wamp.subscription.get',
+              arguments: [subscriptionId],
+            )
+            .timeout(const Duration(seconds: 10));
+        expect(
+          subscriptionGet.argumentsKeywords?['uri'],
+          equals('com.example.ws.meta.topic'),
+        );
+
+        final subscribers = await session
+            .callSinglePayload(
+              'wamp.subscription.list_subscribers',
+              arguments: [subscriptionId],
+            )
+            .timeout(const Duration(seconds: 10));
+        expect(subscribers.arguments, contains(session.id));
+      },
+      skip: skipReason,
+    );
+
+    test(
       'preserves lazy payload bytes for internal session subscribers and callees',
       () async {
         final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();

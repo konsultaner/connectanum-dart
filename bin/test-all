@@ -11,6 +11,7 @@ cargo_workspace_check
 run_client_vm_tests() {
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
+  dart test packages/connectanum_client/test/transport/in_process
   dart test packages/connectanum_client/test/transport/local
   dart test packages/connectanum_client/test/transport/native/native_library_loader_test.dart
   dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
@@ -54,6 +55,53 @@ run_bench_vm_tests() {
   )
 }
 
+run_client_browser_websocket_tests() {
+  local attempt=1
+  local max_attempts=3
+  local output_file
+  local reporter_args
+  local status
+
+  while (( attempt <= max_attempts )); do
+    output_file="$(mktemp)"
+    reporter_args=()
+    if (( attempt < max_attempts )); then
+      reporter_args=(--reporter=expanded)
+    fi
+
+    set +e
+    dart test \
+      test/transport/websocket/websocket_transport_web_test.dart \
+      -p chrome \
+      --timeout=5m \
+      --concurrency=1 \
+      "${reporter_args[@]}" \
+      2>&1 | tee "$output_file"
+    status="${PIPESTATUS[0]}"
+    set -e
+
+    if [[ "$status" -eq 0 ]]; then
+      rm -f "$output_file"
+      return 0
+    fi
+
+    if grep -q 'Cannot add stream while adding stream' "$output_file" &&
+       grep -q 'package:test/src/runner/browser/browser_manager.dart' "$output_file" &&
+       (( attempt < max_attempts )); then
+      printf 'Browser test runner startup failed inside package:test; retrying browser websocket test (%d/%d).\n' \
+        "$((attempt + 1))" "$max_attempts"
+      rm -f "$output_file"
+      attempt=$((attempt + 1))
+      continue
+    fi
+
+    rm -f "$output_file"
+    return "$status"
+  done
+
+  return 1
+}
+
 if native_runtime_supported; then
   cargo test --manifest-path native/transport/Cargo.toml -p ct_core
   cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi
@@ -68,6 +116,8 @@ fi
 
 build_native_ffi_test_release
 
+python3 tool/test_audit_github_deployment_chain.py
+python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_package_native_artifact.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
@@ -76,6 +126,7 @@ run_mcp_client_package_smoke
 run_client_vm_tests
 dart test packages/connectanum_auth_server/test
 run_bench_vm_tests
+run_remote_auth_service_example_smoke
 run_router_hosted_mcp_example_smoke
 run_mcp_consumer_package_smoke
 run_router_vm_tests
@@ -84,11 +135,7 @@ run_router_zero_copy_publish_tests
 if ensure_chrome_env; then
   (
     cd packages/connectanum_client
-    dart test \
-      test/transport/websocket/websocket_transport_web_test.dart \
-      -p chrome \
-      --timeout=5m \
-      --concurrency=1
+    run_client_browser_websocket_tests
   )
 else
   printf 'Chrome not found; skipping browser-platform tests.\n'

@@ -261,6 +261,12 @@ class RemoteWampTransportConfig {
               ? Map<String, dynamic>.from(headers.cast<Object?, Object?>())
               : const <String, dynamic>{},
         );
+      case 'internal':
+        return RemoteWampTransportConfig._(
+          type: type,
+          serializer: serializer,
+          tls: tls,
+        );
       default:
         throw ArgumentError('Unsupported rpc.transport.type "$type".');
     }
@@ -632,6 +638,127 @@ class _RemoteStringSource {
   }
 }
 
+typedef RemoteWampProcedureCall =
+    Future<RemoteWampProcedureCallResult> Function(
+      String procedure, {
+      Map<String, Object?>? argumentsKeywords,
+    });
+
+class RemoteWampProcedureCallResult {
+  const RemoteWampProcedureCallResult({this.arguments, this.argumentsKeywords});
+
+  final List<dynamic>? arguments;
+  final Map<String, dynamic>? argumentsKeywords;
+}
+
+/// Remote-auth delegate backed by WAMP procedure calls supplied by the caller.
+///
+/// This keeps the remote auth WAMP contract reusable for embedded router flows:
+/// a [RouterSession] can provide the procedure caller without opening a TCP
+/// rawsocket/websocket connection back into the same process.
+class RemoteWampProcedureDelegate implements RemoteAuthenticatorDelegate {
+  RemoteWampProcedureDelegate({
+    required RemoteWampProcedureCall call,
+    this.helloProcedure = 'authenticate.hello',
+    this.authenticateProcedure = 'authenticate.authenticate',
+    this.abortProcedure = 'authenticate.abort',
+    this.callTimeout = const Duration(seconds: 5),
+    FutureOr<String?> Function()? resolveAuthToken,
+  }) : _call = call,
+       _resolveAuthToken = resolveAuthToken;
+
+  final RemoteWampProcedureCall _call;
+  final FutureOr<String?> Function()? _resolveAuthToken;
+  final String helloProcedure;
+  final String authenticateProcedure;
+  final String abortProcedure;
+  final Duration callTimeout;
+
+  @override
+  Future<RemoteHelloResponse> onHello(RemoteHelloRequest request) async {
+    try {
+      final result = await _call(
+        helloProcedure,
+        argumentsKeywords: _RemoteWampPayloadCodec.buildHelloRequestPayload(
+          request,
+          authToken: await _authTokenFor(request.options),
+        ),
+      ).timeout(callTimeout);
+      return _RemoteWampPayloadCodec.decodeHelloResponse(
+        result.argumentsKeywords,
+        result.arguments,
+      );
+    } on wamp_core.Error catch (error) {
+      return RemoteHelloResponse.failure(
+        _RemoteWampPayloadCodec.failureFromCallError(error),
+      );
+    } on TimeoutException {
+      throw RemoteDelegateUnavailableException(
+        'Remote authenticator hello call timed out',
+      );
+    } on StateError catch (error) {
+      throw RemoteDelegateUnavailableException(error.toString());
+    }
+  }
+
+  @override
+  Future<RemoteAuthenticateResponse> onAuthenticate(
+    RemoteAuthenticateRequest request,
+  ) async {
+    try {
+      final result = await _call(
+        authenticateProcedure,
+        argumentsKeywords:
+            _RemoteWampPayloadCodec.buildAuthenticateRequestPayload(
+              request,
+              authToken: await _authTokenFor(request.options),
+            ),
+      ).timeout(callTimeout);
+      return _RemoteWampPayloadCodec.decodeAuthenticateResponse(
+        result.argumentsKeywords,
+        result.arguments,
+      );
+    } on wamp_core.Error catch (error) {
+      return RemoteAuthenticateResponse.failure(
+        _RemoteWampPayloadCodec.failureFromCallError(error),
+      );
+    } on TimeoutException {
+      throw RemoteDelegateUnavailableException(
+        'Remote authenticator authenticate call timed out',
+      );
+    } on StateError catch (error) {
+      throw RemoteDelegateUnavailableException(error.toString());
+    }
+  }
+
+  @override
+  Future<void> onAbort(RemoteAbortRequest request) async {
+    try {
+      await _call(
+        abortProcedure,
+        argumentsKeywords: _RemoteWampPayloadCodec.buildAbortRequestPayload(
+          request,
+          authToken: await _authTokenFor(request.options),
+        ),
+      ).timeout(callTimeout);
+    } catch (_) {
+      // Abort notifications are best-effort and must not break router cleanup.
+    }
+  }
+
+  Future<String?> _authTokenFor(Map<String, Object?> options) async {
+    final explicit = await _resolveAuthToken?.call();
+    if (explicit != null && explicit.isNotEmpty) {
+      return explicit;
+    }
+    final optionValue = options['auth_token'];
+    if (optionValue is String && optionValue.trim().isNotEmpty) {
+      return optionValue.trim();
+    }
+    return null;
+  }
+}
+
 class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
   WampRemoteAuthenticatorDelegate(this._config);
 
@@ -788,29 +915,89 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
   Future<Map<String, Object?>> _buildHelloRequestPayload(
     RemoteHelloRequest request,
   ) async {
-    final authToken = await _config.resolveAuthToken();
+    return _RemoteWampPayloadCodec.buildHelloRequestPayload(
+      request,
+      authToken: await _config.resolveAuthToken(),
+    );
+  }
+
+  Future<Map<String, Object?>> _buildAuthenticateRequestPayload(
+    RemoteAuthenticateRequest request,
+  ) async {
+    return _RemoteWampPayloadCodec.buildAuthenticateRequestPayload(
+      request,
+      authToken: await _config.resolveAuthToken(),
+    );
+  }
+
+  Future<Map<String, Object?>> _buildAbortRequestPayload(
+    RemoteAbortRequest request,
+  ) async {
+    return _RemoteWampPayloadCodec.buildAbortRequestPayload(
+      request,
+      authToken: await _config.resolveAuthToken(),
+    );
+  }
+
+  RemoteHelloResponse _decodeHelloResponse(
+    Map<String, dynamic>? argumentsKeywords,
+    List<dynamic>? arguments,
+  ) {
+    return _RemoteWampPayloadCodec.decodeHelloResponse(
+      argumentsKeywords,
+      arguments,
+    );
+  }
+
+  RemoteAuthenticateResponse _decodeAuthenticateResponse(
+    Map<String, dynamic>? argumentsKeywords,
+    List<dynamic>? arguments,
+  ) {
+    return _RemoteWampPayloadCodec.decodeAuthenticateResponse(
+      argumentsKeywords,
+      arguments,
+    );
+  }
+
+  AuthFailure _failureFromCallError(wamp_core.Error error) {
+    return _RemoteWampPayloadCodec.failureFromCallError(error);
+  }
+}
+
+class _RemoteWampPayloadCodec {
+  static Map<String, Object?> buildHelloRequestPayload(
+    RemoteHelloRequest request, {
+    String? authToken,
+  }) {
     return <String, Object?>{
       'transactionId': request.transactionId,
       'hello': <String, Object?>{
         'realm': request.realmSettings.name,
         'sessionId': request.context.sessionId,
-        'details': _minimalHelloDetails(request.context.helloDetails),
+        'details': minimalHelloDetails(request.context.helloDetails),
         'transport': <String, Object?>{
           'connectionId': request.context.transport.connectionId,
           if (request.context.transport.peerAddress != null)
             'peerAddress': request.context.transport.peerAddress,
           'isEncrypted': request.context.transport.isEncrypted,
+          if (request.context.transport.protocol != null)
+            'protocol': request.context.transport.protocol,
+          if (request.context.transport.websocketProtocol != null)
+            'websocketProtocol': request.context.transport.websocketProtocol,
+          if (request.context.transport.websocketSerializer != null)
+            'websocketSerializer':
+                request.context.transport.websocketSerializer,
         },
       },
       'auth_token': ?authToken,
     };
   }
 
-  Future<Map<String, Object?>> _buildAuthenticateRequestPayload(
-    RemoteAuthenticateRequest request,
-  ) async {
-    final authToken = await _config.resolveAuthToken();
-    final payload = <String, Object?>{
+  static Map<String, Object?> buildAuthenticateRequestPayload(
+    RemoteAuthenticateRequest request, {
+    String? authToken,
+  }) {
+    return <String, Object?>{
       'transactionId': request.transactionId,
       'authenticate': <String, Object?>{
         'signature': request.authenticate.signature,
@@ -819,13 +1006,12 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
       },
       'auth_token': ?authToken,
     };
-    return payload;
   }
 
-  Future<Map<String, Object?>> _buildAbortRequestPayload(
-    RemoteAbortRequest request,
-  ) async {
-    final authToken = await _config.resolveAuthToken();
+  static Map<String, Object?> buildAbortRequestPayload(
+    RemoteAbortRequest request, {
+    String? authToken,
+  }) {
     return <String, Object?>{
       'transactionId': request.transactionId,
       'reason': ?request.reason,
@@ -833,7 +1019,9 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     };
   }
 
-  Map<String, Object?> _minimalHelloDetails(Map<String, Object?> helloDetails) {
+  static Map<String, Object?> minimalHelloDetails(
+    Map<String, Object?> helloDetails,
+  ) {
     final minimal = <String, Object?>{};
     final authId = helloDetails['authid'];
     if (authId is String && authId.isNotEmpty) {
@@ -855,19 +1043,19 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     return minimal;
   }
 
-  RemoteHelloResponse _decodeHelloResponse(
+  static RemoteHelloResponse decodeHelloResponse(
     Map<String, dynamic>? argumentsKeywords,
     List<dynamic>? arguments,
   ) {
-    final map = _resultMap(argumentsKeywords, arguments);
+    final map = resultMap(argumentsKeywords, arguments);
     final status = map['status'];
     if (status == 'challenge') {
       return RemoteHelloResponse.challenge(
         RemoteChallenge(
-          authId: _asRequiredString(map, 'authId'),
-          challenge: _asStringObjectMap(map, 'challenge'),
+          authId: asRequiredString(map, 'authId'),
+          challenge: asStringObjectMap(map, 'challenge'),
           extra:
-              _asOptionalStringObjectMap(map, 'extra') ??
+              asOptionalStringObjectMap(map, 'extra') ??
               const <String, Object?>{},
         ),
       );
@@ -875,26 +1063,26 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     if (status == 'success') {
       return RemoteHelloResponse.success(
         AuthSuccess(
-          authId: _asRequiredString(map, 'authId'),
-          authRole: _asRequiredString(map, 'authRole'),
+          authId: asRequiredString(map, 'authId'),
+          authRole: asRequiredString(map, 'authRole'),
           details:
-              _asOptionalStringObjectMap(map, 'details') ??
+              asOptionalStringObjectMap(map, 'details') ??
               const <String, Object?>{},
         ),
       );
     }
     if (status == 'failure') {
-      return RemoteHelloResponse.failure(_failureFromResultMap(map));
+      return RemoteHelloResponse.failure(failureFromResultMap(map));
     }
     if (map.containsKey('challenge')) {
       return RemoteHelloResponse.challenge(
         RemoteChallenge(
           authId:
-              _asOptionalString(map, 'authId') ??
-              _asRequiredString(map, 'auth_id'),
-          challenge: _asStringObjectMap(map, 'challenge'),
+              asOptionalString(map, 'authId') ??
+              asRequiredString(map, 'auth_id'),
+          challenge: asStringObjectMap(map, 'challenge'),
           extra:
-              _asOptionalStringObjectMap(map, 'extra') ??
+              asOptionalStringObjectMap(map, 'extra') ??
               const <String, Object?>{},
         ),
       );
@@ -903,13 +1091,13 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
       return RemoteHelloResponse.success(
         AuthSuccess(
           authId:
-              _asOptionalString(map, 'authId') ??
-              _asRequiredString(map, 'auth_id'),
+              asOptionalString(map, 'authId') ??
+              asRequiredString(map, 'auth_id'),
           authRole:
-              _asOptionalString(map, 'authRole') ??
-              _asRequiredString(map, 'auth_role'),
+              asOptionalString(map, 'authRole') ??
+              asRequiredString(map, 'auth_role'),
           details:
-              _asOptionalStringObjectMap(map, 'details') ??
+              asOptionalStringObjectMap(map, 'details') ??
               const <String, Object?>{},
         ),
       );
@@ -922,37 +1110,37 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     );
   }
 
-  RemoteAuthenticateResponse _decodeAuthenticateResponse(
+  static RemoteAuthenticateResponse decodeAuthenticateResponse(
     Map<String, dynamic>? argumentsKeywords,
     List<dynamic>? arguments,
   ) {
-    final map = _resultMap(argumentsKeywords, arguments);
+    final map = resultMap(argumentsKeywords, arguments);
     final status = map['status'];
     if (status == 'success') {
       return RemoteAuthenticateResponse.success(
         AuthSuccess(
-          authId: _asRequiredString(map, 'authId'),
-          authRole: _asRequiredString(map, 'authRole'),
+          authId: asRequiredString(map, 'authId'),
+          authRole: asRequiredString(map, 'authRole'),
           details:
-              _asOptionalStringObjectMap(map, 'details') ??
+              asOptionalStringObjectMap(map, 'details') ??
               const <String, Object?>{},
         ),
       );
     }
     if (status == 'failure') {
-      return RemoteAuthenticateResponse.failure(_failureFromResultMap(map));
+      return RemoteAuthenticateResponse.failure(failureFromResultMap(map));
     }
     if (map.containsKey('authRole') || map.containsKey('auth_role')) {
       return RemoteAuthenticateResponse.success(
         AuthSuccess(
           authId:
-              _asOptionalString(map, 'authId') ??
-              _asRequiredString(map, 'auth_id'),
+              asOptionalString(map, 'authId') ??
+              asRequiredString(map, 'auth_id'),
           authRole:
-              _asOptionalString(map, 'authRole') ??
-              _asRequiredString(map, 'auth_role'),
+              asOptionalString(map, 'authRole') ??
+              asRequiredString(map, 'auth_role'),
           details:
-              _asOptionalStringObjectMap(map, 'details') ??
+              asOptionalStringObjectMap(map, 'details') ??
               const <String, Object?>{},
         ),
       );
@@ -965,7 +1153,7 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     );
   }
 
-  Map<String, Object?> _resultMap(
+  static Map<String, Object?> resultMap(
     Map<String, dynamic>? argumentsKeywords,
     List<dynamic>? arguments,
   ) {
@@ -982,21 +1170,21 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     return const <String, Object?>{};
   }
 
-  AuthFailure _failureFromResultMap(Map<String, Object?> map) {
+  static AuthFailure failureFromResultMap(Map<String, Object?> map) {
     return AuthFailure(
-      reason: _asOptionalString(map, 'reason') ?? wamp_core.Error.notAuthorized,
-      message: _asOptionalString(map, 'message'),
+      reason: asOptionalString(map, 'reason') ?? wamp_core.Error.notAuthorized,
+      message: asOptionalString(map, 'message'),
       details:
-          _asOptionalStringObjectMap(map, 'details') ??
+          asOptionalStringObjectMap(map, 'details') ??
           const <String, Object?>{},
       arguments: map['arguments'] is List
           ? List<dynamic>.from(map['arguments'] as List)
           : null,
-      argumentsKeywords: _asOptionalStringObjectMap(map, 'argumentsKeywords'),
+      argumentsKeywords: asOptionalStringObjectMap(map, 'argumentsKeywords'),
     );
   }
 
-  AuthFailure _failureFromCallError(wamp_core.Error error) {
+  static AuthFailure failureFromCallError(wamp_core.Error error) {
     final message =
         error.argumentsKeywords?['message'] as String? ??
         (error.arguments?.isNotEmpty == true
@@ -1014,15 +1202,15 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     );
   }
 
-  String _asRequiredString(Map<String, Object?> map, String key) {
-    final value = _asOptionalString(map, key);
+  static String asRequiredString(Map<String, Object?> map, String key) {
+    final value = asOptionalString(map, key);
     if (value == null) {
       throw StateError('Missing required key "$key" in remote auth result.');
     }
     return value;
   }
 
-  String? _asOptionalString(Map<String, Object?> map, String key) {
+  static String? asOptionalString(Map<String, Object?> map, String key) {
     final value = map[key];
     if (value is String && value.isNotEmpty) {
       return value;
@@ -1030,18 +1218,18 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     return null;
   }
 
-  Map<String, Object?> _asStringObjectMap(
+  static Map<String, Object?> asStringObjectMap(
     Map<String, Object?> map,
     String key,
   ) {
-    final value = _asOptionalStringObjectMap(map, key);
+    final value = asOptionalStringObjectMap(map, key);
     if (value == null) {
       throw StateError('Missing required map "$key" in remote auth result.');
     }
     return value;
   }
 
-  Map<String, Object?>? _asOptionalStringObjectMap(
+  static Map<String, Object?>? asOptionalStringObjectMap(
     Map<String, Object?> map,
     String key,
   ) {
@@ -1054,28 +1242,56 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
 }
 
 class RemoteWampDelegateRegistry {
-  static final Map<String, WampRemoteAuthenticatorDelegate> _delegates =
-      <String, WampRemoteAuthenticatorDelegate>{};
+  static final Map<String, RemoteAuthenticatorDelegate> _delegates =
+      <String, RemoteAuthenticatorDelegate>{};
 
-  static WampRemoteAuthenticatorDelegate forConfig(
+  static RemoteAuthenticatorDelegate forConfig(
     RemoteWampDelegateConfig config,
   ) {
+    if (config.transport.type == 'internal') {
+      final delegate = _delegates[config.cacheKey()];
+      if (delegate == null) {
+        throw StateError(
+          'Internal remote WAMP delegate is not registered for this worker.',
+        );
+      }
+      return delegate;
+    }
     return _delegates.putIfAbsent(
       config.cacheKey(),
       () => WampRemoteAuthenticatorDelegate(config),
     );
   }
 
+  static void registerInternal(
+    RemoteWampDelegateConfig config,
+    RemoteAuthenticatorDelegate delegate,
+  ) {
+    if (config.transport.type != 'internal') {
+      throw ArgumentError.value(
+        config.transport.type,
+        'config.transport.type',
+        'Expected internal transport.',
+      );
+    }
+    _delegates[config.cacheKey()] = delegate;
+  }
+
   static Future<void> warmUpForSettings(RouterSettings settings) async {
-    final futures = collectRemoteWampDelegateConfigsForSettings(
-      settings,
-    ).map((config) => forConfig(config).warmUpSession());
+    final futures = collectRemoteWampDelegateConfigsForSettings(settings)
+        .where((config) => config.transport.type != 'internal')
+        .map(
+          (config) => (forConfig(config) as WampRemoteAuthenticatorDelegate)
+              .warmUpSession(),
+        );
     await Future.wait(futures, eagerError: false);
   }
 
   static void clear() {
     for (final delegate in _delegates.values) {
-      delegate._invalidateSession();
+      if (delegate is WampRemoteAuthenticatorDelegate) {
+        delegate._invalidateSession();
+      }
     }
     _delegates.clear();
   }

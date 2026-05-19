@@ -182,6 +182,8 @@ class _NoopHandleRuntime extends _FakeRuntime
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   }) {}
@@ -331,8 +333,44 @@ void main() {
     final processMetrics =
         routerMetrics['process'] as Map<String, Object?>? ?? const {};
     expect(processMetrics['pid'], isA<int>());
+    expect(processMetrics['operating_system'], isA<String>());
+    expect(processMetrics['dart_version'], isA<String>());
+    expect(processMetrics['available_processors'], greaterThan(0));
     expect(processMetrics['current_rss_bytes'], greaterThan(0));
     expect(processMetrics['max_rss_bytes'], greaterThan(0));
+    final workerMetrics =
+        routerMetrics['workers'] as List<Object?>? ?? const [];
+    expect(workerMetrics, isNotEmpty);
+    final workerMetric = workerMetrics.cast<Map<String, Object?>>().first;
+    expect(workerMetric['id'], isA<int>());
+    expect(workerMetric['isolate_hash'], isA<int>());
+    expect(workerMetric['connection_count'], greaterThanOrEqualTo(0));
+    expect(workerMetric['busy'], isA<bool>());
+    expect(workerMetric['in_flight_dispatches'], greaterThanOrEqualTo(0));
+    expect(workerMetric['pending_dispatches'], greaterThanOrEqualTo(0));
+    expect(workerMetric['dispatches_total'], greaterThanOrEqualTo(0));
+    expect(workerMetric['queued_dispatches_total'], greaterThanOrEqualTo(0));
+    expect(workerMetric['completed_dispatches_total'], greaterThanOrEqualTo(0));
+    expect(workerMetric['errors_total'], greaterThanOrEqualTo(0));
+    expect(workerMetric['total_busy_duration_ms'], greaterThanOrEqualTo(0));
+    expect(workerMetric['total_queue_latency_ms'], greaterThanOrEqualTo(0));
+    expect(workerMetric['max_pending_dispatches'], greaterThanOrEqualTo(0));
+    final workerPoolMetrics =
+        routerMetrics['worker_pool'] as Map<String, Object?>? ?? const {};
+    expect(workerPoolMetrics['min_workers'], equals(1));
+    expect(workerPoolMetrics['max_workers'], equals(1));
+    expect(workerPoolMetrics['pending_isolates'], greaterThanOrEqualTo(0));
+    expect(
+      workerPoolMetrics['scale_up_pressure_ticks'],
+      greaterThanOrEqualTo(0),
+    );
+    expect(workerPoolMetrics['scale_down_idle_ticks'], greaterThanOrEqualTo(0));
+    expect(workerPoolMetrics['scale_ups_total'], greaterThanOrEqualTo(0));
+    expect(workerPoolMetrics['scale_downs_total'], greaterThanOrEqualTo(0));
+    expect(
+      workerPoolMetrics['scale_down_timeouts_total'],
+      greaterThanOrEqualTo(0),
+    );
     final transportMetrics =
         routerMetrics['transport'] as Map<String, Object?>? ?? const {};
     expect(transportMetrics['active_throttles'], equals(1));
@@ -356,11 +394,89 @@ void main() {
     expect(openMetricsText, contains('connectanum_router_process_info'));
     expect(
       openMetricsText,
+      contains('connectanum_router_process_available_processors'),
+    );
+    expect(
+      openMetricsText,
       contains('connectanum_router_process_resident_memory_bytes'),
     );
     expect(
       openMetricsText,
       contains('connectanum_router_process_max_resident_memory_bytes'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_busy_isolates'),
+    );
+    expect(openMetricsText, contains('connectanum_router_worker_connections'));
+    expect(openMetricsText, contains('connectanum_router_worker_busy'));
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pending_dispatches'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_dispatches_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_queued_dispatches_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_completed_dispatches_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_dispatch_errors_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_busy_duration_ms_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_queue_latency_ms_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_oldest_pending_dispatch_age_ms'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_max_pending_dispatches'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_min_workers 1'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_max_workers 1'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_pending_isolates'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_up_pressure_ticks'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_down_idle_ticks'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_ups_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_downs_total'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_worker_pool_scale_down_timeouts_total'),
     );
     expect(openMetricsText, contains('realm="realm1"'));
     expect(openMetricsText, contains('connectanum_router_http_events_total'));

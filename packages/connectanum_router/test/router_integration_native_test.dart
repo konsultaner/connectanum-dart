@@ -286,6 +286,8 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   }) {
@@ -461,6 +463,7 @@ class _RouterHarness {
     required String? nativeLib,
     RouterConfig? config,
     RouterSettings? settings,
+    Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
     List<int>? connectionSequence,
   }) async {
     final innerRuntime = NativeTransportRuntime(libraryPath: nativeLib);
@@ -478,6 +481,7 @@ class _RouterHarness {
     final routerSettings = settings ?? _buildSettings();
     final binding = Router(routerConfig, settings: routerSettings).start(
       runtime,
+      httpRouteHandlers: httpRouteHandlers,
       onEvent: (event) {
         if (event is Map<String, Object?>) {
           pendingEvents.add(event);
@@ -843,62 +847,501 @@ void main() {
       skip: skipReason ?? _nativePublishSkipReason,
     );
 
+    test('routes HTTP request through native runtime', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9102,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http-handler',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final registration = await httpSession.register(
+        'com.example.http.health',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        expect(context!.request.method, equals('GET'));
+        expect(context.request.path, equals('/api/health'));
+        context.sendText(
+          body: 'service:ok',
+          status: 202,
+          headers: const {'x-router': 'native'},
+        );
+      });
+
+      final listener = binding.listeners.single;
+      final socket = await Socket.connect('127.0.0.1', listener.port);
+      addTearDown(socket.destroy);
+
+      socket.write('GET /api/health HTTP/1.1\r\nHost: localhost\r\n\r\n');
+      await socket.flush();
+
+      final requestEvent = await harness.nextEvent('listener_http_request');
+      expect(requestEvent['path'], equals('/api/health'));
+      expect(requestEvent['realm'], equals('realm1'));
+      expect(requestEvent['procedure'], equals('com.example.http.health'));
+
+      await harness.nextEvent('http_request_dispatched');
+      final responseSent = await harness.nextEvent('http_response_sent');
+      expect(responseSent['listenerId'], equals(listener.listenerId));
+
+      final response = await _readHttpResponse(socket);
+      expect(response, contains('HTTP/1.1 202 Accepted'));
+      expect(response, contains('x-router: native'));
+      expect(response.trim(), endsWith('service:ok'));
+    }, skip: skipReason);
+
+    test('serves file HTTP responses through native runtime', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9112,
+        nativeLib: nativeLib,
+      );
+      addTearDown(harness.dispose);
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'connectanum-native-http-file-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final staticFile = File(
+        '${tempDir.path}${Platform.pathSeparator}response.txt',
+      );
+      await staticFile.writeAsString('native-file-response');
+
+      final binding = harness.binding;
+      final httpSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'http-file-handler',
+        authRole: 'internal',
+      );
+      addTearDown(httpSession.close);
+
+      final registration = await httpSession.register(
+        'com.example.http.health',
+      );
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull, reason: 'Invocation missing HTTP context');
+        expect(context!.request.path, equals('/api/health'));
+        context.sendFile(
+          path: staticFile.path,
+          status: 203,
+          headers: const {
+            'content-type': 'text/plain; charset=utf-8',
+            'x-router': 'native-file',
+          },
+        );
+      });
+
+      final listener = binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+      final request = await client.get(
+        '127.0.0.1',
+        listener.port,
+        '/api/health',
+      );
+      final response = await request.close();
+      final body = await utf8.decoder.bind(response).join();
+
+      expect(response.statusCode, equals(203));
+      expect(response.headers.value('x-router'), equals('native-file'));
+      expect(body, equals('native-file-response'));
+
+      await harness.nextEvent('http_response_sent');
+    }, skip: skipReason);
+
     test(
-      'routes HTTP request through native runtime',
+      'serves configured HTTP file routes through native runtime',
       () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'connectanum-native-static-route-',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+        final staticFile = File(
+          '${tempDir.path}${Platform.pathSeparator}asset.txt',
+        );
+        const fileContents = 'native static route';
+        await staticFile.writeAsString(fileContents);
+
         final harness = await _RouterHarness.start(
-          connectionId: 9102,
+          connectionId: 9113,
           nativeLib: nativeLib,
+          settings: RouterSettings(
+            realms: const [],
+            listeners: [
+              ListenerSettings(
+                endpoint: '127.0.0.1:0',
+                protocols: const [ListenerProtocol.http],
+                http: HttpListenerSettings(
+                  routes: [
+                    HttpRouteSettings(
+                      match: const HttpRouteMatch(prefix: '/static/'),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.file,
+                        directory: tempDir.path,
+                        cacheControl: 'public, max-age=60',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
         addTearDown(harness.dispose);
 
-        final binding = harness.binding;
-
-        final httpSession = await binding.createInternalSession(
-          realmUri: 'realm1',
-          authId: 'http-handler',
-          authRole: 'internal',
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        final request = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
         );
-        addTearDown(httpSession.close);
+        final response = await request.close();
+        final body = await utf8.decoder.bind(response).join();
 
-        final registration = await httpSession.register(
-          'com.example.http.health',
+        expect(response.statusCode, equals(HttpStatus.ok));
+        expect(
+          response.headers.value(HttpHeaders.contentTypeHeader),
+          equals('text/plain; charset=utf-8'),
         );
-        registration.onInvoke((invocation) {
-          final context = HttpInvocationContext.maybeFromInvocation(invocation);
-          expect(context, isNotNull, reason: 'Invocation missing HTTP context');
-          expect(context!.request.method, equals('GET'));
-          expect(context.request.path, equals('/api/health'));
-          context.sendText(
-            body: 'service:ok',
-            status: 202,
-            headers: const {'x-router': 'native'},
-          );
-        });
+        expect(
+          response.headers.value(HttpHeaders.cacheControlHeader),
+          equals('public, max-age=60'),
+        );
+        expect(
+          response.headers.value(HttpHeaders.contentLengthHeader),
+          equals(utf8.encode(fileContents).length.toString()),
+        );
+        expect(response.headers.value('accept-ranges'), equals('bytes'));
+        final etag = response.headers.value(HttpHeaders.etagHeader)!;
+        final lastModified = response.headers.value(
+          HttpHeaders.lastModifiedHeader,
+        )!;
+        expect(etag, startsWith('W/"'));
+        expect(body, equals(fileContents));
 
-        final listener = binding.listeners.single;
-        final socket = await Socket.connect('127.0.0.1', listener.port);
-        addTearDown(socket.destroy);
+        final headRequest = await client.head(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        final headResponse = await headRequest.close();
+        final headBody = await utf8.decoder.bind(headResponse).join();
+        expect(headResponse.statusCode, equals(HttpStatus.ok));
+        expect(
+          headResponse.headers.value(HttpHeaders.contentLengthHeader),
+          equals(utf8.encode(fileContents).length.toString()),
+        );
+        expect(headBody, isEmpty);
 
-        socket.write('GET /api/health HTTP/1.1\r\nHost: localhost\r\n\r\n');
-        await socket.flush();
+        final rangeRequest = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        rangeRequest.headers.set(HttpHeaders.rangeHeader, 'bytes=7-12');
+        final rangeResponse = await rangeRequest.close();
+        final rangeBody = await utf8.decoder.bind(rangeResponse).join();
+        expect(rangeResponse.statusCode, equals(HttpStatus.partialContent));
+        expect(
+          rangeResponse.headers.value(HttpHeaders.contentLengthHeader),
+          equals('6'),
+        );
+        expect(
+          rangeResponse.headers.value('content-range'),
+          equals('bytes 7-12/19'),
+        );
+        expect(rangeResponse.headers.value('accept-ranges'), equals('bytes'));
+        expect(rangeBody, equals('static'));
 
-        final requestEvent = await harness.nextEvent('listener_http_request');
-        expect(requestEvent['path'], equals('/api/health'));
-        expect(requestEvent['realm'], equals('realm1'));
-        expect(requestEvent['procedure'], equals('com.example.http.health'));
+        final dateIfRangeRequest = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        dateIfRangeRequest.headers.set(HttpHeaders.rangeHeader, 'bytes=0-5');
+        dateIfRangeRequest.headers.set('if-range', lastModified);
+        final dateIfRangeResponse = await dateIfRangeRequest.close();
+        final dateIfRangeBody = await utf8.decoder
+            .bind(dateIfRangeResponse)
+            .join();
+        expect(
+          dateIfRangeResponse.statusCode,
+          equals(HttpStatus.partialContent),
+        );
+        expect(
+          dateIfRangeResponse.headers.value('content-range'),
+          equals('bytes 0-5/19'),
+        );
+        expect(dateIfRangeBody, equals('native'));
 
-        await harness.nextEvent('http_request_dispatched');
-        final responseSent = await harness.nextEvent('http_response_sent');
-        expect(responseSent['listenerId'], equals(listener.listenerId));
+        final weakEtagIfRangeRequest = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        weakEtagIfRangeRequest.headers.set(
+          HttpHeaders.rangeHeader,
+          'bytes=0-5',
+        );
+        weakEtagIfRangeRequest.headers.set('if-range', etag);
+        final weakEtagIfRangeResponse = await weakEtagIfRangeRequest.close();
+        final weakEtagIfRangeBody = await utf8.decoder
+            .bind(weakEtagIfRangeResponse)
+            .join();
+        expect(weakEtagIfRangeResponse.statusCode, equals(HttpStatus.ok));
+        expect(weakEtagIfRangeResponse.headers.value('content-range'), isNull);
+        expect(weakEtagIfRangeBody, equals(fileContents));
 
-        final response = await _readHttpResponse(socket);
-        expect(response, contains('HTTP/1.1 202 Accepted'));
-        expect(response, contains('x-router: native'));
-        expect(response.trim(), endsWith('service:ok'));
+        final rangeHeadRequest = await client.head(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        rangeHeadRequest.headers.set(HttpHeaders.rangeHeader, 'bytes=-5');
+        final rangeHeadResponse = await rangeHeadRequest.close();
+        final rangeHeadBody = await utf8.decoder.bind(rangeHeadResponse).join();
+        expect(rangeHeadResponse.statusCode, equals(HttpStatus.partialContent));
+        expect(
+          rangeHeadResponse.headers.value(HttpHeaders.contentLengthHeader),
+          equals('5'),
+        );
+        expect(
+          rangeHeadResponse.headers.value('content-range'),
+          equals('bytes 14-18/19'),
+        );
+        expect(rangeHeadBody, isEmpty);
+
+        final unsatisfiableRange = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        unsatisfiableRange.headers.set(HttpHeaders.rangeHeader, 'bytes=99-100');
+        final unsatisfiableRangeResponse = await unsatisfiableRange.close();
+        final unsatisfiableRangeBody = await utf8.decoder
+            .bind(unsatisfiableRangeResponse)
+            .join();
+        expect(
+          unsatisfiableRangeResponse.statusCode,
+          equals(HttpStatus.requestedRangeNotSatisfiable),
+        );
+        expect(
+          unsatisfiableRangeResponse.headers.value('content-range'),
+          equals('bytes */19'),
+        );
+        expect(unsatisfiableRangeBody, isEmpty);
+
+        final conditionalGet = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        conditionalGet.headers.set(HttpHeaders.ifNoneMatchHeader, etag);
+        final conditionalGetResponse = await conditionalGet.close();
+        final conditionalGetBody = await utf8.decoder
+            .bind(conditionalGetResponse)
+            .join();
+        expect(
+          conditionalGetResponse.statusCode,
+          equals(HttpStatus.notModified),
+        );
+        expect(
+          conditionalGetResponse.headers.value(HttpHeaders.etagHeader),
+          equals(etag),
+        );
+        expect(conditionalGetBody, isEmpty);
+
+        final conditionalHead = await client.head(
+          '127.0.0.1',
+          listener.port,
+          '/static/asset.txt',
+        );
+        conditionalHead.headers.set(
+          HttpHeaders.ifModifiedSinceHeader,
+          lastModified,
+        );
+        final conditionalHeadResponse = await conditionalHead.close();
+        final conditionalHeadBody = await utf8.decoder
+            .bind(conditionalHeadResponse)
+            .join();
+        expect(
+          conditionalHeadResponse.statusCode,
+          equals(HttpStatus.notModified),
+        );
+        expect(
+          conditionalHeadResponse.headers.value(HttpHeaders.lastModifiedHeader),
+          equals(lastModified),
+        );
+        expect(conditionalHeadBody, isEmpty);
+
+        final fileEvent = await harness.nextEvent('http_file_response_sent');
+        expect(fileEvent['path'], equals('/static/asset.txt'));
+        final notModifiedEvent = await harness.nextEvent(
+          'http_file_not_modified',
+        );
+        expect(notModifiedEvent['path'], equals('/static/asset.txt'));
+        final partialEvent = await harness.nextEvent(
+          'http_file_partial_response_sent',
+        );
+        expect(partialEvent['path'], equals('/static/asset.txt'));
+        final rangeErrorEvent = await harness.nextEvent(
+          'http_file_range_not_satisfiable',
+        );
+        expect(rangeErrorEvent['path'], equals('/static/asset.txt'));
       },
-      tags: _zeroCopyPublishTag,
-      skip: skipReason ?? _nativePublishSkipReason,
+      skip: skipReason,
+    );
+
+    test(
+      'dispatches configured HTTP handler routes through native runtime',
+      () async {
+        final seenTargets = <String>[];
+        final harness = await _RouterHarness.start(
+          connectionId: 9114,
+          nativeLib: nativeLib,
+          settings: const RouterSettings(
+            realms: [],
+            listeners: [
+              ListenerSettings(
+                endpoint: '127.0.0.1:0',
+                protocols: [ListenerProtocol.http],
+                http: HttpListenerSettings(
+                  routes: [
+                    HttpRouteSettings(
+                      match: HttpRouteMatch(path: '/handler/native'),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.handler,
+                        delegate: 'handler.native.echo',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          httpRouteHandlers: {
+            'handler.native.echo': (context) {
+              seenTargets.add(context.request.target);
+              expect(context.binding, isA<RouterBinding>());
+              expect(
+                context.route.action.delegate,
+                equals('handler.native.echo'),
+              );
+              expect(context.request.method, equals('POST'));
+              expect(context.request.path, equals('/handler/native'));
+              expect(jsonDecode(utf8.decode(context.request.body)), {
+                'payload': 'native',
+              });
+              return NativeHttpResponse(
+                status: HttpStatus.accepted,
+                headers: const {'x-handler': 'native'},
+                body: NativeHttpResponseJson({
+                  'target': context.request.target,
+                  'path': context.request.path,
+                }),
+              );
+            },
+          },
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        final response = await _postJson(
+          client,
+          listener.port,
+          '/handler/native?debug=true',
+          {'payload': 'native'},
+        );
+
+        expect(response.statusCode, equals(HttpStatus.accepted));
+        expect(response.headers['x-handler'], equals('native'));
+        expect(response.json, {
+          'target': '/handler/native?debug=true',
+          'path': '/handler/native',
+        });
+        expect(seenTargets, ['/handler/native?debug=true']);
+
+        final handlerEvent = await harness.nextEvent(
+          'http_handler_response_sent',
+        );
+        expect(handlerEvent['path'], equals('/handler/native'));
+        expect(handlerEvent['handler'], equals('handler.native.echo'));
+        expect(handlerEvent['status'], equals(HttpStatus.accepted));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'rejects unregistered configured HTTP handler routes through native runtime',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9115,
+          nativeLib: nativeLib,
+          settings: const RouterSettings(
+            realms: [],
+            listeners: [
+              ListenerSettings(
+                endpoint: '127.0.0.1:0',
+                protocols: [ListenerProtocol.http],
+                http: HttpListenerSettings(
+                  routes: [
+                    HttpRouteSettings(
+                      match: HttpRouteMatch(path: '/handler/missing'),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.handler,
+                        options: {'handler': 'handler.missing'},
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        final request = await client.get(
+          '127.0.0.1',
+          listener.port,
+          '/handler/missing',
+        );
+        final response = await _readJsonHttpResponse(await request.close());
+
+        expect(response.statusCode, equals(HttpStatus.notImplemented));
+        expect(response.json, containsPair('reason', 'handler_not_registered'));
+
+        final handlerEvent = await harness.nextEvent(
+          'http_handler_not_registered',
+        );
+        expect(handlerEvent['path'], equals('/handler/missing'));
+        expect(handlerEvent['handler'], equals('handler.missing'));
+      },
+      skip: skipReason,
     );
 
     test('hosts MCP over HTTP using the router internal session', () async {
@@ -2456,6 +2899,8 @@ void main() {
           ((streamableSubscribe['result'] as Map)['structuredContent'] as Map)
               .cast<String, Object?>();
       final streamableHandle = streamableSubscription['handle'] as String;
+      final streamableSubscriptionId =
+          streamableSubscription['subscriptionId'] as int;
       expect(streamableSubscription['topic'], equals('app.events.audit'));
 
       final streamableSubscriptionLookup = await streamableClient
@@ -2496,18 +2941,12 @@ void main() {
         contains('streamable-service'),
       );
 
-      final streamableUnsubscribe = await streamableClient.request(
-        'tools/call',
-        id: 'streamable-pubsub-unsubscribe',
-        params: {
-          'name': 'connectanum.pubsub.unsubscribe',
-          'arguments': {'handle': streamableHandle},
-        },
-      );
-      final streamableUnsubscribeResult =
-          ((streamableUnsubscribe['result'] as Map)['structuredContent'] as Map)
-              .cast<String, Object?>();
-      expect(streamableUnsubscribeResult['unsubscribed'], isTrue);
+      final streamableSubscriberCount = await streamableClient
+          .countWampSubscriptionSubscribers(
+            streamableSubscriptionId,
+            id: 'streamable-subscription-count-before-delete',
+          );
+      expect(streamableSubscriberCount.arguments, equals([1]));
 
       final streamableSecureTopicDenied = await streamableClient.request(
         'tools/call',
@@ -2525,6 +2964,16 @@ void main() {
         jsonEncode(streamableSecureTopicDeniedResult),
         contains('Unknown declared WAMP topic: app.secure.audit'),
       );
+
+      await streamableClient.deleteSession();
+      expect(streamableClient.sessionId, isNull);
+      expect(streamableClient.lastEventId, isNull);
+      final streamableSubscriberCountAfterDelete = await directPublicMcpClient
+          .countWampSubscriptionSubscribersDirect(
+            streamableSubscriptionId,
+            id: 'streamable-subscription-count-after-delete',
+          );
+      expect(streamableSubscriberCountAfterDelete.arguments, equals([0]));
 
       final directSafeResult = await _callRouterJsonMethod(
         client,
@@ -3491,6 +3940,75 @@ void main() {
       expect(body, contains('connectanum_router_http_events_total'));
 
       await _writeOpenMetricsSnapshot(binding, 'http_metrics_scrape');
+    }, skip: skipReason);
+
+    test('serves OpenMetrics payload over HTTP/2 metrics route', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9116,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(enableHttp3: false, enableMetrics: true),
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      await binding.ensureInternalServicesReady();
+
+      final listener = binding.listeners.single;
+      final response = await _getHttp2(listener.port, '/metrics');
+      expect(response.statusCode, equals(HttpStatus.ok));
+      expect(response.headers['content-type'], contains('text/plain'));
+      expect(response.body, contains('connectanum_router_realms'));
+      expect(response.body, contains('realm="realm1"'));
+      expect(response.body, contains('connectanum_router_http_events_total'));
+
+      await _writeOpenMetricsSnapshot(binding, 'http2_metrics_scrape');
+    }, skip: skipReason);
+
+    test('serves OpenMetrics payload over HTTP/3 metrics route', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9117,
+        nativeLib: nativeLib,
+        config: _buildTlsConfig(),
+        settings: _buildTlsSettings(enableMetrics: true),
+        connectionSequence: const [],
+      );
+      addTearDown(harness.dispose);
+
+      if (!harness.runtime.supportsHttp3TestClient) {
+        // ignore: avoid_print
+        print(
+          'Skipping HTTP/3 metrics route test: native runtime lacks test client',
+        );
+        return;
+      }
+
+      final binding = harness.binding;
+      await binding.ensureInternalServicesReady();
+
+      final listener = binding.listeners.single;
+      expect(
+        listener.http3Port,
+        greaterThan(0),
+        reason: 'Router did not expose an HTTP/3 port',
+      );
+
+      final response = await _runHttp3StreamRequestInIsolate(
+        nativeLib!,
+        host: '127.0.0.1',
+        port: listener.http3Port,
+        path: '/metrics',
+        method: 'GET',
+        headers: const {'x-client': 'router-http3-metrics-test'},
+        body: Uint8List(0),
+        certificatePem: _http3CaCertificatePem,
+      );
+      expect(response.status, equals(HttpStatus.ok));
+      final body = utf8.decode(response.body);
+      expect(body, contains('connectanum_router_realms'));
+      expect(body, contains('realm="realm1"'));
+      expect(body, contains('connectanum_router_http_events_total'));
+
+      await _writeOpenMetricsSnapshot(binding, 'http3_metrics_scrape');
     }, skip: skipReason);
 
     test('streams HTTP request and response payloads end-to-end', () async {
@@ -5112,6 +5630,50 @@ Future<String> _readHttpResponse(Socket socket) async {
   }
   await iterator.cancel();
   return utf8.decode(collected);
+}
+
+Future<({int statusCode, String body, Map<String, String> headers})> _getHttp2(
+  int port,
+  String path,
+) async {
+  final socket = await Socket.connect('127.0.0.1', port);
+  final connection = http2.ClientTransportConnection.viaSocket(socket);
+  try {
+    await connection.onInitialPeerSettingsReceived;
+    final stream = connection.makeRequest(<http2.Header>[
+      http2.Header.ascii(':method', 'GET'),
+      http2.Header.ascii(':scheme', 'http'),
+      http2.Header.ascii(':path', path),
+      http2.Header.ascii(':authority', '127.0.0.1:$port'),
+    ], endStream: true);
+
+    var statusCode = 0;
+    final headers = <String, String>{};
+    final buffer = BytesBuilder(copy: false);
+    await for (final message in stream.incomingMessages) {
+      if (message is http2.HeadersStreamMessage) {
+        for (final header in message.headers) {
+          final name = utf8.decode(header.name).toLowerCase();
+          final value = utf8.decode(header.value);
+          if (name == ':status') {
+            statusCode = int.tryParse(value) ?? statusCode;
+          } else {
+            headers[name] = value;
+          }
+        }
+      } else if (message is http2.DataStreamMessage) {
+        buffer.add(message.bytes);
+      }
+    }
+    return (
+      statusCode: statusCode,
+      body: utf8.decode(buffer.takeBytes()),
+      headers: headers,
+    );
+  } finally {
+    await connection.finish();
+    socket.destroy();
+  }
 }
 
 Future<

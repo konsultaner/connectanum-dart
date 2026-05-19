@@ -17,6 +17,9 @@ Status: workspace package, currently `publish_to: none`.
 - `AuthServerProcedureBinding`
   Registers the WAMP procedures that expose the remote-auth contract on a
   router session.
+- `AuthServerRouterBinding`
+  Starts or attaches to a router binding, creates the internal service session,
+  registers auth procedures, and owns shutdown for embedded auth services.
 
 The default procedure names are:
 
@@ -25,6 +28,25 @@ The default procedure names are:
 - `authenticate.abort`
 
 ## Quick Start
+
+For a packaged service, provide a router configuration that contains the auth
+service listener, the `connectanum.authenticate` service realm, and the
+authenticators/realms the service should evaluate. The CLI starts the native
+runtime, binds the remote-auth WAMP procedures, and stays running until
+SIGINT/SIGTERM:
+
+```bash
+dart run connectanum_auth_server:auth_server --config auth_service.yaml
+```
+
+Use `--check` in deployment smoke tests to start the runtime, bind procedures,
+report readiness, and exit:
+
+```bash
+dart run connectanum_auth_server:auth_server --config auth_service.yaml --check
+```
+
+For embedded use, wire the same primitives directly:
 
 ```dart
 import 'package:connectanum_auth_server/connectanum_auth_server.dart';
@@ -54,13 +76,14 @@ Future<void> main() async {
 
   final authServer = AuthServer(settings: settings);
 
-  final runtime = NativeTransportRuntime()..start();
-  final router = Router(
-    RouterConfig(
+  final binding = await AuthServerRouterBinding.start(
+    server: authServer,
+    config: RouterConfig(
       endpoints: [
         Endpoint(
           host: '127.0.0.1',
           port: 8085,
+          tlsMode: TlsMode.disabled,
           webSocketPath: '/ws',
           maxRawSocketSizeExponent: 16,
         ),
@@ -72,18 +95,7 @@ Future<void> main() async {
           ))
         .build(),
   );
-
-  final binding = router.start(runtime);
-  final session = await binding.createInternalSession(
-    realmUri: 'connectanum.authenticate',
-    authId: 'auth-service',
-    authRole: 'internal',
-  );
-
-  await AuthServerProcedureBinding.bind(
-    server: authServer,
-    session: session,
-  );
+  // Keep `binding` alive while the embedded auth service should run.
 }
 ```
 

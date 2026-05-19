@@ -210,15 +210,24 @@ abstract final class RouterSettingsCodec {
   }
 
   static Map<String, Object?> _httpRouteToMap(HttpRouteSettings route) {
-    return <String, Object?>{
+    final map = <String, Object?>{
       'match': _httpRouteMatchToMap(route.match),
       'action': _httpRouteActionToMap(route.action),
     };
+    if (route.methodActions.isNotEmpty) {
+      map['method_actions'] = <String, Object?>{
+        for (final entry in route.methodActions.entries)
+          entry.key.trim().toUpperCase(): _httpRouteActionToMap(entry.value),
+      };
+    }
+    return map;
   }
 
   static Map<String, Object?> _httpRouteMatchToMap(HttpRouteMatch match) {
     final map = <String, Object?>{};
-    if (match.path != null) {
+    if (match.isCatchAll) {
+      map['catch_all'] = true;
+    } else if (match.path != null) {
       map['path'] = match.path;
     }
     if (match.prefix != null) {
@@ -279,10 +288,50 @@ abstract final class RouterSettingsCodec {
     if (action.delegate != null) {
       map['delegate'] = action.delegate;
     }
+    if (action.rateLimit != null) {
+      map['rate_limit'] = _httpRouteRateLimitToMap(action.rateLimit!);
+    }
+    if (action.concurrencyLimit != null) {
+      map['concurrency_limit'] = _httpRouteConcurrencyLimitToMap(
+        action.concurrencyLimit!,
+      );
+    }
+    if (action.accessLog != null) {
+      map['access_log'] = _httpRouteAccessLogToMap(action.accessLog!);
+    }
     if (action.options.isNotEmpty) {
       map['options'] = action.options;
     }
     return map;
+  }
+
+  static Map<String, Object?> _httpRouteRateLimitToMap(
+    HttpRouteRateLimitSettings rateLimit,
+  ) {
+    return <String, Object?>{
+      'max_requests': rateLimit.maxRequests,
+      'window_ms': rateLimit.window.inMilliseconds,
+      'key': rateLimit.key,
+    };
+  }
+
+  static Map<String, Object?> _httpRouteConcurrencyLimitToMap(
+    HttpRouteConcurrencyLimitSettings concurrencyLimit,
+  ) {
+    return <String, Object?>{
+      'max_concurrent': concurrencyLimit.maxConcurrent,
+      'key': concurrencyLimit.key,
+    };
+  }
+
+  static Map<String, Object?> _httpRouteAccessLogToMap(
+    HttpRouteAccessLogSettings accessLog,
+  ) {
+    return <String, Object?>{
+      'enabled': accessLog.enabled,
+      'include_query': accessLog.includeQuery,
+      'include_headers': accessLog.includeHeaders,
+    };
   }
 
   static Map<String, Object?> _metricsToMap(MetricsSettings metrics) {
@@ -386,7 +435,15 @@ abstract final class RouterSettingsCodec {
   }
 
   static Map<String, Object?> _workerPoolToMap(WorkerPoolSettings workerPool) {
-    return <String, Object?>{'min_workers': workerPool.minWorkers};
+    return <String, Object?>{
+      'min_workers': workerPool.minWorkers,
+      'max_workers': workerPool.maxWorkers,
+      'scale_up_pending_dispatches': workerPool.scaleUpPendingDispatches,
+      'scale_up_consecutive_ticks': workerPool.scaleUpConsecutiveTicks,
+      'scale_down_consecutive_ticks': workerPool.scaleDownConsecutiveTicks,
+      'scale_down_drain_timeout_ms':
+          workerPool.scaleDownDrainTimeout.inMilliseconds,
+    };
   }
 
   static Map<String, Object?> _authenticatorToMap(

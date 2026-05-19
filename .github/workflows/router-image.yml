@@ -31,15 +31,18 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      - name: Configure Git default branch hint
+        run: git config --global init.defaultBranch master
+
       - uses: actions/checkout@v5
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: amd64,arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Resolve image metadata
         id: meta

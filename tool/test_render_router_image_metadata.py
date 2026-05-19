@@ -31,6 +31,7 @@ class RouterImageMetadataTest(unittest.TestCase):
         self.assertEqual(
             result.tags,
             (
+                "ghcr.io/konsultaner/connectanum-router:v1.2.3",
                 "ghcr.io/konsultaner/connectanum-router:1.2.3",
                 "ghcr.io/konsultaner/connectanum-router:1.2",
                 "ghcr.io/konsultaner/connectanum-router:1",
@@ -39,7 +40,7 @@ class RouterImageMetadataTest(unittest.TestCase):
         )
         self.assertIn("org.opencontainers.image.version=1.2.3", result.labels)
 
-    def test_prerelease_tag_push_only_uses_exact_version(self) -> None:
+    def test_prerelease_tag_push_uses_exact_git_tag_and_normalized_version(self) -> None:
         result = metadata.resolve_router_image_metadata(
             owner="konsultaner",
             repository="konsultaner/connectanum-dart",
@@ -52,7 +53,10 @@ class RouterImageMetadataTest(unittest.TestCase):
 
         self.assertEqual(
             result.tags,
-            ("ghcr.io/konsultaner/connectanum-router:1.2.3-rc.1",),
+            (
+                "ghcr.io/konsultaner/connectanum-router:v1.2.3-rc.1",
+                "ghcr.io/konsultaner/connectanum-router:1.2.3-rc.1",
+            ),
         )
 
     def test_manual_dry_run_defaults_to_sha_tag_and_cacheonly_output(self) -> None:

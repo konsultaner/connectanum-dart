@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from pathlib import Path
+
+from render_router_image_metadata import resolve_router_image_metadata
 
 
 PLATFORMS = (
@@ -16,6 +19,8 @@ PLATFORMS = (
     ("Windows x64", "x86_64-pc-windows-msvc"),
 )
 
+_PROJECT_PRERELEASE_RE = re.compile(r"^v\d+\.\d+\.\d+-.+")
+
 
 def _release_summary(release_tag: str) -> str:
     if release_tag.startswith("ct-ffi-v"):
@@ -23,14 +28,72 @@ def _release_summary(release_tag: str) -> str:
             "This release publishes the standalone native transport bundles "
             "used by the Connectanum router and native client transports."
         )
+    if _PROJECT_PRERELEASE_RE.fullmatch(release_tag):
+        return (
+            "This release candidate publishes prebuilt native transport "
+            "bundles for the Connectanum router and native client transports, "
+            "and records the matching router container image tags for "
+            "integration testing."
+        )
     return (
-        "This release publishes the current prebuilt native transport "
-        "bundles for Connectanum."
+        "This release publishes prebuilt native transport bundles for the "
+        "Connectanum router and native client transports, and records the "
+        "matching router container image tags for production deployments."
     )
+
+
+def _release_stability(release_tag: str) -> str:
+    if release_tag.startswith("ct-ffi-v"):
+        return "standalone native bundle release"
+    if _PROJECT_PRERELEASE_RE.fullmatch(release_tag):
+        return "release candidate / prerelease"
+    return "stable project release"
 
 
 def _repo_url(server_url: str, repository: str) -> str:
     return f"{server_url.rstrip('/')}/{repository}"
+
+
+def _router_image_section(
+    *,
+    release_tag: str,
+    repository: str,
+    commit_sha: str,
+    owner: str,
+) -> str:
+    image = f"ghcr.io/{owner.strip().lower()}/connectanum-router"
+
+    if not release_tag.startswith("v"):
+        return f"""## Router container image
+
+No router image tag is implied by this standalone native-bundle release.
+Router images are released separately at `{image}`; confirm package availability
+in the deployment guide before using one in production.
+"""
+
+    metadata = resolve_router_image_metadata(
+        owner=owner,
+        repository=repository,
+        sha=commit_sha,
+        ref_type="tag",
+        ref_name=release_tag,
+        event_name="push",
+        dry_run="true",
+    )
+    tag_lines = "\n".join(f"- `{tag}`" for tag in metadata.tags)
+
+    return f"""## Router container image
+
+The matching router-image workflow publishes these tags for this project
+release:
+
+{tag_lines}
+
+Use the exact `v*` tag or full semver tag for immutable deployments. Treat
+minor, major, and `latest` tags as moving aliases when they are present.
+Confirm package availability in the deployment guide before using an image in
+production.
+"""
 
 
 def render_release_notes(
@@ -48,10 +111,22 @@ def render_release_notes(
     platform_lines = "\n".join(
         f"- {name} (`{host_triple}`)" for name, host_triple in PLATFORMS
     )
+    router_image_section = _router_image_section(
+        release_tag=release_tag,
+        repository=repository,
+        commit_sha=commit_sha,
+        owner=owner,
+    )
 
     notes = f"""## What this release includes
 
 {_release_summary(release_tag)}
+
+## Release status
+
+- Tag: `{release_tag}`
+- Stability: {_release_stability(release_tag)}
+- Commit: `{commit_sha}`
 
 ## Assets
 
@@ -75,6 +150,8 @@ def render_release_notes(
    - `dart packages/connectanum_router/tool/install_native.dart --tag {release_tag}`
    - `dart packages/connectanum_client/tool/install_native.dart --tag {release_tag}`
 
+{router_image_section}
+
 ## Verification
 
 - GitHub attestation:
@@ -86,9 +163,6 @@ def render_release_notes(
 
 - Repository README: {repo_url}/blob/{commit_sha}/README.md
 - Deployment guide: {repo_url}/blob/{commit_sha}/docs/deployment.md
-- Router container image target: `ghcr.io/{owner.lower()}/connectanum-router`
-  (released separately; confirm package availability in the deployment guide
-  before using it in production)
 """
 
     generated_notes = generated_notes.strip()

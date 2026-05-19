@@ -98,12 +98,16 @@
 - [ ] HTTP bridge (general-purpose request handling)
   - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
   - [x] Introduce shared `session_profiles` across WAMP listeners, HTTP listeners/routes, and `internal_realms`, so transport-specific ingress config can reference one common realm/auth/authz profile shape. Listeners can now inherit `auth.methods` from a profile, HTTP dispatch resolves route/listener session profiles before creating internal caller sessions, and internal sessions can derive `realm`, `auth_id`, `auth_role`, and role maps from the same shared profile definition.
-  - [ ] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards.
-  - [ ] Provide reserved realm/namespace shorthand so routes can auto-map into a router-managed HTTP realm with deterministic URI derivation (e.g. `/` → `router.http.index`).
-  - [ ] Allow namespace-based auto-mapping (path segments → URI prefixes) for teams already organising registrations by namespace.
-  - [ ] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies.
+  - [x] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards. Explicit WAMP realm/procedure routes, per-method overrides, protocol gates, and catch-all fallbacks are now covered across Dart config/runtime and native HTTP/1.1 route dispatch evidence.
+    - [x] Per-method HTTP route action maps are supported in Dart router settings/config loading and serialized to native `http_routes[].methods`, with runtime/config regressions covering method-specific targets.
+    - [x] Catch-all HTTP fallback routes are supported through empty matches, explicit `catch_all` / `catchAll` / `wildcard` config, and `path: "*"`, and native config generation serializes them as `match_kind: "prefix"` on `/`. The Dart synthetic matcher now selects the most specific matching route so catch-all fallbacks do not shadow exact routes.
+  - [x] Provide reserved realm/namespace shorthand so routes can auto-map into a router-managed HTTP realm with deterministic URI derivation (e.g. `/` → `router.http.index`). Native routing already materializes `reserved_realm` / `namespace` targets; Dart runtime dispatch now derives the same target when synthetic/non-native handshakes do not provide one, and the config loader accepts Dart-style shorthand aliases such as `reservedRealm` and `appendMethodSuffix`.
+  - [x] Allow namespace-based auto-mapping (path segments → URI prefixes) for teams already organising registrations by namespace. Native HTTP routing and Dart synthetic dispatch both derive deterministic namespace procedures from request paths, with native runtime coverage proving the queued request summary carries the target realm/procedure before Dart dispatch.
+  - [x] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies. `session_proxy` HTTP route actions now encode into native translation routes and dispatch through the router internal-session call path, with config-loader, native-config JSON, and runtime regressions covering the public route surface.
   - [ ] Provide policy-driven routing (path → WAMP procedure/topic, file proxy, custom isolate handler) with per-route auth hooks aligned with realm permissions.
-  - [ ] Enforce method/protocol whitelists from the configuration; return 405/426 at the native layer before touching Dart.
+    - [x] HTTP `publish` route actions now publish the standard HTTP request context onto configured WAMP topics through router internal sessions, return acknowledged `202` responses, and reuse WAMP publish authorization.
+    - [x] HTTP `handler` route actions now dispatch matched requests to router-hosted Dart callbacks registered on `Router.start` / `RouterBinding`, after route auth/rate/concurrency middleware and before generic WAMP bridge dispatch. Native HTTP integration coverage pins registered handler dispatch and structured `501` missing-handler responses without falling through to WAMP.
+  - [x] Enforce method/protocol whitelists from the configuration; return 405/426 at the native layer before touching Dart, with native and Dart runtime regressions proving rejected requests are not dispatched into the WAMP-backed HTTP bridge.
   - [x] Keep HTTP payloads zero-copy by exposing request/response body handles over FFI and streaming through Rust.
   - [x] Support request/response streaming and file-backed payloads to preserve zero-copy semantics for large bodies.
   - [x] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
@@ -116,9 +120,15 @@
   - [x] Forward streamed HTTP bridge response chunks across the internal-session isolate hop with transferable buffers so large progress payloads avoid repeated `Uint8List` copies.
   - [x] Bypass the per-chunk WAMP response envelope for streamed HTTP bridge responses: internal sessions now open borrowed native response-stream descriptors once, write chunks directly from the callee isolate, and emit only a final completion result back through the call lifecycle.
   - [x] Add end-to-end zero-copy HTTP regressions (large request/response plus descriptor-based internal-session routing) to ensure no stray serialization occurs in Dart.
-  - [ ] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
-  - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy stubs) configurable per route; document adapter contracts and lifecycle.
-  - [ ] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
+  - [x] Offer middleware hooks (logging, rate limiting, throttling) that run inside worker isolates while heavy I/O remains in Rust.
+    - [x] Per-route rate-limit middleware is typed in the HTTP route action surface, parses from config aliases, round-trips through the settings codec, runs before HTTP bridge dispatch, and returns structured `429` responses with retry/rate-limit headers.
+    - [x] Per-route concurrency throttling is typed in the HTTP route action surface, parses from config aliases, round-trips through the settings codec, rejects excess in-flight requests before bridge dispatch, and releases slots when HTTP calls complete.
+    - [x] Per-route access logging is typed in the HTTP route action surface, parses from config aliases, round-trips through the settings codec, emits structured start/completion events, redacts sensitive headers, and records duration/status/outcome metadata.
+  - [ ] Introduce adapter pipeline support (static file handler, reverse proxy, PHP-FPM/FastCGI bridge) configurable per route; document adapter contracts and lifecycle.
+    - [x] Static file route actions are operational: `type: file` routes validate a configured directory, pass native route gates, serve file-backed responses from the binding, reject unsafe path traversal/symlink escapes, infer common content types, apply cache-control/content-length/ETag/Last-Modified/Accept-Ranges headers, return HEAD metadata without a file body, honor conditional GET/HEAD validators with `304 Not Modified`, serve single byte-range GET/HEAD requests with `206 Partial Content` or `416 Range Not Satisfiable` metadata, and validate `If-Range` dates while falling back to full responses for weak entity tags or stale validators.
+    - [x] Reverse proxy route actions are operational for buffered HTTP forwarding: aliases parse and round-trip through settings, native routing enqueues them through the HTTP bridge, the Dart binding forwards method/body/query/headers to configured `http` / `https` upstreams with hop-by-hop filtering and optional route-prefix stripping, and timeout/upstream errors return structured gateway responses without leaking configured upstream URLs in telemetry.
+    - [x] FastCGI route actions are operational for buffered PHP-FPM/FastCGI responder requests: aliases parse and round-trip through settings, native routing enqueues them through the HTTP bridge, the Dart binding connects to TCP or Unix FastCGI targets, sends CGI params/stdin, parses stdout headers/body, and maps timeout/protocol/upstream failures to structured gateway responses.
+  - [x] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
 - [ ] HTTP authentication & session tokens
   - [x] Shared `session_profiles` now provide the common auth/session config surface for WAMP listeners, HTTP listeners/routes, and public/internal profiles, including explicit public profiles (`auth.methods: []` or `anonymous`) and shared method declarations such as `ticket`, `scram`, and `wampcra`.
   - [x] Reuse endpoint authenticators (ticket, CRA, SCRAM, and any configured remote-backed method) to issue short-lived bearer tokens for HTTP clients; the bridge resolves target realm information from body/query/header and keeps public profiles on the current fast path.
@@ -130,7 +140,7 @@
 - [ ] HTTP forwarding hooks for custom routing/handling in RPC implementations
   - [ ] Graceful shutdown (drain sessions, send GOODBYE/HTTP responses, stop listeners)
     - [ ] Provide unified HTTP bridge that can surface Prometheus/Grafana exporters alongside REST→WAMP translation.
-    - [ ] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies.
+    - [x] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies. The configured `/metrics` HTTP bridge route now has native HTTP/1.1, HTTP/2, and HTTP/3 integration coverage against `connectanum.metrics.openmetrics`.
 - [x] Outbound frame bridge (`ct_send`/FFI) for CHALLENGE/WELCOME/EVENT delivery
 - [ ] End-to-end payload encryption (E2EE) strategy
   - [x] Capture the current WAMP E2EE/PPT references and land the shared Dart-side phase-1 contract (`WampE2eeProvider`, `WampCborXsalsa20Poly1305Provider`, router passthrough, and client/core coverage) without forcing router-side decryption.
@@ -146,11 +156,18 @@
 - [x] Command API (async mutation/query from workers)
 - [x] Persistent ID allocators (session/subscription/registration/publication/ invocation/request)
 - [ ] Worker pool autoscaling
-  - [ ] Collect per-worker load metrics (connection counts, pending handle depth, queue latency, host stats)
-  - [ ] Implement hysteresis-based scale-up/scale-down policy with configurable thresholds
+  - [x] Collect per-worker load metrics (connection counts, pending handle depth, queue latency, host stats)
+    - [x] Expose low-cost per-worker load counters through the router metrics snapshot and OpenMetrics payload: connection count, busy state, in-flight dispatches, dispatch/completion/error totals, and observed busy duration per worker isolate.
+    - [x] Add bounded boss-owned pending dispatch queues so worker metrics expose pending handle depth, queued dispatch totals, queue latency, oldest pending age, and peak pending depth.
+    - [x] Add low-cardinality host/runtime process stats to the metrics snapshot and OpenMetrics payload: operating system, Dart runtime version, available processors, current RSS, and max RSS.
+    - [x] Expose worker-pool autoscaling state through the router metrics snapshot and OpenMetrics payload: configured min/max workers, pending isolate count, scale-up/scale-down hysteresis ticks, scale-up totals, scale-down totals, and drain-timeout totals.
+  - [x] Implement hysteresis-based scale-up/scale-down policy with configurable thresholds
+    - [x] Add bounded scale-up hysteresis from sustained pending dispatch pressure. Worker pool settings now expose `max_workers`, `scale_up_pending_dispatches`, and `scale_up_consecutive_ticks`; the boss scales only after consecutive pressure ticks and runtime coverage verifies new capacity receives subsequent connections.
+    - [x] Add idle-worker scale-down thresholds and drain-based retirement. Worker pool settings now expose `scale_down_consecutive_ticks` and `scale_down_drain_timeout_ms`; the boss waits for global pool idle, drains only connectionless excess workers, and avoids scale-up/scale-down oscillation while queued work remains.
+    - [x] Keep scale-down drain non-blocking for the boss loop and exclude draining workers from new connection assignment, so a slow or timeout-bound drain cannot stall accepts or put fresh connections onto a retiring worker.
   - [ ] Reassign connections gracefully during scale-down using drain flow
-  - [ ] Integrate load-aware connection assignment (least-busy/weighted policies)
-  - [ ] Verify cross-worker parallelism with high-contention integration tests (parallel call/publish workloads)
+  - [x] Integrate load-aware connection assignment (least-busy/weighted policies). The router boss now selects the least-loaded worker by connection count, then dispatch pressure, while retaining cursor-based tie-breaking; runtime coverage verifies new connections avoid a currently busy worker.
+  - [x] Verify cross-worker parallelism with high-contention integration tests (parallel call/publish workloads). Router runtime coverage now queues multiple dispatch handles across a four-worker pool, deliberately stalls one worker, and verifies the other workers continue processing without cross-worker head-of-line blocking.
 - [x] Meta event dispatch plumbing (session/subscription/registration meta)
 - [ ] Metrics counters / observability hooks
 
@@ -215,11 +232,12 @@
   - [x] Shared registration meta events
 - [ ] Load-aware invocation balancing (collect CPU/RAM/remote metrics and select least-loaded callee)
 - [x] Progressive call results (`progress=true`)
-- [ ] Call cancellation modes (`kill`, `killnowait`, `killall`) — ensure cancellers can wait for cleanup so subsequent processing shuts down gracefully
-  - [x] `killnowait`
-  - [x] `kill`
-  - [ ] `killall`
-- [ ] Caller disclosure (`caller`, `caller_authid`, `caller_authrole`)
+- [x] Call cancellation modes — support the WAMP-defined `skip`, `kill`, and
+  `killnowait` modes, and reject non-standard `killall` as an invalid CANCEL
+  mode per the current call-canceling contract
+  (https://wamp-proto.org/wamp_latest_ietf.html). `wamp.session.kill_all`
+  remains a separate session meta procedure concept, not a CANCEL option.
+- [x] Caller disclosure (`caller`, `caller_authid`, `caller_authrole`)
 - [ ] Throttle/debounce hooks driven by client-provided hashes in call pipeline
   - Align behaviour with [WAMP issue #391 comment](https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967) to allow routers to honour client-provided throttling keys.
   - Client/server serializers must preserve custom fields (prefer `_custom` naming per spec, but remain lenient to match existing implementations).
@@ -247,13 +265,14 @@
       - [x] Add integration tests spinning up a stub remote service to verify success, malformed responses, timeout, and abort flows end-to-end.
       - [x] Introduce authenticated transport to the remote service with mutual TLS and automatic credential rotation hooks in addition to the current shared-token path. The remote WAMP delegate now supports file-backed shared tokens, service credentials, and TLS material, enforces secure transport by default, rebuilds TLS contexts from PEM files, and reconnects when transport/service-auth fingerprints change. Live coverage now exercises the secure RPC hop over TLS+mTLS plus token/credential rotation on the real router/auth-server path.
       - [x] Build a constrained remote-auth client stub in the bench orchestrator to fuzz HELLO/CHALLENGE/AUTHENTICATE flows without full WAMP clients (rawsocket frame pusher), and instrument latency/backpressure on remote auth RPCs. The Rust bench orchestrator now ships a dedicated `wamp_rawsocket_auth_frames` protocol plus `remote_auth_rawsocket_smoke.toml`, drives HELLO/CHALLENGE/AUTHENTICATE directly over RawSocket without `connectanum_client`, tolerates both fake-challenge and fail-closed ABORT paths under rate limiting, and records the normal router metrics deltas alongside per-iteration auth latency. `bench_main.dart` also starts a real auxiliary auth router plus `AuthServerProcedureBinding` whenever the bench config contains a rawsocket remote authenticator, so the frame-pusher path exercises the live router-to-auth-service RPC hop. A follow-up `remote_auth_rawsocket_cold_warm.toml` scenario now separates first-hit versus warmed remote-auth latency so the cost of establishing the router-to-auth-service session is visible instead of being hidden inside one mixed average. Router workers now also pre-spawn the configured minimum worker pool and best-effort warm remote WAMP delegates on isolate startup, which cut the first-hit remote-auth success case on the current localhost smoke path from roughly `268 ms` to `123 ms` while leaving the steady-state warmed path around `102 ms`, making it clear that the remaining latency sits in the live remote-auth RPC flow rather than in worker or auth-service session cold start.
-    - [ ] Add internal transport support for router ↔ auth server chaining:
-      - [ ] Design in-process frame transport (shared ring buffer / isolate message channel) with backpressure.
-      - [ ] Embed an internal WAMP client inside the router to proxy authentication requests over the internal transport.
-      - [ ] Auth server hosts a router instance plus internal client that drives credential providers.
-      - [ ] Ensure configuration allows switching between TCP delegates and in-process delegates for testing.
-      - [ ] Extend unit/integration tests to cover internal-transport authentication flow.
-      - [ ] Prerequisite: RPC invocation and PUB/SUB dispatch must be implemented so the router can forward authentication RPCs end-to-end.
+    - [x] Add internal transport support for router ↔ auth server chaining:
+      - [x] Define the first in-process transport primitive with backpressure: `connectanum_client` now exports `InProcessTransportPair` / `InProcessTransport`, preserves WAMP messages as Dart objects, throws `InProcessTransportBackpressureException` on bounded peer queues, keeps queued messages until a receive listener attaches, and covers delivery, backpressure, normal client session handshakes, and peer-close behavior in the fast/full gates.
+      - [x] Add a RouterSession-backed remote WAMP procedure delegate: `connectanum_router` now exports `RemoteWampProcedureDelegate`, `RouterSession.createRemoteWampAuthenticatorDelegate` adapts internal `CALL` results to the remote-auth WAMP contract, and the embedded auth-service smoke proves HELLO/AUTHENTICATE success without a loopback TCP delegate connection.
+      - [x] Add worker-isolate/config wiring so live edge routers can select a worker-safe internal remote-auth delegate lane. `rpc.transport.type: internal` now installs per-worker internal WAMP procedure delegates from router settings, opens a worker-local caller session in the auth-service realm, and dispatches HELLO/AUTHENTICATE to embedded auth procedures without using main-isolate `RemoteAuthenticatorRegistry` state.
+      - [x] Auth server hosts a router instance plus internal client that drives credential providers. `AuthServerRouterBinding` can own or attach to a router, bind the auth procedures on an internal session, and drive provider-backed credentials through the normal `AuthServer` path.
+      - [x] Ensure configuration allows switching between TCP delegates and in-process delegates for testing.
+      - [x] Extend unit/integration tests to cover internal-transport authentication flow.
+      - [x] Prerequisite: RPC invocation and PUB/SUB dispatch must be implemented so the router can forward authentication RPCs end-to-end. The internal remote-auth delegate now exercises `RealmContext.dispatchInvocation` against embedded auth procedures in worker isolates, while existing router pub/sub coverage remains in the fast/full gates.
     - [ ] Add shared message-flow abstraction (PUB/SUB ~ REGISTER/CALL):
       - [ ] Extract reusable primitives for routing requests, tracking responders, and emitting replies/events.
       - [ ] Ensure new abstraction is covered by unit tests for both publish/event and call/result paths.
@@ -268,7 +287,10 @@
 
 ### Introspection & Testing
 
-- [ ] WAMP meta API (session, subscription, registration listings)
+- [x] WAMP meta API (session, subscription, registration listings). Ordinary
+  WAMP `CALL`s now serve standard session, registration, and subscription meta
+  listings/details directly from router worker sessions, with
+  authorization-scoped visibility and live WebSocket client coverage.
 - [ ] Caller tracing & diagnostic events
 - [ ] Administrative control interface (pause/resume realm, drain connections)
 - [ ] Replay/testing hooks (record & replay message streams)
@@ -287,21 +309,25 @@
 - [x] Crossbar-compatible configuration schema + validation tooling
 - [ ] Example gallery for router features
   - [x] CLI demo covering hashed credentials, `CredentialRejection`, and remote delegates (`packages/connectanum_router/example`)
-  - [ ] WebSocket transport demo (router and remote auth server)
-  - [ ] Stub remote service integration (fake challenge parity)
+  - [x] WebSocket transport demo (router and remote auth server)
+  - [x] Stub remote service integration (fake challenge parity)
 - [ ] Comprehensive WAMP feature test suites (basic and advanced)
   - [ ] Basic profile: HELLO/WELCOME, PUB/SUB, RPC, error flows
   - [ ] Advanced profile: pattern subscriptions, shared registrations, cancellation, progressive results
 - [x] Auth server scaffolding (`packages/connectanum_auth_server`) providing the same authenticator API for remote deployments
 - [ ] Auth server CLI (config loader, RPC loop, health endpoints)
 - [x] Remote auth secure transport (mTLS / signed tokens) and credential rotation
-- [ ] Fake challenge parity & stub remote service integration tests
-- [ ] Internal transport support for embedded router↔client flows
-  - [ ] Define in-process transport abstraction (frame routing with backpressure)
-  - [ ] Embed internal session inside edge router to speak RemoteAuthenticatorDelegate over the new transport
-  - [ ] Auth server runs router instance + internal client that talks to credential providers
-  - [ ] Wire configuration knobs for selecting internal vs TCP transports
-  - [ ] Migrate existing delegate tests/examples to the internal transport once available
+- [x] Fake challenge parity & stub remote service integration tests. The live
+  remote-auth integration suite now covers mTLS success, auth-token and service
+  credential rotation, malformed stub payloads, timeout fail-closed behavior,
+  and HELLO rejection through the router fake-challenge path.
+- [x] Internal transport support for embedded router↔client flows
+  - [x] Define in-process transport abstraction (frame routing with backpressure). `connectanum_client` now exports `InProcessTransportPair` / `InProcessTransport`, preserves WAMP messages as Dart objects, throws `InProcessTransportBackpressureException` on bounded peer queues, keeps queued messages until a receive listener attaches, and covers delivery, backpressure, normal client session handshakes, and peer-close behavior in the fast/full gates.
+  - [x] Embed internal session bridge for remote-auth WAMP procedures. `RouterSession.createRemoteWampAuthenticatorDelegate` lets an internal router session speak the existing `RemoteAuthenticatorDelegate` contract, and the embedded auth-service smoke exercises HELLO/AUTHENTICATE through that bridge.
+  - [x] Wire worker-safe configuration so external edge sessions can select the internal delegate lane instead of depending on main-isolate delegate registration
+  - [x] Auth server runs router instance + internal client that talks to credential providers. `AuthServerRouterBinding` covers the owned-router and attached-router lifecycle for embedded auth-service deployments.
+  - [x] Wire configuration knobs for selecting internal vs TCP transports
+  - [x] Migrate existing delegate tests/examples to the internal transport once available. The runnable `remote_auth_service.dart` smoke defaults to `rpc.transport.type: internal`, with `--rawsocket-delegate` retained for the explicit two-router compatibility path.
 - [ ] End-to-end smoke tests (native runtime ↔ router ↔ client)
 - [ ] Benchmarks (throughput/latency per worker configuration)
   - [x] Provide release-build workflow for `ct_ffi` (and document `CONNECTANUM_NATIVE_LIB` usage) dedicated to performance runs.

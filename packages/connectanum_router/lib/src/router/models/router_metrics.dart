@@ -14,6 +14,8 @@ class RouterMetricsSnapshot {
     required this.totalPublicationsRouted,
     required this.activeConnections,
     required this.workerCount,
+    this.workerLoad = const <RouterWorkerLoadMetrics>[],
+    this.workerPool = const RouterWorkerPoolMetrics(),
     this.shutdown = const RouterShutdownMetrics(),
     this.alerts = const RouterAlertMetrics(),
     this.process,
@@ -50,6 +52,12 @@ class RouterMetricsSnapshot {
   /// Number of worker isolates currently running.
   final int workerCount;
 
+  /// Per-worker load counters captured by the boss isolate.
+  final List<RouterWorkerLoadMetrics> workerLoad;
+
+  /// Worker-pool autoscaling configuration and hysteresis counters.
+  final RouterWorkerPoolMetrics workerPool;
+
   /// Graceful shutdown/drain state owned by the binding.
   final RouterShutdownMetrics shutdown;
 
@@ -73,6 +81,8 @@ class RouterMetricsSnapshot {
     int? totalPublicationsRouted,
     int? activeConnections,
     int? workerCount,
+    List<RouterWorkerLoadMetrics>? workerLoad,
+    RouterWorkerPoolMetrics? workerPool,
     RouterShutdownMetrics? shutdown,
     RouterAlertMetrics? alerts,
     RouterProcessMetrics? process,
@@ -92,6 +102,8 @@ class RouterMetricsSnapshot {
           totalPublicationsRouted ?? this.totalPublicationsRouted,
       activeConnections: activeConnections ?? this.activeConnections,
       workerCount: workerCount ?? this.workerCount,
+      workerLoad: workerLoad ?? this.workerLoad,
+      workerPool: workerPool ?? this.workerPool,
       shutdown: shutdown ?? this.shutdown,
       alerts: alerts ?? this.alerts,
       process: process ?? this.process,
@@ -110,10 +122,162 @@ class RouterMetricsSnapshot {
     'total_publications_routed': totalPublicationsRouted,
     'active_connections': activeConnections,
     'worker_count': workerCount,
+    'workers': workerLoad
+        .map((worker) => worker.toJson())
+        .toList(growable: false),
+    'worker_pool': workerPool.toJson(),
     'shutdown': shutdown.toJson(),
     'alerts': alerts.toJson(),
     if (process != null) 'process': process!.toJson(),
     if (transport != null) 'transport': transport!.toJson(),
+  };
+}
+
+/// Worker-pool autoscaling metrics observed by the router boss.
+@immutable
+class RouterWorkerPoolMetrics {
+  const RouterWorkerPoolMetrics({
+    this.minWorkers = 0,
+    this.maxWorkers = 0,
+    this.pendingIsolates = 0,
+    this.scaleUpPressureTicks = 0,
+    this.scaleDownIdleTicks = 0,
+    this.scaleUpsTotal = 0,
+    this.scaleDownsTotal = 0,
+    this.scaleDownTimeoutsTotal = 0,
+  });
+
+  /// Configured minimum worker isolates for the pool.
+  final int minWorkers;
+
+  /// Configured maximum worker isolates for the pool.
+  final int maxWorkers;
+
+  /// Worker isolates spawned by the boss but not yet registered.
+  final int pendingIsolates;
+
+  /// Current consecutive pressure ticks toward the scale-up threshold.
+  final int scaleUpPressureTicks;
+
+  /// Current consecutive idle ticks toward the scale-down threshold.
+  final int scaleDownIdleTicks;
+
+  /// Total pressure-triggered scale-up attempts since router start.
+  final int scaleUpsTotal;
+
+  /// Total scale-down retirements since router start.
+  final int scaleDownsTotal;
+
+  /// Total scale-down retirements that exceeded the drain timeout.
+  final int scaleDownTimeoutsTotal;
+
+  Map<String, Object?> toJson() => {
+    'min_workers': minWorkers,
+    'max_workers': maxWorkers,
+    'pending_isolates': pendingIsolates,
+    'scale_up_pressure_ticks': scaleUpPressureTicks,
+    'scale_down_idle_ticks': scaleDownIdleTicks,
+    'scale_ups_total': scaleUpsTotal,
+    'scale_downs_total': scaleDownsTotal,
+    'scale_down_timeouts_total': scaleDownTimeoutsTotal,
+  };
+}
+
+/// Per-worker load counters observed by the router boss.
+@immutable
+class RouterWorkerLoadMetrics {
+  const RouterWorkerLoadMetrics({
+    required this.id,
+    required this.isolateHash,
+    required this.connectionCount,
+    required this.busy,
+    required this.inFlightDispatches,
+    required this.pendingDispatches,
+    required this.dispatchesTotal,
+    required this.queuedDispatchesTotal,
+    required this.completedDispatchesTotal,
+    required this.errorsTotal,
+    required this.totalBusyDurationMs,
+    required this.totalQueueLatencyMs,
+    required this.maxPendingDispatches,
+    this.currentBusyDurationMs,
+    this.lastDispatchDurationMs,
+    this.oldestPendingDispatchAgeMs,
+    this.lastQueueLatencyMs,
+  });
+
+  /// Stable worker identifier allocated by the boss.
+  final int id;
+
+  /// VM isolate hash, useful for correlating worker lifecycle events.
+  final int isolateHash;
+
+  /// Number of live connections currently assigned to this worker.
+  final int connectionCount;
+
+  /// Whether the worker is currently processing a dispatched native message.
+  final bool busy;
+
+  /// Current dispatches in flight on this worker.
+  final int inFlightDispatches;
+
+  /// Native message handles prefetched by the boss and waiting for dispatch.
+  final int pendingDispatches;
+
+  /// Total native message dispatches assigned to this worker.
+  final int dispatchesTotal;
+
+  /// Total native message handles prefetched into the worker dispatch queue.
+  final int queuedDispatchesTotal;
+
+  /// Dispatches that reported completion or error.
+  final int completedDispatchesTotal;
+
+  /// Dispatches that reported a worker error.
+  final int errorsTotal;
+
+  /// Total observed worker busy time in milliseconds.
+  final int totalBusyDurationMs;
+
+  /// Total observed time native message handles spent queued before dispatch.
+  final int totalQueueLatencyMs;
+
+  /// Highest observed boss-side pending dispatch queue depth.
+  final int maxPendingDispatches;
+
+  /// Current in-flight dispatch duration in milliseconds, when busy.
+  final int? currentBusyDurationMs;
+
+  /// Most recent completed dispatch duration in milliseconds.
+  final int? lastDispatchDurationMs;
+
+  /// Age in milliseconds of the oldest currently pending dispatch, when any.
+  final int? oldestPendingDispatchAgeMs;
+
+  /// Most recent boss-side queue latency in milliseconds.
+  final int? lastQueueLatencyMs;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'isolate_hash': isolateHash,
+    'connection_count': connectionCount,
+    'busy': busy,
+    'in_flight_dispatches': inFlightDispatches,
+    'pending_dispatches': pendingDispatches,
+    'dispatches_total': dispatchesTotal,
+    'queued_dispatches_total': queuedDispatchesTotal,
+    'completed_dispatches_total': completedDispatchesTotal,
+    'errors_total': errorsTotal,
+    'total_busy_duration_ms': totalBusyDurationMs,
+    'total_queue_latency_ms': totalQueueLatencyMs,
+    'max_pending_dispatches': maxPendingDispatches,
+    if (currentBusyDurationMs != null)
+      'current_busy_duration_ms': currentBusyDurationMs,
+    if (lastDispatchDurationMs != null)
+      'last_dispatch_duration_ms': lastDispatchDurationMs,
+    if (oldestPendingDispatchAgeMs != null)
+      'oldest_pending_dispatch_age_ms': oldestPendingDispatchAgeMs,
+    if (lastQueueLatencyMs != null) 'last_queue_latency_ms': lastQueueLatencyMs,
   };
 }
 
@@ -122,12 +286,24 @@ class RouterMetricsSnapshot {
 class RouterProcessMetrics {
   const RouterProcessMetrics({
     required this.processId,
+    required this.operatingSystem,
+    required this.dartVersion,
+    required this.availableProcessors,
     required this.currentRssBytes,
     required this.maxRssBytes,
   });
 
   /// Operating-system process identifier.
   final int processId;
+
+  /// Operating system reported by the Dart VM.
+  final String operatingSystem;
+
+  /// Dart VM version running the router process.
+  final String dartVersion;
+
+  /// Logical processors available to the router process.
+  final int availableProcessors;
 
   /// Current resident set size in bytes.
   final int currentRssBytes;
@@ -137,6 +313,9 @@ class RouterProcessMetrics {
 
   Map<String, Object?> toJson() => {
     'pid': processId,
+    'operating_system': operatingSystem,
+    'dart_version': dartVersion,
+    'available_processors': availableProcessors,
     'current_rss_bytes': currentRssBytes,
     'max_rss_bytes': maxRssBytes,
   };

@@ -304,6 +304,59 @@ void main() {
       expect(alerts.cooldown, const Duration(milliseconds: 900));
       expect(alerts.throttleOnAlert, isFalse);
     });
+
+    test('parses worker pool scale settings', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'type': 'rawsocket',
+              'endpoint': '127.0.0.1:0',
+              'authmethods': ['anonymous'],
+            },
+          ],
+          'worker_pool': <String, Object?>{
+            'min_workers': 1,
+            'max_workers': 4,
+            'scale_up_pending_dispatches': 2,
+            'scale_up_consecutive_ticks': 3,
+            'scale_down_consecutive_ticks': 5,
+            'scale_down_drain_timeout_ms': 250,
+          },
+        },
+      });
+
+      final workerPool = settings.workerPool;
+      expect(workerPool.minWorkers, 1);
+      expect(workerPool.maxWorkers, 4);
+      expect(workerPool.scaleUpPendingDispatches, 2);
+      expect(workerPool.scaleUpConsecutiveTicks, 3);
+      expect(workerPool.scaleDownConsecutiveTicks, 5);
+      expect(
+        workerPool.scaleDownDrainTimeout,
+        const Duration(milliseconds: 250),
+      );
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final encodedWorkerPool = encoded['worker_pool']! as Map;
+      expect(encodedWorkerPool['min_workers'], 1);
+      expect(encodedWorkerPool['max_workers'], 4);
+      expect(encodedWorkerPool['scale_up_pending_dispatches'], 2);
+      expect(encodedWorkerPool['scale_up_consecutive_ticks'], 3);
+      expect(encodedWorkerPool['scale_down_consecutive_ticks'], 5);
+      expect(encodedWorkerPool['scale_down_drain_timeout_ms'], 250);
+
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      expect(decoded.workerPool, workerPool);
+    });
   });
 
   group('RouterSettingsBuilder', () {
@@ -520,6 +573,479 @@ void main() {
         'edge-jwt',
       );
       expect(decoded.internalRealms.single.sessionProfile, 'http-handler');
+    });
+
+    test('parses native-style HTTP method action maps', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/api/items'},
+                    'methods': <String, Object?>{
+                      'get': <String, Object?>{
+                        'type': 'rpc',
+                        'realm': 'realm1',
+                        'procedure': 'com.example.items.list',
+                      },
+                      'POST': <String, Object?>{
+                        'type': 'rpc',
+                        'realm': 'realm1',
+                        'procedure': 'com.example.items.create',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.match.methods, ['GET', 'POST']);
+      expect(route.actionForMethod('get').procedure, 'com.example.items.list');
+      expect(
+        route.actionForMethod('post').procedure,
+        'com.example.items.create',
+      );
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRoute = decoded.listeners.single.http!.routes.single;
+      expect(decodedRoute.match.methods, ['GET', 'POST']);
+      expect(decodedRoute.methodActions.keys, containsAll(['GET', 'POST']));
+      expect(
+        decodedRoute.actionForMethod('POST').procedure,
+        'com.example.items.create',
+      );
+    });
+
+    test('parses HTTP handler route aliases', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/healthz'},
+                    'action': <String, Object?>{
+                      'type': 'custom_handler',
+                      'handler': 'health.handler',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.action.type, HttpRouteActionType.handler);
+      expect(route.action.options['handler'], 'health.handler');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedAction = decoded.listeners.single.http!.routes.single.action;
+      expect(decodedAction.type, HttpRouteActionType.handler);
+      expect(decodedAction.options['handler'], 'health.handler');
+    });
+
+    test('parses catch-all HTTP wildcard routes', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'catch_all': true},
+                    'action': <String, Object?>{
+                      'type': 'rpc',
+                      'realm': 'realm1',
+                      'procedure': 'com.example.http.fallback',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.match.isCatchAll, isTrue);
+      expect(route.match.path, isNull);
+      expect(route.match.prefix, isNull);
+      expect(route.action.procedure, 'com.example.http.fallback');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final encodedRoute =
+          ((encoded['listeners']! as List).single as Map)['http'] as Map;
+      final encodedMatch =
+          ((encodedRoute['routes']! as List).single as Map)['match'] as Map;
+      expect(encodedMatch['catch_all'], isTrue);
+
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      expect(
+        decoded.listeners.single.http!.routes.single.match.isCatchAll,
+        isTrue,
+      );
+    });
+
+    test('parses deterministic HTTP route shorthand aliases', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/'},
+                    'action': <String, Object?>{
+                      'type': 'reservedRealm',
+                      'namespace': 'Public.Http',
+                      'appendMethodSuffix': false,
+                    },
+                  },
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/api/'},
+                    'action': <String, Object?>{
+                      'type': 'namespace',
+                      'targetRealm': 'realm1',
+                      'namespace': 'consumer.api',
+                      'appendMethodSuffix': true,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final routes = settings.listeners.single.http!.routes;
+      expect(routes.first.action.type, HttpRouteActionType.reservedRealm);
+      expect(routes.first.action.namespace, 'Public.Http');
+      expect(routes.first.action.appendMethodSuffix, isFalse);
+      expect(routes.last.action.type, HttpRouteActionType.namespace);
+      expect(routes.last.action.options['targetRealm'], 'realm1');
+      expect(routes.last.action.appendMethodSuffix, isTrue);
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRoutes = decoded.listeners.single.http!.routes;
+      expect(
+        decodedRoutes.first.action.type,
+        HttpRouteActionType.reservedRealm,
+      );
+      expect(decodedRoutes.first.action.appendMethodSuffix, isFalse);
+      expect(decodedRoutes.last.action.options['targetRealm'], 'realm1');
+    });
+
+    test('parses HTTP session proxy route aliases', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/proxy'},
+                    'action': <String, Object?>{
+                      'type': 'sessionProxy',
+                      'procedure': 'com.example.proxy.handle',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.action.type, HttpRouteActionType.sessionProxy);
+      expect(route.action.procedure, 'com.example.proxy.handle');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      expect(
+        decoded.listeners.single.http!.routes.single.action.type,
+        HttpRouteActionType.sessionProxy,
+      );
+    });
+
+    test('parses HTTP publish routes with topics', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/events'},
+                    'action': <String, Object?>{
+                      'type': 'publish',
+                      'topic': 'com.example.http.events',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.action.type, HttpRouteActionType.publish);
+      expect(route.action.topic, 'com.example.http.events');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      expect(
+        decoded.listeners.single.http!.routes.single.action.type,
+        HttpRouteActionType.publish,
+      );
+      expect(
+        decoded.listeners.single.http!.routes.single.action.topic,
+        'com.example.http.events',
+      );
+    });
+
+    test('parses HTTP file routes with directory options', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/static/'},
+                    'action': <String, Object?>{
+                      'type': 'file',
+                      'directory': '/var/www/static',
+                      'contentType': 'text/plain; charset=utf-8',
+                      'cacheControl': 'public, max-age=3600',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.action.type, HttpRouteActionType.file);
+      expect(route.action.directory, '/var/www/static');
+      expect(route.action.contentType, 'text/plain; charset=utf-8');
+      expect(route.action.cacheControl, 'public, max-age=3600');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedAction = decoded.listeners.single.http!.routes.single.action;
+      expect(decodedAction.type, HttpRouteActionType.file);
+      expect(decodedAction.directory, '/var/www/static');
+      expect(decodedAction.contentType, 'text/plain; charset=utf-8');
+      expect(decodedAction.cacheControl, 'public, max-age=3600');
+    });
+
+    test('parses HTTP adapter route aliases and options', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/proxy/'},
+                    'action': <String, Object?>{
+                      'type': 'reverseProxy',
+                      'targetUrl': 'http://127.0.0.1:9000',
+                      'preserveHost': true,
+                    },
+                  },
+                  <String, Object?>{
+                    'match': <String, Object?>{'prefix': '/php/'},
+                    'action': <String, Object?>{
+                      'type': 'fast_cgi',
+                      'delegate': 'unix:/run/php-fpm.sock',
+                      'scriptRoot': '/srv/app/public',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final routes = settings.listeners.single.http!.routes;
+      expect(routes.first.action.type, HttpRouteActionType.reverseProxy);
+      expect(routes.first.action.options['targetUrl'], 'http://127.0.0.1:9000');
+      expect(routes.first.action.options['preserveHost'], isTrue);
+      expect(routes.last.action.type, HttpRouteActionType.fastCgi);
+      expect(routes.last.action.delegate, 'unix:/run/php-fpm.sock');
+      expect(routes.last.action.options['scriptRoot'], '/srv/app/public');
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRoutes = decoded.listeners.single.http!.routes;
+      expect(decodedRoutes.first.action.type, HttpRouteActionType.reverseProxy);
+      expect(decodedRoutes.last.action.type, HttpRouteActionType.fastCgi);
+      expect(decodedRoutes.last.action.delegate, 'unix:/run/php-fpm.sock');
+    });
+
+    test('parses HTTP route middleware settings', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'realms': [
+            <String, Object?>{
+              'name': 'realm1',
+              'auth': <String, Object?>{
+                'authmethods': ['anonymous'],
+              },
+            },
+          ],
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '0.0.0.0:8080',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/limited'},
+                    'action': <String, Object?>{
+                      'type': 'rpc',
+                      'procedure': 'com.example.http.limited',
+                      'rateLimit': <String, Object?>{
+                        'maxRequests': 2,
+                        'windowMs': 1500,
+                        'key': 'header:x-client-id',
+                      },
+                      'concurrencyLimit': <String, Object?>{
+                        'maxConcurrent': 3,
+                        'key': 'bearer',
+                      },
+                      'accessLog': <String, Object?>{
+                        'includeQuery': true,
+                        'includeHeaders': true,
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final rateLimit =
+          settings.listeners.single.http!.routes.single.action.rateLimit!;
+      expect(rateLimit.maxRequests, 2);
+      expect(rateLimit.window, const Duration(milliseconds: 1500));
+      expect(rateLimit.key, 'header:x-client-id');
+      final concurrencyLimit = settings
+          .listeners
+          .single
+          .http!
+          .routes
+          .single
+          .action
+          .concurrencyLimit!;
+      expect(concurrencyLimit.maxConcurrent, 3);
+      expect(concurrencyLimit.key, 'bearer');
+      final accessLog =
+          settings.listeners.single.http!.routes.single.action.accessLog!;
+      expect(accessLog.enabled, isTrue);
+      expect(accessLog.includeQuery, isTrue);
+      expect(accessLog.includeHeaders, isTrue);
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRateLimit =
+          decoded.listeners.single.http!.routes.single.action.rateLimit!;
+      expect(decodedRateLimit.maxRequests, 2);
+      expect(decodedRateLimit.window, const Duration(milliseconds: 1500));
+      expect(decodedRateLimit.key, 'header:x-client-id');
+      final decodedConcurrencyLimit =
+          decoded.listeners.single.http!.routes.single.action.concurrencyLimit!;
+      expect(decodedConcurrencyLimit.maxConcurrent, 3);
+      expect(decodedConcurrencyLimit.key, 'bearer');
+      final decodedAccessLog =
+          decoded.listeners.single.http!.routes.single.action.accessLog!;
+      expect(decodedAccessLog.enabled, isTrue);
+      expect(decodedAccessLog.includeQuery, isTrue);
+      expect(decodedAccessLog.includeHeaders, isTrue);
     });
 
     test('parses multi-protocol listener with http routes', () {
