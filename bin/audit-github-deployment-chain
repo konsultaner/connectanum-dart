@@ -573,6 +573,45 @@ print_github_rc_tags_summary() {
   done <<<"$existing_rc_tags"
 }
 
+followup_rc_tag_suggestions_from_summaries() {
+  local existing_rc_tags="$1"
+  local parsed=""
+  local tag
+  local tag_sha
+  local status
+  local prefix
+  local number
+
+  while IFS=$'\t' read -r tag tag_sha status; do
+    [[ -n "$tag" ]] || continue
+    if [[ "$tag" =~ ^(.+[-_.]rc[-_.]?)([0-9]+)$ ]]; then
+      prefix="${BASH_REMATCH[1]}"
+      number="${BASH_REMATCH[2]}"
+      parsed="${parsed}${prefix}"$'\t'"$((10#$number))"$'\t'"${tag}"$'\n'
+    fi
+  done <<<"$existing_rc_tags"
+
+  [[ -n "$parsed" ]] || return 0
+
+  printf '%s' "$parsed" | awk -F '\t' '
+    NF >= 3 {
+      prefix = $1
+      number = $2 + 0
+      tag = $3
+      if (!(prefix in seen) || number > max[prefix] || (number == max[prefix] && tag > source[prefix])) {
+        seen[prefix] = 1
+        max[prefix] = number
+        source[prefix] = tag
+      }
+    }
+    END {
+      for (prefix in seen) {
+        printf "%s%d\t%s\n", prefix, max[prefix] + 1, source[prefix]
+      }
+    }
+  ' | sort
+}
+
 strict_dart_output_is_deferred_pub_dev_only() {
   local output_file="$1"
   local blocker_lines
@@ -1454,6 +1493,10 @@ print_rc_readiness() {
   local rc_tag
   local selected_rc_tag=""
   local selected_rc_release_state=""
+  local existing_rc_tag_summaries
+  local followup_rc_tag_suggestions
+  local followup_rc_tag
+  local followup_source_tag
   local strict_dart_output
 
   head_sha="$(git rev-parse HEAD)"
@@ -1574,7 +1617,23 @@ print_rc_readiness() {
     printf 'RC tag on checked-out head: not ready; no local or GitHub tag with an rc segment points at %s.\n' "$short_head_sha"
     print_local_rc_tags_summary "$head_sha"
     print_github_rc_tags_summary "$head_sha"
-    printf '  Next action: choose whether release policy should move an existing stale RC tag or create a follow-up tag such as v<version>-rc.2 at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
+    existing_rc_tag_summaries="$(
+      {
+        local_rc_tags_summary "$head_sha"
+        github_rc_tags_summary "$head_sha" 2>/dev/null || true
+      } | sed '/^$/d' | sort -u
+    )"
+    followup_rc_tag_suggestions="$(followup_rc_tag_suggestions_from_summaries "$existing_rc_tag_summaries")"
+    if [[ -n "$followup_rc_tag_suggestions" ]]; then
+      printf 'Suggested follow-up RC tag(s):\n'
+      while IFS=$'\t' read -r followup_rc_tag followup_source_tag; do
+        [[ -n "$followup_rc_tag" ]] || continue
+        printf -- '- %s (next numeric tag after %s; requires release approval before pushing)\n' "$followup_rc_tag" "$followup_source_tag"
+      done <<<"$followup_rc_tag_suggestions"
+    else
+      printf 'Suggested follow-up RC tag(s): unavailable; no existing numeric RC tag suffix was found.\n'
+    fi
+    printf '  Next action: choose whether release policy should move an existing stale RC tag or approve a follow-up RC tag at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
     rc_ready_failed=1
   else
     printf 'RC tag on checked-out head: ready\n'

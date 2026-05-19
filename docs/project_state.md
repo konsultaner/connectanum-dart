@@ -1,19 +1,21 @@
 # Project State
 
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: native prerelease evidence RC audit hardening
-on top of shallow-clone-safe GitHub CI/log exact-head audit regression coverage,
-router-hosted MCP protected resource/prompt auth-rejection smoke coverage, and
-GitHub RC tag evidence audit hardening.
+Last reviewed branch checkpoint: RC-readiness audit tooling now suggests
+non-mutating follow-up RC tag candidates from existing stale numeric RC tags,
+with local full verification clean. GitHub `master` remains promoted at
+`2eced84` with current-head hosted CI, package dry-run, native release dry-run,
+router image dry-run, WAMP profile, kTLS, and strict deployment-chain audit
+evidence.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
-promoted default branch. MCP is RC-ready for the first
-candidate: router-hosted endpoints, auth/session correctness, direct JSON/meta
-API, WAMP pub/sub coverage, resources/prompts, Streamable HTTP compatibility,
-and consumer-package smoke coverage are in place. Further MCP helper
-permutations are post-RC polish unless consumer integration exposes a real
-correctness bug.
+promoted default branch. GitHub `master` now contains the validated branch
+content. MCP is RC-ready for the first candidate: router-hosted endpoints,
+auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
+resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
+coverage are in place. Further MCP helper permutations are post-RC polish unless
+consumer integration exposes a real correctness bug.
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).

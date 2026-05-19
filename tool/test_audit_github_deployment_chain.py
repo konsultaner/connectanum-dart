@@ -69,6 +69,39 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn("RC tag on checked-out head: ready", result.stdout)
         self.assertIn("GitHub RC prerelease: ready (v0.1.0-rc.2)", result.stdout)
 
+    def test_rc_readiness_suggests_followup_rc_tag_for_stale_tags(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        stale_head = self._different_sha(current_head)
+
+        result = self._run_rc_readiness_with_stale_rc_tags(
+            current_head,
+            stale_head,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "Native release dry-run intent: accepted "
+            "(v0.1.0-rc-validation-dry-run, project).",
+            result.stdout,
+        )
+        self.assertIn("Native release hosted evidence gate: ready", result.stdout)
+        self.assertIn("RC tag on checked-out head: not ready", result.stdout)
+        self.assertIn("Existing GitHub RC tags:", result.stdout)
+        self.assertIn(
+            f"- v0.1.0-rc.1 -> {stale_head[:7]} (stale for checked-out head)",
+            result.stdout,
+        )
+        self.assertIn("Suggested follow-up RC tag(s):", result.stdout)
+        self.assertIn(
+            "- v0.1.0-rc.2 (next numeric tag after v0.1.0-rc.1; "
+            "requires release approval before pushing)",
+            result.stdout,
+        )
+        self.assertIn(
+            "GitHub RC prerelease: not ready; no RC tag selected.",
+            result.stdout,
+        )
+
     def _git(self, *args: str) -> str:
         return subprocess.check_output(
             ["git", *args],
@@ -130,6 +163,8 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
                     if args[:1] == ["api"]:
                         path = args[1] if len(args) > 1 else ""
+                        if path == "--paginate" and len(args) > 2:
+                            path = args[2]
                         jq = jq_arg()
 
                         if path == f"repos/{repository}":
@@ -309,6 +344,8 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
                     if args[:1] == ["api"]:
                         path = args[1] if len(args) > 1 else ""
+                        if path == "--paginate" and len(args) > 2:
+                            path = args[2]
                         jq = jq_arg()
 
                         if path == f"repos/{repository}":
@@ -386,6 +423,8 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             print(f"completed\\tsuccess\\t{ci_head}")
                         elif json_fields == "event,jobs":
                             print("workflow_dispatch\\tskipped")
+                        elif json_fields == "jobs" and ".databaseId" in jq:
+                            print("1261\\tPublish Router Image")
                         elif json_fields == "jobs" and ".steps[]" in jq:
                             print("Resolve image metadata\\tcompleted\\tsuccess")
                             print("Upload router image preview\\tcompleted\\tsuccess")
@@ -487,6 +526,269 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     "--branch",
                     "add-router",
                     "--show-rc-readiness",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
+    def _run_rc_readiness_with_stale_rc_tags(
+        self,
+        ci_head: str,
+        stale_head: str,
+    ) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            fake_gh = temp_path / "gh"
+            fake_git = temp_path / "git"
+            fake_curl = temp_path / "curl"
+            real_git = shutil.which("git")
+            self.assertIsNotNone(real_git)
+
+            workflow_paths = "\n".join(
+                sorted(
+                    str(path.relative_to(REPO_ROOT))
+                    for pattern in ("*.yml", "*.yaml")
+                    for path in (REPO_ROOT / ".github" / "workflows").glob(pattern)
+                )
+            )
+
+            fake_gh.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import os
+                    import sys
+
+                    args = sys.argv[1:]
+                    repository = "konsultaner/connectanum-dart"
+                    ci_head = os.environ["FAKE_CI_HEAD"]
+                    workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
+
+
+                    def value_after(name):
+                        return args[args.index(name) + 1] if name in args else ""
+
+
+                    def jq_arg():
+                        return value_after("--jq")
+
+
+                    def json_arg():
+                        return value_after("--json")
+
+
+                    def print_workflows(jq):
+                        if jq == ".workflows[].path":
+                            print("\\n".join(workflow_paths))
+                        elif jq.startswith(".workflows[] |"):
+                            for path in workflow_paths:
+                                name = path.rsplit("/", 1)[-1]
+                                print(f"- {name}: active ({path})")
+                        else:
+                            sys.exit(1)
+
+
+                    workflow_ids = {
+                        "CI": "123",
+                        "Dart Package Publish Dry Run": "124",
+                        "Native Artifacts": "125",
+                        "Router Image": "126",
+                    }
+
+
+                    if args[:1] == ["api"]:
+                        path = args[1] if len(args) > 1 else ""
+                        if path == "--paginate" and len(args) > 2:
+                            path = args[2]
+                        jq = jq_arg()
+
+                        if path == f"repos/{repository}":
+                            values = {
+                                ".default_branch": "master",
+                                ".visibility": "public",
+                                ".private": "false",
+                                ".allow_auto_merge": "false",
+                                ".delete_branch_on_merge": "false",
+                            }
+                            if jq in values:
+                                print(values[jq])
+                            else:
+                                sys.exit(1)
+                        elif path == f"repos/{repository}/branches/add-router":
+                            print("false")
+                        elif path == f"repos/{repository}/branches/master":
+                            print("true")
+                        elif path == f"repos/{repository}/branches/master/protection":
+                            if "required_status_checks" in jq:
+                                print("Fast Checks, Full Verify")
+                            else:
+                                print("false")
+                        elif path == f"repos/{repository}/rulesets":
+                            print("0")
+                        elif path == f"repos/{repository}/actions/workflows":
+                            print_workflows(jq)
+                        elif path == "users/konsultaner/packages/container/connectanum-router":
+                            print("connectanum-router")
+                        elif path == "orgs/konsultaner/packages/container/connectanum-router":
+                            print("connectanum-router")
+                        elif path.startswith(f"repos/{repository}/check-runs/"):
+                            print("")
+                        else:
+                            sys.exit(1)
+                    elif args[:2] == ["run", "list"]:
+                        if "--workflow" in args:
+                            print(workflow_ids.get(value_after("--workflow"), ""))
+                        else:
+                            print(f"- CI #123: completed/success @ {ci_head[:7]} (2026-05-19T00:00:00Z)")
+                    elif args[:2] == ["run", "view"]:
+                        run_id = args[2] if len(args) > 2 else ""
+                        json_fields = json_arg()
+                        jq = jq_arg()
+
+                        if "--log" in args:
+                            if run_id == "125":
+                                print("Release intent accepted: v0.1.0-rc-validation-dry-run (project, dry-run).")
+                                print("Artifact native-release-preview has been successfully uploaded!")
+                            else:
+                                print("Fast Checks completed")
+                                print("Full Verify completed")
+                            sys.exit(0)
+
+                        if json_fields == "status,conclusion,headSha,url,displayTitle,event":
+                            titles = {
+                                "124": "Dart Package Publish Dry Run",
+                                "125": "Native Artifacts",
+                                "126": "Router Image",
+                            }
+                            events = {
+                                "124": "workflow_dispatch",
+                                "125": "workflow_dispatch",
+                                "126": "workflow_dispatch",
+                            }
+                            print(f"Run: {titles[run_id]} #{run_id} completed/success @ {ci_head[:7]}")
+                            print(f"Title: {titles[run_id]}")
+                            print(f"Event: {events[run_id]}")
+                            print(f"URL: https://github.example.invalid/runs/{run_id}")
+                        elif json_fields == "status,conclusion,headSha,url":
+                            print(f"Run: CI #123 completed/success @ {ci_head[:7]}")
+                            print("URL: https://github.example.invalid/runs/123")
+                        elif json_fields == "status,conclusion,headSha,event":
+                            print(f"completed\\tsuccess\\t{ci_head}\\tworkflow_dispatch")
+                        elif json_fields == "status,conclusion,headSha":
+                            print(f"completed\\tsuccess\\t{ci_head}")
+                        elif json_fields == "event,jobs":
+                            print("workflow_dispatch\\tskipped")
+                        elif json_fields == "jobs" and ".databaseId" in jq:
+                            print("1261\\tPublish Router Image")
+                        elif json_fields == "jobs" and ".steps[]" in jq:
+                            print("Resolve image metadata\\tcompleted\\tsuccess")
+                            print("Upload router image preview\\tcompleted\\tsuccess")
+                            print("Log in to GHCR\\tcompleted\\tskipped")
+                            print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
+                        elif json_fields == "jobs":
+                            if run_id == "123":
+                                print("Fast Checks\\tcompleted\\tsuccess")
+                                print("Full Verify\\tcompleted\\tsuccess")
+                            elif run_id == "124":
+                                print("Publish Dry Run\\tcompleted\\tsuccess")
+                            elif run_id == "125":
+                                print("ct_ffi (Linux x64)\\tcompleted\\tsuccess")
+                                print("ct_ffi (Linux arm64)\\tcompleted\\tsuccess")
+                                print("ct_ffi (macOS Apple Silicon)\\tcompleted\\tsuccess")
+                                print("ct_ffi (macOS Intel)\\tcompleted\\tsuccess")
+                                print("ct_ffi (Windows x64)\\tcompleted\\tsuccess")
+                                print("Publish GitHub Release\\tcompleted\\tsuccess")
+                            elif run_id == "126":
+                                print("Publish Router Image\\tcompleted\\tsuccess")
+                            else:
+                                sys.exit(1)
+                        else:
+                            sys.exit(1)
+                    elif args[:2] == ["release", "view"]:
+                        sys.exit(1)
+                    elif args[:2] == ["run", "download"]:
+                        sys.exit(0)
+                    else:
+                        sys.exit(1)
+                    """
+                )
+            )
+            fake_gh.chmod(0o755)
+
+            fake_git.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+
+                    if [[ "${1:-}" == "ls-remote" && "${2:-}" == "--tags" ]]; then
+                      printf '%s\\trefs/tags/v0.1.0-rc.1\\n' "$FAKE_STALE_HEAD"
+                      exit 0
+                    fi
+
+                    if [[ "${1:-}" == "tag" && "${2:-}" == "--points-at" ]]; then
+                      exit 0
+                    fi
+
+                    if [[ "${1:-}" == "tag" && "${2:-}" == "--list" ]]; then
+                      printf 'v0.1.0-rc.1\\n'
+                      exit 0
+                    fi
+
+                    if [[ "${1:-}" == "rev-list" && "${2:-}" == "-n" && "${3:-}" == "1" && "${4:-}" == "v0.1.0-rc.1" ]]; then
+                      printf '%s\\n' "$FAKE_STALE_HEAD"
+                      exit 0
+                    fi
+
+                    exec "$REAL_GIT" "$@"
+                    """
+                )
+            )
+            fake_git.chmod(0o755)
+
+            fake_curl.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+
+                    case "$*" in
+                      *ghcr.io/token*)
+                        printf '{"token":"fake-token"}'
+                        ;;
+                      *tags/list*)
+                        printf '{"name":"konsultaner/connectanum-router","tags":["v0.1.0-rc.1"]}'
+                        ;;
+                      *manifests/v0.1.0-rc.1*)
+                        printf 'HTTP/2 200\\r\\ndocker-content-digest: sha256:abcdef\\r\\n'
+                        ;;
+                      *)
+                        exit 1
+                        ;;
+                    esac
+                    """
+                )
+            )
+            fake_curl.chmod(0o755)
+
+            env = os.environ.copy()
+            env["GH_BIN"] = str(fake_gh)
+            env["FAKE_CI_HEAD"] = ci_head
+            env["FAKE_STALE_HEAD"] = stale_head
+            env["FAKE_WORKFLOW_PATHS"] = workflow_paths
+            env["REAL_GIT"] = real_git or "git"
+            env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
+
+            return subprocess.run(
+                [
+                    str(AUDIT_SCRIPT),
+                    "--branch",
+                    "add-router",
+                    "--require-rc-ready",
                 ],
                 cwd=REPO_ROOT,
                 env=env,

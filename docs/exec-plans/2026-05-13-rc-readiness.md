@@ -268,30 +268,50 @@ decision because `connectanum_client` still depends on private
   fake-`gh` regression now covers a non-draft native prerelease targeting the
   checked-out commit with the expected asset inventory, and `bin/test-fast`
   passed locally.
+- 2026-05-19: GitHub `master` was promoted to `2eced84` with an ancestry-only
+  merge commit that preserves the already-verified `add-router` tree while
+  making the previous GitHub `master` history an ancestor. Pre-merge
+  `bin/test-fast` and post-merge local `bin/verify` passed. The `add-router`
+  branch was pushed to both configured remotes, and GitHub `master` was updated
+  by fast-forward. Hosted evidence for `master` is current and green: CI run
+  `26125709823`, Dart Package Publish Dry Run `26125709820`, WAMP Profile
+  Benchmarks `26125709822`, kTLS Validation `26125709821`, Native Artifacts
+  dry-run `26126356470`, and Router Image dry-run `26126361337`. The strict
+  deployment-chain audit passed clean latest CI, clean latest CI logs, clean
+  Dart package dry-run, clean native release dry-run, clean router image
+  dry-run, and router package visibility gates for `master`. The first
+  `add-router` CI run for `2eced84` hit a hosted browser test harness flake
+  while loading the web transport test, then passed after rerunning the failed
+  job. Current-head RC tag/prerelease selection remains the only GitHub RC
+  readiness blocker; no RC tag or GitHub Release was created or moved.
+- 2026-05-20: The RC-readiness audit now derives concrete, non-mutating
+  follow-up RC tag suggestions from existing numeric local and GitHub RC tags
+  when no RC tag points at the checked-out head. The fake-`gh` regression covers
+  stale local and GitHub `v0.1.0-rc.1` tags and asserts that the audit suggests
+  `v0.1.0-rc.2` while leaving RC prerelease selection not-ready. Pre-change
+  `bin/test-fast`, focused Bash syntax, the audit regression module,
+  `git diff --check`, a real read-only `master` RC-readiness audit, and full
+  local `bin/verify` passed. No RC tag or GitHub Release was created or moved.
 
 ## Handoff
 
-Active. Router image dry-run build blockers found on `f2f8720`, `7f54fbb`, and
-`f30aa7f` are fixed, native HTTP/1 idle-timeout diagnostics no longer pollute
-router-hosted MCP consumer smoke logs, the Router Image workflow/audit path is
-hardened against Node 20 deprecation annotations, and the router-hosted MCP
-consumer smoke now rejects missing credentials across protected direct JSON and
-Streamable resource/prompt helper paths. The deployment-chain audit now rejects
-stale hosted CI/log runs whose `headSha` does not match the checked-out commit,
-so RC readiness cannot accidentally rely on older green branch evidence.
-The exact-head fake-`gh` regression is shallow-clone safe, so GitHub Fast
-Checks can run it from the default one-commit checkout. Relevant Dart package,
-native release, and router image dry-run evidence is still clean; RC readiness
-can also use inspected non-draft native prerelease evidence when the prerelease
-targets the checked-out commit and exposes the expected asset inventory. The
-strict deployment-chain audit passes the Dart package dry-run, native release
-dry-run, router image dry-run, and router package visibility gates when CI/log
-evidence is current.
-The audit verifies public GHCR registry metadata before falling back to GitHub
-Packages metadata, and the router package visibility gate passes because
+Active. GitHub `master` now points at `2eced84`, the same tree as the validated
+`add-router` head, and the previous GitHub `master` history is an ancestor of
+the promoted commit. Local `bin/test-fast` and `bin/verify` passed for the
+merge, and hosted `master` evidence is current and green for CI, Dart package
+dry-run, WAMP profile benchmarks, kTLS validation, Native Artifacts dry-run, and
+Router Image dry-run. The strict deployment-chain audit passes on `master` with
+clean current-head CI/log, Dart package dry-run, native release dry-run, router
+image dry-run, and router package visibility gates. The audit verifies public
+GHCR registry metadata before falling back to GitHub Packages metadata, and the
+router package visibility gate passes because
 `ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
-`v0.1.0-rc.1` and a manifest digest. Continue with RC tag/prerelease selection
-for the current head. The audit inventories stale local and GitHub RC tags and
-reports that the existing `v0.1.0-rc.1` tag points at the older `47bbf9c`
-commit in both sources, not the current candidate head; retagging or choosing
-a follow-up RC tag remains a release decision.
+`v0.1.0-rc.1` and a manifest digest.
+
+Continue with RC tag/prerelease selection for `2eced84`. The audit inventories
+stale local and GitHub RC tags and reports that the existing `v0.1.0-rc.1` tag
+points at older commit `47bbf9c`, not the current candidate head. It now
+suggests `v0.1.0-rc.2` as the next numeric follow-up tag while still reporting
+RC prerelease selection as not-ready. Moving the stale tag or approving a
+follow-up RC tag remains a release decision. No RC tag or GitHub Release was
+created or moved during the master-promotion or audit-tooling work.
