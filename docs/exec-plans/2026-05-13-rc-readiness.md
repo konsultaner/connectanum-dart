@@ -22,6 +22,9 @@ decision because `connectanum_client` still depends on private
   RC definition: GitHub prerelease readiness can pass when pub.dev publishing is
   intentionally deferred and the only strict Dart package blocker is the known
   private `connectanum_core` dependency.
+- Accept inspected native GitHub prerelease evidence for RC readiness while
+  keeping the standalone native release dry-run audit gate strictly
+  non-mutating.
 - Add an explicit non-mutating Router Image dry-run audit gate so container
   build validation is tracked separately from GHCR package visibility/publish
   approval.
@@ -258,6 +261,13 @@ decision because `connectanum_client` still depends on private
   run SHAs instead of resolving `HEAD~1`, keeping the test valid in shallow
   GitHub Actions checkouts. Focused Bash syntax checks, the fake-`gh`
   regression, `git diff --check`, and `bin/test-fast` passed locally.
+- 2026-05-19: The RC-readiness audit now accepts inspected Native Artifacts
+  prerelease publish evidence as native hosted evidence only in RC-readiness
+  mode. The standalone native release dry-run gate remains strict: it still
+  requires a non-mutating dry-run intent and release-preview artifact. The
+  fake-`gh` regression now covers a non-draft native prerelease targeting the
+  checked-out commit with the expected asset inventory, and `bin/test-fast`
+  passed locally.
 
 ## Handoff
 
@@ -271,7 +281,9 @@ stale hosted CI/log runs whose `headSha` does not match the checked-out commit,
 so RC readiness cannot accidentally rely on older green branch evidence.
 The exact-head fake-`gh` regression is shallow-clone safe, so GitHub Fast
 Checks can run it from the default one-commit checkout. Relevant Dart package,
-native release, and router image dry-run evidence is still clean; and the
+native release, and router image dry-run evidence is still clean; RC readiness
+can also use inspected non-draft native prerelease evidence when the prerelease
+targets the checked-out commit and exposes the expected asset inventory. The
 strict deployment-chain audit passes the Dart package dry-run, native release
 dry-run, router image dry-run, and router package visibility gates when CI/log
 evidence is current.

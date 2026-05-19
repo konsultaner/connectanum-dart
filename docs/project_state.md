@@ -2,13 +2,13 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: shallow-clone-safe GitHub CI/log exact-head
-audit regression coverage on top of router-hosted MCP protected
-resource/prompt auth-rejection smoke coverage and GitHub RC tag evidence audit
-hardening.
+Last reviewed branch checkpoint: native prerelease evidence RC audit hardening
+on top of shallow-clone-safe GitHub CI/log exact-head audit regression coverage,
+router-hosted MCP protected resource/prompt auth-rejection smoke coverage, and
+GitHub RC tag evidence audit hardening.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
-Current milestone: Release-candidate readiness for a GitHub prerelease
-`v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
+Current milestone: Release-candidate readiness for a GitHub prerelease from the
+promoted default branch. MCP is RC-ready for the first
 candidate: router-hosted endpoints, auth/session correctness, direct JSON/meta
 API, WAMP pub/sub coverage, resources/prompts, Streamable HTTP compatibility,
 and consumer-package smoke coverage are in place. Further MCP helper
