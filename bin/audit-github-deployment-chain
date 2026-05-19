@@ -52,8 +52,8 @@ Options:
                              Exit non-zero unless the latest relevant Router
                              Image dry-run workflow completed successfully,
                              uploaded the preview artifact, skipped GHCR login,
-                             and still covers the checked-out router image
-                             inputs.
+                             has no warning/failure check annotations, and still
+                             covers the checked-out router image inputs.
   --require-router-package   Exit non-zero unless the GHCR router package is
                              visible through the GitHub Packages API.
   --require-workflows-visible
@@ -458,6 +458,73 @@ latest_router_image_dry_run_id() {
       --json databaseId \
       --jq '.[].databaseId'
   )
+}
+
+print_router_image_annotation_gate() {
+  local run_id="$1"
+  local run_jobs
+  local job_id
+  local job_name
+  local annotations
+  local annotation_level
+  local annotation_path
+  local annotation_line
+  local annotation_message
+  local location
+  local failed=0
+
+  run_jobs="$(
+    "$gh_bin" run view "$run_id" \
+      --repo "$repository" \
+      --json jobs \
+      --jq '.jobs[] | [.databaseId, .name] | @tsv'
+  )"
+
+  if [[ -z "$run_jobs" ]]; then
+    printf 'Finding: latest Router Image dry-run has no jobs for annotation inspection.\n'
+    return 1
+  fi
+
+  while IFS=$'\t' read -r job_id job_name; do
+    [[ -n "$job_id" ]] || continue
+
+    if ! annotations="$(
+      "$gh_bin" api \
+        --paginate \
+        "repos/${repository}/check-runs/${job_id}/annotations" \
+        --jq '.[] | select(.annotation_level == "warning" or .annotation_level == "failure") | [.annotation_level, (.path // ""), (.start_line // ""), .message] | @tsv'
+    )"; then
+      printf 'Finding: failed to inspect Router Image dry-run annotations for job %s.\n' "$job_name"
+      failed=1
+      continue
+    fi
+
+    [[ -n "$annotations" ]] || continue
+
+    while IFS=$'\t' read -r annotation_level annotation_path annotation_line annotation_message; do
+      [[ -n "$annotation_level" ]] || continue
+      location=""
+      if [[ -n "$annotation_path" ]]; then
+        location=" (${annotation_path}"
+        if [[ -n "$annotation_line" ]]; then
+          location="${location}:${annotation_line}"
+        fi
+        location="${location})"
+      fi
+      printf 'Finding: Router Image dry-run check annotation on %s%s: %s: %s\n' \
+        "$job_name" \
+        "$location" \
+        "$annotation_level" \
+        "$annotation_message"
+      failed=1
+    done <<<"$annotations"
+  done <<<"$run_jobs"
+
+  if [[ "$failed" -eq 0 ]]; then
+    printf 'Router image dry-run check annotations: clean.\n'
+  fi
+
+  return "$failed"
 }
 
 dart_package_publish_sensitive_changes_since() {
@@ -976,6 +1043,10 @@ print_router_image_dry_run_gate() {
       printf 'Finding: latest Router Image dry-run did not complete the multi-arch build step.\n'
       failed=1
     fi
+  fi
+
+  if ! print_router_image_annotation_gate "$run_id"; then
+    failed=1
   fi
 
   current_head_sha="$(git rev-parse HEAD)"

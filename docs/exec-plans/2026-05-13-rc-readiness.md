@@ -170,15 +170,37 @@ decision because `connectanum_client` still depends on private
   non-timeout protocol and I/O read errors. Pre-change `bin/test-fast` passed
   and exposed the timeout diagnostic noise. Focused native regression,
   generated consumer-package smoke output scan, `git diff --check`, and full
-  local `bin/verify` passed.
+  local `bin/verify` passed. Commit `f0c1590`
+  (`fix: silence expected http1 idle timeouts`) was pushed to both configured
+  remotes. GitHub CI run `26098749788`, GitHub WAMP Profile Benchmarks run
+  `26098749790`, GitHub kTLS Validation run `26098749771`, GitHub `Native
+  Artifacts` dry-run `26099397722`, GitHub `Router Image` dry-run
+  `26099397318`, and the strict deployment-chain audit all passed for the new
+  head. RC readiness remains blocked by router image package visibility/publish
+  approval and current-head RC tag/prerelease selection; pub.dev remains
+  deferred.
+- 2026-05-19: The Router Image workflow now uses Node 24-backed Docker setup
+  actions (`docker/setup-qemu-action@v4` and `docker/setup-buildx-action@v4`)
+  instead of the Node 20-backed `v3` tags, and the Router Image dry-run audit
+  now fails on warning/failure check-run annotations. Pre-change
+  `bin/test-fast`, primary GitHub action metadata checks for `node24`,
+  `bash -n bin/audit-github-deployment-chain`, Router Image workflow YAML
+  parsing, `git diff --check`, an expected failing
+  `bin/audit-github-deployment-chain --branch add-router
+  --require-clean-router-image-dry-run` against the old Node 20-annotated
+  dry-run, and full local `bin/verify` passed. Fresh hosted CI and Router Image
+  dry-run evidence are pending for the implementation commit.
 
 ## Handoff
 
 Active. Router image dry-run build blockers found on `f2f8720`, `7f54fbb`, and
-`f30aa7f` are fixed, hosted evidence is clean on `6d681ab`, the deployment
-audit can require router image dry-run evidence directly, and native HTTP/1
-idle-timeout diagnostics no longer pollute router-hosted MCP consumer smoke
-logs. Continue with router image package visibility/publish approval, RC
-tag/prerelease selection for the current head, and final RC audit evidence.
-The existing `v0.1.0-rc.1` GitHub tag points at the older `47bbf9c` commit, so
+`f30aa7f` are fixed, native HTTP/1 idle-timeout diagnostics no longer pollute
+router-hosted MCP consumer smoke logs, and the Router Image workflow/audit path
+is locally hardened against Node 20 deprecation annotations. Hosted CI, WAMP
+benchmark, kTLS validation, native artifact dry-run, router image dry-run, and
+strict deployment-chain evidence are clean for `f0c1590`; fresh hosted evidence
+is pending for the Router Image action/audit hardening commit. Continue with
+router image package visibility/publish approval and RC tag/prerelease
+selection for the current head after fresh hosted evidence is clean. The
+existing `v0.1.0-rc.1` GitHub tag points at the older `47bbf9c` commit, so
 retagging or choosing a follow-up RC tag remains a release decision.

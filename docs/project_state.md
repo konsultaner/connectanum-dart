@@ -2,10 +2,9 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: native HTTP/1 keep-alive idle-timeout
-log-cleanliness for router-hosted MCP consumer smoke on top of explicit Router
-Image dry-run audit gating (`d01afce`, `ci: gate router image dry-run
-evidence`).
+Last reviewed branch checkpoint: Router Image Node 24 action readiness and
+check-annotation audit hardening on top of native HTTP/1 keep-alive
+idle-timeout log-cleanliness for router-hosted MCP consumer smoke.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -419,7 +418,20 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: native HTTP/1 keep-alive idle timeouts now
+Current implementation checkpoint: Router Image workflow deprecation
+hardening is complete locally. The workflow now uses the Node 24-backed
+`docker/setup-qemu-action@v4` and `docker/setup-buildx-action@v4` tags, and
+`bin/audit-github-deployment-chain --require-clean-router-image-dry-run` now
+fails when the Router Image dry-run check run has warning/failure annotations.
+Pre-change `bin/test-fast` passed. Primary GitHub action metadata checks
+confirmed the Docker setup/build/publish and artifact actions in this workflow
+use `node24`; `bash -n bin/audit-github-deployment-chain`,
+Router Image workflow YAML parsing, `git diff --check`, an expected failing
+`bin/audit-github-deployment-chain --branch add-router
+--require-clean-router-image-dry-run` against the old Node 20-annotated dry-run,
+and full local `bin/verify` passed on 2026-05-19. Fresh hosted CI and Router
+Image dry-run evidence are pending for the implementation commit.
+Previous implementation checkpoint: native HTTP/1 keep-alive idle timeouts now
 close quietly instead of emitting `http/1 connection read error` diagnostics
 from the native runtime, while non-timeout HTTP/1 protocol and I/O read errors
 remain logged. Pre-change `bin/test-fast` passed and exposed the generated
@@ -427,7 +439,17 @@ router-hosted MCP consumer-package smoke timeout noise. Focused
 `cargo test -p ct_core http1_read_error_logging_skips_expected_idle_timeouts`,
 focused generated consumer-package smoke with an output scan for the removed
 diagnostic, `git diff --check`, and full local `bin/verify` passed on
-2026-05-19.
+2026-05-19. Commit `f0c1590` (`fix: silence expected http1 idle timeouts`) was
+pushed to both configured remotes. GitHub CI run `26098749788`, GitHub WAMP
+Profile Benchmarks run `26098749790`, GitHub kTLS Validation run `26098749771`,
+GitHub `Native Artifacts` dry-run `26099397722` for
+`v0.1.0-rc.1-validation.f0c1590`, and GitHub `Router Image` dry-run
+`26099397318` for `0.1.0-rc.1-validation.f0c1590` all passed. The strict
+deployment-chain audit passed clean latest CI, clean latest CI logs, clean
+relevant Dart package publish dry-run, clean native release dry-run, and clean
+router image dry-run gates for `add-router`; RC readiness remains blocked by
+router image package visibility/publish approval and current-head RC
+tag/prerelease selection, with pub.dev still deferred.
 Previous implementation checkpoint: the deployment-chain audit now has an
 explicit non-mutating Router Image dry-run gate
 (`--require-clean-router-image-dry-run`) that verifies the latest relevant
@@ -1180,7 +1202,19 @@ order.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Native HTTP/1 keep-alive idle-timeout log-cleanliness is complete locally.
+  - Router Image workflow deprecation hardening is complete locally. The
+    workflow now uses the Node 24-backed Docker QEMU/Buildx setup actions, and
+    the router image dry-run audit now fails on warning/failure check-run
+    annotations. Pre-change `bin/test-fast`, action metadata checks for
+    `node24`, `bash -n bin/audit-github-deployment-chain`, Router Image
+    workflow YAML parsing, `git diff --check`, the expected failing
+    `bin/audit-github-deployment-chain --branch add-router
+    --require-clean-router-image-dry-run` against the old Node 20-annotated
+    dry-run, and full local `bin/verify` passed on 2026-05-19. Fresh hosted CI
+    and Router Image dry-run evidence are pending for the implementation
+    commit.
+  - Native HTTP/1 keep-alive idle-timeout log-cleanliness is complete and
+    pushed.
     The native runtime now treats HTTP/1 idle timeouts as expected connection
     lifecycle closures instead of printing `http/1 connection read error`,
     preserving diagnostics for non-timeout protocol and I/O errors. Pre-change
@@ -1189,8 +1223,14 @@ order.
     `cargo test -p ct_core
     http1_read_error_logging_skips_expected_idle_timeouts`, focused generated
     consumer-package smoke with output scan, `git diff --check`, and full local
-    `bin/verify` passed on 2026-05-19. Hosted CI and deployment-chain evidence
-    are pending for the implementation commit.
+    `bin/verify` passed on 2026-05-19. Commit `f0c1590`
+    (`fix: silence expected http1 idle timeouts`) was pushed to both configured
+    remotes. GitHub CI run `26098749788`, GitHub WAMP Profile Benchmarks run
+    `26098749790`, GitHub kTLS Validation run `26098749771`, GitHub `Native
+    Artifacts` dry-run `26099397722`, GitHub `Router Image` dry-run
+    `26099397318`, and the strict deployment-chain audit all passed for
+    `f0c1590`. RC readiness still requires router image package visibility or
+    publish approval and current-head RC tag/prerelease selection.
   - MCP consumer package raw Streamable HTTP WAMP API/pubsub CORS smoke is
     complete and pushed in commit `cc2640d`
     (`test: cover mcp streamable wamp cors`). The slice extends the neutral
