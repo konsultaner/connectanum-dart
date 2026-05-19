@@ -2,8 +2,9 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: native WAMP worker readiness hardening on top
-of `cb4c424` (`release: align rc readiness audit`).
+Last reviewed branch checkpoint: native release dry-run audit and Sigstore
+retry hardening on top of `8058104` (`test: harden native wamp worker
+readiness`).
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -417,8 +418,29 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: native WAMP worker readiness hardening is
-complete locally. Pre-change `bin/test-fast` failed on
+Current implementation checkpoint: native release dry-run audit and Sigstore
+retry hardening is complete locally. GitHub `Native Artifacts` run
+`26088923120` completed successfully for `v0.1.0-rc.1`, but that tag already
+exists on GitHub at commit `47bbf9c`, so it cannot provide no-mutation
+current-head evidence. A follow-up validation dry-run, GitHub `Native
+Artifacts` run `26089627231` for `v0.1.0-rc.1-validation.8058104`, failed
+during Sigstore signing on Linux x64, Linux arm64, and macOS Apple Silicon
+because Cosign could not fetch ambient OIDC credentials. The local workflow
+now retries Cosign `sign-blob` and `verify-blob` calls up to three attempts,
+and the deployment-chain audit now accepts both project and native dry-run
+release-intent lines. Pre-change `bin/test-fast` passed on 2026-05-19, and
+focused local checks passed for `bash -n bin/audit-github-deployment-chain`,
+workflow YAML parsing, `git diff --check`, and the audit dry-run intent parser.
+Full local `bin/verify` passed on 2026-05-19 before commit. RC readiness
+remains blocked by current-head hosted native dry-run evidence, invisible
+`ghcr.io/konsultaner/connectanum-router`, and missing current-head RC
+tag/prerelease; pub.dev publishing remains intentionally deferred.
+Previous pushed implementation commit:
+`8058104` (`test: harden native wamp worker readiness`; hosted CI and
+deployment-chain evidence clean).
+Previous implementation checkpoint: native WAMP worker readiness hardening is
+complete, pushed, and hosted evidence is clean. Pre-change `bin/test-fast`
+failed on
 `packages/connectanum_bench/test/wamp_transport_integration_test.dart` because
 the native WAMP worker did not report `READY` within the 20s startup budget on
 the ticket-authenticated secure-realm workload. The worker readiness budget and
@@ -428,8 +450,17 @@ repro for the failing test passed after the change, focused native cancel-cycle
 repro passed after rebuilding the stale local `ffi-test` native artifact, and
 the full WAMP transport integration suite passed. Focused `dart analyze` for
 the two touched bench files, `bin/test-fast`, and `bin/verify` passed on
-2026-05-19.
-Previous pushed implementation commit:
+2026-05-19. Commit `8058104` (`test: harden native wamp worker readiness`) was
+pushed to both configured remotes. GitHub `CI` run `26087763061` completed
+successfully with `Fast Checks` and `Full Verify` green, GitHub `WAMP Profile
+Benchmarks` run `26087763027` completed successfully, and GitHub `Dart Package
+Publish Dry Run` run `26087763335` completed successfully. The
+deployment-chain audit passed the clean latest CI, clean latest CI logs, and
+clean relevant Dart package publish dry-run gates for `add-router`. RC
+readiness remains blocked by the stale hosted native release dry-run for the
+current head, invisible `ghcr.io/konsultaner/connectanum-router`, and missing
+RC tag/prerelease; pub.dev publishing remains intentionally deferred.
+Earlier pushed implementation commit:
 `c4302db` (`mcp: add direct json ping helper`; hosted CI and deployment-chain
 evidence clean).
 Previous implementation checkpoint: router-hosted MCP direct JSON `ping` client

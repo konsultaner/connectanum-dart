@@ -83,10 +83,31 @@ decision because `connectanum_client` still depends on private
   local `ffi-test` native artifact was rebuilt during diagnosis, and focused
   WAMP transport repros, the full WAMP transport integration suite,
   `bin/test-fast`, and `bin/verify` passed locally.
+- 2026-05-19: Commit `8058104` (`test: harden native wamp worker readiness`)
+  was pushed to both configured remotes. GitHub `CI` run `26087763061`
+  completed successfully with `Fast Checks` and `Full Verify` green, GitHub
+  `WAMP Profile Benchmarks` run `26087763027` completed successfully, and
+  GitHub `Dart Package Publish Dry Run` run `26087763335` completed
+  successfully. The deployment-chain audit passed the clean latest CI, clean
+  latest CI logs, and clean relevant Dart package publish dry-run gates for
+  `add-router`.
+- 2026-05-19: GitHub `Native Artifacts` run `26088923120` completed
+  successfully for `v0.1.0-rc.1`, but the GitHub tag already exists at
+  `47bbf9c`, so that run is stale-tag evidence rather than current-head
+  no-mutation evidence. A unique validation-tag dry-run, GitHub `Native
+  Artifacts` run `26089627231` for `v0.1.0-rc.1-validation.8058104`, failed
+  during Sigstore signing after Cosign could not fetch ambient OIDC
+  credentials on Linux x64, Linux arm64, and macOS Apple Silicon.
+- 2026-05-19: The native artifact workflow now retries Cosign `sign-blob` and
+  `verify-blob` calls up to three attempts, and the deployment-chain audit now
+  accepts both project and native dry-run release-intent lines. Pre-change
+  `bin/test-fast`, focused local validation, and full local `bin/verify`
+  passed before commit.
 
 ## Handoff
 
-Active. The local branch gate is clean after native WAMP worker readiness
-hardening. Continue with push/hosted evidence, GitHub default-branch promotion,
-required-check configuration, hosted release workflows, and final RC audit
-evidence.
+Active. The current local slice hardens native artifact dry-run evidence after
+the validation dry-run exposed transient Cosign OIDC failures. Continue with
+commit/push, hosted branch gates, a fresh Native Artifacts validation dry-run
+from the pushed workflow, router image package visibility, RC tag/prerelease
+selection for the current head, and final RC audit evidence.

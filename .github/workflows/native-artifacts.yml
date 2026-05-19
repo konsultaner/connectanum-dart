@@ -80,10 +80,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          sign_blob() {
+            local artifact="$1"
+            local attempt
+            local sleep_seconds
+
+            for attempt in 1 2 3; do
+              if cosign sign-blob "$artifact" \
+                --bundle "${artifact}.sigstore.json" \
+                --yes; then
+                return 0
+              fi
+
+              if [[ "$attempt" -eq 3 ]]; then
+                return 1
+              fi
+
+              sleep_seconds=$((attempt * 10))
+              printf 'cosign sign-blob failed for %s on attempt %s; retrying in %ss.\n' \
+                "$artifact" "$attempt" "$sleep_seconds" >&2
+              sleep "$sleep_seconds"
+            done
+          }
+
           for artifact in "$ARCHIVE_PATH" "$CHECKSUM_PATH" "$MANIFEST_PATH"; do
-            cosign sign-blob "$artifact" \
-              --bundle "${artifact}.sigstore.json" \
-              --yes
+            sign_blob "$artifact"
           done
 
       - name: Verify packaged artifact bundles
@@ -95,11 +116,32 @@ jobs:
         run: |
           set -euo pipefail
 
+          verify_blob() {
+            local artifact="$1"
+            local attempt
+            local sleep_seconds
+
+            for attempt in 1 2 3; do
+              if cosign verify-blob "$artifact" \
+                --bundle "${artifact}.sigstore.json" \
+                --certificate-identity "$WORKFLOW_IDENTITY" \
+                --certificate-oidc-issuer https://token.actions.githubusercontent.com; then
+                return 0
+              fi
+
+              if [[ "$attempt" -eq 3 ]]; then
+                return 1
+              fi
+
+              sleep_seconds=$((attempt * 10))
+              printf 'cosign verify-blob failed for %s on attempt %s; retrying in %ss.\n' \
+                "$artifact" "$attempt" "$sleep_seconds" >&2
+              sleep "$sleep_seconds"
+            done
+          }
+
           for artifact in "$ARCHIVE_PATH" "$CHECKSUM_PATH" "$MANIFEST_PATH"; do
-            cosign verify-blob "$artifact" \
-              --bundle "${artifact}.sigstore.json" \
-              --certificate-identity "$WORKFLOW_IDENTITY" \
-              --certificate-oidc-issuer https://token.actions.githubusercontent.com
+            verify_blob "$artifact"
           done
 
       - name: Generate archive attestation

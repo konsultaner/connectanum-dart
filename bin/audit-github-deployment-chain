@@ -657,12 +657,12 @@ print_native_release_dry_run_gate() {
   log_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-native-release-log.XXXXXX")"
   if "$gh_bin" run view "$run_id" --repo "$repository" --log >"$log_file"; then
     release_tag="$(
-      sed -nE 's/.*Release intent accepted: ([^ ]+) \(native, dry-run\)\..*/\1/p' "$log_file" \
+      sed -nE 's/.*Release intent accepted: ([^ ]+) \((native|project), dry-run\)\..*/\1/p' "$log_file" \
         | head -n 1
     )"
 
     if [[ -z "$release_tag" ]]; then
-      printf 'Finding: latest Native Artifacts run did not log accepted native dry-run release intent.\n'
+      printf 'Finding: latest Native Artifacts run did not log accepted dry-run release intent.\n'
       failed=1
     else
       printf 'Native release dry-run intent: accepted (%s).\n' "$release_tag"
