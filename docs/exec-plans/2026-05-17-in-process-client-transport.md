@@ -1,11 +1,14 @@
 # In-Process Client Transport
 
-Status: fifth embedded-application readiness slice was committed and pushed as
-`ce3a8af`. Local and hosted verification gates are clean for the implemented
-transport plan. The RC path for embedded router work stays on the existing
-`RouterSession` bridge. A lower-level router endpoint backed by
-`InProcessTransportPair` is deferred until a consumer integration needs a
-normal `connectanum_client.Client` handshake over an in-memory router endpoint.
+Status: the internal transport plan is implemented. The fifth
+embedded-application readiness slice was committed and pushed as `ce3a8af`;
+the follow-up runnable remote-auth example migration now defaults the public
+smoke to `rpc.transport.type: internal` while retaining `--rawsocket-delegate`
+for the explicit two-router compatibility path. The RC path for embedded router
+work stays on the existing `RouterSession` bridge. A lower-level router
+endpoint backed by `InProcessTransportPair` is deferred until a consumer
+integration needs a normal `connectanum_client.Client` handshake over an
+in-memory router endpoint.
 
 ## Goal
 
@@ -51,6 +54,9 @@ serve as the frame pipe for embedded router/auth-server chaining.
 - Prove a neutral embedded service/application pair can use those helpers for
   RPC and pub/sub without socket coordinates, and wire that smoke into
   `bin/test-fast` on native-capable hosts.
+- Migrate the runnable remote-auth service example and fast-gate smoke to the
+  internal delegate lane by default, while keeping an explicit raw-socket
+  delegate mode for compatibility/regression checks.
 
 ## Verification
 
@@ -140,6 +146,14 @@ serve as the frame pipe for embedded router/auth-server chaining.
   2026-05-18. RC readiness remains blocked by PR #79 review/merge, fresh RC
   tag/prerelease approval, and tag-matched Native Artifacts/Router Image
   release evidence; pub.dev remains intentionally deferred.
+- Pre-edit `bin/test-fast`: passed on 2026-05-19.
+- Focused `dart analyze packages/connectanum_router/example/remote_auth_service.dart`:
+  passed on 2026-05-19.
+- Focused `dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit`:
+  passed on 2026-05-19 and exercised the default in-process delegate lane.
+- Focused `dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit --rawsocket-delegate`:
+  passed on 2026-05-19 and retained the explicit raw-socket delegate path.
+- Full local `bin/verify`: passed on 2026-05-19.
 
 ## Remaining
 

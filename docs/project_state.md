@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-18
+Last updated: 2026-05-19
 Current branch: `codex/post-rc-production-readiness` from GitHub `master`
 after the router workspace promotion.
 RC artifact checkpoint: `47bbf9c`
@@ -20,6 +20,28 @@ are post-RC polish unless consumer integration exposes a real correctness bug.
 Pub.dev publishing remains deferred until package ownership, public versions,
 and release order for the private workspace packages are explicitly decided.
 Current implementation checkpoint:
+The internal remote-auth example/smoke now defaults to the in-process delegate
+lane for downstream/consumer application readiness. The runnable
+`packages/connectanum_router/example/remote_auth_service.dart` example starts a
+single edge router with both the auth-service and application realms when no
+delegate flag is supplied, binds `AuthServerProcedureBinding` through an
+internal `RouterSession`, and configures `remote-ticket` with
+`rpc.transport.type: internal`. The explicit `--rawsocket-delegate` mode keeps
+the old two-router raw-socket compatibility path available for operator
+testing. `ROADMAP.md` now marks the embedded internal transport/auth-server
+subtasks complete, including auth-server router ownership and migration of
+delegate examples/tests to the internal lane. Focused
+`dart analyze packages/connectanum_router/example/remote_auth_service.dart`,
+focused default in-process
+`dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit`,
+focused compatibility
+`dart run packages/connectanum_router/example/remote_auth_service.dart --smoke-and-exit --rawsocket-delegate`,
+and pre-edit `bin/test-fast` passed on 2026-05-19. Full local `bin/verify`
+passed on 2026-05-19. RC readiness remains blocked by PR #79 review/merge, a
+fresh approved RC tag/prerelease, and tag-matched Native/Router release
+evidence; pub.dev remains intentionally deferred.
+
+Previous implementation checkpoint:
 Router auth/session transport metadata is implemented locally and verified for
 downstream/consumer authentication readiness. `TransportMetadata` now carries
 the negotiated protocol plus WebSocket subprotocol and serializer when known.
@@ -30,11 +52,17 @@ Coverage includes the worker remote-auth regression for WebSocket protocol
 metadata, a direct `RemoteWampProcedureDelegate` payload regression, focused
 analyzer coverage for the touched router files, focused
 `remote_wamp_delegate_test.dart` + `router_worker_auth_test.dart`, pre-edit
-`bin/test-fast`, and final full local `bin/verify` on 2026-05-18. Hosted
-CI/dry-run evidence is pending for the next pushed head. RC readiness remains
-blocked by PR #79 review/merge, a fresh approved RC tag/prerelease, and
-tag-matched Native/Router release evidence; pub.dev remains intentionally
-deferred.
+`bin/test-fast`, and final full local `bin/verify` on 2026-05-18. The slice was
+committed and pushed as `0a65737`; hosted PR CI #26024202781, push CI
+#26024201187, PR Dart Package Publish Dry Run #26024202800, push Dart Package
+Publish Dry Run #26024201202, Router Image dry-run #26024887679, and WAMP
+Profile Benchmarks #26024887667 completed successfully for that head. The
+strict deployment-chain audit with latest CI/logs, Dart package dry-run, Router
+Image dry-run, WAMP benchmark, native release relevance, workflow visibility,
+GHCR visibility, and RC-readiness reporting passed the enforced gates on
+2026-05-18. RC readiness remains blocked by PR #79 review/merge, a fresh
+approved RC tag/prerelease, and tag-matched Native/Router release evidence;
+pub.dev remains intentionally deferred.
 
 Previous implementation checkpoint:
 Deployment-chain CI log auditing is hardened and hosted-verified.

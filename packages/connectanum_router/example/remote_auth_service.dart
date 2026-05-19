@@ -17,6 +17,7 @@ const String _ticketSecret = 'ticket-secret';
 
 Future<void> main(List<String> args) async {
   final smokeAndExit = args.contains('--smoke-and-exit');
+  final rawSocketDelegate = args.contains('--rawsocket-delegate');
   String? nativeLibraryPath;
   for (final arg in args) {
     if (!arg.startsWith('--')) {
@@ -43,56 +44,81 @@ Future<void> main(List<String> args) async {
 
   runtime.start();
 
-  final authPort = await _allocatePort();
-  final authRouter = Router(
-    _rawSocketRouterConfig(port: authPort),
-    settings: _buildAuthRouterSettings(port: authPort),
-  );
+  final int? authPort = rawSocketDelegate ? await _allocatePort() : null;
+  final authRouter = rawSocketDelegate
+      ? Router(
+          _rawSocketRouterConfig(port: authPort!),
+          settings: _buildAuthRouterSettings(port: authPort),
+        )
+      : null;
   final edgeRouter = Router(
     _webSocketRouterConfig(),
-    settings: _buildEdgeRouterSettings(authPort: authPort),
+    settings: rawSocketDelegate
+        ? _buildEdgeRouterSettings(authPort: authPort!)
+        : _buildEmbeddedEdgeRouterSettings(),
   );
 
-  final authBinding = authRouter.start(
-    runtime,
-    workerPollInterval: const Duration(milliseconds: 1),
-  );
-  final authSession = await authBinding.createInternalSession(
-    realmUri: _authRealm,
-    authId: 'auth-service',
-    authRole: 'internal',
-  );
   final authServer = AuthServer(
     settings: _buildAuthServerSettings(),
     authTokens: const <String>[_authToken],
     fakeChallengeOnHelloFailure: true,
   );
-  final authProcedures = await AuthServerProcedureBinding.bind(
-    server: authServer,
-    session: authSession,
-  );
 
-  final edgeBinding = edgeRouter.start(
-    runtime,
-    workerPollInterval: const Duration(milliseconds: 1),
-  );
-  final serviceSession = await edgeBinding.createInternalSession(
-    realmUri: _edgeRealm,
-    authId: 'edge-service',
-    authRole: 'service',
-  );
-  final registration = await serviceSession.register('demo.echo');
-  registration.onInvoke(
-    (invocation) => invocation.respondWith(
-      arguments: invocation.arguments ?? const <Object?>[],
-      argumentsKeywords:
-          invocation.argumentsKeywords ?? const <String, Object?>{},
-    ),
-  );
-
+  RouterBinding? authBinding;
+  RouterBinding? edgeBinding;
+  RouterSession? authSession;
+  RouterSession? serviceSession;
+  AuthServerProcedureBinding? authProcedures;
   client_pkg.Client? client;
   client_pkg.Session? userSession;
   try {
+    if (rawSocketDelegate) {
+      authBinding = authRouter!.start(
+        runtime,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      authSession = await authBinding.createInternalSession(
+        realmUri: _authRealm,
+        authId: 'auth-service',
+        authRole: 'internal',
+      );
+      authProcedures = await AuthServerProcedureBinding.bind(
+        server: authServer,
+        session: authSession,
+      );
+      edgeBinding = edgeRouter.start(
+        runtime,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+    } else {
+      edgeBinding = edgeRouter.start(
+        runtime,
+        workerPollInterval: const Duration(milliseconds: 1),
+      );
+      authSession = await edgeBinding.createInternalSession(
+        realmUri: _authRealm,
+        authId: 'auth-service',
+        authRole: 'internal',
+      );
+      authProcedures = await AuthServerProcedureBinding.bind(
+        server: authServer,
+        session: authSession,
+      );
+    }
+    serviceSession = await edgeBinding.createInternalSession(
+      realmUri: _edgeRealm,
+      authId: 'edge-service',
+      authRole: 'service',
+    );
+    final registration = await serviceSession.register('demo.echo');
+    registration.onInvoke(
+      (invocation) => invocation.respondWith(
+        arguments: invocation.arguments ?? const <Object?>[],
+        argumentsKeywords:
+            invocation.argumentsKeywords ?? const <String, Object?>{},
+      ),
+    );
+
     final endpoint = _edgeEndpoint(edgeBinding);
     client = _ticketClient(endpoint, _ticketAuthId, _ticketSecret);
     userSession = await client
@@ -110,9 +136,17 @@ Future<void> main(List<String> args) async {
 
     await _assertFakeChallengeRejectsUnknownUser(endpoint);
 
-    print('Remote auth service running at rawsocket://127.0.0.1:$authPort');
+    if (rawSocketDelegate) {
+      print('Remote auth service running at rawsocket://127.0.0.1:$authPort');
+    } else {
+      print('Remote auth service bound in-process through the edge router.');
+    }
     print('Edge router WebSocket endpoint is $endpoint');
-    print('Authenticated $_ticketAuthId through the remote WAMP auth service.');
+    print(
+      'Authenticated $_ticketAuthId through the '
+      '${rawSocketDelegate ? 'raw-socket' : 'in-process'} '
+      'remote WAMP auth service.',
+    );
     print('Rejected an unknown user through the fake-challenge path.');
 
     if (!smokeAndExit) {
@@ -125,11 +159,11 @@ Future<void> main(List<String> args) async {
   } finally {
     await userSession?.close();
     await client?.disconnect();
-    await serviceSession.close();
-    await authProcedures.close();
-    await authSession.close();
-    await edgeBinding.dispose();
-    await authBinding.dispose();
+    await serviceSession?.close();
+    await authProcedures?.close();
+    await authSession?.close();
+    await edgeBinding?.dispose();
+    await authBinding?.dispose();
     runtime.shutdown();
     runtime.dispose();
     RemoteAuthenticatorRegistry.clear();
@@ -244,6 +278,81 @@ RouterSettings _buildAuthServerSettings() {
           ),
         ),
     );
+  return builder.build();
+}
+
+RouterSettings _buildEmbeddedEdgeRouterSettings() {
+  final listener = ListenerSettingsBuilder('edge-websocket', '127.0.0.1:0')
+    ..setPath('/ws')
+    ..addAuthMethod('ticket')
+    ..addProtocol(ListenerProtocol.websocket)
+    ..setWebSocketOptions(
+      const WebSocketListenerSettings(subprotocols: <String>['wamp.2.json']),
+    );
+
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder(_authRealm)
+        ..setLimits(const RealmLimitSettings())
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('service')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('authenticate.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['call']),
+          ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('authenticate.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['register', 'unregister']),
+          ),
+        ),
+    )
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder(_edgeRealm)
+        ..setLimits(const RealmLimitSettings())
+        ..addAuthMethod(
+          'ticket',
+          options: const {'authenticator': 'remote-ticket'},
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('member')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('demo.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['call']),
+          ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('service')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('demo.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const <String>['register', 'unregister']),
+          ),
+        ),
+    )
+    ..addListenerFromBuilder(listener)
+    ..addAuthenticator(
+      'remote-ticket',
+      const AuthenticatorDefinition(
+        type: 'remote',
+        options: <String, Object?>{
+          'method': 'remote',
+          'allowed_roles': <String>['member'],
+          'auth_token': _authToken,
+          'challenge_timeout_ms': 1000,
+          'rpc': <String, Object?>{
+            'realm': _authRealm,
+            'call_timeout_ms': 2000,
+            'connect_timeout_ms': 2000,
+            'service_auth_id': 'auth-client',
+            'service_auth_role': 'service',
+            'transport': <String, Object?>{'type': 'internal'},
+          },
+        },
+      ),
+    )
+    ..setWorkerPool(const WorkerPoolSettings(minWorkers: 1));
   return builder.build();
 }
 
