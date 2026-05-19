@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: router image dry-run Dockerfile output-dir
-fix on top of `7f54fbb` (`ci: fix router image workspace build`).
+Last reviewed branch checkpoint: router image Rust 1.85 FFI default fix on top
+of `f30aa7f` (`ci: fix router image compile output`).
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -417,22 +417,30 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: router image dry-run build fix is in
-progress locally. GitHub `Router Image` dry-run `26091104743` for
+Current implementation checkpoint: router image Rust 1.85 compatibility fix is
+in progress locally. GitHub `Router Image` dry-run `26091104743` for
 `0.1.0-rc.1-validation.f2f8720` failed before publishing because
 `deploy/docker/Dockerfile` attempted to copy a root `pubspec.lock` that is not
 checked in for this workspace. Commit `7f54fbb` copied only `pubspec.yaml`
 before `dart pub get`, letting the container build generate its own lockfile.
-Follow-up GitHub `Router Image` dry-run `26091677645` for
+GitHub `Router Image` dry-run `26091677645` for
 `0.1.0-rc.1-validation.7f54fbb` progressed to `dart compile exe` and then
 failed because `/out/connectanum_router` could not be opened when `/out` did
-not exist. The Dockerfile now creates `/out` before compiling the router
-runner. Local Docker validation is blocked because the local Docker daemon is
-not running. Full local `bin/verify` passed on 2026-05-19 for this Dockerfile
-output-directory fix.
+not exist. Commit `f30aa7f` creates `/out` before compiling the router runner;
+GitHub CI run `26092286670` passed for that commit. Follow-up GitHub
+`Router Image` dry-run `26092291070` for
+`0.1.0-rc.1-validation.f30aa7f` reached the Docker Rust build and failed
+because the pinned `rust:1.85-bookworm` builder does not implement `Default`
+for raw pointer fields in `ct_ffi` FFI output structs. The FFI layer now
+provides explicit zeroed defaults for those `repr(C)` scalar/pointer buffers.
+Local Docker validation is blocked because the local Docker daemon is not
+running. Local Rust 1.85 release build for `ct_ffi`, `cargo fmt --all --check`
+from `native/transport`, `git diff --check`, and full local `bin/verify`
+passed on 2026-05-19.
 Previous pushed implementation commit:
-`f2f8720` (`ci: harden native artifact dry-run evidence`; hosted CI and
-deployment-chain evidence clean).
+`f30aa7f` (`ci: fix router image compile output`; hosted CI clean; router
+image dry-run advanced to the Rust 1.85 compatibility failure now fixed
+locally).
 Previous implementation checkpoint: native release dry-run audit and Sigstore
 retry hardening is complete, pushed, and hosted evidence is clean. GitHub
 `Native Artifacts` run

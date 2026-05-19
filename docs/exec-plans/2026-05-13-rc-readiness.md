@@ -125,11 +125,22 @@ decision because `connectanum_client` still depends on private
   before compiling the router runner. Local Docker validation is blocked
   because the local Docker daemon is not running. Full local `bin/verify`
   passed on 2026-05-19 for this Dockerfile output-directory fix.
+- 2026-05-19: Commit `f30aa7f` (`ci: fix router image compile output`) was
+  pushed to both configured remotes, and GitHub CI run `26092286670` passed.
+  Follow-up GitHub `Router Image` dry-run `26092291070` for
+  `0.1.0-rc.1-validation.f30aa7f` reached the Docker Rust release build for
+  `ct_ffi`, then failed because the pinned `rust:1.85-bookworm` builder does
+  not implement `Default` for raw pointer fields in `ct_ffi` FFI output
+  structs. A local Rust 1.85 release build for `ct_ffi` reproduced the failure
+  and now passes after adding explicit zeroed defaults for the `repr(C)`
+  scalar/pointer buffers. `cargo fmt --all --check` from `native/transport`,
+  `git diff --check`, and full local `bin/verify` passed on 2026-05-19 for
+  this Rust 1.85 compatibility fix.
 
 ## Handoff
 
-Active. The current local slice fixes the router image dry-run Dockerfile
-output directory assumption and has passed full local `bin/verify`. Continue
+Active. The current local slice fixes the router image dry-run Rust 1.85 FFI
+default compatibility failure and has passed full local `bin/verify`. Continue
 with commit/push, a fresh non-mutating Router Image dry-run from the pushed
 workflow, router image package visibility, RC tag/prerelease selection for the
 current head, hosted release workflows, and final RC audit evidence. The

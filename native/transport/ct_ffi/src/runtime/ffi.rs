@@ -95,8 +95,22 @@ use serde_value::Value as SerdeValue;
 const E2EE_KEY_LEN: usize = 32;
 const E2EE_NONCE_LEN: usize = 24;
 
+// The router image builds with Rust 1.85, where raw pointers do not implement
+// Default. These repr(C) FFI output structs only contain scalar fields and raw
+// pointers, so zero-initialization is the C-compatible empty/null state.
+macro_rules! impl_zeroed_ffi_default {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl Default for $ty {
+                fn default() -> Self {
+                    unsafe { std::mem::zeroed() }
+                }
+            }
+        )+
+    };
+}
+
 #[repr(C)]
-#[derive(Default)]
 pub struct CtHttpHandshakeInfo {
     pub method_ptr: *const u8,
     pub method_len: usize,
@@ -125,14 +139,12 @@ pub struct CtByteBuffer {
 }
 
 #[repr(C)]
-#[derive(Default)]
 pub struct CtHttpBodyView {
     pub data_ptr: *const u8,
     pub data_len: usize,
 }
 
 #[repr(C)]
-#[derive(Default)]
 pub struct CtHttp2HandshakeInfo {
     pub protocol_ptr: *const u8,
     pub protocol_len: usize,
@@ -142,7 +154,6 @@ pub struct CtHttp2HandshakeInfo {
 }
 
 #[repr(C)]
-#[derive(Default)]
 pub struct CtHttp3HandshakeInfo {
     pub protocol_ptr: *const u8,
     pub protocol_len: usize,
@@ -152,7 +163,6 @@ pub struct CtHttp3HandshakeInfo {
 }
 
 #[repr(C)]
-#[derive(Default)]
 pub struct CtHttpConnectionEventInfo {
     pub connection_id: i32,
     pub protocol: i32,
@@ -168,7 +178,6 @@ pub struct CtHttpConnectionEventInfo {
 }
 
 #[repr(C)]
-#[derive(Default)]
 pub struct CtRouterMetricsInfo {
     pub total_events: u64,
     pub graceful_events: u64,
@@ -273,7 +282,6 @@ pub struct CtHttp3StreamInfo {
 }
 
 #[repr(C)]
-#[derive(Default)]
 pub struct CtHttpHeader {
     pub name_ptr: *const u8,
     pub name_len: usize,
@@ -282,14 +290,12 @@ pub struct CtHttpHeader {
 }
 
 #[repr(C)]
-#[derive(Default)]
 pub struct CtStringView {
     pub ptr: *const u8,
     pub len: usize,
 }
 
 #[repr(C)]
-#[derive(Default)]
 pub struct CtWebSocketHandshakeInfo {
     pub key_ptr: *const u8,
     pub key_len: usize,
@@ -299,6 +305,18 @@ pub struct CtWebSocketHandshakeInfo {
     pub version_len: usize,
     pub http_info: CtHttpHandshakeInfo,
 }
+
+impl_zeroed_ffi_default!(
+    CtHttpHandshakeInfo,
+    CtHttpBodyView,
+    CtHttp2HandshakeInfo,
+    CtHttp3HandshakeInfo,
+    CtHttpConnectionEventInfo,
+    CtRouterMetricsInfo,
+    CtHttpHeader,
+    CtStringView,
+    CtWebSocketHandshakeInfo,
+);
 
 fn map_error(err: CoreError) -> c_int {
     match err {
@@ -2650,8 +2668,6 @@ pub extern "C" fn ct_connection_reject_websocket(
 }
 
 #[repr(C)]
-#[repr(C)]
-#[derive(Default)]
 pub struct CtMessageInfo {
     pub serializer: u8,
     pub message_code: u64,
@@ -2679,6 +2695,8 @@ pub struct CtMessageInfo {
     pub string_e_ptr: *const u8,
     pub string_e_len: usize,
 }
+
+impl_zeroed_ffi_default!(CtMessageInfo);
 
 const CT_MESSAGE_FLAG_DIRECT_BIND: u32 = 1 << 0;
 const CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT: u32 = 1 << 1;
