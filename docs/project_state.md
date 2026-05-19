@@ -1,11 +1,9 @@
 # Project State
 
-Last updated: 2026-05-13
+Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: `be89a91`
-(`mcp: smoke consumer direct wamp api helpers`; generated consumer-package
-router-hosted MCP direct WAMP API helper smoke complete with local and hosted
-verification clean)
+Last reviewed branch checkpoint: native WAMP worker readiness hardening on top
+of `cb4c424` (`release: align rc readiness audit`).
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -419,10 +417,22 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Latest pushed implementation commit:
+Current implementation checkpoint: native WAMP worker readiness hardening is
+complete locally. Pre-change `bin/test-fast` failed on
+`packages/connectanum_bench/test/wamp_transport_integration_test.dart` because
+the native WAMP worker did not report `READY` within the 20s startup budget on
+the ticket-authenticated secure-realm workload. The worker readiness budget and
+the direct worker process readiness assertion now use 60s, which keeps the gate
+bounded while covering cold Dart/package/native startup on this host. Focused
+repro for the failing test passed after the change, focused native cancel-cycle
+repro passed after rebuilding the stale local `ffi-test` native artifact, and
+the full WAMP transport integration suite passed. Focused `dart analyze` for
+the two touched bench files, `bin/test-fast`, and `bin/verify` passed on
+2026-05-19.
+Previous pushed implementation commit:
 `c4302db` (`mcp: add direct json ping helper`; hosted CI and deployment-chain
 evidence clean).
-Current implementation checkpoint: router-hosted MCP direct JSON `ping` client
+Previous implementation checkpoint: router-hosted MCP direct JSON `ping` client
 helper readiness is complete and pushed. The implementation adds an explicit
 direct JSON mode to `McpStreamableHttpClient.ping(...)` so active
 Streamable sessions can probe router-hosted MCP endpoints without sending

@@ -16,7 +16,7 @@ class NativeWampWorker {
     required String nativeLibraryPath,
     required String workerScriptPath,
     String? dartExecutable,
-    Duration readyTimeout = const Duration(seconds: 20),
+    Duration readyTimeout = const Duration(seconds: 60),
     Logger? logger,
   }) : nativeLibraryPath = File(nativeLibraryPath).absolute.path,
        workerScriptPath = File(workerScriptPath).absolute.path,

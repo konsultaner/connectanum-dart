@@ -410,7 +410,7 @@ void main() {
             .listen(stderrLines.add);
         try {
           final ready = await stdoutLines.first.timeout(
-            const Duration(seconds: 20),
+            const Duration(seconds: 60),
             onTimeout: () {
               fail(
                 'native WAMP worker did not become ready; stderr:\n'

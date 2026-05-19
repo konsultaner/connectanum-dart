@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-13
+Last updated: 2026-05-19
 
 ## Problem
 
@@ -77,8 +77,16 @@ decision because `connectanum_client` still depends on private
 - 2026-05-13: GitHub `master` is the default release branch. It currently
   represents the old single-package history, so promotion must merge the
   workspace branch into GitHub `master` while keeping the workspace layout.
+- 2026-05-19: Before adding more feature surface, local `bin/test-fast`
+  exposed a native WAMP worker readiness timeout in the bench integration
+  suite. The worker readiness budget was raised from 20s to 60s, the stale
+  local `ffi-test` native artifact was rebuilt during diagnosis, and focused
+  WAMP transport repros, the full WAMP transport integration suite,
+  `bin/test-fast`, and `bin/verify` passed locally.
 
 ## Handoff
 
-Active. Continue with GitHub default-branch promotion, required-check
-configuration, hosted release workflows, and final RC audit evidence.
+Active. The local branch gate is clean after native WAMP worker readiness
+hardening. Continue with push/hosted evidence, GitHub default-branch promotion,
+required-check configuration, hosted release workflows, and final RC audit
+evidence.
