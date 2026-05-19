@@ -11,7 +11,8 @@ WORKDIR /src
 COPY pubspec.yaml ./
 COPY packages packages
 RUN dart pub get
-RUN dart compile exe packages/connectanum_router/bin/connectanum_router.dart -o /out/connectanum_router
+RUN mkdir -p /out \
+    && dart compile exe packages/connectanum_router/bin/connectanum_router.dart -o /out/connectanum_router
 
 FROM debian:bookworm-slim
 RUN apt-get update \

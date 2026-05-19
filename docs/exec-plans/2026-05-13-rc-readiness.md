@@ -117,15 +117,21 @@ decision because `connectanum_client` still depends on private
   `deploy/docker/Dockerfile` copied a root `pubspec.lock` that is not checked
   in for this workspace. The Dockerfile now copies only `pubspec.yaml` before
   `dart pub get`, matching the workspace's generated-lockfile build path.
-  Local Docker validation is blocked because the local Docker daemon is not
-  running; full local `bin/verify` passed before commit.
+- 2026-05-19: Commit `7f54fbb` (`ci: fix router image workspace build`) was
+  pushed to both configured remotes. Follow-up GitHub `Router Image` dry-run
+  `26091677645` for `0.1.0-rc.1-validation.7f54fbb` progressed to
+  `dart compile exe`, then failed because `/out/connectanum_router` could not
+  be opened when `/out` did not exist. The Dockerfile now creates `/out`
+  before compiling the router runner. Local Docker validation is blocked
+  because the local Docker daemon is not running. Full local `bin/verify`
+  passed on 2026-05-19 for this Dockerfile output-directory fix.
 
 ## Handoff
 
 Active. The current local slice fixes the router image dry-run Dockerfile
-lockfile assumption. Continue with commit/push, a fresh non-mutating Router
-Image dry-run from the pushed workflow, router image package visibility, RC
-tag/prerelease selection for the current head, hosted release workflows, and
-final RC audit evidence. The existing `v0.1.0-rc.1` GitHub tag points at the
-older `47bbf9c` commit, so retagging or choosing a follow-up RC tag remains a
-release decision.
+output directory assumption and has passed full local `bin/verify`. Continue
+with commit/push, a fresh non-mutating Router Image dry-run from the pushed
+workflow, router image package visibility, RC tag/prerelease selection for the
+current head, hosted release workflows, and final RC audit evidence. The
+existing `v0.1.0-rc.1` GitHub tag points at the older `47bbf9c` commit, so
+retagging or choosing a follow-up RC tag remains a release decision.

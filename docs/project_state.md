@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: router image dry-run Dockerfile lockfile fix
-on top of `f2f8720` (`ci: harden native artifact dry-run evidence`).
+Last reviewed branch checkpoint: router image dry-run Dockerfile output-dir
+fix on top of `7f54fbb` (`ci: fix router image workspace build`).
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -421,10 +421,15 @@ Current implementation checkpoint: router image dry-run build fix is in
 progress locally. GitHub `Router Image` dry-run `26091104743` for
 `0.1.0-rc.1-validation.f2f8720` failed before publishing because
 `deploy/docker/Dockerfile` attempted to copy a root `pubspec.lock` that is not
-checked in for this workspace. The Dockerfile now copies only `pubspec.yaml`
+checked in for this workspace. Commit `7f54fbb` copied only `pubspec.yaml`
 before `dart pub get`, letting the container build generate its own lockfile.
-Local Docker validation is blocked because the local Docker daemon is not
-running; full local `bin/verify` passed on 2026-05-19 before commit.
+Follow-up GitHub `Router Image` dry-run `26091677645` for
+`0.1.0-rc.1-validation.7f54fbb` progressed to `dart compile exe` and then
+failed because `/out/connectanum_router` could not be opened when `/out` did
+not exist. The Dockerfile now creates `/out` before compiling the router
+runner. Local Docker validation is blocked because the local Docker daemon is
+not running. Full local `bin/verify` passed on 2026-05-19 for this Dockerfile
+output-directory fix.
 Previous pushed implementation commit:
 `f2f8720` (`ci: harden native artifact dry-run evidence`; hosted CI and
 deployment-chain evidence clean).
