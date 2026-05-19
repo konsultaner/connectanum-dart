@@ -49,8 +49,9 @@ decision because `connectanum_client` still depends on private
 - GitHub branch protection requires `Fast Checks` and `Full Verify`.
 - `v0.1.0-rc.1` exists as a non-draft GitHub prerelease with native bundles,
   checksums, and Sigstore metadata.
-- `ghcr.io/konsultaner/connectanum-router:v0.1.0-rc.1` is published and the
-  router package is visible through GitHub Packages.
+- `ghcr.io/konsultaner/connectanum-router:0.1.0-rc.1` is published and the
+  router package is visible through the public GHCR registry API or GitHub
+  Packages metadata fallback.
 - Final audits pass for GitHub-prerelease RC readiness, with pub.dev release
   order explicitly deferred.
 
@@ -188,19 +189,40 @@ decision because `connectanum_client` still depends on private
   parsing, `git diff --check`, an expected failing
   `bin/audit-github-deployment-chain --branch add-router
   --require-clean-router-image-dry-run` against the old Node 20-annotated
-  dry-run, and full local `bin/verify` passed. Fresh hosted CI and Router Image
-  dry-run evidence are pending for the implementation commit.
+  dry-run, and full local `bin/verify` passed. Commit `5a10bd5`
+  (`ci: harden router image action audit`) was pushed to both configured
+  remotes. GitHub CI run `26102726359` passed with `Fast Checks` and
+  `Full Verify` green, GitHub `Router Image` dry-run `26102736224` passed for
+  `0.1.0-rc.1-validation.5a10bd5`, and the strict deployment-chain audit passed
+  clean latest CI, clean latest CI logs, clean relevant Dart package publish
+  dry-run, clean native release dry-run, and clean router image dry-run gates.
+  The Router Image dry-run audit reported check annotations clean. RC readiness
+  gained public GHCR registry package-visibility evidence in the follow-up
+  audit hardening; current-head RC tag/prerelease selection remains blocked on
+  a release decision and pub.dev remains deferred.
+- 2026-05-19: The router package visibility gate now probes public GHCR
+  registry pull metadata before falling back to GitHub Packages metadata:
+  `tags/list` must expose at least one tag and the first visible tag must have
+  a reachable manifest digest. Pre-change `bin/test-fast`, Bash syntax/help
+  checks, `git diff --check`, the focused router package audit, an
+  RC-readiness audit, and full local `bin/verify` completed; all required local
+  gates passed. The package visibility gate currently reports public tag
+  `v0.1.0-rc.1` with manifest digest
+  `sha256:45d168f29a2b4c1c187ed21ff18c0f0539703b66c2709422cc414b360966b737`.
 
 ## Handoff
 
 Active. Router image dry-run build blockers found on `f2f8720`, `7f54fbb`, and
 `f30aa7f` are fixed, native HTTP/1 idle-timeout diagnostics no longer pollute
 router-hosted MCP consumer smoke logs, and the Router Image workflow/audit path
-is locally hardened against Node 20 deprecation annotations. Hosted CI, WAMP
-benchmark, kTLS validation, native artifact dry-run, router image dry-run, and
-strict deployment-chain evidence are clean for `f0c1590`; fresh hosted evidence
-is pending for the Router Image action/audit hardening commit. Continue with
-router image package visibility/publish approval and RC tag/prerelease
-selection for the current head after fresh hosted evidence is clean. The
-existing `v0.1.0-rc.1` GitHub tag points at the older `47bbf9c` commit, so
-retagging or choosing a follow-up RC tag remains a release decision.
+is hardened against Node 20 deprecation annotations. Hosted CI and Router Image
+dry-run evidence are clean for `5a10bd5`, and the strict deployment-chain audit
+passes the clean CI/log, Dart package dry-run, native release dry-run, and
+router image dry-run gates with Router Image check annotations clean. The audit
+now verifies public GHCR registry metadata before falling back to GitHub
+Packages metadata, and the router package visibility gate passes because
+`ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
+`v0.1.0-rc.1` and a manifest digest. Continue with RC tag/prerelease selection
+for the current head. The existing `v0.1.0-rc.1` GitHub tag points at the older
+`47bbf9c` commit, so retagging or choosing a follow-up RC tag remains a release
+decision.

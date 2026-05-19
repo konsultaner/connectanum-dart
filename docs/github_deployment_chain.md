@@ -163,7 +163,7 @@ Before calling a branch head RC-ready, keep the order boring and observable:
 
 ## Current GitHub Controls
 
-Snapshot date: 2026-05-02.
+Snapshot date: 2026-05-19.
 
 - Repository: `konsultaner/connectanum-dart`
 - Visibility: public
@@ -176,23 +176,22 @@ Snapshot date: 2026-05-02.
 `master` is protected. The current protection requires one approving review
 from a code owner and disallows force pushes and branch deletion.
 
-The current gap is required status checks: `master` has no required status
-checks configured. A clean release branch should require at least:
+`master` now has the release-critical required status checks configured. A
+clean release branch should continue to require at least:
 
 - `Fast Checks`
 - `Full Verify`
 
-The current workflow visibility gap is router image publishing:
-`.github/workflows/router-image.yml` exists on `add-router`, but GitHub does
-not expose it through the Actions workflow API because it is not on the default
-branch. `gh workflow view router-image.yml` currently returns `404`, and the
-GHCR package `ghcr.io/konsultaner/connectanum-router` is not visible through
-the GitHub Packages API. Public docs should therefore describe the router image
-as staged until the workflow and package are validated. Manual router image
-workflow dispatches are being kept dry-run by default until that promotion path
-is explicitly validated. Router image publish builds request max-level
-provenance and SBOM attestations; dry-run cache-only builds keep image
-attestations disabled because there is no registry image to attach them to.
+GitHub Actions now exposes the checked-in router image workflow, and
+`ghcr.io/konsultaner/connectanum-router` is reachable through the public GHCR
+registry metadata endpoint. The remaining router image release decision is the
+candidate tag/publish policy for the current promoted head: existing registry
+metadata currently proves package visibility, not that the current branch head
+has been published as the selected RC image. Manual router image workflow
+dispatches are kept dry-run by default until that promotion path is explicitly
+approved. Router image publish builds request max-level provenance and SBOM
+attestations; dry-run cache-only builds keep image attestations disabled
+because there is no registry image to attach them to.
 Manual dry-runs upload `router-image-preview/router-image-metadata.md` so the
 resolved tags, labels, publish mode, and attestation settings are available as
 a downloadable artifact as well as an Actions step summary.

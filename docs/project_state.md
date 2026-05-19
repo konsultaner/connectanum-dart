@@ -418,8 +418,21 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: Router Image workflow deprecation
-hardening is complete locally. The workflow now uses the Node 24-backed
+Current implementation checkpoint: router package visibility audit hardening is
+complete locally. `bin/audit-github-deployment-chain --require-router-package`
+now probes public GHCR registry pull metadata first by reading the visible tag
+list and validating a manifest digest, then falls back to GitHub Packages
+metadata for compatibility. Pre-change `bin/test-fast` passed. Focused checks
+for Bash syntax, help output, `git diff --check`, the router package visibility
+audit, and full local `bin/verify` passed on 2026-05-19. The package visibility
+gate reported public registry tag
+`v0.1.0-rc.1` with manifest digest
+`sha256:45d168f29a2b4c1c187ed21ff18c0f0539703b66c2709422cc414b360966b737`.
+The RC-readiness audit confirmed that readiness is now blocked on current-head
+RC tag/prerelease selection rather than router package visibility; pub.dev
+remains deferred.
+Previous implementation checkpoint: Router Image workflow deprecation
+hardening is complete. The workflow now uses the Node 24-backed
 `docker/setup-qemu-action@v4` and `docker/setup-buildx-action@v4` tags, and
 `bin/audit-github-deployment-chain --require-clean-router-image-dry-run` now
 fails when the Router Image dry-run check run has warning/failure annotations.
@@ -429,8 +442,17 @@ use `node24`; `bash -n bin/audit-github-deployment-chain`,
 Router Image workflow YAML parsing, `git diff --check`, an expected failing
 `bin/audit-github-deployment-chain --branch add-router
 --require-clean-router-image-dry-run` against the old Node 20-annotated dry-run,
-and full local `bin/verify` passed on 2026-05-19. Fresh hosted CI and Router
-Image dry-run evidence are pending for the implementation commit.
+and full local `bin/verify` passed on 2026-05-19. Commit `5a10bd5`
+(`ci: harden router image action audit`) was pushed to both configured remotes.
+GitHub CI run `26102726359` passed with `Fast Checks` and `Full Verify` green,
+GitHub `Router Image` dry-run `26102736224` passed for
+`0.1.0-rc.1-validation.5a10bd5`, and the strict deployment-chain audit passed
+clean latest CI, clean latest CI logs, clean relevant Dart package publish
+dry-run, clean native release dry-run, and clean router image dry-run gates.
+The Router Image dry-run audit reported check annotations clean. RC readiness
+remained blocked by router package visibility and current-head RC
+tag/prerelease selection until the follow-up GHCR registry audit hardening
+above; pub.dev stayed deferred.
 Previous implementation checkpoint: native HTTP/1 keep-alive idle timeouts now
 close quietly instead of emitting `http/1 connection read error` diagnostics
 from the native runtime, while non-timeout HTTP/1 protocol and I/O read errors
@@ -1195,24 +1217,31 @@ The OpenMetrics scrape timeout plan is complete:
 `docs/exec-plans/2026-05-03-openmetrics-scrape-timeout.md`.
 The GitHub deployment-chain readiness plan is paused because the latest
 branch-head audit is clean and remaining RC blockers are operator/deployment
-decisions: branch-protection required checks, default-branch router image/GHCR
-visibility, RC tag/prerelease selection, and Dart package ownership/release
-order.
+decisions: current-head RC tag/prerelease selection and Dart package
+ownership/release order. Branch-protection, workflow visibility, and router
+package visibility gates are ready; the existing `v0.1.0-rc.1` tag still points
+at the older `47bbf9c` commit.
 
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Router Image workflow deprecation hardening is complete locally. The
-    workflow now uses the Node 24-backed Docker QEMU/Buildx setup actions, and
-    the router image dry-run audit now fails on warning/failure check-run
-    annotations. Pre-change `bin/test-fast`, action metadata checks for
-    `node24`, `bash -n bin/audit-github-deployment-chain`, Router Image
-    workflow YAML parsing, `git diff --check`, the expected failing
-    `bin/audit-github-deployment-chain --branch add-router
-    --require-clean-router-image-dry-run` against the old Node 20-annotated
-    dry-run, and full local `bin/verify` passed on 2026-05-19. Fresh hosted CI
-    and Router Image dry-run evidence are pending for the implementation
-    commit.
+  - Router package visibility audit hardening is complete locally.
+    `bin/audit-github-deployment-chain --require-router-package` now probes
+    public GHCR registry pull metadata, validates a manifest digest, and falls
+    back to GitHub Packages metadata only as a compatibility path. Pre-change
+    `bin/test-fast`, focused Bash/help/diff checks, the focused package
+    visibility audit, an RC-readiness audit, and full local `bin/verify`
+    completed on 2026-05-19; all required local gates passed. The package
+    visibility gate reports public tag
+    `v0.1.0-rc.1` with manifest digest
+    `sha256:45d168f29a2b4c1c187ed21ff18c0f0539703b66c2709422cc414b360966b737`.
+    RC readiness still requires current-head RC tag/prerelease selection.
+  - Router Image workflow deprecation hardening is complete and pushed.
+    Commit `5a10bd5` (`ci: harden router image action audit`) was pushed to
+    both configured remotes. GitHub CI run `26102726359`, GitHub `Router Image`
+    dry-run `26102736224`, and the strict deployment-chain audit passed for
+    `5a10bd5`; the Router Image dry-run audit reported check annotations
+    clean.
   - Native HTTP/1 keep-alive idle-timeout log-cleanliness is complete and
     pushed.
     The native runtime now treats HTTP/1 idle timeouts as expected connection

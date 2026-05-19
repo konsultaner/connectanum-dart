@@ -55,7 +55,8 @@ Options:
                              has no warning/failure check annotations, and still
                              covers the checked-out router image inputs.
   --require-router-package   Exit non-zero unless the GHCR router package is
-                             visible through the GitHub Packages API.
+                             visible through the public registry API or
+                             GitHub Packages metadata fallback.
   --require-workflows-visible
                              Exit non-zero unless every checked-in workflow is
                              discoverable through the GitHub Actions API.
@@ -289,6 +290,82 @@ api_jq_optional() {
   fi
 
   "$gh_bin" api "$api_path" --jq "$filter" 2>/dev/null || true
+}
+
+lowercase() {
+  printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+ghcr_registry_package_summary() {
+  local owner="$1"
+  local image_owner
+  local token
+  local tags_json
+  local tags_summary
+  local manifest_tag
+  local manifest_headers
+  local manifest_digest
+
+  image_owner="$(lowercase "$owner")"
+
+  command -v curl >/dev/null 2>&1 || return 2
+  command -v python3 >/dev/null 2>&1 || return 2
+
+  token="$(
+    curl -fsSLG \
+      --data-urlencode "scope=repository:${image_owner}/connectanum-router:pull" \
+      'https://ghcr.io/token' \
+      | python3 -c 'import json, sys; print(json.load(sys.stdin).get("token", ""))'
+  )" || return 1
+
+  [[ -n "$token" ]] || return 1
+
+  tags_json="$(
+    curl -fsSL \
+      -H "Authorization: Bearer ${token}" \
+      -H 'Accept: application/json' \
+      "https://ghcr.io/v2/${image_owner}/connectanum-router/tags/list"
+  )" || return 1
+
+  tags_summary="$(printf '%s\n' "$tags_json" | python3 -c '
+import json
+import sys
+
+data = json.load(sys.stdin)
+name = data.get("name") or ""
+tags = data.get("tags") or []
+if not name or not isinstance(tags, list) or not tags:
+    sys.exit(1)
+
+print(name)
+print(len(tags))
+print(tags[0])
+for tag in tags[:10]:
+    print(tag)
+')" || return 1
+
+  manifest_tag="$(printf '%s\n' "$tags_summary" | sed -n '3p')"
+  [[ -n "$manifest_tag" ]] || return 1
+
+  manifest_headers="$(
+    curl -fsSIL \
+      -H "Authorization: Bearer ${token}" \
+      -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+      "https://ghcr.io/v2/${image_owner}/connectanum-router/manifests/${manifest_tag}"
+  )" || return 1
+
+  manifest_digest="$(
+    printf '%s\n' "$manifest_headers" \
+      | awk 'tolower($1) == "docker-content-digest:" { print $2 }' \
+      | tr -d '\r' \
+      | tail -n 1
+  )"
+
+  [[ -n "$manifest_digest" ]] || return 1
+
+  printf '%s\n' "$tags_summary" | sed -n '1,3p'
+  printf '%s\n' "$manifest_digest"
+  printf '%s\n' "$tags_summary" | sed -n '4,13p'
 }
 
 is_expected_ci_job() {
@@ -1531,6 +1608,24 @@ fi
 printf '\n## Router Container Package\n\n'
 
 router_package=""
+router_registry_summary=""
+router_registry_name=""
+router_registry_tag_count=""
+router_registry_manifest_tag=""
+router_registry_manifest_digest=""
+router_registry_tags_preview=""
+router_registry_status="not-found"
+
+if router_registry_summary="$(ghcr_registry_package_summary "$package_owner" 2>/dev/null)"; then
+  router_registry_name="$(printf '%s\n' "$router_registry_summary" | sed -n '1p')"
+  router_registry_tag_count="$(printf '%s\n' "$router_registry_summary" | sed -n '2p')"
+  router_registry_manifest_tag="$(printf '%s\n' "$router_registry_summary" | sed -n '3p')"
+  router_registry_manifest_digest="$(printf '%s\n' "$router_registry_summary" | sed -n '4p')"
+  router_registry_tags_preview="$(printf '%s\n' "$router_registry_summary" | sed -n '5,14p')"
+  router_registry_status="visible"
+  router_package="connectanum-router"
+fi
+
 if candidate_package="$(
   "$gh_bin" api "users/${package_owner}/packages/container/connectanum-router" \
     --jq '.name' 2>/dev/null
@@ -1543,11 +1638,24 @@ elif candidate_package="$(
   router_package="$candidate_package"
 fi
 
-if [[ -n "$router_package" ]]; then
-  printf 'GHCR package: ghcr.io/%s/%s\n' "$package_owner" "$router_package"
+if [[ "$router_registry_status" == "visible" ]]; then
+  printf 'GHCR registry package: ghcr.io/%s/connectanum-router (public pull metadata reachable)\n' "$(lowercase "$package_owner")"
+  printf 'GHCR registry name: %s\n' "$router_registry_name"
+  printf 'GHCR registry tags visible: %s\n' "$router_registry_tag_count"
+  printf 'GHCR registry manifest probe: %s (%s)\n' "$router_registry_manifest_tag" "$router_registry_manifest_digest"
+  if [[ -n "$router_registry_tags_preview" ]]; then
+    printf 'GHCR registry tag preview:\n'
+    while IFS= read -r router_registry_tag; do
+      [[ -n "$router_registry_tag" ]] || continue
+      printf -- '- %s\n' "$router_registry_tag"
+    done <<<"$router_registry_tags_preview"
+  fi
+elif [[ -n "$router_package" ]]; then
+  printf 'GHCR package metadata: ghcr.io/%s/%s\n' "$package_owner" "$router_package"
+  printf 'Note: public GHCR registry pull metadata is not currently reachable for ghcr.io/%s/connectanum-router; package metadata was visible only through the GitHub Packages API fallback.\n' "$(lowercase "$package_owner")"
 else
-  printf 'GHCR package: not found for ghcr.io/%s/connectanum-router\n' "$package_owner"
-  printf 'Finding: router container package is not currently visible in GitHub Packages.\n'
+  printf 'GHCR package: not found for ghcr.io/%s/connectanum-router\n' "$(lowercase "$package_owner")"
+  printf 'Finding: router container package is not currently visible through the public GHCR registry API or GitHub Packages metadata.\n'
   missing_router_package=1
 fi
 
