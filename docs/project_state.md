@@ -2,9 +2,9 @@
 
 Last updated: 2026-05-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router Image Node 24 action readiness and
-check-annotation audit hardening on top of native HTTP/1 keep-alive
-idle-timeout log-cleanliness for router-hosted MCP consumer smoke.
+Last reviewed branch checkpoint: router-hosted MCP protected resource/prompt
+auth-rejection smoke coverage on top of GitHub RC tag evidence audit
+hardening.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease
 `v0.1.0-rc.1` from the promoted default branch. MCP is RC-ready for the first
@@ -418,14 +418,27 @@ Previous completed exec plan:
 Previous completed exec plan:
 `docs/exec-plans/2026-05-07-mcp-consumer-participant-meta-smoke.md`
 (complete; hosted CI evidence clean).
-Current implementation checkpoint: GitHub RC tag evidence audit hardening is
-complete locally. `bin/audit-github-deployment-chain --show-rc-readiness` now
-uses both local and GitHub RC tags for the checked-out-head tag gate, and the
-RC-readiness view inventories stale tags from both sources when no RC tag
-points at the candidate head. Pre-change `bin/test-fast`, Bash syntax, help
-output, and the focused RC-readiness audit passed on 2026-05-19. The focused
-audit now reports both local and GitHub `v0.1.0-rc.1 -> 47bbf9c` as stale for
-checked-out head `cbe1e1d`, so the remaining release decision is explicit:
+Current implementation checkpoint: router-hosted MCP protected resource/prompt
+helper auth-rejection coverage is complete locally. The generated neutral
+consumer package smoke now verifies that the secure MCP route rejects missing
+credentials for direct JSON `resources/list`, `resources/read`,
+`resources/templates/list`, `prompts/list`, and `prompts/get`; the same
+standard helpers over Streamable HTTP; and direct/Streamable resource-prompt
+batches. Pre-change `bin/test-fast` passed. Post-change `bash -n
+bin/common.sh`, `bin/test-fast`, and full local `bin/verify` passed on
+2026-05-19. No release tag/prerelease action was taken; current-head RC
+tag/prerelease selection remains a release decision.
+Previous implementation checkpoint: GitHub RC tag evidence audit hardening is
+complete and pushed. `bin/audit-github-deployment-chain --show-rc-readiness`
+now uses both local and GitHub RC tags for the checked-out-head tag gate, and
+the RC-readiness view inventories stale tags from both sources when no RC tag
+points at the candidate head. Commit `e25c0c7` (`ci: audit github rc tag
+evidence`) was pushed to both configured remotes. GitHub CI run `26111109838`
+passed with `Fast Checks` and `Full Verify` green, and the strict
+deployment-chain audit passed the clean CI/log, Dart package dry-run, native
+release dry-run, router image dry-run, and router package visibility gates.
+The audit reports both local and GitHub `v0.1.0-rc.1 -> 47bbf9c` as stale for
+checked-out head `e25c0c7`, so the remaining release decision is explicit:
 move the stale tag under release policy or choose a follow-up RC tag.
 Previous implementation checkpoint: RC tag evidence audit hardening is complete
 and pushed. `bin/audit-github-deployment-chain --show-rc-readiness` now lists
@@ -1251,14 +1264,26 @@ at the older `47bbf9c` commit.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - GitHub RC tag evidence audit hardening is complete locally.
+  - Router-hosted MCP protected resource/prompt auth-rejection smoke coverage
+    is complete locally. The generated neutral consumer package smoke now
+    checks missing-credential rejection for direct JSON and Streamable
+    resource/prompt helpers plus resource-prompt batches on the secure MCP
+    route. Pre-change `bin/test-fast` passed; post-change `bash -n
+    bin/common.sh`, `bin/test-fast`, and full local `bin/verify` passed on
+    2026-05-19.
+  - GitHub RC tag evidence audit hardening is complete and pushed.
     `bin/audit-github-deployment-chain --show-rc-readiness` now uses both
     local and GitHub RC tags for the checked-out-head tag gate, and it prints
     stale-tag inventories from both sources when no RC tag points at the
-    candidate head. Pre-change `bin/test-fast`, Bash syntax, help output, and
-    the focused RC-readiness audit passed on 2026-05-19. The focused audit now
-    reports both local and GitHub `v0.1.0-rc.1 -> 47bbf9c` as stale for
-    checked-out head `cbe1e1d`.
+    candidate head. Pre-change `bin/test-fast`, Bash syntax, help output, the
+    focused RC-readiness audit, and full local `bin/verify` passed on
+    2026-05-19. Commit `e25c0c7` (`ci: audit github rc tag evidence`) was
+    pushed to both configured remotes. GitHub CI run `26111109838` passed with
+    `Fast Checks` and `Full Verify` green, and the strict deployment-chain
+    audit passed the clean CI/log, Dart package dry-run, native release
+    dry-run, router image dry-run, and router package visibility gates. The
+    audit reports both local and GitHub `v0.1.0-rc.1 -> 47bbf9c` as stale for
+    checked-out head `e25c0c7`.
   - RC tag evidence audit hardening is complete and pushed.
     `bin/audit-github-deployment-chain --show-rc-readiness` now inventories
     existing local RC tags when no RC tag points at the checked-out head,

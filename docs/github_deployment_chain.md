@@ -243,9 +243,9 @@ For the latest branch-head status, run the clean-CI audit command above. The
 items below are pinned deployment-chain checkpoints, not a replacement for the
 live audit:
 
-- `add-router` RC tag evidence checkpoint `cbe1e1d` passed GitHub `CI` run
-  `26108394380`: `Fast Checks` and `Full Verify` completed successfully.
-- The strict deployment-chain audit passed for `cbe1e1d` on 2026-05-19 with
+- `add-router` RC tag evidence checkpoint `e25c0c7` passed GitHub `CI` run
+  `26111109838`: `Fast Checks` and `Full Verify` completed successfully.
+- The strict deployment-chain audit passed for `e25c0c7` on 2026-05-19 with
   `--require-clean-latest-ci`, `--require-clean-latest-ci-logs`,
   `--require-clean-dart-package-publish-dry-run`,
   `--require-clean-native-release-dry-run`,
@@ -255,7 +255,7 @@ live audit:
   `sha256:45d168f29a2b4c1c187ed21ff18c0f0539703b66c2709422cc414b360966b737`.
   The RC-readiness view now reports the existing local and GitHub tag
   `v0.1.0-rc.1` as stale because both point at `47bbf9c`, not the checked-out
-  head `cbe1e1d`.
+  head `e25c0c7`.
   RC readiness remains blocked on current-head RC tag/prerelease selection;
   pub.dev publishing remains deferred for package ownership, version, and
   release-order decisions.

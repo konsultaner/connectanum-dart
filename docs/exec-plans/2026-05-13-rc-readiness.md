@@ -231,25 +231,40 @@ decision because `connectanum_client` still depends on private
 - 2026-05-19: The RC-readiness audit now uses both local and GitHub RC tags
   for the checked-out-head tag gate, and prints stale-tag inventories from both
   sources when no RC tag points at the candidate head. Pre-change
-  `bin/test-fast`, Bash syntax, help output, and the focused RC-readiness audit
-  passed. The focused audit reports both local and GitHub
-  `v0.1.0-rc.1 -> 47bbf9c` as stale for checked-out head `cbe1e1d`.
+  `bin/test-fast`, Bash syntax, help output, the focused RC-readiness audit,
+  and full local `bin/verify` passed. Commit `e25c0c7` (`ci: audit github rc
+  tag evidence`) was pushed to both configured remotes. GitHub CI run
+  `26111109838` passed with `Fast Checks` and `Full Verify` green, and the
+  strict deployment-chain audit passed clean latest CI, clean latest CI logs,
+  clean relevant Dart package publish dry-run, clean native release dry-run,
+  clean router image dry-run, and router package visibility gates. The audit
+  reports both local and GitHub `v0.1.0-rc.1 -> 47bbf9c` as stale for
+  checked-out head `e25c0c7`.
+- 2026-05-19: The generated neutral consumer package smoke now covers
+  protected MCP route missing-bearer rejection for standard resource/prompt
+  helpers over direct JSON and Streamable HTTP, including `resources/list`,
+  `resources/read`, `resources/templates/list`, `prompts/list`, `prompts/get`,
+  and resource-prompt batch calls. Pre-change `bin/test-fast` passed.
+  Post-change `bash -n bin/common.sh`, `bin/test-fast`, and full local
+  `bin/verify` passed.
 
 ## Handoff
 
 Active. Router image dry-run build blockers found on `f2f8720`, `7f54fbb`, and
 `f30aa7f` are fixed, native HTTP/1 idle-timeout diagnostics no longer pollute
-router-hosted MCP consumer smoke logs, and the Router Image workflow/audit path
-is hardened against Node 20 deprecation annotations. Hosted CI evidence is
-clean for `cbe1e1d`; relevant Dart package, native release, and router image
-dry-run evidence is still clean; and the strict deployment-chain audit passes
-the clean CI/log, Dart package dry-run, native release dry-run, router image
+router-hosted MCP consumer smoke logs, the Router Image workflow/audit path is
+hardened against Node 20 deprecation annotations, and the router-hosted MCP
+consumer smoke now rejects missing credentials across protected direct JSON and
+Streamable resource/prompt helper paths. Hosted CI evidence is clean for
+`e25c0c7`; relevant Dart package, native release, and router image dry-run
+evidence is still clean; and the strict deployment-chain audit passes the
+clean CI/log, Dart package dry-run, native release dry-run, router image
 dry-run, and router package visibility gates. The audit now verifies public
 GHCR registry metadata before falling back to GitHub Packages metadata, and the
 router package visibility gate passes because
 `ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
 `v0.1.0-rc.1` and a manifest digest. Continue with RC tag/prerelease selection
-for the current head. The audit now inventories stale local and GitHub RC tags
-and reports that the existing `v0.1.0-rc.1` tag points at the older `47bbf9c`
-commit in both sources, not the current `cbe1e1d` head, so retagging or
-choosing a follow-up RC tag remains a release decision.
+for the current head. The audit inventories stale local and GitHub RC tags and
+reports that the existing `v0.1.0-rc.1` tag points at the older `47bbf9c`
+commit in both sources, not the last hosted-evidence head `e25c0c7`; retagging
+or choosing a follow-up RC tag remains a release decision.

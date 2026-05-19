@@ -4989,6 +4989,61 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
     );
     await _expectSecureMcpUnauthorized(
       client,
+      label: 'direct JSON resources/list',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.listResourcesDirect(
+          id: 'secure-unauthenticated-direct-resources',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON resources/read',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.readResourceDirect(
+          _resourceUri,
+          id: 'secure-unauthenticated-direct-resource-read',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON resources/templates/list',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.listResourceTemplatesDirect(
+          id: 'secure-unauthenticated-direct-resource-templates',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON prompts/list',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.listPromptsDirect(
+          id: 'secure-unauthenticated-direct-prompts',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON prompts/get',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.getPromptDirect(
+          _promptName,
+          id: 'secure-unauthenticated-direct-prompt-get',
+          arguments: const <String, String>{
+            'taskId': 'T-secure-unauthenticated-direct-prompt-get',
+          },
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
       label: 'direct JSON batch tools/list and tools/call',
       acceptedMessage: acceptedMessage,
       operation: () async {
@@ -5008,6 +5063,52 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
                 'name': _procedure,
                 'arguments': {
                   'taskId': 'T-secure-unauthenticated-direct-batch-tool-call',
+                },
+              },
+            },
+          ],
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON batch resources/prompts',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.postBatchDirect(
+          [
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-resources',
+              'method': 'resources/list',
+              'params': {},
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-resource-read',
+              'method': 'resources/read',
+              'params': {'uri': _resourceUri},
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-resource-templates',
+              'method': 'resources/templates/list',
+              'params': {},
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-prompts',
+              'method': 'prompts/list',
+              'params': {},
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': 'secure-unauthenticated-direct-batch-prompt-get',
+              'method': 'prompts/get',
+              'params': {
+                'name': _promptName,
+                'arguments': {
+                  'taskId': 'T-secure-unauthenticated-direct-batch-prompt-get',
                 },
               },
             },
@@ -5075,6 +5176,61 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
     );
     await _expectSecureMcpUnauthorized(
       client,
+      label: 'Streamable resources/list',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.listResources(
+          id: 'secure-unauthenticated-streamable-resources',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'Streamable resources/read',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.readResource(
+          _resourceUri,
+          id: 'secure-unauthenticated-streamable-resource-read',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'Streamable resources/templates/list',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.listResourceTemplates(
+          id: 'secure-unauthenticated-streamable-resource-templates',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'Streamable prompts/list',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.listPrompts(
+          id: 'secure-unauthenticated-streamable-prompts',
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'Streamable prompts/get',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.getPrompt(
+          _promptName,
+          id: 'secure-unauthenticated-streamable-prompt-get',
+          arguments: const <String, String>{
+            'taskId': 'T-secure-unauthenticated-streamable-prompt-get',
+          },
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
       label: 'Streamable batch tools/list',
       acceptedMessage: acceptedMessage,
       operation: () async {
@@ -5084,6 +5240,50 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
             'id': 'secure-unauthenticated-streamable-batch-tools',
             'method': 'tools/list',
             'params': {},
+          },
+        ]);
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'Streamable batch resources/prompts',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.postBatch([
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-streamable-batch-resources',
+            'method': 'resources/list',
+            'params': {},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-streamable-batch-resource-read',
+            'method': 'resources/read',
+            'params': {'uri': _resourceUri},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-streamable-batch-resource-templates',
+            'method': 'resources/templates/list',
+            'params': {},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-streamable-batch-prompts',
+            'method': 'prompts/list',
+            'params': {},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'secure-unauthenticated-streamable-batch-prompt-get',
+            'method': 'prompts/get',
+            'params': {
+              'name': _promptName,
+              'arguments': {
+                'taskId': 'T-secure-unauthenticated-streamable-batch-prompt-get',
+              },
+            },
           },
         ]);
       },
