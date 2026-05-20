@@ -785,6 +785,7 @@ enum HttpRouteActionType {
   file,
   sessionProxy,
   publish,
+  handler,
 }
 
 HttpRouteActionType httpRouteActionTypeFromString(String value) {
@@ -807,6 +808,10 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
       return HttpRouteActionType.sessionProxy;
     case 'publish':
       return HttpRouteActionType.publish;
+    case 'handler':
+    case 'custom_handler':
+    case 'customHandler':
+      return HttpRouteActionType.handler;
     default:
       throw FormatException('Unknown HTTP route action type "$value"');
   }
@@ -822,6 +827,7 @@ String httpRouteActionTypeToString(HttpRouteActionType type) => switch (type) {
   HttpRouteActionType.file => 'file',
   HttpRouteActionType.sessionProxy => 'session_proxy',
   HttpRouteActionType.publish => 'publish',
+  HttpRouteActionType.handler => 'handler',
 };
 
 @immutable

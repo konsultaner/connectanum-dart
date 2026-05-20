@@ -3003,6 +3003,210 @@ void main() {
     expect((body as NativeHttpResponseText).text, 'OK');
   });
 
+  test('dispatches handler HTTP routes without WAMP fallback', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/health'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.handler,
+                    delegate: 'health',
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+      httpRouteHandlers: {
+        'health': (request) async {
+          expect(request.method, 'POST');
+          expect(request.path, '/health');
+          expect(request.headers['x-test'], 'true');
+          final body = utf8.decode(await request.body);
+          return NativeHttpResponse(
+            status: 202,
+            headers: const {'x-handler': 'dart'},
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'ok',
+              'body': body,
+            }),
+          );
+        },
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 44;
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 3,
+        method: 'POST',
+        target: '/health',
+        path: '/health',
+        protocol: 'http/1.1',
+        headers: const {'x-test': 'true'},
+        body: Uint8List.fromList(utf8.encode('ping')),
+        realm: 'router.http',
+        procedure: 'router.http.handler',
+      ),
+    );
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, 202);
+    expect(response.headers['x-handler'], 'dart');
+    final body = response.body;
+    expect(body, isA<NativeHttpResponseJson>());
+    expect((body as NativeHttpResponseJson).value, {
+      'status': 'ok',
+      'body': 'ping',
+    });
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+    expect(
+      events.any(
+        (event) =>
+            event['type'] == 'http_handler_response_sent' &&
+            event['handlerId'] == 'health' &&
+            event['status'] == 202,
+      ),
+      isTrue,
+    );
+  });
+
+  test('returns structured 501 for unregistered handler HTTP routes', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/health'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.handler,
+                    options: <String, Object?>{'handler': 'missing'},
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 45;
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 4,
+        method: 'GET',
+        target: '/health',
+        path: '/health',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'router.http',
+        procedure: 'router.http.handler',
+      ),
+    );
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.notImplemented);
+    final body = response.body;
+    expect(body, isA<NativeHttpResponseJson>());
+    expect(
+      (body as NativeHttpResponseJson).value,
+      containsPair('reason', 'handler_not_registered'),
+    );
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+    expect(
+      events.any(
+        (event) =>
+            event['type'] == 'http_handler_missing' &&
+            event['handlerId'] == 'missing',
+      ),
+      isTrue,
+    );
+  });
+
   test('creates internal sessions from session profile defaults', () async {
     final runtime = _HandleRuntime();
     final router = Router(

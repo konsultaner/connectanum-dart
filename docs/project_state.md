@@ -2,12 +2,12 @@
 
 Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: WAMP call cancellation now preserves explicit
-unsupported cancel modes from the client to the router so they are rejected
-with `invalid_argument` instead of being silently downgraded to default
-`skip`; router-owned caller disclosure remains enforced across external,
-internal-session, and native forwarding paths. Local full verification is
-clean. GitHub `master` remains fast-forward promoted to `06dee45`; hosted
+Last reviewed branch checkpoint: HTTP bridge custom handler routes are now
+router-hosted via `HttpRouteActionType.handler` and
+`Router.start(httpRouteHandlers: ...)`, with structured
+`handler_not_registered` failures instead of WAMP fallback for missing
+delegates. Local full verification is clean. GitHub `master` remains
+fast-forward promoted to `06dee45`; hosted
 `master` CI run `26138507065`, Native Artifacts dry-run `26138936777`, and the
 strict deployment-chain audit pass at that head. RC readiness remains not-ready
 only because no approved numeric RC tag or GitHub prerelease points at

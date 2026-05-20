@@ -522,6 +522,43 @@ void main() {
       expect(decoded.internalRealms.single.sessionProfile, 'http-handler');
     });
 
+    test('parses handler HTTP route action aliases and delegates', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '127.0.0.1:0',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/health'},
+                    'action': <String, Object?>{
+                      'type': 'custom_handler',
+                      'delegate': 'health-handler',
+                      'timeout_ms': 250,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final action = settings.listeners.single.http!.routes.single.action;
+      expect(action.type, HttpRouteActionType.handler);
+      expect(action.delegate, 'health-handler');
+      expect(action.options['timeout_ms'], 250);
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedAction = decoded.listeners.single.http!.routes.single.action;
+      expect(decodedAction.type, HttpRouteActionType.handler);
+      expect(decodedAction.delegate, 'health-handler');
+      expect(decodedAction.options['timeout_ms'], 250);
+    });
+
     test('parses multi-protocol listener with http routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{

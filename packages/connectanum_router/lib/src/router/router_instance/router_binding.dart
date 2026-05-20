@@ -1,5 +1,34 @@
 part of '../router_instance.dart';
 
+/// Handles an HTTP route that is resolved directly inside the Dart router.
+typedef RouterHttpRouteHandler =
+    FutureOr<NativeHttpResponse> Function(RouterHttpRequest request);
+
+String? _httpRouteHandlerId(HttpRouteAction action) {
+  final delegate = action.delegate?.trim();
+  if (delegate != null && delegate.isNotEmpty) {
+    return delegate;
+  }
+  const optionKeys = [
+    'handler',
+    'handler_id',
+    'handlerId',
+    'callback',
+    'callback_id',
+    'callbackId',
+  ];
+  for (final key in optionKeys) {
+    final value = action.options[key];
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+  }
+  return null;
+}
+
 /// Immutable snapshot of an HTTP request surfaced by the native runtime.
 class RouterHttpRequest {
   RouterHttpRequest({
@@ -70,7 +99,12 @@ class RouterBinding {
     this.workerEntryPoint = defaultRouterWorkerEntryPoint,
     this.workerPollInterval = const Duration(milliseconds: 1),
     this.onEvent,
+    Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
   }) : _pendingEndpoints = List<Endpoint>.unmodifiable(endpoints),
+       _httpRouteHandlers = Map<String, RouterHttpRouteHandler>.unmodifiable(
+         httpRouteHandlers.map((key, value) => MapEntry(key.trim(), value))
+           ..removeWhere((key, _) => key.isEmpty),
+       ),
        _listenerSettingsByEndpoint = Map<String, ListenerSettings>.fromEntries(
          settings.listeners.map(
            (listener) => MapEntry(
@@ -86,6 +120,7 @@ class RouterBinding {
   final RouterWorkerEntryPoint workerEntryPoint;
   final Duration workerPollInterval;
   final void Function(Object event)? onEvent;
+  final Map<String, RouterHttpRouteHandler> _httpRouteHandlers;
 
   final List<Endpoint> _pendingEndpoints;
   final List<RouterListener> _listeners = [];
@@ -1132,6 +1167,89 @@ class RouterBinding {
           listenerSettings: listenerSettings,
           route: matchedRoute!,
           sessionProfile: sessionProfile,
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.handler) {
+      final handlerId = _httpRouteHandlerId(matchedRoute!.action);
+      final handler = handlerId == null ? null : _httpRouteHandlers[handlerId];
+      if (handler == null) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_handler_missing',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+          if (handlerId != null) 'handlerId': handlerId,
+        });
+        try {
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: retainedHandshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.notImplemented,
+              body: NativeHttpResponseJson(<String, Object?>{
+                'status': 'error',
+                'reason': 'handler_not_registered',
+                'message': 'HTTP route handler is not registered',
+                if (handlerId != null) 'handler': handlerId,
+              }),
+            ),
+          );
+        } finally {
+          retainedHandshake?.release();
+        }
+        return;
+      }
+      try {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_handler_request',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+          'handlerId': handlerId,
+        });
+        final response = await handler(request);
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: response,
+        );
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_handler_response_sent',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+          'handlerId': handlerId,
+          'status': response.status,
+        });
+      } catch (error, stackTrace) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_handler_error',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+          'handlerId': handlerId,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        });
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.internalServerError,
+            body: NativeHttpResponseJson(const <String, Object?>{
+              'status': 'error',
+              'reason': 'handler_failed',
+              'message': 'HTTP route handler failed',
+            }),
+          ),
         );
       } finally {
         retainedHandshake?.release();

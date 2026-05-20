@@ -23,6 +23,7 @@ class Router {
     RouterSettings? settings,
     void Function(Object event)? onEvent,
     bool activateListeners = true,
+    Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
   }) {
     final routerSettings = settings ?? _settings ?? _buildDefaultSettings();
     final configBytes = buildNativeConfigJson(routerSettings);
@@ -39,6 +40,7 @@ class Router {
       workerEntryPoint: workerEntryPoint ?? defaultRouterWorkerEntryPoint,
       workerPollInterval: workerPollInterval,
       onEvent: onEvent,
+      httpRouteHandlers: httpRouteHandlers,
     );
     if (activateListeners) {
       binding.activateListeners();
@@ -239,6 +241,18 @@ class Router {
           'type': 'translation',
           'realm': realm,
           'procedure': 'connectanum.mcp.handle',
+        };
+      case HttpRouteActionType.handler:
+        final handlerId = _httpRouteHandlerId(action);
+        if (handlerId == null || handlerId.isEmpty) {
+          throw StateError(
+            'HTTP handler routes require action.delegate or action.options.handler.',
+          );
+        }
+        return const <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': 'router.http.handler',
         };
       default:
         throw StateError(
