@@ -6922,6 +6922,129 @@ Future<void> _assertMcpDirectJsonNotificationCorsResponse(
     invalidToolNotificationTaskId,
     label: '$label invalid direct JSON tool notification-only batch',
   );
+
+  final pubSubSubscribeId =
+      '$label-direct-cors-pubsub-notification-subscribe';
+  final pubSubSubscribe = await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': pubSubSubscribeId,
+      'method': 'connectanum.pubsub.subscribe',
+      'params': {'topic': _topic, 'queueLimit': 4},
+    },
+    label: '$label direct JSON pub/sub notification subscribe',
+    bearerToken: bearerToken,
+  );
+  final pubSubSubscription = _jsonRpcStructuredContent(
+    pubSubSubscribe,
+    id: pubSubSubscribeId,
+    label: 'MCP $label direct JSON pub/sub notification subscribe',
+  );
+  final pubSubHandle = pubSubSubscription['handle'];
+  if (pubSubHandle is! String ||
+      pubSubHandle.isEmpty ||
+      pubSubSubscription['topic'] != _topic ||
+      pubSubSubscription['queueLimit'] != 4) {
+    throw StateError(
+      'MCP $label direct JSON pub/sub notification subscribe returned '
+      'invalid content.',
+    );
+  }
+
+  try {
+    final pubSubNotificationTaskId =
+        'T-$label-direct-cors-pubsub-notification';
+    final invalidPubSubNotificationTaskId =
+        'T-$label-direct-cors-invalid-pubsub-notification';
+    final pubSubBatch = await _mcpRawDirectJsonRpcResponse(
+      client,
+      endpoint,
+      <Map<String, Object?>>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'connectanum.pubsub.publish',
+          'params': <String, Object?>{
+            'topic': _topic,
+            'argumentsKeywords': <String, Object?>{
+              'taskId': pubSubNotificationTaskId,
+            },
+            'acknowledge': true,
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'connectanum.pubsub.publish',
+          'params': <String, Object?>{
+            'argumentsKeywords': <String, Object?>{
+              'taskId': invalidPubSubNotificationTaskId,
+              'message': '$label invalid direct JSON pub/sub notification',
+            },
+          },
+        },
+      ],
+      bearerToken: bearerToken,
+    );
+    _assertMcpDirectJsonNotificationAccepted(
+      pubSubBatch,
+      label: '$label direct JSON pub/sub notification-only batch',
+    );
+    await _mcpRawDirectJsonRpc(
+      client,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-direct-cors-pubsub-notification-drain',
+        'method': 'ping',
+      },
+      label: '$label direct JSON pub/sub notification drain',
+      bearerToken: bearerToken,
+    );
+    final pubSubEventBatch = await _mcpRawDirectJsonPubSubPollUntil(
+      client,
+      endpoint,
+      pubSubHandle,
+      label: label,
+      expectedTaskId: pubSubNotificationTaskId,
+      bearerToken: bearerToken,
+    );
+    final pubSubEventsJson = jsonEncode(pubSubEventBatch['events']);
+    if (pubSubEventsJson.contains(invalidPubSubNotificationTaskId)) {
+      throw StateError(
+        'MCP $label invalid direct JSON pub/sub notification-only batch '
+        'delivered an event.',
+      );
+    }
+  } finally {
+    final pubSubUnsubscribeId =
+        '$label-direct-cors-pubsub-notification-unsubscribe';
+    final pubSubUnsubscribe = await _mcpRawDirectJsonRpc(
+      client,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': pubSubUnsubscribeId,
+        'method': 'connectanum.pubsub.unsubscribe',
+        'params': {'handle': pubSubHandle},
+      },
+      label: '$label direct JSON pub/sub notification unsubscribe',
+      bearerToken: bearerToken,
+    );
+    final pubSubUnsubscribeContent = _jsonRpcStructuredContent(
+      pubSubUnsubscribe,
+      id: pubSubUnsubscribeId,
+      label: 'MCP $label direct JSON pub/sub notification unsubscribe',
+    );
+    if (pubSubUnsubscribeContent['handle'] != pubSubHandle ||
+        pubSubUnsubscribeContent['topic'] != _topic ||
+        pubSubUnsubscribeContent['unsubscribed'] != true) {
+      throw StateError(
+        'MCP $label direct JSON pub/sub notification unsubscribe returned '
+        'invalid content.',
+      );
+    }
+  }
 }
 
 void _assertMcpDirectJsonNotificationAccepted(
@@ -7377,7 +7500,7 @@ Future<_McpRawHttpResponse> _mcpRawDirectJsonRpcResponse(
   return _mcpRawResponseFrom(await request.close());
 }
 
-Future<void> _mcpRawDirectJsonPubSubPollUntil(
+Future<Map<String, Object?>> _mcpRawDirectJsonPubSubPollUntil(
   HttpClient client,
   Uri endpoint,
   String handle, {
@@ -7413,7 +7536,7 @@ Future<void> _mcpRawDirectJsonPubSubPollUntil(
       );
     }
     if (jsonEncode(eventBatch['events']).contains(expectedTaskId)) {
-      return;
+      return eventBatch;
     }
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }

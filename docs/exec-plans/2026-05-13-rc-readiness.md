@@ -442,9 +442,25 @@ decision because `connectanum_client` still depends on private
   notification stays suppressed. Pre-change `bin/test-fast`,
   `bash -n bin/common.sh`, the focused
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
-  `git diff --check`, and full local `bin/verify` passed. Hosted evidence for
-  this follow-up is pending push. No RC tag or GitHub Release was created or
-  moved.
+  `git diff --check`, and full local `bin/verify` passed. Commit `2fc71a5` was
+  pushed to GitLab `origin` and GitHub `add-router`. Hosted GitHub CI run
+  `26164678308` passed at `2fc71a5` with Fast Checks and Full Verify green, and
+  the non-RC strict deployment-chain audit passed clean latest CI, clean CI logs,
+  and clean relevant Dart package dry-run gates. Dart Package Publish Dry Run
+  `26160395223` remains clean and relevant at previous commit `7ed0e08` because
+  no publish-sensitive paths changed since then; WAMP Profile Benchmarks
+  `26160395225` remain clean at `7ed0e08`. No RC tag or GitHub Release was
+  created or moved.
+- 2026-05-20: Extended the generated consumer package router-hosted MCP smoke
+  to prove direct JSON notification-only pub/sub publishes have WAMP-side
+  effects on both public and bearer-protected routes. The smoke now subscribes
+  through direct JSON, posts a valid `connectanum.pubsub.publish` notification
+  and an invalid missing-topic publish notification in one all-notification
+  batch, polls the subscription, and asserts only the valid event arrives.
+  Pre-change `bin/test-fast`, `bash -n bin/common.sh`, the focused
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and full local `bin/verify` passed. No RC tag or GitHub
+  Release was created or moved.
 
 ## Handoff
 
@@ -452,17 +468,18 @@ Active. GitHub `master` points at `0c0e043`, and `add-router` contains the
 router-hosted MCP direct JSON notification correctness fix plus native-router
 and generated consumer-package smoke coverage for single-message, mixed-batch,
 and all-notification batch handling. The latest local follow-up additionally
-proves direct JSON notification batches invoke the expected consumer procedure
-and suppress invalid missing-name notification calls. Local `bin/test-fast`, the
-focused generated consumer package smoke, and `bin/verify` passed for the latest
-notification side-effect coverage. Hosted `add-router` CI, Dart package dry-run,
-WAMP Profile Benchmarks, and the non-RC strict deployment-chain audit remain
-clean for previous pushed commit `c0d8523`: latest CI passed at `c0d8523`, the
-package dry-run remains relevant at `7ed0e08`, and WAMP Profile Benchmarks
-remain clean at `7ed0e08`. Hosted `master` evidence remains current and green
-for CI, Dart package dry-run relevance, WAMP Profile Benchmarks, Native
-Artifacts dry-run, and Router Image dry-run relevance. The strict
-deployment-chain audit passes on `master` with clean
+proves direct JSON notification-only pub/sub publishes deliver the valid WAMP
+event and suppress an invalid missing-topic publish notification on public and
+bearer-protected routes. Local `bin/test-fast`, the focused generated consumer
+package smoke, and `bin/verify` passed for the latest notification side-effect
+coverage. Hosted `add-router` CI, Dart package dry-run, WAMP Profile Benchmarks,
+and the non-RC strict deployment-chain audit are clean for the previous pushed
+head: latest CI passed at `2fc71a5`, the package dry-run remains relevant at
+`7ed0e08`, and WAMP Profile Benchmarks remain clean at `7ed0e08`. Hosted
+`master` evidence remains current and green for CI, Dart package dry-run
+relevance, WAMP Profile Benchmarks, Native Artifacts dry-run, and Router Image
+dry-run relevance. The strict deployment-chain audit passes on `master` with
+clean
 current-head CI/log, Dart package dry-run, native release dry-run, router image
 dry-run, workflow visibility, branch protection, and router package visibility
 gates. The audit verifies public GHCR registry metadata before falling back to
