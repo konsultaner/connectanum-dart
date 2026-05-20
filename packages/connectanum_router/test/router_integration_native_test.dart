@@ -2710,6 +2710,36 @@ void main() {
         contains('app.safe.lookup'),
       );
 
+      final directNotificationOnlyBatch = await _postJsonValue(
+        client,
+        listener.port,
+        '/mcp/public',
+        [
+          {
+            'jsonrpc': '2.0',
+            'method': 'connectanum.tool.call',
+            'params': {
+              'name': 'app.safe.lookup',
+              'arguments': {'taskId': 'T-notification-only-batch'},
+            },
+          },
+          {
+            'jsonrpc': '2.0',
+            'method': 'connectanum.tool.call',
+            'params': {
+              'arguments': {'taskId': 'T-invalid-notification-only-batch'},
+            },
+          },
+        ],
+      );
+      expect(
+        directNotificationOnlyBatch.statusCode,
+        equals(HttpStatus.accepted),
+      );
+      expect(directNotificationOnlyBatch.headers['mcp-session-id'], isNull);
+      expect(directNotificationOnlyBatch.body, isEmpty);
+      expect(directNotificationOnlyBatch.json, isNull);
+
       final nestedBatch = await _postJsonValue(
         client,
         listener.port,

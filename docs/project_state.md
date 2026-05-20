@@ -3,23 +3,25 @@
 Last updated: 2026-05-20
 Current branch: `add-router`
 Last reviewed branch checkpoint: Router-hosted MCP direct JSON notification
-correctness now has both single-message and mixed-batch smoke coverage. The
-latest local follow-up proves an invalid notification-only direct JSON tool
-call inside a mixed batch is suppressed while a following direct meta/API
-request still returns as the only batch response. Pre-change `bin/test-fast`,
-the focused MCP router smoke regression, `git diff --check`, post-change
-`bin/test-fast`, and `bin/verify` are clean for the current follow-up test
-change. Previous hosted `add-router` evidence for implementation commit
-`5a3d6f3` is clean: GitHub CI run `26155949934`, Dart Package Publish Dry Run
-`26155949954`, and WAMP Profile Benchmarks `26155949979` passed. GitHub
-`master` remains at `0c0e043`. Hosted `master` evidence is clean: CI run
-`26150667099` (clean after rerunning a transient browser harness load failure),
-Dart Package Publish Dry Run `26150666982`, WAMP Profile Benchmarks
-`26150666988`, Native Artifacts dry-run `26151756102`, Router Image dry-run
-`26151756160`, and the strict deployment-chain audit all pass at that head. RC
-readiness remains not-ready only because no approved numeric RC tag or GitHub
-prerelease points at `0c0e043`; the audit suggests `v0.1.0-rc.2` as the next
-release-decision tag.
+correctness now has single-message, mixed-batch, and all-notification batch
+smoke coverage. The latest local follow-up proves an all-notification direct
+JSON batch, including an invalid notification-only tool call, returns `202
+Accepted` with an empty body, no JSON payload, and no `mcp-session-id` header.
+Pre-change `bin/test-fast`, the focused MCP router smoke regression,
+`git diff --check`, post-change `bin/test-fast`, and `bin/verify` are clean for
+the current follow-up test change. Previous hosted `add-router` evidence for
+commit `7fb63b0` is clean: GitHub CI run `26158162335` passed with Fast Checks
+and Full Verify green, Dart Package Publish Dry Run `26158162312` passed, WAMP
+Profile Benchmarks `26158162311` passed, and the non-RC strict audit passed
+clean latest CI, clean CI logs, and clean Dart package dry-run gates. GitHub
+`master` remains at `0c0e043`.
+Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
+transient browser harness load failure), Dart Package Publish Dry Run
+`26150666982`, WAMP Profile Benchmarks `26150666988`, Native Artifacts dry-run
+`26151756102`, Router Image dry-run `26151756160`, and the strict
+deployment-chain audit all pass at that head. RC readiness remains not-ready
+only because no approved numeric RC tag or GitHub prerelease points at
+`0c0e043`; the audit suggests `v0.1.0-rc.2` as the next release-decision tag.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` now contains the validated branch
