@@ -2,11 +2,16 @@
 
 Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP direct JSON notifications
-now suppress handler/validation error response bodies, preserving the
-notification-only `202 Accepted` empty-body contract for direct JSON tool calls.
-The focused MCP router smoke regression, `git diff --check`, `bin/test-fast`,
-and `bin/verify` are clean for the follow-up `add-router` change. GitHub
+Last reviewed branch checkpoint: Router-hosted MCP direct JSON notification
+correctness now has both single-message and mixed-batch smoke coverage. The
+latest local follow-up proves an invalid notification-only direct JSON tool
+call inside a mixed batch is suppressed while a following direct meta/API
+request still returns as the only batch response. Pre-change `bin/test-fast`,
+the focused MCP router smoke regression, `git diff --check`, post-change
+`bin/test-fast`, and `bin/verify` are clean for the current follow-up test
+change. Previous hosted `add-router` evidence for implementation commit
+`5a3d6f3` is clean: GitHub CI run `26155949934`, Dart Package Publish Dry Run
+`26155949954`, and WAMP Profile Benchmarks `26155949979` passed. GitHub
 `master` remains at `0c0e043`. Hosted `master` evidence is clean: CI run
 `26150667099` (clean after rerunning a transient browser harness load failure),
 Dart Package Publish Dry Run `26150666982`, WAMP Profile Benchmarks

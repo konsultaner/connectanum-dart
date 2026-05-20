@@ -2675,6 +2675,41 @@ void main() {
       expect(directInvalidNotification.body, isEmpty);
       expect(directInvalidNotification.json, isNull);
 
+      final directBatchInvalidNotification = await _postJsonValue(
+        client,
+        listener.port,
+        '/mcp/public',
+        [
+          {
+            'jsonrpc': '2.0',
+            'method': 'connectanum.tool.call',
+            'params': {
+              'arguments': {'taskId': 'T-batch-invalid-notification'},
+            },
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'batch-after-invalid-notification',
+            'method': 'connectanum.api.list',
+            'params': {'kind': 'procedure'},
+          },
+        ],
+      );
+      expect(directBatchInvalidNotification.statusCode, equals(HttpStatus.ok));
+      expect(directBatchInvalidNotification.json, isA<List<Object?>>());
+      final directBatchInvalidNotificationResponses =
+          (directBatchInvalidNotification.json as List)
+              .cast<Map<String, Object?>>();
+      expect(directBatchInvalidNotificationResponses, hasLength(1));
+      expect(
+        directBatchInvalidNotificationResponses.single['id'],
+        equals('batch-after-invalid-notification'),
+      );
+      expect(
+        jsonEncode(directBatchInvalidNotificationResponses.single['result']),
+        contains('app.safe.lookup'),
+      );
+
       final nestedBatch = await _postJsonValue(
         client,
         listener.port,

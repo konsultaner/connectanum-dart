@@ -384,22 +384,36 @@ decision because `connectanum_client` still depends on private
   with an empty body. Pre-change `bin/test-fast` passed. The focused MCP router
   smoke regression failed before the fix because an invalid notification
   returned a JSON-RPC error body, then passed after the fix. `git diff --check`,
-  post-change `bin/test-fast`, and full local `bin/verify` also passed. No RC
-  tag or GitHub Release was created or moved.
+  post-change `bin/test-fast`, and full local `bin/verify` also passed. Commit
+  `5a3d6f3` was pushed to GitLab `origin` and GitHub `add-router`. Hosted
+  `add-router` evidence passed at that head: CI run `26155949934` (Fast Checks
+  and Full Verify), Dart Package Publish Dry Run `26155949954`, and WAMP Profile
+  Benchmarks `26155949979`. No RC tag or GitHub Release was created or moved.
+- 2026-05-20: Added router-hosted MCP direct JSON batch notification regression
+  coverage to the native router smoke. The test posts an invalid
+  notification-only `connectanum.tool.call` inside a mixed direct JSON batch and
+  proves the notification error is suppressed while a following
+  `connectanum.api.list` request returns as the only batch response.
+  Pre-change `bin/test-fast`, the focused MCP router smoke regression,
+  `git diff --check`, post-change `bin/test-fast`, and full local `bin/verify`
+  passed. No RC tag or GitHub Release was created or moved.
 
 ## Handoff
 
-Active. GitHub `master` points at `0c0e043`, and the current `add-router`
-branch contains a follow-up router-hosted MCP direct JSON notification
-correctness fix. Local `bin/test-fast` and `bin/verify` passed for the follow-up
-change. Hosted `master` evidence remains current and green for CI, Dart package
-dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run, and Router
-Image dry-run relevance. The strict deployment-chain audit passes on `master`
-with clean current-head CI/log, Dart package dry-run, native release dry-run,
-router image dry-run, workflow visibility, branch protection, and router package
-visibility gates. The audit verifies public GHCR registry metadata before
-falling back to GitHub Packages metadata, and the router package visibility gate
-passes because
+Active. GitHub `master` points at `0c0e043`, and `add-router` contains the
+router-hosted MCP direct JSON notification correctness fix plus local follow-up
+batch smoke coverage for the same notification contract. Local `bin/test-fast`
+and `bin/verify` passed for the follow-up batch coverage. Hosted `add-router`
+CI, Dart package dry-run, and WAMP Profile Benchmarks remain clean at
+implementation commit `5a3d6f3`; current follow-up hosted evidence should be
+recorded after push. Hosted `master` evidence remains current and green for CI,
+Dart package dry-run relevance, WAMP Profile Benchmarks, Native Artifacts
+dry-run, and Router Image dry-run relevance. The strict deployment-chain audit
+passes on `master` with clean current-head CI/log, Dart package dry-run, native
+release dry-run, router image dry-run, workflow visibility, branch protection,
+and router package visibility gates. The audit verifies public GHCR registry
+metadata before falling back to GitHub Packages metadata, and the router package
+visibility gate passes because
 `ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
 `v0.1.0-rc.1` and a manifest digest.
 
