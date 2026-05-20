@@ -687,6 +687,25 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     );
   }
 
+  Future<void> notifyWampEventDirect(
+    String topic, {
+    List<Object?>? arguments,
+    McpJsonMap? argumentsKeywords,
+    McpJsonMap? options,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return notifyConnectanumMethodDirect(
+      _pubsubPublishTool,
+      params: <String, Object?>{
+        'topic': topic,
+        'arguments': ?arguments,
+        'argumentsKeywords': ?argumentsKeywords,
+        'options': ?options,
+      },
+      headers: headers,
+    );
+  }
+
   Future<McpStreamableWampSubscriptionResult> subscribeWampTopicDirect(
     String topic, {
     Object? id,

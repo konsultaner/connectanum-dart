@@ -12314,6 +12314,23 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
       );
     }
 
+    final helperNotificationTaskId =
+        'T-$label-generic-direct-pubsub-helper-notification';
+    await client.notifyWampEventDirect(
+      _topic,
+      argumentsKeywords: {'taskId': helperNotificationTaskId},
+      headers: {
+        'x-consumer-trace':
+            '$label-generic-direct-pubsub-helper-notification',
+      },
+    );
+    await _pollGenericDirectJsonRpcPubSubUntil(
+      client,
+      handle,
+      label: label,
+      expectedTaskId: helperNotificationTaskId,
+    );
+
     final serviceTaskId = 'T-$label-generic-direct-pubsub-event';
     await serviceSession.publish(
       _topic,

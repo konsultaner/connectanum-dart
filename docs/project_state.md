@@ -6,24 +6,23 @@ Last reviewed branch checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side
 effects, and Streamable direct tool/pubsub notification side effects. The latest
-local follow-up turns direct Connectanum notification-only calls into public
-client API by adding `McpStreamableHttpClient.notifyConnectanumToolDirect(...)`
-and `notifyConnectanumMethodDirect(...)`, covering them in client session
-lifecycle tests, `connectanum_mcp_io` re-export tests, and generated
-consumer-package router-hosted MCP smoke. The helper smoke proves
-notification-only tool and direct method calls invoke a consumer WAMP procedure
-through router-hosted MCP without JSON-RPC ids, without Streamable session
-headers, and without mutating an active Streamable session cursor. Pre-change
+local follow-up adds `McpStreamableHttpClient.notifyWampEventDirect(...)` so
+consumer applications can publish WAMP pub/sub events as lifecycle-free direct
+JSON notifications without hand-assembling `connectanum.pubsub.publish`
+payloads. Client tests and `connectanum_mcp_io` re-export tests assert the
+helper sends notification-only JSON-RPC without `id`, without Streamable session
+headers, and without mutating an active Streamable session cursor. Generated
+consumer-package router-hosted MCP smoke now subscribes through direct JSON,
+calls the public helper, polls the event queue, and verifies the notification
+has WAMP-side effects through the public package surface. Pre-change
 `bin/test-fast`, `bash -n bin/common.sh`, focused client/MCP package tests, the
-focused `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
-`git diff --check`, and `bin/verify` are clean for this follow-up. Previous
-commit `5b27b19` was pushed to GitLab `origin` and GitHub `add-router`; GitHub
-CI run `26172167427` passed at `5b27b19` with Fast Checks and Full Verify green,
-and the non-RC strict deployment-chain audit passed clean latest CI, clean CI
-logs, and clean relevant Dart package dry-run gates. Dart Package Publish Dry
-Run `26160395223` remains clean and relevant at previous commit `7ed0e08`
-because no publish-sensitive paths changed since then, and WAMP Profile
-Benchmarks `26160395225` remain clean at `7ed0e08`. GitHub `master` remains at
+focused `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`, and
+`git diff --check`, and full local `bin/verify` are clean for this follow-up.
+The previous pushed head `6fcd450` remains clean on GitHub: CI run
+`26174880668` passed with Fast Checks and Full Verify green, Dart Package
+Publish Dry Run `26174880599` passed, WAMP Profile Benchmarks `26174880601`
+passed, and the non-RC strict deployment-chain audit passed clean latest CI,
+clean CI logs, and clean Dart package dry-run gates. GitHub `master` remains at
 `0c0e043`.
 Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
 transient browser harness load failure), Dart Package Publish Dry Run

@@ -221,8 +221,16 @@ void main() {
         },
       );
 
+      await client.notifyWampEventDirect(
+        _ioTopic,
+        argumentsKeywords: const <String, Object?>{'message': 'notify-pubsub'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-notify-pubsub',
+        },
+      );
+
       expect(client.sessionId, isNull);
-      expect(endpoint.requests, hasLength(8));
+      expect(endpoint.requests, hasLength(9));
       for (final request in endpoint.requests) {
         expect(request.accept, 'application/json');
         expect(request.sessionId, isNull);
@@ -236,6 +244,7 @@ void main() {
         'connectanum.tool.call',
         'connectanum.tool.call',
         'app.echo',
+        'connectanum.pubsub.publish',
       ]);
       expect(endpoint.requests[0].consumerTrace, 'io-direct-tools-list');
       expect(endpoint.requests[1].consumerTrace, 'io-direct-tool-call');
@@ -248,6 +257,7 @@ void main() {
       );
       expect(endpoint.requests[6].consumerTrace, 'io-direct-notify-tool');
       expect(endpoint.requests[7].consumerTrace, 'io-direct-notify-method');
+      expect(endpoint.requests[8].consumerTrace, 'io-direct-notify-pubsub');
 
       final toolCallParams = _jsonMapFrom(
         endpoint.requests[1].body['params'],
@@ -291,6 +301,17 @@ void main() {
       );
       expect(endpoint.requests[6].body.containsKey('id'), isFalse);
       expect(endpoint.requests[7].body.containsKey('id'), isFalse);
+      expect(endpoint.requests[8].body.containsKey('id'), isFalse);
+      expect(
+        _jsonMapFrom(
+          endpoint.requests[8].body['params'],
+          label: 'direct pubsub notification params',
+        ),
+        {
+          'topic': _ioTopic,
+          'argumentsKeywords': {'message': 'notify-pubsub'},
+        },
+      );
     },
   );
 

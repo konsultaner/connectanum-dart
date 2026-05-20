@@ -1236,10 +1236,20 @@ void main() {
             'x-consumer-trace': 'direct-notify-method',
           },
         );
+        await client.notifyWampEventDirect(
+          'app.events.audit',
+          argumentsKeywords: const <String, Object?>{
+            'message': 'pubsub-notify',
+          },
+          options: const <String, Object?>{'exclude_me': false},
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-notify-pubsub',
+          },
+        );
 
         expect(client.sessionId, sessionId);
         expect(client.lastEventId, eventId);
-        expect(endpoint.requests, hasLength(2));
+        expect(endpoint.requests, hasLength(3));
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.sessionId, isNull);
@@ -1255,6 +1265,7 @@ void main() {
         expect(endpoint.requests.map((request) => request.consumerTrace), [
           'direct-notify-tool',
           'direct-notify-method',
+          'direct-notify-pubsub',
         ]);
         expect(endpoint.requests[0].body, {
           'jsonrpc': '2.0',
@@ -1268,6 +1279,15 @@ void main() {
           'jsonrpc': '2.0',
           'method': 'app.echo',
           'params': {'message': 'method-notify'},
+        });
+        expect(endpoint.requests[2].body, {
+          'jsonrpc': '2.0',
+          'method': 'connectanum.pubsub.publish',
+          'params': {
+            'topic': 'app.events.audit',
+            'argumentsKeywords': {'message': 'pubsub-notify'},
+            'options': {'exclude_me': false},
+          },
         });
       },
     );
