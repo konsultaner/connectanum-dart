@@ -534,7 +534,25 @@ decision because `connectanum_client` still depends on private
   the notification reaches the WAMP subscription. Pre-change `bin/test-fast`,
   `bash -n bin/common.sh`, focused client/MCP package tests, the focused
   generated consumer package smoke, `git diff --check`, and full local
-  `bin/verify` passed.
+  `bin/verify` passed. Commit `a1ef285` was pushed to GitLab `origin` and
+  GitHub `add-router`. Hosted `add-router` evidence is clean at this follow-up:
+  GitHub CI run `26177091687` passed with Fast Checks and Full Verify green,
+  Dart Package Publish Dry Run `26177091693` passed, WAMP Profile Benchmarks
+  `26177091686` passed, and the non-RC strict deployment-chain audit passed
+  clean latest CI, clean CI logs, and clean Dart package dry-run gates.
+- 2026-05-20: This follow-up closes a direct Connectanum tool header
+  parity gap. `callConnectanumToolDirect(...)` and
+  `notifyConnectanumToolDirect(...)` now reuse cached `x-mcp-header` parameter
+  metadata when sending lifecycle-free direct JSON tool calls and
+  notifications, matching standard `tools/call` behavior after standard or
+  Connectanum direct catalog discovery. Client tests assert generated
+  `Mcp-Param-*` headers for call and notification helpers, and the generated
+  client-only consumer-package smoke captures `Mcp-Param-Text` from an
+  external-package endpoint. Pre-change `bin/test-fast`, `bash -n
+  bin/common.sh`, focused
+  `dart test -p vm test/mcp/streamable_http_client_test.dart`, and focused
+  `bash -lc 'source bin/common.sh; run_mcp_client_package_smoke'` passed; full
+  local `bin/verify` passed.
 
 ## Handoff
 
@@ -542,18 +560,19 @@ Active. GitHub `master` points at `0c0e043`, and `add-router` contains the
 router-hosted MCP direct JSON notification correctness fix plus native-router
 and generated consumer-package smoke coverage for single-message, mixed-batch,
 all-notification batch, pub/sub, and Streamable notification side effects. The
-latest local follow-up exposes a public direct WAMP pub/sub notification helper
-for downstream application readiness: `notifyWampEventDirect(...)` sends
-`connectanum.pubsub.publish` as a notification-only direct JSON payload without
-Streamable lifecycle coupling, remains re-exported by the MCP IO entrypoint,
-and is covered by client tests, MCP package tests, and generated
-consumer-package router-hosted MCP smoke. Local `bin/test-fast`, focused helper
-tests, focused generated consumer package smoke, `git diff --check`, and full
-local `bin/verify` passed. Hosted `add-router` evidence is clean for the
-previous pushed head `6fcd450`: CI run
-`26174880668`, Dart Package Publish Dry Run `26174880599`, WAMP Profile
-Benchmarks `26174880601`, and the non-RC strict deployment-chain audit all
-passed. Hosted `master` evidence
+latest pushed follow-up exposes a public direct WAMP pub/sub notification
+helper for downstream application readiness: `notifyWampEventDirect(...)`
+sends `connectanum.pubsub.publish` as a notification-only direct JSON payload
+without Streamable lifecycle coupling, remains re-exported by the MCP IO
+entrypoint, and is covered by client tests, MCP package tests, and generated
+consumer-package router-hosted MCP smoke. This follow-up closes direct
+Connectanum tool header parity: direct tool call and notification helpers now
+emit cached `Mcp-Param-*` headers after direct catalog discovery, with focused
+client tests, generated client-only consumer-package smoke, and full local
+`bin/verify` passing. Hosted `add-router` evidence is clean for the
+latest pushed head `a1ef285`: CI run `26177091687`, Dart Package Publish Dry
+Run `26177091693`, WAMP Profile Benchmarks `26177091686`, and the non-RC
+strict deployment-chain audit all passed. Hosted `master` evidence
 remains current and green for CI, Dart package dry-run relevance, WAMP Profile
 Benchmarks, Native Artifacts dry-run, and Router Image dry-run relevance. The
 strict deployment-chain audit passes on `master` with clean current-head CI/log,

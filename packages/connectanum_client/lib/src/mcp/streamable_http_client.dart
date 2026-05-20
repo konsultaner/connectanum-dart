@@ -276,16 +276,12 @@ final class McpStreamableHttpClient {
     bool streamable = true,
     Map<String, String> headers = const <String, String>{},
   }) async {
-    final parameterHeaders = _mcpToolParameterHeaders(name, arguments);
-    final requestHeaders = parameterHeaders.isEmpty
-        ? headers
-        : <String, String>{...headers, ...parameterHeaders};
     final response = await request(
       'tools/call',
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: streamable,
-      headers: requestHeaders,
+      headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
   }
@@ -296,15 +292,11 @@ final class McpStreamableHttpClient {
     McpJsonMap arguments = const <String, Object?>{},
     Map<String, String> headers = const <String, String>{},
   }) async {
-    final parameterHeaders = _mcpToolParameterHeaders(name, arguments);
-    final requestHeaders = parameterHeaders.isEmpty
-        ? headers
-        : <String, String>{...headers, ...parameterHeaders};
     final response = await requestDirect(
       'tools/call',
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
-      headers: requestHeaders,
+      headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
   }
@@ -351,7 +343,7 @@ final class McpStreamableHttpClient {
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: false,
       includeSession: false,
-      headers: headers,
+      headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: method);
   }
@@ -379,7 +371,7 @@ final class McpStreamableHttpClient {
     return notificationDirect(
       'connectanum.tool.call',
       params: <String, Object?>{'name': name, 'arguments': arguments},
-      headers: headers,
+      headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
   }
 
@@ -909,6 +901,17 @@ final class McpStreamableHttpClient {
           );
     }
     return headers;
+  }
+
+  Map<String, String> _headersWithToolParameterHeaders(
+    String toolName,
+    McpJsonMap arguments,
+    Map<String, String> headers,
+  ) {
+    final parameterHeaders = _mcpToolParameterHeaders(toolName, arguments);
+    return parameterHeaders.isEmpty
+        ? headers
+        : <String, String>{...headers, ...parameterHeaders};
   }
 }
 

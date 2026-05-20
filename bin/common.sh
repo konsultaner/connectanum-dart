@@ -2156,17 +2156,35 @@ Future<void> _smokeDirectToolApi(
   McpStreamableHttpClient client,
   _AgentMcpEndpoint endpoint,
 ) async {
+  final connectanumTools = await client.listConnectanumToolsDirect(
+    id: 'direct-connectanum-tools-list',
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-connectanum-tools-list',
+    },
+  );
+  _expect(
+    connectanumTools.tools.any((tool) => tool['name'] == _toolName),
+    'direct JSON connectanum.tools.list helper failed',
+  );
+
   final directToolCall = await client.callConnectanumToolDirect(
     _toolName,
-    id: 'direct-tool-call',
+    id: 'direct-connectanum-tool-call',
     arguments: const <String, Object?>{'text': 'direct tool'},
     headers: const <String, String>{
-      'x-consumer-trace': 'direct-tool-call',
+      'x-consumer-trace': 'direct-connectanum-tool-call',
     },
   );
   _expect(
     _toolEchoText(directToolCall, label: 'direct tool call') == 'direct tool',
     'direct JSON connectanum.tool.call helper failed',
+  );
+  await client.notifyConnectanumToolDirect(
+    _toolName,
+    arguments: const <String, Object?>{'text': 'direct notification'},
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-connectanum-tool-notify',
+    },
   );
 
   final aliasToolCall = await client.callConnectanumMethodDirect(
@@ -2219,9 +2237,29 @@ Future<void> _smokeDirectToolApi(
     'direct JSON generic tool call did not capture the tool name without '
     'Streamable session state',
   );
+  final directToolHeaders =
+      endpoint.directMcpParameterHeadersByTrace[
+        'direct-connectanum-tool-call'
+      ];
+  final directToolNotificationHeaders =
+      endpoint.directMcpParameterHeadersByTrace[
+        'direct-connectanum-tool-notify'
+      ];
+  _expect(
+    directToolHeaders?['mcp-param-text'] == 'direct tool',
+    'direct JSON connectanum.tool.call helper missed MCP parameter headers',
+  );
+  _expect(
+    directToolNotificationHeaders?['mcp-param-text'] ==
+        'direct notification',
+    'direct JSON connectanum.tool.call notification helper missed MCP '
+    'parameter headers',
+  );
   const expectedDirectToolApiTraceHeaders = <String>{
     'direct-tools-list',
-    'direct-tool-call',
+    'direct-connectanum-tools-list',
+    'direct-connectanum-tool-call',
+    'direct-connectanum-tool-notify',
     'direct-tools-call-alias',
     'direct-dotted-tool-call',
   };
@@ -3144,6 +3182,7 @@ final class _AgentMcpEndpoint {
   final directMethodsWithoutSession = <String>{};
   final directToolNamesWithoutSession = <String>{};
   final directTraceHeadersWithoutSession = <String>{};
+  final directMcpParameterHeadersByTrace = <String, Map<String, String>>{};
   final streamableTraceHeadersWithoutSession = <String>{};
   final streamableTraceHeadersWithSession = <String>{};
   final authRequestBodies = <Map<String, Object?>>[];
@@ -3507,6 +3546,16 @@ final class _AgentMcpEndpoint {
       final trace = request.headers.value('x-consumer-trace');
       if (trace != null) {
         directTraceHeadersWithoutSession.add(trace);
+        final parameterHeaders = <String, String>{};
+        request.headers.forEach((name, values) {
+          final lowerName = name.toLowerCase();
+          if (lowerName.startsWith('mcp-param-') && values.isNotEmpty) {
+            parameterHeaders[lowerName] = values.first;
+          }
+        });
+        if (parameterHeaders.isNotEmpty) {
+          directMcpParameterHeadersByTrace[trace] = parameterHeaders;
+        }
       }
       directMethodsWithoutSession.add(method);
       if (method == 'tools/call' ||
@@ -3613,7 +3662,10 @@ final class _AgentMcpEndpoint {
             'inputSchema': <String, Object?>{
               'type': 'object',
               'properties': <String, Object?>{
-                'text': <String, Object?>{'type': 'string'},
+                'text': <String, Object?>{
+                  'type': 'string',
+                  'x-mcp-header': 'Text',
+                },
               },
             },
           },

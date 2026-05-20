@@ -537,18 +537,31 @@ void main() {
         );
         expect(jsonEncode(rawPostResult['tools']), contains('app.echo'));
 
+        const directToolArguments = <String, Object?>{
+          'message': 'direct',
+          'attempt': 3,
+          'dryRun': false,
+          'note': ' spaced ',
+          'wrapper': '=?base64?Zm9v?=',
+        };
+
         final toolResult = await client.callConnectanumToolDirect(
           'app.echo',
           id: 'direct-call',
-          arguments: {'message': 'direct'},
+          arguments: directToolArguments,
           headers: const <String, String>{
             'x-consumer-trace': 'direct-tool-call',
           },
         );
         expect(toolResult['isError'], isFalse);
-        expect(toolResult['structuredContent'], {
-          'echo': {'message': 'direct'},
-        });
+        expect(toolResult['structuredContent'], {'echo': directToolArguments});
+        await client.notifyConnectanumToolDirect(
+          'app.echo',
+          arguments: directToolArguments,
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-tool-notify',
+          },
+        );
 
         final methodResult = await client.callConnectanumMethodDirect(
           'app.echo',
@@ -578,12 +591,21 @@ void main() {
         });
 
         expect(client.sessionId, isNull);
-        expect(endpoint.requests, hasLength(6));
+        expect(endpoint.requests, hasLength(7));
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.sessionId, isNull);
           expect(request.mcpMethod, isNotEmpty);
         }
+        final expectedDirectToolHeaders = <String, String>{
+          'mcp-param-message': 'direct',
+          'mcp-param-attempt': '3',
+          'mcp-param-dryrun': 'false',
+          'mcp-param-note':
+              '=?base64?${base64Encode(utf8.encode(' spaced '))}?=',
+          'mcp-param-wrapper':
+              '=?base64?${base64Encode(utf8.encode('=?base64?Zm9v?='))}?=',
+        };
         expect(endpoint.requests[0].mcpMethod, 'connectanum.tools.list');
         expect(endpoint.requests[0].consumerTrace, 'direct-tools-list');
         expect(endpoint.requests[1].mcpMethod, 'connectanum.tools.list');
@@ -593,12 +615,28 @@ void main() {
         expect(endpoint.requests[3].mcpMethod, 'connectanum.tool.call');
         expect(endpoint.requests[3].mcpName, isNull);
         expect(endpoint.requests[3].consumerTrace, 'direct-tool-call');
-        expect(endpoint.requests[4].consumerTrace, 'direct-dotted-method');
-        expect(endpoint.requests[5].consumerTrace, 'direct-meta-method');
+        expect(
+          endpoint.requests[3].mcpParameterHeaders,
+          expectedDirectToolHeaders,
+        );
+        expect(endpoint.requests[4].mcpMethod, 'connectanum.tool.call');
+        expect(endpoint.requests[4].mcpName, isNull);
+        expect(endpoint.requests[4].consumerTrace, 'direct-tool-notify');
+        expect(
+          endpoint.requests[4].mcpParameterHeaders,
+          expectedDirectToolHeaders,
+        );
+        expect(endpoint.requests[5].consumerTrace, 'direct-dotted-method');
+        expect(endpoint.requests[6].consumerTrace, 'direct-meta-method');
         expect(
           endpoint.requests.first.body,
           containsPair('method', 'connectanum.tools.list'),
         );
+        expect(endpoint.requests[4].body, {
+          'jsonrpc': '2.0',
+          'method': 'connectanum.tool.call',
+          'params': {'name': 'app.echo', 'arguments': directToolArguments},
+        });
         expect(endpoint.requests.last.body, {
           'jsonrpc': '2.0',
           'id': 'direct-meta',
