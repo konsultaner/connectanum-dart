@@ -12487,6 +12487,7 @@ Future<void> _smokeGenericDirectJsonRpcPubSub(
       headers: {
         'x-consumer-trace':
             '$label-generic-direct-pubsub-helper-notification',
+        'Mcp-Param-Topic': 'wrong-topic',
       },
     );
     await _pollGenericDirectJsonRpcPubSubUntil(

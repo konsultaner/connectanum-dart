@@ -1341,6 +1341,7 @@ void main() {
           options: const <String, Object?>{'exclude_me': false},
           headers: const <String, String>{
             'x-consumer-trace': 'direct-notify-pubsub',
+            'Mcp-Param-Topic': 'wrong',
           },
         );
 
@@ -1406,6 +1407,7 @@ void main() {
             'options': {'exclude_me': false},
           },
         });
+        expect(endpoint.requests[3].mcpParameterHeaders, isEmpty);
       },
     );
 

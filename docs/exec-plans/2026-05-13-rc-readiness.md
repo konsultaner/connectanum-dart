@@ -619,6 +619,23 @@ decision because `connectanum_client` still depends on private
   `bin/test-fast`, formatting, `bash -n bin/common.sh`, focused
   `dart test -p vm test/mcp/streamable_http_client_test.dart`, focused
   generated client-only and router-hosted consumer-package smokes,
+  `git diff --check`, and full local `bin/verify` passed. Commit `bafbe25`
+  was pushed to GitLab `origin` and GitHub `add-router`. Hosted `add-router`
+  evidence is clean at this follow-up: GitHub CI run `26189389158` passed with
+  Fast Checks and Full Verify green, Dart Package Publish Dry Run
+  `26189389072` passed, WAMP Profile Benchmarks `26189389097` passed, and the
+  non-RC strict deployment-chain audit passed clean latest CI, clean CI logs,
+  and clean Dart package dry-run gates.
+- 2026-05-20: This local follow-up extends stale `Mcp-Param-*` header safety
+  evidence to direct WAMP pub/sub notification helpers. The focused client test
+  now sends a stale `Mcp-Param-Topic` through `notifyWampEventDirect(...)` and
+  asserts the lifecycle-free direct JSON notification carries no stale
+  parameter headers. The generated router-hosted consumer-package smoke sends
+  the same stale topic header through the public helper and proves the event is
+  still delivered by the real router endpoint. Pre-change `bin/test-fast`,
+  formatting, `bash -n bin/common.sh`, focused
+  `dart test -p vm packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  focused generated client-only and router-hosted consumer-package smokes,
   `git diff --check`, and full local `bin/verify` passed. Hosted
   `add-router` evidence for this follow-up is pending until the code is pushed.
 
@@ -650,10 +667,17 @@ Benchmarks `26186967889`, and the non-RC strict deployment-chain audit all
 passed. The current local follow-up hardens notification-only direct tool
 helpers by stripping stale caller-provided `Mcp-Param-*` headers and extending
 typed, alias, dotted-method, client-only smoke, and router-hosted consumer
-smoke coverage; local `bin/verify` is clean, and hosted evidence is pending
-until push. Hosted `master` evidence
-remains current and green for CI, Dart package dry-run relevance, WAMP Profile
-Benchmarks, Native Artifacts dry-run, and Router Image dry-run relevance. The
+smoke coverage; commit `bafbe25` is pushed to both remotes, local
+`bin/verify` is clean, and hosted `add-router` evidence is green for CI,
+Dart Package Publish Dry Run, WAMP Profile Benchmarks, and the strict
+deployment-chain audit. The current local follow-up extends that stale-header
+consumer safety coverage to `notifyWampEventDirect(...)` by proving stale
+`Mcp-Param-Topic` is stripped in the focused client test and cannot break real
+router-hosted pub/sub notification delivery in the generated consumer-package
+smoke; local `bin/verify` is clean and hosted evidence is pending until push.
+Hosted `master` evidence remains current and green for CI, Dart package
+dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run, and
+Router Image dry-run relevance. The
 strict deployment-chain audit passes on `master` with clean current-head CI/log,
 Dart package dry-run, native release dry-run, router image dry-run, workflow
 visibility, branch protection, and router package visibility gates. The audit
