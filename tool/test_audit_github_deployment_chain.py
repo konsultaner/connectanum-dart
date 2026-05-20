@@ -118,6 +118,37 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
 
+    def test_rc_readiness_suppresses_followup_tag_when_branch_differs(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        stale_head = self._different_sha(current_head)
+
+        result = self._run_rc_readiness_with_stale_rc_tags(
+            current_head,
+            stale_head,
+            branch_head=stale_head,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            f"Audited branch head: {stale_head[:7]} (add-router)",
+            result.stdout,
+        )
+        self.assertIn(
+            "Branch/head alignment: not ready; audited branch add-router "
+            f"points at {stale_head[:7]} while the checkout is {current_head[:7]}.",
+            result.stdout,
+        )
+        self.assertIn(
+            "Suggested follow-up RC tag(s): not evaluated until audited branch "
+            "head and checked-out head match.",
+            result.stdout,
+        )
+        self.assertNotIn(
+            "- v0.1.0-rc.2 (next numeric tag after v0.1.0-rc.1; "
+            "requires release approval before pushing)",
+            result.stdout,
+        )
+
     def _git(self, *args: str) -> str:
         return subprocess.check_output(
             ["git", *args],
@@ -157,6 +188,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     args = sys.argv[1:]
                     repository = "konsultaner/connectanum-dart"
                     ci_head = os.environ["FAKE_CI_HEAD"]
+                    branch_head = os.environ.get("FAKE_BRANCH_HEAD", ci_head)
                     workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
 
 
@@ -196,9 +228,19 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             else:
                                 sys.exit(1)
                         elif path == f"repos/{repository}/branches/add-router":
-                            print("false")
+                            if jq == ".protected":
+                                print("false")
+                            elif jq == ".commit.sha // empty":
+                                print(branch_head)
+                            else:
+                                sys.exit(1)
                         elif path == f"repos/{repository}/branches/master":
-                            print("true")
+                            if jq == ".protected":
+                                print("true")
+                            elif jq == ".commit.sha // empty":
+                                print(branch_head)
+                            else:
+                                sys.exit(1)
                         elif path == f"repos/{repository}/branches/master/protection":
                             if "required_status_checks" in jq:
                                 print("Fast Checks, Full Verify")
@@ -276,6 +318,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env = os.environ.copy()
             env["GH_BIN"] = str(fake_gh)
             env["FAKE_CI_HEAD"] = ci_head
+            env["FAKE_BRANCH_HEAD"] = ci_head
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
 
@@ -297,6 +340,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
     def _run_rc_readiness_with_native_prerelease(
         self,
         ci_head: str,
+        branch_head: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -324,6 +368,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     args = sys.argv[1:]
                     repository = "konsultaner/connectanum-dart"
                     ci_head = os.environ["FAKE_CI_HEAD"]
+                    branch_head = os.environ.get("FAKE_BRANCH_HEAD", ci_head)
                     workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
 
 
@@ -377,9 +422,19 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             else:
                                 sys.exit(1)
                         elif path == f"repos/{repository}/branches/add-router":
-                            print("false")
+                            if jq == ".protected":
+                                print("false")
+                            elif jq == ".commit.sha // empty":
+                                print(branch_head)
+                            else:
+                                sys.exit(1)
                         elif path == f"repos/{repository}/branches/master":
-                            print("true")
+                            if jq == ".protected":
+                                print("true")
+                            elif jq == ".commit.sha // empty":
+                                print(branch_head)
+                            else:
+                                sys.exit(1)
                         elif path == f"repos/{repository}/branches/master/protection":
                             if "required_status_checks" in jq:
                                 print("Fast Checks, Full Verify")
@@ -532,6 +587,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env = os.environ.copy()
             env["GH_BIN"] = str(fake_gh)
             env["FAKE_CI_HEAD"] = ci_head
+            env["FAKE_BRANCH_HEAD"] = branch_head or ci_head
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["REAL_GIT"] = real_git or "git"
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
@@ -555,6 +611,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self,
         ci_head: str,
         stale_head: str,
+        branch_head: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -582,6 +639,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     args = sys.argv[1:]
                     repository = "konsultaner/connectanum-dart"
                     ci_head = os.environ["FAKE_CI_HEAD"]
+                    branch_head = os.environ.get("FAKE_BRANCH_HEAD", ci_head)
                     workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
 
 
@@ -635,9 +693,19 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             else:
                                 sys.exit(1)
                         elif path == f"repos/{repository}/branches/add-router":
-                            print("false")
+                            if jq == ".protected":
+                                print("false")
+                            elif jq == ".commit.sha // empty":
+                                print(branch_head)
+                            else:
+                                sys.exit(1)
                         elif path == f"repos/{repository}/branches/master":
-                            print("true")
+                            if jq == ".protected":
+                                print("true")
+                            elif jq == ".commit.sha // empty":
+                                print(branch_head)
+                            else:
+                                sys.exit(1)
                         elif path == f"repos/{repository}/branches/master/protection":
                             if "required_status_checks" in jq:
                                 print("Fast Checks, Full Verify")
@@ -806,6 +874,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env["GH_BIN"] = str(fake_gh)
             env["FAKE_CI_HEAD"] = ci_head
             env["FAKE_STALE_HEAD"] = stale_head
+            env["FAKE_BRANCH_HEAD"] = branch_head or ci_head
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["REAL_GIT"] = real_git or "git"
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"

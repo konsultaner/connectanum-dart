@@ -2,11 +2,12 @@
 
 Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: RC-readiness audit tooling now distinguishes
-numeric RC release tags from RC-looking validation/dry-run tags. Validation and
-dry-run tags are still inventoried, but cannot satisfy checked-out-head RC tag
-readiness or become follow-up release-tag suggestions. Local full verification
-is clean. GitHub `master` remains promoted at `2eced84`
+Last reviewed branch checkpoint: RC-readiness audit tooling now requires the
+audited branch head to match the checked-out head before RC tag readiness or
+follow-up RC tag suggestions are evaluated. Mismatched branch/checkout audits
+report not-ready and suppress follow-up tag suggestions until the branch and
+checkout are aligned. Local full verification is clean. GitHub `master` remains
+promoted at `2eced84`
 with current-head hosted CI, package dry-run, native release dry-run, router
 image dry-run, WAMP profile, kTLS, and strict deployment-chain audit evidence.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
@@ -1268,6 +1269,18 @@ at the older `47bbf9c` commit.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - RC branch/head alignment audit hardening is complete locally.
+    `bin/audit-github-deployment-chain --show-rc-readiness` now prints the
+    audited branch head and requires it to match the checked-out head before RC
+    readiness or follow-up numeric RC tag suggestions are evaluated. Mismatched
+    branch/checkout audits report not-ready and suppress follow-up tag
+    suggestions until alignment is fixed. Pre-change `bin/test-fast`, focused
+    Bash syntax, the audit regression module, help output, `git diff --check`,
+    an aligned `add-router` RC-readiness summary, and full local `bin/verify`
+    passed on 2026-05-20. A read-only `master` RC-readiness summary confirmed
+    mismatch suppression, but GitHub returned a transient 502 while inspecting
+    Dart package dry-run jobs, so that summary was not used as clean release
+    evidence. No RC tag or GitHub Release was created or moved.
   - Numeric RC tag selection hardening is complete locally. The RC-readiness
     audit now requires a numeric RC tag for the checked-out-head release-tag
     gate while still inventorying RC-looking validation/dry-run tags as
