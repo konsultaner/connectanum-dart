@@ -3,18 +3,21 @@
 Last updated: 2026-05-20
 Current branch: `add-router`
 Last reviewed branch checkpoint: Router-hosted MCP direct JSON notification
-correctness now has single-message, mixed-batch, and all-notification batch
-smoke coverage. The latest local follow-up proves an all-notification direct
-JSON batch, including an invalid notification-only tool call, returns `202
-Accepted` with an empty body, no JSON payload, and no `mcp-session-id` header.
-Pre-change `bin/test-fast`, the focused MCP router smoke regression,
-`git diff --check`, post-change `bin/test-fast`, and `bin/verify` are clean for
-the current follow-up test change. Previous hosted `add-router` evidence for
-commit `7fb63b0` is clean: GitHub CI run `26158162335` passed with Fast Checks
-and Full Verify green, Dart Package Publish Dry Run `26158162312` passed, WAMP
-Profile Benchmarks `26158162311` passed, and the non-RC strict audit passed
-clean latest CI, clean CI logs, and clean Dart package dry-run gates. GitHub
-`master` remains at `0c0e043`.
+correctness now has native-router and generated consumer-package smoke coverage
+for single-message, mixed-batch, and all-notification batch handling. The latest
+local follow-up extends the generated consumer package router-hosted MCP CORS
+smoke so public and bearer-protected routes post an all-notification direct JSON
+batch containing a valid `connectanum.tool.call` notification for the consumer
+procedure and an invalid missing-name `connectanum.tool.call` notification; both
+must return `202 Accepted` with an empty body, no JSON payload, and no
+`mcp-session-id` header. Pre-change `bin/test-fast`, `bash -n bin/common.sh`,
+the focused `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+`git diff --check`, and `bin/verify` are clean for this local follow-up. Hosted
+`add-router` evidence remains clean for previous commit `7ed0e08`: GitHub CI
+run `26160395220` passed with Fast Checks and Full Verify green, Dart Package
+Publish Dry Run `26160395223` passed, WAMP Profile Benchmarks `26160395225`
+passed, and the non-RC strict audit passed clean latest CI, clean CI logs, and
+clean Dart package dry-run gates. GitHub `master` remains at `0c0e043`.
 Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
 transient browser harness load failure), Dart Package Publish Dry Run
 `26150666982`, WAMP Profile Benchmarks `26150666988`, Native Artifacts dry-run

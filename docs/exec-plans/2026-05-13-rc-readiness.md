@@ -409,22 +409,39 @@ decision because `connectanum_client` still depends on private
   in one direct JSON batch, then proves the router returns `202 Accepted` with
   an empty body, no JSON payload, and no `mcp-session-id` header. Pre-change
   `bin/test-fast`, the focused MCP router smoke regression, `git diff --check`,
-  post-change `bin/test-fast`, and full local `bin/verify` passed. No RC tag or
-  GitHub Release was created or moved.
+  post-change `bin/test-fast`, and full local `bin/verify` passed. Commit
+  `7ed0e08` was pushed to GitLab `origin` and GitHub `add-router`. Hosted
+  `add-router` evidence passed at that head: CI run `26160395220` (Fast Checks
+  and Full Verify), Dart Package Publish Dry Run `26160395223`, and WAMP Profile
+  Benchmarks `26160395225`. The non-RC strict deployment-chain audit also passed
+  clean latest CI, clean CI logs, and clean Dart package dry-run gates for
+  `add-router` at `7ed0e08`. No RC tag or GitHub Release was created or moved.
+- 2026-05-20: Extended the generated consumer package router-hosted MCP CORS
+  smoke to cover all-notification direct JSON tool-call batches on both public
+  and bearer-protected routes. The generated smoke now posts a valid
+  notification-only `connectanum.tool.call` for the consumer procedure plus an
+  invalid missing-name `connectanum.tool.call` notification in one direct JSON
+  batch, and asserts `202 Accepted`, empty body, no JSON payload, and no
+  `mcp-session-id` header. Pre-change `bin/test-fast`, `bash -n bin/common.sh`,
+  the focused `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and full local `bin/verify` passed. Hosted evidence for
+  this follow-up is pending push. No RC tag or GitHub Release was created or
+  moved.
 
 ## Handoff
 
 Active. GitHub `master` points at `0c0e043`, and `add-router` contains the
-router-hosted MCP direct JSON notification correctness fix plus single-message,
-mixed-batch, and all-notification batch smoke coverage for the same notification
-contract. Local `bin/test-fast` and `bin/verify` passed for the latest
+router-hosted MCP direct JSON notification correctness fix plus native-router
+and generated consumer-package smoke coverage for single-message, mixed-batch,
+and all-notification batch handling. Local `bin/test-fast`, the focused
+generated consumer package smoke, and `bin/verify` passed for the latest
 all-notification batch coverage. Hosted `add-router` CI, Dart package dry-run,
-WAMP Profile Benchmarks, and the non-RC strict deployment-chain audit remain
-clean at prior follow-up commit `7fb63b0`; current follow-up hosted evidence
-should be recorded after push. Hosted `master` evidence remains current and
-green for CI, Dart package dry-run relevance, WAMP Profile Benchmarks, Native
-Artifacts dry-run, and Router Image dry-run
-relevance. The strict deployment-chain audit passes on `master` with clean
+WAMP Profile Benchmarks, and the non-RC strict deployment-chain audit passed at
+previous commit `7ed0e08`; hosted evidence for the latest local follow-up is
+pending push. Hosted `master` evidence remains current and green for CI, Dart
+package dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run,
+and Router Image dry-run relevance. The strict deployment-chain audit passes on
+`master` with clean
 current-head CI/log, Dart package dry-run, native release dry-run, router image
 dry-run, workflow visibility, branch protection, and router package visibility
 gates. The audit verifies public GHCR registry metadata before falling back to

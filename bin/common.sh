@@ -6840,6 +6840,37 @@ Future<void> _assertMcpDirectJsonNotificationCorsResponse(
     batch,
     label: '$label direct JSON notification-only batch',
   );
+
+  final toolBatch = await _mcpRawDirectJsonRpcResponse(
+    client,
+    endpoint,
+    <Map<String, Object?>>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'name': _procedure,
+          'arguments': <String, Object?>{
+            'taskId': 'T-$label-direct-cors-tool-notification',
+          },
+        },
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'connectanum.tool.call',
+        'params': <String, Object?>{
+          'arguments': <String, Object?>{
+            'message': '$label invalid direct JSON tool notification',
+          },
+        },
+      },
+    ],
+    bearerToken: bearerToken,
+  );
+  _assertMcpDirectJsonNotificationAccepted(
+    toolBatch,
+    label: '$label direct JSON tool notification-only batch',
+  );
 }
 
 void _assertMcpDirectJsonNotificationAccepted(
