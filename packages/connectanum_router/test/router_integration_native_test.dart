@@ -978,7 +978,7 @@ void main() {
         headers: {
           'Mcp-Method': 'tools/call',
           'Mcp-Name': 'app.echo',
-          'Mcp-Parameter-Message': 'direct-standard',
+          'Mcp-Param-Message': 'direct-standard',
         },
       );
       expect(directToolCall.statusCode, equals(HttpStatus.ok));
@@ -986,6 +986,32 @@ void main() {
       expect(
         jsonEncode(directToolCall.json?['result']),
         contains('direct-standard'),
+      );
+
+      final directConnectanumToolCall = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-connectanum-tool-call',
+          'method': 'connectanum.tool.call',
+          'params': {
+            'name': 'app.echo',
+            'arguments': {'message': 'direct-connectanum'},
+          },
+        },
+        headers: {
+          'Mcp-Method': 'connectanum.tool.call',
+          'Mcp-Name': 'app.echo',
+          'Mcp-Param-Message': 'direct-connectanum',
+        },
+      );
+      expect(directConnectanumToolCall.statusCode, equals(HttpStatus.ok));
+      expect(directConnectanumToolCall.headers['mcp-session-id'], isNull);
+      expect(
+        jsonEncode(directConnectanumToolCall.json?['result']),
+        contains('direct-connectanum'),
       );
 
       final directResources = await _postJson(client, listener.port, '/mcp', {
@@ -1230,6 +1256,39 @@ void main() {
       );
       expect(
         jsonEncode(directParamHeaderMismatch.json?['error']),
+        contains('Mcp-Param-Message'),
+      );
+
+      final directConnectanumParamHeaderMismatch = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-connectanum-param-header-mismatch',
+          'method': 'connectanum.tool.call',
+          'params': {
+            'name': 'app.echo',
+            'arguments': {'message': 'hello'},
+          },
+        },
+        headers: {
+          'Mcp-Method': 'connectanum.tool.call',
+          'Mcp-Name': 'app.echo',
+          'Mcp-Param-Message': 'wrong',
+        },
+      );
+      expect(
+        directConnectanumParamHeaderMismatch.statusCode,
+        equals(HttpStatus.badRequest),
+      );
+      expect(
+        (directConnectanumParamHeaderMismatch.json?['error']
+            as Map<String, Object?>)['code'],
+        equals(-32001),
+      );
+      expect(
+        jsonEncode(directConnectanumParamHeaderMismatch.json?['error']),
         contains('Mcp-Param-Message'),
       );
 

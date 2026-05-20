@@ -9,22 +9,29 @@ effects, and Streamable direct tool/pubsub notification side effects. The latest
 pushed follow-up adds `McpStreamableHttpClient.notifyWampEventDirect(...)` so
 consumer applications can publish WAMP pub/sub events as lifecycle-free direct
 JSON notifications without hand-assembling `connectanum.pubsub.publish`
-payloads. This follow-up closes a direct Connectanum tool header parity
-gap: `callConnectanumToolDirect(...)` and `notifyConnectanumToolDirect(...)`
-now reuse the same cached `x-mcp-header` parameter metadata as `tools/call`,
-after either standard or Connectanum direct catalog discovery. Client tests
-assert generated `Mcp-Param-*` headers for direct Connectanum tool calls and
-notifications, and the generated client-only consumer-package smoke captures
-`Mcp-Param-Text` from an external-package endpoint. Pre-change
-`bin/test-fast`, `bash -n bin/common.sh`, focused
-`dart test -p vm test/mcp/streamable_http_client_test.dart`, and focused
-`bash -lc 'source bin/common.sh; run_mcp_client_package_smoke'`, and full local
-`bin/verify` are clean for this follow-up. Commit `a1ef285` was pushed
-to GitLab `origin` and GitHub `add-router`. Hosted `add-router` evidence is
-clean at `a1ef285`: CI run `26177091687` passed with Fast Checks and Full
-Verify green, Dart Package Publish Dry Run `26177091693` passed, WAMP Profile
-Benchmarks `26177091686` passed, and the non-RC strict deployment-chain audit
-passed clean latest CI, clean CI logs, and clean Dart package dry-run gates.
+payloads. The prior pushed follow-up closed direct Connectanum tool client
+header parity: `callConnectanumToolDirect(...)` and
+`notifyConnectanumToolDirect(...)` reuse the same cached `x-mcp-header`
+parameter metadata as `tools/call`, after either standard or Connectanum direct
+catalog discovery. This implementation follow-up closes the router-hosted half
+of that alias path: `connectanum.tool.call` and `connectanum.tools.call` now
+share standard `Mcp-Name` extraction and `Mcp-Param-*` validation with
+`tools/call`, and direct dotted tool methods validate present parameter headers
+against their tool schema. Client tests assert direct Connectanum tool calls and
+notifications emit `Mcp-Name`; native-router coverage accepts matching
+`connectanum.tool.call` headers and rejects mismatched `Mcp-Param-*` values;
+the generated consumer-package router-hosted MCP smoke now proves a public
+client helper overrides bad caller-provided `Mcp-Name`/`Mcp-Param-*` headers
+before reaching the real router endpoint. Pre-change `bin/test-fast`, focused
+local MCP/router tests, generated consumer-package smokes, `git diff --check`,
+and full local `bin/verify` are clean for this implementation. Commit
+`ed88382` was pushed to GitLab `origin` and GitHub `add-router`. Hosted
+`add-router` evidence is clean at `ed88382`: CI run `26179778871` passed with
+Fast Checks and Full Verify green, Dart Package Publish Dry Run `26179778866`
+passed, WAMP Profile Benchmarks `26179778869` passed, and the non-RC strict
+deployment-chain audit passed clean latest CI, clean CI logs, and clean Dart
+package dry-run gates. Hosted evidence for this implementation follow-up will
+be collected after it is pushed.
 GitHub `master` remains at `0c0e043`.
 Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
 transient browser harness load failure), Dart Package Publish Dry Run

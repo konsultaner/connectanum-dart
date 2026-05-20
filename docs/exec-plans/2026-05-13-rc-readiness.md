@@ -552,7 +552,29 @@ decision because `connectanum_client` still depends on private
   bin/common.sh`, focused
   `dart test -p vm test/mcp/streamable_http_client_test.dart`, and focused
   `bash -lc 'source bin/common.sh; run_mcp_client_package_smoke'` passed; full
-  local `bin/verify` passed.
+  local `bin/verify` passed. Commit `ed88382` was pushed to GitLab `origin`
+  and GitHub `add-router`. Hosted `add-router` evidence is clean at this
+  follow-up: GitHub CI run `26179778871` passed with Fast Checks and Full
+  Verify green, Dart Package Publish Dry Run `26179778866` passed, WAMP Profile
+  Benchmarks `26179778869` passed, and the non-RC strict deployment-chain audit
+  passed clean latest CI, clean CI logs, and clean Dart package dry-run gates.
+- 2026-05-20: This implementation follow-up closes the router-hosted direct
+  Connectanum tool alias side of the same header contract. The client now emits
+  `Mcp-Name` for `connectanum.tool.call` and `connectanum.tools.call`, the
+  router validates `Mcp-Name` plus `Mcp-Param-*` for those aliases using the
+  same tool schema path as standard `tools/call`, and direct dotted tool
+  methods validate any present parameter headers against their schema. Native
+  router coverage now accepts matching `connectanum.tool.call` headers and
+  rejects mismatched `Mcp-Param-*` values; the generated consumer-package
+  router-hosted MCP smoke proves public direct helpers override bad
+  caller-provided `Mcp-Name`/`Mcp-Param-*` headers before reaching the real
+  router endpoint. Pre-change `bin/test-fast`, formatting, `bash -n
+  bin/common.sh`, focused
+  `dart test -p vm test/mcp/streamable_http_client_test.dart`, focused
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart
+  --chain-stack-traces`, focused generated consumer-package smokes,
+  `git diff --check`, and full local `bin/verify` passed. Hosted evidence is
+  pending until this follow-up is pushed.
 
 ## Handoff
 
@@ -569,10 +591,16 @@ consumer-package router-hosted MCP smoke. This follow-up closes direct
 Connectanum tool header parity: direct tool call and notification helpers now
 emit cached `Mcp-Param-*` headers after direct catalog discovery, with focused
 client tests, generated client-only consumer-package smoke, and full local
-`bin/verify` passing. Hosted `add-router` evidence is clean for the
-latest pushed head `a1ef285`: CI run `26177091687`, Dart Package Publish Dry
-Run `26177091693`, WAMP Profile Benchmarks `26177091686`, and the non-RC
-strict deployment-chain audit all passed. Hosted `master` evidence
+`bin/verify` passing. This implementation follow-up extends that same contract
+to the router-hosted alias path: direct `connectanum.tool.call` /
+`connectanum.tools.call` now share `Mcp-Name` and `Mcp-Param-*` validation with
+standard `tools/call`, and consumer-package smoke coverage proves public direct
+helpers override stale caller-provided MCP name/parameter headers before the
+real router endpoint validates them. Hosted `add-router` evidence is clean for
+the previous pushed head `ed88382`: CI run `26179778871`, Dart Package Publish
+Dry Run `26179778866`, WAMP Profile Benchmarks `26179778869`, and the non-RC
+strict deployment-chain audit all passed. Hosted evidence for this
+implementation follow-up is pending until push. Hosted `master` evidence
 remains current and green for CI, Dart package dry-run relevance, WAMP Profile
 Benchmarks, Native Artifacts dry-run, and Router Image dry-run relevance. The
 strict deployment-chain audit passes on `master` with clean current-head CI/log,

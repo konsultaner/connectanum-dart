@@ -613,14 +613,14 @@ void main() {
         expect(endpoint.requests[2].mcpMethod, 'connectanum.tools.list');
         expect(endpoint.requests[2].consumerTrace, 'direct-post-tools');
         expect(endpoint.requests[3].mcpMethod, 'connectanum.tool.call');
-        expect(endpoint.requests[3].mcpName, isNull);
+        expect(endpoint.requests[3].mcpName, 'app.echo');
         expect(endpoint.requests[3].consumerTrace, 'direct-tool-call');
         expect(
           endpoint.requests[3].mcpParameterHeaders,
           expectedDirectToolHeaders,
         );
         expect(endpoint.requests[4].mcpMethod, 'connectanum.tool.call');
-        expect(endpoint.requests[4].mcpName, isNull);
+        expect(endpoint.requests[4].mcpName, 'app.echo');
         expect(endpoint.requests[4].consumerTrace, 'direct-tool-notify');
         expect(
           endpoint.requests[4].mcpParameterHeaders,
@@ -1313,6 +1313,7 @@ void main() {
             'arguments': {'message': 'tool-notify'},
           },
         });
+        expect(endpoint.requests[0].mcpName, 'app.echo');
         expect(endpoint.requests[1].body, {
           'jsonrpc': '2.0',
           'method': 'app.echo',

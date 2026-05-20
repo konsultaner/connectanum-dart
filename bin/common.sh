@@ -11249,6 +11249,24 @@ Future<void> _smokeDirectToolApi(
     label: 'Direct JSON tool helper',
   );
 
+  final headerOverrideTaskId = 'T-$label-direct-tool-header-override';
+  final headerOverrideResult = await client.callConnectanumToolDirect(
+    _procedure,
+    id: '$label-direct-tool-header-override',
+    arguments: {'taskId': headerOverrideTaskId, 'note': _headerWrappedNote},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-tool-header-override',
+      'Mcp-Name': 'consumer.task.wrong',
+      'Mcp-Param-TaskId': 'wrong-task',
+      'Mcp-Param-Note': 'wrong-note',
+    },
+  );
+  _expectDirectToolPayload(
+    headerOverrideResult,
+    taskId: headerOverrideTaskId,
+    label: 'Direct JSON tool helper header override',
+  );
+
   final aliasTaskId = 'T-$label-direct-tools-call-alias';
   final aliasResult = await client.callConnectanumMethodDirect(
     'connectanum.tools.call',

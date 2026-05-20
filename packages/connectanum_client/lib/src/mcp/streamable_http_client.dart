@@ -1072,7 +1072,10 @@ String? _requestNameForStandardHeaders(Object? message, String method) {
     return null;
   }
   final field = switch (method) {
-    'tools/call' || 'prompts/get' => 'name',
+    'tools/call' ||
+    'connectanum.tool.call' ||
+    'connectanum.tools.call' ||
+    'prompts/get' => 'name',
     'resources/read' => 'uri',
     _ => null,
   };

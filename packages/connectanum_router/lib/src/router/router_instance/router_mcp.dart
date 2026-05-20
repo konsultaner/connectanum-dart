@@ -300,7 +300,10 @@ String? _mcpRequestName(Object? rawMessage, String method) {
     return null;
   }
   final field = switch (method) {
-    'tools/call' || 'prompts/get' => 'name',
+    'tools/call' ||
+    'connectanum.tool.call' ||
+    'connectanum.tools.call' ||
+    'prompts/get' => 'name',
     'resources/read' => 'uri',
     _ => null,
   };
@@ -410,19 +413,33 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
     }
   }
 
-  if (_mcpRequestMethod(rawMessage) != 'tools/call' || rawMessage is! Map) {
+  final method = _mcpRequestMethod(rawMessage);
+  if (method == null || rawMessage is! Map) {
     return null;
   }
   final params = rawMessage['params'];
   if (params is! Map) {
     return null;
   }
-  final toolName = params['name'];
-  if (toolName is! String) {
+
+  String? toolName;
+  Map<String, Object?> arguments = const <String, Object?>{};
+  if (method == 'tools/call' ||
+      method == 'connectanum.tool.call' ||
+      method == 'connectanum.tools.call') {
+    final rawToolName = params['name'];
+    if (rawToolName is! String) {
+      return null;
+    }
+    toolName = rawToolName;
+    arguments = _jsonMapFrom(params['arguments']) ?? const <String, Object?>{};
+  } else if (method.contains('.') && endpoint.server.tools[method] != null) {
+    toolName = method;
+    arguments = _jsonMapFrom(params) ?? const <String, Object?>{};
+  } else {
     return null;
   }
-  final arguments =
-      _jsonMapFrom(params['arguments']) ?? const <String, Object?>{};
+
   final tool = endpoint.server.tools[toolName];
   if (tool == null) {
     return null;
