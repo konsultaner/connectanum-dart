@@ -106,6 +106,8 @@ abstract class NativeRuntimeWithHandles implements NativeRuntime {
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   });
@@ -3310,9 +3312,13 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   }) {
+    final callerAuthIdBuffer = _toNativeString(callerAuthId);
+    final callerAuthRoleBuffer = _toNativeString(callerAuthRole);
     final procedureBuffer = _toNativeString(procedure);
     try {
       final result = _bindings.ctForwardCallInvocation(
@@ -3322,6 +3328,10 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         registrationId,
         callerSessionId != null ? 1 : 0,
         callerSessionId ?? 0,
+        callerAuthIdBuffer.charPtr,
+        callerAuthIdBuffer.length,
+        callerAuthRoleBuffer.charPtr,
+        callerAuthRoleBuffer.length,
         procedureBuffer.charPtr,
         procedureBuffer.length,
         receiveProgress == null ? -1 : (receiveProgress ? 1 : 0),
@@ -3330,6 +3340,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         _throwForError(result, 'Failed to forward call invocation');
       }
     } finally {
+      callerAuthIdBuffer.dispose();
+      callerAuthRoleBuffer.dispose();
       procedureBuffer.dispose();
     }
   }

@@ -209,6 +209,8 @@ class _NoopHandleRuntime extends _FakeRuntime
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   }) {}

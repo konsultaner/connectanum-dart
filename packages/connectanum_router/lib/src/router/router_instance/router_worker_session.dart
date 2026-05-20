@@ -5,6 +5,22 @@ const bool _forwardNativePublishEventsConst = bool.fromEnvironment(
   'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
   defaultValue: false,
 );
+const Set<String> _routerOwnedInvocationDetailKeys = {
+  'caller',
+  'caller_authid',
+  'caller_authrole',
+  'authid',
+  'authrole',
+  'authmethod',
+  'authprovider',
+  'procedure',
+  'receive_progress',
+  'disclose_me',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
 
 bool _parseForwardNativePublishFlag(String? raw) {
   if (raw == null) {
@@ -1029,7 +1045,6 @@ Future<void> _handleCall({
       'registrationId': dispatch.registrationId,
       'invocationId': dispatch.invocationId,
     });
-    final discloseCaller = message.options?.discloseMe == true;
     final nativeMessage = incomingMessage;
     var usedZeroCopy = false;
     if (dispatch.calleeInternalSendPort != null) {
@@ -1061,8 +1076,14 @@ Future<void> _handleCall({
           'registrationId': dispatch.registrationId,
           'procedure': message.procedure,
         };
-        if (discloseCaller) {
-          command['callerSessionId'] = state.sessionId;
+        if (dispatch.disclosedCallerSessionId != null) {
+          command['callerSessionId'] = dispatch.disclosedCallerSessionId;
+        }
+        if (dispatch.disclosedCallerAuthId != null) {
+          command['callerAuthId'] = dispatch.disclosedCallerAuthId;
+        }
+        if (dispatch.disclosedCallerAuthRole != null) {
+          command['callerAuthRole'] = dispatch.disclosedCallerAuthRole;
         }
         final receiveProgress = message.options?.receiveProgress;
         if (receiveProgress != null) {
@@ -1081,21 +1102,11 @@ Future<void> _handleCall({
 
     if (!usedZeroCopy) {
       final transferredPayload = _transferAbstractMessagePayload(message);
-      final invocationDetails = invocation_msg.InvocationDetails(
-        discloseCaller ? state.sessionId : null,
-        message.procedure,
-        message.options?.receiveProgress,
-        message.options?.pptScheme,
-        message.options?.pptSerializer,
-        message.options?.pptCipher,
-        message.options?.pptKeyId,
+      final invocationDetails = _invocationDetailsForCall(
+        dispatch: dispatch,
+        procedure: message.procedure,
+        options: message.options,
       );
-      final customOptions = message.options?.custom;
-      if (customOptions != null && customOptions.isNotEmpty) {
-        invocationDetails.custom.addAll(
-          customOptions.map((key, value) => MapEntry(key, value)),
-        );
-      }
       final invocation = invocation_msg.Invocation(
         dispatch.invocationId,
         dispatch.registrationId,
@@ -1366,7 +1377,9 @@ Future<void> _handleInternalInvocation({
       _internalMsgLazyPayload: transferredPayload,
       'options': _callOptionsToMap(message.options),
       'realmUri': realmUri,
-      'callerSessionId': callerSessionId,
+      'callerSessionId': dispatch.disclosedCallerSessionId,
+      'callerAuthId': dispatch.disclosedCallerAuthId,
+      'callerAuthRole': dispatch.disclosedCallerAuthRole,
       'callerRequestId': message.requestId,
       'replyPort': replyPort.sendPort,
     });
@@ -2181,6 +2194,81 @@ Map<String, Object?> _callOptionsToMap(call_msg.CallOptions? options) {
     map['disclose_me'] = options.discloseMe;
   }
   return map;
+}
+
+invocation_msg.InvocationDetails _invocationDetailsForCall({
+  required InvocationDispatchResult dispatch,
+  required String procedure,
+  required call_msg.CallOptions? options,
+}) {
+  final details = invocation_msg.InvocationDetails(
+    dispatch.disclosedCallerSessionId,
+    procedure,
+    options?.receiveProgress,
+    options?.pptScheme,
+    options?.pptSerializer,
+    options?.pptCipher,
+    options?.pptKeyId,
+  );
+  final custom = <String, dynamic>{};
+  final customOptions = options?.custom;
+  if (customOptions != null && customOptions.isNotEmpty) {
+    custom.addAll(customOptions);
+    custom.removeWhere(
+      (key, _) => _routerOwnedInvocationDetailKeys.contains(key),
+    );
+  }
+  final authId = dispatch.disclosedCallerAuthId;
+  if (authId != null) {
+    custom['caller_authid'] = authId;
+  }
+  final authRole = dispatch.disclosedCallerAuthRole;
+  if (authRole != null) {
+    custom['caller_authrole'] = authRole;
+  }
+  if (custom.isNotEmpty) {
+    details.custom.addAll(custom);
+  }
+  return details;
+}
+
+invocation_msg.InvocationDetails _invocationDetailsForInternalCall({
+  required InvocationDispatchResult dispatch,
+  required String procedure,
+  required Map<String, Object?> options,
+}) {
+  final details = invocation_msg.InvocationDetails(
+    dispatch.disclosedCallerSessionId,
+    procedure,
+    options['receive_progress'] == true,
+    options['ppt_scheme'] as String?,
+    options['ppt_serializer'] as String?,
+    options['ppt_cipher'] as String?,
+    options['ppt_keyid'] as String?,
+  );
+  final custom = _filteredInvocationOptionDetails(options);
+  final authId = dispatch.disclosedCallerAuthId;
+  if (authId != null) {
+    custom['caller_authid'] = authId;
+  }
+  final authRole = dispatch.disclosedCallerAuthRole;
+  if (authRole != null) {
+    custom['caller_authrole'] = authRole;
+  }
+  if (custom.isNotEmpty) {
+    details.custom.addAll(custom);
+  }
+  return details;
+}
+
+Map<String, dynamic> _filteredInvocationOptionDetails(
+  Map<String, Object?> options,
+) {
+  final custom = Map<String, dynamic>.from(options);
+  custom.removeWhere(
+    (key, _) => _routerOwnedInvocationDetailKeys.contains(key),
+  );
+  return custom;
 }
 
 String? _eventTopicForMatch(

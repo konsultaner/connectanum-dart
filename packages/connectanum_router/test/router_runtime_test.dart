@@ -21,7 +21,8 @@ import 'package:connectanum_core/connectanum_core.dart'
         MessageTypes,
         PPTPayload,
         Publish,
-        PublishOptions;
+        PublishOptions,
+        RegisterOptions;
 import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
@@ -503,6 +504,8 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
     required int invocationId,
     required int registrationId,
     int? callerSessionId,
+    String? callerAuthId,
+    String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
   }) {
@@ -512,6 +515,8 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
       'invocationId': invocationId,
       'registrationId': registrationId,
       'callerSessionId': callerSessionId,
+      'callerAuthId': callerAuthId,
+      'callerAuthRole': callerAuthRole,
       'procedure': procedure,
       'receiveProgress': receiveProgress,
     });
@@ -5126,6 +5131,74 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('applies caller disclosure policy across internal sessions', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRestrictedInternalSessionSettings(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    final caller = await binding.createInternalSession(
+      realmUri: 'realm1',
+      authId: 'caller-a',
+      authRole: 'member',
+    );
+    final callee = await binding.createInternalSession(
+      realmUri: 'realm1',
+      authId: 'callee-a',
+      authRole: 'member',
+    );
+    addTearDown(caller.close);
+    addTearDown(callee.close);
+
+    final seenInvocation = Completer<void>();
+    final registration = await callee.register(
+      'com.example.disclose',
+      options: RegisterOptions(discloseCaller: true),
+    );
+    registration.onInvoke((invocation) {
+      expect(invocation.details.caller, caller.sessionId);
+      expect(invocation.details.custom['caller_authid'], 'caller-a');
+      expect(invocation.details.custom['caller_authrole'], 'member');
+      expect(invocation.details.custom['trace_id'], 'trace-1');
+      expect(invocation.details.custom.containsKey('authid'), isFalse);
+      expect(invocation.details.custom.containsKey('caller'), isFalse);
+      invocation.respondWith(arguments: const ['ok']);
+      seenInvocation.complete();
+    });
+
+    final result = await caller
+        .call(
+          'com.example.disclose',
+          arguments: const ['payload'],
+          options: CallOptions(
+            custom: const {
+              'caller': 99,
+              'caller_authid': 'spoofed',
+              'authid': 'legacy-spoofed',
+              'trace_id': 'trace-1',
+            },
+          ),
+        )
+        .first;
+
+    expect(result.arguments, equals(const ['ok']));
+    await seenInvocation.future;
   });
 
   test(

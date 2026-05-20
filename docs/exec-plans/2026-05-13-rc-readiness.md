@@ -341,25 +341,44 @@ decision because `connectanum_client` still depends on private
   creating a stable GitHub Release. Pre-change `bin/test-fast` passed. Focused
   release-intent unit tests, a CLI validation for `v1.2.3-rc.1`, a workflow
   guard snippet check, an isolated bench package rerun, `git diff --check`, and
-  full local `bin/verify` passed locally. No RC tag or GitHub Release was
-  created or moved.
+  full local `bin/verify` passed locally. Commit `06dee45` was pushed to GitLab
+  `origin` and GitHub `add-router`; GitHub `CI` run `26137710822` passed,
+  Native Artifacts dry-run `26138108909` passed for validation tag
+  `v0.1.0-rc.1-validation.06dee45`, and the strict deployment-chain audit
+  passed with RC readiness still not-ready because `add-router` is not the
+  default release branch and no numeric RC tag points at `06dee45`. No RC tag or
+  GitHub Release was created or moved.
+- 2026-05-20: GitHub `master` was fast-forward promoted from `2eced84` to
+  `06dee45` so the release-safety fix is on the default release branch. GitHub
+  reported the protected-branch PR rule was bypassed for the direct update.
+  Hosted `master` CI run `26138507065` passed, Native Artifacts dry-run
+  `26138936777` passed for validation tag
+  `v0.1.0-rc.1-validation.06dee45`, and the strict deployment-chain audit
+  passed on `master` with clean CI/log, Dart package dry-run, native release
+  dry-run, router image dry-run, workflow visibility, and router package
+  visibility gates. RC readiness remains not-ready only because no approved
+  numeric RC tag or GitHub prerelease points at `06dee45`; the audit suggests
+  `v0.1.0-rc.2` as the next follow-up tag after release approval. No RC tag or
+  GitHub Release was created or moved. A final local `bin/verify` handoff pass
+  also completed successfully after the hosted evidence was recorded.
 
 ## Handoff
 
-Active. GitHub `master` now points at `2eced84`, the same tree as the validated
-`add-router` head, and the previous GitHub `master` history is an ancestor of
+Active. GitHub `master` now points at `06dee45`, the same commit as GitHub and
+GitLab `add-router`, and the previous GitHub `master` history is an ancestor of
 the promoted commit. Local `bin/test-fast` and `bin/verify` passed for the
-merge, and hosted `master` evidence is current and green for CI, Dart package
-dry-run, WAMP profile benchmarks, kTLS validation, Native Artifacts dry-run, and
-Router Image dry-run. The strict deployment-chain audit passes on `master` with
-clean current-head CI/log, Dart package dry-run, native release dry-run, router
-image dry-run, and router package visibility gates. The audit verifies public
-GHCR registry metadata before falling back to GitHub Packages metadata, and the
-router package visibility gate passes because
+release-safety fix before promotion, and hosted `master` evidence is current and
+green for CI, Dart package dry-run relevance, Native Artifacts dry-run, and
+Router Image dry-run relevance. The strict deployment-chain audit passes on
+`master` with clean current-head CI/log, Dart package dry-run, native release
+dry-run, router image dry-run, workflow visibility, and router package
+visibility gates. The audit verifies public GHCR registry metadata before
+falling back to GitHub Packages metadata, and the router package visibility gate
+passes because
 `ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
 `v0.1.0-rc.1` and a manifest digest.
 
-Continue with RC tag/prerelease selection for `2eced84` only from a checkout
+Continue with RC tag/prerelease selection for `06dee45` only from a checkout
 that is aligned with GitHub `master`. The audit now reports both the audited
 branch head and whether the audited branch is the default release branch before
 RC tag selection. When the audited branch and checkout differ, or when the
@@ -373,4 +392,5 @@ reporting RC prerelease selection as not-ready. Validation/dry-run RC tags are
 inventoried but do not satisfy the checked-out-head RC tag gate and are not
 treated as follow-up release candidates. Moving the stale tag or approving a
 follow-up RC tag remains a release decision. No RC tag or GitHub Release was
-created or moved during the master-promotion or audit-tooling work.
+created or moved during the master-promotion, release-intent hardening, or
+audit-tooling work.

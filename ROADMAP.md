@@ -219,7 +219,7 @@
   - [x] `killnowait`
   - [x] `kill`
   - [ ] `killall`
-- [ ] Caller disclosure (`caller`, `caller_authid`, `caller_authrole`)
+- [x] Caller disclosure (`caller`, `caller_authid`, `caller_authrole`)
 - [ ] Throttle/debounce hooks driven by client-provided hashes in call pipeline
   - Align behaviour with [WAMP issue #391 comment](https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967) to allow routers to honour client-provided throttling keys.
   - Client/server serializers must preserve custom fields (prefer `_custom` naming per spec, but remain lenient to match existing implementations).

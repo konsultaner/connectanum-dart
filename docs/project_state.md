@@ -2,16 +2,15 @@
 
 Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: RC-readiness audit tooling now requires the
-audited branch to be the GitHub default branch and requires the audited branch
-head to match the checked-out head before RC tag readiness or follow-up RC tag
-suggestions are evaluated. Non-default branch audits and mismatched
-branch/checkout audits report not-ready and suppress follow-up tag suggestions.
-Local full verification is clean. GitHub `add-router` commit `ea309d6` has green
-hosted CI and strict deployment-chain audit evidence. GitHub `master` remains
-promoted at `2eced84` with current-head hosted CI, package dry-run, native
-release dry-run, router image dry-run, WAMP profile, kTLS, and strict
-deployment-chain audit evidence.
+Last reviewed branch checkpoint: Router-owned WAMP caller disclosure now honors
+both `CALL.disclose_me` and callee `REGISTER.disclose_caller` policy across
+external, internal-session, and native forwarding paths while filtering
+caller/auth spoofing from invocation custom details. Local full verification is
+clean. GitHub `master` remains fast-forward promoted to `06dee45`; hosted
+`master` CI run `26138507065`, Native Artifacts dry-run `26138936777`, and the
+strict deployment-chain audit pass at that head. RC readiness remains not-ready
+only because no approved numeric RC tag or GitHub prerelease points at
+`06dee45`; the audit suggests `v0.1.0-rc.2` as the next release-decision tag.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` now contains the validated branch
@@ -1271,7 +1270,28 @@ at the older `47bbf9c` commit.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - Native Artifacts RC prerelease intent hardening is complete locally.
+  - Router-owned caller disclosure is complete locally. `RouterStateStore`
+    computes disclosure from caller/callee policy and returns disclosed caller
+    session/auth metadata in `InvocationDispatchResult`; worker, internal
+    session, and native forwarding consume those dispatch fields and strip
+    spoofable caller/auth detail keys from caller-provided options. Focused
+    router worker-session, router runtime, client E2EE peer-metadata, Rust
+    invocation, `git diff --check`, and full local `bin/verify` passed on
+    2026-05-20.
+  - GitHub default-branch promotion for `06dee45` is complete. GitHub `master`
+    was fast-forwarded from `2eced84` to `06dee45` on 2026-05-20; GitHub
+    reported the protected-branch PR rule was bypassed for that direct update.
+    Hosted `master` CI run `26138507065` passed with `Fast Checks` and
+    `Full Verify`, Native Artifacts dry-run `26138936777` passed for validation
+    tag `v0.1.0-rc.1-validation.06dee45`, and the strict deployment-chain audit
+    passed for `master` with clean CI/log, Dart package dry-run, native release
+    dry-run, router image dry-run, workflow visibility, and router package
+    visibility gates. RC readiness still reports not-ready because no approved
+    numeric RC tag or GitHub prerelease points at `06dee45`; the audit suggests
+    `v0.1.0-rc.2` as the next follow-up tag after release approval. No RC tag or
+    GitHub Release was created or moved. A final local `bin/verify` handoff
+    pass also completed successfully after the hosted evidence was recorded.
+  - Native Artifacts RC prerelease intent hardening is complete and pushed.
     Project SemVer prerelease tags such as `v0.1.0-rc.2` are now treated as
     GitHub prereleases by both `tool/validate_native_release_intent.py` and the
     Native Artifacts workflow tag-push/manual publish path, so an approved RC
@@ -1279,8 +1299,13 @@ at the older `47bbf9c` commit.
     `bin/test-fast` passed on 2026-05-20. Focused release-intent unit tests, a
     CLI validation for `v1.2.3-rc.1`, a workflow guard snippet check, and
     `git diff --check` passed locally; an isolated bench package rerun and full
-    local `bin/verify` also passed on 2026-05-20. No RC tag or GitHub Release
-    was created or moved.
+    local `bin/verify` also passed on 2026-05-20. Commit `06dee45` was pushed
+    to GitLab `origin` and GitHub `add-router`; GitHub `CI` run `26137710822`
+    passed, Native Artifacts dry-run `26138108909` passed for validation tag
+    `v0.1.0-rc.1-validation.06dee45`, and the strict deployment-chain audit
+    passed with RC readiness still not-ready because `add-router` is not the
+    default release branch and no numeric RC tag points at `06dee45`. No RC tag
+    or GitHub Release was created or moved.
   - RC default-branch selection audit hardening is complete and pushed.
     `bin/audit-github-deployment-chain --show-rc-readiness` now reports whether
     the audited branch is the default release branch and suppresses follow-up

@@ -51,8 +51,12 @@ class WampE2eePartyContext {
         : Map<String, dynamic>.unmodifiable(Map<String, dynamic>.from(details));
     return WampE2eePartyContext(
       sessionId: sessionId,
-      authId: copiedDetails?['authid'] as String?,
-      authRole: copiedDetails?['authrole'] as String?,
+      authId:
+          (copiedDetails?['caller_authid'] ?? copiedDetails?['authid'])
+              as String?,
+      authRole:
+          (copiedDetails?['caller_authrole'] ?? copiedDetails?['authrole'])
+              as String?,
       authMethod: copiedDetails?['authmethod'] as String?,
       authProvider: copiedDetails?['authprovider'] as String?,
       authExtra: _coerceStringDynamicMap(copiedDetails?['authextra']),

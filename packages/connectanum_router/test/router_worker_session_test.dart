@@ -3012,6 +3012,8 @@ void main() {
           sessionId: 801,
           listener: listener,
           connectionId: 21,
+          authId: 'caller-native',
+          authRole: 'operator',
         );
         _openSession(
           stateStore,
@@ -3029,13 +3031,15 @@ void main() {
           statePort: stateStore.commandPort,
         );
 
+        final register = register_msg.Register(7001, 'com.zero.proc')
+          ..options = register_msg.RegisterOptions(discloseCaller: true);
         await handleSessionMessageForTest(
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
           connectionStates: connectionStates,
           state: calleeState,
-          message: register_msg.Register(7001, 'com.zero.proc'),
+          message: register,
           connectionId: 22,
         );
         await Future<void>.delayed(Duration.zero);
@@ -3073,7 +3077,11 @@ void main() {
             )
             .toList();
         expect(nativeCommands, hasLength(1));
-        expect(nativeCommands.single['handle'], equals(88));
+        final nativeCommand = nativeCommands.single;
+        expect(nativeCommand['handle'], equals(88));
+        expect(nativeCommand['callerSessionId'], equals(801));
+        expect(nativeCommand['callerAuthId'], equals('caller-native'));
+        expect(nativeCommand['callerAuthRole'], equals('operator'));
         expect(takenHandles, equals([88]));
         expect(
           bossMessages.where(
@@ -5220,6 +5228,120 @@ void main() {
         expect(result.callRequestId, equals(7001));
         expect(result.details.progress, isFalse);
         expect(result.arguments, equals([3]));
+      },
+    );
+
+    test(
+      'honors callee-requested caller disclosure without caller spoofing',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 621;
+        final calleeState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeState
+          ..serializer = NativeMessageSerializer.messagePack
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 622;
+
+        _openSession(
+          stateStore,
+          sessionId: 621,
+          listener: listener,
+          connectionId: 41,
+          authId: 'caller-a',
+          authRole: 'operator',
+        );
+        _openSession(
+          stateStore,
+          sessionId: 622,
+          listener: listener,
+          connectionId: 42,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final registerReply = ReceivePort();
+        stateStore.commandPort.send(
+          ProcedureRegisterCommand(
+            realmUri: 'realm1',
+            sessionId: 622,
+            procedure: 'com.example.disclose',
+            details: const {'disclose_caller': true},
+            replyPort: registerReply.sendPort,
+          ),
+        );
+        final registrationId = await registerReply.first as int;
+        registerReply.close();
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        final call =
+            call_msg.Call(
+                7201,
+                'com.example.disclose',
+                arguments: const ['payload'],
+              )
+              ..options = call_msg.CallOptions(
+                custom: const {
+                  'caller': 999,
+                  'caller_authid': 'spoofed',
+                  'caller_authrole': 'spoofed',
+                  'authid': 'legacy-spoofed',
+                  'trace_id': 'trace-1',
+                },
+              );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 41,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final forwards = _extractForwardMessages(bossMessages);
+        expect(forwards, hasLength(1));
+        expect(forwards.single['connectionId'], equals(42));
+        final invocation =
+            forwards.single['message'] as invocation_msg.Invocation;
+        expect(invocation.registrationId, equals(registrationId));
+        expect(invocation.details.caller, equals(621));
+        expect(invocation.details.custom['caller_authid'], equals('caller-a'));
+        expect(
+          invocation.details.custom['caller_authrole'],
+          equals('operator'),
+        );
+        expect(invocation.details.custom['trace_id'], equals('trace-1'));
+        expect(invocation.details.custom.containsKey('caller'), isFalse);
+        expect(invocation.details.custom.containsKey('authid'), isFalse);
       },
     );
 

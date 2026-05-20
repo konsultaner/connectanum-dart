@@ -312,17 +312,17 @@ class RouterSession {
         message['pptCipher'] as String? ?? options['ppt_cipher'] as String?,
         message['pptKeyId'] as String? ?? options['ppt_keyid'] as String?,
       );
-      if (options.isNotEmpty) {
-        // Remove fields already consumed to avoid duplication.
-        final custom = Map<String, dynamic>.from(options)
-          ..remove('receive_progress')
-          ..remove('ppt_scheme')
-          ..remove('ppt_serializer')
-          ..remove('ppt_cipher')
-          ..remove('ppt_keyid');
-        if (custom.isNotEmpty) {
-          details.custom.addAll(custom);
-        }
+      final custom = _filteredInvocationOptionDetails(options);
+      final callerAuthId = message['callerAuthId'] as String?;
+      if (callerAuthId != null) {
+        custom['caller_authid'] = callerAuthId;
+      }
+      final callerAuthRole = message['callerAuthRole'] as String?;
+      if (callerAuthRole != null) {
+        custom['caller_authrole'] = callerAuthRole;
+      }
+      if (custom.isNotEmpty) {
+        details.custom.addAll(custom);
       }
       final transferredPayload = _materializeTransferredValue(
         message[_internalMsgLazyPayload],
@@ -1870,7 +1870,9 @@ class _InternalSessionIsolate {
         'argumentsKeywords': argumentsKeywords,
         'options': options,
         'realmUri': _bootstrap.realmUri,
-        'callerSessionId': _bootstrap.sessionId,
+        'callerSessionId': dispatch.disclosedCallerSessionId,
+        'callerAuthId': dispatch.disclosedCallerAuthId,
+        'callerAuthRole': dispatch.disclosedCallerAuthRole,
         'callerRequestId': requestId,
         'replyPort': replyPort.sendPort,
       });
@@ -1954,28 +1956,11 @@ class _InternalSessionIsolate {
       return;
     }
 
-    final discloseCaller = options['disclose_me'] == true;
-    final receiveProgress = options['receive_progress'] == true;
-    final invocationDetails = invocation_msg.InvocationDetails(
-      discloseCaller ? _bootstrap.sessionId : null,
-      procedure,
-      receiveProgress,
-      options['ppt_scheme'] as String?,
-      options['ppt_serializer'] as String?,
-      options['ppt_cipher'] as String?,
-      options['ppt_keyid'] as String?,
+    final invocationDetails = _invocationDetailsForInternalCall(
+      dispatch: dispatch,
+      procedure: procedure,
+      options: options,
     );
-    if (options.isNotEmpty) {
-      final custom = Map<String, dynamic>.from(options)
-        ..remove('receive_progress')
-        ..remove('ppt_scheme')
-        ..remove('ppt_serializer')
-        ..remove('ppt_cipher')
-        ..remove('ppt_keyid');
-      if (custom.isNotEmpty) {
-        invocationDetails.custom.addAll(custom);
-      }
-    }
     final invocation = invocation_msg.Invocation(
       dispatch.invocationId,
       dispatch.registrationId,
@@ -2145,6 +2130,8 @@ class _InternalSessionIsolate {
           'pptCipher': (decodedMessage['options'] as Map?)?['ppt_cipher'],
           'pptKeyId': (decodedMessage['options'] as Map?)?['ppt_keyid'],
           'callerSessionId': decodedMessage['callerSessionId'],
+          'callerAuthId': decodedMessage['callerAuthId'],
+          'callerAuthRole': decodedMessage['callerAuthRole'],
           'callerRequestId': decodedMessage['callerRequestId'],
           'replyPort': responsePort.sendPort,
         });

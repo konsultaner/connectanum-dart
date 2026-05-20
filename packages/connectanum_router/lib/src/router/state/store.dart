@@ -584,11 +584,13 @@ class RouterStateStore {
       throw StoreCommandError('No available callee for procedure $procedure');
     }
     final invocationId = ids.invocation.next();
-    if (!realm.sessions.containsKey(callerSessionId)) {
-      throw StoreCommandError('Caller session $callerSessionId not found');
-    }
-    final callerSession = realm.sessions[callerSessionId];
+    final callerSession =
+        realm.sessions[callerSessionId] ??
+        (throw StoreCommandError('Caller session $callerSessionId not found'));
     final calleeSession = realm.sessions[callee.sessionId];
+    final discloseCaller =
+        options['disclose_me'] == true ||
+        callee.details['disclose_caller'] == true;
     final record = PendingInvocation(
       invocationId: invocationId,
       registrationId: callee.registrationId,
@@ -599,7 +601,7 @@ class RouterStateStore {
       allowProgress: options['receive_progress'] == true,
       callerSessionId: callerSessionId,
       calleeInternalSendPort: calleeSession?.internalSendPort,
-      callerInternalSendPort: callerSession?.internalSendPort,
+      callerInternalSendPort: callerSession.internalSendPort,
     );
     realm.invocations[invocationId] = record;
     callee.lastInvocation = DateTime.now();
@@ -611,7 +613,10 @@ class RouterStateStore {
       calleeSessionId: callee.sessionId,
       calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
       calleeInternalSendPort: calleeSession?.internalSendPort,
-      callerInternalSendPort: callerSession?.internalSendPort,
+      callerInternalSendPort: callerSession.internalSendPort,
+      disclosedCallerSessionId: discloseCaller ? callerSessionId : null,
+      disclosedCallerAuthId: discloseCaller ? callerSession.authId : null,
+      disclosedCallerAuthRole: discloseCaller ? callerSession.authRole : null,
     );
   }
 
@@ -974,6 +979,9 @@ class InvocationDispatchResult {
     required this.calleeConnectionId,
     this.calleeInternalSendPort,
     this.callerInternalSendPort,
+    this.disclosedCallerSessionId,
+    this.disclosedCallerAuthId,
+    this.disclosedCallerAuthRole,
   });
 
   final int invocationId;
@@ -982,4 +990,7 @@ class InvocationDispatchResult {
   final int calleeConnectionId;
   final SendPort? calleeInternalSendPort;
   final SendPort? callerInternalSendPort;
+  final int? disclosedCallerSessionId;
+  final String? disclosedCallerAuthId;
+  final String? disclosedCallerAuthRole;
 }
