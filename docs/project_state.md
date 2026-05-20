@@ -25,13 +25,28 @@ client helper overrides bad caller-provided `Mcp-Name`/`Mcp-Param-*` headers
 before reaching the real router endpoint. Pre-change `bin/test-fast`, focused
 local MCP/router tests, generated consumer-package smokes, `git diff --check`,
 and full local `bin/verify` are clean for this implementation. Commit
-`ed88382` was pushed to GitLab `origin` and GitHub `add-router`. Hosted
-`add-router` evidence is clean at `ed88382`: CI run `26179778871` passed with
-Fast Checks and Full Verify green, Dart Package Publish Dry Run `26179778866`
-passed, WAMP Profile Benchmarks `26179778869` passed, and the non-RC strict
+`7d0bddd` was pushed to GitLab `origin` and GitHub `add-router`. Hosted
+`add-router` evidence is clean at `7d0bddd`: CI run `26183740303` passed with
+Fast Checks and Full Verify green, Dart Package Publish Dry Run `26183740300`
+passed, WAMP Profile Benchmarks `26183740754` passed, and the non-RC strict
 deployment-chain audit passed clean latest CI, clean CI logs, and clean Dart
-package dry-run gates. Hosted evidence for this implementation follow-up will
-be collected after it is pushed.
+package dry-run gates.
+This local implementation follow-up broadens that direct-header contract to the
+generic direct JSON method helpers: `callConnectanumMethodDirect(...)` and
+`notifyConnectanumMethodDirect(...)` now synthesize cached `Mcp-Param-*`
+headers for `tools/call`, `connectanum.tool.call`, `connectanum.tools.call`,
+and cached dotted tool-method calls, overriding stale caller-provided
+parameter headers before router validation. Client tests prove the generic
+alias and dotted-method paths emit corrected headers, the generated client-only
+consumer package smoke asserts corrected captured parameter headers, and the
+generated router-hosted consumer package smoke now sends stale task/note
+headers through the public generic helpers to prove downstream applications can
+use those helpers against a real router endpoint without hidden header
+assembly. Pre-change `bin/test-fast`, `bash -n bin/common.sh`, focused
+`dart test -p vm test/mcp/streamable_http_client_test.dart`, focused generated
+client-only and router-hosted consumer-package smokes, `git diff --check`, and
+full local `bin/verify` passed. Hosted evidence for this follow-up is pending
+until push.
 GitHub `master` remains at `0c0e043`.
 Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
 transient browser harness load failure), Dart Package Publish Dry Run

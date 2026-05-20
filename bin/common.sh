@@ -2196,6 +2196,7 @@ Future<void> _smokeDirectToolApi(
     },
     headers: const <String, String>{
       'x-consumer-trace': 'direct-tools-call-alias',
+      'Mcp-Param-Text': 'wrong',
     },
   );
   _expect(
@@ -2210,6 +2211,7 @@ Future<void> _smokeDirectToolApi(
     params: const <String, Object?>{'text': 'direct dotted'},
     headers: const <String, String>{
       'x-consumer-trace': 'direct-dotted-tool-call',
+      'Mcp-Param-Text': 'wrong',
     },
   );
   _expect(
@@ -2245,6 +2247,10 @@ Future<void> _smokeDirectToolApi(
       endpoint.directMcpParameterHeadersByTrace[
         'direct-connectanum-tool-notify'
       ];
+  final aliasToolHeaders =
+      endpoint.directMcpParameterHeadersByTrace['direct-tools-call-alias'];
+  final dottedToolHeaders =
+      endpoint.directMcpParameterHeadersByTrace['direct-dotted-tool-call'];
   _expect(
     directToolHeaders?['mcp-param-text'] == 'direct tool',
     'direct JSON connectanum.tool.call helper missed MCP parameter headers',
@@ -2254,6 +2260,15 @@ Future<void> _smokeDirectToolApi(
         'direct notification',
     'direct JSON connectanum.tool.call notification helper missed MCP '
     'parameter headers',
+  );
+  _expect(
+    aliasToolHeaders?['mcp-param-text'] == 'direct alias',
+    'direct JSON connectanum.tools.call alias helper missed MCP parameter '
+    'headers',
+  );
+  _expect(
+    dottedToolHeaders?['mcp-param-text'] == 'direct dotted',
+    'direct JSON dotted tool method helper missed MCP parameter headers',
   );
   const expectedDirectToolApiTraceHeaders = <String>{
     'direct-tools-list',
@@ -11277,6 +11292,8 @@ Future<void> _smokeDirectToolApi(
     },
     headers: <String, String>{
       'x-consumer-trace': '$label-direct-tools-call-alias',
+      'Mcp-Param-TaskId': 'wrong-task',
+      'Mcp-Param-Note': 'wrong-note',
     },
   );
   _expectDirectToolPayload(
@@ -11292,6 +11309,8 @@ Future<void> _smokeDirectToolApi(
     params: {'taskId': dottedTaskId, 'note': _headerWrappedNote},
     headers: <String, String>{
       'x-consumer-trace': '$label-direct-dotted-method',
+      'Mcp-Param-TaskId': 'wrong-task',
+      'Mcp-Param-Note': 'wrong-note',
     },
   );
   _expectDirectToolPayload(

@@ -358,7 +358,11 @@ final class McpStreamableHttpClient {
       method,
       id: id,
       params: params,
-      headers: headers,
+      headers: _headersWithConnectanumMethodParameterHeaders(
+        method,
+        params,
+        headers,
+      ),
     );
     return _jsonRpcResultFrom(response, method: method);
   }
@@ -380,7 +384,15 @@ final class McpStreamableHttpClient {
     McpJsonMap params = const <String, Object?>{},
     Map<String, String> headers = const <String, String>{},
   }) {
-    return notificationDirect(method, params: params, headers: headers);
+    return notificationDirect(
+      method,
+      params: params,
+      headers: _headersWithConnectanumMethodParameterHeaders(
+        method,
+        params,
+        headers,
+      ),
+    );
   }
 
   Future<McpStreamableResourceListPage> listResources({
@@ -912,6 +924,25 @@ final class McpStreamableHttpClient {
     return parameterHeaders.isEmpty
         ? headers
         : <String, String>{...headers, ...parameterHeaders};
+  }
+
+  Map<String, String> _headersWithConnectanumMethodParameterHeaders(
+    String method,
+    McpJsonMap params,
+    Map<String, String> headers,
+  ) {
+    final (toolName, arguments) = switch (method) {
+      'tools/call' || 'connectanum.tool.call' || 'connectanum.tools.call' => (
+        params['name'],
+        _jsonMapFrom(params['arguments'], label: 'direct tool arguments') ??
+            const <String, Object?>{},
+      ),
+      _ when method.contains('.') => (method, params),
+      _ => (null, null),
+    };
+    return toolName is String && arguments != null
+        ? _headersWithToolParameterHeaders(toolName, arguments, headers)
+        : headers;
   }
 }
 

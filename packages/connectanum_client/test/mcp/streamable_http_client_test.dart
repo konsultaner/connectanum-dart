@@ -563,12 +563,30 @@ void main() {
           },
         );
 
+        final aliasResult = await client.callConnectanumMethodDirect(
+          'connectanum.tools.call',
+          id: 'direct-alias',
+          params: const <String, Object?>{
+            'name': 'app.echo',
+            'arguments': <String, Object?>{'message': 'alias'},
+          },
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-alias-method',
+            'Mcp-Param-Message': 'wrong',
+          },
+        );
+        expect(aliasResult['isError'], isFalse);
+        expect(aliasResult['structuredContent'], {
+          'echo': {'message': 'alias'},
+        });
+
         final methodResult = await client.callConnectanumMethodDirect(
           'app.echo',
           id: 'direct-dotted',
           params: {'message': 'dotted'},
           headers: const <String, String>{
             'x-consumer-trace': 'direct-dotted-method',
+            'Mcp-Param-Message': 'wrong',
           },
         );
         expect(methodResult['isError'], isFalse);
@@ -591,7 +609,7 @@ void main() {
         });
 
         expect(client.sessionId, isNull);
-        expect(endpoint.requests, hasLength(7));
+        expect(endpoint.requests, hasLength(8));
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.sessionId, isNull);
@@ -626,8 +644,18 @@ void main() {
           endpoint.requests[4].mcpParameterHeaders,
           expectedDirectToolHeaders,
         );
-        expect(endpoint.requests[5].consumerTrace, 'direct-dotted-method');
-        expect(endpoint.requests[6].consumerTrace, 'direct-meta-method');
+        expect(endpoint.requests[5].mcpMethod, 'connectanum.tools.call');
+        expect(endpoint.requests[5].mcpName, 'app.echo');
+        expect(endpoint.requests[5].consumerTrace, 'direct-alias-method');
+        expect(endpoint.requests[5].mcpParameterHeaders, {
+          'mcp-param-message': 'alias',
+        });
+        expect(endpoint.requests[6].mcpMethod, 'app.echo');
+        expect(endpoint.requests[6].consumerTrace, 'direct-dotted-method');
+        expect(endpoint.requests[6].mcpParameterHeaders, {
+          'mcp-param-message': 'dotted',
+        });
+        expect(endpoint.requests[7].consumerTrace, 'direct-meta-method');
         expect(
           endpoint.requests.first.body,
           containsPair('method', 'connectanum.tools.list'),
