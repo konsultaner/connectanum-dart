@@ -4325,6 +4325,8 @@ const _unknownAccessToken = 'consumer-unknown-access-token';
 const _allowedOrigin = 'https://consumer.example';
 const _disallowedOrigin = 'https://attacker.example';
 
+final _consumerProcedureTaskIds = <String>[];
+
 Future<void> main() async {
   final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
   if (nativeLibraryPath == null || nativeLibraryPath.isEmpty) {
@@ -4931,6 +4933,9 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
   registration.onInvoke((invocation) {
     final taskId = invocation.argumentsKeywords?['taskId'] ?? 'unknown';
     final note = invocation.argumentsKeywords?['note'];
+    if (taskId is String) {
+      _consumerProcedureTaskIds.add(taskId);
+    }
     invocation.respondWith(
       argumentsKeywords: {
         'taskId': taskId,
@@ -4940,6 +4945,29 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
       },
     );
   });
+}
+
+Future<void> _expectConsumerProcedureInvocation(
+  String taskId, {
+  required String label,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    if (_consumerProcedureTaskIds.contains(taskId)) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError('MCP $label did not invoke $_procedure for $taskId.');
+}
+
+void _expectNoConsumerProcedureInvocation(
+  String taskId, {
+  required String label,
+}) {
+  if (_consumerProcedureTaskIds.contains(taskId)) {
+    throw StateError('MCP $label unexpectedly invoked $_procedure.');
+  }
 }
 
 Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
@@ -6841,6 +6869,9 @@ Future<void> _assertMcpDirectJsonNotificationCorsResponse(
     label: '$label direct JSON notification-only batch',
   );
 
+  final toolNotificationTaskId = 'T-$label-direct-cors-tool-notification';
+  final invalidToolNotificationTaskId =
+      'T-$label-direct-cors-invalid-tool-notification';
   final toolBatch = await _mcpRawDirectJsonRpcResponse(
     client,
     endpoint,
@@ -6851,7 +6882,7 @@ Future<void> _assertMcpDirectJsonNotificationCorsResponse(
         'params': <String, Object?>{
           'name': _procedure,
           'arguments': <String, Object?>{
-            'taskId': 'T-$label-direct-cors-tool-notification',
+            'taskId': toolNotificationTaskId,
           },
         },
       },
@@ -6860,6 +6891,7 @@ Future<void> _assertMcpDirectJsonNotificationCorsResponse(
         'method': 'connectanum.tool.call',
         'params': <String, Object?>{
           'arguments': <String, Object?>{
+            'taskId': invalidToolNotificationTaskId,
             'message': '$label invalid direct JSON tool notification',
           },
         },
@@ -6870,6 +6902,25 @@ Future<void> _assertMcpDirectJsonNotificationCorsResponse(
   _assertMcpDirectJsonNotificationAccepted(
     toolBatch,
     label: '$label direct JSON tool notification-only batch',
+  );
+  await _expectConsumerProcedureInvocation(
+    toolNotificationTaskId,
+    label: '$label direct JSON tool notification-only batch',
+  );
+  await _mcpRawDirectJsonRpc(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': '$label-direct-cors-tool-notification-drain',
+      'method': 'ping',
+    },
+    label: '$label direct JSON tool notification drain',
+    bearerToken: bearerToken,
+  );
+  _expectNoConsumerProcedureInvocation(
+    invalidToolNotificationTaskId,
+    label: '$label invalid direct JSON tool notification-only batch',
   );
 }
 
@@ -14102,6 +14153,7 @@ Future<void> _smokeDirectJsonBatch(
   final directProcedureTaskId = 'T-$label-direct-batch-procedure';
   final aliasTaskId = 'T-$label-direct-batch-tools-alias';
   final promptTaskId = 'T-$label-direct-batch-prompt';
+  final notificationTaskId = 'T-$label-direct-batch-notification';
   final responses = await client.postBatchDirect(
     [
       {
@@ -14160,7 +14212,7 @@ Future<void> _smokeDirectJsonBatch(
         'method': 'connectanum.tool.call',
         'params': {
           'name': _procedure,
-          'arguments': {'taskId': 'T-$label-direct-batch-notification'},
+          'arguments': {'taskId': notificationTaskId},
         },
       },
     ],
@@ -14209,6 +14261,10 @@ Future<void> _smokeDirectJsonBatch(
       !jsonEncode(responses[6]).contains(promptTaskId)) {
     throw StateError('Direct JSON batch prompts/get response was invalid.');
   }
+  await _expectConsumerProcedureInvocation(
+    notificationTaskId,
+    label: 'Direct JSON mixed batch notification',
+  );
   await _smokeDirectJsonBatchResourcePromptDetails(
     client,
     label: label,
