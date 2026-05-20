@@ -459,6 +459,24 @@ decision because `connectanum_client` still depends on private
   batch, polls the subscription, and asserts only the valid event arrives.
   Pre-change `bin/test-fast`, `bash -n bin/common.sh`, the focused
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and full local `bin/verify` passed. Commit `b48d952` was
+  pushed to GitLab `origin` and GitHub `add-router`. Hosted GitHub CI run
+  `26167043374` passed at `b48d952` with Fast Checks and Full Verify green, and
+  the non-RC strict deployment-chain audit passed clean latest CI, clean CI logs,
+  and clean relevant Dart package dry-run gates. Dart Package Publish Dry Run
+  `26160395223` remains clean and relevant at previous commit `7ed0e08` because
+  no publish-sensitive paths changed since then; WAMP Profile Benchmarks
+  `26160395225` remain clean at `7ed0e08`. No RC tag or GitHub Release was
+  created or moved.
+- 2026-05-20: Extended the generated consumer package router-hosted MCP smoke
+  to prove Streamable HTTP session notification-only pub/sub publishes have
+  WAMP-side effects. The smoke now subscribes over Streamable HTTP, posts a
+  notification-only `connectanum.pubsub.publish` batch with one valid publish
+  and one invalid missing-topic publish, asserts no JSON-RPC response or
+  Streamable session cursor mutation, then polls the subscription and asserts
+  only the valid event arrives. Pre-change `bin/test-fast`,
+  `bash -n bin/common.sh`, the focused
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
   `git diff --check`, and full local `bin/verify` passed. No RC tag or GitHub
   Release was created or moved.
 
@@ -468,24 +486,24 @@ Active. GitHub `master` points at `0c0e043`, and `add-router` contains the
 router-hosted MCP direct JSON notification correctness fix plus native-router
 and generated consumer-package smoke coverage for single-message, mixed-batch,
 and all-notification batch handling. The latest local follow-up additionally
-proves direct JSON notification-only pub/sub publishes deliver the valid WAMP
-event and suppress an invalid missing-topic publish notification on public and
-bearer-protected routes. Local `bin/test-fast`, the focused generated consumer
-package smoke, and `bin/verify` passed for the latest notification side-effect
-coverage. Hosted `add-router` CI, Dart package dry-run, WAMP Profile Benchmarks,
-and the non-RC strict deployment-chain audit are clean for the previous pushed
-head: latest CI passed at `2fc71a5`, the package dry-run remains relevant at
-`7ed0e08`, and WAMP Profile Benchmarks remain clean at `7ed0e08`. Hosted
-`master` evidence remains current and green for CI, Dart package dry-run
-relevance, WAMP Profile Benchmarks, Native Artifacts dry-run, and Router Image
-dry-run relevance. The strict deployment-chain audit passes on `master` with
-clean
-current-head CI/log, Dart package dry-run, native release dry-run, router image
-dry-run, workflow visibility, branch protection, and router package visibility
-gates. The audit verifies public GHCR registry metadata before falling back to
-GitHub Packages metadata, and the router package visibility gate passes because
-`ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
-`v0.1.0-rc.1` and a manifest digest.
+proves Streamable HTTP session notification-only pub/sub publishes deliver the
+valid WAMP event while suppressing an invalid missing-topic publish
+notification, without returning a JSON-RPC response or mutating the Streamable
+session cursor. Local `bin/test-fast`, the focused generated consumer package
+smoke, `git diff --check`, and `bin/verify` passed for the latest notification
+side-effect coverage. Hosted `add-router` CI, Dart package dry-run, WAMP
+Profile Benchmarks, and the non-RC strict deployment-chain audit are clean for
+the previous pushed head: latest CI passed at `b48d952`, the package dry-run
+remains relevant at `7ed0e08`, and WAMP Profile Benchmarks remain clean at
+`7ed0e08`. Hosted `master` evidence remains current and green for CI, Dart
+package dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run,
+and Router Image dry-run relevance. The strict deployment-chain audit passes on
+`master` with clean current-head CI/log, Dart package dry-run, native release
+dry-run, router image dry-run, workflow visibility, branch protection, and
+router package visibility gates. The audit verifies public GHCR registry
+metadata before falling back to GitHub Packages metadata, and the router package
+visibility gate passes because `ghcr.io/konsultaner/connectanum-router` is
+publicly reachable with tag `v0.1.0-rc.1` and a manifest digest.
 
 Continue with RC tag/prerelease selection for `0c0e043` only from a checkout
 that is aligned with GitHub `master`. The audit now reports both the audited

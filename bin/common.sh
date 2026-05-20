@@ -13923,6 +13923,7 @@ Future<void> _smokeStreamableMcp(
     label: label,
     directJson: false,
   );
+  await _smokeStreamableNotificationPubSub(client, label: label);
 
   await _smokeStreamableSessionLifecycle(
     client,
@@ -16585,6 +16586,96 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   throw StateError('Timed out waiting for MCP pub/sub event.');
+}
+
+Future<void> _smokeStreamableNotificationPubSub(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP pub/sub notification smoke has no session id.',
+    );
+  }
+
+  final subscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-streamable-notification-pubsub-subscribe',
+    queueLimit: 4,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-notification-pubsub-subscribe',
+    },
+  );
+  try {
+    final eventIdBeforeNotificationBatch = client.lastEventId;
+    final taskId = 'T-$label-streamable-notification-pubsub';
+    final invalidTaskId = 'T-$label-streamable-invalid-notification-pubsub';
+    final notificationBatch = await client.postBatch(
+      [
+        {
+          'jsonrpc': '2.0',
+          'method': 'connectanum.pubsub.publish',
+          'params': {
+            'topic': _topic,
+            'argumentsKeywords': {'taskId': taskId},
+            'acknowledge': true,
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'method': 'connectanum.pubsub.publish',
+          'params': {
+            'argumentsKeywords': {
+              'taskId': invalidTaskId,
+              'message': '$label invalid Streamable pub/sub notification',
+            },
+          },
+        },
+      ],
+      headers: <String, String>{
+        'x-consumer-trace': '$label-streamable-notification-pubsub-batch',
+      },
+    );
+    if (notificationBatch != null) {
+      throw StateError(
+        'Streamable MCP pub/sub notification-only batch returned a response.',
+      );
+    }
+    if (client.sessionId != sessionId ||
+        client.lastEventId != eventIdBeforeNotificationBatch) {
+      throw StateError(
+        'Streamable MCP pub/sub notification-only batch changed session state.',
+      );
+    }
+
+    final events = await _pollMcpEventsUntil(
+      client,
+      subscription.handle,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-streamable-notification-pubsub-poll',
+      },
+    );
+    final eventsJson = jsonEncode(events.events);
+    if (!eventsJson.contains(taskId)) {
+      throw StateError(
+        'Streamable MCP pub/sub notification-only batch did not deliver event.',
+      );
+    }
+    if (eventsJson.contains(invalidTaskId)) {
+      throw StateError(
+        'Streamable MCP invalid pub/sub notification delivered an event.',
+      );
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      subscription.handle,
+      id: '$label-streamable-notification-pubsub-unsubscribe',
+      headers: <String, String>{
+        'x-consumer-trace': '$label-streamable-notification-pubsub-unsubscribe',
+      },
+    );
+  }
 }
 
 Future<void> _smokeMcpPubSubQueueOverflow(
