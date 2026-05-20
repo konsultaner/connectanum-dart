@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-20
+Last updated: 2026-05-21
 Current branch: `add-router`
 Last reviewed branch checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
@@ -92,7 +92,7 @@ and Full Verify green, Dart Package Publish Dry Run `26191487475` passed, WAMP
 Profile Benchmarks `26191487402` passed, and the non-RC strict
 deployment-chain audit passed clean latest CI, clean CI logs, and clean Dart
 package dry-run gates.
-This local implementation follow-up adds a public Streamable-session WAMP
+This implementation follow-up adds a public Streamable-session WAMP
 pub/sub notification helper for consumer applications. `notifyWampEvent(...)`
 sends `connectanum.pubsub.publish` as a notification-only Streamable HTTP
 request while preserving the active MCP session and stripping stale
@@ -105,8 +105,27 @@ router-hosted consumer-package smoke proves the public helper delivers a WAMP
 event through a real router endpoint without mutating the SSE cursor. Pre-change
 `bin/test-fast`, formatting, `bash -n bin/common.sh`, focused client/MCP
 package tests, and the focused generated router-hosted consumer-package smoke
-passed locally. Full local `bin/verify` passed; hosted evidence is pending for
-this follow-up until the code is pushed.
+passed locally. Full local `bin/verify` passed. Commit `1021cb9` was pushed to
+GitLab `origin` and GitHub `add-router`. Hosted `add-router` evidence is clean
+at `1021cb9`: CI run `26193409876` passed with Fast Checks and Full Verify
+green, Dart Package Publish Dry Run `26193409938` passed, WAMP Profile
+Benchmarks `26193409936` passed, and the non-RC strict deployment-chain audit
+passed clean latest CI, clean CI logs, and clean Dart package dry-run gates.
+This implementation follow-up adds standard MCP tool notification helpers for
+consumer applications. `notifyTool(...)` and `notifyToolDirect(...)` send
+id-free `tools/call` notifications, preserve the active MCP session and SSE
+cursor for Streamable HTTP, keep direct JSON lifecycle-free, and strip then
+regenerate stale caller-provided `Mcp-Param-*` headers from cached tool
+metadata. Client tests prove the Streamable and direct request shapes plus
+parameter-header regeneration, the MCP IO export test proves the helpers are
+available through `package:connectanum_mcp/connectanum_mcp_io.dart`, and the
+generated router-hosted consumer-package smoke proves standard direct and
+Streamable helper calls invoke a consumer WAMP procedure through a real router
+endpoint without private assumptions. Pre-change `bin/test-fast`, formatting,
+`bash -n bin/common.sh`, focused client/MCP package tests, the focused
+generated router-hosted consumer-package smoke, `git diff --check`, and full
+local `bin/verify` passed. Hosted `add-router` evidence is pending until this
+implementation is pushed.
 GitHub `master` remains at `0c0e043`.
 Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
 transient browser harness load failure), Dart Package Publish Dry Run

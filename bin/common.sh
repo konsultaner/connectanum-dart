@@ -11705,6 +11705,26 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     },
   );
 
+  final standardToolNotificationTaskId =
+      'T-$label-generic-direct-standard-tool-notification';
+  await client.notifyToolDirect(
+    _procedure,
+    arguments: {
+      'taskId': standardToolNotificationTaskId,
+      'note': _headerWrappedNote,
+    },
+    headers: {
+      'x-consumer-trace':
+          '$label-generic-direct-standard-tool-notification',
+      'Mcp-Param-TaskId': 'wrong-task',
+      'Mcp-Param-Note': 'wrong-note',
+    },
+  );
+  await _expectConsumerProcedureInvocation(
+    standardToolNotificationTaskId,
+    label: '$label generic direct standard tool notification',
+  );
+
   final helperToolNotificationTaskId =
       'T-$label-generic-direct-helper-tool-notification';
   await client.notifyConnectanumToolDirect(
@@ -16970,6 +16990,27 @@ Future<void> _smokeStreamableNotificationToolCall(
       'Streamable MCP tool notification-only batch changed session state.',
     );
   }
+
+  final eventIdBeforeHelperNotification = client.lastEventId;
+  final helperTaskId = 'T-$label-streamable-helper-notification-tool';
+  await client.notifyTool(
+    _procedure,
+    arguments: {'taskId': helperTaskId},
+    headers: <String, String>{
+      'Mcp-Param-TaskId': 'wrong-task',
+      'x-consumer-trace': '$label-streamable-notification-tool-helper',
+    },
+  );
+  if (client.sessionId != sessionId ||
+      client.lastEventId != eventIdBeforeHelperNotification) {
+    throw StateError(
+      'Streamable MCP standard tool notification helper changed session state.',
+    );
+  }
+  await _expectConsumerProcedureInvocation(
+    helperTaskId,
+    label: '$label Streamable standard tool notification helper',
+  );
 
   await _expectConsumerProcedureInvocation(
     taskId,

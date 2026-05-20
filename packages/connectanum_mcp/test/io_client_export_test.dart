@@ -94,8 +94,16 @@ void main() {
       'echo': {'message': 'tool'},
     });
 
+    await client.notifyToolDirect(
+      'app.echo',
+      arguments: const <String, Object?>{'message': 'notify'},
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-direct-tool-notify',
+      },
+    );
+
     expect(client.sessionId, isNull);
-    expect(endpoint.requests, hasLength(3));
+    expect(endpoint.requests, hasLength(4));
     for (final request in endpoint.requests) {
       expect(request.accept, 'application/json');
       expect(request.sessionId, isNull);
@@ -104,10 +112,12 @@ void main() {
       'ping',
       'tools/list',
       'tools/call',
+      'tools/call',
     ]);
     expect(endpoint.requests[0].consumerTrace, 'io-direct-ping');
     expect(endpoint.requests[1].consumerTrace, 'io-direct-tools-list');
     expect(endpoint.requests[2].consumerTrace, 'io-direct-tool-call');
+    expect(endpoint.requests[3].consumerTrace, 'io-direct-tool-notify');
 
     final toolCallParams = _jsonMapFrom(
       endpoint.requests[2].body['params'],
@@ -121,6 +131,14 @@ void main() {
       ),
       {'message': 'tool'},
     );
+    expect(endpoint.requests[3].body, {
+      'jsonrpc': '2.0',
+      'method': 'tools/call',
+      'params': {
+        'name': 'app.echo',
+        'arguments': {'message': 'notify'},
+      },
+    });
   });
 
   test(
@@ -820,6 +838,16 @@ void main() {
         headers: const <String, String>{'x-consumer-trace': 'io-initialized'},
       );
 
+      final eventIdBeforeToolNotification = client.lastEventId;
+      await client.notifyTool(
+        'app.echo',
+        arguments: const <String, Object?>{'message': 'streamable-notify'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-streamable-tool-notify',
+        },
+      );
+      expect(client.lastEventId, eventIdBeforeToolNotification);
+
       final firstEvents = await client.poll(
         headers: const <String, String>{'x-consumer-trace': 'io-poll'},
       );
@@ -852,8 +880,9 @@ void main() {
       expect(client.sessionId, isNull);
       expect(client.lastEventId, isNull);
 
-      expect(endpoint.requests, hasLength(5));
+      expect(endpoint.requests, hasLength(6));
       expect(endpoint.requests.map((request) => request.method), [
+        'POST',
         'POST',
         'POST',
         'GET',
@@ -867,17 +896,28 @@ void main() {
       expect(endpoint.requests[1].body, isA<Map<Object?, Object?>>());
       expect(endpoint.requests[1].accept, contains('text/event-stream'));
       expect(endpoint.requests[1].consumerTrace, 'io-initialized');
-      expect(endpoint.requests[2].accept, 'text/event-stream');
+      expect(endpoint.requests[2].accept, contains('text/event-stream'));
       expect(endpoint.requests[2].sessionId, 'io-session-1');
-      expect(endpoint.requests[2].lastEventId, isNull);
-      expect(endpoint.requests[2].consumerTrace, 'io-poll');
+      expect(endpoint.requests[2].consumerTrace, 'io-streamable-tool-notify');
+      expect(endpoint.requests[2].body, {
+        'jsonrpc': '2.0',
+        'method': 'tools/call',
+        'params': {
+          'name': 'app.echo',
+          'arguments': {'message': 'streamable-notify'},
+        },
+      });
       expect(endpoint.requests[3].accept, 'text/event-stream');
       expect(endpoint.requests[3].sessionId, 'io-session-1');
-      expect(endpoint.requests[3].lastEventId, 'io-session-1:get:1');
-      expect(endpoint.requests[3].consumerTrace, 'io-resume');
-      expect(endpoint.requests[4].accept, 'application/json');
+      expect(endpoint.requests[3].lastEventId, isNull);
+      expect(endpoint.requests[3].consumerTrace, 'io-poll');
+      expect(endpoint.requests[4].accept, 'text/event-stream');
       expect(endpoint.requests[4].sessionId, 'io-session-1');
-      expect(endpoint.requests[4].consumerTrace, 'io-delete');
+      expect(endpoint.requests[4].lastEventId, 'io-session-1:get:1');
+      expect(endpoint.requests[4].consumerTrace, 'io-resume');
+      expect(endpoint.requests[5].accept, 'application/json');
+      expect(endpoint.requests[5].sessionId, 'io-session-1');
+      expect(endpoint.requests[5].consumerTrace, 'io-delete');
     },
   );
 
@@ -1158,7 +1198,8 @@ final class _DirectWampEndpoint {
     final method = jsonBody['method'];
     if (!jsonBody.containsKey('id') &&
         method is String &&
-        (method == 'connectanum.tool.call' ||
+        (method == 'tools/call' ||
+            method == 'connectanum.tool.call' ||
             method == 'connectanum.tools.call' ||
             method.contains('.'))) {
       request.response.statusCode = HttpStatus.accepted;

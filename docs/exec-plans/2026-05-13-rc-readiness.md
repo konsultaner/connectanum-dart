@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-20
+Last updated: 2026-05-21
 
 ## Problem
 
@@ -643,7 +643,7 @@ decision because `connectanum_client` still depends on private
   WAMP Profile Benchmarks `26191487402` passed, and the non-RC strict
   deployment-chain audit passed clean latest CI, clean CI logs, and clean Dart
   package dry-run gates.
-- 2026-05-20: This local implementation follow-up adds a public
+- 2026-05-20: This implementation follow-up adds a public
   Streamable-session WAMP pub/sub notification helper for consumer
   applications. `notifyWampEvent(...)` sends `connectanum.pubsub.publish` as a
   notification-only Streamable HTTP request while preserving the active MCP
@@ -656,8 +656,29 @@ decision because `connectanum_client` still depends on private
   delivers a WAMP event through a real router endpoint without mutating the SSE
   cursor. Pre-change `bin/test-fast`, formatting, `bash -n bin/common.sh`,
   focused client/MCP package tests, and the focused generated router-hosted
-  consumer-package smoke passed locally. Full local `bin/verify` passed;
-  hosted evidence is pending for this follow-up until the code is pushed.
+  consumer-package smoke passed locally. Full local `bin/verify` passed.
+  Commit `1021cb9` was pushed to GitLab `origin` and GitHub `add-router`.
+  Hosted `add-router` evidence is clean at `1021cb9`: CI run `26193409876`
+  passed with Fast Checks and Full Verify green, Dart Package Publish Dry Run
+  `26193409938` passed, WAMP Profile Benchmarks `26193409936` passed, and the
+  non-RC strict deployment-chain audit passed clean latest CI, clean CI logs,
+  and clean Dart package dry-run gates.
+- 2026-05-21: This implementation follow-up adds standard MCP tool
+  notification helpers for consumer applications. `notifyTool(...)` and
+  `notifyToolDirect(...)` send id-free `tools/call` notifications, preserve the
+  active MCP session and SSE cursor for Streamable HTTP, keep direct JSON
+  lifecycle-free, and strip then regenerate stale caller-provided
+  `Mcp-Param-*` headers from cached tool metadata. Client tests prove the
+  Streamable and direct request shapes plus parameter-header regeneration; the
+  MCP IO export test proves the helpers are available through
+  `package:connectanum_mcp/connectanum_mcp_io.dart`; and the generated
+  router-hosted consumer-package smoke proves standard direct and Streamable
+  helper calls invoke a consumer WAMP procedure through a real router endpoint
+  without private assumptions. Pre-change `bin/test-fast`, formatting,
+  `bash -n bin/common.sh`, focused client/MCP package tests, the focused
+  generated router-hosted consumer-package smoke, `git diff --check`, and full
+  local `bin/verify` passed. Hosted `add-router` evidence is pending until this
+  implementation is pushed.
 
 ## Handoff
 
@@ -696,13 +717,22 @@ consumer safety coverage to `notifyWampEventDirect(...)` by proving stale
 router-hosted pub/sub notification delivery in the generated consumer-package
 smoke; commit `4d80537` is pushed to both remotes, local `bin/verify` is clean,
 and hosted `add-router` evidence is green for CI, Dart Package Publish Dry Run,
-WAMP Profile Benchmarks, and the strict deployment-chain audit. The current
-local follow-up adds the Streamable-session counterpart,
+WAMP Profile Benchmarks, and the strict deployment-chain audit. The latest
+pushed follow-up adds the Streamable-session counterpart,
 `notifyWampEvent(...)`, so consumer applications can send notification-only
 pub/sub publishes over an active MCP session without hand-assembling raw
 JSON-RPC; focused client/MCP package tests and the generated router-hosted
-consumer-package smoke are clean locally, full `bin/verify` passed, and hosted
-evidence is pending until push.
+consumer-package smoke are clean locally, commit `1021cb9` is pushed to both
+remotes, full `bin/verify` passed, and hosted `add-router` evidence is green
+for CI, Dart Package Publish Dry Run, WAMP Profile Benchmarks, and the strict
+deployment-chain audit. The current local follow-up adds the standard MCP
+counterpart, `notifyTool(...)` and `notifyToolDirect(...)`, so consumer
+applications can send id-free `tools/call` notifications over Streamable HTTP
+or direct JSON without hand-assembling raw payloads or trusted parameter
+headers. Focused client/MCP package tests, the generated router-hosted
+consumer-package smoke, `git diff --check`, and full local `bin/verify` are
+clean; hosted `add-router` evidence is pending until this implementation is
+pushed.
 Hosted `master` evidence remains current and green for CI, Dart package
 dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run, and
 Router Image dry-run relevance. The

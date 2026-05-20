@@ -286,6 +286,20 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: 'tools/call');
   }
 
+  Future<void> notifyTool(
+    String name, {
+    McpJsonMap arguments = const <String, Object?>{},
+    bool streamable = true,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return notification(
+      'tools/call',
+      params: <String, Object?>{'name': name, 'arguments': arguments},
+      streamable: streamable,
+      headers: _headersWithToolParameterHeaders(name, arguments, headers),
+    );
+  }
+
   Future<McpJsonMap> callToolDirect(
     String name, {
     Object? id,
@@ -299,6 +313,18 @@ final class McpStreamableHttpClient {
       headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
+  }
+
+  Future<void> notifyToolDirect(
+    String name, {
+    McpJsonMap arguments = const <String, Object?>{},
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return notificationDirect(
+      'tools/call',
+      params: <String, Object?>{'name': name, 'arguments': arguments},
+      headers: _headersWithToolParameterHeaders(name, arguments, headers),
+    );
   }
 
   Future<McpStreamableToolListPage> listConnectanumToolsDirect({

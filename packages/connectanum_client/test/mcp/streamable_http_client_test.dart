@@ -419,6 +419,17 @@ void main() {
         ),
       );
 
+      final lastEventIdBeforeNotification = client.lastEventId;
+      await client.notifyTool(
+        'app.echo',
+        arguments: const <String, Object?>{'message': 'notify'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'typed-tool-notify',
+          'Mcp-Param-Message': 'wrong',
+        },
+      );
+      expect(client.lastEventId, lastEventIdBeforeNotification);
+
       expect(endpoint.requests[2].mcpMethod, 'tools/list');
       expect(endpoint.requests[2].mcpName, isNull);
       expect(endpoint.requests[2].consumerTrace, 'typed-tools-list');
@@ -436,6 +447,22 @@ void main() {
       expect(endpoint.requests[4].mcpMethod, 'tools/call');
       expect(endpoint.requests[4].mcpName, 'app.fail');
       expect(endpoint.requests[4].mcpParameterHeaders, isEmpty);
+      expect(endpoint.requests[5].mcpMethod, 'tools/call');
+      expect(endpoint.requests[5].mcpName, 'app.echo');
+      expect(endpoint.requests[5].sessionId, 'session-1');
+      expect(endpoint.requests[5].accept, contains('text/event-stream'));
+      expect(endpoint.requests[5].consumerTrace, 'typed-tool-notify');
+      expect(endpoint.requests[5].mcpParameterHeaders, {
+        'mcp-param-message': 'notify',
+      });
+      expect(endpoint.requests[5].body, {
+        'jsonrpc': '2.0',
+        'method': 'tools/call',
+        'params': {
+          'name': 'app.echo',
+          'arguments': {'message': 'notify'},
+        },
+      });
     });
 
     test('uses standard direct JSON helpers without MCP lifecycle', () async {
@@ -471,9 +498,18 @@ void main() {
         'echo': {'message': 'direct'},
       });
 
+      await client.notifyToolDirect(
+        'app.echo',
+        arguments: const <String, Object?>{'message': 'direct-notify'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'direct-tool-notify',
+          'Mcp-Param-Message': 'wrong',
+        },
+      );
+
       expect(client.sessionId, isNull);
       expect(client.lastEventId, isNull);
-      expect(endpoint.requests, hasLength(3));
+      expect(endpoint.requests, hasLength(4));
       for (final request in endpoint.requests) {
         expect(request.accept, 'application/json');
         expect(request.sessionId, isNull);
@@ -487,6 +523,20 @@ void main() {
       expect(endpoint.requests[2].consumerTrace, 'direct-tool-call');
       expect(endpoint.requests[2].mcpParameterHeaders, {
         'mcp-param-message': 'direct',
+      });
+      expect(endpoint.requests[3].mcpMethod, 'tools/call');
+      expect(endpoint.requests[3].mcpName, 'app.echo');
+      expect(endpoint.requests[3].consumerTrace, 'direct-tool-notify');
+      expect(endpoint.requests[3].mcpParameterHeaders, {
+        'mcp-param-message': 'direct-notify',
+      });
+      expect(endpoint.requests[3].body, {
+        'jsonrpc': '2.0',
+        'method': 'tools/call',
+        'params': {
+          'name': 'app.echo',
+          'arguments': {'message': 'direct-notify'},
+        },
       });
     });
 
@@ -2288,7 +2338,8 @@ final class _FakeMcpEndpoint {
 
     if (!requestBody.containsKey('id') &&
         method is String &&
-        (method == 'connectanum.tool.call' ||
+        (method == 'tools/call' ||
+            method == 'connectanum.tool.call' ||
             method == 'connectanum.tools.call' ||
             method.contains('.'))) {
       request.response.statusCode = HttpStatus.accepted;
