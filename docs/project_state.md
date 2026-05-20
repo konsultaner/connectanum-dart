@@ -7,9 +7,11 @@ audited branch to be the GitHub default branch and requires the audited branch
 head to match the checked-out head before RC tag readiness or follow-up RC tag
 suggestions are evaluated. Non-default branch audits and mismatched
 branch/checkout audits report not-ready and suppress follow-up tag suggestions.
-Local full verification is clean. GitHub `master` remains promoted at `2eced84`
-with current-head hosted CI, package dry-run, native release dry-run, router
-image dry-run, WAMP profile, kTLS, and strict deployment-chain audit evidence.
+Local full verification is clean. GitHub `add-router` commit `ea309d6` has green
+hosted CI and strict deployment-chain audit evidence. GitHub `master` remains
+promoted at `2eced84` with current-head hosted CI, package dry-run, native
+release dry-run, router image dry-run, WAMP profile, kTLS, and strict
+deployment-chain audit evidence.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` now contains the validated branch
@@ -1269,7 +1271,17 @@ at the older `47bbf9c` commit.
 ## Last Known Verification
 
 - Current autonomous focus:
-  - RC default-branch selection audit hardening is complete locally.
+  - Native Artifacts RC prerelease intent hardening is complete locally.
+    Project SemVer prerelease tags such as `v0.1.0-rc.2` are now treated as
+    GitHub prereleases by both `tool/validate_native_release_intent.py` and the
+    Native Artifacts workflow tag-push/manual publish path, so an approved RC
+    tag cannot accidentally create a stable GitHub Release. Pre-change
+    `bin/test-fast` passed on 2026-05-20. Focused release-intent unit tests, a
+    CLI validation for `v1.2.3-rc.1`, a workflow guard snippet check, and
+    `git diff --check` passed locally; an isolated bench package rerun and full
+    local `bin/verify` also passed on 2026-05-20. No RC tag or GitHub Release
+    was created or moved.
+  - RC default-branch selection audit hardening is complete and pushed.
     `bin/audit-github-deployment-chain --show-rc-readiness` now reports whether
     the audited branch is the default release branch and suppresses follow-up
     numeric RC tag suggestions on aligned non-default branches. Pre-change
@@ -1278,7 +1290,12 @@ at the older `47bbf9c` commit.
     summary, and full local `bin/verify` passed on 2026-05-20. The live summary
     now reports `add-router` as branch/head aligned but not the default release
     branch, and it does not suggest `v0.1.0-rc.2` until `master` is audited from
-    an aligned checkout. No RC tag or GitHub Release was created or moved.
+    an aligned checkout. Commit `ea309d6` was pushed to GitLab `origin` and
+    GitHub `add-router`; GitHub `CI` run `26135920644` passed, and the strict
+    deployment-chain audit passed for `add-router` with RC readiness still
+    not-ready because the audited branch is not the default release branch and
+    no numeric RC tag points at `ea309d6`. No RC tag or GitHub Release was
+    created or moved.
   - RC branch/head alignment audit hardening is complete locally.
     `bin/audit-github-deployment-chain --show-rc-readiness` now prints the
     audited branch head and requires it to match the checked-out head before RC

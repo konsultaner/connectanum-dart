@@ -328,7 +328,20 @@ decision because `connectanum_client` still depends on private
   read-only `add-router` RC-readiness summary, and full local `bin/verify`
   passed. The live summary reports `add-router` as branch/head aligned but not
   the default release branch, and it does not suggest `v0.1.0-rc.2` until
-  `master` is audited from an aligned checkout. No RC tag or GitHub Release was
+  `master` is audited from an aligned checkout. Commit `ea309d6` was pushed to
+  GitLab `origin` and GitHub `add-router`; GitHub `CI` run `26135920644`
+  passed, and the strict deployment-chain audit passed for `add-router` with RC
+  readiness still not-ready because the audited branch is not the default
+  release branch and no numeric RC tag points at `ea309d6`. No RC tag or GitHub
+  Release was created or moved.
+- 2026-05-20: The Native Artifacts release-intent path now treats project
+  SemVer prerelease tags such as `v0.1.0-rc.2` as prereleases even when the
+  workflow is triggered by a tag push or a manual dispatch without the explicit
+  `prerelease=true` input. This prevents an approved RC tag from accidentally
+  creating a stable GitHub Release. Pre-change `bin/test-fast` passed. Focused
+  release-intent unit tests, a CLI validation for `v1.2.3-rc.1`, a workflow
+  guard snippet check, an isolated bench package rerun, `git diff --check`, and
+  full local `bin/verify` passed locally. No RC tag or GitHub Release was
   created or moved.
 
 ## Handoff

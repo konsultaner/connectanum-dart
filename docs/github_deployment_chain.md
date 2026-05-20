@@ -159,7 +159,10 @@ Before calling a branch head RC-ready, keep the order boring and observable:
    publish approval are explicit.
 5. Choose the RC tag and prerelease naming, then create the GitHub prerelease
    only after the native release dry-run and package release-order evidence are
-   still current.
+   still current. Project SemVer prerelease tags such as `v0.1.0-rc.2` are
+   treated as GitHub prereleases by the Native Artifacts workflow even when the
+   workflow is triggered by a tag push; stable manual release dispatches still
+   require explicit approval.
 6. Decide the Dart package release order and ownership before any pub.dev
    publish. The current dependency order is `connectanum_core` before
    `connectanum_client`.

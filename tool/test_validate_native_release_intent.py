@@ -96,6 +96,33 @@ class NativeReleaseIntentTest(unittest.TestCase):
         self.assertEqual(result.release_kind, "project")
         self.assertEqual(result.publish_mode, "stable")
 
+    def test_project_rc_tag_push_is_prerelease_without_manual_input(self) -> None:
+        result = intent.validate_release_intent(
+            release_tag="v1.2.3-rc.1",
+            event_name="push",
+            ref_type="tag",
+            dry_run="false",
+            prerelease="false",
+        )
+
+        self.assertEqual(result.release_kind, "project")
+        self.assertEqual(result.publish_mode, "prerelease")
+
+    def test_manual_project_rc_publish_is_prerelease_without_stable_approval(
+        self,
+    ) -> None:
+        result = intent.validate_release_intent(
+            release_tag="v1.2.3-rc.1",
+            event_name="workflow_dispatch",
+            ref_type="branch",
+            dry_run="false",
+            prerelease="false",
+            stable_release_approval="",
+        )
+
+        self.assertEqual(result.release_kind, "project")
+        self.assertEqual(result.publish_mode, "prerelease")
+
     def test_rejects_unexpected_tag_prefix(self) -> None:
         with self.assertRaisesRegex(intent.ReleaseIntentError, "ct-ffi-v or v"):
             intent.validate_release_intent(

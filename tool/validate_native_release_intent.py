@@ -10,6 +10,9 @@ from dataclasses import dataclass
 
 
 _RELEASE_TAG_RE = re.compile(r"^(?:ct-ffi-v|v)[0-9A-Za-z][0-9A-Za-z._+-]*$")
+_PROJECT_PRERELEASE_TAG_RE = re.compile(
+    r"^v[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z][0-9A-Za-z._+-]*$"
+)
 
 
 class ReleaseIntentError(ValueError):
@@ -36,6 +39,10 @@ def _parse_bool(value: str | bool, *, name: str) -> bool:
     raise ReleaseIntentError(f"{name} must be either true or false, got {value!r}.")
 
 
+def _is_project_prerelease_tag(tag: str) -> bool:
+    return bool(_PROJECT_PRERELEASE_TAG_RE.fullmatch(tag))
+
+
 def validate_release_intent(
     *,
     release_tag: str,
@@ -57,6 +64,8 @@ def validate_release_intent(
 
     is_dry_run = _parse_bool(dry_run, name="dry_run")
     is_prerelease = _parse_bool(prerelease, name="prerelease")
+    is_project_prerelease_tag = _is_project_prerelease_tag(tag)
+    effective_prerelease = is_prerelease or is_project_prerelease_tag
     release_kind = "native" if tag.startswith("ct-ffi-v") else "project"
     normalized_event = event_name.strip()
     normalized_ref_type = ref_type.strip()
@@ -68,14 +77,14 @@ def validate_release_intent(
             "Use a non-dry-run tag before publishing."
         )
 
-    if "-validation" in tag and not (is_dry_run or is_prerelease):
+    if "-validation" in tag and not (is_dry_run or effective_prerelease):
         raise ReleaseIntentError(
             "Validation release tags must be published as prereleases."
         )
 
     publish_mode = "dry-run"
     if not is_dry_run:
-        publish_mode = "prerelease" if is_prerelease else "stable"
+        publish_mode = "prerelease" if effective_prerelease else "stable"
 
     if (
         normalized_event == "workflow_dispatch"
