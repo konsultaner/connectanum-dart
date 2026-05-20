@@ -1290,9 +1290,28 @@ void main() {
 
         await client.notifyConnectanumToolDirect(
           'app.echo',
+          arguments: const <String, Object?>{'message': 'uncached-notify'},
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-notify-uncached-tool',
+            'Mcp-Param-Message': 'wrong',
+          },
+        );
+        expect(
+          endpoint.requests.single.consumerTrace,
+          'direct-notify-uncached-tool',
+        );
+        expect(endpoint.requests.single.mcpParameterHeaders, isEmpty);
+        endpoint.requests.clear();
+
+        await client.listConnectanumToolsDirect(id: 'direct-notify-catalog');
+        endpoint.requests.clear();
+
+        await client.notifyConnectanumToolDirect(
+          'app.echo',
           arguments: const <String, Object?>{'message': 'tool-notify'},
           headers: const <String, String>{
             'x-consumer-trace': 'direct-notify-tool',
+            'Mcp-Param-Message': 'wrong',
           },
         );
         await client.notifyConnectanumMethodDirect(
@@ -1300,6 +1319,18 @@ void main() {
           params: const <String, Object?>{'message': 'method-notify'},
           headers: const <String, String>{
             'x-consumer-trace': 'direct-notify-method',
+            'Mcp-Param-Message': 'wrong',
+          },
+        );
+        await client.notifyConnectanumMethodDirect(
+          'connectanum.tools.call',
+          params: const <String, Object?>{
+            'name': 'app.echo',
+            'arguments': {'message': 'alias-notify'},
+          },
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-notify-alias-method',
+            'Mcp-Param-Message': 'wrong',
           },
         );
         await client.notifyWampEventDirect(
@@ -1315,7 +1346,7 @@ void main() {
 
         expect(client.sessionId, sessionId);
         expect(client.lastEventId, eventId);
-        expect(endpoint.requests, hasLength(3));
+        expect(endpoint.requests, hasLength(4));
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.sessionId, isNull);
@@ -1331,6 +1362,7 @@ void main() {
         expect(endpoint.requests.map((request) => request.consumerTrace), [
           'direct-notify-tool',
           'direct-notify-method',
+          'direct-notify-alias-method',
           'direct-notify-pubsub',
         ]);
         expect(endpoint.requests[0].body, {
@@ -1342,12 +1374,30 @@ void main() {
           },
         });
         expect(endpoint.requests[0].mcpName, 'app.echo');
+        expect(endpoint.requests[0].mcpParameterHeaders, {
+          'mcp-param-message': 'tool-notify',
+        });
         expect(endpoint.requests[1].body, {
           'jsonrpc': '2.0',
           'method': 'app.echo',
           'params': {'message': 'method-notify'},
         });
+        expect(endpoint.requests[1].mcpParameterHeaders, {
+          'mcp-param-message': 'method-notify',
+        });
         expect(endpoint.requests[2].body, {
+          'jsonrpc': '2.0',
+          'method': 'connectanum.tools.call',
+          'params': {
+            'name': 'app.echo',
+            'arguments': {'message': 'alias-notify'},
+          },
+        });
+        expect(endpoint.requests[2].mcpName, 'app.echo');
+        expect(endpoint.requests[2].mcpParameterHeaders, {
+          'mcp-param-message': 'alias-notify',
+        });
+        expect(endpoint.requests[3].body, {
           'jsonrpc': '2.0',
           'method': 'connectanum.pubsub.publish',
           'params': {

@@ -921,9 +921,20 @@ final class McpStreamableHttpClient {
     Map<String, String> headers,
   ) {
     final parameterHeaders = _mcpToolParameterHeaders(toolName, arguments);
-    return parameterHeaders.isEmpty
-        ? headers
-        : <String, String>{...headers, ...parameterHeaders};
+    final filteredHeaders = <String, String>{};
+    final parameterPrefix = _headerParameterPrefix.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase().startsWith(parameterPrefix)) {
+        continue;
+      }
+      filteredHeaders[entry.key] = entry.value;
+    }
+    if (parameterHeaders.isEmpty) {
+      return filteredHeaders.length == headers.length
+          ? headers
+          : filteredHeaders;
+    }
+    return <String, String>{...filteredHeaders, ...parameterHeaders};
   }
 
   Map<String, String> _headersWithConnectanumMethodParameterHeaders(

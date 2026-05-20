@@ -2184,6 +2184,7 @@ Future<void> _smokeDirectToolApi(
     arguments: const <String, Object?>{'text': 'direct notification'},
     headers: const <String, String>{
       'x-consumer-trace': 'direct-connectanum-tool-notify',
+      'Mcp-Param-Text': 'wrong',
     },
   );
 
@@ -2220,6 +2221,27 @@ Future<void> _smokeDirectToolApi(
     'direct JSON dotted tool-name method failed',
   );
 
+  await client.notifyConnectanumMethodDirect(
+    'connectanum.tools.call',
+    params: const <String, Object?>{
+      'name': _toolName,
+      'arguments': <String, Object?>{'text': 'direct alias notification'},
+    },
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-tools-call-alias-notify',
+      'Mcp-Param-Text': 'wrong',
+    },
+  );
+
+  await client.notifyConnectanumMethodDirect(
+    _toolName,
+    params: const <String, Object?>{'text': 'direct dotted notification'},
+    headers: const <String, String>{
+      'x-consumer-trace': 'direct-dotted-tool-notify',
+      'Mcp-Param-Text': 'wrong',
+    },
+  );
+
   const expectedDirectToolApiMethods = <String>{
     'connectanum.tools.list',
     'connectanum.tool.call',
@@ -2251,6 +2273,14 @@ Future<void> _smokeDirectToolApi(
       endpoint.directMcpParameterHeadersByTrace['direct-tools-call-alias'];
   final dottedToolHeaders =
       endpoint.directMcpParameterHeadersByTrace['direct-dotted-tool-call'];
+  final aliasToolNotificationHeaders =
+      endpoint.directMcpParameterHeadersByTrace[
+        'direct-tools-call-alias-notify'
+      ];
+  final dottedToolNotificationHeaders =
+      endpoint.directMcpParameterHeadersByTrace[
+        'direct-dotted-tool-notify'
+      ];
   _expect(
     directToolHeaders?['mcp-param-text'] == 'direct tool',
     'direct JSON connectanum.tool.call helper missed MCP parameter headers',
@@ -2270,6 +2300,18 @@ Future<void> _smokeDirectToolApi(
     dottedToolHeaders?['mcp-param-text'] == 'direct dotted',
     'direct JSON dotted tool method helper missed MCP parameter headers',
   );
+  _expect(
+    aliasToolNotificationHeaders?['mcp-param-text'] ==
+        'direct alias notification',
+    'direct JSON connectanum.tools.call alias notification helper missed MCP '
+    'parameter headers',
+  );
+  _expect(
+    dottedToolNotificationHeaders?['mcp-param-text'] ==
+        'direct dotted notification',
+    'direct JSON dotted tool method notification helper missed MCP parameter '
+    'headers',
+  );
   const expectedDirectToolApiTraceHeaders = <String>{
     'direct-tools-list',
     'direct-connectanum-tools-list',
@@ -2277,6 +2319,8 @@ Future<void> _smokeDirectToolApi(
     'direct-connectanum-tool-notify',
     'direct-tools-call-alias',
     'direct-dotted-tool-call',
+    'direct-tools-call-alias-notify',
+    'direct-dotted-tool-notify',
   };
   final missingDirectToolApiTraceHeaders =
       expectedDirectToolApiTraceHeaders.difference(
@@ -11665,9 +11709,14 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
       'T-$label-generic-direct-helper-tool-notification';
   await client.notifyConnectanumToolDirect(
     _procedure,
-    arguments: {'taskId': helperToolNotificationTaskId},
+    arguments: {
+      'taskId': helperToolNotificationTaskId,
+      'note': _headerWrappedNote,
+    },
     headers: {
       'x-consumer-trace': '$label-generic-direct-helper-tool-notification',
+      'Mcp-Param-TaskId': 'wrong-task',
+      'Mcp-Param-Note': 'wrong-note',
     },
   );
   await _expectConsumerProcedureInvocation(
@@ -11679,14 +11728,41 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
       'T-$label-generic-direct-helper-method-notification';
   await client.notifyConnectanumMethodDirect(
     _procedure,
-    params: {'taskId': helperMethodNotificationTaskId},
+    params: {
+      'taskId': helperMethodNotificationTaskId,
+      'note': _headerWrappedNote,
+    },
     headers: {
       'x-consumer-trace': '$label-generic-direct-helper-method-notification',
+      'Mcp-Param-TaskId': 'wrong-task',
+      'Mcp-Param-Note': 'wrong-note',
     },
   );
   await _expectConsumerProcedureInvocation(
     helperMethodNotificationTaskId,
     label: '$label generic direct helper method notification',
+  );
+
+  final helperAliasNotificationTaskId =
+      'T-$label-generic-direct-helper-alias-notification';
+  await client.notifyConnectanumMethodDirect(
+    'connectanum.tools.call',
+    params: {
+      'name': _procedure,
+      'arguments': {
+        'taskId': helperAliasNotificationTaskId,
+        'note': _headerWrappedNote,
+      },
+    },
+    headers: {
+      'x-consumer-trace': '$label-generic-direct-helper-alias-notification',
+      'Mcp-Param-TaskId': 'wrong-task',
+      'Mcp-Param-Note': 'wrong-note',
+    },
+  );
+  await _expectConsumerProcedureInvocation(
+    helperAliasNotificationTaskId,
+    label: '$label generic direct helper alias notification',
   );
 
   if (client.sessionId != previousSessionId ||

@@ -31,8 +31,9 @@ Fast Checks and Full Verify green, Dart Package Publish Dry Run `26183740300`
 passed, WAMP Profile Benchmarks `26183740754` passed, and the non-RC strict
 deployment-chain audit passed clean latest CI, clean CI logs, and clean Dart
 package dry-run gates.
-This local implementation follow-up broadens that direct-header contract to the
-generic direct JSON method helpers: `callConnectanumMethodDirect(...)` and
+This implementation follow-up broadens that direct-header contract to the
+generic direct JSON method helpers:
+`callConnectanumMethodDirect(...)` and
 `notifyConnectanumMethodDirect(...)` now synthesize cached `Mcp-Param-*`
 headers for `tools/call`, `connectanum.tool.call`, `connectanum.tools.call`,
 and cached dotted tool-method calls, overriding stale caller-provided
@@ -45,8 +46,31 @@ use those helpers against a real router endpoint without hidden header
 assembly. Pre-change `bin/test-fast`, `bash -n bin/common.sh`, focused
 `dart test -p vm test/mcp/streamable_http_client_test.dart`, focused generated
 client-only and router-hosted consumer-package smokes, `git diff --check`, and
-full local `bin/verify` passed. Hosted evidence for this follow-up is pending
-until push.
+full local `bin/verify` passed. Commit `fb88885` implemented the generic
+helper/header smoke coverage, and follow-up commit `a411ed1` removed a Dart
+3.12 analyzer-dead fallback exposed by the first hosted CI/dry-run attempt.
+Hosted `add-router` evidence is clean at `a411ed1`: CI run `26186967933`
+passed with Fast Checks and Full Verify green, Dart Package Publish Dry Run
+`26186967888` passed, WAMP Profile Benchmarks `26186967889` passed, and the
+non-RC strict deployment-chain audit passed clean latest CI, clean CI logs, and
+clean Dart package dry-run gates.
+This implementation follow-up hardens direct tool notification parameter
+headers for consumer applications. High-level direct Connectanum tool helpers
+now strip caller-provided `Mcp-Param-*` headers before adding regenerated
+cached parameter headers, so stale parameters cannot leak through
+notification-only typed, alias, or dotted direct tool helper calls. Client tests
+cover uncached stale-header removal, cached typed notification regeneration,
+cached dotted-method notification regeneration, and
+`connectanum.tools.call` alias notification regeneration while preserving the
+active Streamable session. The generated client-only and router-hosted
+consumer-package smokes now send stale parameter headers through typed, alias,
+and dotted direct notification helpers and prove corrected captured headers or
+real router side effects. Pre-change `bin/test-fast`, formatting,
+`bash -n bin/common.sh`, focused
+`dart test -p vm test/mcp/streamable_http_client_test.dart`, focused generated
+client-only and router-hosted consumer-package smokes, `git diff --check`, and
+full local `bin/verify` passed. Hosted `add-router` evidence for this follow-up
+is pending until the code is pushed.
 GitHub `master` remains at `0c0e043`.
 Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
 transient browser harness load failure), Dart Package Publish Dry Run
