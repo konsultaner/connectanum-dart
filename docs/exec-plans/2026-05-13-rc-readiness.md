@@ -319,6 +319,17 @@ decision because `connectanum_client` still depends on private
   confirmed mismatch suppression, but GitHub returned a transient 502 while
   inspecting Dart package dry-run jobs, so that summary was not used as clean
   release evidence. No RC tag or GitHub Release was created or moved.
+- 2026-05-20: The RC-readiness audit now also requires the audited branch to be
+  the GitHub default branch before RC readiness or follow-up numeric RC tag
+  suggestions are evaluated. A fake-`gh` regression covers an aligned
+  non-default branch and proves follow-up RC tag suggestions are suppressed
+  until the default branch is audited. Pre-change `bin/test-fast`, focused Bash
+  syntax, the audit regression module, help output, `git diff --check`, a live
+  read-only `add-router` RC-readiness summary, and full local `bin/verify`
+  passed. The live summary reports `add-router` as branch/head aligned but not
+  the default release branch, and it does not suggest `v0.1.0-rc.2` until
+  `master` is audited from an aligned checkout. No RC tag or GitHub Release was
+  created or moved.
 
 ## Handoff
 
@@ -336,15 +347,17 @@ router package visibility gate passes because
 `v0.1.0-rc.1` and a manifest digest.
 
 Continue with RC tag/prerelease selection for `2eced84` only from a checkout
-that is aligned with the audited branch. The audit now reports the audited
-branch head before RC tag selection; when the audited branch and checkout
-differ, it reports branch/head alignment as not-ready and suppresses follow-up
-RC tag suggestions until alignment is fixed. When aligned, the audit
-inventories stale local and GitHub RC tags and reports that the existing
-`v0.1.0-rc.1` tag points at older commit `47bbf9c`, not the current candidate
-head. It suggests `v0.1.0-rc.2` exactly once as the next numeric follow-up tag
-while still reporting RC prerelease selection as not-ready. Validation/dry-run
-RC tags are inventoried but do not satisfy the checked-out-head RC tag gate and
-are not treated as follow-up release candidates. Moving the stale tag or
-approving a follow-up RC tag remains a release decision. No RC tag or GitHub
-Release was created or moved during the master-promotion or audit-tooling work.
+that is aligned with GitHub `master`. The audit now reports both the audited
+branch head and whether the audited branch is the default release branch before
+RC tag selection. When the audited branch and checkout differ, or when the
+audited branch is not the default branch, it reports not-ready and suppresses
+follow-up RC tag suggestions until the release checkout is aligned with
+`master`. When aligned on the default branch, the audit inventories stale local
+and GitHub RC tags and reports that the existing `v0.1.0-rc.1` tag points at
+older commit `47bbf9c`, not the current candidate head. It suggests
+`v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
+reporting RC prerelease selection as not-ready. Validation/dry-run RC tags are
+inventoried but do not satisfy the checked-out-head RC tag gate and are not
+treated as follow-up release candidates. Moving the stale tag or approving a
+follow-up RC tag remains a release decision. No RC tag or GitHub Release was
+created or moved during the master-promotion or audit-tooling work.

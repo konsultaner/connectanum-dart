@@ -68,10 +68,10 @@ Options:
                              protected branch.
   --show-rc-readiness        Print a non-mutating release-candidate readiness
                              summary for the current checked-out head aligned
-                             with the audited branch, including stale
+                             with the audited default branch, including stale
                              local/GitHub RC tag evidence.
   --require-rc-ready         Exit non-zero unless the current checked-out head
-                             matches the audited branch and has
+                             matches the audited default branch and has
                              release-candidate evidence: clean hosted CI and
                              logs, hosted Dart package publish dry-run evidence,
                              hosted native release dry-run or prerelease
@@ -1497,6 +1497,7 @@ print_rc_readiness() {
   local short_head_sha
   local short_audited_branch_head_sha
   local branch_head_alignment_failed=0
+  local default_branch_selection_failed=0
   local local_rc_tags
   local github_rc_tags
   local rc_tags
@@ -1531,6 +1532,15 @@ print_rc_readiness() {
       branch_head_alignment_failed=1
       rc_ready_failed=1
     fi
+  fi
+
+  if [[ "$branch" == "$default_branch" ]]; then
+    printf 'Audited branch role: ready (default branch %s)\n' "$default_branch"
+  else
+    printf 'Audited branch role: not ready; RC releases must be audited from default branch %s, but audited branch is %s.\n' "$default_branch" "$branch"
+    printf '  Next action: promote or check out the candidate on %s, then rerun bin/audit-github-deployment-chain --branch %s --show-rc-readiness before selecting an RC tag.\n' "$default_branch" "$default_branch"
+    default_branch_selection_failed=1
+    rc_ready_failed=1
   fi
 
   if [[ "$check_clean_latest_ci" -eq 1 ]]; then
@@ -1651,7 +1661,7 @@ print_rc_readiness() {
         github_rc_tags_summary "$head_sha" 2>/dev/null || true
       } | sed '/^$/d' | sort -u
     )"
-    if [[ "$branch_head_alignment_failed" -eq 0 ]]; then
+    if [[ "$branch_head_alignment_failed" -eq 0 && "$default_branch_selection_failed" -eq 0 ]]; then
       followup_rc_tag_suggestions="$(followup_rc_tag_suggestions_from_summaries "$existing_rc_tag_summaries")"
       if [[ -n "$followup_rc_tag_suggestions" ]]; then
         printf 'Suggested follow-up RC tag(s):\n'
@@ -1662,13 +1672,17 @@ print_rc_readiness() {
       else
         printf 'Suggested follow-up RC tag(s): unavailable; no existing numeric RC tag suffix was found.\n'
       fi
-    else
+    elif [[ "$branch_head_alignment_failed" -ne 0 ]]; then
       printf 'Suggested follow-up RC tag(s): not evaluated until audited branch head and checked-out head match.\n'
-    fi
-    if [[ "$branch_head_alignment_failed" -eq 0 ]]; then
-      printf '  Next action: choose whether release policy should move an existing stale RC tag or approve a follow-up RC tag at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
     else
+      printf 'Suggested follow-up RC tag(s): not evaluated until the audited branch is the default release branch.\n'
+    fi
+    if [[ "$branch_head_alignment_failed" -eq 0 && "$default_branch_selection_failed" -eq 0 ]]; then
+      printf '  Next action: choose whether release policy should move an existing stale RC tag or approve a follow-up RC tag at %s, push it, then create a GitHub prerelease after release approval.\n' "$short_head_sha"
+    elif [[ "$branch_head_alignment_failed" -ne 0 ]]; then
       printf '  Next action: align the audited branch and checkout first; only then choose whether release policy should move an existing stale RC tag or approve a follow-up RC tag.\n'
+    else
+      printf '  Next action: audit the default branch before choosing whether release policy should move an existing stale RC tag or approve a follow-up RC tag.\n'
     fi
     rc_ready_failed=1
   else

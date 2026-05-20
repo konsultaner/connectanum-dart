@@ -85,6 +85,10 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
         self.assertIn("Native release hosted evidence gate: ready", result.stdout)
+        self.assertIn(
+            "Audited branch role: ready (default branch master)",
+            result.stdout,
+        )
         self.assertIn("RC tag on checked-out head: not ready", result.stdout)
         self.assertIn("Existing GitHub RC tags:", result.stdout)
         self.assertIn(
@@ -126,6 +130,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             current_head,
             stale_head,
             branch_head=stale_head,
+            branch="add-router",
         )
 
         self.assertNotEqual(result.returncode, 0, result.stdout)
@@ -141,6 +146,36 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn(
             "Suggested follow-up RC tag(s): not evaluated until audited branch "
             "head and checked-out head match.",
+            result.stdout,
+        )
+        self.assertNotIn(
+            "- v0.1.0-rc.2 (next numeric tag after v0.1.0-rc.1; "
+            "requires release approval before pushing)",
+            result.stdout,
+        )
+
+    def test_rc_readiness_suppresses_followup_tag_for_non_default_branch(
+        self,
+    ) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        stale_head = self._different_sha(current_head)
+
+        result = self._run_rc_readiness_with_stale_rc_tags(
+            current_head,
+            stale_head,
+            branch="add-router",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Branch/head alignment: ready", result.stdout)
+        self.assertIn(
+            "Audited branch role: not ready; RC releases must be audited from "
+            "default branch master, but audited branch is add-router.",
+            result.stdout,
+        )
+        self.assertIn(
+            "Suggested follow-up RC tag(s): not evaluated until the audited "
+            "branch is the default release branch.",
             result.stdout,
         )
         self.assertNotIn(
@@ -341,6 +376,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self,
         ci_head: str,
         branch_head: str | None = None,
+        branch: str = "master",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -596,7 +632,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 [
                     str(AUDIT_SCRIPT),
                     "--branch",
-                    "add-router",
+                    branch,
                     "--show-rc-readiness",
                 ],
                 cwd=REPO_ROOT,
@@ -612,6 +648,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         ci_head: str,
         stale_head: str,
         branch_head: str | None = None,
+        branch: str = "master",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -883,7 +920,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 [
                     str(AUDIT_SCRIPT),
                     "--branch",
-                    "add-router",
+                    branch,
                     "--require-rc-ready",
                 ],
                 cwd=REPO_ROOT,
