@@ -75,7 +75,7 @@ CI run `26189389158` passed with Fast Checks and Full Verify green, Dart
 Package Publish Dry Run `26189389072` passed, WAMP Profile Benchmarks
 `26189389097` passed, and the non-RC strict deployment-chain audit passed clean
 latest CI, clean CI logs, and clean Dart package dry-run gates.
-This local follow-up extends the same stale-header safety evidence to the
+This implementation follow-up extends the same stale-header safety evidence to the
 public direct WAMP pub/sub notification helper. `notifyWampEventDirect(...)`
 now has focused client coverage proving stale caller-provided
 `Mcp-Param-Topic` headers are stripped from lifecycle-free direct JSON
@@ -85,8 +85,28 @@ delivered by the real router endpoint. Pre-change `bin/test-fast`, formatting,
 `bash -n bin/common.sh`, focused
 `dart test -p vm packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
 focused generated client-only and router-hosted consumer-package smokes,
-`git diff --check`, and full local `bin/verify` passed. Hosted `add-router`
-evidence for this follow-up is pending until the code is pushed.
+`git diff --check`, and full local `bin/verify` passed. Commit `4d80537` was
+pushed to GitLab `origin` and GitHub `add-router`. Hosted `add-router`
+evidence is clean at `4d80537`: CI run `26191487398` passed with Fast Checks
+and Full Verify green, Dart Package Publish Dry Run `26191487475` passed, WAMP
+Profile Benchmarks `26191487402` passed, and the non-RC strict
+deployment-chain audit passed clean latest CI, clean CI logs, and clean Dart
+package dry-run gates.
+This local implementation follow-up adds a public Streamable-session WAMP
+pub/sub notification helper for consumer applications. `notifyWampEvent(...)`
+sends `connectanum.pubsub.publish` as a notification-only Streamable HTTP
+request while preserving the active MCP session and stripping stale
+caller-provided `Mcp-Param-*` headers through the same Connectanum method
+header path as direct helpers. Client tests prove the helper sends no JSON-RPC
+`id`, carries Streamable session headers, and drops stale `Mcp-Param-Topic`;
+the MCP IO export test proves the helper is available through
+`package:connectanum_mcp/connectanum_mcp_io.dart`; and the generated
+router-hosted consumer-package smoke proves the public helper delivers a WAMP
+event through a real router endpoint without mutating the SSE cursor. Pre-change
+`bin/test-fast`, formatting, `bash -n bin/common.sh`, focused client/MCP
+package tests, and the focused generated router-hosted consumer-package smoke
+passed locally. Full local `bin/verify` passed; hosted evidence is pending for
+this follow-up until the code is pushed.
 GitHub `master` remains at `0c0e043`.
 Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
 transient browser harness load failure), Dart Package Publish Dry Run

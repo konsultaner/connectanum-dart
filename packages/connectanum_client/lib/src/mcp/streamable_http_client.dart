@@ -379,6 +379,24 @@ final class McpStreamableHttpClient {
     );
   }
 
+  Future<void> notifyConnectanumMethod(
+    String method, {
+    McpJsonMap params = const <String, Object?>{},
+    bool streamable = true,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return notification(
+      method,
+      params: params,
+      streamable: streamable,
+      headers: _headersWithConnectanumMethodParameterHeaders(
+        method,
+        params,
+        headers,
+      ),
+    );
+  }
+
   Future<void> notifyConnectanumMethodDirect(
     String method, {
     McpJsonMap params = const <String, Object?>{},

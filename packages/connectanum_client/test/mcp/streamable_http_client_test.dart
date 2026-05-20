@@ -986,6 +986,15 @@ void main() {
       expect(publication.publicationId, 42);
       expect(publication.acknowledged, isTrue);
 
+      await client.notifyWampEvent(
+        'app.events.audit',
+        argumentsKeywords: const <String, Object?>{'message': 'notify'},
+        headers: const <String, String>{
+          'Mcp-Param-Topic': 'wrong',
+          'x-consumer-trace': 'wamp-notify',
+        },
+      );
+
       final batch = await client.pollWampEvents(
         subscription.handle,
         id: 'wamp-poll',
@@ -1038,10 +1047,25 @@ void main() {
           'wamp-api-describe',
           'wamp-subscribe',
           'wamp-publish',
+          'wamp-notify',
           'wamp-poll',
           'wamp-unsubscribe',
           'wamp-denied',
         ],
+      );
+      expect(endpoint.requests[6].accept, contains('text/event-stream'));
+      expect(endpoint.requests[6].sessionId, 'session-1');
+      expect(endpoint.requests[6].mcpParameterHeaders, isEmpty);
+      expect(
+        _jsonMapFrom(endpoint.requests[6].body, label: 'notification body'),
+        {
+          'jsonrpc': '2.0',
+          'method': 'connectanum.pubsub.publish',
+          'params': {
+            'topic': 'app.events.audit',
+            'argumentsKeywords': {'message': 'notify'},
+          },
+        },
       );
     });
 

@@ -636,8 +636,28 @@ decision because `connectanum_client` still depends on private
   formatting, `bash -n bin/common.sh`, focused
   `dart test -p vm packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
   focused generated client-only and router-hosted consumer-package smokes,
-  `git diff --check`, and full local `bin/verify` passed. Hosted
-  `add-router` evidence for this follow-up is pending until the code is pushed.
+  `git diff --check`, and full local `bin/verify` passed. Commit `4d80537` was
+  pushed to GitLab `origin` and GitHub `add-router`. Hosted `add-router`
+  evidence is clean at `4d80537`: CI run `26191487398` passed with Fast Checks
+  and Full Verify green, Dart Package Publish Dry Run `26191487475` passed,
+  WAMP Profile Benchmarks `26191487402` passed, and the non-RC strict
+  deployment-chain audit passed clean latest CI, clean CI logs, and clean Dart
+  package dry-run gates.
+- 2026-05-20: This local implementation follow-up adds a public
+  Streamable-session WAMP pub/sub notification helper for consumer
+  applications. `notifyWampEvent(...)` sends `connectanum.pubsub.publish` as a
+  notification-only Streamable HTTP request while preserving the active MCP
+  session and stripping stale caller-provided `Mcp-Param-*` headers through the
+  same Connectanum method header path as direct helpers. Client tests prove the
+  helper sends no JSON-RPC `id`, carries Streamable session headers, and drops
+  stale `Mcp-Param-Topic`; the MCP IO export test proves the helper is
+  available through `package:connectanum_mcp/connectanum_mcp_io.dart`; and the
+  generated router-hosted consumer-package smoke proves the public helper
+  delivers a WAMP event through a real router endpoint without mutating the SSE
+  cursor. Pre-change `bin/test-fast`, formatting, `bash -n bin/common.sh`,
+  focused client/MCP package tests, and the focused generated router-hosted
+  consumer-package smoke passed locally. Full local `bin/verify` passed;
+  hosted evidence is pending for this follow-up until the code is pushed.
 
 ## Handoff
 
@@ -670,11 +690,19 @@ typed, alias, dotted-method, client-only smoke, and router-hosted consumer
 smoke coverage; commit `bafbe25` is pushed to both remotes, local
 `bin/verify` is clean, and hosted `add-router` evidence is green for CI,
 Dart Package Publish Dry Run, WAMP Profile Benchmarks, and the strict
-deployment-chain audit. The current local follow-up extends that stale-header
+deployment-chain audit. The latest pushed follow-up extends that stale-header
 consumer safety coverage to `notifyWampEventDirect(...)` by proving stale
 `Mcp-Param-Topic` is stripped in the focused client test and cannot break real
 router-hosted pub/sub notification delivery in the generated consumer-package
-smoke; local `bin/verify` is clean and hosted evidence is pending until push.
+smoke; commit `4d80537` is pushed to both remotes, local `bin/verify` is clean,
+and hosted `add-router` evidence is green for CI, Dart Package Publish Dry Run,
+WAMP Profile Benchmarks, and the strict deployment-chain audit. The current
+local follow-up adds the Streamable-session counterpart,
+`notifyWampEvent(...)`, so consumer applications can send notification-only
+pub/sub publishes over an active MCP session without hand-assembling raw
+JSON-RPC; focused client/MCP package tests and the generated router-hosted
+consumer-package smoke are clean locally, full `bin/verify` passed, and hosted
+evidence is pending until push.
 Hosted `master` evidence remains current and green for CI, Dart package
 dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run, and
 Router Image dry-run relevance. The

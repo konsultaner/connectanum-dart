@@ -919,6 +919,17 @@ void main() {
     expect(streamablePublication.publicationId, 42);
     expect(client.lastEventId, 'io-session-1:post:2');
 
+    final eventIdBeforeNotification = client.lastEventId;
+    await client.notifyWampEvent(
+      _ioTopic,
+      argumentsKeywords: const <String, Object?>{'message': 'notify'},
+      headers: const <String, String>{
+        'Mcp-Param-Topic': 'wrong',
+        'x-consumer-trace': 'io-streamable-notify',
+      },
+    );
+    expect(client.lastEventId, eventIdBeforeNotification);
+
     final streamableBatch = await client.pollWampEvents(
       streamableSubscription.handle,
       id: 'io-streamable-poll',
@@ -1057,21 +1068,22 @@ void main() {
 
     expect(client.sessionId, sessionId);
     expect(client.lastEventId, lastEventId);
-    expect(endpoint.requests, hasLength(10));
+    expect(endpoint.requests, hasLength(11));
     expect(endpoint.requests[0].sessionId, isNull);
-    for (final request in endpoint.requests.skip(1).take(4)) {
+    for (final request in endpoint.requests.skip(1).take(5)) {
       expect(request.sessionId, 'io-session-1');
       expect(request.accept, contains('text/event-stream'));
     }
-    for (final request in endpoint.requests.skip(5)) {
+    for (final request in endpoint.requests.skip(6)) {
       expect(request.sessionId, isNull);
       expect(request.accept, 'application/json');
     }
     expect(
-      endpoint.requests.skip(1).take(8).map((request) => request.consumerTrace),
+      endpoint.requests.skip(1).take(9).map((request) => request.consumerTrace),
       [
         'io-streamable-subscribe',
         'io-streamable-publish',
+        'io-streamable-notify',
         'io-streamable-poll',
         'io-streamable-unsubscribe',
         'io-direct-subscribe',
@@ -1080,6 +1092,14 @@ void main() {
         'io-direct-unsubscribe',
       ],
     );
+    expect(endpoint.requests[3].body, {
+      'jsonrpc': '2.0',
+      'method': 'connectanum.pubsub.publish',
+      'params': {
+        'topic': _ioTopic,
+        'argumentsKeywords': {'message': 'notify'},
+      },
+    });
   });
 }
 

@@ -16820,6 +16820,36 @@ Future<void> _smokeStreamableNotificationPubSub(
     },
   );
   try {
+    final eventIdBeforeHelperNotification = client.lastEventId;
+    final helperTaskId = 'T-$label-streamable-helper-notification-pubsub';
+    await client.notifyWampEvent(
+      _topic,
+      argumentsKeywords: {'taskId': helperTaskId},
+      headers: <String, String>{
+        'Mcp-Param-Topic': 'wrong-topic',
+        'x-consumer-trace': '$label-streamable-notification-pubsub-helper',
+      },
+    );
+    if (client.sessionId != sessionId ||
+        client.lastEventId != eventIdBeforeHelperNotification) {
+      throw StateError(
+        'Streamable MCP pub/sub notification helper changed session state.',
+      );
+    }
+
+    final helperEvents = await _pollMcpEventsUntil(
+      client,
+      subscription.handle,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-streamable-notification-pubsub-helper-poll',
+      },
+    );
+    if (!jsonEncode(helperEvents.events).contains(helperTaskId)) {
+      throw StateError(
+        'Streamable MCP pub/sub notification helper did not deliver event.',
+      );
+    }
+
     final eventIdBeforeNotificationBatch = client.lastEventId;
     final taskId = 'T-$label-streamable-notification-pubsub';
     final invalidTaskId = 'T-$label-streamable-invalid-notification-pubsub';
