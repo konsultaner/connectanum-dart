@@ -205,8 +205,24 @@ void main() {
       expect(registration.procedure, 'wamp.registration.match');
       expect(registration.arguments, [11]);
 
+      await client.notifyConnectanumToolDirect(
+        'app.echo',
+        arguments: const <String, Object?>{'message': 'notify-tool'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-notify-tool',
+        },
+      );
+
+      await client.notifyConnectanumMethodDirect(
+        'app.echo',
+        params: const <String, Object?>{'message': 'notify-method'},
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-notify-method',
+        },
+      );
+
       expect(client.sessionId, isNull);
-      expect(endpoint.requests, hasLength(6));
+      expect(endpoint.requests, hasLength(8));
       for (final request in endpoint.requests) {
         expect(request.accept, 'application/json');
         expect(request.sessionId, isNull);
@@ -218,6 +234,8 @@ void main() {
         'wamp.registration.match',
         'connectanum.tool.call',
         'connectanum.tool.call',
+        'connectanum.tool.call',
+        'app.echo',
       ]);
       expect(endpoint.requests[0].consumerTrace, 'io-direct-tools-list');
       expect(endpoint.requests[1].consumerTrace, 'io-direct-tool-call');
@@ -228,6 +246,8 @@ void main() {
         endpoint.requests[5].consumerTrace,
         'io-direct-registration-match',
       );
+      expect(endpoint.requests[6].consumerTrace, 'io-direct-notify-tool');
+      expect(endpoint.requests[7].consumerTrace, 'io-direct-notify-method');
 
       final toolCallParams = _jsonMapFrom(
         endpoint.requests[1].body['params'],
@@ -269,6 +289,8 @@ void main() {
           'arguments': ['app.echo'],
         },
       );
+      expect(endpoint.requests[6].body.containsKey('id'), isFalse);
+      expect(endpoint.requests[7].body.containsKey('id'), isFalse);
     },
   );
 
@@ -1088,6 +1110,17 @@ final class _DirectWampEndpoint {
 
     if (request.method != 'POST') {
       request.response.statusCode = HttpStatus.methodNotAllowed;
+      await request.response.close();
+      return;
+    }
+
+    final method = jsonBody['method'];
+    if (!jsonBody.containsKey('id') &&
+        method is String &&
+        (method == 'connectanum.tool.call' ||
+            method == 'connectanum.tools.call' ||
+            method.contains('.'))) {
+      request.response.statusCode = HttpStatus.accepted;
       await request.response.close();
       return;
     }

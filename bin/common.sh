@@ -11572,6 +11572,34 @@ Future<void> _smokeGenericDirectJsonRpcAccess(
     },
   );
 
+  final helperToolNotificationTaskId =
+      'T-$label-generic-direct-helper-tool-notification';
+  await client.notifyConnectanumToolDirect(
+    _procedure,
+    arguments: {'taskId': helperToolNotificationTaskId},
+    headers: {
+      'x-consumer-trace': '$label-generic-direct-helper-tool-notification',
+    },
+  );
+  await _expectConsumerProcedureInvocation(
+    helperToolNotificationTaskId,
+    label: '$label generic direct helper tool notification',
+  );
+
+  final helperMethodNotificationTaskId =
+      'T-$label-generic-direct-helper-method-notification';
+  await client.notifyConnectanumMethodDirect(
+    _procedure,
+    params: {'taskId': helperMethodNotificationTaskId},
+    headers: {
+      'x-consumer-trace': '$label-generic-direct-helper-method-notification',
+    },
+  );
+  await _expectConsumerProcedureInvocation(
+    helperMethodNotificationTaskId,
+    label: '$label generic direct helper method notification',
+  );
+
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Generic direct JSON-RPC access changed session state.');

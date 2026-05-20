@@ -496,27 +496,48 @@ decision because `connectanum_client` still depends on private
   `bin/test-fast`, `bash -n bin/common.sh`, the focused
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
   `git diff --check`, and full local `bin/verify` passed. Hosted `add-router`
-  evidence remains at previous pushed commit `922fa1f` until this follow-up has
-  its own hosted CI evidence. No RC tag or GitHub Release was created or moved.
+  evidence is clean at this follow-up: commit `5b27b19` was pushed to GitLab
+  `origin` and GitHub `add-router`, GitHub CI run `26172167427` passed with
+  Fast Checks and Full Verify green, and the non-RC strict deployment-chain
+  audit passed clean latest CI, clean CI logs, and clean relevant Dart package
+  dry-run gates. Dart Package Publish Dry Run `26160395223` remains clean and
+  relevant at previous commit `7ed0e08` because no publish-sensitive paths
+  changed since then; WAMP Profile Benchmarks `26160395225` remain clean at
+  `7ed0e08`. No RC tag or GitHub Release was created or moved.
+- 2026-05-20: Added public direct Connectanum notification helpers for
+  downstream application readiness. `McpStreamableHttpClient` now exposes
+  `notifyConnectanumToolDirect(...)` and `notifyConnectanumMethodDirect(...)`
+  as lifecycle-free direct JSON notification APIs, and the `connectanum_mcp_io`
+  entrypoint re-exports them. Client tests and MCP package tests assert the
+  helpers send notification-only JSON-RPC payloads without `id`, without
+  Streamable session headers, and without mutating an active session id or SSE
+  cursor. The generated consumer package router-hosted MCP smoke now calls both
+  helpers against a consumer WAMP procedure and verifies the procedure is
+  invoked through the public package surface. Pre-change `bin/test-fast`,
+  `bash -n bin/common.sh`, focused client/MCP package tests, the focused
+  generated consumer package smoke, `git diff --check`, and full local
+  `bin/verify` passed. Hosted evidence for this helper follow-up is pending a
+  pushed branch head; previous hosted `add-router` evidence remains clean at
+  `5b27b19`.
 
 ## Handoff
 
 Active. GitHub `master` points at `0c0e043`, and `add-router` contains the
 router-hosted MCP direct JSON notification correctness fix plus native-router
 and generated consumer-package smoke coverage for single-message, mixed-batch,
-and all-notification batch handling. The latest local follow-up additionally
-proves Streamable HTTP session notification-only direct `connectanum.tool.call`
-batches invoke the valid WAMP procedure, suppress an invalid missing-name
-notification, and return no JSON-RPC response or immediate Streamable cursor
-mutation; the previous pushed follow-up proves the same Streamable
-notification-only side-effect contract for pub/sub. Local `bin/test-fast`, the
-focused generated consumer package smoke, `git diff --check`, and `bin/verify`
-passed for the latest notification side-effect coverage. Hosted `add-router`
-CI, Dart package dry-run, WAMP Profile Benchmarks, and the non-RC strict
-deployment-chain audit are clean for the previous pushed head: latest CI passed
-at `922fa1f`, the package dry-run
-remains relevant at `7ed0e08`, and WAMP Profile Benchmarks remain clean at
-`7ed0e08`. Hosted `master` evidence remains current and green for CI, Dart
+all-notification batch, pub/sub, and Streamable notification side effects. The
+latest local follow-up exposes public direct Connectanum notification helpers
+for downstream application readiness: `notifyConnectanumToolDirect(...)` and
+`notifyConnectanumMethodDirect(...)` send notification-only direct JSON payloads
+without Streamable lifecycle coupling, remain re-exported by the MCP IO
+entrypoint, and are covered by client tests, MCP package tests, and generated
+consumer-package router-hosted MCP smoke. Local `bin/test-fast`, focused helper
+tests, focused generated consumer package smoke, `git diff --check`, and
+`bin/verify` passed for this helper follow-up. Hosted `add-router` evidence is
+currently clean for the latest pushed head: latest CI passed at `5b27b19`, the
+package dry-run remains relevant at `7ed0e08`, and WAMP Profile Benchmarks
+remain clean at `7ed0e08`; hosted evidence for the new helper commit is pending
+push and audit. Hosted `master` evidence remains current and green for CI, Dart
 package dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run,
 and Router Image dry-run relevance. The strict deployment-chain audit passes on
 `master` with clean current-head CI/log, Dart package dry-run, native release

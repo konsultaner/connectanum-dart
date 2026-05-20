@@ -371,6 +371,26 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: method);
   }
 
+  Future<void> notifyConnectanumToolDirect(
+    String name, {
+    McpJsonMap arguments = const <String, Object?>{},
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return notificationDirect(
+      'connectanum.tool.call',
+      params: <String, Object?>{'name': name, 'arguments': arguments},
+      headers: headers,
+    );
+  }
+
+  Future<void> notifyConnectanumMethodDirect(
+    String method, {
+    McpJsonMap params = const <String, Object?>{},
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return notificationDirect(method, params: params, headers: headers);
+  }
+
   Future<McpStreamableResourceListPage> listResources({
     Object? id,
     String? cursor,

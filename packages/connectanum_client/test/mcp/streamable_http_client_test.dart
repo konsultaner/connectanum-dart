@@ -1207,6 +1207,72 @@ void main() {
     );
 
     test(
+      'keeps direct Connectanum notifications lifecycle-free with active session',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        final eventId = client.lastEventId;
+        expect(sessionId, 'session-1');
+        endpoint.requests.clear();
+
+        await client.notifyConnectanumToolDirect(
+          'app.echo',
+          arguments: const <String, Object?>{'message': 'tool-notify'},
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-notify-tool',
+          },
+        );
+        await client.notifyConnectanumMethodDirect(
+          'app.echo',
+          params: const <String, Object?>{'message': 'method-notify'},
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-notify-method',
+          },
+        );
+
+        expect(client.sessionId, sessionId);
+        expect(client.lastEventId, eventId);
+        expect(endpoint.requests, hasLength(2));
+        for (final request in endpoint.requests) {
+          expect(request.accept, 'application/json');
+          expect(request.sessionId, isNull);
+          expect(request.lastEventId, isNull);
+          expect(
+            _jsonMapFrom(
+              request.body,
+              label: 'direct notification body',
+            ).containsKey('id'),
+            isFalse,
+          );
+        }
+        expect(endpoint.requests.map((request) => request.consumerTrace), [
+          'direct-notify-tool',
+          'direct-notify-method',
+        ]);
+        expect(endpoint.requests[0].body, {
+          'jsonrpc': '2.0',
+          'method': 'connectanum.tool.call',
+          'params': {
+            'name': 'app.echo',
+            'arguments': {'message': 'tool-notify'},
+          },
+        });
+        expect(endpoint.requests[1].body, {
+          'jsonrpc': '2.0',
+          'method': 'app.echo',
+          'params': {'message': 'method-notify'},
+        });
+      },
+    );
+
+    test(
       'keeps direct JSON batches lifecycle-free with an active Streamable session',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -2051,6 +2117,17 @@ final class _FakeMcpEndpoint {
     }
 
     if (method is String && method.startsWith('notifications/')) {
+      request.response.statusCode = HttpStatus.accepted;
+      _applyTestResponseHeaders(request);
+      await request.response.close();
+      return;
+    }
+
+    if (!requestBody.containsKey('id') &&
+        method is String &&
+        (method == 'connectanum.tool.call' ||
+            method == 'connectanum.tools.call' ||
+            method.contains('.'))) {
       request.response.statusCode = HttpStatus.accepted;
       _applyTestResponseHeaders(request);
       await request.response.close();

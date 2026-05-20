@@ -4,22 +4,23 @@ Last updated: 2026-05-20
 Current branch: `add-router`
 Last reviewed branch checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
-single-message, mixed-batch, all-notification batch, and pub/sub notification
-side effects. The latest local follow-up extends the generated consumer-package
-smoke to Streamable HTTP sessions for direct tool notifications: it posts an
-all-notification `connectanum.tool.call` batch with one valid tool call and one
-invalid missing-name call, verifies the batch produces no JSON-RPC response or
-immediate Streamable session cursor mutation, proves the valid WAMP procedure
-runs, drains the session, and proves the invalid notification produced no side
-effect. The previous pushed follow-up also proves Streamable notification-only
-pub/sub publishes deliver only the valid event. Pre-change `bin/test-fast`,
-`bash -n bin/common.sh`, the focused
-`bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
-`git diff --check`, and `bin/verify` are clean for this local follow-up.
-Hosted `add-router` evidence remains clean for previous pushed commit
-`922fa1f`: GitHub CI run `26169647527` passed at `922fa1f` with Fast Checks and
-Full Verify green, the non-RC strict audit passed clean latest CI, clean CI
-logs, and clean relevant Dart package dry-run gates, Dart Package Publish Dry
+single-message, mixed-batch, all-notification batch, pub/sub notification side
+effects, and Streamable direct tool/pubsub notification side effects. The latest
+local follow-up turns direct Connectanum notification-only calls into public
+client API by adding `McpStreamableHttpClient.notifyConnectanumToolDirect(...)`
+and `notifyConnectanumMethodDirect(...)`, covering them in client session
+lifecycle tests, `connectanum_mcp_io` re-export tests, and generated
+consumer-package router-hosted MCP smoke. The helper smoke proves
+notification-only tool and direct method calls invoke a consumer WAMP procedure
+through router-hosted MCP without JSON-RPC ids, without Streamable session
+headers, and without mutating an active Streamable session cursor. Pre-change
+`bin/test-fast`, `bash -n bin/common.sh`, focused client/MCP package tests, the
+focused `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+`git diff --check`, and `bin/verify` are clean for this follow-up. Previous
+commit `5b27b19` was pushed to GitLab `origin` and GitHub `add-router`; GitHub
+CI run `26172167427` passed at `5b27b19` with Fast Checks and Full Verify green,
+and the non-RC strict deployment-chain audit passed clean latest CI, clean CI
+logs, and clean relevant Dart package dry-run gates. Dart Package Publish Dry
 Run `26160395223` remains clean and relevant at previous commit `7ed0e08`
 because no publish-sensitive paths changed since then, and WAMP Profile
 Benchmarks `26160395225` remain clean at `7ed0e08`. GitHub `master` remains at
