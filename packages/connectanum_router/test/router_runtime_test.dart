@@ -3051,7 +3051,7 @@ void main() {
           expect(request.method, 'POST');
           expect(request.path, '/health');
           expect(request.headers['x-test'], 'true');
-          final body = utf8.decode(await request.body);
+          final body = utf8.decode(request.body);
           return NativeHttpResponse(
             status: 202,
             headers: const {'x-handler': 'dart'},
@@ -3204,6 +3204,234 @@ void main() {
             event['handlerId'] == 'missing',
       ),
       isTrue,
+    );
+  });
+
+  test('rate limits handler HTTP routes before handler dispatch', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/limited'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.handler,
+                    delegate: 'limited',
+                    rateLimit: HttpRouteRateLimitSettings(
+                      maxRequests: 1,
+                      windowMs: 60000,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    var handlerCalls = 0;
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+      httpRouteHandlers: {
+        'limited': (request) async {
+          handlerCalls += 1;
+          return NativeHttpResponse(
+            status: HttpStatus.noContent,
+            body: NativeHttpResponseText(''),
+          );
+        },
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    void enqueueRequest(int connectionId, int handle) {
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: handle,
+          method: 'GET',
+          target: '/limited',
+          path: '/limited',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'router.http',
+          procedure: 'router.http.handler',
+        ),
+      );
+    }
+
+    enqueueRequest(46, 5);
+    await _waitUntil(
+      () => runtime.httpResponses[46]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    expect(runtime.httpResponses[46]!.single.status, HttpStatus.noContent);
+    expect(handlerCalls, 1);
+
+    enqueueRequest(47, 6);
+    await _waitUntil(
+      () => runtime.httpResponses[47]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final limitedResponse = runtime.httpResponses[47]!.single;
+    expect(limitedResponse.status, 429);
+    expect(limitedResponse.headers[HttpHeaders.retryAfterHeader], '60');
+    expect(limitedResponse.headers['x-ratelimit-limit'], '1');
+    expect(limitedResponse.headers['x-ratelimit-remaining'], '0');
+    final body = limitedResponse.body;
+    expect(body, isA<NativeHttpResponseJson>());
+    expect(
+      (body as NativeHttpResponseJson).value,
+      containsPair('reason', 'rate_limited'),
+    );
+    expect(handlerCalls, 1);
+    expect(
+      events.any(
+        (event) =>
+            event['type'] == 'http_route_rate_limited' &&
+            event['rateLimitKey'] == 'global' &&
+            event['limit'] == 1,
+      ),
+      isTrue,
+    );
+  });
+
+  test('rate limited MCP routes keep Streamable HTTP CORS headers', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    rateLimit: HttpRouteRateLimitSettings(
+                      maxRequests: 1,
+                      windowMs: 60000,
+                    ),
+                    options: <String, Object?>{
+                      'allowed_origins': ['https://agent.example'],
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    void enqueuePreflight(int connectionId, int handle) {
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: handle,
+          method: 'OPTIONS',
+          target: '/mcp',
+          path: '/mcp',
+          protocol: 'http/1.1',
+          headers: const {
+            'origin': 'https://agent.example',
+            'access-control-request-method': 'POST',
+            'access-control-request-headers': 'MCP-Protocol-Version',
+          },
+          body: Uint8List(0),
+          realm: 'router.http',
+          procedure: 'router.http.mcp',
+        ),
+      );
+    }
+
+    enqueuePreflight(48, 7);
+    await _waitUntil(
+      () => runtime.httpResponses[48]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    expect(runtime.httpResponses[48]!.single.status, HttpStatus.noContent);
+
+    enqueuePreflight(49, 8);
+    await _waitUntil(
+      () => runtime.httpResponses[49]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final limitedResponse = runtime.httpResponses[49]!.single;
+    expect(limitedResponse.status, 429);
+    expect(
+      limitedResponse.headers['Access-Control-Allow-Origin'],
+      'https://agent.example',
+    );
+    expect(
+      limitedResponse.headers['Access-Control-Allow-Methods'],
+      contains('POST'),
+    );
+    expect(
+      limitedResponse.headers['Access-Control-Allow-Headers'],
+      'MCP-Protocol-Version',
+    );
+    expect(limitedResponse.headers['MCP-Protocol-Version'], isNotEmpty);
+    final body = limitedResponse.body;
+    expect(body, isA<NativeHttpResponseJson>());
+    expect(
+      (body as NativeHttpResponseJson).value,
+      containsPair('reason', 'rate_limited'),
     );
   });
 

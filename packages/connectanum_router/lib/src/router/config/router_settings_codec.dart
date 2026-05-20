@@ -279,6 +279,14 @@ abstract final class RouterSettingsCodec {
     if (action.delegate != null) {
       map['delegate'] = action.delegate;
     }
+    final rateLimit = action.rateLimit;
+    if (rateLimit != null) {
+      map['rate_limit'] = <String, Object?>{
+        'max_requests': rateLimit.maxRequests,
+        'window_ms': rateLimit.windowMs,
+        'key': rateLimit.key,
+      };
+    }
     if (action.options.isNotEmpty) {
       map['options'] = action.options;
     }

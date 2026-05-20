@@ -536,6 +536,11 @@ void main() {
                     'action': <String, Object?>{
                       'type': 'custom_handler',
                       'delegate': 'health-handler',
+                      'rateLimit': <String, Object?>{
+                        'limit': 2,
+                        'interval_ms': 1000,
+                        'keyBy': 'header:X-Client',
+                      },
                       'timeout_ms': 250,
                     },
                   },
@@ -549,6 +554,14 @@ void main() {
       final action = settings.listeners.single.http!.routes.single.action;
       expect(action.type, HttpRouteActionType.handler);
       expect(action.delegate, 'health-handler');
+      expect(
+        action.rateLimit,
+        const HttpRouteRateLimitSettings(
+          maxRequests: 2,
+          windowMs: 1000,
+          key: 'header:x-client',
+        ),
+      );
       expect(action.options['timeout_ms'], 250);
 
       final encoded = RouterSettingsCodec.toMap(settings);
@@ -556,6 +569,7 @@ void main() {
       final decodedAction = decoded.listeners.single.http!.routes.single.action;
       expect(decodedAction.type, HttpRouteActionType.handler);
       expect(decodedAction.delegate, 'health-handler');
+      expect(decodedAction.rateLimit, action.rateLimit);
       expect(decodedAction.options['timeout_ms'], 250);
     });
 

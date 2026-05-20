@@ -130,6 +130,7 @@ class RouterBinding {
   final Map<String, RouterSession> _internalSessionsByRealm = {};
   final Map<String, RouterSession> _internalSessionsByCacheKey = {};
   final Map<int, _PendingHttpCall> _pendingHttpCalls = {};
+  final Map<String, _HttpRouteRateLimitState> _httpRouteRateLimitStates = {};
   final Map<String, _RouterMcpEndpoint> _mcpEndpoints = {};
   final Map<String, _PendingHttpAuthTransaction> _pendingHttpAuthTransactions =
       {};
@@ -1099,6 +1100,57 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    final rateLimitDecision = _evaluateHttpRouteRateLimit(
+      request: request,
+      route: matchedRoute,
+    );
+    if (rateLimitDecision != null) {
+      final rateLimitHeaders = rateLimitDecision.headers;
+      final mcpRoute = matchedRoute?.action.type == HttpRouteActionType.mcp
+          ? matchedRoute
+          : null;
+      final responseHeaders = mcpRoute == null
+          ? rateLimitHeaders
+          : _mcpHttpResponseHeaders(
+              sessionId: _mcpHeaderValue(this, request, _mcpSessionIdHeader),
+              extra: <String, String>{
+                ...rateLimitHeaders,
+                ..._mcpCorsResponseHeaders(
+                  this,
+                  request,
+                  mcpRoute,
+                  preflight: _isCorsPreflight(request),
+                ),
+              },
+            );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_route_rate_limited',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'rateLimitKey': rateLimitDecision.key,
+        'limit': rateLimitDecision.limit,
+        'windowMs': rateLimitDecision.windowMs,
+        'retryAfterMs': rateLimitDecision.retryAfterMs,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: 429,
+          headers: responseHeaders,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'rate_limited',
+            'message': 'HTTP route rate limit exceeded',
+            'retry_after_ms': rateLimitDecision.retryAfterMs,
+          }),
+        ),
+      );
+      retainedHandshake?.release();
+      return;
+    }
     final transportAuthFailure = _evaluateHttpRouteTransportAuth(
       request: request,
       route: matchedRoute,
@@ -1177,26 +1229,32 @@ class RouterBinding {
       final handlerId = _httpRouteHandlerId(matchedRoute!.action);
       final handler = handlerId == null ? null : _httpRouteHandlers[handlerId];
       if (handler == null) {
-        onEvent?.call({
+        final event = <String, Object?>{
           'source': 'binding',
           'type': 'http_handler_missing',
           'listenerId': request.listenerId,
           'connectionId': request.connectionId,
           'endpoint': request.endpoint,
-          if (handlerId != null) 'handlerId': handlerId,
-        });
+        };
+        if (handlerId != null) {
+          event['handlerId'] = handlerId;
+        }
+        onEvent?.call(event);
         try {
+          final body = <String, Object?>{
+            'status': 'error',
+            'reason': 'handler_not_registered',
+            'message': 'HTTP route handler is not registered',
+          };
+          if (handlerId != null) {
+            body['handler'] = handlerId;
+          }
           await _sendImmediateHttpResponse(
             request: request,
             handshake: retainedHandshake,
             response: NativeHttpResponse(
               status: HttpStatus.notImplemented,
-              body: NativeHttpResponseJson(<String, Object?>{
-                'status': 'error',
-                'reason': 'handler_not_registered',
-                'message': 'HTTP route handler is not registered',
-                if (handlerId != null) 'handler': handlerId,
-              }),
+              body: NativeHttpResponseJson(body),
             ),
           );
         } finally {
@@ -1774,6 +1832,87 @@ class RouterBinding {
       );
     }
     return null;
+  }
+
+  _HttpRouteRateLimitDecision? _evaluateHttpRouteRateLimit({
+    required RouterHttpRequest request,
+    required HttpRouteSettings? route,
+  }) {
+    final routeSettings = route;
+    final settings = routeSettings?.action.rateLimit;
+    if (routeSettings == null || settings == null) {
+      return null;
+    }
+    final maxRequests = settings.maxRequests <= 0 ? 1 : settings.maxRequests;
+    final windowMs = settings.windowMs <= 0 ? 1 : settings.windowMs;
+    final now = DateTime.now().toUtc();
+    final window = Duration(milliseconds: windowMs);
+    final bucketKey = _httpRouteRateLimitBucketKey(
+      request: request,
+      route: routeSettings,
+      settings: settings,
+    );
+    final state = _httpRouteRateLimitStates[bucketKey];
+    if (state == null || now.difference(state.windowStart) >= window) {
+      _httpRouteRateLimitStates[bucketKey] = _HttpRouteRateLimitState(
+        windowStart: now,
+        count: 1,
+      );
+      return null;
+    }
+    if (state.count < maxRequests) {
+      state.count += 1;
+      return null;
+    }
+    final resetAt = state.windowStart.add(window);
+    final retryAfter = resetAt.difference(now);
+    return _HttpRouteRateLimitDecision(
+      key: settings.key,
+      limit: maxRequests,
+      windowMs: windowMs,
+      retryAfterMs: retryAfter.isNegative ? 0 : retryAfter.inMilliseconds,
+      resetAt: resetAt,
+    );
+  }
+
+  String _httpRouteRateLimitBucketKey({
+    required RouterHttpRequest request,
+    required HttpRouteSettings route,
+    required HttpRouteRateLimitSettings settings,
+  }) {
+    final key = settings.key.trim().toLowerCase();
+    final scopeValue = switch (key) {
+      'connection' => 'connection:${request.connectionId}',
+      'bearer' =>
+        'bearer:${_extractBearerToken(request.headers) ?? '<missing>'}',
+      _ when key.startsWith('header:') => _httpRouteRateLimitHeaderBucket(
+        request,
+        key.substring('header:'.length),
+      ),
+      _ => 'global',
+    };
+    return '${identityHashCode(route)}|$key|$scopeValue';
+  }
+
+  String _httpRouteRateLimitHeaderBucket(
+    RouterHttpRequest request,
+    String headerName,
+  ) {
+    final normalized = headerName.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return 'header:<missing>:<missing>';
+    }
+    return 'header:$normalized:${_headerValue(request.headers, normalized) ?? '<missing>'}';
+  }
+
+  bool _isCorsPreflight(RouterHttpRequest request) {
+    return request.method.toUpperCase() == 'OPTIONS' &&
+        (_headerValue(request.headers, 'origin')?.trim().isNotEmpty ?? false) &&
+        (_headerValue(
+              request.headers,
+              'access-control-request-method',
+            )?.trim().isNotEmpty ??
+            false);
   }
 
   Future<void> _handleHttpAuthRequest({
@@ -4520,6 +4659,43 @@ class _HttpRouteTransportAuthFailure {
   final String reason;
   final String message;
   final bool bearerChallenge;
+}
+
+class _HttpRouteRateLimitState {
+  _HttpRouteRateLimitState({required this.windowStart, required this.count});
+
+  DateTime windowStart;
+  int count;
+}
+
+class _HttpRouteRateLimitDecision {
+  _HttpRouteRateLimitDecision({
+    required this.key,
+    required this.limit,
+    required this.windowMs,
+    required this.retryAfterMs,
+    required this.resetAt,
+  });
+
+  final String key;
+  final int limit;
+  final int windowMs;
+  final int retryAfterMs;
+  final DateTime resetAt;
+
+  Map<String, String> get headers => <String, String>{
+    HttpHeaders.retryAfterHeader: retryAfterSeconds.toString(),
+    'x-ratelimit-limit': limit.toString(),
+    'x-ratelimit-remaining': '0',
+    'x-ratelimit-reset': resetEpochSeconds.toString(),
+  };
+
+  int get retryAfterSeconds {
+    final seconds = (retryAfterMs / 1000).ceil();
+    return seconds <= 0 ? 1 : seconds;
+  }
+
+  int get resetEpochSeconds => resetAt.millisecondsSinceEpoch ~/ 1000;
 }
 
 class _HttpUnauthorized implements Exception {

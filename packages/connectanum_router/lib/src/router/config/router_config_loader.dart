@@ -172,6 +172,11 @@ class RouterConfigLoader {
     final directory = _asNullableString(map.remove('directory'));
     final cacheControl = _asNullableString(map.remove('cache_control'));
     final delegate = _asNullableString(map.remove('delegate'));
+    final rateLimitNode = map.remove('rate_limit');
+    final rateLimitAliasNode = map.remove('rateLimit');
+    final rateLimit = _parseHttpRouteRateLimit(
+      rateLimitNode ?? rateLimitAliasNode,
+    );
     final actionOptions =
         _asMap(map.remove('options'), allowNull: true) ?? const {};
     final extras = Map<String, Object?>.unmodifiable(map);
@@ -194,7 +199,81 @@ class RouterConfigLoader {
       directory: directory,
       cacheControl: cacheControl,
       delegate: delegate,
+      rateLimit: rateLimit,
       options: mergedOptions,
+    );
+  }
+
+  static HttpRouteRateLimitSettings? _parseHttpRouteRateLimit(dynamic node) {
+    if (node == null) {
+      return null;
+    }
+    if (node is bool) {
+      return node ? const HttpRouteRateLimitSettings() : null;
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit must be a map',
+      );
+    }
+    final map = Map<String, Object?>.from(node);
+    final maxRequests =
+        _asNullableInt(
+          map.remove('max_requests') ??
+              map.remove('maxRequests') ??
+              map.remove('limit') ??
+              map.remove('requests'),
+        ) ??
+        60;
+    final windowMs =
+        _asNullableInt(
+          map.remove('window_ms') ??
+              map.remove('windowMs') ??
+              map.remove('interval_ms') ??
+              map.remove('intervalMs'),
+        ) ??
+        60000;
+    final key =
+        _asNullableString(
+          map.remove('key') ??
+              map.remove('scope') ??
+              map.remove('key_by') ??
+              map.remove('keyBy'),
+        ) ??
+        'global';
+    if (maxRequests <= 0) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit.max_requests must be > 0',
+      );
+    }
+    if (windowMs <= 0) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit.window_ms must be > 0',
+      );
+    }
+    final normalizedKey = _normalizeHttpRouteRateLimitKey(key);
+    return HttpRouteRateLimitSettings(
+      maxRequests: maxRequests,
+      windowMs: windowMs,
+      key: normalizedKey,
+    );
+  }
+
+  static String _normalizeHttpRouteRateLimitKey(String key) {
+    final normalized = key.trim().toLowerCase();
+    if (normalized == 'global' ||
+        normalized == 'connection' ||
+        normalized == 'bearer') {
+      return normalized;
+    }
+    if (normalized.startsWith('header:')) {
+      final headerName = normalized.substring('header:'.length).trim();
+      if (headerName.isNotEmpty) {
+        return 'header:$headerName';
+      }
+    }
+    throw FormatException(
+      'listener.http.routes.action.rate_limit.key must be global, connection, bearer, or header:<name>',
     );
   }
 

@@ -2,11 +2,12 @@
 
 Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: HTTP bridge custom handler routes are now
-router-hosted via `HttpRouteActionType.handler` and
-`Router.start(httpRouteHandlers: ...)`, with structured
-`handler_not_registered` failures instead of WAMP fallback for missing
-delegates. Local full verification is clean. GitHub `master` remains
+Last reviewed branch checkpoint: HTTP route actions now support optional
+`rate_limit` / `rateLimit` config, enforced before transport auth, MCP
+translation, handler dispatch, and WAMP publish/RPC dispatch. Limited routes
+return structured 429 responses with retry/rate-limit headers, and
+MCP/Streamable HTTP CORS preflight headers are preserved on limited MCP routes.
+Local `bin/test-fast` and `bin/verify` are clean. GitHub `master` remains
 fast-forward promoted to `06dee45`; hosted
 `master` CI run `26138507065`, Native Artifacts dry-run `26138936777`, and the
 strict deployment-chain audit pass at that head. RC readiness remains not-ready
