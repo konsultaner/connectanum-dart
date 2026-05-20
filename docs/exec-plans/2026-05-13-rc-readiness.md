@@ -299,6 +299,15 @@ decision because `connectanum_client` still depends on private
   suggestions. Pre-change `bin/test-fast`, focused Bash syntax, the audit
   regression module, `git diff --check`, and full local `bin/verify` passed.
   No RC tag or GitHub Release was created or moved.
+- 2026-05-20: The RC-readiness audit now requires numeric RC tags for the
+  checked-out-head release-tag gate while still inventorying RC-looking
+  validation/dry-run tags as current or stale evidence. The fake-`gh`
+  regression now points a validation/dry-run tag at the checked-out head and
+  proves it does not satisfy RC tag readiness; the audit still suggests only
+  the next numeric follow-up tag. Pre-change `bin/test-fast`, focused Bash
+  syntax, the audit regression module, `git diff --check`, a real read-only
+  `master` RC-readiness audit, and full local `bin/verify` passed. No RC tag or
+  GitHub Release was created or moved.
 
 ## Handoff
 
@@ -319,7 +328,8 @@ Continue with RC tag/prerelease selection for `2eced84`. The audit inventories
 stale local and GitHub RC tags and reports that the existing `v0.1.0-rc.1` tag
 points at older commit `47bbf9c`, not the current candidate head. It now
 suggests `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while
-still reporting RC prerelease selection as not-ready, and validation/dry-run RC
-tags are not treated as follow-up release candidates. Moving the stale tag or
+still reporting RC prerelease selection as not-ready. Validation/dry-run RC
+tags are inventoried but do not satisfy the checked-out-head RC tag gate and
+are not treated as follow-up release candidates. Moving the stale tag or
 approving a follow-up RC tag remains a release decision. No RC tag or GitHub
 Release was created or moved during the master-promotion or audit-tooling work.

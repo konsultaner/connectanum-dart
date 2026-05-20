@@ -434,6 +434,12 @@ is_release_candidate_tag() {
   [[ "$tag" =~ (^|[-_.])rc([0-9]+|[-_.][0-9]+)?($|[-_.]) ]]
 }
 
+is_numeric_release_candidate_tag() {
+  local tag="$1"
+
+  [[ "$tag" =~ ^.+[-_.]rc[-_.]?[0-9]+$ ]]
+}
+
 local_rc_tags_summary() {
   local target_sha="$1"
   local tag
@@ -543,7 +549,7 @@ github_rc_tags_pointing_at() {
 
   while IFS=$'\t' read -r tag tag_sha status; do
     [[ -n "$tag" ]] || continue
-    if [[ "$status" == "current" ]]; then
+    if [[ "$status" == "current" ]] && is_numeric_release_candidate_tag "$tag"; then
       printf '%s\n' "$tag"
     fi
   done < <(github_rc_tags_summary "$target_sha")
@@ -1600,7 +1606,7 @@ print_rc_readiness() {
   local_rc_tags="$(
     while IFS= read -r rc_tag; do
       [[ -n "$rc_tag" ]] || continue
-      if is_release_candidate_tag "$rc_tag"; then
+      if is_numeric_release_candidate_tag "$rc_tag"; then
         printf '%s\n' "$rc_tag"
       fi
     done < <(git tag --points-at HEAD | sort)
@@ -1614,7 +1620,7 @@ print_rc_readiness() {
   )"
 
   if [[ -z "$rc_tags" ]]; then
-    printf 'RC tag on checked-out head: not ready; no local or GitHub tag with an rc segment points at %s.\n' "$short_head_sha"
+    printf 'RC tag on checked-out head: not ready; no local or GitHub numeric RC tag points at %s.\n' "$short_head_sha"
     print_local_rc_tags_summary "$head_sha"
     print_github_rc_tags_summary "$head_sha"
     existing_rc_tag_summaries="$(

@@ -2,10 +2,11 @@
 
 Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: RC-readiness audit tooling now has regression
-coverage proving stale numeric RC tags suggest a single non-mutating follow-up
-tag while validation/dry-run RC tags do not become release-tag suggestions.
-Local full verification is clean. GitHub `master` remains promoted at `2eced84`
+Last reviewed branch checkpoint: RC-readiness audit tooling now distinguishes
+numeric RC release tags from RC-looking validation/dry-run tags. Validation and
+dry-run tags are still inventoried, but cannot satisfy checked-out-head RC tag
+readiness or become follow-up release-tag suggestions. Local full verification
+is clean. GitHub `master` remains promoted at `2eced84`
 with current-head hosted CI, package dry-run, native release dry-run, router
 image dry-run, WAMP profile, kTLS, and strict deployment-chain audit evidence.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
@@ -1267,6 +1268,15 @@ at the older `47bbf9c` commit.
 ## Last Known Verification
 
 - Current autonomous focus:
+  - Numeric RC tag selection hardening is complete locally. The RC-readiness
+    audit now requires a numeric RC tag for the checked-out-head release-tag
+    gate while still inventorying RC-looking validation/dry-run tags as
+    current or stale evidence. The fake-`gh` regression now proves a current
+    validation/dry-run tag does not satisfy RC tag readiness and still suggests
+    only the next numeric follow-up tag. Pre-change `bin/test-fast`, focused
+    Bash syntax, the audit regression module, `git diff --check`, a real
+    read-only `master` RC-readiness audit, and full local `bin/verify` passed
+    on 2026-05-20. No RC tag or GitHub Release was created or moved.
   - Router-hosted MCP protected resource/prompt auth-rejection smoke coverage
     is complete locally. The generated neutral consumer package smoke now
     checks missing-credential rejection for direct JSON and Streamable

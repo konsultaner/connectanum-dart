@@ -91,6 +91,10 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             f"- v0.1.0-rc.1 -> {stale_head[:7]} (stale for checked-out head)",
             result.stdout,
         )
+        self.assertIn(
+            f"- v0.1.0-rc-validation-dry-run -> {current_head[:7]} (current)",
+            result.stdout,
+        )
         self.assertIn("Suggested follow-up RC tag(s):", result.stdout)
         self.assertIn(
             "- v0.1.0-rc.2 (next numeric tag after v0.1.0-rc.1; "
@@ -739,7 +743,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
                     if [[ "${1:-}" == "ls-remote" && "${2:-}" == "--tags" ]]; then
                       printf '%s\\trefs/tags/v0.1.0-rc.1\\n' "$FAKE_STALE_HEAD"
-                      printf '%s\\trefs/tags/v0.1.0-rc-validation-dry-run\\n' "$FAKE_STALE_HEAD"
+                      printf '%s\\trefs/tags/v0.1.0-rc-validation-dry-run\\n' "$FAKE_CI_HEAD"
                       exit 0
                     fi
 
@@ -754,8 +758,12 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     fi
 
                     if [[ "${1:-}" == "rev-list" && "${2:-}" == "-n" && "${3:-}" == "1" ]]; then
-                      if [[ "${4:-}" == "v0.1.0-rc.1" || "${4:-}" == "v0.1.0-rc-validation-dry-run" ]]; then
+                      if [[ "${4:-}" == "v0.1.0-rc.1" ]]; then
                         printf '%s\\n' "$FAKE_STALE_HEAD"
+                        exit 0
+                      fi
+                      if [[ "${4:-}" == "v0.1.0-rc-validation-dry-run" ]]; then
+                        printf '%s\\n' "$FAKE_CI_HEAD"
                         exit 0
                       fi
                     fi
