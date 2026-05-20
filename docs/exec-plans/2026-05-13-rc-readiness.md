@@ -361,24 +361,49 @@ decision because `connectanum_client` still depends on private
   `v0.1.0-rc.2` as the next follow-up tag after release approval. No RC tag or
   GitHub Release was created or moved. A final local `bin/verify` handoff pass
   also completed successfully after the hosted evidence was recorded.
+- 2026-05-20: GitHub `master` was fast-forward promoted again from `06dee45` to
+  `0c0e043` so the route rate-limit implementation is on the default release
+  branch. GitHub reported the protected-branch PR rule was bypassed for the
+  direct update. Local `bin/test-fast` and `bin/verify` passed before
+  promotion. Hosted `master` evidence is current and green: CI run
+  `26150667099` passed after rerunning a transient browser harness load
+  failure, Dart Package Publish Dry Run `26150666982` passed, WAMP Profile
+  Benchmarks `26150666988` passed, Native Artifacts dry-run `26151756102`
+  passed for validation tag `v0.1.0-rc.1-validation.0c0e043`, and Router Image
+  dry-run `26151756160` passed for validation tag
+  `0.1.0-rc.1-validation.0c0e043`. The strict deployment-chain audit passed on
+  `master` with clean CI/log, Dart package dry-run, native release dry-run,
+  router image dry-run, workflow visibility, branch protection, and router
+  package visibility gates. RC readiness remains not-ready only because no
+  approved numeric RC tag or GitHub prerelease points at `0c0e043`; the audit
+  suggests `v0.1.0-rc.2` as the next follow-up tag after release approval. No
+  RC tag or GitHub Release was created or moved.
+- 2026-05-20: Fixed router-hosted MCP direct JSON notification semantics on
+  `add-router` so recognized notification-only tool calls suppress
+  handler/validation error response bodies and keep returning `202 Accepted`
+  with an empty body. Pre-change `bin/test-fast` passed. The focused MCP router
+  smoke regression failed before the fix because an invalid notification
+  returned a JSON-RPC error body, then passed after the fix. `git diff --check`,
+  post-change `bin/test-fast`, and full local `bin/verify` also passed. No RC
+  tag or GitHub Release was created or moved.
 
 ## Handoff
 
-Active. GitHub `master` now points at `06dee45`, the same commit as GitHub and
-GitLab `add-router`, and the previous GitHub `master` history is an ancestor of
-the promoted commit. Local `bin/test-fast` and `bin/verify` passed for the
-release-safety fix before promotion, and hosted `master` evidence is current and
-green for CI, Dart package dry-run relevance, Native Artifacts dry-run, and
-Router Image dry-run relevance. The strict deployment-chain audit passes on
-`master` with clean current-head CI/log, Dart package dry-run, native release
-dry-run, router image dry-run, workflow visibility, and router package
+Active. GitHub `master` points at `0c0e043`, and the current `add-router`
+branch contains a follow-up router-hosted MCP direct JSON notification
+correctness fix. Local `bin/test-fast` and `bin/verify` passed for the follow-up
+change. Hosted `master` evidence remains current and green for CI, Dart package
+dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run, and Router
+Image dry-run relevance. The strict deployment-chain audit passes on `master`
+with clean current-head CI/log, Dart package dry-run, native release dry-run,
+router image dry-run, workflow visibility, branch protection, and router package
 visibility gates. The audit verifies public GHCR registry metadata before
 falling back to GitHub Packages metadata, and the router package visibility gate
 passes because
 `ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
 `v0.1.0-rc.1` and a manifest digest.
 
-Continue with RC tag/prerelease selection for `06dee45` only from a checkout
+Continue with RC tag/prerelease selection for `0c0e043` only from a checkout
 that is aligned with GitHub `master`. The audit now reports both the audited
 branch head and whether the audited branch is the default release branch before
 RC tag selection. When the audited branch and checkout differ, or when the

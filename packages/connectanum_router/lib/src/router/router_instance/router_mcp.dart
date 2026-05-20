@@ -1609,6 +1609,7 @@ class _RouterMcpEndpoint {
       return null;
     }
 
+    final isNotification = !rawMessage.containsKey('id');
     final recoveredId = _recoverDirectJsonRequestId(rawMessage);
     try {
       final request = _directJsonRequestFrom(rawMessage);
@@ -1622,10 +1623,16 @@ class _RouterMcpEndpoint {
             : mcp.JsonRpcResponse.result(request.id, result).toJson(),
       );
     } on mcp.McpException catch (error) {
+      if (isNotification) {
+        return const _DirectJsonMessageResponse(null);
+      }
       return _DirectJsonMessageResponse(
         mcp.JsonRpcResponse.error(recoveredId, error).toJson(),
       );
     } catch (error) {
+      if (isNotification) {
+        return const _DirectJsonMessageResponse(null);
+      }
       return _DirectJsonMessageResponse(
         mcp.JsonRpcResponse.error(
           recoveredId,

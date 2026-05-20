@@ -2659,6 +2659,22 @@ void main() {
         contains('Unknown MCP method'),
       );
 
+      final directInvalidNotification = await _postJson(
+        client,
+        listener.port,
+        '/mcp/public',
+        {
+          'jsonrpc': '2.0',
+          'method': 'connectanum.tool.call',
+          'params': {
+            'arguments': {'taskId': 'T-invalid-notification'},
+          },
+        },
+      );
+      expect(directInvalidNotification.statusCode, equals(HttpStatus.accepted));
+      expect(directInvalidNotification.body, isEmpty);
+      expect(directInvalidNotification.json, isNull);
+
       final nestedBatch = await _postJsonValue(
         client,
         listener.port,

@@ -2,17 +2,19 @@
 
 Last updated: 2026-05-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: HTTP route actions now support optional
-`rate_limit` / `rateLimit` config, enforced before transport auth, MCP
-translation, handler dispatch, and WAMP publish/RPC dispatch. Limited routes
-return structured 429 responses with retry/rate-limit headers, and
-MCP/Streamable HTTP CORS preflight headers are preserved on limited MCP routes.
-Local `bin/test-fast` and `bin/verify` are clean. GitHub `master` remains
-fast-forward promoted to `06dee45`; hosted
-`master` CI run `26138507065`, Native Artifacts dry-run `26138936777`, and the
-strict deployment-chain audit pass at that head. RC readiness remains not-ready
-only because no approved numeric RC tag or GitHub prerelease points at
-`06dee45`; the audit suggests `v0.1.0-rc.2` as the next release-decision tag.
+Last reviewed branch checkpoint: Router-hosted MCP direct JSON notifications
+now suppress handler/validation error response bodies, preserving the
+notification-only `202 Accepted` empty-body contract for direct JSON tool calls.
+The focused MCP router smoke regression, `git diff --check`, `bin/test-fast`,
+and `bin/verify` are clean for the follow-up `add-router` change. GitHub
+`master` remains at `0c0e043`. Hosted `master` evidence is clean: CI run
+`26150667099` (clean after rerunning a transient browser harness load failure),
+Dart Package Publish Dry Run `26150666982`, WAMP Profile Benchmarks
+`26150666988`, Native Artifacts dry-run `26151756102`, Router Image dry-run
+`26151756160`, and the strict deployment-chain audit all pass at that head. RC
+readiness remains not-ready only because no approved numeric RC tag or GitHub
+prerelease points at `0c0e043`; the audit suggests `v0.1.0-rc.2` as the next
+release-decision tag.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` now contains the validated branch
