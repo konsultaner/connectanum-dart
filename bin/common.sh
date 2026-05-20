@@ -13923,6 +13923,7 @@ Future<void> _smokeStreamableMcp(
     label: label,
     directJson: false,
   );
+  await _smokeStreamableNotificationToolCall(client, label: label);
   await _smokeStreamableNotificationPubSub(client, label: label);
 
   await _smokeStreamableSessionLifecycle(
@@ -16676,6 +16677,78 @@ Future<void> _smokeStreamableNotificationPubSub(
       },
     );
   }
+}
+
+Future<void> _smokeStreamableNotificationToolCall(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP tool notification smoke has no session id.',
+    );
+  }
+
+  final eventIdBeforeNotificationBatch = client.lastEventId;
+  final taskId = 'T-$label-streamable-notification-tool';
+  final invalidTaskId = 'T-$label-streamable-invalid-notification-tool';
+  final notificationBatch = await client.postBatch(
+    [
+      {
+        'jsonrpc': '2.0',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {'taskId': taskId},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'method': 'connectanum.tool.call',
+        'params': {
+          'arguments': {
+            'taskId': invalidTaskId,
+            'message': '$label invalid Streamable tool notification',
+          },
+        },
+      },
+    ],
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-notification-tool-batch',
+    },
+  );
+  if (notificationBatch != null) {
+    throw StateError(
+      'Streamable MCP tool notification-only batch returned a response.',
+    );
+  }
+  if (client.sessionId != sessionId ||
+      client.lastEventId != eventIdBeforeNotificationBatch) {
+    throw StateError(
+      'Streamable MCP tool notification-only batch changed session state.',
+    );
+  }
+
+  await _expectConsumerProcedureInvocation(
+    taskId,
+    label: '$label Streamable tool notification-only batch',
+  );
+  await client.ping(
+    id: '$label-streamable-notification-tool-drain',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-notification-tool-drain',
+    },
+  );
+  if (client.sessionId != sessionId) {
+    throw StateError(
+      'Streamable MCP tool notification drain changed session id.',
+    );
+  }
+  _expectNoConsumerProcedureInvocation(
+    invalidTaskId,
+    label: '$label invalid Streamable tool notification-only batch',
+  );
 }
 
 Future<void> _smokeMcpPubSubQueueOverflow(

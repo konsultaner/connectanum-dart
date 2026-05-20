@@ -477,8 +477,27 @@ decision because `connectanum_client` still depends on private
   only the valid event arrives. Pre-change `bin/test-fast`,
   `bash -n bin/common.sh`, the focused
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
-  `git diff --check`, and full local `bin/verify` passed. No RC tag or GitHub
-  Release was created or moved.
+  `git diff --check`, and full local `bin/verify` passed. Commit `922fa1f` was
+  pushed to GitLab `origin` and GitHub `add-router`. Hosted GitHub CI run
+  `26169647527` passed at `922fa1f` with Fast Checks and Full Verify green, and
+  the non-RC strict deployment-chain audit passed clean latest CI, clean CI logs,
+  and clean relevant Dart package dry-run gates. Dart Package Publish Dry Run
+  `26160395223` remains clean and relevant at previous commit `7ed0e08` because
+  no publish-sensitive paths changed since then; WAMP Profile Benchmarks
+  `26160395225` remain clean at `7ed0e08`. No RC tag or GitHub Release was
+  created or moved.
+- 2026-05-20: Extended the generated consumer package router-hosted MCP smoke
+  to prove Streamable HTTP session notification-only direct tool calls have
+  WAMP-side effects. The smoke now posts an all-notification
+  `connectanum.tool.call` batch with one valid call and one invalid missing-name
+  call, asserts no JSON-RPC response or immediate Streamable session cursor
+  mutation, proves the valid WAMP procedure ran, drains the session, and proves
+  the invalid notification did not invoke the procedure. Pre-change
+  `bin/test-fast`, `bash -n bin/common.sh`, the focused
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and full local `bin/verify` passed. Hosted `add-router`
+  evidence remains at previous pushed commit `922fa1f` until this follow-up has
+  its own hosted CI evidence. No RC tag or GitHub Release was created or moved.
 
 ## Handoff
 
@@ -486,14 +505,16 @@ Active. GitHub `master` points at `0c0e043`, and `add-router` contains the
 router-hosted MCP direct JSON notification correctness fix plus native-router
 and generated consumer-package smoke coverage for single-message, mixed-batch,
 and all-notification batch handling. The latest local follow-up additionally
-proves Streamable HTTP session notification-only pub/sub publishes deliver the
-valid WAMP event while suppressing an invalid missing-topic publish
-notification, without returning a JSON-RPC response or mutating the Streamable
-session cursor. Local `bin/test-fast`, the focused generated consumer package
-smoke, `git diff --check`, and `bin/verify` passed for the latest notification
-side-effect coverage. Hosted `add-router` CI, Dart package dry-run, WAMP
-Profile Benchmarks, and the non-RC strict deployment-chain audit are clean for
-the previous pushed head: latest CI passed at `b48d952`, the package dry-run
+proves Streamable HTTP session notification-only direct `connectanum.tool.call`
+batches invoke the valid WAMP procedure, suppress an invalid missing-name
+notification, and return no JSON-RPC response or immediate Streamable cursor
+mutation; the previous pushed follow-up proves the same Streamable
+notification-only side-effect contract for pub/sub. Local `bin/test-fast`, the
+focused generated consumer package smoke, `git diff --check`, and `bin/verify`
+passed for the latest notification side-effect coverage. Hosted `add-router`
+CI, Dart package dry-run, WAMP Profile Benchmarks, and the non-RC strict
+deployment-chain audit are clean for the previous pushed head: latest CI passed
+at `922fa1f`, the package dry-run
 remains relevant at `7ed0e08`, and WAMP Profile Benchmarks remain clean at
 `7ed0e08`. Hosted `master` evidence remains current and green for CI, Dart
 package dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run,

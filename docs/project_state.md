@@ -6,22 +6,24 @@ Last reviewed branch checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, and pub/sub notification
 side effects. The latest local follow-up extends the generated consumer-package
-smoke to Streamable HTTP sessions: it subscribes over Streamable HTTP, posts an
-all-notification batch of `connectanum.pubsub.publish` messages with one valid
-publish and one invalid missing-topic publish, verifies the batch produces no
-JSON-RPC response or Streamable session cursor mutation, then polls the
-subscription and proves only the valid event arrives. Pre-change
-`bin/test-fast`, `bash -n bin/common.sh`, the focused
+smoke to Streamable HTTP sessions for direct tool notifications: it posts an
+all-notification `connectanum.tool.call` batch with one valid tool call and one
+invalid missing-name call, verifies the batch produces no JSON-RPC response or
+immediate Streamable session cursor mutation, proves the valid WAMP procedure
+runs, drains the session, and proves the invalid notification produced no side
+effect. The previous pushed follow-up also proves Streamable notification-only
+pub/sub publishes deliver only the valid event. Pre-change `bin/test-fast`,
+`bash -n bin/common.sh`, the focused
 `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
-`git diff --check`, and `bin/verify` are clean locally for this Streamable HTTP
-notification follow-up. Hosted `add-router` evidence remains clean for pushed
-commit `b48d952`: GitHub CI run `26167043374` passed at `b48d952` with Fast
-Checks and Full Verify green, the non-RC strict audit passed clean latest CI,
-clean CI logs, and clean relevant Dart package dry-run gates, Dart Package
-Publish Dry Run `26160395223` remains clean and relevant at previous commit
-`7ed0e08` because no publish-sensitive paths changed since then, and WAMP
-Profile Benchmarks `26160395225` remain clean at `7ed0e08`. GitHub `master`
-remains at `0c0e043`.
+`git diff --check`, and `bin/verify` are clean for this local follow-up.
+Hosted `add-router` evidence remains clean for previous pushed commit
+`922fa1f`: GitHub CI run `26169647527` passed at `922fa1f` with Fast Checks and
+Full Verify green, the non-RC strict audit passed clean latest CI, clean CI
+logs, and clean relevant Dart package dry-run gates, Dart Package Publish Dry
+Run `26160395223` remains clean and relevant at previous commit `7ed0e08`
+because no publish-sensitive paths changed since then, and WAMP Profile
+Benchmarks `26160395225` remain clean at `7ed0e08`. GitHub `master` remains at
+`0c0e043`.
 Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
 transient browser harness load failure), Dart Package Publish Dry Run
 `26150666982`, WAMP Profile Benchmarks `26150666988`, Native Artifacts dry-run
