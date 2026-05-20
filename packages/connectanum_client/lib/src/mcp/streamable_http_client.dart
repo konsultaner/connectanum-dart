@@ -931,15 +931,20 @@ final class McpStreamableHttpClient {
     McpJsonMap params,
     Map<String, String> headers,
   ) {
-    final (toolName, arguments) = switch (method) {
-      'tools/call' || 'connectanum.tool.call' || 'connectanum.tools.call' => (
-        params['name'],
-        _jsonMapFrom(params['arguments'], label: 'direct tool arguments') ??
-            const <String, Object?>{},
-      ),
-      _ when method.contains('.') => (method, params),
-      _ => (null, null),
-    };
+    Object? toolName;
+    McpJsonMap? arguments;
+    if (method == 'tools/call' ||
+        method == 'connectanum.tool.call' ||
+        method == 'connectanum.tools.call') {
+      toolName = params['name'];
+      final rawArguments = params['arguments'];
+      arguments = rawArguments == null
+          ? const <String, Object?>{}
+          : _jsonMapFrom(rawArguments, label: 'direct tool arguments');
+    } else if (method.contains('.')) {
+      toolName = method;
+      arguments = params;
+    }
     return toolName is String && arguments != null
         ? _headersWithToolParameterHeaders(toolName, arguments, headers)
         : headers;
