@@ -215,10 +215,9 @@
   - [x] Shared registration meta events
 - [ ] Load-aware invocation balancing (collect CPU/RAM/remote metrics and select least-loaded callee)
 - [x] Progressive call results (`progress=true`)
-- [ ] Call cancellation modes (`kill`, `killnowait`, `killall`) — ensure cancellers can wait for cleanup so subsequent processing shuts down gracefully
+- [x] Call cancellation modes (`skip`, `kill`, `killnowait`) — ensure cancellers can wait for cleanup so subsequent processing shuts down gracefully, and reject unsupported modes instead of silently downgrading them.
   - [x] `killnowait`
   - [x] `kill`
-  - [ ] `killall`
 - [x] Caller disclosure (`caller`, `caller_authid`, `caller_authrole`)
 - [ ] Throttle/debounce hooks driven by client-provided hashes in call pipeline
   - Align behaviour with [WAMP issue #391 comment](https://github.com/wamp-proto/wamp-proto/issues/391#issuecomment-998577967) to allow routers to honour client-provided throttling keys.

@@ -945,6 +945,40 @@ void main() {
       );
       expect(unregisterError.error, equals(Error.noSuchRegistration));
     });
+    test('preserves unsupported cancel modes for router rejection', () async {
+      final transport = _MockTransport();
+      final client = Client(realm: 'test.realm', transport: transport);
+      final callCompleter = Completer<Call>();
+      final cancelCompleter = Completer<Cancel>();
+
+      transport.outbound.stream.listen((message) {
+        if (message.id == MessageTypes.codeHello) {
+          transport.receiveMessage(Welcome(42, Details.forWelcome()));
+          return;
+        }
+        if (message is Call && !callCompleter.isCompleted) {
+          callCompleter.complete(message);
+          return;
+        }
+        if (message is Cancel && !cancelCompleter.isCompleted) {
+          cancelCompleter.complete(message);
+        }
+      });
+
+      final session = await client.connect().first;
+      final requestedCancel = Completer<String>();
+      final subscription = session
+          .call('my.slow.procedure', cancelCompleter: requestedCancel)
+          .listen((_) {});
+      addTearDown(subscription.cancel);
+
+      final call = await callCompleter.future;
+      requestedCancel.complete('killall');
+
+      final cancel = await cancelCompleter.future;
+      expect(cancel.requestId, equals(call.requestId));
+      expect(cancel.options?.mode, equals('killall'));
+    });
     test('ignores interrupt messages without closing the session', () async {
       final transport = _MockTransport();
       final client = Client(realm: 'test.realm', transport: transport);

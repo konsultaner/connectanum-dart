@@ -399,6 +399,126 @@ void main() {
     );
 
     test(
+      'rejects unsupported CANCEL killall without interrupting callee',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 781;
+        final calleeState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 782;
+
+        _openSession(
+          stateStore,
+          sessionId: 781,
+          listener: listener,
+          connectionId: 141,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 782,
+          listener: listener,
+          connectionId: 142,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final registerReply = ReceivePort();
+        stateStore.commandPort.send(
+          ProcedureRegisterCommand(
+            realmUri: 'realm1',
+            sessionId: 782,
+            procedure: 'com.example.cancelable',
+            details: const {},
+            replyPort: registerReply.sendPort,
+          ),
+        );
+        await registerReply.first;
+        registerReply.close();
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        final call = call_msg.Call(9711, 'com.example.cancelable');
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 141,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final invocationForward = _extractForwardMessages(bossMessages);
+        expect(invocationForward, hasLength(1));
+        final invocation =
+            invocationForward.single['message'] as invocation_msg.Invocation;
+        final invocationId = invocation.requestId;
+        bossMessages.clear();
+
+        final cancelOptions = cancel_msg.CancelOptions()..mode = 'killall';
+        final cancel = cancel_msg.Cancel(9711, options: cancelOptions);
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: cancel,
+          connectionId: 141,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(_extractForwardMessages(bossMessages), isEmpty);
+        final workerSends = _collectWorkerSends(bossMessages);
+        expect(workerSends, hasLength(1));
+        final cancelFrame =
+            jsonDecode(utf8.decode(workerSends.single['payload'] as Uint8List))
+                as List<dynamic>;
+        expect(cancelFrame.first, equals(MessageTypes.codeError));
+        expect(cancelFrame[1], equals(MessageTypes.codeCancel));
+        expect(cancelFrame[2], equals(9711));
+        expect(cancelFrame[4], equals(wamp_core.Error.invalidArgument));
+        final details = cancelFrame[3] as Map<String, Object?>;
+        expect(details['message'], contains('Unsupported cancel mode'));
+
+        final remainingInvocation = await realmContexts
+            .contextFor('realm1')
+            .getInvocation(invocationId);
+        expect(remainingInvocation, isNotNull);
+      },
+    );
+
+    test(
       'dispatches calls across workers and returns result to caller',
       () async {
         final bossMessages = <Map<String, Object?>>[];

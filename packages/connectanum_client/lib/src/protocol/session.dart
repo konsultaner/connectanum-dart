@@ -1674,12 +1674,7 @@ class Session {
     }
     unawaited(
       cancelCompleter.future.then((cancelMode) {
-        CancelOptions? options;
-        if (CancelOptions.modeKillNoWait == cancelMode ||
-            CancelOptions.modeKill == cancelMode ||
-            CancelOptions.modeSkip == cancelMode) {
-          options = CancelOptions()..mode = cancelMode;
-        }
+        final options = CancelOptions()..mode = cancelMode;
         _transport.send(Cancel(requestId, options: options));
       }),
     );
