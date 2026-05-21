@@ -214,16 +214,27 @@ Pre-change `bin/test-fast`, `bash -n bin/common.sh`, focused client/MCP tests,
 the focused generated router-hosted consumer-package smoke, and full local
 `bin/verify` passed.
 
+Hosted GitHub `master` and `add-router` CI for commit `3674e86` exposed a
+Linux Chrome/Dart2Wasm browser harness failure after the non-browser Full
+Verify suites had passed: `websocket_transport_web_test.dart` failed during
+test loading with `Bad state: Cannot add stream while adding stream`, then the
+test runner hung until the Full Verify job timed out as cancelled. The browser
+runtime smoke is now explicit in `bin/test-all`: hosted Linux CI uses the stable
+Dart2Js browser compiler for this Chrome smoke, while local/non-Linux runs keep
+the Dart2Wasm default from the package test config. Pre-change `bin/test-fast`
+passed before this CI-stability patch.
+
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated audit-readiness checkpoint at `11a9b24`; this local implementation
-follow-up closes the Streamable-session generic Connectanum method helper gap
-before the next promotion. MCP remains RC-ready for the first candidate:
-router-hosted endpoints, auth/session correctness, direct JSON/meta API, WAMP
-pub/sub coverage, resources/prompts, Streamable HTTP compatibility, and
-consumer-package smoke coverage are in place. Further MCP helper permutations
-are post-RC polish unless consumer integration exposes a real correctness bug.
+validated audit-readiness checkpoint at `11a9b24`; this implementation follow-up
+closes the Streamable-session generic Connectanum method helper gap and hardens
+hosted Linux browser smoke stability before the next promotion. MCP
+remains RC-ready for the first candidate: router-hosted endpoints, auth/session
+correctness, direct JSON/meta API, WAMP pub/sub coverage, resources/prompts,
+Streamable HTTP compatibility, and consumer-package smoke coverage are in
+place. Further MCP helper permutations are post-RC polish unless consumer
+integration exposes a real correctness bug.
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).

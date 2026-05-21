@@ -85,9 +85,15 @@ run_router_zero_copy_publish_tests
 if ensure_chrome_env; then
   (
     cd packages/connectanum_client
+    browser_compiler=dart2wasm
+    if [[ "${CI:-}" == "true" && "$(uname -s)" == "Linux" ]]; then
+      browser_compiler=dart2js
+      printf 'Using dart2js for hosted Linux browser smoke; dart2wasm hybrid browser loading is unstable under CI Chrome.\n'
+    fi
     dart test \
       test/transport/websocket/websocket_transport_web_test.dart \
       -p chrome \
+      --compiler="$browser_compiler" \
       --timeout=5m \
       --concurrency=1
   )

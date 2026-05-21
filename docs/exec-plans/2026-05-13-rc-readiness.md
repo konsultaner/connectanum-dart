@@ -767,27 +767,38 @@ decision because `connectanum_client` still depends on private
   `bin/test-fast`, `bash -n bin/common.sh`, focused client/MCP tests, the
   focused generated router-hosted consumer-package smoke, and full local
   `bin/verify` passed.
+- 2026-05-21: Hosted GitHub `master` and `add-router` CI for commit `3674e86`
+  exposed a Linux Chrome/Dart2Wasm browser harness failure after the
+  non-browser Full Verify suites had passed:
+  `websocket_transport_web_test.dart` failed during test loading with
+  `Bad state: Cannot add stream while adding stream`, then the test runner hung
+  until the Full Verify job timed out as cancelled. The browser runtime smoke
+  is now explicit in `bin/test-all`: hosted Linux CI uses the stable Dart2Js
+  browser compiler for this Chrome smoke, while local/non-Linux runs keep the
+  Dart2Wasm default from the package test config. Pre-change `bin/test-fast`
+  passed before this CI-stability patch.
 
 ## Handoff
 
-Active. GitHub `master` and `add-router` point at `11a9b24`. The default
-branch contains the router-hosted MCP downstream-readiness work plus explicit
-branch-protection and GitHub RC-tag audit handoff evidence; the current local
-implementation follow-up closes the Streamable-session generic Connectanum
-method helper gap before the next promotion. MCP coverage includes
-auth/session correctness, router-provided MCP endpoints, direct JSON tool and
-meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
-compatibility, and generated consumer-package smokes that use public package
-APIs without private project assumptions.
+Active. The latest fully clean hosted deployment-chain checkpoint remains
+`11a9b24`. The default branch contains the router-hosted MCP downstream-readiness
+work plus explicit branch-protection and GitHub RC-tag audit handoff evidence;
+the current implementation follow-up closes the Streamable-session generic
+Connectanum method helper gap and hardens hosted Linux browser smoke stability
+before the next promotion. MCP coverage includes auth/session correctness,
+router-provided MCP endpoints, direct JSON tool and meta APIs, WAMP pub/sub
+helpers, resources/prompts, Streamable HTTP compatibility, and generated
+consumer-package smokes that use public package APIs without private project
+assumptions.
 
-Hosted `master` current-head CI is green for run `26201026642`: Fast Checks and
-Full Verify passed. The strict deployment-chain audit passes on `master` with
-clean current-head CI/log, relevant release dry-run evidence, workflow
-visibility, branch protection, and router package visibility gates. The router
-package visibility gate verifies public GHCR registry metadata for
-`ghcr.io/konsultaner/connectanum-router`. For the current local implementation
-follow-up, pre-change `bin/test-fast` and final local `bin/verify` passed,
-including generated consumer-package smoke coverage.
+Hosted `master` CI was last fully green at run `26201026642` for checkpoint
+`11a9b24`: Fast Checks and Full Verify passed, and the strict deployment-chain
+audit passed on `master` with clean current-head CI/log, relevant release
+dry-run evidence, workflow visibility, branch protection, and router package
+visibility gates. The router package visibility gate verifies public GHCR
+registry metadata for `ghcr.io/konsultaner/connectanum-router`. For the current
+implementation follow-up, pre-change `bin/test-fast` and final local
+`bin/verify` passed, including generated consumer-package smoke coverage.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master` after the next implementation promotion. The audit inventories stale
