@@ -1366,6 +1366,18 @@ void main() {
       );
       expect(invalidAccept.statusCode, equals(HttpStatus.notAcceptable));
 
+      final jsonQZeroAccept = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        payload,
+        headers: {
+          HttpHeaders.acceptHeader:
+              'application/json;q=0, text/event-stream;q=1',
+        },
+      );
+      expect(jsonQZeroAccept.statusCode, equals(HttpStatus.notAcceptable));
+
       final invalidVersion = await _postJson(
         client,
         listener.port,
@@ -1438,6 +1450,28 @@ void main() {
         headers: streamableHeaders('notifications/initialized'),
       );
       expect(initialized.statusCode, equals(HttpStatus.accepted));
+
+      final jsonOnlyPost = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'json-only-post',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: streamableHeaders(
+          'tools/list',
+          accept: 'application/json;q=1, text/event-stream;q=0',
+        ),
+      );
+      expect(jsonOnlyPost.statusCode, equals(HttpStatus.ok));
+      expect(
+        jsonOnlyPost.headers[HttpHeaders.contentTypeHeader],
+        contains('application/json'),
+      );
+      expect(jsonOnlyPost.json?['id'], equals('json-only-post'));
 
       final mismatchedMethodHeader = await _postJson(
         client,

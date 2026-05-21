@@ -2,49 +2,42 @@
 
 Last updated: 2026-05-21
 Current branch: `add-router`
-Last reviewed branch checkpoint: Commit `9ba8748` (`fix: harden MCP auth error
-handling`) was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
-`master`. It hardens `ConnectanumHttpAuthClient` so non-success non-JSON auth
-bridge responses surface as typed `ConnectanumHttpAuthException`s that preserve
-status code and raw body with no decoded error payload, while successful
-malformed JSON still fails as malformed JSON. The generated client-only
-consumer package smoke now proves the same behavior through
-`package:connectanum_mcp/connectanum_mcp_io.dart` and public APIs only, so
-downstream applications receive a stable typed auth/session error instead of a
-`FormatException` when a router-hosted auth bridge returns plain text or HTML
-during an outage. Local evidence: pre-change `bin/test-fast`, focused
-`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
-`bash -n bin/common.sh`, focused `run_mcp_client_package_smoke`,
-`git diff --check`, and clean-tree full `bin/verify` passed. Hosted GitHub
-evidence is clean at `9ba8748`: `master` CI run `26231778548`, `add-router` CI
-run `26231777640`, `master` Dart Package Publish Dry Run `26231779191`,
-`add-router` Dart Package Publish Dry Run `26231777632`, `master` WAMP Profile
-Benchmarks `26231779087`, and `add-router` WAMP Profile Benchmarks
-`26231777445` passed. Router Image dry-run `26232580498` passed on `master`
-for manual `image_tag=v0.1.0-rc.2` without GHCR login, uploaded preview
-metadata, and verified primary tag `0.1.0-rc.2`. The strict deployment-chain
-audit passed required gates on `master` at `9ba8748`: current-head CI/logs,
-relevant Dart package dry-run, relevant native release dry-run, relevant Router
-Image dry-run, relevant WAMP profile benchmark evidence, workflow visibility,
-branch protection, and router package visibility. RC readiness remains
-not-ready only because no approved numeric RC tag, GitHub prerelease, or
-matching RC router image tag has been selected. No RC tag, GitHub Release, or
-router image was created or moved.
-Current MCP Streamable HTTP follow-up: `McpStreamableHttpClient` now selects
-JSON-RPC responses from Streamable HTTP SSE POST streams by matching request
-IDs, ignoring interleaved server notifications and notification-only request
-items. This closes a consumer-application correctness gap where a server could
-legitimately emit progress notifications before the response in the same SSE
-stream. Focused client tests cover single requests and batches with interleaved
-notifications, and the generated client-only consumer package smoke proves the
-behavior through public `connectanum_mcp_io` APIs while preserving the active
-session and SSE cursor isolation. Local focused evidence: pre-change
-`bin/test-fast`, focused
+Last reviewed branch checkpoint: This implementation follow-up hardens
+router-hosted MCP HTTP content negotiation for downstream applications. The
+router now honors `q=0` media ranges in `Accept` headers before deciding whether
+JSON responses or Streamable HTTP SSE POST responses are allowed, so an agent or
+application that explicitly rejects `application/json` receives `406 Not
+Acceptable` instead of falling through to header validation, and a session POST
+that rejects `text/event-stream` receives a JSON response instead of SSE.
+Fail-first focused coverage reproduced the gap in
+`guards MCP Streamable HTTP ingress and sessions`; the fixed focused native MCP
+ingress regression, `dart analyze packages/connectanum_router`,
+`git diff --check`, `bin/test-fast`, and `bin/verify` pass locally. Prior
+reviewed checkpoint: Commit
+`34c9889` (`fix: select streamable mcp
+sse responses by id`) was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`. `McpStreamableHttpClient` now selects JSON-RPC responses from
+Streamable HTTP SSE POST streams by matching request IDs, ignoring interleaved
+server notifications and notification-only request items. This closes a
+consumer-application correctness gap where a server can legitimately emit
+progress notifications before the response in the same SSE stream. Focused
+client tests cover single requests and batches with interleaved notifications,
+and the generated client-only consumer package smoke proves the behavior
+through public `connectanum_mcp_io` APIs while preserving the active session
+and SSE cursor isolation. Local evidence: pre-change `bin/test-fast`, focused
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
-`bash -n bin/common.sh`, and focused `run_mcp_client_package_smoke` passed.
-Clean-tree `bin/test-fast` and `bin/verify` must be rerun after this
-implementation is committed because the strict Dart publish dry-run rejects
-dirty publishable package files.
+`bash -n bin/common.sh`, focused `run_mcp_client_package_smoke`,
+`git diff --check`, clean-tree `bin/test-fast`, and clean-tree `bin/verify`
+passed. Hosted GitHub `master` evidence is clean at `34c9889`: CI run
+`26235994960`, Dart Package Publish Dry Run `26235995708`, WAMP Profile
+Benchmarks `26235993239`, and Router Image dry-run `26236030117` passed. The
+strict deployment-chain audit passed required gates on `master` at `34c9889`:
+current-head CI/logs, relevant Dart package dry-run, relevant native release
+dry-run, current Router Image dry-run, current WAMP profile benchmark evidence,
+workflow visibility, branch protection, and router package visibility. RC
+readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected. No RC tag,
+GitHub Release, or router image was created or moved.
 Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side
@@ -554,18 +547,31 @@ verified primary tag `0.1.0-rc.2`. The strict deployment-chain audit passed
 required gates on `master` at `9ba8748`; RC readiness still reports not-ready
 only because no approved numeric RC tag, GitHub prerelease, or matching RC
 router image tag has been selected.
+Commit `34c9889` (`fix: select streamable mcp sse responses by id`) was pushed
+to GitLab `origin`, GitHub `add-router`, and GitHub `master`. It fixes
+Streamable HTTP SSE response selection for downstream applications by matching
+JSON-RPC responses to request IDs across single requests and batches, ignoring
+interleaved notification events while still updating the SSE cursor. Local
+evidence: pre-change `bin/test-fast`, focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`bash -n bin/common.sh`, focused `run_mcp_client_package_smoke`,
+`git diff --check`, clean-tree `bin/test-fast`, and clean-tree `bin/verify`
+passed. Hosted GitHub `master` evidence is clean at `34c9889`: CI run
+`26235994960`, Dart Package Publish Dry Run `26235995708`, WAMP Profile
+Benchmarks `26235993239`, and Router Image dry-run `26236030117` passed. The
+strict deployment-chain audit passed required gates on `master` at `34c9889`;
+RC readiness still reports not-ready only because no approved numeric RC tag,
+GitHub prerelease, or matching RC router image tag has been selected.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated hosted audit-readiness checkpoint at `9ba8748`; the latest
-fully hosted implementation follow-up hardens MCP HTTP auth client non-JSON
-error handling for downstream applications with hosted CI, dry-run, WAMP
-benchmark, Router Image dry-run, and strict audit evidence. The current local
-implementation follow-up fixes Streamable HTTP SSE response selection for
-interleaved notifications and batches, with focused client and generated
-consumer-package smoke evidence pending clean-tree full verification after
-commit. Earlier
+validated hosted audit-readiness checkpoint at `34c9889`; the latest
+implementation follow-up hardens router-hosted MCP Accept negotiation for
+`q=0` JSON/SSE media ranges with local verification. The latest fully hosted
+implementation checkpoint fixes Streamable HTTP SSE response selection for
+interleaved notifications and batches with hosted `master`
+CI/dry-run/WAMP/Router Image evidence and strict audit evidence. Earlier
 implementation follow-ups normalize manual Router Image project-version tag
 inputs to the Docker tag shape required by RC audit evidence, tighten RC router
 image tag audit evidence, make
@@ -11248,8 +11254,10 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears; current local work closes public package
-  helper and smoke-test gaps for router-hosted MCP consumer applications.
+  consumer integration bug appears; the latest implementation follow-up hardens
+  router-hosted MCP Accept negotiation for downstream applications, while the
+  latest fully hosted verified checkpoint closes the Streamable HTTP SSE
+  response-selection gap for router-hosted MCP consumer applications.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

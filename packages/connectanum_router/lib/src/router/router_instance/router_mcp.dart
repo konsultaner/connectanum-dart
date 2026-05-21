@@ -139,10 +139,39 @@ Set<String> _mcpAcceptTypes(RouterBinding binding, RouterHttpRequest request) {
   if (accept == null) {
     return const <String>{};
   }
-  return {
-    for (final part in accept.split(','))
-      part.split(';').first.trim().toLowerCase(),
-  }..remove('');
+
+  final accepted = <String>{};
+  for (final part in accept.split(',')) {
+    final segments = part.split(';');
+    final mediaType = segments.first.trim().toLowerCase();
+    if (mediaType.isEmpty) {
+      continue;
+    }
+
+    var acceptsMediaType = true;
+    for (final parameter in segments.skip(1)) {
+      final separator = parameter.indexOf('=');
+      if (separator <= 0) {
+        continue;
+      }
+      final name = parameter.substring(0, separator).trim().toLowerCase();
+      if (name != 'q') {
+        continue;
+      }
+      final quality = double.tryParse(
+        parameter.substring(separator + 1).trim(),
+      );
+      if (quality != null && quality <= 0) {
+        acceptsMediaType = false;
+      }
+      break;
+    }
+
+    if (acceptsMediaType) {
+      accepted.add(mediaType);
+    }
+  }
+  return accepted;
 }
 
 bool _mcpAcceptAllowsJsonResponse(
