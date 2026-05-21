@@ -82,6 +82,31 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn("RC tag on checked-out head: ready", result.stdout)
         self.assertIn("GitHub RC prerelease: ready (v0.1.0-rc.2)", result.stdout)
 
+    def test_rc_readiness_rejects_local_only_rc_tag_prerelease(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        stale_head = self._different_sha(current_head)
+
+        result = self._run_rc_readiness_with_native_prerelease(
+            current_head,
+            github_tag_head=stale_head,
+            local_tag_head=current_head,
+            require_rc_ready=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("RC tag on checked-out head: ready", result.stdout)
+        self.assertIn("- v0.1.0-rc.2 (local)", result.stdout)
+        self.assertIn(
+            "GitHub RC prerelease: not ready; v0.1.0-rc.2 is not a GitHub tag "
+            f"at checked-out head {current_head[:7]}.",
+            result.stdout,
+        )
+        self.assertIn("Release candidate readiness audit failed.", result.stdout)
+        self.assertNotIn(
+            "GitHub RC prerelease: ready (v0.1.0-rc.2)",
+            result.stdout,
+        )
+
     def test_rc_readiness_suggests_followup_rc_tag_for_stale_tags(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
         stale_head = self._different_sha(current_head)
@@ -399,6 +424,9 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         ci_head: str,
         branch_head: str | None = None,
         branch: str = "master",
+        github_tag_head: str | None = None,
+        local_tag_head: str | None = None,
+        require_rc_ready: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -615,7 +643,35 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     set -euo pipefail
 
                     if [[ "${1:-}" == "ls-remote" && "${2:-}" == "--tags" ]]; then
-                      printf '%s\\trefs/tags/v0.1.0-rc.2\\n' "$FAKE_CI_HEAD"
+                      if [[ -n "${FAKE_GITHUB_TAG_HEAD:-}" ]]; then
+                        printf '%s\\trefs/tags/v0.1.0-rc.2\\n' "$FAKE_GITHUB_TAG_HEAD"
+                      fi
+                      exit 0
+                    fi
+
+                    if [[ "${1:-}" == "tag" && "${2:-}" == "--points-at" ]]; then
+                      if [[ -n "${FAKE_LOCAL_TAG_HEAD:-}" && "$FAKE_LOCAL_TAG_HEAD" == "$FAKE_CI_HEAD" ]]; then
+                        printf 'v0.1.0-rc.2\\n'
+                      fi
+                      exit 0
+                    fi
+
+                    if [[ "${1:-}" == "tag" && "${2:-}" == "--list" ]]; then
+                      if [[ -n "${FAKE_LOCAL_TAG_HEAD:-}" ]]; then
+                        printf 'v0.1.0-rc.2\\n'
+                      fi
+                      exit 0
+                    fi
+
+                    if [[ "${1:-}" == "rev-list" && "${2:-}" == "-n" && "${3:-}" == "1" && "${4:-}" == "v0.1.0-rc.2" ]]; then
+                      if [[ -n "${FAKE_LOCAL_TAG_HEAD:-}" ]]; then
+                        printf '%s\\n' "$FAKE_LOCAL_TAG_HEAD"
+                        exit 0
+                      fi
+                    fi
+
+                    if [[ "${1:-}" == "rev-parse" && "${2:-}" == "HEAD" ]]; then
+                      printf '%s\\n' "$FAKE_CI_HEAD"
                       exit 0
                     fi
 
@@ -654,16 +710,21 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env["GH_BIN"] = str(fake_gh)
             env["FAKE_CI_HEAD"] = ci_head
             env["FAKE_BRANCH_HEAD"] = branch_head or ci_head
+            env["FAKE_GITHUB_TAG_HEAD"] = (
+                ci_head if github_tag_head is None else github_tag_head
+            )
+            env["FAKE_LOCAL_TAG_HEAD"] = local_tag_head or ""
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["REAL_GIT"] = real_git or "git"
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
 
+            rc_flag = "--require-rc-ready" if require_rc_ready else "--show-rc-readiness"
             return subprocess.run(
                 [
                     str(AUDIT_SCRIPT),
                     "--branch",
                     branch,
-                    "--show-rc-readiness",
+                    rc_flag,
                 ],
                 cwd=REPO_ROOT,
                 env=env,

@@ -710,34 +710,69 @@ decision because `connectanum_client` still depends on private
   Pre-change `bin/test-fast`, `bash -n bin/audit-github-deployment-chain`,
   `python3 tool/test_audit_github_deployment_chain.py`, `git diff --check`,
   `bin/audit-github-deployment-chain --branch master --show-rc-readiness`, and
-  full local `bin/verify` passed. Hosted evidence for this audit-readability
-  follow-up is pending until the implementation commit is pushed.
+  full local `bin/verify` passed. Commit `882c207` was pushed to GitLab
+  `origin` and GitHub `add-router`. Hosted `add-router` evidence is clean: CI
+  run `26198235075` passed with Fast Checks and Full Verify green, and the
+  gated deployment-chain audit passed current-head CI/log checks, workflow
+  visibility, router package visibility, and the relevant Dart package dry-run
+  gate. The latest Dart Package Publish Dry Run remains `26195189402` at
+  `b45a96f`, and the audit accepts it because no publish-sensitive paths
+  changed in `882c207`.
+- 2026-05-21: GitHub `master` was fast-forward promoted from `b45a96f` to
+  `882c207`, so the default release branch now includes the explicit
+  branch-protection audit handoff evidence. GitHub again reported the PR-only
+  branch rule was bypassed for the direct update, and the promoted audit output
+  records `Require pull requests: true` with `Admin bypass allowed: true`.
+  Local `bin/test-fast` passed before the promotion, and post-promotion local
+  `bin/verify` passed. Hosted `master` CI run `26199199255` passed with Fast
+  Checks in 4m26s and Full Verify in 6m15s. The strict deployment-chain audit
+  passed clean current-head CI, clean CI logs, relevant Dart package dry-run,
+  relevant native release dry-run, relevant router image dry-run, workflow
+  visibility, branch protection, and router package visibility gates. The
+  latest relevant runs remain Dart Package Publish Dry Run `26196195553`, WAMP
+  Profile Benchmarks `26196195554`, Router Image dry-run `26196649190`, and
+  Native Artifacts dry-run `26151756102`; the audit accepts that evidence
+  because `882c207` changed only audit/tooling and docs paths that are not
+  sensitive to those release gates. RC readiness remains not-ready only because
+  no approved numeric RC tag or GitHub prerelease points at `882c207`; the
+  audit suggests `v0.1.0-rc.2` as the next release-decision tag. No RC tag or
+  GitHub Release was created or moved.
+- 2026-05-21: The RC-readiness audit now refuses to accept a local-only
+  numeric RC tag as sufficient GitHub prerelease evidence. A fake-`gh`/fake-git
+  regression covers the stale-remote-tag case where a local tag points at the
+  checked-out head but the GitHub tag does not; `--require-rc-ready` must keep
+  the GitHub prerelease gate not-ready until the approved RC tag exists on
+  GitHub at the checked-out head. Pre-change `bin/test-fast`,
+  `bash -n bin/audit-github-deployment-chain`, and
+  `python3 -m unittest tool/test_audit_github_deployment_chain.py` passed;
+  full local `bin/verify` passed before handoff.
 
 ## Handoff
 
-Active. GitHub `master` points at `b45a96f`, matching the pushed `add-router`
-head. The default branch now contains the router-hosted MCP downstream-readiness
-work: auth/session correctness, router-provided MCP endpoints, direct JSON tool
-and meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
+Active. GitHub `master` points at `882c207`, matching the previously pushed
+`add-router` head. The default branch contains the router-hosted MCP
+downstream-readiness work plus explicit branch-protection audit handoff
+evidence; the current local audit follow-up tightens local-vs-GitHub RC tag
+validation before the next promotion. MCP coverage
+includes auth/session correctness, router-provided MCP endpoints, direct JSON
+tool and meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
 compatibility, and generated consumer-package smokes that use public package
 APIs without private project assumptions.
 
-Hosted `master` evidence is current and green for CI run `26196195552`, Dart
-Package Publish Dry Run `26196195553`, WAMP Profile Benchmarks `26196195554`,
-and Router Image dry-run `26196649190`. Native Artifacts dry-run `26151756102`
-remains relevant because no native-release-sensitive paths changed since
-`0c0e043`. The strict deployment-chain audit passes on `master` with clean
-current-head CI/log, Dart package dry-run, native release dry-run relevance,
-fresh router image dry-run relevance, workflow visibility, branch protection,
-and router package visibility gates. The router package visibility gate verifies
-public GHCR registry metadata for `ghcr.io/konsultaner/connectanum-router`.
-Local `bin/test-fast` passed before the master promotion, and post-promotion
-local `bin/verify` passed. The audit tooling follow-up also passed local
-`bin/test-fast`, focused fake-`gh` audit tests, a live `master`
-RC-readiness audit, and full local `bin/verify`; hosted evidence for that
-follow-up is pending push.
+Hosted `master` current-head CI is green for run `26199199255`: Fast Checks
+passed in 4m26s and Full Verify passed in 6m15s. Dart Package Publish Dry Run
+`26196195553`, WAMP Profile Benchmarks `26196195554`, Router Image dry-run
+`26196649190`, and Native Artifacts dry-run `26151756102` remain relevant
+because no publish-, benchmark-, router-image-, or native-release-sensitive
+paths changed in `882c207`. The strict deployment-chain audit passes on
+`master` with clean current-head CI/log, relevant Dart package dry-run, native
+release dry-run relevance, router image dry-run relevance, workflow visibility,
+branch protection, and router package visibility gates. The router package
+visibility gate verifies public GHCR registry metadata for
+`ghcr.io/konsultaner/connectanum-router`. Local `bin/test-fast` passed before
+the master promotion, and post-promotion local `bin/verify` passed.
 
-Continue with RC tag/prerelease selection for `b45a96f` only from a checkout
+Continue with RC tag/prerelease selection for `882c207` only from a checkout
 aligned with GitHub `master`. The audit inventories stale local and GitHub RC
 tags and reports that existing `v0.1.0-rc.1` points at older commit `47bbf9c`,
 not the current candidate head. It suggests `v0.1.0-rc.2` exactly once as the

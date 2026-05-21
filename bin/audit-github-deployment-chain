@@ -1703,7 +1703,11 @@ print_rc_readiness() {
   fi
 
   if [[ -n "$selected_rc_tag" ]]; then
-    if selected_rc_release_state="$(
+    if ! printf '%s\n' "$github_rc_tags" | grep -Fxq "$selected_rc_tag"; then
+      printf 'GitHub RC prerelease: not ready; %s is not a GitHub tag at checked-out head %s.\n' "$selected_rc_tag" "$short_head_sha"
+      printf '  Next action: push the approved RC tag to GitHub after release approval, then create or refresh the non-draft GitHub prerelease for that tag.\n'
+      rc_ready_failed=1
+    elif selected_rc_release_state="$(
       "$gh_bin" release view "$selected_rc_tag" \
         --repo "$repository" \
         --json tagName,isPrerelease,isDraft \

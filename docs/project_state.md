@@ -157,12 +157,48 @@ bypass evidence. Pre-change `bin/test-fast`,
 `bash -n bin/audit-github-deployment-chain`,
 `python3 tool/test_audit_github_deployment_chain.py`, `git diff --check`,
 `bin/audit-github-deployment-chain --branch master --show-rc-readiness`, and
-full local `bin/verify` passed. Hosted evidence for this audit-readability
-follow-up is pending until the implementation commit is pushed.
+full local `bin/verify` passed. Commit `882c207` was pushed to GitLab
+`origin` and GitHub `add-router`. Hosted `add-router` evidence is clean for
+this audit-readability follow-up: CI run `26198235075` passed with Fast Checks
+and Full Verify green, and the gated deployment-chain audit passed current-head
+CI/log checks, workflow visibility, router package visibility, and the relevant
+Dart package dry-run gate. The latest Dart Package Publish Dry Run remains
+`26195189402` at `b45a96f`, and the audit accepts it because no
+publish-sensitive paths changed in `882c207`.
+
+GitHub `master` was fast-forward promoted from `b45a96f` to `882c207`, so the
+default release branch now includes the explicit branch-protection audit
+handoff evidence. GitHub again reported the PR-only branch rule was bypassed
+for the direct update, and the promoted audit output records `Require pull
+requests: true` with `Admin bypass allowed: true`. Local `bin/test-fast` passed
+before the promotion, post-promotion hosted `master` CI run `26199199255`
+passed with Fast Checks and Full Verify green, the strict deployment-chain
+audit passed all release-branch gates, and post-promotion local `bin/verify`
+passed. The latest Dart package dry-run, WAMP Profile Benchmarks, Router Image
+dry-run, and Native Artifacts dry-run evidence remains relevant because
+`882c207` changed only audit/tooling and docs paths that are not sensitive to
+those release gates. RC readiness remains not-ready only because no approved
+numeric RC tag or GitHub prerelease points at `882c207`; the audit suggests
+`v0.1.0-rc.2` as the next release-decision tag. No RC tag or GitHub Release was
+created or moved during this promotion.
+
+This implementation follow-up tightens the RC-readiness audit for GitHub
+prerelease evidence: a numeric RC tag that exists only in the local checkout no
+longer lets `--require-rc-ready` accept an existing GitHub prerelease with the
+same tag name. The audit now requires the selected RC tag to be present on
+GitHub at the checked-out head before the GitHub prerelease gate can report
+ready, preventing stale remote tag/release combinations from being masked by a
+local tag. Focused validation passed with pre-change `bin/test-fast`,
+`bash -n bin/audit-github-deployment-chain`, and
+`python3 -m unittest tool/test_audit_github_deployment_chain.py`; full local
+`bin/verify` passed before handoff.
+
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
-promoted default branch. GitHub `master` now contains the latest validated MCP
-branch content at `b45a96f`. MCP is RC-ready for the first candidate:
+promoted default branch. GitHub `master` contains the latest validated MCP
+branch content and the branch-protection audit-readiness follow-up at
+`882c207`; the current local audit follow-up tightens RC tag/prerelease
+validation before the next promotion. MCP is RC-ready for the first candidate:
 router-hosted endpoints,
 auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
 resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
