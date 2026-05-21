@@ -340,13 +340,55 @@ and verifies representative lookup/subscriber argument envelopes. Pre-change
 `dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`, and
 `git diff --check` passed; full local `bin/verify` passed before handoff.
 
+Commit `548d267` was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`. Hosted evidence is clean for both promoted branches:
+`master` CI run `26211691986` passed with Fast Checks and Full Verify green,
+`add-router` CI run `26211687420` passed, Dart Package Publish Dry Run
+`26211691941` passed on `master`, and Dart Package Publish Dry Run
+`26211687476` passed on `add-router`. A fresh Router Image dry-run on
+`master`, run `26212270565`, passed for `548d267`, uploaded the preview
+artifact, skipped GHCR login, and kept the router image gate non-mutating. The
+strict deployment-chain audit passes required gates at `548d267`: current-head
+CI/logs, Dart package dry-run, native release dry-run relevance, router image
+dry-run, workflow visibility, branch protection, and router package visibility.
+The latest WAMP Profile Benchmarks run remains `26206356266` at `79570a1` and
+is still relevant because this follow-up changed only MCP package test coverage
+and state docs, not benchmark-sensitive WAMP profile inputs. RC readiness
+remains not-ready only because no approved numeric RC tag or GitHub prerelease
+points at `548d267`; the audit suggests `v0.1.0-rc.2` as the next
+release-decision tag.
+
+This implementation follow-up adds WAMP Profile Benchmarks as a first-class
+deployment-chain audit gate. `bin/audit-github-deployment-chain` now exposes
+`--show-wamp-profile-benchmarks` and
+`--require-clean-wamp-profile-benchmarks`, and `--show-rc-readiness` /
+`--require-rc-ready` include the WAMP benchmark gate. The gate verifies the
+latest workflow run status, the `Linux WAMP profile gates` job, the canonical
+WAMP profile validation step, `wamp-profile-benchmark-artifacts` upload, and
+stale-run relevance across WAMP-profile-sensitive inputs. Regression coverage
+accepts stale WAMP benchmark evidence when no sensitive inputs changed and
+rejects it when checked-out client/package inputs changed after the benchmark
+head. The hosted WAMP benchmark workflow path filter now includes
+`packages/connectanum_core/**` and root `pubspec.yaml`, matching the audit
+sensitivity for package/runtime inputs. Pre-change `bin/test-fast`,
+`bash -n bin/audit-github-deployment-chain`,
+`python3 -m unittest tool/test_audit_github_deployment_chain.py`, live
+`bin/audit-github-deployment-chain --branch master --strict
+--require-workflows-visible --require-router-package --require-clean-latest-ci
+--require-clean-latest-ci-logs
+--require-clean-dart-package-publish-dry-run
+--require-clean-native-release-dry-run --require-clean-router-image-dry-run
+--require-clean-wamp-profile-benchmarks --show-rc-readiness`,
+`git diff --check`, and full local `bin/verify` passed. The live audit accepts
+WAMP Profile Benchmarks run `26206356266` at `79570a1` for the current
+checkpoint because no WAMP-profile-sensitive inputs changed since then.
+
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated audit-readiness checkpoint at `f9b4f31`; the latest implementation
-follow-ups expand public IO-entrypoint Streamable WAMP meta helper coverage to
-the full typed session/registration/subscription surface and close the direct
-JSON WAMP subscription-meta helper export smoke gap locally.
+validated audit-readiness checkpoint at `548d267`; the latest implementation
+follow-ups close the public IO-entrypoint WAMP meta helper smoke gaps and add a
+first-class WAMP Profile Benchmarks evidence gate to the deployment-chain audit.
 MCP remains RC-ready for the first candidate: router-hosted endpoints,
 auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
 resources/prompts, Streamable HTTP compatibility, and consumer-package smoke

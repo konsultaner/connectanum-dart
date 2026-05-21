@@ -60,6 +60,52 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn("Enforce admins: false", result.stdout)
         self.assertIn("Admin bypass allowed: true", result.stdout)
 
+    def test_wamp_profile_benchmarks_accepts_stale_run_when_inputs_unchanged(
+        self,
+    ) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        benchmark_head = self._different_sha(current_head)
+
+        result = self._run_wamp_profile_benchmark_audit(
+            current_head,
+            benchmark_head,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "WAMP Profile Benchmarks run covers checked-out WAMP profile inputs: "
+            "yes",
+            result.stdout,
+        )
+        self.assertIn(
+            "Latest WAMP Profile Benchmarks run is clean and relevant.",
+            result.stdout,
+        )
+
+    def test_wamp_profile_benchmarks_rejects_stale_run_when_inputs_changed(
+        self,
+    ) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        benchmark_head = self._different_sha(current_head)
+
+        result = self._run_wamp_profile_benchmark_audit(
+            current_head,
+            benchmark_head,
+            changed_paths="packages/connectanum_client/lib/connectanum_client.dart\n",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "Finding: checked-out head has WAMP profile benchmark-sensitive "
+            "changes after benchmark head",
+            result.stdout,
+        )
+        self.assertIn(
+            "- packages/connectanum_client/lib/connectanum_client.dart",
+            result.stdout,
+        )
+        self.assertIn("WAMP Profile Benchmarks audit failed.", result.stdout)
+
     def test_rc_readiness_accepts_native_prerelease_evidence(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
 
@@ -79,6 +125,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
         self.assertIn("Native release hosted evidence gate: ready", result.stdout)
+        self.assertIn("WAMP profile benchmark gate: ready", result.stdout)
         self.assertIn("RC tag on checked-out head: ready", result.stdout)
         self.assertIn("GitHub RC prerelease: ready (v0.1.0-rc.2)", result.stdout)
 
@@ -419,6 +466,239 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 check=False,
             )
 
+    def _run_wamp_profile_benchmark_audit(
+        self,
+        ci_head: str,
+        benchmark_head: str,
+        changed_paths: str = "",
+    ) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            fake_gh = temp_path / "gh"
+            fake_git = temp_path / "git"
+            fake_curl = temp_path / "curl"
+            real_git = shutil.which("git")
+            self.assertIsNotNone(real_git)
+
+            workflow_paths = "\n".join(
+                sorted(
+                    str(path.relative_to(REPO_ROOT))
+                    for pattern in ("*.yml", "*.yaml")
+                    for path in (REPO_ROOT / ".github" / "workflows").glob(pattern)
+                )
+            )
+
+            fake_gh.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import os
+                    import sys
+
+                    args = sys.argv[1:]
+                    repository = "konsultaner/connectanum-dart"
+                    ci_head = os.environ["FAKE_CI_HEAD"]
+                    benchmark_head = os.environ["FAKE_WAMP_PROFILE_BENCHMARK_HEAD"]
+                    workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
+
+
+                    def value_after(name):
+                        return args[args.index(name) + 1] if name in args else ""
+
+
+                    def jq_arg():
+                        return value_after("--jq")
+
+
+                    def json_arg():
+                        return value_after("--json")
+
+
+                    def print_workflows(jq):
+                        if jq == ".workflows[].path":
+                            print("\\n".join(workflow_paths))
+                        elif jq.startswith(".workflows[] |"):
+                            for path in workflow_paths:
+                                name = path.rsplit("/", 1)[-1]
+                                print(f"- {name}: active ({path})")
+                        else:
+                            sys.exit(1)
+
+
+                    if args[:1] == ["api"]:
+                        path = args[1] if len(args) > 1 else ""
+                        jq = jq_arg()
+
+                        if path == f"repos/{repository}":
+                            values = {
+                                ".default_branch": "master",
+                                ".visibility": "public",
+                                ".private": "false",
+                                ".allow_auto_merge": "false",
+                                ".delete_branch_on_merge": "false",
+                            }
+                            if jq in values:
+                                print(values[jq])
+                            else:
+                                sys.exit(1)
+                        elif path == f"repos/{repository}/branches/add-router":
+                            if jq == ".protected":
+                                print("false")
+                            elif jq == ".commit.sha // empty":
+                                print(ci_head)
+                            else:
+                                sys.exit(1)
+                        elif path == f"repos/{repository}/branches/master":
+                            if jq == ".protected":
+                                print("true")
+                            elif jq == ".commit.sha // empty":
+                                print(ci_head)
+                            else:
+                                sys.exit(1)
+                        elif path == f"repos/{repository}/branches/master/protection":
+                            if "required_status_checks" in jq:
+                                print("Fast Checks, Full Verify")
+                            elif "required_pull_request_reviews" in jq and "!= null" in jq:
+                                print("true")
+                            elif "required_approving_review_count" in jq:
+                                print("1")
+                            elif "require_code_owner_reviews" in jq:
+                                print("false")
+                            elif "enforce_admins" in jq:
+                                print("false")
+                            else:
+                                print("false")
+                        elif path == f"repos/{repository}/rulesets":
+                            print("0")
+                        elif path == f"repos/{repository}/actions/workflows":
+                            print_workflows(jq)
+                        elif path == "users/konsultaner/packages/container/connectanum-router":
+                            print("connectanum-router")
+                        elif path == "orgs/konsultaner/packages/container/connectanum-router":
+                            print("connectanum-router")
+                        else:
+                            sys.exit(1)
+                    elif args[:2] == ["run", "list"]:
+                        if "--workflow" in args:
+                            workflow = value_after("--workflow")
+                            if workflow == "WAMP Profile Benchmarks":
+                                print("127")
+                            else:
+                                print("")
+                        else:
+                            print(
+                                f"- WAMP Profile Benchmarks #127: "
+                                f"completed/success @ {benchmark_head[:7]} "
+                                "(2026-05-19T00:00:00Z)"
+                            )
+                    elif args[:2] == ["run", "view"]:
+                        run_id = args[2] if len(args) > 2 else ""
+                        if run_id != "127":
+                            sys.exit(1)
+
+                        json_fields = json_arg()
+                        jq = jq_arg()
+                        if json_fields == "status,conclusion,headSha,url,displayTitle,event":
+                            print(
+                                "Run: WAMP Profile Benchmarks #127 "
+                                f"completed/success @ {benchmark_head[:7]}"
+                            )
+                            print("Title: WAMP Profile Benchmarks")
+                            print("Event: push")
+                            print("URL: https://github.example.invalid/runs/127")
+                        elif json_fields == "status,conclusion,headSha,event":
+                            print(f"completed\\tsuccess\\t{benchmark_head}\\tpush")
+                        elif json_fields == "jobs" and ".steps[]" in jq:
+                            print("Run canonical WAMP profile gates\\tcompleted\\tsuccess")
+                            print("Upload WAMP profile artifacts\\tcompleted\\tsuccess")
+                        elif json_fields == "jobs":
+                            print("Linux WAMP profile gates\\tcompleted\\tsuccess")
+                        else:
+                            sys.exit(1)
+                    else:
+                        sys.exit(1)
+                    """
+                )
+            )
+            fake_gh.chmod(0o755)
+
+            fake_git.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+
+                    if [[ "${1:-}" == "rev-parse" && "${2:-}" == "HEAD" ]]; then
+                      printf '%s\\n' "$FAKE_CI_HEAD"
+                      exit 0
+                    fi
+
+                    if [[ "${1:-}" == "cat-file" && "${2:-}" == "-e" ]]; then
+                      if [[ "${3:-}" == "${FAKE_WAMP_PROFILE_BENCHMARK_HEAD}^{commit}" ]]; then
+                        exit 0
+                      fi
+                    fi
+
+                    if [[ "${1:-}" == "diff" && "${2:-}" == "--name-only" ]]; then
+                      printf '%s' "${FAKE_CHANGED_PATHS:-}"
+                      exit 0
+                    fi
+
+                    exec "$REAL_GIT" "$@"
+                    """
+                )
+            )
+            fake_git.chmod(0o755)
+
+            fake_curl.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+
+                    case "$*" in
+                      *ghcr.io/token*)
+                        printf '{"token":"fake-token"}'
+                        ;;
+                      *tags/list*)
+                        printf '{"name":"konsultaner/connectanum-router","tags":["v0.1.0-rc.1"]}'
+                        ;;
+                      *manifests/v0.1.0-rc.1*)
+                        printf 'HTTP/2 200\\r\\ndocker-content-digest: sha256:abcdef\\r\\n'
+                        ;;
+                      *)
+                        exit 1
+                        ;;
+                    esac
+                    """
+                )
+            )
+            fake_curl.chmod(0o755)
+
+            env = os.environ.copy()
+            env["GH_BIN"] = str(fake_gh)
+            env["FAKE_CI_HEAD"] = ci_head
+            env["FAKE_WAMP_PROFILE_BENCHMARK_HEAD"] = benchmark_head
+            env["FAKE_CHANGED_PATHS"] = changed_paths
+            env["FAKE_WORKFLOW_PATHS"] = workflow_paths
+            env["REAL_GIT"] = real_git or "git"
+            env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
+
+            return subprocess.run(
+                [
+                    str(AUDIT_SCRIPT),
+                    "--branch",
+                    "add-router",
+                    "--require-clean-wamp-profile-benchmarks",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
     def _run_rc_readiness_with_native_prerelease(
         self,
         ci_head: str,
@@ -486,6 +766,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         "Dart Package Publish Dry Run": "124",
                         "Native Artifacts": "125",
                         "Router Image": "126",
+                        "WAMP Profile Benchmarks": "127",
                     }
 
 
@@ -569,11 +850,13 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 "124": "Dart Package Publish Dry Run",
                                 "125": "Native Artifacts",
                                 "126": "Router Image",
+                                "127": "WAMP Profile Benchmarks",
                             }
                             events = {
                                 "124": "workflow_dispatch",
                                 "125": "workflow_dispatch",
                                 "126": "workflow_dispatch",
+                                "127": "push",
                             }
                             print(f"Run: {titles[run_id]} #{run_id} completed/success @ {ci_head[:7]}")
                             print(f"Title: {titles[run_id]}")
@@ -591,10 +874,16 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif json_fields == "jobs" and ".databaseId" in jq:
                             print("1261\\tPublish Router Image")
                         elif json_fields == "jobs" and ".steps[]" in jq:
-                            print("Resolve image metadata\\tcompleted\\tsuccess")
-                            print("Upload router image preview\\tcompleted\\tsuccess")
-                            print("Log in to GHCR\\tcompleted\\tskipped")
-                            print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
+                            if run_id == "126":
+                                print("Resolve image metadata\\tcompleted\\tsuccess")
+                                print("Upload router image preview\\tcompleted\\tsuccess")
+                                print("Log in to GHCR\\tcompleted\\tskipped")
+                                print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
+                            elif run_id == "127":
+                                print("Run canonical WAMP profile gates\\tcompleted\\tsuccess")
+                                print("Upload WAMP profile artifacts\\tcompleted\\tsuccess")
+                            else:
+                                sys.exit(1)
                         elif json_fields == "jobs":
                             if run_id == "123":
                                 print("Fast Checks\\tcompleted\\tsuccess")
@@ -610,6 +899,8 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("Publish GitHub Release\\tcompleted\\tsuccess")
                             elif run_id == "126":
                                 print("Publish Router Image\\tcompleted\\tsuccess")
+                            elif run_id == "127":
+                                print("Linux WAMP profile gates\\tcompleted\\tsuccess")
                             else:
                                 sys.exit(1)
                         else:
@@ -799,6 +1090,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         "Dart Package Publish Dry Run": "124",
                         "Native Artifacts": "125",
                         "Router Image": "126",
+                        "WAMP Profile Benchmarks": "127",
                     }
 
 
@@ -883,11 +1175,13 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 "124": "Dart Package Publish Dry Run",
                                 "125": "Native Artifacts",
                                 "126": "Router Image",
+                                "127": "WAMP Profile Benchmarks",
                             }
                             events = {
                                 "124": "workflow_dispatch",
                                 "125": "workflow_dispatch",
                                 "126": "workflow_dispatch",
+                                "127": "push",
                             }
                             print(f"Run: {titles[run_id]} #{run_id} completed/success @ {ci_head[:7]}")
                             print(f"Title: {titles[run_id]}")
@@ -905,10 +1199,16 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif json_fields == "jobs" and ".databaseId" in jq:
                             print("1261\\tPublish Router Image")
                         elif json_fields == "jobs" and ".steps[]" in jq:
-                            print("Resolve image metadata\\tcompleted\\tsuccess")
-                            print("Upload router image preview\\tcompleted\\tsuccess")
-                            print("Log in to GHCR\\tcompleted\\tskipped")
-                            print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
+                            if run_id == "126":
+                                print("Resolve image metadata\\tcompleted\\tsuccess")
+                                print("Upload router image preview\\tcompleted\\tsuccess")
+                                print("Log in to GHCR\\tcompleted\\tskipped")
+                                print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
+                            elif run_id == "127":
+                                print("Run canonical WAMP profile gates\\tcompleted\\tsuccess")
+                                print("Upload WAMP profile artifacts\\tcompleted\\tsuccess")
+                            else:
+                                sys.exit(1)
                         elif json_fields == "jobs":
                             if run_id == "123":
                                 print("Fast Checks\\tcompleted\\tsuccess")
@@ -924,6 +1224,8 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("Publish GitHub Release\\tcompleted\\tsuccess")
                             elif run_id == "126":
                                 print("Publish Router Image\\tcompleted\\tsuccess")
+                            elif run_id == "127":
+                                print("Linux WAMP profile gates\\tcompleted\\tsuccess")
                             else:
                                 sys.exit(1)
                         else:

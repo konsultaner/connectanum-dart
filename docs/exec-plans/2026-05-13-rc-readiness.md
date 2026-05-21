@@ -887,30 +887,78 @@ decision because `connectanum_client` still depends on private
   Pre-change `bin/test-fast`, formatting, focused
   `dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`,
   `git diff --check`, and full local `bin/verify` passed before handoff.
+- 2026-05-21: Commit `548d267` was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. Hosted evidence is clean for both
+  promoted branches: `master` CI run `26211691986` passed with Fast Checks and
+  Full Verify green, `add-router` CI run `26211687420` passed, Dart Package
+  Publish Dry Run `26211691941` passed on `master`, and Dart Package Publish
+  Dry Run `26211687476` passed on `add-router`. A fresh Router Image dry-run on
+  `master`, run `26212270565`, passed for `548d267`, uploaded the preview
+  artifact, skipped GHCR login, and kept the router image gate non-mutating.
+  The strict deployment-chain audit passes required gates at `548d267`:
+  current-head CI/logs, Dart package dry-run, native release dry-run relevance,
+  router image dry-run, workflow visibility, branch protection, and router
+  package visibility. The latest WAMP Profile Benchmarks run remains
+  `26206356266` at `79570a1` and is still relevant because this follow-up
+  changed only MCP package test coverage and state docs, not
+  benchmark-sensitive WAMP profile inputs. RC readiness remains not-ready only
+  because no approved numeric RC tag or GitHub prerelease points at `548d267`;
+  the audit suggests `v0.1.0-rc.2` as the next release-decision tag.
+- 2026-05-21: This implementation follow-up adds WAMP Profile Benchmarks as a
+  first-class deployment-chain audit and RC-readiness gate.
+  `bin/audit-github-deployment-chain` now exposes
+  `--show-wamp-profile-benchmarks` and
+  `--require-clean-wamp-profile-benchmarks`; the gate verifies the latest
+  `WAMP Profile Benchmarks` run status, expected `Linux WAMP profile gates`
+  job, canonical validation step, benchmark artifact upload, and stale-run
+  relevance across WAMP-profile-sensitive inputs. Fake-`gh` regression coverage
+  accepts stale benchmark evidence when no sensitive inputs changed and rejects
+  it when checked-out package inputs changed after the benchmark head. The
+  hosted WAMP benchmark workflow path filter now includes
+  `packages/connectanum_core/**` and root `pubspec.yaml`, matching the audit
+  sensitivity for package/runtime inputs.
+  Pre-change `bin/test-fast`, `bash -n bin/audit-github-deployment-chain`,
+  `python3 -m unittest tool/test_audit_github_deployment_chain.py`, live
+  `bin/audit-github-deployment-chain --branch master --strict
+  --require-workflows-visible --require-router-package
+  --require-clean-latest-ci --require-clean-latest-ci-logs
+  --require-clean-dart-package-publish-dry-run
+  --require-clean-native-release-dry-run --require-clean-router-image-dry-run
+  --require-clean-wamp-profile-benchmarks --show-rc-readiness`,
+  `git diff --check`, and full local `bin/verify` passed. The live audit now
+  reports the WAMP profile benchmark gate ready by accepting WAMP Profile
+  Benchmarks run `26206356266` at `79570a1` for checkpoint `548d267`, because
+  no WAMP-profile-sensitive inputs changed since then. RC readiness remains
+  not-ready only because no approved numeric RC tag or GitHub prerelease points
+  at `548d267`; the audit suggests `v0.1.0-rc.2` as the next release-decision
+  tag.
 
 ## Handoff
 
-Active. The latest fully clean hosted deployment-chain checkpoint is `f9b4f31`.
+Active. The latest fully clean hosted deployment-chain checkpoint is `548d267`.
 The default branch contains the router-hosted MCP downstream-readiness work plus
 explicit branch-protection and GitHub RC-tag audit handoff evidence; the latest
-hosted implementation checkpoint expands public IO-entrypoint Streamable WAMP
+hosted implementation checkpoints expand public IO-entrypoint Streamable WAMP
 meta helper coverage to the full typed session/registration/subscription helper
-surface, and the current local implementation follow-up closes the direct JSON
-WAMP subscription-meta helper export smoke gap. MCP coverage includes
+surface and close the direct JSON WAMP subscription-meta helper export smoke
+gap. MCP coverage includes
 auth/session correctness, router-provided MCP endpoints, direct JSON tool and
 meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
 compatibility, and generated consumer-package smokes that use public package
 APIs without private project assumptions.
 
-Hosted `master` CI is green at run `26209778136` for checkpoint `f9b4f31`: Fast
+Hosted `master` CI is green at run `26211691986` for checkpoint `548d267`: Fast
 Checks and Full Verify passed, and the strict deployment-chain audit passes on
 `master` with clean current-head CI/log, Dart package dry-run, relevant native
 release dry-run, fresh router image dry-run, workflow visibility, branch
 protection, and router package visibility gates. The router package visibility
 gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26210273976` at `f9b4f31`; it uploaded the preview artifact and skipped
-GHCR login.
+run `26212270565` at `548d267`; it uploaded the preview artifact and skipped
+GHCR login. Local audit tooling now also gates WAMP Profile Benchmarks evidence;
+the live audit accepts run `26206356266` at `79570a1` as relevant to
+`548d267` because no WAMP-profile-sensitive inputs changed after that benchmark
+run.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master` after the next implementation promotion. The audit inventories stale
