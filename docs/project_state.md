@@ -224,17 +224,44 @@ Dart2Js browser compiler for this Chrome smoke, while local/non-Linux runs keep
 the Dart2Wasm default from the package test config. Pre-change `bin/test-fast`
 passed before this CI-stability patch.
 
+Commit `462f4e0` was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`. Hosted GitHub CI passed at `462f4e0` for both promoted
+branches: `master` run `26204808842` and `add-router` run `26204805797` each
+completed Fast Checks and Full Verify successfully. A manual Router Image
+dry-run on `master` at `462f4e0`, run `26205189275`, completed successfully,
+uploaded the preview artifact, and skipped GHCR login. The strict
+deployment-chain audit passes required gates at `462f4e0`: latest CI job/log,
+Dart package publish dry-run relevance, native release dry-run relevance,
+router image dry-run relevance, workflow visibility, branch protection, and
+router package visibility. RC readiness remains not-ready only because no
+approved numeric RC tag or GitHub prerelease points at `462f4e0`; the audit
+suggests `v0.1.0-rc.2` as the next release-decision tag.
+
+This implementation follow-up adds focused public-surface coverage for
+`McpStreamableHttpClient.notifyConnectanumMethod(...)`, the
+Streamable-session notification counterpart to
+`callConnectanumMethod(...)`. Client tests prove the helper sends id-free
+JSON-RPC through the active MCP session while preserving the session id and
+SSE cursor and regenerating cached `Mcp-Param-*` headers over stale caller
+headers. The MCP IO export test proves the helper is available through
+`package:connectanum_mcp/connectanum_mcp_io.dart` for
+`connectanum.pubsub.publish`, and the generated router-hosted
+consumer-package smoke proves the public helper publishes and receives a WAMP
+event through a real router endpoint without private assumptions. Pre-change
+`bin/test-fast`, formatting, `bash -n bin/common.sh`, focused client/MCP
+package tests, the focused generated router-hosted consumer-package smoke,
+`git diff --check`, and full local `bin/verify` passed.
+
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated audit-readiness checkpoint at `11a9b24`; this implementation follow-up
-closes the Streamable-session generic Connectanum method helper gap and hardens
-hosted Linux browser smoke stability before the next promotion. MCP
-remains RC-ready for the first candidate: router-hosted endpoints, auth/session
-correctness, direct JSON/meta API, WAMP pub/sub coverage, resources/prompts,
-Streamable HTTP compatibility, and consumer-package smoke coverage are in
-place. Further MCP helper permutations are post-RC polish unless consumer
-integration exposes a real correctness bug.
+validated audit-readiness checkpoint at `462f4e0`; this implementation follow-up
+adds the matching Streamable generic Connectanum notification coverage before
+the next promotion. MCP remains RC-ready for the first candidate:
+router-hosted endpoints, auth/session correctness, direct JSON/meta API, WAMP
+pub/sub coverage, resources/prompts, Streamable HTTP compatibility, and
+consumer-package smoke coverage are in place. Further MCP helper permutations
+are post-RC polish unless consumer integration exposes a real correctness bug.
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).

@@ -761,6 +761,32 @@ void main() {
       expect(endpoint.requests.single.mcpParameterHeaders, {
         'mcp-param-message': 'streamable',
       });
+
+      final eventIdBeforeNotification = client.lastEventId;
+      await client.notifyConnectanumMethod(
+        'app.echo',
+        params: const <String, Object?>{'message': 'streamable-notify'},
+        headers: const <String, String>{
+          'Mcp-Param-Message': 'wrong',
+          'x-consumer-trace': 'streamable-method-notify',
+        },
+      );
+
+      expect(client.sessionId, 'session-1');
+      expect(client.lastEventId, eventIdBeforeNotification);
+      expect(endpoint.requests, hasLength(2));
+      expect(endpoint.requests.last.accept, contains('text/event-stream'));
+      expect(endpoint.requests.last.sessionId, 'session-1');
+      expect(endpoint.requests.last.mcpMethod, 'app.echo');
+      expect(endpoint.requests.last.consumerTrace, 'streamable-method-notify');
+      expect(endpoint.requests.last.mcpParameterHeaders, {
+        'mcp-param-message': 'streamable-notify',
+      });
+      expect(endpoint.requests.last.body, {
+        'jsonrpc': '2.0',
+        'method': 'app.echo',
+        'params': {'message': 'streamable-notify'},
+      });
     });
 
     test(

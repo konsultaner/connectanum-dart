@@ -980,6 +980,21 @@ void main() {
     expect(methodPublicationContent['acknowledged'], isTrue);
     expect(client.lastEventId, 'io-session-1:post:3');
 
+    final eventIdBeforeMethodNotification = client.lastEventId;
+    await client.notifyConnectanumMethod(
+      'connectanum.pubsub.publish',
+      params: const <String, Object?>{
+        'topic': _ioTopic,
+        'argumentsKeywords': <String, Object?>{'message': 'method-notify'},
+        'acknowledge': true,
+      },
+      headers: const <String, String>{
+        'Mcp-Param-Topic': 'wrong',
+        'x-consumer-trace': 'io-streamable-method-notify',
+      },
+    );
+    expect(client.lastEventId, eventIdBeforeMethodNotification);
+
     final eventIdBeforeNotification = client.lastEventId;
     await client.notifyWampEvent(
       _ioTopic,
@@ -1129,25 +1144,26 @@ void main() {
 
     expect(client.sessionId, sessionId);
     expect(client.lastEventId, lastEventId);
-    expect(endpoint.requests, hasLength(12));
+    expect(endpoint.requests, hasLength(13));
     expect(endpoint.requests[0].sessionId, isNull);
-    for (final request in endpoint.requests.skip(1).take(6)) {
+    for (final request in endpoint.requests.skip(1).take(7)) {
       expect(request.sessionId, 'io-session-1');
       expect(request.accept, contains('text/event-stream'));
     }
-    for (final request in endpoint.requests.skip(7)) {
+    for (final request in endpoint.requests.skip(8)) {
       expect(request.sessionId, isNull);
       expect(request.accept, 'application/json');
     }
     expect(
       endpoint.requests
           .skip(1)
-          .take(10)
+          .take(11)
           .map((request) => request.consumerTrace),
       [
         'io-streamable-subscribe',
         'io-streamable-publish',
         'io-streamable-method-publish',
+        'io-streamable-method-notify',
         'io-streamable-notify',
         'io-streamable-poll',
         'io-streamable-unsubscribe',
@@ -1158,6 +1174,15 @@ void main() {
       ],
     );
     expect(endpoint.requests[4].body, {
+      'jsonrpc': '2.0',
+      'method': 'connectanum.pubsub.publish',
+      'params': {
+        'topic': _ioTopic,
+        'argumentsKeywords': {'message': 'method-notify'},
+        'acknowledge': true,
+      },
+    });
+    expect(endpoint.requests[5].body, {
       'jsonrpc': '2.0',
       'method': 'connectanum.pubsub.publish',
       'params': {

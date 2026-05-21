@@ -16909,6 +16909,44 @@ Future<void> _smokeStreamableNotificationPubSub(
       );
     }
 
+    final eventIdBeforeMethodNotification = client.lastEventId;
+    final methodNotificationTaskId =
+        'T-$label-streamable-method-notification-pubsub';
+    await client.notifyConnectanumMethod(
+      'connectanum.pubsub.publish',
+      params: {
+        'topic': _topic,
+        'argumentsKeywords': {'taskId': methodNotificationTaskId},
+        'acknowledge': true,
+      },
+      headers: <String, String>{
+        'Mcp-Param-Topic': 'wrong-topic',
+        'x-consumer-trace':
+            '$label-streamable-method-notification-pubsub',
+      },
+    );
+    if (client.sessionId != sessionId ||
+        client.lastEventId != eventIdBeforeMethodNotification) {
+      throw StateError(
+        'Streamable MCP Connectanum method notification changed session state.',
+      );
+    }
+
+    final methodNotificationEvents = await _pollMcpEventsUntil(
+      client,
+      subscription.handle,
+      headers: <String, String>{
+        'x-consumer-trace':
+            '$label-streamable-method-notification-pubsub-poll',
+      },
+    );
+    if (!jsonEncode(methodNotificationEvents.events)
+        .contains(methodNotificationTaskId)) {
+      throw StateError(
+        'Streamable MCP Connectanum method notification did not deliver event.',
+      );
+    }
+
     final eventIdBeforeNotificationBatch = client.lastEventId;
     final taskId = 'T-$label-streamable-notification-pubsub';
     final invalidTaskId = 'T-$label-streamable-invalid-notification-pubsub';
