@@ -278,16 +278,49 @@ SSE cursor propagation through the package boundary. The coverage includes
 focused `dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`,
 `git diff --check`, and full local `bin/verify` passed.
 
+Commit `022811d` was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`. Hosted evidence is clean for both promoted branches:
+`master` CI run `26207890975` passed with Fast Checks and Full Verify green,
+`add-router` CI run `26207886336` passed, Dart Package Publish Dry Run
+`26207890979` passed on `master`, and Dart Package Publish Dry Run
+`26207886355` passed on `add-router`. A fresh Router Image dry-run on
+`master`, run `26208362869`, passed for `022811d`, uploaded the preview
+artifact, skipped GHCR login, and kept the router image gate non-mutating. The
+strict deployment-chain audit passes required gates at `022811d`: current-head
+CI/logs, Dart package dry-run, native release dry-run relevance, router image
+dry-run, workflow visibility, branch protection, and router package visibility.
+The latest WAMP Profile Benchmarks run remains `26206356266` at `79570a1` and
+is still relevant because this follow-up changed only MCP package test coverage
+and state docs, not benchmark-sensitive WAMP profile inputs. RC readiness
+remains not-ready only because no approved numeric RC tag or GitHub prerelease
+points at `022811d`; the audit suggests `v0.1.0-rc.2` as the next
+release-decision tag.
+
+This implementation follow-up expands the public IO-entrypoint Streamable WAMP
+meta smoke from representative helpers to the full typed
+session/registration/subscription helper surface. The MCP IO export smoke now
+initializes `McpStreamableHttpClient` through
+`package:connectanum_mcp/connectanum_mcp_io.dart`, calls all typed WAMP meta
+helpers over session-aware `tools/call`, asserts Streamable session id and SSE
+cursor propagation through `io-session-1:post:15`, and verifies representative
+request argument envelopes for session, registration, and subscription lookups.
+Pre-change `bin/test-fast`, formatting, focused
+`dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`,
+`git diff --check`, and full local `bin/verify` passed. Hosted evidence for
+this local follow-up is pending until the implementation commit is pushed; the
+latest fully clean hosted deployment-chain checkpoint remains `022811d`.
+
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated audit-readiness checkpoint at `79570a1`; this implementation
-follow-up adds public IO-entrypoint Streamable WAMP meta helper coverage before
-the next promotion. MCP remains RC-ready for the first candidate:
-router-hosted endpoints, auth/session correctness, direct JSON/meta API, WAMP
-pub/sub coverage, resources/prompts, Streamable HTTP compatibility, and
-consumer-package smoke coverage are in place. Further MCP helper permutations
-are post-RC polish unless consumer integration exposes a real correctness bug.
+validated audit-readiness checkpoint at `022811d`; the current local
+implementation follow-up expands public IO-entrypoint Streamable WAMP meta
+helper coverage to the full typed session/registration/subscription surface.
+MCP remains RC-ready for the first candidate: router-hosted endpoints,
+auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
+resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
+coverage are in place. Further MCP helper permutations are post-RC polish
+unless consumer integration exposes a real correctness bug.
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).
@@ -10654,6 +10687,12 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-05-21: `bin/test-fast`,
+  `dart format packages/connectanum_mcp/test/io_client_export_test.dart`,
+  `dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`,
+  `git diff --check`, and `bin/verify` passed on Darwin arm64 after expanding
+  the MCP IO-entrypoint Streamable WAMP meta smoke to all typed
+  session/registration/subscription helper families.
 - 2026-04-23: `bin/test-fast`, `bash -n bin/wamp-profile-validate`,
   `bin/wamp-profile-validate --out-dir out/wamp-profile-validation-smoke-release-local --router-worker-counts 1 --native-runtime-thread-counts 1 --workload-timeout-ms 300000`,
   and `bin/verify` passed on Darwin arm64 after expanding the canonical WAMP

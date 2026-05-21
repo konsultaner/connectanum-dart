@@ -829,27 +829,58 @@ decision because `connectanum_client` still depends on private
   formatting, focused
   `dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`,
   `git diff --check`, and full local `bin/verify` passed.
+- 2026-05-21: Commit `022811d` was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. Hosted evidence is clean for both
+  promoted branches: `master` CI run `26207890975` passed with Fast Checks and
+  Full Verify green, `add-router` CI run `26207886336` passed, Dart Package
+  Publish Dry Run `26207890979` passed on `master`, and Dart Package Publish
+  Dry Run `26207886355` passed on `add-router`. A fresh Router Image dry-run on
+  `master`, run `26208362869`, passed for `022811d`, uploaded the preview
+  artifact, skipped GHCR login, and kept the router image gate non-mutating.
+  The strict deployment-chain audit passes required gates at `022811d`:
+  current-head CI/logs, Dart package dry-run, native release dry-run relevance,
+  router image dry-run, workflow visibility, branch protection, and router
+  package visibility. The latest WAMP Profile Benchmarks run remains
+  `26206356266` at `79570a1` and is still relevant because this follow-up
+  changed only MCP package test coverage and state docs, not
+  benchmark-sensitive WAMP profile inputs. RC readiness remains not-ready only
+  because no approved numeric RC tag or GitHub prerelease points at `022811d`;
+  the audit suggests `v0.1.0-rc.2` as the next release-decision tag.
+- 2026-05-21: This implementation follow-up expands the public IO-entrypoint
+  Streamable WAMP meta smoke from representative helpers to the full typed
+  session/registration/subscription helper surface. The MCP IO export smoke now
+  initializes `McpStreamableHttpClient` through
+  `package:connectanum_mcp/connectanum_mcp_io.dart`, calls all typed WAMP meta
+  helpers over session-aware `tools/call`, asserts Streamable session id and
+  SSE cursor propagation through `io-session-1:post:15`, and verifies
+  representative request argument envelopes for session, registration, and
+  subscription lookups. Pre-change `bin/test-fast`, formatting, focused
+  `dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`,
+  `git diff --check`, and full local `bin/verify` passed. Hosted evidence for
+  this local follow-up is pending until the implementation commit is pushed;
+  the latest fully clean hosted deployment-chain checkpoint remains `022811d`.
 
 ## Handoff
 
-Active. The latest fully clean hosted deployment-chain checkpoint is `79570a1`.
+Active. The latest fully clean hosted deployment-chain checkpoint is `022811d`.
 The default branch contains the router-hosted MCP downstream-readiness work plus
 explicit branch-protection and GitHub RC-tag audit handoff evidence; the current
-implementation follow-up adds public IO-entrypoint Streamable WAMP meta helper
-coverage before the next promotion. MCP coverage includes auth/session
+local implementation follow-up expands public IO-entrypoint Streamable WAMP
+meta helper coverage to the full typed session/registration/subscription helper
+surface and has clean local verification. MCP coverage includes auth/session
 correctness, router-provided MCP endpoints, direct JSON tool and meta APIs,
 WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26206356283` for checkpoint `79570a1`: Fast
+Hosted `master` CI is green at run `26207890975` for checkpoint `022811d`: Fast
 Checks and Full Verify passed, and the strict deployment-chain audit passes on
 `master` with clean current-head CI/log, Dart package dry-run, relevant native
 release dry-run, fresh router image dry-run, workflow visibility, branch
 protection, and router package visibility gates. The router package visibility
 gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26206759399` at `79570a1`; it uploaded the preview artifact and skipped
+run `26208362869` at `022811d`; it uploaded the preview artifact and skipped
 GHCR login.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub

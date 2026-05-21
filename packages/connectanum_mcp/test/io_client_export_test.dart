@@ -942,6 +942,53 @@ void main() {
     expect(sessionCount.argumentsKeywords['count'], 2);
     expect(client.lastEventId, 'io-session-1:post:1');
 
+    final sessions = await client.listWampSessions(
+      id: 'io-streamable-session-list',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-session-list',
+      },
+    );
+    expect(sessions.procedure, 'wamp.session.list');
+    expect(sessions.argumentsKeywords['session_ids'], [101, 102]);
+    expect(client.lastEventId, 'io-session-1:post:2');
+
+    final session = await client.getWampSession(
+      101,
+      id: 'io-streamable-session-get',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-session-get',
+      },
+    );
+    expect(session.procedure, 'wamp.session.get');
+    expect(session.argumentsKeywords['details'], {
+      'session': 101,
+      'authid': 'io-user',
+      'authrole': 'agent',
+    });
+    expect(client.lastEventId, 'io-session-1:post:3');
+
+    final registrations = await client.listWampRegistrations(
+      id: 'io-streamable-registration-list',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-registration-list',
+      },
+    );
+    expect(registrations.procedure, 'wamp.registration.list');
+    expect(registrations.argumentsKeywords['exact'], [11]);
+    expect(client.lastEventId, 'io-session-1:post:4');
+
+    final lookupRegistration = await client.lookupWampRegistration(
+      'app.echo',
+      id: 'io-streamable-registration-lookup',
+      match: 'exact',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-registration-lookup',
+      },
+    );
+    expect(lookupRegistration.procedure, 'wamp.registration.lookup');
+    expect(lookupRegistration.arguments, [11]);
+    expect(client.lastEventId, 'io-session-1:post:5');
+
     final registrationMatch = await client.matchWampRegistration(
       'app.echo',
       id: 'io-streamable-registration-match',
@@ -951,7 +998,30 @@ void main() {
     );
     expect(registrationMatch.procedure, 'wamp.registration.match');
     expect(registrationMatch.arguments, [11]);
-    expect(client.lastEventId, 'io-session-1:post:2');
+    expect(client.lastEventId, 'io-session-1:post:6');
+
+    final registration = await client.getWampRegistration(
+      11,
+      id: 'io-streamable-registration-get',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-registration-get',
+      },
+    );
+    expect(registration.procedure, 'wamp.registration.get');
+    expect(registration.argumentsKeywords['uri'], 'app.echo');
+    expect(registration.argumentsKeywords['match'], 'exact');
+    expect(client.lastEventId, 'io-session-1:post:7');
+
+    final callees = await client.listWampRegistrationCallees(
+      11,
+      id: 'io-streamable-registration-callees',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-registration-callees',
+      },
+    );
+    expect(callees.procedure, 'wamp.registration.list_callees');
+    expect(callees.arguments, [101]);
+    expect(client.lastEventId, 'io-session-1:post:8');
 
     final calleeCount = await client.countWampRegistrationCallees(
       11,
@@ -962,7 +1032,29 @@ void main() {
     );
     expect(calleeCount.procedure, 'wamp.registration.count_callees');
     expect(calleeCount.arguments, [1]);
-    expect(client.lastEventId, 'io-session-1:post:3');
+    expect(client.lastEventId, 'io-session-1:post:9');
+
+    final subscriptions = await client.listWampSubscriptions(
+      id: 'io-streamable-subscription-list',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-subscription-list',
+      },
+    );
+    expect(subscriptions.procedure, 'wamp.subscription.list');
+    expect(subscriptions.argumentsKeywords['exact'], [17]);
+    expect(client.lastEventId, 'io-session-1:post:10');
+
+    final lookupSubscription = await client.lookupWampSubscription(
+      _ioTopic,
+      id: 'io-streamable-subscription-lookup',
+      match: 'exact',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-subscription-lookup',
+      },
+    );
+    expect(lookupSubscription.procedure, 'wamp.subscription.lookup');
+    expect(lookupSubscription.arguments, [17]);
+    expect(client.lastEventId, 'io-session-1:post:11');
 
     final subscriptionMatch = await client.matchWampSubscription(
       _ioTopic,
@@ -973,7 +1065,32 @@ void main() {
     );
     expect(subscriptionMatch.procedure, 'wamp.subscription.match');
     expect(subscriptionMatch.arguments, [17]);
-    expect(client.lastEventId, 'io-session-1:post:4');
+    expect(client.lastEventId, 'io-session-1:post:12');
+
+    final subscription = await client.getWampSubscription(
+      17,
+      id: 'io-streamable-subscription-get',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-subscription-get',
+      },
+    );
+    expect(subscription.procedure, 'wamp.subscription.get');
+    expect(subscription.argumentsKeywords['details'], {
+      'id': 17,
+      'topic': _ioTopic,
+    });
+    expect(client.lastEventId, 'io-session-1:post:13');
+
+    final subscribers = await client.listWampSubscriptionSubscribers(
+      17,
+      id: 'io-streamable-subscription-subscribers',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-subscription-subscribers',
+      },
+    );
+    expect(subscribers.procedure, 'wamp.subscription.list_subscribers');
+    expect(subscribers.arguments, [101]);
+    expect(client.lastEventId, 'io-session-1:post:14');
 
     final subscriberCount = await client.countWampSubscriptionSubscribers(
       17,
@@ -984,9 +1101,9 @@ void main() {
     );
     expect(subscriberCount.procedure, 'wamp.subscription.count_subscribers');
     expect(subscriberCount.argumentsKeywords['count'], 1);
-    expect(client.lastEventId, 'io-session-1:post:5');
+    expect(client.lastEventId, 'io-session-1:post:15');
 
-    expect(endpoint.requests, hasLength(6));
+    expect(endpoint.requests, hasLength(16));
     expect(endpoint.requests[0].sessionId, isNull);
     for (final request in endpoint.requests.skip(1)) {
       expect(request.sessionId, 'io-session-1');
@@ -995,9 +1112,19 @@ void main() {
     expect(endpoint.requests.map((request) => request.consumerTrace), [
       null,
       'io-streamable-session-count',
+      'io-streamable-session-list',
+      'io-streamable-session-get',
+      'io-streamable-registration-list',
+      'io-streamable-registration-lookup',
       'io-streamable-registration-match',
+      'io-streamable-registration-get',
+      'io-streamable-registration-callees',
       'io-streamable-registration-callee-count',
+      'io-streamable-subscription-list',
+      'io-streamable-subscription-lookup',
       'io-streamable-subscription-match',
+      'io-streamable-subscription-get',
+      'io-streamable-subscription-subscribers',
       'io-streamable-subscription-subscriber-count',
     ]);
 
@@ -1010,11 +1137,47 @@ void main() {
     ];
     expect(helperParams.map((params) => params['name']), [
       'wamp.session.count',
+      'wamp.session.list',
+      'wamp.session.get',
+      'wamp.registration.list',
+      'wamp.registration.lookup',
       'wamp.registration.match',
+      'wamp.registration.get',
+      'wamp.registration.list_callees',
       'wamp.registration.count_callees',
+      'wamp.subscription.list',
+      'wamp.subscription.lookup',
       'wamp.subscription.match',
+      'wamp.subscription.get',
+      'wamp.subscription.list_subscribers',
       'wamp.subscription.count_subscribers',
     ]);
+    expect(
+      _jsonMapFrom(helperParams[2]['arguments'], label: 'session get args'),
+      {
+        'arguments': [101],
+      },
+    );
+    expect(
+      _jsonMapFrom(
+        helperParams[4]['arguments'],
+        label: 'registration lookup args',
+      ),
+      {
+        'arguments': ['app.echo'],
+        'argumentsKeywords': {'match': 'exact'},
+      },
+    );
+    expect(
+      _jsonMapFrom(
+        helperParams[10]['arguments'],
+        label: 'subscription lookup args',
+      ),
+      {
+        'arguments': [_ioTopic],
+        'argumentsKeywords': {'match': 'exact'},
+      },
+    );
   });
 
   test('IO entrypoint re-exports Streamable pubsub helpers', () async {
@@ -2115,11 +2278,63 @@ final class _StreamableMcpEndpoint {
           'wamp.session.count',
           argumentsKeywords: const <String, Object?>{'count': 2},
         );
+      case 'wamp.session.list':
+        return _wampMetaToolResult(
+          id,
+          'wamp.session.list',
+          argumentsKeywords: const <String, Object?>{
+            'session_ids': <Object?>[101, 102],
+          },
+        );
+      case 'wamp.session.get':
+        return _wampMetaToolResult(
+          id,
+          'wamp.session.get',
+          argumentsKeywords: const <String, Object?>{
+            'details': <String, Object?>{
+              'session': 101,
+              'authid': 'io-user',
+              'authrole': 'agent',
+            },
+          },
+        );
+      case 'wamp.registration.list':
+        return _wampMetaToolResult(
+          id,
+          'wamp.registration.list',
+          argumentsKeywords: const <String, Object?>{
+            'exact': <Object?>[11],
+            'prefix': <Object?>[],
+            'wildcard': <Object?>[],
+          },
+        );
+      case 'wamp.registration.lookup':
+        return _wampMetaToolResult(
+          id,
+          'wamp.registration.lookup',
+          arguments: const <Object?>[11],
+        );
       case 'wamp.registration.match':
         return _wampMetaToolResult(
           id,
           'wamp.registration.match',
           arguments: const <Object?>[11],
+        );
+      case 'wamp.registration.get':
+        return _wampMetaToolResult(
+          id,
+          'wamp.registration.get',
+          argumentsKeywords: const <String, Object?>{
+            'id': 11,
+            'uri': 'app.echo',
+            'match': 'exact',
+          },
+        );
+      case 'wamp.registration.list_callees':
+        return _wampMetaToolResult(
+          id,
+          'wamp.registration.list_callees',
+          arguments: const <Object?>[101],
         );
       case 'wamp.registration.count_callees':
         return _wampMetaToolResult(
@@ -2127,11 +2342,41 @@ final class _StreamableMcpEndpoint {
           'wamp.registration.count_callees',
           arguments: const <Object?>[1],
         );
+      case 'wamp.subscription.list':
+        return _wampMetaToolResult(
+          id,
+          'wamp.subscription.list',
+          argumentsKeywords: const <String, Object?>{
+            'exact': <Object?>[17],
+            'prefix': <Object?>[],
+            'wildcard': <Object?>[],
+          },
+        );
+      case 'wamp.subscription.lookup':
+        return _wampMetaToolResult(
+          id,
+          'wamp.subscription.lookup',
+          arguments: const <Object?>[17],
+        );
       case 'wamp.subscription.match':
         return _wampMetaToolResult(
           id,
           'wamp.subscription.match',
           arguments: const <Object?>[17],
+        );
+      case 'wamp.subscription.get':
+        return _wampMetaToolResult(
+          id,
+          'wamp.subscription.get',
+          argumentsKeywords: <String, Object?>{
+            'details': <String, Object?>{'id': 17, 'topic': _ioTopic},
+          },
+        );
+      case 'wamp.subscription.list_subscribers':
+        return _wampMetaToolResult(
+          id,
+          'wamp.subscription.list_subscribers',
+          arguments: const <Object?>[101],
         );
       case 'wamp.subscription.count_subscribers':
         return _wampMetaToolResult(
