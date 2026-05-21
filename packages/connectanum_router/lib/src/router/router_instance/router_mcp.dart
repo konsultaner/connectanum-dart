@@ -134,6 +134,18 @@ bool _mcpProtocolVersionHeaderSupported(
   return value == null || _mcpSupportedHttpProtocolVersions.contains(value);
 }
 
+String? _mcpResponseSessionIdForRequest({
+  required String httpMethod,
+  required bool streamableHttpRequest,
+  required String? sessionId,
+}) {
+  return switch (httpMethod) {
+    'GET' || 'DELETE' => sessionId,
+    'POST' when streamableHttpRequest => sessionId,
+    _ => null,
+  };
+}
+
 class _McpAcceptMediaRange {
   const _McpAcceptMediaRange(this.type, this.subtype, this.quality);
 
@@ -881,6 +893,14 @@ Future<void> _handleMcpHttpRequestForBinding(
 }) async {
   final httpMethod = request.method.trim().toUpperCase();
   final mcpSessionId = _mcpHeaderValue(binding, request, _mcpSessionIdHeader);
+  final streamableHttpRequest =
+      httpMethod == 'POST' &&
+      _mcpAcceptRequestsStreamableHttpSession(binding, request);
+  final responseMcpSessionId = _mcpResponseSessionIdForRequest(
+    httpMethod: httpMethod,
+    streamableHttpRequest: streamableHttpRequest,
+    sessionId: mcpSessionId,
+  );
 
   if (!_mcpOriginAllowed(binding, request, route)) {
     await binding._sendImmediateHttpResponse(
@@ -890,7 +910,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.forbidden,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'Invalid Origin for MCP endpoint',
-        sessionId: mcpSessionId,
+        sessionId: responseMcpSessionId,
       ),
     );
     return;
@@ -905,7 +925,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.noContent,
         headers: _mcpHttpResponseHeaders(
           json: false,
-          sessionId: mcpSessionId,
+          sessionId: responseMcpSessionId,
           extra: <String, String>{
             HttpHeaders.allowHeader: _mcpCorsAllowMethods,
             ..._mcpCorsResponseHeaders(
@@ -930,7 +950,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.badRequest,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'Unsupported MCP protocol version header',
-        sessionId: mcpSessionId,
+        sessionId: responseMcpSessionId,
         extraHeaders: corsHeaders,
       ),
     );
@@ -946,7 +966,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           status: HttpStatus.notAcceptable,
           code: mcp.McpErrorCodes.invalidRequest,
           message: 'MCP GET responses require an Accept header allowing SSE',
-          sessionId: mcpSessionId,
+          sessionId: responseMcpSessionId,
           extraHeaders: corsHeaders,
         ),
       );
@@ -962,7 +982,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.methodNotAllowed,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'MCP HTTP endpoint supports GET, POST, DELETE and OPTIONS',
-        sessionId: mcpSessionId,
+        sessionId: responseMcpSessionId,
         extraHeaders: <String, String>{
           ...corsHeaders,
           HttpHeaders.allowHeader: _mcpCorsAllowMethods,
@@ -980,7 +1000,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.notAcceptable,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'MCP POST responses require an Accept header allowing JSON',
-        sessionId: mcpSessionId,
+        sessionId: responseMcpSessionId,
         extraHeaders: corsHeaders,
       ),
     );
@@ -996,7 +1016,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.unsupportedMediaType,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'MCP POST requests must use a JSON content type',
-        sessionId: mcpSessionId,
+        sessionId: responseMcpSessionId,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1015,7 +1035,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.internalServerError,
         code: mcp.McpErrorCodes.internalError,
         message: 'MCP route has no resolved WAMP realm',
-        sessionId: mcpSessionId,
+        sessionId: responseMcpSessionId,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1045,7 +1065,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           response: NativeHttpResponse(
             status: HttpStatus.unauthorized,
             headers: _mcpHttpResponseHeaders(
-              sessionId: mcpSessionId,
+              sessionId: responseMcpSessionId,
               extra: <String, String>{
                 ...corsHeaders,
                 ...binding._httpUnauthorizedHeaders(
@@ -1085,7 +1105,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       response: NativeHttpResponse(
         status: HttpStatus.unauthorized,
         headers: _mcpHttpResponseHeaders(
-          sessionId: mcpSessionId,
+          sessionId: responseMcpSessionId,
           extra: <String, String>{
             ...corsHeaders,
             ...binding._httpUnauthorizedHeaders(
@@ -1246,7 +1266,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       response: NativeHttpResponse(
         status: HttpStatus.badRequest,
         headers: _mcpHttpResponseHeaders(
-          sessionId: mcpSessionId,
+          sessionId: responseMcpSessionId,
           extra: corsHeaders,
         ),
         body: NativeHttpResponseJson(
@@ -1265,16 +1285,12 @@ Future<void> _handleMcpHttpRequestForBinding(
 
   final requestMethod = _mcpRequestMethod(rawMessage);
   final isInitialize = requestMethod == 'initialize';
-  final streamableHttpRequest = _mcpAcceptRequestsStreamableHttpSession(
-    binding,
-    request,
-  );
   final standardHeaderError = _mcpStandardHeaderValidationError(
     binding,
     request: request,
     rawMessage: rawMessage,
     requireHeaders: streamableHttpRequest,
-    sessionId: mcpSessionId,
+    sessionId: responseMcpSessionId,
     extraHeaders: corsHeaders,
   );
   if (standardHeaderError != null) {

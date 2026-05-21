@@ -1760,6 +1760,55 @@ void main() {
       expect(directUnknownSession.json?['id'], equals('direct-stale-session'));
       expect(directUnknownSession.headers, isNot(contains('mcp-session-id')));
 
+      final directInvalidVersionStaleSession = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-invalid-version-stale-session',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {
+          HttpHeaders.acceptHeader: 'application/json',
+          'MCP-Session-Id': 'unknown-session',
+          'MCP-Protocol-Version': '2099-01-01',
+        },
+      );
+      expect(
+        directInvalidVersionStaleSession.statusCode,
+        equals(HttpStatus.badRequest),
+      );
+      expect(
+        directInvalidVersionStaleSession.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
+      final directMalformedStaleSession = await _postBody(
+        client,
+        listener.port,
+        '/mcp',
+        '{"jsonrpc":"2.0","id":"direct-malformed-stale-session",',
+        headers: {
+          HttpHeaders.acceptHeader: 'application/json',
+          'MCP-Session-Id': 'unknown-session',
+          'MCP-Protocol-Version': '2025-11-25',
+        },
+      );
+      expect(
+        directMalformedStaleSession.statusCode,
+        equals(HttpStatus.badRequest),
+      );
+      expect(
+        jsonEncode(directMalformedStaleSession.json?['error']),
+        contains('Invalid JSON-RPC message'),
+      );
+      expect(
+        directMalformedStaleSession.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
       final delete = await _deleteHttp(
         client,
         listener.port,
@@ -5355,6 +5404,31 @@ _postJson(
   request.headers.contentType = ContentType.json;
   headers.forEach(request.headers.set);
   final bodyBytes = utf8.encode(jsonEncode(payload));
+  request.contentLength = bodyBytes.length;
+  request.add(bodyBytes);
+  return _readJsonHttpResponse(await request.close());
+}
+
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
+_postBody(
+  HttpClient client,
+  int port,
+  String path,
+  String body, {
+  ContentType? contentType,
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final request = await client.post('127.0.0.1', port, path);
+  request.headers.contentType = contentType ?? ContentType.json;
+  headers.forEach(request.headers.set);
+  final bodyBytes = utf8.encode(body);
   request.contentLength = bodyBytes.length;
   request.add(bodyBytes);
   return _readJsonHttpResponse(await request.close());

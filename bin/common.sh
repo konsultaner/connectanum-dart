@@ -6280,6 +6280,22 @@ Future<void> _assertMcpCorsPostBodyErrors(
     expectNoSession: true,
     bodyContains: 'Invalid JSON-RPC message',
   );
+
+  final directMalformedStaleSession = await _mcpRawPostBody(
+    client,
+    endpoint,
+    body: '{"jsonrpc":"2.0","id":"$label-direct-malformed-stale-session",',
+    accept: 'application/json',
+    sessionId: 'caller-direct-stale-session',
+    bearerToken: bearerToken,
+  );
+  _assertMcpCorsErrorResponse(
+    directMalformedStaleSession,
+    expectedStatus: HttpStatus.badRequest,
+    label: '$label direct JSON malformed stale session',
+    expectNoSession: true,
+    bodyContains: 'Invalid JSON-RPC message',
+  );
 }
 
 Future<void> _assertSecureMcpCorsUnauthorized(
