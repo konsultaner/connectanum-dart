@@ -53,8 +53,9 @@ Options:
   --require-clean-router-image-dry-run
                              Exit non-zero unless the latest relevant Router
                              Image dry-run workflow completed successfully,
-                             uploaded the preview artifact, skipped GHCR login,
-                             has no warning/failure check annotations, and still
+                             uploaded the preview artifact with normalized
+                             metadata tags, skipped GHCR login, has no
+                             warning/failure check annotations, and still
                              covers the checked-out router image inputs.
   --show-wamp-profile-benchmarks
                              Print the latest dedicated WAMP Profile Benchmarks
@@ -1326,6 +1327,99 @@ print_native_release_dry_run_gate() {
   return "$failed"
 }
 
+print_router_image_preview_metadata_gate() {
+  local run_id="$1"
+  local temp_dir
+  local summary_file
+  local image_owner
+  local expected_image
+  local primary_tag
+  local primary_image_tag
+  local failed=0
+
+  image_owner="$(lowercase "$package_owner")"
+  expected_image="ghcr.io/${image_owner}/connectanum-router"
+
+  if ! temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-image-preview.XXXXXX")"; then
+    printf 'Finding: failed to create a temporary directory for Router Image preview metadata.\n'
+    return 1
+  fi
+
+  if ! "$gh_bin" run download "$run_id" \
+    --repo "$repository" \
+    --name router-image-preview \
+    --dir "$temp_dir" >/dev/null 2>&1; then
+    printf 'Finding: failed to download router-image-preview artifact for Router Image dry-run #%s.\n' "$run_id"
+    rm -rf "$temp_dir"
+    return 1
+  fi
+
+  summary_file="$(find "$temp_dir" -type f -name router-image-metadata.md -print -quit)"
+
+  if [[ -z "$summary_file" ]]; then
+    printf 'Finding: router-image-preview artifact does not contain router-image-metadata.md.\n'
+    failed=1
+  elif [[ ! -s "$summary_file" ]]; then
+    printf 'Finding: router-image-metadata.md is empty in router-image-preview artifact.\n'
+    failed=1
+  else
+    if ! grep -Fxq -- "- Image: \`${expected_image}\`" "$summary_file"; then
+      printf 'Finding: router image preview metadata does not target %s.\n' "$expected_image"
+      failed=1
+    fi
+
+    if ! grep -Fxq -- '- Mode: `dry-run`' "$summary_file"; then
+      printf 'Finding: router image preview metadata is not marked as dry-run mode.\n'
+      failed=1
+    fi
+
+    if ! grep -Fxq -- '- Publish: `false`' "$summary_file"; then
+      printf 'Finding: router image preview metadata is not marked publish=false.\n'
+      failed=1
+    fi
+
+    primary_tag="$(
+      awk '
+        $0 == "### Tags" { in_tags = 1; next }
+        in_tags && /^### / { exit }
+        in_tags && /^- `/ {
+          line = $0
+          sub(/^- `/, "", line)
+          sub(/`$/, "", line)
+          print line
+          exit
+        }
+      ' "$summary_file"
+    )"
+
+    if [[ -z "$primary_tag" ]]; then
+      printf 'Finding: router image preview metadata does not include a primary tag.\n'
+      failed=1
+    elif [[ "$primary_tag" != "${expected_image}:"* ]]; then
+      printf 'Finding: router image preview primary tag is not under %s: %s\n' "$expected_image" "$primary_tag"
+      failed=1
+    else
+      primary_image_tag="${primary_tag#"${expected_image}:"}"
+
+      if [[ -z "$primary_image_tag" ]]; then
+        printf 'Finding: router image preview primary Docker tag is empty.\n'
+        failed=1
+      elif ! [[ "$primary_image_tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+        printf 'Finding: router image preview primary Docker tag is invalid: %s\n' "$primary_image_tag"
+        failed=1
+      elif [[ "$primary_image_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+($|[-.]) ]]; then
+        printf 'Finding: router image preview primary Docker tag still uses a project-version v-prefix: %s\n' "$primary_image_tag"
+        failed=1
+      else
+        printf 'Router image dry-run preview metadata: ready (%s).\n' "$primary_image_tag"
+      fi
+    fi
+  fi
+
+  rm -rf "$temp_dir"
+  return "$failed"
+}
+
 print_router_image_dry_run_gate() {
   local run_id
   local run_summary
@@ -1469,6 +1563,10 @@ print_router_image_dry_run_gate() {
       failed=1
     else
       printf 'Router image dry-run preview artifact upload: ready (router-image-preview).\n'
+    fi
+
+    if [[ "$has_preview_upload" -eq 1 ]] && ! print_router_image_preview_metadata_gate "$run_id"; then
+      failed=1
     fi
 
     if [[ "$has_login_skipped" -ne 1 ]]; then

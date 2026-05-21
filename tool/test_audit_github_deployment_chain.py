@@ -143,6 +143,26 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
 
+    def test_rc_readiness_rejects_v_prefixed_router_image_preview_tag(
+        self,
+    ) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_rc_readiness_with_native_prerelease(
+            current_head,
+            router_preview_tag="v0.1.0-rc.2",
+            require_rc_ready=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "router image preview primary Docker tag still uses a "
+            "project-version v-prefix: v0.1.0-rc.2",
+            result.stdout,
+        )
+        self.assertIn("Router image hosted dry-run gate: not ready", result.stdout)
+        self.assertIn("Release candidate readiness audit failed.", result.stdout)
+
     def test_rc_readiness_rejects_missing_matching_router_image_tag(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
 
@@ -740,6 +760,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         github_tag_head: str | None = None,
         local_tag_head: str | None = None,
         router_image_tag: str = "0.1.0-rc.2",
+        router_preview_tag: str = "0.1.0-rc.2",
         require_rc_ready: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -764,11 +785,13 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     #!/usr/bin/env python3
                     import os
                     import sys
+                    from pathlib import Path
 
                     args = sys.argv[1:]
                     repository = "konsultaner/connectanum-dart"
                     ci_head = os.environ["FAKE_CI_HEAD"]
                     branch_head = os.environ.get("FAKE_BRANCH_HEAD", ci_head)
+                    preview_tag = os.environ.get("FAKE_ROUTER_PREVIEW_TAG", "0.1.0-rc.2")
                     workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
 
 
@@ -953,6 +976,22 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         else:
                             print("v0.1.0-rc.2")
                     elif args[:2] == ["run", "download"]:
+                        download_dir = value_after("--dir")
+                        if not download_dir:
+                            sys.exit(1)
+                        Path(download_dir, "router-image-metadata.md").write_text(
+                            "## Router Image Metadata\\n\\n"
+                            "- Image: `ghcr.io/konsultaner/connectanum-router`\\n"
+                            "- Mode: `dry-run`\\n"
+                            "- Publish: `false`\\n"
+                            "- Provenance: `false`\\n"
+                            "- SBOM: `false`\\n\\n"
+                            "### Tags\\n\\n"
+                            f"- `ghcr.io/konsultaner/connectanum-router:{preview_tag}`\\n\\n"
+                            "### Labels\\n\\n"
+                            f"- `org.opencontainers.image.version={preview_tag}`\\n",
+                            encoding="utf-8",
+                        )
                         sys.exit(0)
                     else:
                         sys.exit(1)
@@ -1041,6 +1080,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             )
             env["FAKE_LOCAL_TAG_HEAD"] = local_tag_head or ""
             env["FAKE_ROUTER_IMAGE_TAG"] = router_image_tag
+            env["FAKE_ROUTER_PREVIEW_TAG"] = router_preview_tag
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["REAL_GIT"] = real_git or "git"
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
@@ -1090,11 +1130,13 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     #!/usr/bin/env python3
                     import os
                     import sys
+                    from pathlib import Path
 
                     args = sys.argv[1:]
                     repository = "konsultaner/connectanum-dart"
                     ci_head = os.environ["FAKE_CI_HEAD"]
                     branch_head = os.environ.get("FAKE_BRANCH_HEAD", ci_head)
+                    preview_tag = os.environ.get("FAKE_ROUTER_PREVIEW_TAG", "0.1.0-rc.2")
                     workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
 
 
@@ -1269,6 +1311,22 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     elif args[:2] == ["release", "view"]:
                         sys.exit(1)
                     elif args[:2] == ["run", "download"]:
+                        download_dir = value_after("--dir")
+                        if not download_dir:
+                            sys.exit(1)
+                        Path(download_dir, "router-image-metadata.md").write_text(
+                            "## Router Image Metadata\\n\\n"
+                            "- Image: `ghcr.io/konsultaner/connectanum-router`\\n"
+                            "- Mode: `dry-run`\\n"
+                            "- Publish: `false`\\n"
+                            "- Provenance: `false`\\n"
+                            "- SBOM: `false`\\n\\n"
+                            "### Tags\\n\\n"
+                            f"- `ghcr.io/konsultaner/connectanum-router:{preview_tag}`\\n\\n"
+                            "### Labels\\n\\n"
+                            f"- `org.opencontainers.image.version={preview_tag}`\\n",
+                            encoding="utf-8",
+                        )
                         sys.exit(0)
                     else:
                         sys.exit(1)
