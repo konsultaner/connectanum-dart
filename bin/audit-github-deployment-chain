@@ -1978,7 +1978,7 @@ print_rc_readiness() {
       printf 'Dart package strict publish dry-run: ready\n'
     elif strict_dart_output_is_deferred_pub_dev_only "$strict_dart_output"; then
       printf 'Dart package strict publish dry-run: deferred for first GitHub RC\n'
-      grep -E '^(Dart package release-readiness blockers:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
+      grep -E '^(Dart package release-readiness blockers:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
       printf '  Deferred: pub.dev publishing is intentionally outside this GitHub prerelease RC; keep the archive dry-run zero-warning and resolve package ownership/version/release-order before public publishing.\n'
     else
       printf 'Dart package strict publish dry-run: not ready\n'

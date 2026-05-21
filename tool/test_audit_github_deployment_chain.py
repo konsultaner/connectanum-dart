@@ -121,6 +121,16 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
         self.assertIn(
+            "Dart package strict publish dry-run: deferred for first GitHub RC",
+            result.stdout,
+        )
+        self.assertIn("Dart package release-order plan:", result.stdout)
+        self.assertIn("Currently publishable package archives:", result.stdout)
+        self.assertIn(
+            "Private workspace packages not currently publishable:",
+            result.stdout,
+        )
+        self.assertIn(
             "Latest Native Artifacts prerelease publish is clean and relevant.",
             result.stdout,
         )
