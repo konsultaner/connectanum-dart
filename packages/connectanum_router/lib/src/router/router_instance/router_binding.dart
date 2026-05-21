@@ -1065,6 +1065,19 @@ class RouterBinding {
       listenerSettings: listenerSettings,
       route: matchedRoute,
     );
+    final mcpRoute = matchedRoute?.action.type == HttpRouteActionType.mcp
+        ? matchedRoute
+        : null;
+    final httpMethod = request.method.trim().toUpperCase();
+    final mcpResponseSessionId = mcpRoute == null
+        ? null
+        : _mcpResponseSessionIdForRequest(
+            httpMethod: httpMethod,
+            streamableHttpRequest:
+                httpMethod == 'POST' &&
+                _mcpAcceptRequestsStreamableHttpSession(this, request),
+            sessionId: _mcpHeaderValue(this, request, _mcpSessionIdHeader),
+          );
     if (routeMatch.isMethodNotAllowed) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -1106,13 +1119,10 @@ class RouterBinding {
     );
     if (rateLimitDecision != null) {
       final rateLimitHeaders = rateLimitDecision.headers;
-      final mcpRoute = matchedRoute?.action.type == HttpRouteActionType.mcp
-          ? matchedRoute
-          : null;
       final responseHeaders = mcpRoute == null
           ? rateLimitHeaders
           : _mcpHttpResponseHeaders(
-              sessionId: _mcpHeaderValue(this, request, _mcpSessionIdHeader),
+              sessionId: mcpResponseSessionId,
               extra: <String, String>{
                 ...rateLimitHeaders,
                 ..._mcpCorsResponseHeaders(
@@ -1174,7 +1184,7 @@ class RouterBinding {
       final responseHeaders = mcpRoute == null
           ? authHeaders
           : _mcpHttpResponseHeaders(
-              sessionId: _mcpHeaderValue(this, request, _mcpSessionIdHeader),
+              sessionId: mcpResponseSessionId,
               extra: <String, String>{
                 ...authHeaders,
                 ..._mcpCorsResponseHeaders(this, request, mcpRoute),

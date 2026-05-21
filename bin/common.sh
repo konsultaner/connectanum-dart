@@ -6325,6 +6325,55 @@ Future<void> _assertSecureMcpCorsUnauthorized(
     label: 'secure-cors direct JSON missing bearer',
   );
 
+  final directStaleMissingBearer = await _mcpRawDirectJsonRpcResponse(
+    client,
+    endpoint,
+    const <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': 'secure-cors-missing-bearer-direct-stale-session',
+      'method': 'connectanum.tools.list',
+    },
+    sessionId: 'caller-secure-direct-stale-session',
+  );
+  _assertMcpCorsErrorResponse(
+    directStaleMissingBearer,
+    expectedStatus: HttpStatus.unauthorized,
+    label: 'secure-cors direct JSON missing bearer stale session',
+    expectNoSession: true,
+    bodyContains: 'Bearer token required',
+  );
+  _assertHeaderContains(
+    directStaleMissingBearer,
+    'www-authenticate',
+    'Bearer',
+    label: 'secure-cors direct JSON missing bearer stale session',
+  );
+
+  final directStaleInvalidBearer = await _mcpRawDirectJsonRpcResponse(
+    client,
+    endpoint,
+    const <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': 'secure-cors-invalid-bearer-direct-stale-session',
+      'method': 'connectanum.tools.list',
+    },
+    sessionId: 'caller-secure-direct-stale-session',
+    bearerToken: 'invalid-secure-direct-stale-session-token',
+  );
+  _assertMcpCorsErrorResponse(
+    directStaleInvalidBearer,
+    expectedStatus: HttpStatus.unauthorized,
+    label: 'secure-cors direct JSON invalid bearer stale session',
+    expectNoSession: true,
+    bodyContains: 'Bearer token',
+  );
+  _assertHeaderContains(
+    directStaleInvalidBearer,
+    'www-authenticate',
+    'Bearer',
+    label: 'secure-cors direct JSON invalid bearer stale session',
+  );
+
   final initialize = await _mcpRawJsonPost(
     client,
     endpoint,
@@ -7846,11 +7895,15 @@ Future<_McpRawHttpResponse> _mcpRawDirectJsonRpcResponse(
   HttpClient client,
   Uri endpoint,
   Object? message, {
+  String? sessionId,
   String? bearerToken,
 }) async {
   final request = await client.postUrl(endpoint);
   request.headers.set('Accept', 'application/json');
   request.headers.set('Origin', _allowedOrigin);
+  if (sessionId != null) {
+    request.headers.set('MCP-Session-Id', sessionId);
+  }
   if (bearerToken != null) {
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
   }
