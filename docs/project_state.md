@@ -124,20 +124,46 @@ Streamable helper calls invoke a consumer WAMP procedure through a real router
 endpoint without private assumptions. Pre-change `bin/test-fast`, formatting,
 `bash -n bin/common.sh`, focused client/MCP package tests, the focused
 generated router-hosted consumer-package smoke, `git diff --check`, and full
-local `bin/verify` passed. Hosted `add-router` evidence is pending until this
-implementation is pushed.
-GitHub `master` remains at `0c0e043`.
-Hosted `master` evidence is clean: CI run `26150667099` (clean after rerunning a
-transient browser harness load failure), Dart Package Publish Dry Run
-`26150666982`, WAMP Profile Benchmarks `26150666988`, Native Artifacts dry-run
-`26151756102`, Router Image dry-run `26151756160`, and the strict
-deployment-chain audit all pass at that head. RC readiness remains not-ready
-only because no approved numeric RC tag or GitHub prerelease points at
-`0c0e043`; the audit suggests `v0.1.0-rc.2` as the next release-decision tag.
+local `bin/verify` passed. Commit `b45a96f` was pushed to GitLab `origin` and
+GitHub `add-router`. Hosted `add-router` evidence is clean at `b45a96f`: CI
+run `26195189401` passed with Fast Checks and Full Verify green, Dart Package
+Publish Dry Run `26195189402` passed, WAMP Profile Benchmarks `26195189400`
+passed, and the non-RC strict deployment-chain audit passed clean latest CI,
+clean CI logs, and clean Dart package dry-run gates.
+GitHub `master` was fast-forward promoted from `0c0e043` to `b45a96f`, so the
+router-hosted MCP downstream-readiness helpers now sit on the default release
+branch. GitHub reported the PR-only branch rule was bypassed for the direct
+update. Local `bin/test-fast` passed before promotion, and post-promotion local
+`bin/verify` passed. Hosted `master` evidence is clean at `b45a96f`: CI run
+`26196195552` passed with Fast Checks and Full Verify green, Dart Package
+Publish Dry Run `26196195553` passed, WAMP Profile Benchmarks `26196195554`
+passed, and Router Image dry-run `26196649190` passed without GHCR login while
+uploading the preview artifact. Native Artifacts dry-run `26151756102` remains
+relevant because no native-release-sensitive paths changed since `0c0e043`.
+The strict deployment-chain audit passed clean current-head CI, clean CI logs,
+clean Dart package dry-run, native release dry-run relevance, fresh router image
+dry-run relevance, workflow visibility, branch protection, and router package
+visibility gates. RC readiness remains not-ready only because no approved
+numeric RC tag or GitHub prerelease points at `b45a96f`; the audit suggests
+`v0.1.0-rc.2` as the next release-decision tag, and pub.dev publishing remains
+deferred for package ownership/version/release-order decisions.
+This implementation follow-up makes the deployment-chain audit branch
+protection evidence explicit for release handoff: the audit now reports
+whether the audited branch requires pull requests and whether administrators
+can bypass branch protection. A fake-`gh` regression covers the protected
+default-branch case, and the live `master` audit now reports pull-request
+enforcement and administrator-bypass status matching the direct-promotion
+bypass evidence. Pre-change `bin/test-fast`,
+`bash -n bin/audit-github-deployment-chain`,
+`python3 tool/test_audit_github_deployment_chain.py`, `git diff --check`,
+`bin/audit-github-deployment-chain --branch master --show-rc-readiness`, and
+full local `bin/verify` passed. Hosted evidence for this audit-readability
+follow-up is pending until the implementation commit is pushed.
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
-promoted default branch. GitHub `master` now contains the validated branch
-content. MCP is RC-ready for the first candidate: router-hosted endpoints,
+promoted default branch. GitHub `master` now contains the latest validated MCP
+branch content at `b45a96f`. MCP is RC-ready for the first candidate:
+router-hosted endpoints,
 auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
 resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
 coverage are in place. Further MCP helper permutations are post-RC polish unless

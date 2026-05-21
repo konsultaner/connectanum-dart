@@ -47,6 +47,19 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn("Latest CI logs cover checked-out head: yes.", matching_result.stdout)
         self.assertIn("Latest CI log scan is clean", matching_result.stdout)
 
+    def test_branch_protection_reports_pr_requirement_and_admin_bypass(
+        self,
+    ) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_audit(current_head, branch="master")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Require pull requests: true", result.stdout)
+        self.assertIn("Required approving reviews: 1", result.stdout)
+        self.assertIn("Enforce admins: false", result.stdout)
+        self.assertIn("Admin bypass allowed: true", result.stdout)
+
     def test_rc_readiness_accepts_native_prerelease_evidence(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
 
@@ -199,6 +212,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self,
         ci_head: str,
         gate: str = "--require-clean-latest-ci",
+        branch: str = "add-router",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -279,6 +293,14 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif path == f"repos/{repository}/branches/master/protection":
                             if "required_status_checks" in jq:
                                 print("Fast Checks, Full Verify")
+                            elif "required_pull_request_reviews" in jq and "!= null" in jq:
+                                print("true")
+                            elif "required_approving_review_count" in jq:
+                                print("1")
+                            elif "require_code_owner_reviews" in jq:
+                                print("false")
+                            elif "enforce_admins" in jq:
+                                print("false")
                             else:
                                 print("false")
                         elif path == f"repos/{repository}/rulesets":
@@ -361,7 +383,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 [
                     str(AUDIT_SCRIPT),
                     "--branch",
-                    "add-router",
+                    branch,
                     gate,
                 ],
                 cwd=REPO_ROOT,
@@ -474,6 +496,14 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif path == f"repos/{repository}/branches/master/protection":
                             if "required_status_checks" in jq:
                                 print("Fast Checks, Full Verify")
+                            elif "required_pull_request_reviews" in jq and "!= null" in jq:
+                                print("true")
+                            elif "required_approving_review_count" in jq:
+                                print("1")
+                            elif "require_code_owner_reviews" in jq:
+                                print("false")
+                            elif "enforce_admins" in jq:
+                                print("false")
                             else:
                                 print("false")
                         elif path == f"repos/{repository}/rulesets":
@@ -746,6 +776,14 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif path == f"repos/{repository}/branches/master/protection":
                             if "required_status_checks" in jq:
                                 print("Fast Checks, Full Verify")
+                            elif "required_pull_request_reviews" in jq and "!= null" in jq:
+                                print("true")
+                            elif "required_approving_review_count" in jq:
+                                print("1")
+                            elif "require_code_owner_reviews" in jq:
+                                print("false")
+                            elif "enforce_admins" in jq:
+                                print("false")
                             else:
                                 print("false")
                         elif path == f"repos/{repository}/rulesets":

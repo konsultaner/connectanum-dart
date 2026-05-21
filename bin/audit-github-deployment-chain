@@ -1822,6 +1822,11 @@ if [[ "$branch_protected" == "true" ]]; then
       "branches/${branch}/protection" \
       '.required_status_checks.strict // false'
   )"
+  require_pull_requests="$(
+    api_jq_optional \
+      "branches/${branch}/protection" \
+      '.required_pull_request_reviews != null'
+  )"
   review_count="$(
     api_jq_optional \
       "branches/${branch}/protection" \
@@ -1837,12 +1842,19 @@ if [[ "$branch_protected" == "true" ]]; then
   allow_deletions="$(api_jq_optional "branches/${branch}/protection" '.allow_deletions.enabled // false')"
   linear_history="$(api_jq_optional "branches/${branch}/protection" '.required_linear_history.enabled // false')"
   conversation_resolution="$(api_jq_optional "branches/${branch}/protection" '.required_conversation_resolution.enabled // false')"
+  admin_bypass_allowed="unknown"
+  case "$enforce_admins" in
+    true) admin_bypass_allowed="false" ;;
+    false) admin_bypass_allowed="true" ;;
+  esac
 
   printf 'Required status checks: %s\n' "${required_contexts:-none}"
   printf 'Require up-to-date branches: %s\n' "$status_strict"
+  printf 'Require pull requests: %s\n' "$require_pull_requests"
   printf 'Required approving reviews: %s\n' "$review_count"
   printf 'Require code-owner reviews: %s\n' "$code_owner_reviews"
   printf 'Enforce admins: %s\n' "$enforce_admins"
+  printf 'Admin bypass allowed: %s\n' "$admin_bypass_allowed"
   printf 'Allow force pushes: %s\n' "$allow_force_pushes"
   printf 'Allow deletions: %s\n' "$allow_deletions"
   printf 'Required linear history: %s\n' "$linear_history"
@@ -1856,6 +1868,8 @@ if [[ "$branch_protected" == "true" ]]; then
   done
 else
   printf 'Required status checks: none\n'
+  printf 'Require pull requests: false\n'
+  printf 'Admin bypass allowed: n/a (branch is not protected)\n'
   printf 'Finding: branch is not protected.\n'
   missing_required_checks=1
 fi

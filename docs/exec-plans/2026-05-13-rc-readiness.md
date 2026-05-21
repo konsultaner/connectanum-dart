@@ -677,86 +677,71 @@ decision because `connectanum_client` still depends on private
   without private assumptions. Pre-change `bin/test-fast`, formatting,
   `bash -n bin/common.sh`, focused client/MCP package tests, the focused
   generated router-hosted consumer-package smoke, `git diff --check`, and full
-  local `bin/verify` passed. Hosted `add-router` evidence is pending until this
-  implementation is pushed.
+  local `bin/verify` passed. Commit `b45a96f` was pushed to GitLab `origin`
+  and GitHub `add-router`. Hosted `add-router` evidence is clean at
+  `b45a96f`: CI run `26195189401` passed with Fast Checks and Full Verify
+  green, Dart Package Publish Dry Run `26195189402` passed, WAMP Profile
+  Benchmarks `26195189400` passed, and the non-RC strict deployment-chain
+  audit passed clean latest CI, clean CI logs, and clean Dart package dry-run
+  gates.
+- 2026-05-21: GitHub `master` was fast-forward promoted from `0c0e043` to
+  `b45a96f`, placing the router-hosted MCP downstream-readiness helpers on the
+  default release branch. GitHub reported the PR-only branch rule was bypassed
+  for the direct update. Local `bin/test-fast` passed before promotion, and
+  post-promotion local `bin/verify` passed. Hosted `master` evidence is clean
+  at `b45a96f`: CI run `26196195552` passed with Fast Checks and Full Verify
+  green, Dart Package Publish Dry Run `26196195553` passed, WAMP Profile
+  Benchmarks `26196195554` passed, and Router Image dry-run `26196649190`
+  passed without GHCR login while uploading the preview artifact. Native
+  Artifacts dry-run `26151756102` remains relevant because no
+  native-release-sensitive paths changed since `0c0e043`. The strict
+  deployment-chain audit passed clean current-head CI, clean CI logs, clean
+  Dart package dry-run, native release dry-run relevance, fresh router image
+  dry-run relevance, workflow visibility, branch protection, and router package
+  visibility gates. RC readiness remains not-ready only because no approved
+  numeric RC tag or GitHub prerelease points at `b45a96f`; the audit suggests
+  `v0.1.0-rc.2` as the next release-decision tag, and pub.dev publishing
+  remains deferred for package ownership/version/release-order decisions.
+- 2026-05-21: The deployment-chain audit now prints explicit branch-protection
+  handoff evidence for pull-request enforcement and administrator bypass state.
+  A fake-`gh` regression covers the protected default-branch output, and the
+  live `master` audit reports `Require pull requests: true` and `Admin bypass
+  allowed: true`, matching the direct-promotion bypass signal from GitHub.
+  Pre-change `bin/test-fast`, `bash -n bin/audit-github-deployment-chain`,
+  `python3 tool/test_audit_github_deployment_chain.py`, `git diff --check`,
+  `bin/audit-github-deployment-chain --branch master --show-rc-readiness`, and
+  full local `bin/verify` passed. Hosted evidence for this audit-readability
+  follow-up is pending until the implementation commit is pushed.
 
 ## Handoff
 
-Active. GitHub `master` points at `0c0e043`, and `add-router` contains the
-router-hosted MCP direct JSON notification correctness fix plus native-router
-and generated consumer-package smoke coverage for single-message, mixed-batch,
-all-notification batch, pub/sub, and Streamable notification side effects. The
-latest pushed follow-up exposes a public direct WAMP pub/sub notification
-helper for downstream application readiness: `notifyWampEventDirect(...)`
-sends `connectanum.pubsub.publish` as a notification-only direct JSON payload
-without Streamable lifecycle coupling, remains re-exported by the MCP IO
-entrypoint, and is covered by client tests, MCP package tests, and generated
-consumer-package router-hosted MCP smoke. This follow-up closes direct
-Connectanum tool header parity: direct tool call and notification helpers now
-emit cached `Mcp-Param-*` headers after direct catalog discovery, with focused
-client tests, generated client-only consumer-package smoke, and full local
-`bin/verify` passing. This implementation follow-up extends that same contract
-to the router-hosted alias path: direct `connectanum.tool.call` /
-`connectanum.tools.call` now share `Mcp-Name` and `Mcp-Param-*` validation with
-standard `tools/call`, and consumer-package smoke coverage proves public direct
-helpers override stale caller-provided MCP name/parameter headers before the
-real router endpoint validates them. The latest pushed follow-up extends the
-same header-synthesis behavior to generic direct JSON method helpers, and
-hosted `add-router` evidence is clean for pushed head `a411ed1`: CI run
-`26186967933`, Dart Package Publish Dry Run `26186967888`, WAMP Profile
-Benchmarks `26186967889`, and the non-RC strict deployment-chain audit all
-passed. The current local follow-up hardens notification-only direct tool
-helpers by stripping stale caller-provided `Mcp-Param-*` headers and extending
-typed, alias, dotted-method, client-only smoke, and router-hosted consumer
-smoke coverage; commit `bafbe25` is pushed to both remotes, local
-`bin/verify` is clean, and hosted `add-router` evidence is green for CI,
-Dart Package Publish Dry Run, WAMP Profile Benchmarks, and the strict
-deployment-chain audit. The latest pushed follow-up extends that stale-header
-consumer safety coverage to `notifyWampEventDirect(...)` by proving stale
-`Mcp-Param-Topic` is stripped in the focused client test and cannot break real
-router-hosted pub/sub notification delivery in the generated consumer-package
-smoke; commit `4d80537` is pushed to both remotes, local `bin/verify` is clean,
-and hosted `add-router` evidence is green for CI, Dart Package Publish Dry Run,
-WAMP Profile Benchmarks, and the strict deployment-chain audit. The latest
-pushed follow-up adds the Streamable-session counterpart,
-`notifyWampEvent(...)`, so consumer applications can send notification-only
-pub/sub publishes over an active MCP session without hand-assembling raw
-JSON-RPC; focused client/MCP package tests and the generated router-hosted
-consumer-package smoke are clean locally, commit `1021cb9` is pushed to both
-remotes, full `bin/verify` passed, and hosted `add-router` evidence is green
-for CI, Dart Package Publish Dry Run, WAMP Profile Benchmarks, and the strict
-deployment-chain audit. The current local follow-up adds the standard MCP
-counterpart, `notifyTool(...)` and `notifyToolDirect(...)`, so consumer
-applications can send id-free `tools/call` notifications over Streamable HTTP
-or direct JSON without hand-assembling raw payloads or trusted parameter
-headers. Focused client/MCP package tests, the generated router-hosted
-consumer-package smoke, `git diff --check`, and full local `bin/verify` are
-clean; hosted `add-router` evidence is pending until this implementation is
-pushed.
-Hosted `master` evidence remains current and green for CI, Dart package
-dry-run relevance, WAMP Profile Benchmarks, Native Artifacts dry-run, and
-Router Image dry-run relevance. The
-strict deployment-chain audit passes on `master` with clean current-head CI/log,
-Dart package dry-run, native release dry-run, router image dry-run, workflow
-visibility, branch protection, and router package visibility gates. The audit
-verifies public GHCR registry metadata before falling back to GitHub Packages
-metadata, and the router package visibility gate passes because
-`ghcr.io/konsultaner/connectanum-router` is publicly reachable with tag
-`v0.1.0-rc.1` and a manifest digest.
+Active. GitHub `master` points at `b45a96f`, matching the pushed `add-router`
+head. The default branch now contains the router-hosted MCP downstream-readiness
+work: auth/session correctness, router-provided MCP endpoints, direct JSON tool
+and meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
+compatibility, and generated consumer-package smokes that use public package
+APIs without private project assumptions.
 
-Continue with RC tag/prerelease selection for `0c0e043` only from a checkout
-that is aligned with GitHub `master`. The audit now reports both the audited
-branch head and whether the audited branch is the default release branch before
-RC tag selection. When the audited branch and checkout differ, or when the
-audited branch is not the default branch, it reports not-ready and suppresses
-follow-up RC tag suggestions until the release checkout is aligned with
-`master`. When aligned on the default branch, the audit inventories stale local
-and GitHub RC tags and reports that the existing `v0.1.0-rc.1` tag points at
-older commit `47bbf9c`, not the current candidate head. It suggests
-`v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
-reporting RC prerelease selection as not-ready. Validation/dry-run RC tags are
-inventoried but do not satisfy the checked-out-head RC tag gate and are not
-treated as follow-up release candidates. Moving the stale tag or approving a
-follow-up RC tag remains a release decision. No RC tag or GitHub Release was
-created or moved during the master-promotion, release-intent hardening, or
-audit-tooling work.
+Hosted `master` evidence is current and green for CI run `26196195552`, Dart
+Package Publish Dry Run `26196195553`, WAMP Profile Benchmarks `26196195554`,
+and Router Image dry-run `26196649190`. Native Artifacts dry-run `26151756102`
+remains relevant because no native-release-sensitive paths changed since
+`0c0e043`. The strict deployment-chain audit passes on `master` with clean
+current-head CI/log, Dart package dry-run, native release dry-run relevance,
+fresh router image dry-run relevance, workflow visibility, branch protection,
+and router package visibility gates. The router package visibility gate verifies
+public GHCR registry metadata for `ghcr.io/konsultaner/connectanum-router`.
+Local `bin/test-fast` passed before the master promotion, and post-promotion
+local `bin/verify` passed. The audit tooling follow-up also passed local
+`bin/test-fast`, focused fake-`gh` audit tests, a live `master`
+RC-readiness audit, and full local `bin/verify`; hosted evidence for that
+follow-up is pending push.
+
+Continue with RC tag/prerelease selection for `b45a96f` only from a checkout
+aligned with GitHub `master`. The audit inventories stale local and GitHub RC
+tags and reports that existing `v0.1.0-rc.1` points at older commit `47bbf9c`,
+not the current candidate head. It suggests `v0.1.0-rc.2` exactly once as the
+next numeric follow-up tag while still reporting RC prerelease selection as
+not-ready. Moving the stale tag or approving a follow-up RC tag remains a
+release decision. No RC tag or GitHub Release was created or moved during this
+promotion/evidence update.
