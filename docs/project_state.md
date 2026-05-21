@@ -252,11 +252,37 @@ event through a real router endpoint without private assumptions. Pre-change
 package tests, the focused generated router-hosted consumer-package smoke,
 `git diff --check`, and full local `bin/verify` passed.
 
+Commit `79570a1` was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`. Hosted evidence is clean for both promoted branches:
+`master` CI run `26206356283` passed with Fast Checks and Full Verify green,
+`add-router` CI run `26206354103` passed, Dart Package Publish Dry Run
+`26206356286` passed on `master`, WAMP Profile Benchmarks `26206356266`
+passed on `master`, and Router Image dry-run `26206759399` passed on
+`master` with preview artifact upload and skipped GHCR login. The strict
+deployment-chain audit passes required gates at `79570a1`: current-head
+CI/logs, Dart package dry-run, native release dry-run relevance, router image
+dry-run, workflow visibility, branch protection, and router package
+visibility. RC readiness remains not-ready only because no approved numeric RC
+tag or GitHub prerelease points at `79570a1`; the audit suggests
+`v0.1.0-rc.2` as the next release-decision tag.
+
+This implementation follow-up adds public IO-entrypoint Streamable WAMP meta
+helper coverage for consumer applications. The MCP IO export smoke now
+initializes `McpStreamableHttpClient` through
+`package:connectanum_mcp/connectanum_mcp_io.dart`, calls typed WAMP meta
+helpers over session-aware `tools/call`, and asserts Streamable session id plus
+SSE cursor propagation through the package boundary. The coverage includes
+`countWampSessions(...)`, `matchWampRegistration(...)`,
+`countWampRegistrationCallees(...)`, `matchWampSubscription(...)`, and
+`countWampSubscriptionSubscribers(...)`. Pre-change `bin/test-fast`, formatting,
+focused `dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`,
+`git diff --check`, and full local `bin/verify` passed.
+
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated audit-readiness checkpoint at `462f4e0`; this implementation follow-up
-adds the matching Streamable generic Connectanum notification coverage before
+validated audit-readiness checkpoint at `79570a1`; this implementation
+follow-up adds public IO-entrypoint Streamable WAMP meta helper coverage before
 the next promotion. MCP remains RC-ready for the first candidate:
 router-hosted endpoints, auth/session correctness, direct JSON/meta API, WAMP
 pub/sub coverage, resources/prompts, Streamable HTTP compatibility, and

@@ -921,6 +921,102 @@ void main() {
     },
   );
 
+  test('IO entrypoint re-exports Streamable WAMP meta helpers', () async {
+    final endpoint = await _StreamableMcpEndpoint.bind();
+    addTearDown(endpoint.close);
+
+    final client = McpStreamableHttpClient(endpoint.uri);
+    addTearDown(() => client.close(force: true));
+
+    await client.initialize(id: 'io-meta-init');
+    expect(client.sessionId, 'io-session-1');
+    expect(client.lastEventId, isNull);
+
+    final sessionCount = await client.countWampSessions(
+      id: 'io-streamable-session-count',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-session-count',
+      },
+    );
+    expect(sessionCount.procedure, 'wamp.session.count');
+    expect(sessionCount.argumentsKeywords['count'], 2);
+    expect(client.lastEventId, 'io-session-1:post:1');
+
+    final registrationMatch = await client.matchWampRegistration(
+      'app.echo',
+      id: 'io-streamable-registration-match',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-registration-match',
+      },
+    );
+    expect(registrationMatch.procedure, 'wamp.registration.match');
+    expect(registrationMatch.arguments, [11]);
+    expect(client.lastEventId, 'io-session-1:post:2');
+
+    final calleeCount = await client.countWampRegistrationCallees(
+      11,
+      id: 'io-streamable-registration-callee-count',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-registration-callee-count',
+      },
+    );
+    expect(calleeCount.procedure, 'wamp.registration.count_callees');
+    expect(calleeCount.arguments, [1]);
+    expect(client.lastEventId, 'io-session-1:post:3');
+
+    final subscriptionMatch = await client.matchWampSubscription(
+      _ioTopic,
+      id: 'io-streamable-subscription-match',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-subscription-match',
+      },
+    );
+    expect(subscriptionMatch.procedure, 'wamp.subscription.match');
+    expect(subscriptionMatch.arguments, [17]);
+    expect(client.lastEventId, 'io-session-1:post:4');
+
+    final subscriberCount = await client.countWampSubscriptionSubscribers(
+      17,
+      id: 'io-streamable-subscription-subscriber-count',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-subscription-subscriber-count',
+      },
+    );
+    expect(subscriberCount.procedure, 'wamp.subscription.count_subscribers');
+    expect(subscriberCount.argumentsKeywords['count'], 1);
+    expect(client.lastEventId, 'io-session-1:post:5');
+
+    expect(endpoint.requests, hasLength(6));
+    expect(endpoint.requests[0].sessionId, isNull);
+    for (final request in endpoint.requests.skip(1)) {
+      expect(request.sessionId, 'io-session-1');
+      expect(request.accept, contains('text/event-stream'));
+    }
+    expect(endpoint.requests.map((request) => request.consumerTrace), [
+      null,
+      'io-streamable-session-count',
+      'io-streamable-registration-match',
+      'io-streamable-registration-callee-count',
+      'io-streamable-subscription-match',
+      'io-streamable-subscription-subscriber-count',
+    ]);
+
+    final helperParams = [
+      for (final request in endpoint.requests.skip(1))
+        _jsonMapFrom(
+          _jsonMapFrom(request.body, label: 'streamable body')['params'],
+          label: 'streamable WAMP meta params',
+        ),
+    ];
+    expect(helperParams.map((params) => params['name']), [
+      'wamp.session.count',
+      'wamp.registration.match',
+      'wamp.registration.count_callees',
+      'wamp.subscription.match',
+      'wamp.subscription.count_subscribers',
+    ]);
+  });
+
   test('IO entrypoint re-exports Streamable pubsub helpers', () async {
     final endpoint = await _StreamableMcpEndpoint.bind();
     addTearDown(endpoint.close);
@@ -2013,9 +2109,52 @@ final class _StreamableMcpEndpoint {
           'topic': _ioTopic,
           'unsubscribed': true,
         });
+      case 'wamp.session.count':
+        return _wampMetaToolResult(
+          id,
+          'wamp.session.count',
+          argumentsKeywords: const <String, Object?>{'count': 2},
+        );
+      case 'wamp.registration.match':
+        return _wampMetaToolResult(
+          id,
+          'wamp.registration.match',
+          arguments: const <Object?>[11],
+        );
+      case 'wamp.registration.count_callees':
+        return _wampMetaToolResult(
+          id,
+          'wamp.registration.count_callees',
+          arguments: const <Object?>[1],
+        );
+      case 'wamp.subscription.match':
+        return _wampMetaToolResult(
+          id,
+          'wamp.subscription.match',
+          arguments: const <Object?>[17],
+        );
+      case 'wamp.subscription.count_subscribers':
+        return _wampMetaToolResult(
+          id,
+          'wamp.subscription.count_subscribers',
+          argumentsKeywords: const <String, Object?>{'count': 1},
+        );
       default:
         return _error(id, -32601, 'unsupported tool: $toolName');
     }
+  }
+
+  Map<String, Object?> _wampMetaToolResult(
+    Object? id,
+    String procedure, {
+    List<Object?> arguments = const <Object?>[],
+    Map<String, Object?> argumentsKeywords = const <String, Object?>{},
+  }) {
+    return _toolResult(id, <String, Object?>{
+      'procedure': procedure,
+      if (arguments.isNotEmpty) 'arguments': arguments,
+      if (argumentsKeywords.isNotEmpty) 'argumentsKeywords': argumentsKeywords,
+    });
   }
 
   Map<String, Object?> _toolResult(
