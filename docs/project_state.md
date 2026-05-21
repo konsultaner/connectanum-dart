@@ -2,23 +2,38 @@
 
 Last updated: 2026-05-21
 Current branch: `add-router`
-Last reviewed branch checkpoint: This implementation follow-up hardens the
-Router Image dry-run audit by downloading the `router-image-preview` artifact,
-requiring `router-image-metadata.md`, verifying dry-run/publish=false metadata,
-and rejecting primary Docker tags that still use a project-version `v` prefix.
-Pre-change `bin/test-fast`, focused `python3 -m unittest
-tool/test_audit_github_deployment_chain.py`, live read-only
-`bin/audit-github-deployment-chain --branch master --show-router-image-dry-run`,
-`git diff --check`, and full local `bin/verify` passed; the live audit reports
-`Router image dry-run preview metadata: ready (0.1.0-rc.2)` for Router Image
-dry-run `26225059344`. Hosted GitHub evidence is clean at prior checkpoint
-`babaa9f`: `master` CI run `26225035187` and `add-router` CI run
-`26225035212` passed with Fast Checks and Full Verify green, Router Image
-dry-run `26225059344` passed on `master` for manual `image_tag=v0.1.0-rc.2`
-without GHCR login, and the strict deployment-chain audit passed required gates
-on `master`. RC readiness remains not-ready only because no approved numeric RC
-tag, GitHub prerelease, or matching RC router image tag has been selected. No
-RC tag, GitHub Release, or router image was created or moved.
+Last reviewed branch checkpoint: Commit `f91cc8b` (`ci: audit router image
+preview metadata`) was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`. It hardens the Router Image dry-run audit by downloading the
+`router-image-preview` artifact, requiring `router-image-metadata.md`,
+verifying dry-run/publish=false metadata, and rejecting primary Docker tags
+that still use a project-version `v` prefix. Pre-change `bin/test-fast`,
+focused `python3 -m unittest tool/test_audit_github_deployment_chain.py`, live
+read-only `bin/audit-github-deployment-chain --branch master
+--show-router-image-dry-run`, `git diff --check`, and full local `bin/verify`
+passed; the live audit reports `Router image dry-run preview metadata: ready
+(0.1.0-rc.2)` for Router Image dry-run `26225059344`. Hosted GitHub evidence
+is clean at `f91cc8b`: `master` CI run `26228085097` and `add-router` CI run
+`26228080838` passed with Fast Checks and Full Verify green, and the strict
+deployment-chain audit passed required gates on `master` at `f91cc8b`, accepting
+Router Image dry-run `26225059344` as relevant because no
+router-image-sensitive inputs changed. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected. No RC tag, GitHub Release, or router image was
+created or moved.
+Current MCP auth/session follow-up: `ConnectanumHttpAuthClient` now surfaces
+non-success non-JSON auth bridge responses as typed
+`ConnectanumHttpAuthException`s that preserve status code and raw body with no
+decoded error payload, while successful malformed JSON still fails as malformed
+JSON. The generated client-only consumer package smoke now proves the same
+behavior through `package:connectanum_mcp/connectanum_mcp_io.dart` and public
+APIs only, so downstream applications receive a stable typed auth/session error
+instead of a `FormatException` when a router-hosted auth bridge returns plain
+text or HTML during an outage. Local focused evidence before clean-tree full
+verification: pre-change `bin/test-fast` passed, focused
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r
+expanded` passed, `bash -n bin/common.sh` passed, and focused
+`run_mcp_client_package_smoke` passed.
 Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side
@@ -489,9 +504,10 @@ without GHCR login, and the strict deployment-chain audit passed required gates
 on `master`. The audit still marks RC readiness not-ready because no approved
 numeric RC tag, GitHub prerelease, or matching RC router image tag has been
 selected; it suggests `v0.1.0-rc.2`.
-This implementation follow-up hardens the Router Image dry-run audit artifact
-evidence: the audit now downloads `router-image-preview`, verifies the
-`router-image-metadata.md` summary targets
+Commit `f91cc8b` (`ci: audit router image preview metadata`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`. It hardens the
+Router Image dry-run audit artifact evidence: the audit now downloads
+`router-image-preview`, verifies the `router-image-metadata.md` summary targets
 `ghcr.io/konsultaner/connectanum-router`, requires dry-run mode and
 publish=false, parses the first metadata tag, validates it as a Docker tag, and
 rejects project-version `v` prefixes that would not match RC image tag
@@ -499,18 +515,33 @@ semantics. Pre-change `bin/test-fast`, focused `bash -n
 bin/audit-github-deployment-chain`, focused `python3 -m unittest
 tool/test_audit_github_deployment_chain.py`, live read-only
 `bin/audit-github-deployment-chain --branch master --show-router-image-dry-run`,
-`git diff --check`, and full local `bin/verify` passed. The live audit reports
-Router Image dry-run `26225059344` preview metadata ready with primary tag
-`0.1.0-rc.2`.
+`git diff --check`, and full local `bin/verify` passed. Hosted GitHub evidence
+is clean at `f91cc8b`: `master` CI run `26228085097` and `add-router` CI run
+`26228080838` passed with Fast Checks and Full Verify green, and the strict
+deployment-chain audit passed required gates on `master` at `f91cc8b`. The
+strict audit accepts Router Image dry-run `26225059344` as relevant because no
+router-image-sensitive inputs changed after that run, downloads the preview
+metadata, and verifies primary tag `0.1.0-rc.2` before accepting the gate.
+Current MCP auth/session follow-up hardens router-hosted auth bridge outage
+behavior for downstream applications. `ConnectanumHttpAuthClient` now converts
+non-success non-JSON HTTP auth responses into typed
+`ConnectanumHttpAuthException`s with preserved raw bodies instead of leaking a
+`FormatException`, and the generated client-only consumer package smoke proves
+that behavior through the public `connectanum_mcp_io` package boundary.
+Focused local evidence before clean-tree full verification: pre-change
+`bin/test-fast`, focused `dart test
+packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+`bash -n bin/common.sh`, and focused `run_mcp_client_package_smoke` passed.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated hosted audit-readiness checkpoint at `babaa9f`; the latest
+validated hosted audit-readiness checkpoint at `f91cc8b`; the latest
 implementation follow-up hardens Router Image dry-run preview metadata
-inspection, while earlier implementation follow-ups normalize manual Router
-Image project-version tag inputs to the Docker tag shape required by RC audit
-evidence, tighten RC router image tag audit evidence, make
+inspection with hosted CI and strict audit evidence, while earlier
+implementation follow-ups normalize manual Router Image project-version tag
+inputs to the Docker tag shape required by RC audit evidence, tighten RC router
+image tag audit evidence, make
 hosted package dry-run runs print the release plan directly, harden Dart
 package release-plan diagnostics, improve
 deferred-pub.dev audit readability, and add a first-class WAMP Profile

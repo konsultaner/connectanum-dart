@@ -217,6 +217,38 @@ void main() {
         ),
       );
     });
+
+    test('throws typed exceptions for non-JSON auth error bodies', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind(
+        failChallengeWithText: true,
+      );
+      addTearDown(endpoint.close);
+
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.issueTicketToken(
+          realm: 'realm1',
+          authId: 'user-1',
+          ticket: 'ticket-secret',
+        ),
+        throwsA(
+          isA<ConnectanumHttpAuthException>()
+              .having(
+                (error) => error.statusCode,
+                'statusCode',
+                HttpStatus.serviceUnavailable,
+              )
+              .having(
+                (error) => error.body,
+                'body',
+                contains('auth bridge unavailable'),
+              )
+              .having((error) => error.error, 'error', isNull),
+        ),
+      );
+    });
   });
 }
 
@@ -226,6 +258,7 @@ final class _FakeHttpAuthEndpoint {
     required this.authMethod,
     required this.challenge,
     required this.failChallenge,
+    required this.failChallengeWithText,
   }) {
     _subscription = _server.listen(_handle);
   }
@@ -234,6 +267,7 @@ final class _FakeHttpAuthEndpoint {
   final String authMethod;
   final Map<String, Object?> challenge;
   final bool failChallenge;
+  final bool failChallengeWithText;
   final requests = <_SeenAuthRequest>[];
   late final StreamSubscription<HttpRequest> _subscription;
 
@@ -248,6 +282,7 @@ final class _FakeHttpAuthEndpoint {
     String authMethod = 'ticket',
     Map<String, Object?> challenge = const <String, Object?>{},
     bool failChallenge = false,
+    bool failChallengeWithText = false,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     return _FakeHttpAuthEndpoint._(
@@ -255,6 +290,7 @@ final class _FakeHttpAuthEndpoint {
       authMethod: authMethod,
       challenge: challenge,
       failChallenge: failChallenge,
+      failChallengeWithText: failChallengeWithText,
     );
   }
 
@@ -288,6 +324,14 @@ final class _FakeHttpAuthEndpoint {
           'status': 'error',
           'reason': 'bad_request',
         }, statusCode: HttpStatus.badRequest);
+        return;
+      }
+      if (failChallengeWithText) {
+        _writeText(
+          request,
+          'auth bridge unavailable',
+          statusCode: HttpStatus.serviceUnavailable,
+        );
         return;
       }
       expect(body['authmethod'], authMethod);
@@ -326,6 +370,17 @@ final class _FakeHttpAuthEndpoint {
     request.response.statusCode = statusCode;
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode(body));
+    unawaited(request.response.close());
+  }
+
+  void _writeText(
+    HttpRequest request,
+    String body, {
+    int statusCode = HttpStatus.ok,
+  }) {
+    request.response.statusCode = statusCode;
+    request.response.headers.contentType = ContentType.text;
+    request.response.write(body);
     unawaited(request.response.close());
   }
 }

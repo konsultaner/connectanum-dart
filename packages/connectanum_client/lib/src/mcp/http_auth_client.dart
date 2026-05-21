@@ -182,7 +182,16 @@ final class ConnectanumHttpAuthClient {
 
     final response = await request.close();
     final body = await utf8.decodeStream(response);
-    final decoded = body.isEmpty ? null : jsonDecode(body);
+    Object? decoded;
+    if (body.isNotEmpty) {
+      try {
+        decoded = jsonDecode(body);
+      } on FormatException {
+        if (response.statusCode == expectedStatus) {
+          rethrow;
+        }
+      }
+    }
     if (response.statusCode != expectedStatus) {
       throw ConnectanumHttpAuthException(
         statusCode: response.statusCode,

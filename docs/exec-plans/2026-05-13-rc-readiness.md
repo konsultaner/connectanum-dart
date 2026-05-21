@@ -1025,24 +1025,43 @@ decision because `connectanum_client` still depends on private
   without GHCR login, and the strict deployment-chain audit passed required
   gates on `master`. No RC tag, GitHub Release, or router image was created or
   moved.
-- 2026-05-21: This implementation follow-up hardens Router Image dry-run
-  artifact evidence in the deployment-chain audit. The audit now downloads
-  `router-image-preview`, verifies `router-image-metadata.md` targets
-  `ghcr.io/konsultaner/connectanum-router`, requires dry-run mode and
-  publish=false, parses and validates the primary Docker tag, and rejects
-  project-version `v` prefixes that would not match exact RC image tag
-  semantics. Pre-change `bin/test-fast`, focused `bash -n
+- 2026-05-21: Commit `f91cc8b` (`ci: audit router image preview metadata`)
+  hardens Router Image dry-run artifact evidence in the deployment-chain audit.
+  The audit now downloads `router-image-preview`, verifies
+  `router-image-metadata.md` targets `ghcr.io/konsultaner/connectanum-router`,
+  requires dry-run mode and publish=false, parses and validates the primary
+  Docker tag, and rejects project-version `v` prefixes that would not match
+  exact RC image tag semantics. Pre-change `bin/test-fast`, focused `bash -n
   bin/audit-github-deployment-chain`, focused `python3 -m unittest
   tool/test_audit_github_deployment_chain.py`, live read-only
   `bin/audit-github-deployment-chain --branch master
   --show-router-image-dry-run`, `git diff --check`, and full local
-  `bin/verify` passed. The live audit reports Router Image dry-run
-  `26225059344` preview metadata ready with primary tag `0.1.0-rc.2`. No RC
-  tag, GitHub Release, or router image was created or moved.
+  `bin/verify` passed. The commit was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `f91cc8b`: `master` CI run `26228085097` and `add-router` CI run
+  `26228080838` passed with Fast Checks and Full Verify green, and the strict
+  deployment-chain audit passed required gates on `master` at `f91cc8b`. The
+  strict audit accepts Router Image dry-run `26225059344` as relevant because no
+  router-image-sensitive inputs changed after that run, downloads the preview
+  metadata, and verifies primary tag `0.1.0-rc.2` before accepting the gate. No
+  RC tag, GitHub Release, or router image was created or moved.
+- 2026-05-21: This MCP auth/session follow-up hardens downstream application
+  behavior when a router-hosted auth bridge returns a non-JSON error body.
+  `ConnectanumHttpAuthClient` now throws typed
+  `ConnectanumHttpAuthException`s for non-success plain-text or HTML auth
+  bridge responses, preserving status code and raw body with no decoded error
+  payload, while successful malformed JSON still fails as malformed JSON. The
+  focused `http_auth_client_test.dart` regression covers a plain-text 503
+  challenge response, and the generated client-only consumer package smoke now
+  proves the same behavior through `package:connectanum_mcp/connectanum_mcp_io.dart`
+  using public APIs only. Focused local evidence before clean-tree full
+  verification: pre-change `bin/test-fast`, focused `dart test
+  packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+  `bash -n bin/common.sh`, and focused `run_mcp_client_package_smoke` passed.
 
 ## Handoff
 
-Active. The latest fully clean hosted deployment-chain checkpoint is `babaa9f`.
+Active. The latest fully clean hosted deployment-chain checkpoint is `f91cc8b`.
 The latest implementation follow-up hardens Router Image dry-run preview
 metadata inspection; the prior implementation follow-ups normalize manual Router
 Image project-version tag inputs to the Docker tag shape required by exact RC
@@ -1059,15 +1078,15 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26225035187` for checkpoint `babaa9f`: Fast
+Hosted `master` CI is green at run `26228085097` for checkpoint `f91cc8b`: Fast
 Checks and Full Verify passed. Hosted `add-router` CI is green at run
-`26225035212`. Hosted Dart Package Publish Dry Run is green at run
+`26228080838`. Hosted Dart Package Publish Dry Run is green at run
 `26220664109` on `master` and run `26220660832` on `add-router`; both runs log
 the release-order plan and private-package blocker sections from
 `--show-release-plan`. Hosted `master` WAMP Profile Benchmarks run
 `26214693251` passed with artifact upload; the audit accepts it as relevant
 because no WAMP-profile-sensitive inputs changed after that run. The strict
-deployment-chain audit passes on `master` at `babaa9f` with clean current-head CI/log,
+deployment-chain audit passes on `master` at `f91cc8b` with clean current-head CI/log,
 relevant Dart package dry-run, relevant native release dry-run, relevant router
 image dry-run, relevant WAMP profile benchmark evidence, workflow visibility,
 branch protection, and router package visibility gates. The router package
@@ -1076,12 +1095,12 @@ visibility gate verifies public GHCR registry metadata for
 `26225059344` at `babaa9f`; it used manual `image_tag=v0.1.0-rc.2`, uploaded the
 preview artifact, skipped GHCR login, and the audit now downloads the preview
 metadata and verifies primary tag `0.1.0-rc.2` before accepting it as relevant
-for the current router-image-sensitive inputs.
+because no router-image-sensitive inputs changed after that run.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `babaa9f`. It suggests
+older commit `47bbf9c`, not the current candidate head `f91cc8b`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.

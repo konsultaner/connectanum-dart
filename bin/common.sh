@@ -753,6 +753,8 @@ Future<void> main() async {
         'x-consumer-default': 'client-auth-default',
       },
     );
+    await _smokeNonJsonAuthError(endpoint);
+
     final grant = await authClient.issueTicketToken(
       realm: _authRealm,
       authId: _authId,
@@ -920,6 +922,48 @@ Future<void> main() async {
     authClient?.close(force: true);
     await endpoint.close();
   }
+}
+
+Future<void> _smokeNonJsonAuthError(_AgentMcpEndpoint endpoint) async {
+  final authClient = ConnectanumHttpAuthClient(
+    endpoint.authTextErrorUri,
+    headers: const <String, String>{
+      'x-consumer-default': 'client-auth-default',
+    },
+  );
+  try {
+    await authClient.issueTicketToken(
+      realm: _authRealm,
+      authId: _authId,
+      ticket: _ticketSecret,
+      headers: const <String, String>{'x-consumer-trace': 'auth-text-error'},
+    );
+    throw StateError('auth client accepted a non-JSON auth error body');
+  } on ConnectanumHttpAuthException catch (error) {
+    _expect(
+      error.statusCode == HttpStatus.serviceUnavailable,
+      'non-JSON auth error returned ${error.statusCode}, expected 503',
+    );
+    _expect(
+      error.body.contains('auth bridge unavailable'),
+      'non-JSON auth error did not preserve the raw response body',
+    );
+    _expect(
+      error.error == null,
+      'non-JSON auth error exposed a decoded error payload',
+    );
+  } finally {
+    authClient.close(force: true);
+  }
+
+  _expect(
+    endpoint.authTextErrorBodies.length == 1,
+    'non-JSON auth error smoke did not send exactly one challenge request',
+  );
+  _expect(
+    endpoint.authTextErrorTraceHeaders.single == 'auth-text-error',
+    'non-JSON auth error smoke did not forward per-call auth headers',
+  );
 }
 
 Future<void> _smokeGenericJsonRpcApi(
@@ -3245,8 +3289,10 @@ final class _AgentMcpEndpoint {
   final streamableTraceHeadersWithoutSession = <String>{};
   final streamableTraceHeadersWithSession = <String>{};
   final authRequestBodies = <Map<String, Object?>>[];
+  final authTextErrorBodies = <Map<String, Object?>>[];
   final authTraceHeaders = <String>[];
   final authDefaultHeaders = <String>[];
+  final authTextErrorTraceHeaders = <String>[];
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   var sawDirectRequestWithoutSession = false;
@@ -3267,6 +3313,13 @@ final class _AgentMcpEndpoint {
     path: '/auth',
   );
 
+  Uri get authTextErrorUri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/auth-text-error',
+  );
+
   static Future<_AgentMcpEndpoint> bind() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     return _AgentMcpEndpoint._(server);
@@ -3278,6 +3331,11 @@ final class _AgentMcpEndpoint {
   }
 
   Future<void> _handle(HttpRequest request) async {
+    if (request.uri.path == '/auth-text-error') {
+      await _handleAuthTextError(request);
+      return;
+    }
+
     if (request.uri.path == '/auth') {
       await _handleAuth(request);
       return;
@@ -3516,6 +3574,41 @@ final class _AgentMcpEndpoint {
       'refresh_token_expires_in': 600,
       'details': <String, Object?>{'scope': 'mcp'},
     });
+  }
+
+  Future<void> _handleAuthTextError(HttpRequest request) async {
+    if (request.method != 'POST') {
+      await _writeText(
+        request,
+        'unsupported auth method',
+        statusCode: HttpStatus.methodNotAllowed,
+      );
+      return;
+    }
+    _expect(
+      request.headers.value(HttpHeaders.acceptHeader) == 'application/json',
+      'auth client did not request JSON responses for non-JSON error smoke',
+    );
+    _expect(
+      request.headers.contentType?.mimeType == 'application/json',
+      'auth client did not send JSON requests for non-JSON error smoke',
+    );
+    final trace = request.headers.value('x-consumer-trace');
+    if (trace != null) {
+      authTextErrorTraceHeaders.add(trace);
+    }
+
+    final body = await utf8.decoder.bind(request).join();
+    final message = _jsonMapFrom(
+      jsonDecode(body),
+      label: 'auth text-error request',
+    );
+    authTextErrorBodies.add(message);
+    await _writeText(
+      request,
+      'auth bridge unavailable',
+      statusCode: HttpStatus.serviceUnavailable,
+    );
   }
 
   Future<void> _handleBatch(
@@ -4228,6 +4321,17 @@ final class _AgentMcpEndpoint {
     request.response.headers.contentType = ContentType.json;
     _applyTestResponseHeaders(request);
     request.response.write(jsonEncode(body));
+    await request.response.close();
+  }
+
+  Future<void> _writeText(
+    HttpRequest request,
+    String body, {
+    int statusCode = HttpStatus.ok,
+  }) async {
+    request.response.statusCode = statusCode;
+    request.response.headers.contentType = ContentType.text;
+    request.response.write(body);
     await request.response.close();
   }
 
