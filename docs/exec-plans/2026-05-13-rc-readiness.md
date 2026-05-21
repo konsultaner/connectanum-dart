@@ -745,38 +745,55 @@ decision because `connectanum_client` still depends on private
   GitHub at the checked-out head. Pre-change `bin/test-fast`,
   `bash -n bin/audit-github-deployment-chain`, and
   `python3 -m unittest tool/test_audit_github_deployment_chain.py` passed;
-  full local `bin/verify` passed before handoff.
+  full local `bin/verify` passed before handoff. Commit `11a9b24` was pushed
+  to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted
+  `master` CI run `26201026642` passed with Fast Checks and Full Verify green,
+  and the strict deployment-chain audit passed required release-branch gates at
+  `11a9b24`. RC readiness remains not-ready only because no approved numeric
+  RC tag or GitHub prerelease points at `11a9b24`; the audit suggests
+  `v0.1.0-rc.2` as the next release-decision tag.
+- 2026-05-21: This implementation follow-up adds
+  `McpStreamableHttpClient.callConnectanumMethod(...)` as the
+  Streamable-session counterpart to `callConnectanumMethodDirect(...)`, letting
+  consumer applications call router-provided dotted Connectanum methods through
+  an active MCP session without hand-assembling direct JSON requests. Client
+  coverage proves Streamable session headers are preserved and cached
+  `Mcp-Param-*` headers are regenerated over stale caller headers; the MCP IO
+  export test proves the helper is available through
+  `package:connectanum_mcp/connectanum_mcp_io.dart` and works for
+  `connectanum.pubsub.publish`; and the generated router-hosted
+  consumer-package smoke proves the public helper publishes and receives a WAMP
+  event through a real router endpoint without private assumptions. Pre-change
+  `bin/test-fast`, `bash -n bin/common.sh`, focused client/MCP tests, the
+  focused generated router-hosted consumer-package smoke, and full local
+  `bin/verify` passed.
 
 ## Handoff
 
-Active. GitHub `master` points at `882c207`, matching the previously pushed
-`add-router` head. The default branch contains the router-hosted MCP
-downstream-readiness work plus explicit branch-protection audit handoff
-evidence; the current local audit follow-up tightens local-vs-GitHub RC tag
-validation before the next promotion. MCP coverage
-includes auth/session correctness, router-provided MCP endpoints, direct JSON
-tool and meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
+Active. GitHub `master` and `add-router` point at `11a9b24`. The default
+branch contains the router-hosted MCP downstream-readiness work plus explicit
+branch-protection and GitHub RC-tag audit handoff evidence; the current local
+implementation follow-up closes the Streamable-session generic Connectanum
+method helper gap before the next promotion. MCP coverage includes
+auth/session correctness, router-provided MCP endpoints, direct JSON tool and
+meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
 compatibility, and generated consumer-package smokes that use public package
 APIs without private project assumptions.
 
-Hosted `master` current-head CI is green for run `26199199255`: Fast Checks
-passed in 4m26s and Full Verify passed in 6m15s. Dart Package Publish Dry Run
-`26196195553`, WAMP Profile Benchmarks `26196195554`, Router Image dry-run
-`26196649190`, and Native Artifacts dry-run `26151756102` remain relevant
-because no publish-, benchmark-, router-image-, or native-release-sensitive
-paths changed in `882c207`. The strict deployment-chain audit passes on
-`master` with clean current-head CI/log, relevant Dart package dry-run, native
-release dry-run relevance, router image dry-run relevance, workflow visibility,
-branch protection, and router package visibility gates. The router package
-visibility gate verifies public GHCR registry metadata for
-`ghcr.io/konsultaner/connectanum-router`. Local `bin/test-fast` passed before
-the master promotion, and post-promotion local `bin/verify` passed.
+Hosted `master` current-head CI is green for run `26201026642`: Fast Checks and
+Full Verify passed. The strict deployment-chain audit passes on `master` with
+clean current-head CI/log, relevant release dry-run evidence, workflow
+visibility, branch protection, and router package visibility gates. The router
+package visibility gate verifies public GHCR registry metadata for
+`ghcr.io/konsultaner/connectanum-router`. For the current local implementation
+follow-up, pre-change `bin/test-fast` and final local `bin/verify` passed,
+including generated consumer-package smoke coverage.
 
-Continue with RC tag/prerelease selection for `882c207` only from a checkout
-aligned with GitHub `master`. The audit inventories stale local and GitHub RC
-tags and reports that existing `v0.1.0-rc.1` points at older commit `47bbf9c`,
-not the current candidate head. It suggests `v0.1.0-rc.2` exactly once as the
-next numeric follow-up tag while still reporting RC prerelease selection as
-not-ready. Moving the stale tag or approving a follow-up RC tag remains a
-release decision. No RC tag or GitHub Release was created or moved during this
-promotion/evidence update.
+Continue with RC tag/prerelease selection from a checkout aligned with GitHub
+`master` after the next implementation promotion. The audit inventories stale
+local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
+older commit `47bbf9c`, not the current candidate head. It suggests
+`v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
+reporting RC prerelease selection as not-ready. Moving the stale tag or
+approving a follow-up RC tag remains a release decision. No RC tag or GitHub
+Release was created or moved during this promotion/evidence update.

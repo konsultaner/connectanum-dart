@@ -16870,6 +16870,45 @@ Future<void> _smokeStreamableNotificationPubSub(
       );
     }
 
+    final methodTaskId = 'T-$label-streamable-method-pubsub';
+    final methodPublish = await client.callConnectanumMethod(
+      'connectanum.pubsub.publish',
+      id: '$label-streamable-method-pubsub-publish',
+      params: {
+        'topic': _topic,
+        'argumentsKeywords': {'taskId': methodTaskId},
+        'acknowledge': true,
+      },
+      headers: <String, String>{
+        'Mcp-Param-Topic': 'wrong-topic',
+        'x-consumer-trace': '$label-streamable-method-pubsub-publish',
+      },
+    );
+    final methodPublishContent = _jsonObjectFrom(
+      methodPublish['structuredContent'],
+      label: '$label Streamable method pub/sub publish result',
+    );
+    if (methodPublishContent['topic'] != _topic ||
+        methodPublishContent['acknowledged'] != true) {
+      throw StateError(
+        'Streamable MCP Connectanum method publish returned '
+        '${jsonEncode(methodPublishContent)}.',
+      );
+    }
+
+    final methodEvents = await _pollMcpEventsUntil(
+      client,
+      subscription.handle,
+      headers: <String, String>{
+        'x-consumer-trace': '$label-streamable-method-pubsub-poll',
+      },
+    );
+    if (!jsonEncode(methodEvents.events).contains(methodTaskId)) {
+      throw StateError(
+        'Streamable MCP Connectanum method publish did not deliver event.',
+      );
+    }
+
     final eventIdBeforeNotificationBatch = client.lastEventId;
     final taskId = 'T-$label-streamable-notification-pubsub';
     final invalidTaskId = 'T-$label-streamable-invalid-notification-pubsub';

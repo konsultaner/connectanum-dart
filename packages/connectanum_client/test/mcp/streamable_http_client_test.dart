@@ -726,6 +726,43 @@ void main() {
       },
     );
 
+    test('uses Connectanum method helper on Streamable sessions', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.listConnectanumToolsDirect(id: 'streamable-method-catalog');
+      await client.initialize();
+      await client.notifyInitialized();
+      endpoint.requests.clear();
+
+      final result = await client.callConnectanumMethod(
+        'app.echo',
+        id: 'streamable-method-call',
+        params: const <String, Object?>{'message': 'streamable'},
+        headers: const <String, String>{
+          'Mcp-Param-Message': 'wrong',
+          'x-consumer-trace': 'streamable-method-call',
+        },
+      );
+
+      expect(result['isError'], isFalse);
+      expect(result['structuredContent'], {
+        'echo': {'message': 'streamable'},
+      });
+      expect(client.sessionId, 'session-1');
+      expect(endpoint.requests, hasLength(1));
+      expect(endpoint.requests.single.accept, contains('text/event-stream'));
+      expect(endpoint.requests.single.sessionId, 'session-1');
+      expect(endpoint.requests.single.mcpMethod, 'app.echo');
+      expect(endpoint.requests.single.consumerTrace, 'streamable-method-call');
+      expect(endpoint.requests.single.mcpParameterHeaders, {
+        'mcp-param-message': 'streamable',
+      });
+    });
+
     test(
       'reuses direct JSON tool catalog for later Streamable custom headers',
       () async {

@@ -374,6 +374,29 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: method);
   }
 
+  Future<McpJsonMap> callConnectanumMethod(
+    String method, {
+    Object? id,
+    McpJsonMap params = const <String, Object?>{},
+    bool streamable = true,
+    bool includeSession = true,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final response = await request(
+      method,
+      id: id,
+      params: params,
+      streamable: streamable,
+      includeSession: includeSession,
+      headers: _headersWithConnectanumMethodParameterHeaders(
+        method,
+        params,
+        headers,
+      ),
+    );
+    return _jsonRpcResultFrom(response, method: method);
+  }
+
   Future<McpJsonMap> callConnectanumMethodDirect(
     String method, {
     Object? id,

@@ -959,6 +959,27 @@ void main() {
     expect(streamablePublication.publicationId, 42);
     expect(client.lastEventId, 'io-session-1:post:2');
 
+    final methodPublication = await client.callConnectanumMethod(
+      'connectanum.pubsub.publish',
+      id: 'io-streamable-method-publish',
+      params: const <String, Object?>{
+        'topic': _ioTopic,
+        'argumentsKeywords': <String, Object?>{'message': 'method'},
+        'acknowledge': true,
+      },
+      headers: const <String, String>{
+        'Mcp-Param-Topic': 'wrong',
+        'x-consumer-trace': 'io-streamable-method-publish',
+      },
+    );
+    final methodPublicationContent = _jsonMapFrom(
+      methodPublication['structuredContent'],
+      label: 'streamable method publish content',
+    );
+    expect(methodPublicationContent['topic'], _ioTopic);
+    expect(methodPublicationContent['acknowledged'], isTrue);
+    expect(client.lastEventId, 'io-session-1:post:3');
+
     final eventIdBeforeNotification = client.lastEventId;
     await client.notifyWampEvent(
       _ioTopic,
@@ -983,7 +1004,7 @@ void main() {
     });
     expect(streamableBatch.dropped, 0);
     expect(streamableBatch.remaining, 0);
-    expect(client.lastEventId, 'io-session-1:post:3');
+    expect(client.lastEventId, 'io-session-1:post:4');
 
     final streamableUnsubscribe = await client.unsubscribeWampTopic(
       streamableSubscription.handle,
@@ -995,7 +1016,7 @@ void main() {
     expect(streamableUnsubscribe.handle, streamableSubscription.handle);
     expect(streamableUnsubscribe.topic, _ioTopic);
     expect(streamableUnsubscribe.unsubscribed, isTrue);
-    expect(client.lastEventId, 'io-session-1:post:4');
+    expect(client.lastEventId, 'io-session-1:post:5');
 
     final sessionId = client.sessionId;
     final lastEventId = client.lastEventId;
@@ -1108,21 +1129,25 @@ void main() {
 
     expect(client.sessionId, sessionId);
     expect(client.lastEventId, lastEventId);
-    expect(endpoint.requests, hasLength(11));
+    expect(endpoint.requests, hasLength(12));
     expect(endpoint.requests[0].sessionId, isNull);
-    for (final request in endpoint.requests.skip(1).take(5)) {
+    for (final request in endpoint.requests.skip(1).take(6)) {
       expect(request.sessionId, 'io-session-1');
       expect(request.accept, contains('text/event-stream'));
     }
-    for (final request in endpoint.requests.skip(6)) {
+    for (final request in endpoint.requests.skip(7)) {
       expect(request.sessionId, isNull);
       expect(request.accept, 'application/json');
     }
     expect(
-      endpoint.requests.skip(1).take(9).map((request) => request.consumerTrace),
+      endpoint.requests
+          .skip(1)
+          .take(10)
+          .map((request) => request.consumerTrace),
       [
         'io-streamable-subscribe',
         'io-streamable-publish',
+        'io-streamable-method-publish',
         'io-streamable-notify',
         'io-streamable-poll',
         'io-streamable-unsubscribe',
@@ -1132,7 +1157,7 @@ void main() {
         'io-direct-unsubscribe',
       ],
     );
-    expect(endpoint.requests[3].body, {
+    expect(endpoint.requests[4].body, {
       'jsonrpc': '2.0',
       'method': 'connectanum.pubsub.publish',
       'params': {
@@ -1823,6 +1848,14 @@ final class _StreamableMcpEndpoint {
     Map<String, Object?> message,
   ) {
     final id = message['id'];
+    final method = message['method'];
+    if (method is String && method.startsWith('connectanum.pubsub.')) {
+      return _responseForToolCall(
+        id,
+        method,
+        _jsonMapFrom(message['params'], label: 'connectanum method params'),
+      );
+    }
     switch (message['method']) {
       case 'initialize':
         request.response.headers.set('MCP-Session-Id', 'io-session-1');

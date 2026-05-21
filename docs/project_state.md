@@ -191,19 +191,39 @@ ready, preventing stale remote tag/release combinations from being masked by a
 local tag. Focused validation passed with pre-change `bin/test-fast`,
 `bash -n bin/audit-github-deployment-chain`, and
 `python3 -m unittest tool/test_audit_github_deployment_chain.py`; full local
-`bin/verify` passed before handoff.
+`bin/verify` passed before handoff. Commit `11a9b24` was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted `master` CI run
+`26201026642` passed with Fast Checks and Full Verify green, and the strict
+deployment-chain audit passed required release-branch gates at `11a9b24`.
+RC readiness remains not-ready only because no approved numeric RC tag or
+GitHub prerelease points at `11a9b24`; the audit suggests `v0.1.0-rc.2` as the
+next release-decision tag.
+
+This implementation follow-up adds
+`McpStreamableHttpClient.callConnectanumMethod(...)` as the Streamable-session
+counterpart to `callConnectanumMethodDirect(...)`, so consumer applications can
+call router-provided dotted Connectanum methods through an active MCP session
+without hand-assembling direct JSON requests. Client coverage proves the helper
+preserves Streamable session headers and regenerates cached `Mcp-Param-*`
+headers over stale caller headers; the MCP IO export test proves the helper is
+available through `package:connectanum_mcp/connectanum_mcp_io.dart` and works
+for `connectanum.pubsub.publish`; and the generated router-hosted
+consumer-package smoke proves the public helper publishes and receives a WAMP
+event through a real router endpoint without private project assumptions.
+Pre-change `bin/test-fast`, `bash -n bin/common.sh`, focused client/MCP tests,
+the focused generated router-hosted consumer-package smoke, and full local
+`bin/verify` passed.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
-promoted default branch. GitHub `master` contains the latest validated MCP
-branch content and the branch-protection audit-readiness follow-up at
-`882c207`; the current local audit follow-up tightens RC tag/prerelease
-validation before the next promotion. MCP is RC-ready for the first candidate:
-router-hosted endpoints,
-auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
-resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
-coverage are in place. Further MCP helper permutations are post-RC polish unless
-consumer integration exposes a real correctness bug.
+promoted default branch. GitHub `master` and `add-router` contain the latest
+validated audit-readiness checkpoint at `11a9b24`; this local implementation
+follow-up closes the Streamable-session generic Connectanum method helper gap
+before the next promotion. MCP remains RC-ready for the first candidate:
+router-hosted endpoints, auth/session correctness, direct JSON/meta API, WAMP
+pub/sub coverage, resources/prompts, Streamable HTTP compatibility, and
+consumer-package smoke coverage are in place. Further MCP helper permutations
+are post-RC polish unless consumer integration exposes a real correctness bug.
 Latest completed exec plan:
 `docs/exec-plans/2026-05-13-mcp-consumer-direct-wamp-api-helper-smoke.md`
 (complete; hosted CI evidence clean; MCP treated as RC-ready).
@@ -10865,11 +10885,11 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active plan:
-  `docs/exec-plans/2026-05-09-router-hosted-mcp-example-error-recovery-smoke.md`
-  (complete; hosted CI evidence clean).
-  Keep hosted GitHub CI clean first, then continue router-hosted MCP
-  downstream application readiness work that does not require operator-owned
-  publish or repository-setting decisions.
+  `docs/exec-plans/2026-05-13-rc-readiness.md`.
+  Keep hosted GitHub CI clean first, then continue release-candidate readiness
+  work from the GitHub default branch. MCP is treated as RC-ready unless a real
+  consumer integration bug appears; current local work closes public package
+  helper and smoke-test gaps for router-hosted MCP consumer applications.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub
