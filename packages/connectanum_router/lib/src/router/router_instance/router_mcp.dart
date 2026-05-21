@@ -134,13 +134,40 @@ bool _mcpProtocolVersionHeaderSupported(
   return value == null || _mcpSupportedHttpProtocolVersions.contains(value);
 }
 
-Set<String> _mcpAcceptTypes(RouterBinding binding, RouterHttpRequest request) {
+class _McpAcceptMediaRange {
+  const _McpAcceptMediaRange(this.type, this.subtype, this.quality);
+
+  final String type;
+  final String subtype;
+  final double quality;
+
+  int specificityFor(String type, String subtype) {
+    if (this.type == '*' && this.subtype == '*') {
+      return 0;
+    }
+    if (this.type != type) {
+      return -1;
+    }
+    if (this.subtype == '*') {
+      return 1;
+    }
+    if (this.subtype == subtype) {
+      return 2;
+    }
+    return -1;
+  }
+}
+
+List<_McpAcceptMediaRange> _mcpAcceptTypes(
+  RouterBinding binding,
+  RouterHttpRequest request,
+) {
   final accept = _mcpHeaderValue(binding, request, HttpHeaders.acceptHeader);
   if (accept == null) {
-    return const <String>{};
+    return const <_McpAcceptMediaRange>[];
   }
 
-  final accepted = <String>{};
+  final accepted = <_McpAcceptMediaRange>[];
   for (final part in accept.split(',')) {
     final segments = part.split(';');
     final mediaType = segments.first.trim().toLowerCase();
@@ -148,7 +175,14 @@ Set<String> _mcpAcceptTypes(RouterBinding binding, RouterHttpRequest request) {
       continue;
     }
 
-    var acceptsMediaType = true;
+    final slash = mediaType.indexOf('/');
+    final type = slash < 0 ? mediaType : mediaType.substring(0, slash).trim();
+    final subtype = slash < 0 ? '' : mediaType.substring(slash + 1).trim();
+    if (type.isEmpty || (slash >= 0 && subtype.isEmpty)) {
+      continue;
+    }
+
+    var quality = 1.0;
     for (final parameter in segments.skip(1)) {
       final separator = parameter.indexOf('=');
       if (separator <= 0) {
@@ -158,20 +192,70 @@ Set<String> _mcpAcceptTypes(RouterBinding binding, RouterHttpRequest request) {
       if (name != 'q') {
         continue;
       }
-      final quality = double.tryParse(
+      final parsedQuality = double.tryParse(
         parameter.substring(separator + 1).trim(),
       );
-      if (quality != null && quality <= 0) {
-        acceptsMediaType = false;
+      if (parsedQuality != null) {
+        quality = parsedQuality;
       }
       break;
     }
 
-    if (acceptsMediaType) {
-      accepted.add(mediaType);
-    }
+    accepted.add(_McpAcceptMediaRange(type, subtype, quality));
   }
   return accepted;
+}
+
+bool _mcpAcceptAllowsMediaType(
+  Iterable<_McpAcceptMediaRange> accepted,
+  String mediaType,
+) {
+  final slash = mediaType.indexOf('/');
+  if (slash <= 0 || slash == mediaType.length - 1) {
+    return false;
+  }
+  final type = mediaType.substring(0, slash).toLowerCase();
+  final subtype = mediaType.substring(slash + 1).toLowerCase();
+
+  var bestSpecificity = -1;
+  var bestQuality = 0.0;
+  for (final range in accepted) {
+    final specificity = range.specificityFor(type, subtype);
+    if (specificity < 0) {
+      continue;
+    }
+    if (specificity > bestSpecificity) {
+      bestSpecificity = specificity;
+      bestQuality = range.quality;
+    } else if (specificity == bestSpecificity && range.quality > bestQuality) {
+      bestQuality = range.quality;
+    }
+  }
+  return bestSpecificity >= 0 && bestQuality > 0;
+}
+
+bool _mcpAcceptIncludesExactMediaType(
+  Iterable<_McpAcceptMediaRange> accepted,
+  String mediaType,
+) {
+  final slash = mediaType.indexOf('/');
+  if (slash <= 0 || slash == mediaType.length - 1) {
+    return false;
+  }
+  final type = mediaType.substring(0, slash).toLowerCase();
+  final subtype = mediaType.substring(slash + 1).toLowerCase();
+
+  var found = false;
+  var bestQuality = 0.0;
+  for (final range in accepted) {
+    if (range.type == type && range.subtype == subtype) {
+      found = true;
+      if (range.quality > bestQuality) {
+        bestQuality = range.quality;
+      }
+    }
+  }
+  return found && bestQuality > 0;
 }
 
 bool _mcpAcceptAllowsJsonResponse(
@@ -182,9 +266,7 @@ bool _mcpAcceptAllowsJsonResponse(
   if (accepted.isEmpty) {
     return true;
   }
-  return accepted.contains(_mcpJsonContentType) ||
-      accepted.contains('application/*') ||
-      accepted.contains('*/*');
+  return _mcpAcceptAllowsMediaType(accepted, _mcpJsonContentType);
 }
 
 bool _mcpAcceptAllowsSseResponse(
@@ -192,7 +274,7 @@ bool _mcpAcceptAllowsSseResponse(
   RouterHttpRequest request,
 ) {
   final accepted = _mcpAcceptTypes(binding, request);
-  return accepted.contains(_mcpSseContentType) || accepted.contains('*/*');
+  return _mcpAcceptAllowsMediaType(accepted, _mcpSseContentType);
 }
 
 bool _mcpAcceptRequestsStreamableHttpSession(
@@ -200,8 +282,8 @@ bool _mcpAcceptRequestsStreamableHttpSession(
   RouterHttpRequest request,
 ) {
   final accepted = _mcpAcceptTypes(binding, request);
-  return accepted.contains(_mcpJsonContentType) &&
-      accepted.contains(_mcpSseContentType);
+  return _mcpAcceptIncludesExactMediaType(accepted, _mcpJsonContentType) &&
+      _mcpAcceptIncludesExactMediaType(accepted, _mcpSseContentType);
 }
 
 bool _mcpPostResponsesUseSse(

@@ -1378,6 +1378,18 @@ void main() {
       );
       expect(jsonQZeroAccept.statusCode, equals(HttpStatus.notAcceptable));
 
+      final jsonQZeroWildcardAccept = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        payload,
+        headers: {HttpHeaders.acceptHeader: 'application/json;q=0, */*;q=1'},
+      );
+      expect(
+        jsonQZeroWildcardAccept.statusCode,
+        equals(HttpStatus.notAcceptable),
+      );
+
       final invalidVersion = await _postJson(
         client,
         listener.port,
@@ -1623,6 +1635,20 @@ void main() {
       expect(sse.body, contains('data:'));
       expect(sse.body, contains('notifications/tools/list_changed'));
       final sseEventId = _firstSseEventId(sse.body);
+
+      final sseQZeroWildcardAccept = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream;q=0, */*;q=1',
+        },
+      );
+      expect(
+        sseQZeroWildcardAccept.statusCode,
+        equals(HttpStatus.notAcceptable),
+      );
 
       final resumedSse = await _getHttp(
         client,

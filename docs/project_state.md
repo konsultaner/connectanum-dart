@@ -2,42 +2,33 @@
 
 Last updated: 2026-05-21
 Current branch: `add-router`
-Last reviewed branch checkpoint: This implementation follow-up hardens
-router-hosted MCP HTTP content negotiation for downstream applications. The
-router now honors `q=0` media ranges in `Accept` headers before deciding whether
-JSON responses or Streamable HTTP SSE POST responses are allowed, so an agent or
-application that explicitly rejects `application/json` receives `406 Not
-Acceptable` instead of falling through to header validation, and a session POST
-that rejects `text/event-stream` receives a JSON response instead of SSE.
-Fail-first focused coverage reproduced the gap in
-`guards MCP Streamable HTTP ingress and sessions`; the fixed focused native MCP
-ingress regression, `dart analyze packages/connectanum_router`,
-`git diff --check`, `bin/test-fast`, and `bin/verify` pass locally. Prior
-reviewed checkpoint: Commit
-`34c9889` (`fix: select streamable mcp
-sse responses by id`) was pushed to GitLab `origin`, GitHub `add-router`, and
-GitHub `master`. `McpStreamableHttpClient` now selects JSON-RPC responses from
-Streamable HTTP SSE POST streams by matching request IDs, ignoring interleaved
-server notifications and notification-only request items. This closes a
-consumer-application correctness gap where a server can legitimately emit
-progress notifications before the response in the same SSE stream. Focused
-client tests cover single requests and batches with interleaved notifications,
-and the generated client-only consumer package smoke proves the behavior
-through public `connectanum_mcp_io` APIs while preserving the active session
-and SSE cursor isolation. Local evidence: pre-change `bin/test-fast`, focused
-`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
-`bash -n bin/common.sh`, focused `run_mcp_client_package_smoke`,
-`git diff --check`, clean-tree `bin/test-fast`, and clean-tree `bin/verify`
-passed. Hosted GitHub `master` evidence is clean at `34c9889`: CI run
-`26235994960`, Dart Package Publish Dry Run `26235995708`, WAMP Profile
-Benchmarks `26235993239`, and Router Image dry-run `26236030117` passed. The
-strict deployment-chain audit passed required gates on `master` at `34c9889`:
-current-head CI/logs, relevant Dart package dry-run, relevant native release
-dry-run, current Router Image dry-run, current WAMP profile benchmark evidence,
-workflow visibility, branch protection, and router package visibility. RC
-readiness remains not-ready only because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected. No RC tag,
-GitHub Release, or router image was created or moved.
+Last reviewed branch checkpoint: This implementation follow-up applies HTTP
+`Accept` media-range specificity to router-hosted MCP content negotiation for
+downstream applications. Exact `application/json;q=0` and
+`text/event-stream;q=0` ranges now reject those response types even when a
+less-specific wildcard such as `*/*;q=1` is present, so agents or applications
+that explicitly reject JSON or SSE receive `406 Not Acceptable` instead of
+falling through a wildcard response path. Fail-first focused coverage
+reproduced the gap in `guards MCP Streamable HTTP ingress and sessions`; the
+fixed focused native MCP ingress regression,
+`dart analyze packages/connectanum_router`, `git diff --check`, and
+`bin/test-fast`, and `bin/verify` pass locally. Prior fully hosted checkpoint:
+Commit `4daf824`
+(`fix: honor mcp accept quality weights`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. The router now honors `q=0` media
+ranges in `Accept` headers before deciding whether JSON responses or
+Streamable HTTP SSE POST responses are allowed. Local evidence: pre-change
+`bin/test-fast`, focused
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "guards MCP Streamable HTTP ingress and sessions" -r expanded`,
+`dart analyze packages/connectanum_router`, `git diff --check`, clean-tree
+`bin/test-fast`, and clean-tree `bin/verify` passed. Hosted GitHub `master`
+evidence is clean at `4daf824`: CI run `26239725979`, Dart Package Publish Dry
+Run `26239726467`, WAMP Profile Benchmarks `26239726002`, and Router Image
+dry-run `26239757142` passed. The strict deployment-chain audit passed
+required gates on `master` at `4daf824`; RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected. No RC tag, GitHub Release, or router image was
+created or moved.
 Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side
@@ -562,21 +553,35 @@ Benchmarks `26235993239`, and Router Image dry-run `26236030117` passed. The
 strict deployment-chain audit passed required gates on `master` at `34c9889`;
 RC readiness still reports not-ready only because no approved numeric RC tag,
 GitHub prerelease, or matching RC router image tag has been selected.
+Commit `4daf824` (`fix: honor mcp accept quality weights`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`. It hardens
+router-hosted MCP HTTP content negotiation by honoring `q=0` media ranges in
+`Accept` headers before selecting JSON or Streamable HTTP SSE response paths.
+Local evidence: pre-change `bin/test-fast`, focused
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "guards MCP Streamable HTTP ingress and sessions" -r expanded`,
+`dart analyze packages/connectanum_router`, `git diff --check`, clean-tree
+`bin/test-fast`, and clean-tree `bin/verify` passed. Hosted GitHub `master`
+evidence is clean at `4daf824`: CI run `26239725979`, Dart Package Publish Dry
+Run `26239726467`, WAMP Profile Benchmarks `26239726002`, and Router Image
+dry-run `26239757142` passed. The strict deployment-chain audit passed
+required gates on `master` at `4daf824`; RC readiness still reports not-ready
+only because no approved numeric RC tag, GitHub prerelease, or matching RC
+router image tag has been selected.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated hosted audit-readiness checkpoint at `34c9889`; the latest
-implementation follow-up hardens router-hosted MCP Accept negotiation for
-`q=0` JSON/SSE media ranges with local verification. The latest fully hosted
-implementation checkpoint fixes Streamable HTTP SSE response selection for
-interleaved notifications and batches with hosted `master`
-CI/dry-run/WAMP/Router Image evidence and strict audit evidence. Earlier
-implementation follow-ups normalize manual Router Image project-version tag
-inputs to the Docker tag shape required by RC audit evidence, tighten RC router
-image tag audit evidence, make
-hosted package dry-run runs print the release plan directly, harden Dart
-package release-plan diagnostics, improve
+validated hosted audit-readiness checkpoint at `4daf824`; the latest
+implementation follow-up applies Accept media-range specificity so exact
+`q=0` JSON/SSE media ranges override less-specific wildcards with local
+verification. The latest fully hosted implementation checkpoint honors `q=0`
+Accept quality weights with hosted `master` CI/dry-run/WAMP/Router Image
+evidence and strict audit evidence. Earlier implementation follow-ups fix
+Streamable HTTP SSE response selection for interleaved notifications and
+batches, normalize manual Router Image project-version tag inputs to the
+Docker tag shape required by RC audit evidence, tighten RC router image tag
+audit evidence, make hosted package dry-run runs print the release plan
+directly, harden Dart package release-plan diagnostics, improve
 deferred-pub.dev audit readability, and add a first-class WAMP Profile
 Benchmarks evidence gate to the deployment-chain audit.
 MCP remains RC-ready for the first candidate: router-hosted endpoints,
