@@ -786,7 +786,10 @@ final class McpStreamableHttpClient {
     }
 
     if (_isSse(response)) {
-      return _firstJsonValue(parseMcpSseEvents(body));
+      return _jsonRpcResponseValueFromSseEvents(
+        message,
+        parseMcpSseEvents(body),
+      );
     }
     return _jsonValueFromBody(body);
   }
@@ -913,15 +916,73 @@ final class McpStreamableHttpClient {
     lastEventId = null;
   }
 
-  Object? _firstJsonValue(List<McpSseEvent> events) {
+  Object? _jsonRpcResponseValueFromSseEvents(
+    Object? requestPayload,
+    List<McpSseEvent> events,
+  ) {
     _captureLastEventId(events);
+    final values = <Object?>[];
     for (final event in events) {
       final value = event.jsonValue;
       if (value != null) {
-        return value;
+        values.add(value);
       }
     }
+
+    if (requestPayload is Map) {
+      if (!requestPayload.containsKey('id')) {
+        return null;
+      }
+      final requestId = requestPayload['id'];
+      for (final response in _jsonRpcResponseValues(values)) {
+        if (_jsonRpcResponseIdMatches(response, requestId)) {
+          return response;
+        }
+      }
+      return null;
+    }
+
+    if (requestPayload is List) {
+      final requestIds = <Object?>[];
+      for (final item in requestPayload) {
+        if (item is Map && item.containsKey('id')) {
+          requestIds.add(item['id']);
+        }
+      }
+      if (requestIds.isEmpty) {
+        return null;
+      }
+      final responses = <Object?>[];
+      for (final response in _jsonRpcResponseValues(values)) {
+        if (response is Map &&
+            response.containsKey('id') &&
+            requestIds.any((id) => id == response['id'])) {
+          responses.add(response);
+        }
+      }
+      return responses.isEmpty ? null : responses;
+    }
+
+    for (final value in values) {
+      return value;
+    }
     return null;
+  }
+
+  Iterable<Object?> _jsonRpcResponseValues(List<Object?> values) sync* {
+    for (final value in values) {
+      if (value is List) {
+        yield* value;
+      } else {
+        yield value;
+      }
+    }
+  }
+
+  bool _jsonRpcResponseIdMatches(Object? response, Object? requestId) {
+    return response is Map &&
+        response.containsKey('id') &&
+        response['id'] == requestId;
   }
 
   void _captureLastEventId(List<McpSseEvent> events) {

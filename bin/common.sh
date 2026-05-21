@@ -906,6 +906,7 @@ Future<void> main() async {
     );
 
     await _smokeGenericJsonRpcApi(client, endpoint);
+    await _smokeStreamableSseResponseSelection(client);
     await _smokeControlledMcpRequestHeaders(client, endpoint);
     await _smokeDirectJsonHttpErrorsPreserveSession(client, endpoint);
     await _smokeGenericJsonRpcBatchErrors(client);
@@ -964,6 +965,76 @@ Future<void> _smokeNonJsonAuthError(_AgentMcpEndpoint endpoint) async {
     endpoint.authTextErrorTraceHeaders.single == 'auth-text-error',
     'non-JSON auth error smoke did not forward per-call auth headers',
   );
+}
+
+Future<void> _smokeStreamableSseResponseSelection(
+  McpStreamableHttpClient client,
+) async {
+  final sessionId = client.sessionId;
+  final eventId = client.lastEventId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable SSE response selection smoke has no session.');
+  }
+
+  final response = await client.request(
+    'tools/list',
+    id: 'streamable-sse-response-selection',
+    headers: const <String, String>{
+      'x-test-sse-prefix-notification': '1',
+    },
+  );
+  _expect(
+    _jsonRpcResult(
+      response,
+      id: 'streamable-sse-response-selection',
+      label: 'Streamable SSE response selection tools/list',
+    ).containsKey('tools'),
+    'Streamable SSE response selection returned the preceding notification',
+  );
+  _expect(
+    client.lastEventId == 'agent-session:post:2',
+    'Streamable SSE response selection did not capture the response event id',
+  );
+
+  final batch = await client.postBatch(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'streamable-sse-batch-one',
+        'method': 'tools/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'streamable-sse-batch-two',
+        'method': 'ping',
+      },
+    ],
+    headers: const <String, String>{
+      'x-test-sse-split-batch-with-notification': '1',
+    },
+  );
+  _expect(
+    batch != null && batch.length == 2,
+    'Streamable SSE batch response selection returned an invalid response set',
+  );
+  _expect(
+    batch![0]['id'] == 'streamable-sse-batch-one' &&
+        batch[1]['id'] == 'streamable-sse-batch-two',
+    'Streamable SSE batch response selection did not preserve response ids',
+  );
+  _expect(
+    client.lastEventId == 'agent-session:split-batch:3',
+    'Streamable SSE batch response selection did not capture the last event id',
+  );
+  _expect(
+    client.sessionId == sessionId,
+    'Streamable SSE response selection changed the active session id',
+  );
+  client.lastEventId = eventId;
 }
 
 Future<void> _smokeGenericJsonRpcApi(
@@ -3476,6 +3547,24 @@ final class _AgentMcpEndpoint {
           await _writeSessionError(request);
           return;
         }
+        if (_isStreamableRequest(request) &&
+            request.headers.value('x-test-sse-prefix-notification') == '1') {
+          await _writeSseValues(request, <MapEntry<String, Object?>>[
+            const MapEntry<String, Object?>(
+              'agent-session:post:1',
+              <String, Object?>{
+                'jsonrpc': '2.0',
+                'method': 'notifications/progress',
+                'params': <String, Object?>{'progress': 1},
+              },
+            ),
+            MapEntry<String, Object?>(
+              'agent-session:post:2',
+              _toolListResponse(id, message),
+            ),
+          ]);
+          return;
+        }
         await _writeJson(request, _toolListResponse(id, message));
       case 'tools/call':
         if (_isStreamableRequest(request) && !_hasSession(request)) {
@@ -3627,6 +3716,30 @@ final class _AgentMcpEndpoint {
       request.response.statusCode = HttpStatus.accepted;
       _applyTestResponseHeaders(request);
       await request.response.close();
+      return;
+    }
+    if (_isStreamableRequest(request) &&
+        request.headers.value('x-test-sse-split-batch-with-notification') ==
+            '1') {
+      final events = <MapEntry<String, Object?>>[
+        const MapEntry<String, Object?>(
+          'agent-session:split-batch:1',
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'notifications/progress',
+            'params': <String, Object?>{'progress': 1},
+          },
+        ),
+      ];
+      for (var index = 0; index < responses.length; index += 1) {
+        events.add(
+          MapEntry<String, Object?>(
+            'agent-session:split-batch:${index + 2}',
+            responses[index],
+          ),
+        );
+      }
+      await _writeSseValues(request, events);
       return;
     }
     await _writeJson(request, responses);
@@ -4357,6 +4470,23 @@ final class _AgentMcpEndpoint {
     request.response.write('id: $id\n');
     request.response.write('event: message\n');
     request.response.write('data: ${jsonEncode(message)}\n\n');
+    await request.response.close();
+  }
+
+  Future<void> _writeSseValues(
+    HttpRequest request,
+    List<MapEntry<String, Object?>> events,
+  ) async {
+    request.response.headers.contentType = ContentType(
+      'text',
+      'event-stream',
+      charset: 'utf-8',
+    );
+    for (final event in events) {
+      request.response.write('id: ${event.key}\n');
+      request.response.write('event: message\n');
+      request.response.write('data: ${jsonEncode(event.value)}\n\n');
+    }
     await request.response.close();
   }
 

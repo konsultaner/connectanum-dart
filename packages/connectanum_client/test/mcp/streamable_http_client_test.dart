@@ -130,6 +130,61 @@ void main() {
     );
 
     test(
+      'selects matching JSON-RPC responses from Streamable HTTP SSE events',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        final response = await client.request(
+          'tools/list',
+          id: 'tools-after-notification',
+          headers: const <String, String>{
+            'x-test-sse-prefix-notification': '1',
+          },
+        );
+
+        expect(response['id'], 'tools-after-notification');
+        expect(response['result'], containsPair('tools', isEmpty));
+        expect(client.lastEventId, 'session-1:post:3');
+      },
+    );
+
+    test('collects batch responses from Streamable HTTP SSE events', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+
+      final responses = await client.postBatch(
+        [
+          {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+          {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+          {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+        ],
+        headers: const <String, String>{
+          'x-test-sse-split-batch-with-notification': '1',
+        },
+      );
+
+      expect(responses, hasLength(2));
+      expect(responses?.map((response) => response['id']), [
+        'batch-one',
+        'batch-two',
+      ]);
+      expect(client.lastEventId, 'session-1:post-batch:3');
+    });
+
+    test(
       'owns MCP protocol and session headers despite caller headers',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -2354,6 +2409,19 @@ final class _FakeMcpEndpoint {
       if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
         'text/event-stream',
       )) {
+        if (request.headers.value('x-test-sse-split-batch-with-notification') ==
+            '1') {
+          _writeSse(
+            request,
+            'id: session-1:post-batch:1\n'
+            'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n'
+            'id: session-1:post-batch:2\n'
+            'data: ${jsonEncode(responses[0])}\n\n'
+            'id: session-1:post-batch:3\n'
+            'data: ${jsonEncode(responses[1])}\n\n',
+          );
+          return;
+        }
         _writeSse(
           request,
           'id: session-1:post-batch:1\n'
@@ -2795,6 +2863,19 @@ final class _FakeMcpEndpoint {
         (request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
           'text/event-stream',
         )) {
+      if (request.headers.value('x-test-sse-prefix-notification') == '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:1\n'
+          'retry: 1000\n'
+          'data:\n\n'
+          'id: session-1:post:2\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n'
+          'id: session-1:post:3\n'
+          'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
+        );
+        return;
+      }
       _writeSse(
         request,
         'id: session-1:post:1\n'

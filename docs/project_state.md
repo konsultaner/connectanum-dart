@@ -2,38 +2,49 @@
 
 Last updated: 2026-05-21
 Current branch: `add-router`
-Last reviewed branch checkpoint: Commit `f91cc8b` (`ci: audit router image
-preview metadata`) was pushed to GitLab `origin`, GitHub `add-router`, and
-GitHub `master`. It hardens the Router Image dry-run audit by downloading the
-`router-image-preview` artifact, requiring `router-image-metadata.md`,
-verifying dry-run/publish=false metadata, and rejecting primary Docker tags
-that still use a project-version `v` prefix. Pre-change `bin/test-fast`,
-focused `python3 -m unittest tool/test_audit_github_deployment_chain.py`, live
-read-only `bin/audit-github-deployment-chain --branch master
---show-router-image-dry-run`, `git diff --check`, and full local `bin/verify`
-passed; the live audit reports `Router image dry-run preview metadata: ready
-(0.1.0-rc.2)` for Router Image dry-run `26225059344`. Hosted GitHub evidence
-is clean at `f91cc8b`: `master` CI run `26228085097` and `add-router` CI run
-`26228080838` passed with Fast Checks and Full Verify green, and the strict
-deployment-chain audit passed required gates on `master` at `f91cc8b`, accepting
-Router Image dry-run `26225059344` as relevant because no
-router-image-sensitive inputs changed. RC readiness remains not-ready only
-because no approved numeric RC tag, GitHub prerelease, or matching RC router
-image tag has been selected. No RC tag, GitHub Release, or router image was
-created or moved.
-Current MCP auth/session follow-up: `ConnectanumHttpAuthClient` now surfaces
-non-success non-JSON auth bridge responses as typed
-`ConnectanumHttpAuthException`s that preserve status code and raw body with no
-decoded error payload, while successful malformed JSON still fails as malformed
-JSON. The generated client-only consumer package smoke now proves the same
-behavior through `package:connectanum_mcp/connectanum_mcp_io.dart` and public
-APIs only, so downstream applications receive a stable typed auth/session error
-instead of a `FormatException` when a router-hosted auth bridge returns plain
-text or HTML during an outage. Local focused evidence before clean-tree full
-verification: pre-change `bin/test-fast` passed, focused
-`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r
-expanded` passed, `bash -n bin/common.sh` passed, and focused
-`run_mcp_client_package_smoke` passed.
+Last reviewed branch checkpoint: Commit `9ba8748` (`fix: harden MCP auth error
+handling`) was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
+`master`. It hardens `ConnectanumHttpAuthClient` so non-success non-JSON auth
+bridge responses surface as typed `ConnectanumHttpAuthException`s that preserve
+status code and raw body with no decoded error payload, while successful
+malformed JSON still fails as malformed JSON. The generated client-only
+consumer package smoke now proves the same behavior through
+`package:connectanum_mcp/connectanum_mcp_io.dart` and public APIs only, so
+downstream applications receive a stable typed auth/session error instead of a
+`FormatException` when a router-hosted auth bridge returns plain text or HTML
+during an outage. Local evidence: pre-change `bin/test-fast`, focused
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+`bash -n bin/common.sh`, focused `run_mcp_client_package_smoke`,
+`git diff --check`, and clean-tree full `bin/verify` passed. Hosted GitHub
+evidence is clean at `9ba8748`: `master` CI run `26231778548`, `add-router` CI
+run `26231777640`, `master` Dart Package Publish Dry Run `26231779191`,
+`add-router` Dart Package Publish Dry Run `26231777632`, `master` WAMP Profile
+Benchmarks `26231779087`, and `add-router` WAMP Profile Benchmarks
+`26231777445` passed. Router Image dry-run `26232580498` passed on `master`
+for manual `image_tag=v0.1.0-rc.2` without GHCR login, uploaded preview
+metadata, and verified primary tag `0.1.0-rc.2`. The strict deployment-chain
+audit passed required gates on `master` at `9ba8748`: current-head CI/logs,
+relevant Dart package dry-run, relevant native release dry-run, relevant Router
+Image dry-run, relevant WAMP profile benchmark evidence, workflow visibility,
+branch protection, and router package visibility. RC readiness remains
+not-ready only because no approved numeric RC tag, GitHub prerelease, or
+matching RC router image tag has been selected. No RC tag, GitHub Release, or
+router image was created or moved.
+Current MCP Streamable HTTP follow-up: `McpStreamableHttpClient` now selects
+JSON-RPC responses from Streamable HTTP SSE POST streams by matching request
+IDs, ignoring interleaved server notifications and notification-only request
+items. This closes a consumer-application correctness gap where a server could
+legitimately emit progress notifications before the response in the same SSE
+stream. Focused client tests cover single requests and batches with interleaved
+notifications, and the generated client-only consumer package smoke proves the
+behavior through public `connectanum_mcp_io` APIs while preserving the active
+session and SSE cursor isolation. Local focused evidence: pre-change
+`bin/test-fast`, focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`bash -n bin/common.sh`, and focused `run_mcp_client_package_smoke` passed.
+Clean-tree `bin/test-fast` and `bin/verify` must be rerun after this
+implementation is committed because the strict Dart publish dry-run rejects
+dirty publishable package files.
 Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side
@@ -522,23 +533,39 @@ deployment-chain audit passed required gates on `master` at `f91cc8b`. The
 strict audit accepts Router Image dry-run `26225059344` as relevant because no
 router-image-sensitive inputs changed after that run, downloads the preview
 metadata, and verifies primary tag `0.1.0-rc.2` before accepting the gate.
-Current MCP auth/session follow-up hardens router-hosted auth bridge outage
-behavior for downstream applications. `ConnectanumHttpAuthClient` now converts
-non-success non-JSON HTTP auth responses into typed
-`ConnectanumHttpAuthException`s with preserved raw bodies instead of leaking a
-`FormatException`, and the generated client-only consumer package smoke proves
-that behavior through the public `connectanum_mcp_io` package boundary.
-Focused local evidence before clean-tree full verification: pre-change
-`bin/test-fast`, focused `dart test
-packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
-`bash -n bin/common.sh`, and focused `run_mcp_client_package_smoke` passed.
+Commit `9ba8748` (`fix: harden MCP auth error handling`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. It hardens router-hosted
+auth bridge outage behavior for downstream applications:
+`ConnectanumHttpAuthClient` now converts non-success non-JSON HTTP auth
+responses into typed `ConnectanumHttpAuthException`s with preserved raw bodies
+instead of leaking a `FormatException`, and the generated client-only consumer
+package smoke proves that behavior through the public `connectanum_mcp_io`
+package boundary. Local evidence: pre-change `bin/test-fast`, focused
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+`bash -n bin/common.sh`, focused `run_mcp_client_package_smoke`,
+`git diff --check`, and clean-tree full `bin/verify` passed. Hosted GitHub
+evidence is clean at `9ba8748`: `master` CI run `26231778548`, `add-router` CI
+run `26231777640`, Dart Package Publish Dry Run runs `26231779191` on `master`
+and `26231777632` on `add-router`, and WAMP Profile Benchmarks runs
+`26231779087` on `master` and `26231777445` on `add-router` passed. Router
+Image dry-run `26232580498` passed on `master` for manual
+`image_tag=v0.1.0-rc.2` without GHCR login, uploaded preview metadata, and
+verified primary tag `0.1.0-rc.2`. The strict deployment-chain audit passed
+required gates on `master` at `9ba8748`; RC readiness still reports not-ready
+only because no approved numeric RC tag, GitHub prerelease, or matching RC
+router image tag has been selected.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated hosted audit-readiness checkpoint at `f91cc8b`; the latest
-implementation follow-up hardens Router Image dry-run preview metadata
-inspection with hosted CI and strict audit evidence, while earlier
+validated hosted audit-readiness checkpoint at `9ba8748`; the latest
+fully hosted implementation follow-up hardens MCP HTTP auth client non-JSON
+error handling for downstream applications with hosted CI, dry-run, WAMP
+benchmark, Router Image dry-run, and strict audit evidence. The current local
+implementation follow-up fixes Streamable HTTP SSE response selection for
+interleaved notifications and batches, with focused client and generated
+consumer-package smoke evidence pending clean-tree full verification after
+commit. Earlier
 implementation follow-ups normalize manual Router Image project-version tag
 inputs to the Docker tag shape required by RC audit evidence, tighten RC router
 image tag audit evidence, make
