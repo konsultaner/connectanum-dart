@@ -1947,16 +1947,66 @@ void main() {
           ...sessionHeaders,
           'Mcp-Method': 'tools/list',
         };
+        final toolsPayload = <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-tools',
+          'method': 'tools/list',
+          'params': {},
+        };
+        final directMissingBearer = await _postJson(
+          httpClient,
+          listener.port,
+          '/mcp/secure',
+          toolsPayload,
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json',
+            'MCP-Session-Id': primarySessionId,
+            'MCP-Protocol-Version': '2025-11-25',
+          },
+        );
+        expect(directMissingBearer.statusCode, equals(HttpStatus.unauthorized));
+        expect(
+          directMissingBearer.headers[HttpHeaders.wwwAuthenticateHeader],
+          contains('Bearer'),
+        );
+        expect(directMissingBearer.headers, isNot(contains('mcp-session-id')));
+
+        final directInvalidBearer = await _postJson(
+          httpClient,
+          listener.port,
+          '/mcp/secure',
+          toolsPayload,
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json',
+            'MCP-Session-Id': primarySessionId,
+            'MCP-Protocol-Version': '2025-11-25',
+            HttpHeaders.authorizationHeader: 'Bearer invalid-token',
+          },
+        );
+        expect(directInvalidBearer.statusCode, equals(HttpStatus.unauthorized));
+        expect(directInvalidBearer.headers, isNot(contains('mcp-session-id')));
+
+        final streamableMissingBearer = await _postJson(
+          httpClient,
+          listener.port,
+          '/mcp/secure',
+          toolsPayload,
+          headers: toolsHeaders,
+        );
+        expect(
+          streamableMissingBearer.statusCode,
+          equals(HttpStatus.unauthorized),
+        );
+        expect(
+          streamableMissingBearer.headers['mcp-session-id'],
+          equals(primarySessionId),
+        );
+
         final reuseWithOtherPrincipal = await _postJson(
           httpClient,
           listener.port,
           '/mcp/secure',
-          {
-            'jsonrpc': '2.0',
-            'id': 'cross-principal-tools',
-            'method': 'tools/list',
-            'params': {},
-          },
+          {...toolsPayload, 'id': 'cross-principal-tools'},
           headers: {
             ...toolsHeaders,
             HttpHeaders.authorizationHeader: 'Bearer ${otherGrant.accessToken}',

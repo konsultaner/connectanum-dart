@@ -3,28 +3,24 @@
 Last updated: 2026-05-21
 Current branch: `add-router`
 Last reviewed branch checkpoint: Current local implementation follow-up on top
-of hosted-clean `dea8697` fixes router-hosted MCP route-level auth response
-session isolation for lifecycle-free direct JSON. Pre-dispatch MCP route auth
-and rate-limit failures now use the same direct-vs-Streamable response-session
-decision as the MCP handler, so direct JSON POSTs that negotiate only
-`application/json` do not echo stale caller `MCP-Session-Id` headers on missing
-or invalid bearer-token failures before the request reaches the MCP handler.
-True Streamable HTTP requests, GET polling, and DELETE session cleanup still
-preserve MCP session headers. Fail-first generated consumer-package smoke
-coverage reproduced a secure direct JSON missing-bearer stale-session response
-leak; after the fix, focused generated consumer-package smoke,
-`bash -n bin/common.sh`, `dart analyze packages/connectanum_router`, focused
-native MCP ingress regression, patched `bin/test-fast`, and full local
-`bin/verify` passed. Hosted evidence is pending for this follow-up. Prior
-hosted GitHub evidence is clean at `dea8697`: `master` CI run `26248484287`,
-`master` Dart Package Publish Dry Run `26248484324`, `master` WAMP Profile
-Benchmarks `26248484285`, `master` Router Image dry-run `26248512314`,
-`add-router` CI run `26248480102`, `add-router` Dart Package Publish Dry Run
-`26248480101`, and `add-router` WAMP Profile Benchmarks `26248480099` passed.
-The strict deployment-chain audit passed required gates on `master` at
-`dea8697`; RC readiness remains not-ready only because no approved numeric RC
-tag, GitHub prerelease, or matching RC router image tag has been selected. No
-RC tag, GitHub Release, or router image was created or moved.
+of hosted-clean `c54f36d` adds focused router integration regression coverage
+for the MCP route-level auth response session contract. The secure route
+isolation test now proves lifecycle-free direct JSON POSTs with stale
+`MCP-Session-Id` headers do not echo that session id on missing or invalid
+bearer-token failures, while true Streamable HTTP POST auth failures still
+preserve the owned session id. Pre-change `bin/test-fast`, focused `isolates
+MCP Streamable HTTP sessions by route and bearer principal` router integration
+test, `git diff --check`, and full local `bin/verify` passed.
+Hosted evidence is pending for this follow-up. Prior hosted GitHub evidence is
+clean at `c54f36d`: `master` CI run `26251320957`, `master` Dart Package
+Publish Dry Run `26251320959`, `master` WAMP Profile Benchmarks `26251320944`,
+`master` Router Image dry-run `26251338983`, `add-router` CI run
+`26251320667`, `add-router` Dart Package Publish Dry Run `26251320668`, and
+`add-router` WAMP Profile Benchmarks `26251320673` passed. The strict
+deployment-chain audit passed required gates on `master` at `c54f36d`; RC
+readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected. No RC tag,
+GitHub Release, or router image was created or moved.
 Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side
