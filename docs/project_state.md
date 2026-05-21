@@ -3,17 +3,16 @@
 Last updated: 2026-05-21
 Current branch: `add-router`
 Last reviewed branch checkpoint: The current local implementation follow-up
-closes an RC-readiness audit gap for router image evidence. When a numeric RC
-tag is selected, `bin/audit-github-deployment-chain --require-rc-ready` now
-derives the matching Router Image tag from the RC tag (`v0.1.0-rc.N` ->
-`0.1.0-rc.N`) and probes the exact public GHCR manifest instead of accepting
-generic package visibility alone. Fake-GitHub/GHCR regression coverage now
-proves a ready GitHub RC prerelease still fails RC readiness when the matching
-router image tag is missing. Pre-change `bin/test-fast`, focused
-`bash -n bin/audit-github-deployment-chain`, focused
-`python3 -m unittest tool/test_audit_github_deployment_chain.py`, and a live
-read-only `bin/audit-github-deployment-chain --branch master
---show-rc-readiness` summary passed locally. No RC tag, GitHub Release, or
+normalizes manual Router Image workflow `image_tag` inputs that use project
+version refs, so `v0.1.0-rc.N` publishes and previews Docker tag
+`0.1.0-rc.N`, matching RC audit expectations and tag-push behavior. Manual
+`publish_approval` still has to match the normalized primary Docker tag, so
+approving `v0.1.0-rc.N` for a normalized `0.1.0-rc.N` publish is rejected. This
+follow-up builds on commit `156192c` (`ci: audit rc router image tag evidence`),
+which closes the RC-readiness audit gap for exact router image tag evidence.
+Pre-change `bin/test-fast`, focused router image metadata tests, focused native
+release-notes tests, `git diff --check`, and full local `bin/verify` passed.
+Hosted evidence is pending for this follow-up. No RC tag, GitHub Release, or
 router image was created or moved.
 Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
@@ -453,14 +452,40 @@ Package Publish Dry Run run `26220660832` passed with the same log evidence.
 The strict deployment-chain audit passes required gates at `becaf98`; RC
 readiness remains not-ready only because no approved numeric RC tag or GitHub
 prerelease points at `becaf98`; the audit suggests `v0.1.0-rc.2`.
+Commit `156192c` (`ci: audit rc router image tag evidence`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`, tightening
+RC-readiness router image evidence by deriving the required GHCR tag from the
+selected numeric RC tag (`v0.1.0-rc.N` -> `0.1.0-rc.N`) and probing that exact
+public manifest. Pre-change `bin/test-fast`, focused
+`bash -n bin/audit-github-deployment-chain`, focused
+`python3 -m unittest tool/test_audit_github_deployment_chain.py`, a live
+read-only `bin/audit-github-deployment-chain --branch master
+--show-rc-readiness` summary, `git diff --check`, and full local `bin/verify`
+passed. Hosted GitHub evidence is clean at `156192c`: `master` CI run
+`26222937612` passed with Fast Checks and Full Verify green, `add-router` CI
+run `26222934044` passed with Fast Checks and Full Verify green, and the strict
+deployment-chain audit passed required gates on `master`. The audit still marks
+RC readiness not-ready because no approved numeric RC tag, GitHub prerelease, or
+matching RC router image tag has been selected; it suggests `v0.1.0-rc.2`.
+This local implementation follow-up normalizes manual Router Image workflow
+`image_tag` inputs that use project version refs, so a manually dispatched
+`v0.1.0-rc.N` input resolves to Docker tag `0.1.0-rc.N`, the same tag shape as
+release-tag-triggered runs and RC audit checks. Manual `publish_approval` still
+has to match the normalized primary Docker tag, so an approval containing the
+leading `v` is rejected for normalized publishes. Pre-change `bin/test-fast`,
+focused `python3 -m unittest tool/test_render_router_image_metadata.py
+tool/test_render_native_release_notes.py`, `git diff --check`, and full local
+`bin/verify` passed. Hosted evidence is pending for this follow-up.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated hosted audit-readiness checkpoint at `becaf98`; the latest
-local implementation follow-up tightens RC router image tag audit evidence,
-while earlier implementation follow-ups make hosted package dry-run runs print
-the release plan directly, harden Dart package release-plan diagnostics, improve
+validated hosted audit-readiness checkpoint at `156192c`; the latest local
+implementation follow-up normalizes manual Router Image project-version tag
+inputs to the Docker tag shape required by RC audit evidence, while earlier
+implementation follow-ups tighten RC router image tag audit evidence, make
+hosted package dry-run runs print the release plan directly, harden Dart
+package release-plan diagnostics, improve
 deferred-pub.dev audit readability, and add a first-class WAMP Profile
 Benchmarks evidence gate to the deployment-chain audit.
 MCP remains RC-ready for the first candidate: router-hosted endpoints,

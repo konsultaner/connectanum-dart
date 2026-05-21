@@ -55,6 +55,43 @@ class RouterImageMetadataTest(unittest.TestCase):
             ("ghcr.io/konsultaner/connectanum-router:1.2.3-rc.1",),
         )
 
+    def test_manual_project_version_tag_strips_leading_v(self) -> None:
+        result = metadata.resolve_router_image_metadata(
+            owner="konsultaner",
+            repository="konsultaner/connectanum-dart",
+            sha=SHA,
+            ref_type="branch",
+            ref_name="master",
+            event_name="workflow_dispatch",
+            input_image_tag="v1.2.3-rc.2",
+            dry_run="false",
+            publish_approval="1.2.3-rc.2",
+        )
+
+        self.assertTrue(result.publish)
+        self.assertEqual(
+            result.tags,
+            ("ghcr.io/konsultaner/connectanum-router:1.2.3-rc.2",),
+        )
+        self.assertIn("org.opencontainers.image.version=1.2.3-rc.2", result.labels)
+
+    def test_manual_project_version_tag_approval_matches_normalized_tag(self) -> None:
+        with self.assertRaisesRegex(
+            metadata.RouterImageMetadataError,
+            "requires publish_approval",
+        ):
+            metadata.resolve_router_image_metadata(
+                owner="konsultaner",
+                repository="konsultaner/connectanum-dart",
+                sha=SHA,
+                ref_type="branch",
+                ref_name="master",
+                event_name="workflow_dispatch",
+                input_image_tag="v1.2.3-rc.2",
+                dry_run="false",
+                publish_approval="v1.2.3-rc.2",
+            )
+
     def test_manual_dry_run_defaults_to_sha_tag_and_cacheonly_output(self) -> None:
         result = metadata.resolve_router_image_metadata(
             owner="konsultaner",

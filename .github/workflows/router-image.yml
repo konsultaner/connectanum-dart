@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Optional explicit image tag override for manual validation or publish runs
+        description: Optional explicit image tag override; project v* tags publish without the leading v
         required: false
         type: string
       dry_run:

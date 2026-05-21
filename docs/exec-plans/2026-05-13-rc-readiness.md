@@ -989,26 +989,45 @@ decision because `connectanum_client` still depends on private
   `becaf98`; RC readiness remains not-ready only because no approved numeric RC
   tag or GitHub prerelease points at `becaf98`; the audit suggests
   `v0.1.0-rc.2`.
-- 2026-05-21: This local implementation follow-up tightens the RC-readiness
-  audit for router image evidence. `bin/audit-github-deployment-chain` now
-  derives the required Router Image tag from the selected numeric RC tag
-  (`v0.1.0-rc.N` -> `0.1.0-rc.N`) and probes that exact public GHCR manifest
-  during `--show-rc-readiness` / `--require-rc-ready`, so generic package
-  visibility can no longer mask a missing RC image tag. The fake-GitHub/GHCR
-  regression suite covers both the ready path and a visible-package/missing
-  RC-image-tag failure. Pre-change `bin/test-fast`, focused
-  `bash -n bin/audit-github-deployment-chain`, focused
-  `python3 -m unittest tool/test_audit_github_deployment_chain.py`, and a live
-  read-only `bin/audit-github-deployment-chain --branch master
-  --show-rc-readiness` summary passed locally. No RC tag, GitHub Release, or
-  router image was created or moved.
+- 2026-05-21: Commit `156192c` (`ci: audit rc router image tag evidence`)
+  tightens the RC-readiness audit for router image evidence.
+  `bin/audit-github-deployment-chain` now derives the required Router Image tag
+  from the selected numeric RC tag (`v0.1.0-rc.N` -> `0.1.0-rc.N`) and probes
+  that exact public GHCR manifest during `--show-rc-readiness` /
+  `--require-rc-ready`, so generic package visibility can no longer mask a
+  missing RC image tag. The fake-GitHub/GHCR regression suite covers both the
+  ready path and a visible-package/missing-RC-image-tag failure. Pre-change
+  `bin/test-fast`, focused `bash -n bin/audit-github-deployment-chain`,
+  focused `python3 -m unittest tool/test_audit_github_deployment_chain.py`, a
+  live read-only `bin/audit-github-deployment-chain --branch master
+  --show-rc-readiness` summary, `git diff --check`, and full local `bin/verify`
+  passed. The commit was pushed to GitLab `origin`, GitHub `add-router`, and
+  GitHub `master`. Hosted GitHub evidence is clean at `156192c`: `master` CI
+  run `26222937612` passed with Fast Checks and Full Verify green,
+  `add-router` CI run `26222934044` passed with Fast Checks and Full Verify
+  green, and the strict deployment-chain audit passed required gates on
+  `master`. No RC tag, GitHub Release, or router image was created or moved.
+- 2026-05-21: This local implementation follow-up normalizes manual Router
+  Image workflow `image_tag` inputs that use project version refs, so a manual
+  `v0.1.0-rc.N` input resolves to Docker tag `0.1.0-rc.N`, the same tag shape
+  used by release-tag-triggered runs and exact RC audit checks. Manual
+  `publish_approval` still has to match the normalized primary Docker tag, so an
+  approval containing the leading `v` is rejected for normalized publishes.
+  Pre-change `bin/test-fast`, focused `python3 -m unittest
+  tool/test_render_router_image_metadata.py
+  tool/test_render_native_release_notes.py`, `git diff --check`, and full local
+  `bin/verify` passed. Hosted evidence is pending for this follow-up. No RC tag,
+  GitHub Release, or router image was created or moved.
 
 ## Handoff
 
-Active. The latest fully clean hosted deployment-chain checkpoint remains
-`becaf98`; the local follow-up after that checkpoint tightens RC-readiness
-router image tag auditing and requires hosted evidence after promotion. The hosted
-Dart Package Publish Dry Run now prints the same release-order inventory that
+Active. The latest fully clean hosted deployment-chain checkpoint is `156192c`.
+The latest local implementation follow-up normalizes manual Router Image
+project-version tag inputs to the Docker tag shape required by exact RC audit
+evidence, and it needs hosted evidence after promotion. The prior
+implementation follow-up tightens RC-readiness router image tag auditing. The
+hosted Dart Package Publish Dry Run now prints the same
+release-order inventory that
 local and audit dry-runs already expose. The default branch contains the
 router-hosted MCP downstream-readiness work plus explicit branch-protection and
 GitHub RC-tag audit handoff evidence; the latest hosted implementation
@@ -1019,15 +1038,15 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26220664156` for checkpoint `becaf98`: Fast
+Hosted `master` CI is green at run `26222937612` for checkpoint `156192c`: Fast
 Checks and Full Verify passed. Hosted `add-router` CI is green at run
-`26220660767`. Hosted Dart Package Publish Dry Run is green at run
+`26222934044`. Hosted Dart Package Publish Dry Run is green at run
 `26220664109` on `master` and run `26220660832` on `add-router`; both runs log
 the release-order plan and private-package blocker sections from
 `--show-release-plan`. Hosted `master` WAMP Profile Benchmarks run
 `26214693251` passed with artifact upload; the audit accepts it as relevant
 because no WAMP-profile-sensitive inputs changed after that run. The strict
-deployment-chain audit passes on `master` with clean current-head CI/log,
+deployment-chain audit passes on `master` at `156192c` with clean current-head CI/log,
 relevant Dart package dry-run, relevant native release dry-run, relevant router
 image dry-run, relevant WAMP profile benchmark evidence, workflow visibility,
 branch protection, and router package visibility gates. The router package
@@ -1038,10 +1057,12 @@ skipped GHCR login, and the audit accepts it as relevant because no router
 image-sensitive inputs changed after that run.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
-`master` after the next implementation promotion. The audit inventories stale
+`master` after the next implementation promotion and hosted evidence refresh.
+The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `becaf98`. It suggests
+older commit `47bbf9c`, not the current candidate head `156192c`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
-reporting RC prerelease selection as not-ready. Moving the stale tag or
-approving a follow-up RC tag remains a release decision. No RC tag or GitHub
-Release was created or moved during this promotion/evidence update.
+reporting RC prerelease and matching router image RC tag selection as not-ready.
+Moving the stale tag or approving a follow-up RC tag remains a release decision.
+No RC tag, GitHub Release, or router image was created or moved during this
+promotion/evidence update.

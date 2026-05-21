@@ -13,6 +13,7 @@ from pathlib import Path
 
 _DOCKER_TAG_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
 _STABLE_SEMVER_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+_PROJECT_VERSION_REF_RE = re.compile(r"^v([0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9_.-]+)?)$")
 
 
 class RouterImageMetadataError(ValueError):
@@ -58,6 +59,14 @@ def _validate_docker_tag(tag: str) -> str:
     return normalized
 
 
+def _project_image_tag(tag: str) -> str:
+    normalized = tag.strip()
+    match = _PROJECT_VERSION_REF_RE.fullmatch(normalized)
+    if match is not None:
+        normalized = match.group(1)
+    return _validate_docker_tag(normalized)
+
+
 def _default_sha_tag(sha: str) -> str:
     cleaned = sha.strip()
     if len(cleaned) < 12:
@@ -100,7 +109,7 @@ def resolve_router_image_metadata(
     normalized_ref_type = ref_type.strip()
     normalized_ref_name = ref_name.strip()
     if normalized_ref_type == "tag" and normalized_ref_name.startswith("v"):
-        version = _validate_docker_tag(normalized_ref_name[1:])
+        version = _project_image_tag(normalized_ref_name)
         tags.append(f"{image}:{version}")
         labels.append(f"org.opencontainers.image.version={version}")
 
@@ -116,7 +125,7 @@ def resolve_router_image_metadata(
             )
     else:
         explicit_tag = input_image_tag.strip()
-        tag = _validate_docker_tag(explicit_tag or _default_sha_tag(sha))
+        tag = _project_image_tag(explicit_tag) if explicit_tag else _default_sha_tag(sha)
         tags.append(f"{image}:{tag}")
         labels.append(f"org.opencontainers.image.version={tag}")
 
