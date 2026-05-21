@@ -961,32 +961,49 @@ decision because `connectanum_client` still depends on private
   Package Publish Dry Run run `26217438575` passed, and `add-router` Dart
   Package Publish Dry Run run `26217438585` passed. Focused audit readability
   tests and full local `bin/verify` passed for the headed deferred-pub.dev
-  summary follow-up; hosted evidence remains at `4dec39c` until this
-  audit-output follow-up is pushed and GitHub CI / Dart package dry-run evidence
+  summary follow-up. Commit `7d60dd8` (`ci: label dart release-plan audit
+  output`) was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
+  `master`. Hosted CI is clean at `7d60dd8`: `master` CI run `26218795344`
+  passed with Fast Checks and Full Verify green, and `add-router` CI run
+  `26218790197` passed with Fast Checks and Full Verify green. The strict
+  deployment-chain audit passes required gates at `7d60dd8`; it accepts Dart
+  Package Publish Dry Run run `26217438575` from `4dec39c` as relevant because
+  no publish-sensitive paths changed in the audit-output follow-up. RC readiness
+  remains not-ready only because no approved numeric RC tag or GitHub prerelease
+  points at `7d60dd8`; the audit suggests `v0.1.0-rc.2`. The current
+  workflow-evidence follow-up updates hosted Dart Package Publish Dry Run
+  execution to call `bin/dart-package-publish-dry-run --show-release-plan`, so
+  GitHub run logs and step summaries include the release-order inventory on
+  publish-sensitive changes. Pre-change `bin/test-fast`,
+  `python3 tool/test_dart_package_publish_dry_run.py`,
+  `bin/dart-package-publish-dry-run --show-release-plan connectanum_client`,
+  and full local `bin/verify` passed for this follow-up; hosted evidence remains
+  at `7d60dd8` until it is pushed and GitHub CI / Dart package dry-run evidence
   is refreshed.
 
 ## Handoff
 
 Active. The latest fully clean hosted deployment-chain checkpoint remains
-`4dec39c` until the current audit-output follow-up is pushed and hosted GitHub
-CI / Dart package dry-run evidence is refreshed. The
-default branch contains the router-hosted MCP downstream-readiness work plus
-explicit branch-protection and GitHub RC-tag audit handoff evidence; the latest
-hosted implementation checkpoints harden scoped Dart package release-plan
-diagnostics and add the WAMP Profile Benchmarks evidence gate. The current local
-follow-up improves deferred-pub.dev audit readability without changing
-publishability. MCP coverage includes
-auth/session correctness, router-provided MCP endpoints, direct JSON tool and
-meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
-compatibility, and generated consumer-package smokes that use public package
-APIs without private project assumptions.
+`7d60dd8`; the current workflow-evidence follow-up makes the hosted Dart
+Package Publish Dry Run print the same release-order inventory that local and
+audit dry-runs already expose. The default branch contains the router-hosted MCP
+downstream-readiness work plus explicit branch-protection and GitHub RC-tag
+audit handoff evidence; the latest hosted implementation checkpoints harden
+scoped Dart package release-plan diagnostics and add the WAMP Profile
+Benchmarks evidence gate. MCP coverage includes auth/session correctness,
+router-provided MCP endpoints, direct JSON tool and meta APIs, WAMP pub/sub
+helpers, resources/prompts, Streamable HTTP compatibility, and generated
+consumer-package smokes that use public package APIs without private project
+assumptions.
 
-Hosted `master` CI is green at run `26217438556` for checkpoint `4dec39c`, and
-hosted `add-router` CI is green at run `26217438580`. Hosted Dart Package
-Publish Dry Run is green at run `26217438575` on `master` and run `26217438585`
-on `add-router`. Hosted `master` WAMP Profile Benchmarks run `26214693251`
-passed with artifact upload; the audit accepts it as relevant because no
-WAMP-profile-sensitive inputs changed after that run. The strict
+Hosted `master` CI is green at run `26218795344` for checkpoint `7d60dd8`: Fast
+Checks and Full Verify passed. Hosted `add-router` CI is green at run
+`26218790197`. Hosted Dart Package Publish Dry Run remains green at run
+`26217438575` on `master` and run `26217438585` on `add-router`; the audit
+accepts the `master` dry-run as relevant because no publish-sensitive paths
+changed after `4dec39c`. Hosted `master` WAMP Profile Benchmarks run
+`26214693251` passed with artifact upload; the audit accepts it as relevant
+because no WAMP-profile-sensitive inputs changed after that run. The strict
 deployment-chain audit passes on `master` with clean current-head CI/log,
 relevant Dart package dry-run, relevant native release dry-run, relevant router
 image dry-run, relevant WAMP profile benchmark evidence, workflow visibility,

@@ -16,6 +16,17 @@ PUBLISH_DRY_RUN = REPO_ROOT / "bin" / "dart-package-publish-dry-run"
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
+    def test_hosted_publish_workflow_prints_release_plan(self) -> None:
+        workflow = (
+            REPO_ROOT / ".github" / "workflows" / "dart-package-publish.yml"
+        )
+
+        self.assertRegex(
+            workflow.read_text(encoding="utf-8"),
+            r"name: Validate publishable Dart packages\n"
+            r"\s+run: bin/dart-package-publish-dry-run --show-release-plan",
+        )
+
     def test_scoped_release_plan_still_inventories_private_workspace_packages(
         self,
     ) -> None:

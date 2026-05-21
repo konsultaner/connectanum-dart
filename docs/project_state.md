@@ -415,18 +415,36 @@ release plan`) was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
 `26217438556` passed, `add-router` CI run `26217438580` passed, `master` Dart
 Package Publish Dry Run run `26217438575` passed, and `add-router` Dart Package
 Publish Dry Run run `26217438585` passed. Focused audit readability tests and
-full local `bin/verify` passed for the headed deferred-pub.dev summary follow-up;
-hosted evidence remains at `4dec39c` until this audit-output follow-up is pushed
-and GitHub CI / Dart package dry-run evidence is refreshed.
+full local `bin/verify` passed for the headed deferred-pub.dev summary
+follow-up. Commit `7d60dd8` (`ci: label dart release-plan audit output`) was
+pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted CI
+is clean at `7d60dd8`: `master` CI run `26218795344` passed with Fast Checks
+and Full Verify green, and `add-router` CI run `26218790197` passed with Fast
+Checks and Full Verify green. The strict deployment-chain audit passes required
+gates at `7d60dd8`; it accepts Dart Package Publish Dry Run run `26217438575`
+from `4dec39c` as relevant because no publish-sensitive paths changed in the
+audit-output follow-up. RC readiness remains not-ready only because no approved
+numeric RC tag or GitHub prerelease points at `7d60dd8`; the audit suggests
+`v0.1.0-rc.2`. The current workflow-evidence follow-up updates hosted Dart
+Package Publish Dry Run execution to call
+`bin/dart-package-publish-dry-run --show-release-plan`, so GitHub run logs and
+step summaries include the release-order inventory on publish-sensitive
+changes. Pre-change `bin/test-fast`,
+`python3 tool/test_dart_package_publish_dry_run.py`,
+`bin/dart-package-publish-dry-run --show-release-plan connectanum_client`, and
+full local `bin/verify` passed for this follow-up; hosted evidence remains at
+`7d60dd8` until it is pushed and GitHub CI / Dart package dry-run evidence is
+refreshed.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated hosted audit-readiness checkpoint at `4dec39c`; the current local
-implementation follow-up improves deferred-pub.dev audit readability before the
-next hosted package dry-run checkpoint. The latest pushed implementation
-follow-ups harden Dart package release-plan diagnostics and add a
-first-class WAMP Profile Benchmarks evidence gate to the deployment-chain audit.
+validated hosted audit-readiness checkpoint at `7d60dd8`; the current
+implementation follow-up makes hosted package dry-run runs print the release
+plan directly, and the latest pushed implementation follow-ups harden Dart
+package release-plan diagnostics, improve deferred-pub.dev audit readability,
+and add a first-class WAMP Profile Benchmarks evidence gate to the
+deployment-chain audit.
 MCP remains RC-ready for the first candidate: router-hosted endpoints,
 auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
 resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
