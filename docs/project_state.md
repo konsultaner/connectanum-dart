@@ -379,14 +379,44 @@ sensitivity for package/runtime inputs. Pre-change `bin/test-fast`,
 --require-clean-dart-package-publish-dry-run
 --require-clean-native-release-dry-run --require-clean-router-image-dry-run
 --require-clean-wamp-profile-benchmarks --show-rc-readiness`,
-`git diff --check`, and full local `bin/verify` passed. The live audit accepts
-WAMP Profile Benchmarks run `26206356266` at `79570a1` for the current
-checkpoint because no WAMP-profile-sensitive inputs changed since then.
+`git diff --check`, and full local `bin/verify` passed. Commit `9825526`
+(`ci: gate wamp profile benchmark evidence`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`9825526`: `master` CI run `26214693146` passed with Fast Checks and Full
+Verify green, `add-router` CI run `26214694060` passed with Fast Checks and
+Full Verify green, `master` WAMP Profile Benchmarks run `26214693251` passed,
+and `add-router` WAMP Profile Benchmarks run `26214693816` passed. The strict
+deployment-chain audit now passes required gates at `9825526`: current-head
+CI/logs, relevant Dart package dry-run, relevant native release dry-run,
+relevant router image dry-run, current-head WAMP profile benchmark evidence,
+workflow visibility, branch protection, and router package visibility. RC
+readiness remains not-ready only because no approved numeric RC tag or GitHub
+prerelease points at `9825526`; the audit suggests `v0.1.0-rc.2` as the next
+release-decision tag.
+
+This implementation follow-up hardens Dart package release-plan diagnostics for
+scoped package dry-runs. `bin/dart-package-publish-dry-run --show-release-plan`
+now inventories the full workspace package set even when the actual
+`dart pub publish --dry-run` target is scoped to one package, so release-order
+output cannot hide private packages that still affect a public publish. The
+actual dry-run remains scoped to the selected package targets. A fake-`dart`
+regression in `tool/test_dart_package_publish_dry_run.py` is wired into both
+`bin/test-fast` and `bin/test-all`, proving a scoped `connectanum_client`
+release plan still lists all private workspace packages and only runs one
+archive dry-run. Pre-change `bin/test-fast`,
+`python3 tool/test_dart_package_publish_dry_run.py`,
+`bin/dart-package-publish-dry-run --show-release-plan connectanum_client`,
+`python3 tool/test_audit_github_deployment_chain.py`, `git diff --check`, and
+full local `bin/verify` passed. Hosted evidence remains at `9825526` until this
+package-sensitive tooling follow-up is pushed and GitHub CI / Dart package
+dry-run evidence is refreshed.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated audit-readiness checkpoint at `548d267`; the latest implementation
+validated hosted audit-readiness checkpoint at `9825526`; the current local
+implementation follow-up improves Dart package release-plan diagnostics before
+the next hosted package dry-run checkpoint. The latest pushed implementation
 follow-ups close the public IO-entrypoint WAMP meta helper smoke gaps and add a
 first-class WAMP Profile Benchmarks evidence gate to the deployment-chain audit.
 MCP remains RC-ready for the first candidate: router-hosted endpoints,

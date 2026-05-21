@@ -925,40 +925,67 @@ decision because `connectanum_client` still depends on private
   --require-clean-dart-package-publish-dry-run
   --require-clean-native-release-dry-run --require-clean-router-image-dry-run
   --require-clean-wamp-profile-benchmarks --show-rc-readiness`,
-  `git diff --check`, and full local `bin/verify` passed. The live audit now
-  reports the WAMP profile benchmark gate ready by accepting WAMP Profile
-  Benchmarks run `26206356266` at `79570a1` for checkpoint `548d267`, because
-  no WAMP-profile-sensitive inputs changed since then. RC readiness remains
-  not-ready only because no approved numeric RC tag or GitHub prerelease points
-  at `548d267`; the audit suggests `v0.1.0-rc.2` as the next release-decision
-  tag.
+  `git diff --check`, and full local `bin/verify` passed. Commit `9825526`
+  (`ci: gate wamp profile benchmark evidence`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `9825526`: `master` CI run `26214693146` passed, `add-router` CI run
+  `26214694060` passed, `master` WAMP Profile Benchmarks run `26214693251`
+  passed, and `add-router` WAMP Profile Benchmarks run `26214693816` passed.
+  The strict deployment-chain audit now passes required gates at `9825526`:
+  current-head CI/logs, relevant Dart package dry-run, relevant native release
+  dry-run, relevant router image dry-run, current-head WAMP profile benchmark
+  evidence, workflow visibility, branch protection, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag or GitHub prerelease points at `9825526`; the audit suggests
+  `v0.1.0-rc.2` as the next release-decision tag.
+- 2026-05-21: This implementation follow-up hardens Dart package release-plan
+  diagnostics for scoped package dry-runs. `bin/dart-package-publish-dry-run
+  --show-release-plan` now inventories the full workspace package set even when
+  the actual `dart pub publish --dry-run` target is scoped to one package, so
+  release-order output cannot hide private packages that still affect a public
+  publish. The actual archive dry-run remains scoped to the selected package
+  targets. A fake-`dart` regression in
+  `tool/test_dart_package_publish_dry_run.py` is wired into both
+  `bin/test-fast` and `bin/test-all`, proving a scoped `connectanum_client`
+  release plan still lists all private workspace packages and only runs one
+  archive dry-run. Pre-change `bin/test-fast`,
+  `python3 tool/test_dart_package_publish_dry_run.py`,
+  `bin/dart-package-publish-dry-run --show-release-plan connectanum_client`,
+  `python3 tool/test_audit_github_deployment_chain.py`, `git diff --check`, and
+  full local `bin/verify` passed. Hosted evidence remains at `9825526` until
+  this package-sensitive tooling follow-up is pushed and GitHub CI / Dart
+  package dry-run evidence is refreshed.
 
 ## Handoff
 
-Active. The latest fully clean hosted deployment-chain checkpoint is `548d267`.
-The default branch contains the router-hosted MCP downstream-readiness work plus
+Active. The latest fully clean hosted deployment-chain checkpoint remains
+`9825526` until the current package-sensitive release-plan tooling follow-up is
+pushed and hosted GitHub CI / Dart package dry-run evidence is refreshed. The
+default branch contains the router-hosted MCP downstream-readiness work plus
 explicit branch-protection and GitHub RC-tag audit handoff evidence; the latest
 hosted implementation checkpoints expand public IO-entrypoint Streamable WAMP
 meta helper coverage to the full typed session/registration/subscription helper
 surface and close the direct JSON WAMP subscription-meta helper export smoke
-gap. MCP coverage includes
+gap. The current local follow-up improves scoped Dart package release-plan
+diagnostics without changing publishability. MCP coverage includes
 auth/session correctness, router-provided MCP endpoints, direct JSON tool and
 meta APIs, WAMP pub/sub helpers, resources/prompts, Streamable HTTP
 compatibility, and generated consumer-package smokes that use public package
 APIs without private project assumptions.
 
-Hosted `master` CI is green at run `26211691986` for checkpoint `548d267`: Fast
-Checks and Full Verify passed, and the strict deployment-chain audit passes on
-`master` with clean current-head CI/log, Dart package dry-run, relevant native
-release dry-run, fresh router image dry-run, workflow visibility, branch
-protection, and router package visibility gates. The router package visibility
-gate verifies public GHCR registry metadata for
-`ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26212270565` at `548d267`; it uploaded the preview artifact and skipped
-GHCR login. Local audit tooling now also gates WAMP Profile Benchmarks evidence;
-the live audit accepts run `26206356266` at `79570a1` as relevant to
-`548d267` because no WAMP-profile-sensitive inputs changed after that benchmark
-run.
+Hosted `master` CI is green at run `26214693146` for checkpoint `9825526`: Fast
+Checks and Full Verify passed, and hosted `master` WAMP Profile Benchmarks run
+`26214693251` passed with artifact upload. Hosted `add-router` evidence also
+passed at the same head: CI run `26214694060` and WAMP Profile Benchmarks run
+`26214693816`. The strict deployment-chain audit passes on `master` with clean
+current-head CI/log, relevant Dart package dry-run, relevant native release
+dry-run, relevant router image dry-run, current-head WAMP profile benchmark
+evidence, workflow visibility, branch protection, and router package visibility
+gates. The router package visibility gate verifies public GHCR registry
+metadata for `ghcr.io/konsultaner/connectanum-router`. The latest Router Image
+dry-run remains run `26212270565` at `548d267`; it uploaded the preview artifact
+and skipped GHCR login, and the audit accepts it as relevant because no router
+image-sensitive inputs changed after that run.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master` after the next implementation promotion. The audit inventories stale

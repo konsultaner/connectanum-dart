@@ -187,6 +187,20 @@ append_unique_root() {
   package_roots+=("$root")
 }
 
+append_unique_workspace_root() {
+  local root="$1"
+  local existing
+
+  for existing in "${workspace_roots[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$root" ]]; then
+      return 0
+    fi
+  done
+
+  workspace_roots+=("$root")
+}
+
 append_unique_release_target() {
   local value="$1"
   local existing
@@ -243,6 +257,47 @@ append_unique_dependency_edge() {
   release_plan_dependency_edges+=("$value")
 }
 
+collect_release_plan_inventory() {
+  local root
+  local pubspec
+  local package_name
+  local package_version
+  local rel_root
+  local dependency
+  local dependency_root
+  local dependency_pubspec
+  local dependency_rel_root
+  local dependency_version
+
+  for root in "${workspace_roots[@]}"; do
+    pubspec="$root/pubspec.yaml"
+    package_name="$(pubspec_name "$pubspec")"
+    package_version="$(pubspec_version "$pubspec")"
+    rel_root="${root#"$(repo_root)/"}"
+
+    if publish_to_none "$pubspec"; then
+      append_unique_private_package "${package_name} ${package_version:-unknown-version} (${rel_root})"
+      continue
+    fi
+
+    append_unique_release_target "${package_name} ${package_version:-unknown-version} (${rel_root})"
+
+    while IFS= read -r dependency; do
+      [[ -n "$dependency" ]] || continue
+      dependency_root="$(workspace_package_root_by_name "$dependency" || true)"
+      [[ -n "$dependency_root" ]] || continue
+      dependency_pubspec="$dependency_root/pubspec.yaml"
+      dependency_rel_root="${dependency_root#"$(repo_root)/"}"
+
+      append_unique_dependency_edge "${dependency} -> ${package_name}"
+      if publish_to_none "$dependency_pubspec"; then
+        dependency_version="$(pubspec_version "$dependency_pubspec")"
+        append_unique_private_dependency "${dependency} ${dependency_version:-unknown-version} (${dependency_rel_root})"
+      fi
+    done < <(pubspec_dependencies "$pubspec")
+  done
+}
+
 print_release_plan() {
   printf '\nDart package release-order plan:\n'
 
@@ -291,6 +346,7 @@ print_release_plan() {
 cd_repo_root
 require_command dart
 
+workspace_roots=()
 package_roots=()
 skipped_packages=()
 release_plan_targets=()
@@ -298,23 +354,33 @@ release_plan_private_packages=()
 release_plan_private_dependencies=()
 release_plan_dependency_edges=()
 
+for pubspec in packages/*/pubspec.yaml; do
+  [[ -f "$pubspec" ]] || continue
+  append_unique_workspace_root "$(cd "$(dirname "$pubspec")" && pwd -P)"
+done
+
 if [[ "${#requested_packages[@]}" -gt 0 ]]; then
   for package in "${requested_packages[@]}"; do
     append_unique_root "$(resolve_package_root "$package")"
   done
 else
-  for pubspec in packages/*/pubspec.yaml; do
-    [[ -f "$pubspec" ]] || continue
-    append_unique_root "$(cd "$(dirname "$pubspec")" && pwd -P)"
+  for root in "${workspace_roots[@]}"; do
+    append_unique_root "$root"
   done
 fi
 
-if [[ "${#package_roots[@]}" -eq 0 ]]; then
+if [[ "${#workspace_roots[@]}" -eq 0 ]]; then
   printf 'No Dart workspace packages found.\n' >&2
   exit 1
 fi
 
+if [[ "${#package_roots[@]}" -eq 0 ]]; then
+  printf 'No Dart package targets selected.\n' >&2
+  exit 1
+fi
+
 dart_workspace_bootstrap
+collect_release_plan_inventory
 
 dry_run_packages=()
 release_blockers=()
@@ -326,11 +392,6 @@ for root in "${package_roots[@]}"; do
   rel_root="${root#"$(repo_root)/"}"
   dry_run_output=""
 
-  if publish_to_none "$pubspec"; then
-    package_version="$(pubspec_version "$pubspec")"
-    append_unique_private_package "${package_name} ${package_version:-unknown-version} (${rel_root})"
-  fi
-
   if [[ "$include_private" -eq 0 ]] && publish_to_none "$pubspec"; then
     skipped_packages+=("${package_name} (${rel_root})")
     printf 'Skipping private package %s (%s): publish_to is none.\n' "$package_name" "$rel_root"
@@ -339,7 +400,6 @@ for root in "${package_roots[@]}"; do
 
   dry_run_packages+=("${package_name} (${rel_root})")
   package_version="$(pubspec_version "$pubspec")"
-  append_unique_release_target "${package_name} ${package_version:-unknown-version} (${rel_root})"
   printf '\n## Publish dry-run: %s (%s)\n\n' "$package_name" "$rel_root"
   dry_run_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-dry-run.XXXXXX")"
   if ! (
@@ -365,14 +425,9 @@ for root in "${package_roots[@]}"; do
     dependency_rel_root="${dependency_root#"$(repo_root)/"}"
 
     if publish_to_none "$dependency_pubspec"; then
-      dependency_version="$(pubspec_version "$dependency_pubspec")"
-      append_unique_private_dependency "${dependency} ${dependency_version:-unknown-version} (${dependency_rel_root})"
-      append_unique_dependency_edge "${dependency} -> ${package_name}"
       release_blockers+=(
         "${package_name} depends on private workspace package ${dependency} (${dependency_rel_root}); publish ${dependency} first or remove the hosted dependency before publishing ${package_name}."
       )
-    else
-      append_unique_dependency_edge "${dependency} -> ${package_name}"
     fi
   done < <(pubspec_dependencies "$pubspec")
 done
