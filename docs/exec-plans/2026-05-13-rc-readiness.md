@@ -1110,8 +1110,9 @@ decision because `connectanum_client` still depends on private
   only because no approved numeric RC tag, GitHub prerelease, or matching RC
   router image tag has been selected. No RC tag, GitHub Release, or router
   image was created or moved.
-- 2026-05-21: This implementation follow-up applies HTTP `Accept` media-range
-  specificity to router-hosted MCP content negotiation. Exact
+- 2026-05-21: Commit `a9dc2f6` (`fix: apply mcp accept specificity`) applies
+  HTTP `Accept` media-range specificity to router-hosted MCP content
+  negotiation. Exact
   `application/json;q=0` and `text/event-stream;q=0` ranges now reject those
   response types even when a less-specific wildcard such as `*/*;q=1` is
   present, so direct JSON and SSE clients cannot accidentally opt back into a
@@ -1120,19 +1121,46 @@ decision because `connectanum_client` still depends on private
   `guards MCP Streamable HTTP ingress and sessions`; the fixed focused native
   MCP ingress regression, `dart analyze packages/connectanum_router`,
   `git diff --check`, `bin/test-fast`, and `bin/verify` pass locally.
+  The commit was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
+  `master`. Hosted GitHub evidence is clean at `a9dc2f6`: `master` CI run
+  `26242592111`, Dart Package Publish Dry Run `26242591939`, WAMP Profile
+  Benchmarks `26242592123`, Router Image dry-run `26242601368`, and matching
+  `add-router` CI/dry-run/WAMP runs passed. The strict deployment-chain audit
+  passed required gates on `master` at `a9dc2f6`; RC readiness still reports
+  not-ready only because no approved numeric RC tag, GitHub prerelease, or
+  matching RC router image tag has been selected. No RC tag, GitHub Release, or
+  router image was created or moved.
+- 2026-05-21: This implementation follow-up fixes router-hosted MCP direct
+  JSON session isolation for downstream applications. Direct JSON POSTs that
+  negotiate only `application/json` now ignore caller `MCP-Session-Id` headers
+  when selecting the router endpoint and response lifecycle headers, so stale
+  Streamable HTTP session IDs cannot make lifecycle-free direct tool/meta API
+  calls return `404`. Streamable HTTP requests, GET polling, and DELETE session
+  cleanup still enforce MCP session IDs. Fail-first focused coverage reproduced
+  a stale direct `tools/list` call returning `404` in
+  `guards MCP Streamable HTTP ingress and sessions`; the fixed focused native
+  MCP ingress regression, `dart analyze packages/connectanum_router`,
+  `git diff --check`, patched `bin/test-fast`, and patched `bin/verify` passed
+  locally. Hosted evidence remains pending for this code/config change until
+  the implementation commit is pushed and the GitHub deployment chain is
+  watched.
 
 ## Handoff
 
-Active. The latest fully clean hosted deployment-chain checkpoint is `4daf824`.
-The latest implementation follow-up applies HTTP `Accept` media-range
+Active. The latest fully clean hosted deployment-chain checkpoint is `a9dc2f6`.
+The latest local implementation follow-up fixes router-hosted MCP direct JSON
+session isolation so stale `MCP-Session-Id` headers cannot make lifecycle-free
+direct JSON tool/meta API calls return `404`; hosted evidence is pending until
+that implementation commit is pushed and the GitHub deployment chain is
+watched. Prior implementation follow-ups apply HTTP `Accept` media-range
 specificity so exact `q=0` JSON/SSE media ranges override less-specific
-wildcards before router-hosted MCP JSON/SSE response-path selection. Prior
-implementation follow-ups honor MCP Accept quality weights, fix MCP Streamable
-HTTP SSE response selection when notifications are interleaved before JSON-RPC
-responses, harden MCP HTTP auth client non-JSON error handling for downstream
-applications, inspect Router Image dry-run preview metadata, normalize manual
-Router Image project-version tag inputs to the Docker tag shape required by
-exact RC audit evidence, and tighten RC-readiness router image tag auditing.
+wildcards before router-hosted MCP JSON/SSE response-path selection, honor MCP
+Accept quality weights, fix MCP Streamable HTTP SSE response selection when
+notifications are interleaved before JSON-RPC responses, harden MCP HTTP auth
+client non-JSON error handling for downstream applications, inspect Router
+Image dry-run preview metadata, normalize manual Router Image project-version
+tag inputs to the Docker tag shape required by exact RC audit evidence, and
+tighten RC-readiness router image tag auditing.
 The hosted Dart Package Publish Dry Run now prints the same release-order
 inventory that local and audit dry-runs already expose. The default branch
 contains the router-hosted MCP downstream-readiness work plus explicit
@@ -1145,18 +1173,18 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26239725979` for checkpoint `4daf824`: Fast
+Hosted `master` CI is green at run `26242592111` for checkpoint `a9dc2f6`: Fast
 Checks and Full Verify passed. Hosted Dart Package Publish Dry Run is green at
-run `26239726467` on `master` and logs the release-order plan and
+run `26242591939` on `master` and logs the release-order plan and
 private-package blocker sections from `--show-release-plan`. Hosted `master`
-WAMP Profile Benchmarks run `26239726002` passed with artifact upload. The
-strict deployment-chain audit passes on `master` at `4daf824` with clean
+WAMP Profile Benchmarks run `26242592123` passed with artifact upload. The
+strict deployment-chain audit passes on `master` at `a9dc2f6` with clean
 current-head CI/log, relevant Dart package dry-run, relevant native release
 dry-run, current router image dry-run, current WAMP profile benchmark evidence,
 workflow visibility, branch protection, and router package visibility gates.
 The router package visibility gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26239757142` at `4daf824`; it used manual
+run `26242601368` at `a9dc2f6`; it used manual
 `image_tag=v0.1.0-rc.2`, uploaded the preview artifact, skipped GHCR login, and
 the audit downloads the preview metadata and verifies primary tag
 `0.1.0-rc.2` before accepting it.
@@ -1164,7 +1192,7 @@ the audit downloads the preview metadata and verifies primary tag
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `4daf824`. It suggests
+older commit `47bbf9c`, not the current candidate head `a9dc2f6`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.

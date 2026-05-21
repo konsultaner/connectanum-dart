@@ -1299,17 +1299,18 @@ Future<void> _handleMcpHttpRequestForBinding(
     );
     return;
   }
+  final requestMcpSessionId = streamableHttpRequest ? mcpSessionId : null;
   final issuedSessionId =
-      mcpSessionId == null && isInitialize && streamableHttpRequest
+      requestMcpSessionId == null && isInitialize && streamableHttpRequest
       ? _mcpGenerateHttpSessionId()
       : null;
-  final effectiveMcpSessionId = mcpSessionId ?? issuedSessionId;
+  final effectiveMcpSessionId = requestMcpSessionId ?? issuedSessionId;
   final endpoint = binding._mcpEndpointForRoute(
     request: request,
     route: route,
     session: session,
     mcpSessionId: effectiveMcpSessionId,
-    create: isInitialize || mcpSessionId == null,
+    create: isInitialize || requestMcpSessionId == null,
   );
   if (endpoint == null) {
     await binding._sendImmediateHttpResponse(
@@ -1319,7 +1320,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.notFound,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'Unknown MCP HTTP session',
-        sessionId: mcpSessionId,
+        sessionId: effectiveMcpSessionId,
         extraHeaders: corsHeaders,
       ),
     );

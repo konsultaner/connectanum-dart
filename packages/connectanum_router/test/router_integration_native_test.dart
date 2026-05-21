@@ -1740,6 +1740,26 @@ void main() {
       );
       expect(unknownSession.statusCode, equals(HttpStatus.notFound));
 
+      final directUnknownSession = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-stale-session',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {
+          HttpHeaders.acceptHeader: 'application/json',
+          'MCP-Session-Id': 'unknown-session',
+          'MCP-Protocol-Version': '2025-11-25',
+        },
+      );
+      expect(directUnknownSession.statusCode, equals(HttpStatus.ok));
+      expect(directUnknownSession.json?['id'], equals('direct-stale-session'));
+      expect(directUnknownSession.headers, isNot(contains('mcp-session-id')));
+
       final delete = await _deleteHttp(
         client,
         listener.port,
