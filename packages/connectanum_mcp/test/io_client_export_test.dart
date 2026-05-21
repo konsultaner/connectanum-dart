@@ -372,6 +372,26 @@ void main() {
         'authrole': 'agent',
       });
 
+      final subscriptions = await client.listWampSubscriptionsDirect(
+        id: 'io-direct-subscription-list',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-subscription-list',
+        },
+      );
+      expect(subscriptions.procedure, 'wamp.subscription.list');
+      expect(subscriptions.argumentsKeywords['exact'], [17]);
+
+      final subscriptionLookup = await client.lookupWampSubscriptionDirect(
+        _ioTopic,
+        id: 'io-direct-subscription-lookup',
+        match: 'exact',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-subscription-lookup',
+        },
+      );
+      expect(subscriptionLookup.procedure, 'wamp.subscription.lookup');
+      expect(subscriptionLookup.arguments, [17]);
+
       final subscription = await client.matchWampSubscriptionDirect(
         _ioTopic,
         id: 'io-direct-subscription-match',
@@ -394,6 +414,16 @@ void main() {
         'topic': _ioTopic,
       });
 
+      final subscribers = await client.listWampSubscriptionSubscribersDirect(
+        17,
+        id: 'io-direct-subscription-subscribers',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-direct-subscription-subscribers',
+        },
+      );
+      expect(subscribers.procedure, 'wamp.subscription.list_subscribers');
+      expect(subscribers.arguments, [101]);
+
       final subscriberCount = await client
           .countWampSubscriptionSubscribersDirect(
             17,
@@ -405,7 +435,7 @@ void main() {
       expect(subscriberCount.argumentsKeywords['count'], 1);
 
       expect(client.sessionId, isNull);
-      expect(endpoint.requests, hasLength(6));
+      expect(endpoint.requests, hasLength(9));
       for (final request in endpoint.requests) {
         expect(request.accept, 'application/json');
         expect(request.sessionId, isNull);
@@ -420,16 +450,22 @@ void main() {
         'wamp.session.count',
         'wamp.session.list',
         'wamp.session.get',
+        'wamp.subscription.list',
+        'wamp.subscription.lookup',
         'wamp.subscription.match',
         'wamp.subscription.get',
+        'wamp.subscription.list_subscribers',
         'wamp.subscription.count_subscribers',
       ]);
       expect(endpoint.requests.map((request) => request.consumerTrace), [
         'io-direct-session-count',
         'io-direct-session-list',
         'io-direct-session-get',
+        'io-direct-subscription-list',
+        'io-direct-subscription-lookup',
         'io-direct-subscription-match',
         'io-direct-subscription-get',
+        'io-direct-subscription-subscribers',
         'io-direct-subscription-subscriber-count',
       ]);
 
@@ -444,7 +480,17 @@ void main() {
       );
       expect(
         _jsonMapFrom(
-          helperParams[3]['arguments'],
+          helperParams[4]['arguments'],
+          label: 'subscription lookup arguments',
+        ),
+        {
+          'arguments': [_ioTopic],
+          'argumentsKeywords': {'match': 'exact'},
+        },
+      );
+      expect(
+        _jsonMapFrom(
+          helperParams[5]['arguments'],
           label: 'subscription match arguments',
         ),
         {
@@ -453,7 +499,16 @@ void main() {
       );
       expect(
         _jsonMapFrom(
-          helperParams[5]['arguments'],
+          helperParams[7]['arguments'],
+          label: 'subscription subscribers arguments',
+        ),
+        {
+          'arguments': [17],
+        },
+      );
+      expect(
+        _jsonMapFrom(
+          helperParams[8]['arguments'],
           label: 'subscription subscriber count arguments',
         ),
         {
@@ -1671,6 +1726,26 @@ final class _DirectWampEndpoint {
               arguments: const <Object?>[1],
             );
             return;
+          case 'wamp.subscription.list':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.subscription.list',
+              argumentsKeywords: const <String, Object?>{
+                'exact': <Object?>[17],
+                'prefix': <Object?>[],
+                'wildcard': <Object?>[],
+              },
+            );
+            return;
+          case 'wamp.subscription.lookup':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.subscription.lookup',
+              arguments: const <Object?>[17],
+            );
+            return;
           case 'wamp.subscription.match':
             await _writeWampMetaResult(
               jsonBody['id'],
@@ -1687,6 +1762,14 @@ final class _DirectWampEndpoint {
               argumentsKeywords: <String, Object?>{
                 'details': <String, Object?>{'id': 17, 'topic': _ioTopic},
               },
+            );
+            return;
+          case 'wamp.subscription.list_subscribers':
+            await _writeWampMetaResult(
+              jsonBody['id'],
+              request,
+              'wamp.subscription.list_subscribers',
+              arguments: const <Object?>[101],
             );
             return;
           case 'wamp.subscription.count_subscribers':
