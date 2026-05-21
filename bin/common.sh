@@ -4646,6 +4646,7 @@ const _realm = 'consumer.mcp.realm';
 const _authPath = '/auth';
 const _publicMcpPath = '/mcp';
 const _secureMcpPath = '/mcp/secure';
+const _rateLimitedMcpPath = '/mcp/rate-limited';
 const _ticketAuthId = 'consumer-user';
 const _ticketSecret = 'consumer-ticket';
 const _otherTicketAuthId = 'consumer-other-user';
@@ -4754,6 +4755,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       serviceSession,
       label: 'public',
     );
+    await _smokeRateLimitedMcpRoute(binding);
 
     await _assertSecureMcpRequiresBearer(binding);
     await _assertSecureMcpRejectsBearer(
@@ -5142,6 +5144,22 @@ RouterSettings _consumerRouterSettings() {
               },
             ),
           ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: _rateLimitedMcpPath),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: _realm,
+              sessionProfile: 'mcp-public',
+              rateLimit: HttpRouteRateLimitSettings(
+                maxRequests: 2,
+                windowMs: 60000,
+              ),
+              options: {
+                'include_registered_procedures': true,
+                'allowed_origins': [_allowedOrigin],
+              },
+            ),
+          ),
         ],
       ),
     )
@@ -5247,6 +5265,16 @@ Uri _authEndpoint(RouterBinding binding) {
     host: '127.0.0.1',
     port: listener.port,
     path: _authPath,
+  );
+}
+
+Uri _rateLimitedMcpEndpoint(RouterBinding binding) {
+  final listener = binding.listeners.single;
+  return Uri(
+    scheme: 'http',
+    host: '127.0.0.1',
+    port: listener.port,
+    path: _rateLimitedMcpPath,
   );
 }
 
@@ -6075,6 +6103,117 @@ Future<void> _smokeMcpCorsPreflight(
       serviceSession,
       label: 'secure-cors',
       bearerToken: grant.accessToken,
+    );
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
+  final client = HttpClient();
+  final endpoint = _rateLimitedMcpEndpoint(binding);
+  try {
+    final toolsId = 'rate-limited-direct-tools';
+    final tools = await _mcpRawDirectJsonRpc(
+      client,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': toolsId,
+        'method': 'tools/list',
+      },
+      label: 'rate-limited direct JSON first tools/list',
+    );
+    final toolList = _jsonRpcResult(
+      tools,
+      id: toolsId,
+      label: 'MCP rate-limited direct JSON first tools/list',
+    )['tools'];
+    if (toolList is! List || toolList.isEmpty) {
+      throw StateError('MCP rate-limited route missed the tool catalog.');
+    }
+
+    final initialize = await _mcpRawJsonPost(
+      client,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'rate-limited-streamable-initialize',
+        'method': 'initialize',
+        'params': <String, Object?>{
+          'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+          'capabilities': <String, Object?>{},
+          'clientInfo': <String, Object?>{
+            'name': 'connectanum_consumer_rate_limit_smoke',
+            'version': '0.1.0',
+          },
+        },
+      },
+    );
+    if (initialize.statusCode != HttpStatus.ok) {
+      throw StateError(
+        'MCP rate-limited Streamable initialize returned '
+        '${initialize.statusCode}.',
+      );
+    }
+    _assertMcpCorsStatefulResponse(
+      initialize,
+      label: 'rate-limited Streamable initialize',
+    );
+    final sessionId = initialize.header('mcp-session-id');
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError(
+        'MCP rate-limited Streamable initialize did not return a session id.',
+      );
+    }
+
+    final directLimited = await _mcpRawDirectJsonRpcResponse(
+      client,
+      endpoint,
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'rate-limited-direct-stale-session',
+        'method': 'tools/list',
+      },
+      sessionId: 'caller-rate-limited-direct-stale-session',
+    );
+    _assertMcpCorsErrorResponse(
+      directLimited,
+      expectedStatus: 429,
+      label: 'rate-limited direct JSON stale session',
+      expectNoSession: true,
+      bodyContains: 'rate_limited',
+    );
+    _assertHeaderContains(
+      directLimited,
+      'x-ratelimit-limit',
+      '2',
+      label: 'rate-limited direct JSON stale session',
+    );
+
+    final streamableLimited = await _mcpRawJsonPost(
+      client,
+      endpoint,
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'rate-limited-streamable-session',
+        'method': 'tools/list',
+        'params': <String, Object?>{},
+      },
+      sessionId: sessionId,
+    );
+    _assertMcpCorsErrorResponse(
+      streamableLimited,
+      expectedStatus: 429,
+      label: 'rate-limited Streamable session',
+      sessionId: sessionId,
+      bodyContains: 'rate_limited',
+    );
+    _assertHeaderContains(
+      streamableLimited,
+      'x-ratelimit-limit',
+      '2',
+      label: 'rate-limited Streamable session',
     );
   } finally {
     client.close(force: true);
