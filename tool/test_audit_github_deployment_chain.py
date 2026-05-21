@@ -138,6 +138,29 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn("WAMP profile benchmark gate: ready", result.stdout)
         self.assertIn("RC tag on checked-out head: ready", result.stdout)
         self.assertIn("GitHub RC prerelease: ready (v0.1.0-rc.2)", result.stdout)
+        self.assertIn(
+            "Router image RC tag: ready (0.1.0-rc.2, sha256:abcdef)",
+            result.stdout,
+        )
+
+    def test_rc_readiness_rejects_missing_matching_router_image_tag(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_rc_readiness_with_native_prerelease(
+            current_head,
+            router_image_tag="v0.1.0-rc.1",
+            require_rc_ready=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("GitHub RC prerelease: ready (v0.1.0-rc.2)", result.stdout)
+        self.assertIn(
+            "Router image RC tag: not ready; "
+            "ghcr.io/konsultaner/connectanum-router:0.1.0-rc.2 "
+            "is not publicly reachable.",
+            result.stdout,
+        )
+        self.assertIn("Release candidate readiness audit failed.", result.stdout)
 
     def test_rc_readiness_rejects_local_only_rc_tag_prerelease(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
@@ -716,6 +739,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         branch: str = "master",
         github_tag_head: str | None = None,
         local_tag_head: str | None = None,
+        router_image_tag: str = "0.1.0-rc.2",
         require_rc_ready: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -987,15 +1011,16 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     """\
                     #!/usr/bin/env bash
                     set -euo pipefail
+                    router_tag="${FAKE_ROUTER_IMAGE_TAG:-0.1.0-rc.2}"
 
                     case "$*" in
                       *ghcr.io/token*)
                         printf '{"token":"fake-token"}'
                         ;;
                       *tags/list*)
-                        printf '{"name":"konsultaner/connectanum-router","tags":["v0.1.0-rc.2"]}'
+                        printf '{"name":"konsultaner/connectanum-router","tags":["%s"]}' "$router_tag"
                         ;;
-                      *manifests/v0.1.0-rc.2*)
+                      *manifests/"$router_tag"*)
                         printf 'HTTP/2 200\\r\\ndocker-content-digest: sha256:abcdef\\r\\n'
                         ;;
                       *)
@@ -1015,6 +1040,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 ci_head if github_tag_head is None else github_tag_head
             )
             env["FAKE_LOCAL_TAG_HEAD"] = local_tag_head or ""
+            env["FAKE_ROUTER_IMAGE_TAG"] = router_image_tag
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["REAL_GIT"] = real_git or "git"
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"

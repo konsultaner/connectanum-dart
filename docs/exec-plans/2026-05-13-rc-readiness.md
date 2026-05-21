@@ -970,38 +970,61 @@ decision because `connectanum_client` still depends on private
   Package Publish Dry Run run `26217438575` from `4dec39c` as relevant because
   no publish-sensitive paths changed in the audit-output follow-up. RC readiness
   remains not-ready only because no approved numeric RC tag or GitHub prerelease
-  points at `7d60dd8`; the audit suggests `v0.1.0-rc.2`. The current
-  workflow-evidence follow-up updates hosted Dart Package Publish Dry Run
-  execution to call `bin/dart-package-publish-dry-run --show-release-plan`, so
-  GitHub run logs and step summaries include the release-order inventory on
-  publish-sensitive changes. Pre-change `bin/test-fast`,
+  points at `7d60dd8`; the audit suggests `v0.1.0-rc.2`. Commit `becaf98` (`ci:
+  publish dart release plan in dry-run workflow`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`, updating hosted Dart Package Publish
+  Dry Run execution to call
+  `bin/dart-package-publish-dry-run --show-release-plan`, so GitHub run logs and
+  step summaries include the release-order inventory on publish-sensitive
+  changes. Pre-change `bin/test-fast`,
   `python3 tool/test_dart_package_publish_dry_run.py`,
   `bin/dart-package-publish-dry-run --show-release-plan connectanum_client`,
-  and full local `bin/verify` passed for this follow-up; hosted evidence remains
-  at `7d60dd8` until it is pushed and GitHub CI / Dart package dry-run evidence
-  is refreshed.
+  and full local `bin/verify` passed for this follow-up. Hosted GitHub evidence
+  is clean at `becaf98`: `master` CI run `26220664156` passed with Fast Checks
+  and Full Verify green, `add-router` CI run `26220660767` passed with Fast
+  Checks and Full Verify green, `master` Dart Package Publish Dry Run run
+  `26220664109` passed with release-plan sections visible in the log, and
+  `add-router` Dart Package Publish Dry Run run `26220660832` passed with the
+  same log evidence. The strict deployment-chain audit passes required gates at
+  `becaf98`; RC readiness remains not-ready only because no approved numeric RC
+  tag or GitHub prerelease points at `becaf98`; the audit suggests
+  `v0.1.0-rc.2`.
+- 2026-05-21: This local implementation follow-up tightens the RC-readiness
+  audit for router image evidence. `bin/audit-github-deployment-chain` now
+  derives the required Router Image tag from the selected numeric RC tag
+  (`v0.1.0-rc.N` -> `0.1.0-rc.N`) and probes that exact public GHCR manifest
+  during `--show-rc-readiness` / `--require-rc-ready`, so generic package
+  visibility can no longer mask a missing RC image tag. The fake-GitHub/GHCR
+  regression suite covers both the ready path and a visible-package/missing
+  RC-image-tag failure. Pre-change `bin/test-fast`, focused
+  `bash -n bin/audit-github-deployment-chain`, focused
+  `python3 -m unittest tool/test_audit_github_deployment_chain.py`, and a live
+  read-only `bin/audit-github-deployment-chain --branch master
+  --show-rc-readiness` summary passed locally. No RC tag, GitHub Release, or
+  router image was created or moved.
 
 ## Handoff
 
 Active. The latest fully clean hosted deployment-chain checkpoint remains
-`7d60dd8`; the current workflow-evidence follow-up makes the hosted Dart
-Package Publish Dry Run print the same release-order inventory that local and
-audit dry-runs already expose. The default branch contains the router-hosted MCP
-downstream-readiness work plus explicit branch-protection and GitHub RC-tag
-audit handoff evidence; the latest hosted implementation checkpoints harden
-scoped Dart package release-plan diagnostics and add the WAMP Profile
-Benchmarks evidence gate. MCP coverage includes auth/session correctness,
-router-provided MCP endpoints, direct JSON tool and meta APIs, WAMP pub/sub
-helpers, resources/prompts, Streamable HTTP compatibility, and generated
-consumer-package smokes that use public package APIs without private project
-assumptions.
+`becaf98`; the local follow-up after that checkpoint tightens RC-readiness
+router image tag auditing and requires hosted evidence after promotion. The hosted
+Dart Package Publish Dry Run now prints the same release-order inventory that
+local and audit dry-runs already expose. The default branch contains the
+router-hosted MCP downstream-readiness work plus explicit branch-protection and
+GitHub RC-tag audit handoff evidence; the latest hosted implementation
+checkpoints harden scoped Dart package release-plan diagnostics and add the
+WAMP Profile Benchmarks evidence gate. MCP coverage includes auth/session
+correctness, router-provided MCP endpoints, direct JSON tool and meta APIs,
+WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
+generated consumer-package smokes that use public package APIs without private
+project assumptions.
 
-Hosted `master` CI is green at run `26218795344` for checkpoint `7d60dd8`: Fast
+Hosted `master` CI is green at run `26220664156` for checkpoint `becaf98`: Fast
 Checks and Full Verify passed. Hosted `add-router` CI is green at run
-`26218790197`. Hosted Dart Package Publish Dry Run remains green at run
-`26217438575` on `master` and run `26217438585` on `add-router`; the audit
-accepts the `master` dry-run as relevant because no publish-sensitive paths
-changed after `4dec39c`. Hosted `master` WAMP Profile Benchmarks run
+`26220660767`. Hosted Dart Package Publish Dry Run is green at run
+`26220664109` on `master` and run `26220660832` on `add-router`; both runs log
+the release-order plan and private-package blocker sections from
+`--show-release-plan`. Hosted `master` WAMP Profile Benchmarks run
 `26214693251` passed with artifact upload; the audit accepts it as relevant
 because no WAMP-profile-sensitive inputs changed after that run. The strict
 deployment-chain audit passes on `master` with clean current-head CI/log,
@@ -1017,7 +1040,7 @@ image-sensitive inputs changed after that run.
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master` after the next implementation promotion. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head. It suggests
+older commit `47bbf9c`, not the current candidate head `becaf98`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease selection as not-ready. Moving the stale tag or
 approving a follow-up RC tag remains a release decision. No RC tag or GitHub

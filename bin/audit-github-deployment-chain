@@ -330,17 +330,9 @@ lowercase() {
   printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
-ghcr_registry_package_summary() {
-  local owner="$1"
-  local image_owner
+ghcr_registry_pull_token() {
+  local image_owner="$1"
   local token
-  local tags_json
-  local tags_summary
-  local manifest_tag
-  local manifest_headers
-  local manifest_digest
-
-  image_owner="$(lowercase "$owner")"
 
   command -v curl >/dev/null 2>&1 || return 2
   command -v python3 >/dev/null 2>&1 || return 2
@@ -353,6 +345,72 @@ ghcr_registry_package_summary() {
   )" || return 1
 
   [[ -n "$token" ]] || return 1
+  printf '%s\n' "$token"
+}
+
+ghcr_registry_manifest_digest_with_token() {
+  local image_owner="$1"
+  local token="$2"
+  local manifest_tag="$3"
+  local manifest_headers
+  local manifest_digest
+
+  [[ -n "$manifest_tag" ]] || return 1
+  command -v curl >/dev/null 2>&1 || return 2
+
+  manifest_headers="$(
+    curl -fsSIL \
+      -H "Authorization: Bearer ${token}" \
+      -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+      "https://ghcr.io/v2/${image_owner}/connectanum-router/manifests/${manifest_tag}"
+  )" || return 1
+
+  manifest_digest="$(
+    printf '%s\n' "$manifest_headers" \
+      | awk 'tolower($1) == "docker-content-digest:" { print $2 }' \
+      | tr -d '\r' \
+      | tail -n 1
+  )"
+
+  [[ -n "$manifest_digest" ]] || return 1
+  printf '%s\n' "$manifest_digest"
+}
+
+ghcr_registry_manifest_digest() {
+  local owner="$1"
+  local manifest_tag="$2"
+  local image_owner
+  local token
+
+  image_owner="$(lowercase "$owner")"
+  token="$(ghcr_registry_pull_token "$image_owner")" || return 1
+  ghcr_registry_manifest_digest_with_token "$image_owner" "$token" "$manifest_tag"
+}
+
+router_image_tag_for_rc_tag() {
+  local rc_tag="$1"
+
+  if [[ "$rc_tag" == v* ]]; then
+    printf '%s\n' "${rc_tag#v}"
+  else
+    printf '%s\n' "$rc_tag"
+  fi
+}
+
+ghcr_registry_package_summary() {
+  local owner="$1"
+  local image_owner
+  local token
+  local tags_json
+  local tags_summary
+  local manifest_tag
+  local manifest_digest
+
+  image_owner="$(lowercase "$owner")"
+
+  command -v python3 >/dev/null 2>&1 || return 2
+
+  token="$(ghcr_registry_pull_token "$image_owner")" || return 1
 
   tags_json="$(
     curl -fsSL \
@@ -381,21 +439,7 @@ for tag in tags[:10]:
   manifest_tag="$(printf '%s\n' "$tags_summary" | sed -n '3p')"
   [[ -n "$manifest_tag" ]] || return 1
 
-  manifest_headers="$(
-    curl -fsSIL \
-      -H "Authorization: Bearer ${token}" \
-      -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
-      "https://ghcr.io/v2/${image_owner}/connectanum-router/manifests/${manifest_tag}"
-  )" || return 1
-
-  manifest_digest="$(
-    printf '%s\n' "$manifest_headers" \
-      | awk 'tolower($1) == "docker-content-digest:" { print $2 }' \
-      | tr -d '\r' \
-      | tail -n 1
-  )"
-
-  [[ -n "$manifest_digest" ]] || return 1
+  manifest_digest="$(ghcr_registry_manifest_digest_with_token "$image_owner" "$token" "$manifest_tag")" || return 1
 
   printf '%s\n' "$tags_summary" | sed -n '1,3p'
   printf '%s\n' "$manifest_digest"
@@ -1736,6 +1780,8 @@ print_rc_readiness() {
   local followup_rc_tag_suggestions
   local followup_rc_tag
   local followup_source_tag
+  local selected_router_image_tag
+  local selected_router_image_digest
   local strict_dart_output
 
   head_sha="$(git rev-parse HEAD)"
@@ -1966,9 +2012,19 @@ print_rc_readiness() {
       printf '  Next action: create a non-draft GitHub prerelease for %s after the tag and release notes are approved.\n' "$selected_rc_tag"
       rc_ready_failed=1
     fi
+
+    selected_router_image_tag="$(router_image_tag_for_rc_tag "$selected_rc_tag")"
+    if selected_router_image_digest="$(ghcr_registry_manifest_digest "$package_owner" "$selected_router_image_tag" 2>/dev/null)"; then
+      printf 'Router image RC tag: ready (%s, %s)\n' "$selected_router_image_tag" "$selected_router_image_digest"
+    else
+      printf 'Router image RC tag: not ready; ghcr.io/%s/connectanum-router:%s is not publicly reachable.\n' "$(lowercase "$package_owner")" "$selected_router_image_tag"
+      printf '  Next action: after release approval, publish the Router Image workflow for %s or rerun the tag-triggered image publish, then rerun bin/audit-github-deployment-chain --branch %s --require-rc-ready.\n' "$selected_rc_tag" "$branch"
+      rc_ready_failed=1
+    fi
   else
     printf 'GitHub RC prerelease: not ready; no RC tag selected.\n'
     printf '  Next action: select and push an RC tag before creating the GitHub prerelease.\n'
+    printf 'Router image RC tag: not ready; no RC tag selected.\n'
     rc_ready_failed=1
   fi
 

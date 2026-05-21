@@ -2,7 +2,20 @@
 
 Last updated: 2026-05-21
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP notification correctness now
+Last reviewed branch checkpoint: The current local implementation follow-up
+closes an RC-readiness audit gap for router image evidence. When a numeric RC
+tag is selected, `bin/audit-github-deployment-chain --require-rc-ready` now
+derives the matching Router Image tag from the RC tag (`v0.1.0-rc.N` ->
+`0.1.0-rc.N`) and probes the exact public GHCR manifest instead of accepting
+generic package visibility alone. Fake-GitHub/GHCR regression coverage now
+proves a ready GitHub RC prerelease still fails RC readiness when the matching
+router image tag is missing. Pre-change `bin/test-fast`, focused
+`bash -n bin/audit-github-deployment-chain`, focused
+`python3 -m unittest tool/test_audit_github_deployment_chain.py`, and a live
+read-only `bin/audit-github-deployment-chain --branch master
+--show-rc-readiness` summary passed locally. No RC tag, GitHub Release, or
+router image was created or moved.
+Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side
 effects, and Streamable direct tool/pubsub notification side effects. The latest
@@ -423,28 +436,33 @@ and Full Verify green, and `add-router` CI run `26218790197` passed with Fast
 Checks and Full Verify green. The strict deployment-chain audit passes required
 gates at `7d60dd8`; it accepts Dart Package Publish Dry Run run `26217438575`
 from `4dec39c` as relevant because no publish-sensitive paths changed in the
-audit-output follow-up. RC readiness remains not-ready only because no approved
-numeric RC tag or GitHub prerelease points at `7d60dd8`; the audit suggests
-`v0.1.0-rc.2`. The current workflow-evidence follow-up updates hosted Dart
-Package Publish Dry Run execution to call
+audit-output follow-up. Commit `becaf98` (`ci: publish dart release plan in
+dry-run workflow`) was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`, updating hosted Dart Package Publish Dry Run execution to call
 `bin/dart-package-publish-dry-run --show-release-plan`, so GitHub run logs and
 step summaries include the release-order inventory on publish-sensitive
 changes. Pre-change `bin/test-fast`,
 `python3 tool/test_dart_package_publish_dry_run.py`,
 `bin/dart-package-publish-dry-run --show-release-plan connectanum_client`, and
-full local `bin/verify` passed for this follow-up; hosted evidence remains at
-`7d60dd8` until it is pushed and GitHub CI / Dart package dry-run evidence is
-refreshed.
+full local `bin/verify` passed for this follow-up. Hosted GitHub evidence is
+clean at `becaf98`: `master` CI run `26220664156` passed with Fast Checks and
+Full Verify green, `add-router` CI run `26220660767` passed with Fast Checks and
+Full Verify green, `master` Dart Package Publish Dry Run run `26220664109`
+passed with release-plan sections visible in the log, and `add-router` Dart
+Package Publish Dry Run run `26220660832` passed with the same log evidence.
+The strict deployment-chain audit passes required gates at `becaf98`; RC
+readiness remains not-ready only because no approved numeric RC tag or GitHub
+prerelease points at `becaf98`; the audit suggests `v0.1.0-rc.2`.
 
 Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
 Current milestone: Release-candidate readiness for a GitHub prerelease from the
 promoted default branch. GitHub `master` and `add-router` contain the latest
-validated hosted audit-readiness checkpoint at `7d60dd8`; the current
-implementation follow-up makes hosted package dry-run runs print the release
-plan directly, and the latest pushed implementation follow-ups harden Dart
-package release-plan diagnostics, improve deferred-pub.dev audit readability,
-and add a first-class WAMP Profile Benchmarks evidence gate to the
-deployment-chain audit.
+validated hosted audit-readiness checkpoint at `becaf98`; the latest
+local implementation follow-up tightens RC router image tag audit evidence,
+while earlier implementation follow-ups make hosted package dry-run runs print
+the release plan directly, harden Dart package release-plan diagnostics, improve
+deferred-pub.dev audit readability, and add a first-class WAMP Profile
+Benchmarks evidence gate to the deployment-chain audit.
 MCP remains RC-ready for the first candidate: router-hosted endpoints,
 auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
 resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
