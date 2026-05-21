@@ -3,24 +3,26 @@
 Last updated: 2026-05-21
 Current branch: `add-router`
 Last reviewed branch checkpoint: Current local implementation follow-up on top
-of hosted-clean `c54f36d` adds focused router integration regression coverage
-for the MCP route-level auth response session contract. The secure route
-isolation test now proves lifecycle-free direct JSON POSTs with stale
-`MCP-Session-Id` headers do not echo that session id on missing or invalid
-bearer-token failures, while true Streamable HTTP POST auth failures still
-preserve the owned session id. Pre-change `bin/test-fast`, focused `isolates
-MCP Streamable HTTP sessions by route and bearer principal` router integration
-test, `git diff --check`, and full local `bin/verify` passed.
-Hosted evidence is pending for this follow-up. Prior hosted GitHub evidence is
-clean at `c54f36d`: `master` CI run `26251320957`, `master` Dart Package
-Publish Dry Run `26251320959`, `master` WAMP Profile Benchmarks `26251320944`,
-`master` Router Image dry-run `26251338983`, `add-router` CI run
-`26251320667`, `add-router` Dart Package Publish Dry Run `26251320668`, and
-`add-router` WAMP Profile Benchmarks `26251320673` passed. The strict
-deployment-chain audit passed required gates on `master` at `c54f36d`; RC
+of hosted-clean `62c0146` adds focused router runtime regression coverage for
+the MCP route-level rate-limit response session contract. The rate-limited MCP
+route test now proves lifecycle-free direct JSON POSTs with stale
+`MCP-Session-Id` headers do not echo that session id when the route limit has
+already been exceeded, while true Streamable HTTP POST failures still preserve
+the owned session id. Pre-change `bin/test-fast` and focused `rate limited MCP
+routes keep Streamable HTTP CORS headers` router runtime test passed; full
+local `bin/verify` passed for this follow-up. The prior auth-session
+coverage commit `62c0146` (`test: cover mcp auth session isolation`) was pushed
+to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `62c0146`: `master` CI run `26253868994`, `master` Dart
+Package Publish Dry Run `26253868990`, `master` WAMP Profile Benchmarks
+`26253868997`, `master` Router Image dry-run `26254530985`, `add-router` CI run
+`26253864747`, `add-router` Dart Package Publish Dry Run `26253864711`, and
+`add-router` WAMP Profile Benchmarks `26253864745` passed. The strict
+deployment-chain audit passed required gates on `master` at `62c0146`; RC
 readiness remains not-ready only because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected. No RC tag,
-GitHub Release, or router image was created or moved.
+prerelease, or matching RC router image tag has been selected. The Router Image
+dry-run uploaded preview metadata for `0.1.0-rc.2` and skipped GHCR login. No
+RC tag, GitHub Release, or router image was created or moved.
 Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side
@@ -11266,10 +11268,10 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears; the latest implementation follow-up hardens
-  router-hosted MCP Accept negotiation for downstream applications, while the
-  latest fully hosted verified checkpoint closes the Streamable HTTP SSE
-  response-selection gap for router-hosted MCP consumer applications.
+  consumer integration bug appears; the latest local implementation follow-up
+  extends pre-dispatch MCP response session-isolation coverage to route
+  rate-limit failures, while the latest fully hosted verified checkpoint
+  covers route auth response session isolation.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

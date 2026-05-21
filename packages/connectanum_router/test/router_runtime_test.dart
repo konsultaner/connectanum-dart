@@ -3374,7 +3374,13 @@ void main() {
 
     await Future<void>.delayed(Duration.zero);
     final listenerId = binding.listeners.single.listenerId;
-    void enqueuePreflight(int connectionId, int handle) {
+    void enqueueMcpRequest({
+      required int connectionId,
+      required int handle,
+      required String method,
+      required Map<String, String> headers,
+      Uint8List? body,
+    }) {
       runtime.setConnectionProtocol(
         connectionId,
         NativeConnectionProtocol.http,
@@ -3384,19 +3390,28 @@ void main() {
         connectionId,
         NativeHttpHandshake.synthetic(
           handle: handle,
-          method: 'OPTIONS',
+          method: method,
           target: '/mcp',
           path: '/mcp',
           protocol: 'http/1.1',
-          headers: const {
-            'origin': 'https://agent.example',
-            'access-control-request-method': 'POST',
-            'access-control-request-headers': 'MCP-Protocol-Version',
-          },
-          body: Uint8List(0),
+          headers: headers,
+          body: body ?? Uint8List(0),
           realm: 'router.http',
           procedure: 'router.http.mcp',
         ),
+      );
+    }
+
+    void enqueuePreflight(int connectionId, int handle) {
+      enqueueMcpRequest(
+        connectionId: connectionId,
+        handle: handle,
+        method: 'OPTIONS',
+        headers: const {
+          'origin': 'https://agent.example',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'MCP-Protocol-Version',
+        },
       );
     }
 
@@ -3432,6 +3447,58 @@ void main() {
     expect(
       (body as NativeHttpResponseJson).value,
       containsPair('reason', 'rate_limited'),
+    );
+
+    final requestBody = Uint8List.fromList(
+      utf8.encode(
+        '{"jsonrpc":"2.0","id":"rate-limited","method":"tools/list","params":{}}',
+      ),
+    );
+    const directStaleSessionId = 'caller-rate-limited-direct';
+    enqueueMcpRequest(
+      connectionId: 50,
+      handle: 9,
+      method: 'POST',
+      headers: const {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'mcp-session-id': directStaleSessionId,
+        'mcp-protocol-version': '2025-11-25',
+      },
+      body: requestBody,
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[50]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final directLimitedResponse = runtime.httpResponses[50]!.single;
+    expect(directLimitedResponse.status, 429);
+    expect(directLimitedResponse.headers, isNot(contains('MCP-Session-Id')));
+    expect(directLimitedResponse.headers, isNot(contains('mcp-session-id')));
+
+    const streamableSessionId = 'owned-rate-limited-streamable';
+    enqueueMcpRequest(
+      connectionId: 51,
+      handle: 10,
+      method: 'POST',
+      headers: const {
+        'accept': 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        'mcp-session-id': streamableSessionId,
+        'mcp-protocol-version': '2025-11-25',
+        'mcp-method': 'tools/list',
+      },
+      body: requestBody,
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[51]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final streamableLimitedResponse = runtime.httpResponses[51]!.single;
+    expect(streamableLimitedResponse.status, 429);
+    expect(
+      streamableLimitedResponse.headers['MCP-Session-Id'],
+      streamableSessionId,
     );
   });
 

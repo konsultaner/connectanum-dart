@@ -1200,20 +1200,41 @@ decision because `connectanum_client` still depends on private
   failures still preserve the owned session id. Pre-change `bin/test-fast`,
   focused `isolates MCP Streamable HTTP sessions by route and bearer principal`
   router integration test, `git diff --check`, and full local `bin/verify`
-  passed. Hosted evidence is pending for this follow-up.
+  passed. The commit was pushed to GitLab `origin`, GitHub `add-router`, and
+  GitHub `master`. Hosted GitHub evidence is clean at `62c0146`: `master` CI
+  run `26253868994`, Dart Package Publish Dry Run `26253868990`, WAMP Profile
+  Benchmarks `26253868997`, Router Image dry-run `26254530985`, and matching
+  `add-router` CI/dry-run/WAMP runs passed. The strict deployment-chain audit
+  passed required gates on `master` at `62c0146`; RC readiness still reports
+  not-ready only because no approved numeric RC tag, GitHub prerelease, or
+  matching RC router image tag has been selected. The Router Image dry-run
+  uploaded preview metadata for `0.1.0-rc.2` and skipped GHCR login. No RC tag,
+  GitHub Release, or router image was created or moved.
+- 2026-05-21: Current local implementation follow-up extends the same
+  pre-dispatch MCP response-session boundary to route-level rate-limit
+  coverage. The router runtime rate-limit test now proves lifecycle-free direct
+  JSON POSTs with stale `MCP-Session-Id` headers do not echo that session id
+  when the route limit has already been exceeded, while true Streamable HTTP
+  POST failures still preserve the owned session id. Pre-change `bin/test-fast`
+  and focused `rate limited MCP routes keep Streamable HTTP CORS headers`
+  router runtime test passed. Full local `bin/verify` passed before handoff.
 
 ## Handoff
 
-Active. The latest fully clean hosted deployment-chain checkpoint is `c54f36d`.
-The latest local implementation follow-up adds focused router integration
-regression coverage proving pre-dispatch MCP route auth response session
-isolation for direct JSON missing/invalid bearer failures while preserving
-owned session ids for true Streamable HTTP auth failures. Full local
-`bin/verify` passed; hosted evidence is pending for this follow-up. The latest
-fully hosted implementation fixed pre-dispatch MCP route auth response session
-isolation so lifecycle-free direct JSON requests cannot echo stale
-`MCP-Session-Id` headers through missing or invalid bearer-token errors. The
-prior fully hosted implementation fixed router-hosted MCP direct JSON
+Active. The latest fully clean hosted deployment-chain checkpoint is `62c0146`.
+The latest local implementation follow-up adds focused router runtime
+regression coverage proving pre-dispatch MCP route rate-limit response session
+isolation for lifecycle-free direct JSON POST failures while preserving owned
+session ids for true Streamable HTTP POST failures. Full local `bin/verify`
+passed for this follow-up. The latest fully hosted implementation follow-up
+adds focused router integration regression coverage proving pre-dispatch MCP
+route auth response session isolation for direct JSON missing/invalid bearer
+failures while preserving owned session ids for true Streamable HTTP auth
+failures. The prior fully hosted implementation
+fixed pre-dispatch MCP route auth response session isolation so lifecycle-free
+direct JSON requests cannot echo stale `MCP-Session-Id` headers through missing
+or invalid bearer-token errors. The prior fully hosted implementation fixed
+router-hosted MCP direct JSON
 error-response session isolation so stale `MCP-Session-Id` headers cannot leak
 back through lifecycle-free malformed-body or unsupported-protocol errors. The
 prior fully hosted implementation before that fixed router-hosted MCP direct
@@ -1241,18 +1262,18 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26251320957` for checkpoint `c54f36d`: Fast
+Hosted `master` CI is green at run `26253868994` for checkpoint `62c0146`: Fast
 Checks and Full Verify passed. Hosted Dart Package Publish Dry Run is green at
-run `26251320959` on `master` and logs the release-order plan and
+run `26253868990` on `master` and logs the release-order plan and
 private-package blocker sections from `--show-release-plan`. Hosted `master`
-WAMP Profile Benchmarks run `26251320944` passed with artifact upload. The
-strict deployment-chain audit passes on `master` at `c54f36d` with clean
+WAMP Profile Benchmarks run `26253868997` passed with artifact upload. The
+strict deployment-chain audit passes on `master` at `62c0146` with clean
 current-head CI/log, relevant Dart package dry-run, relevant native release
 dry-run, current router image dry-run, current WAMP profile benchmark evidence,
 workflow visibility, branch protection, and router package visibility gates.
 The router package visibility gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26251338983` at `c54f36d`; it used manual
+run `26254530985` at `62c0146`; it used manual
 `image_tag=v0.1.0-rc.2`, uploaded the preview artifact, skipped GHCR login, and
 the audit downloads the preview metadata and verifies primary tag
 `0.1.0-rc.2` before accepting it.
@@ -1260,7 +1281,7 @@ the audit downloads the preview metadata and verifies primary tag
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `c54f36d`. It suggests
+older commit `47bbf9c`, not the current candidate head `62c0146`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.
