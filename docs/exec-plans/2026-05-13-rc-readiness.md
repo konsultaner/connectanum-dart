@@ -78,6 +78,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-22: Router-hosted MCP Streamable HTTP session deletion now cleans up
+  endpoint-created WAMP pub/sub subscriptions. `_RouterMcpEndpoint` tracks
+  subscription ids created through MCP pub/sub helpers, removes ids on explicit
+  unsubscribe, and best-effort unsubscribes any remaining ids when DELETE
+  removes the MCP session or the endpoint is disposed. Router integration
+  coverage and the generated consumer-package smoke now prove a Streamable MCP
+  subscription has one route-visible subscriber before DELETE and zero after
+  DELETE through direct JSON WAMP subscription meta. Pre-change
+  `bin/test-fast`, focused router integration coverage, `dart analyze
+  packages/connectanum_router`, `bash -n bin/common.sh`, focused generated
+  router-hosted MCP consumer smoke, `git diff --check`, and full local
+  `bin/verify` passed. Hosted deployment-chain evidence remains pending for
+  this checkpoint.
 - 2026-05-22: Current implementation checkpoint adds per-method HTTP route
   action overrides for the Dart router config surface. `HttpRouteSettings`
   now carries `methodActions`, `RouterConfigLoader` accepts
@@ -1529,17 +1542,20 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The latest fully clean hosted implementation follow-up makes
-per-method HTTP route action overrides available through the Dart config
-surface. `HttpRouteSettings`, `RouterConfigLoader`, `RouterSettingsCodec`,
-native config encoding, and Dart synthetic route matching now support
-method-specific route targets, with local focused coverage and full
-`bin/verify` green on 2026-05-22. This checkpoint still needs hosted
-deployment-chain evidence before it becomes the latest fully clean hosted
-checkpoint. The latest fully clean hosted implementation checkpoint is
-`3c5d977`, which adds router-hosted HTTP method-mismatch coverage across
-native matching, native HTTP/1 responses, and Dart synthetic dispatch; hosted
-CI, hosted Dart Package Publish Dry Run, hosted WAMP Profile Benchmarks, hosted
+Active. The latest local implementation follow-up makes router-hosted MCP
+Streamable HTTP `DELETE` dispose endpoint-owned WAMP pub/sub subscriptions.
+`_RouterMcpEndpoint` now tracks subscription ids created through MCP pub/sub
+helpers, removes ids on explicit unsubscribe, and best-effort unsubscribes
+remaining ids when DELETE removes the MCP session or the endpoint is disposed.
+Router integration coverage and the generated consumer-package smoke prove a
+Streamable MCP subscription has one route-visible subscriber before DELETE and
+zero after DELETE through direct JSON WAMP subscription meta. Local focused
+coverage and full `bin/verify` passed on 2026-05-22. This checkpoint still
+needs hosted deployment-chain evidence before it becomes the latest fully clean
+hosted checkpoint. The latest fully clean hosted implementation checkpoint is
+`3c5d977`, which adds router-hosted HTTP method-mismatch coverage across native
+matching, native HTTP/1 responses, and Dart synthetic dispatch; hosted CI,
+hosted Dart Package Publish Dry Run, hosted WAMP Profile Benchmarks, hosted
 kTLS Validation, Native Artifacts dry-run, Router Image dry-run, and the strict
 deployment-chain audit passed at `3c5d977`. The prior fully clean hosted
 implementation follow-up makes router-hosted HTTP route protocol mismatches

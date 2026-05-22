@@ -965,7 +965,7 @@ class RouterBinding {
     await _metricsService?.dispose();
     _metricsService = null;
     for (final endpoint in _mcpEndpoints.values.toList()) {
-      endpoint.dispose();
+      await endpoint.dispose();
     }
     _mcpEndpoints.clear();
     for (final session in _internalSessions.toList()) {
@@ -1008,7 +1008,17 @@ class RouterBinding {
     if (_metricsService?.ownsSession(session) == true) {
       _metricsService = null;
     }
-    _mcpEndpoints.removeWhere((_, endpoint) => endpoint.ownsSession(session));
+    final removedMcpEndpoints = <_RouterMcpEndpoint>[];
+    _mcpEndpoints.removeWhere((_, endpoint) {
+      final ownsSession = endpoint.ownsSession(session);
+      if (ownsSession) {
+        removedMcpEndpoints.add(endpoint);
+      }
+      return ownsSession;
+    });
+    for (final endpoint in removedMcpEndpoints) {
+      unawaited(endpoint.dispose());
+    }
   }
 
   @visibleForTesting

@@ -2,26 +2,25 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router per-method HTTP route action overrides.
+Last reviewed branch checkpoint: Router-hosted MCP Streamable DELETE pub/sub cleanup.
 Latest fully clean hosted checkpoint: Commit `3c5d977`.
-Current implementation checkpoint: Per-method HTTP route action overrides have
-local verification evidence. `HttpRouteSettings` now carries
-`methodActions`, the config loader accepts `method_actions` / `methodActions`,
-the settings codec round-trips method overrides, native config encoding emits
-method-specific targets, and Dart synthetic route matching treats those method
-keys as allowed methods for `405`/`Allow` responses. `ROADMAP.md` now splits the
-HTTP translation-table item so per-method overrides are complete while catch-all
-wildcard mapping remains open. Pre-change `bin/test-fast`, focused
-`dart test packages/connectanum_router/test/router_config_loader_test.dart -r
-expanded --chain-stack-traces -n "parses and round-trips per-method HTTP route
-actions"`, focused `dart test
-packages/connectanum_router/test/router_runtime_test.dart -r expanded
---chain-stack-traces -n "encodes per-method HTTP route action overrides"`,
-focused `dart test packages/connectanum_router/test/router_runtime_test.dart -r
-expanded --chain-stack-traces -n "honors typed HTTP route method restrictions
-before dispatch"`, `git diff --check`, and full local `bin/verify` passed on
-2026-05-22. Hosted GitHub deployment-chain evidence is still pending for this
-checkpoint.
+Current implementation checkpoint: Router-hosted MCP endpoints now clean up
+MCP-created WAMP pub/sub subscriptions when a Streamable HTTP session is
+deleted or an endpoint is disposed. `_RouterMcpEndpoint` tracks subscription
+ids created through `connectanum.pubsub.subscribe`, removes them on explicit
+unsubscribe, and best-effort unsubscribes remaining ids during DELETE/disposal.
+The router integration smoke proves a Streamable MCP subscription reports one
+route-visible subscriber before DELETE and zero afterward through direct JSON
+WAMP subscription meta. The generated consumer-package smoke now proves the
+same cleanup through public `McpStreamableHttpClient` helper calls. Pre-change
+`bin/test-fast`, focused `dart test
+packages/connectanum_router/test/router_integration_native_test.dart -r
+expanded --plain-name "deletes MCP Streamable HTTP sessions and cleans up
+pubsub subscribers"`, `dart analyze packages/connectanum_router`, `bash -n
+bin/common.sh`, focused `bash -lc 'source bin/common.sh &&
+run_mcp_consumer_package_smoke'`, `git diff --check`, and full local
+`bin/verify` passed on 2026-05-22. Hosted GitHub deployment-chain evidence is
+still pending for this checkpoint.
 Latest fully clean hosted checkpoint details: Commit `3c5d977`
 (`test: cover http route method mismatches`) adds focused production-readiness
 coverage for HTTP route method whitelist mismatches. Native route matching now

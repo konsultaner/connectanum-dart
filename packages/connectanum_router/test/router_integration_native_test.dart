@@ -2103,6 +2103,64 @@ void main() {
     );
 
     test(
+      'deletes MCP Streamable HTTP sessions and cleans up pubsub subscribers',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9117,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final httpClient = HttpClient();
+        addTearDown(() => httpClient.close(force: true));
+
+        final mcpClient = McpStreamableHttpClient(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp/public',
+          ),
+        );
+        addTearDown(() => mcpClient.close(force: true));
+
+        await mcpClient.initialize(id: 'cleanup-initialize');
+        await mcpClient.notifyInitialized();
+        final subscription = await mcpClient.subscribeWampTopic(
+          'app.events.audit',
+          id: 'cleanup-subscribe',
+          queueLimit: 5,
+        );
+        final subscriptionId = subscription.subscriptionId;
+        expect(subscriptionId, isNotNull);
+
+        Future<int> subscriberCount() async {
+          final result = await _callRouterJsonMethod(
+            httpClient,
+            listener.port,
+            '/mcp/public',
+            'wamp.subscription.count_subscribers',
+            {'id': subscriptionId},
+          );
+          final arguments =
+              (result['structuredContent'] as Map<String, Object?>)['arguments']
+                  as List;
+          return arguments.single as int;
+        }
+
+        expect(await subscriberCount(), equals(1));
+
+        await mcpClient.deleteSession();
+        expect(mcpClient.sessionId, isNull);
+
+        expect(await subscriberCount(), equals(0));
+      },
+      skip: skipReason,
+    );
+
+    test(
       'serves Streamable HTTP batch responses on router MCP routes',
       () async {
         final harness = await _RouterHarness.start(

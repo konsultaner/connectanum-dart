@@ -17847,11 +17847,51 @@ Future<void> _smokeStreamableSessionLifecycle(
     eventId: eventIdAfterResume,
   );
 
+  final cleanupSubscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-delete-cleanup-subscribe',
+    queueLimit: 5,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-delete-cleanup-subscribe',
+    },
+  );
+  final cleanupSubscriptionId = cleanupSubscription.subscriptionId;
+  if (cleanupSubscriptionId == null) {
+    throw StateError(
+      'Streamable MCP DELETE cleanup subscription did not return an id.',
+    );
+  }
+  final cleanupSubscriberCount = await client.countWampSubscriptionSubscribers(
+    cleanupSubscriptionId,
+    id: '$label-delete-cleanup-count',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-delete-cleanup-count',
+    },
+  );
+  if (cleanupSubscriberCount.arguments.single != 1) {
+    throw StateError(
+      'Streamable MCP DELETE cleanup expected one subscriber before delete.',
+    );
+  }
+
   await client.deleteSession(
     headers: <String, String>{'x-consumer-trace': '$label-streamable-delete'},
   );
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Streamable MCP DELETE did not clear session state.');
+  }
+  final cleanupSubscriberCountAfterDelete = await client
+      .countWampSubscriptionSubscribersDirect(
+        cleanupSubscriptionId,
+        id: '$label-delete-cleanup-count-after-delete',
+        headers: <String, String>{
+          'x-consumer-trace': '$label-delete-cleanup-count-after-delete',
+        },
+      );
+  if (cleanupSubscriberCountAfterDelete.arguments.single != 0) {
+    throw StateError(
+      'Streamable MCP DELETE left a WAMP subscriber behind.',
+    );
   }
 
   await _assertStreamableSessionReuseRejectedAcrossMethods(

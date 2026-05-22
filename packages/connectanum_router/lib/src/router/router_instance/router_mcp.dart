@@ -1226,7 +1226,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
-    final removed = binding._removeMcpEndpointForRoute(
+    final removed = await binding._removeMcpEndpointForRoute(
       request: request,
       route: route,
       session: session,
@@ -1451,12 +1451,12 @@ extension _RouterBindingMcp on RouterBinding {
     );
   }
 
-  _RouterMcpEndpoint? _removeMcpEndpointForRoute({
+  Future<_RouterMcpEndpoint?> _removeMcpEndpointForRoute({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
     required RouterSession session,
     required String mcpSessionId,
-  }) {
+  }) async {
     final endpoint = _mcpEndpoints.remove(
       _mcpEndpointKeyForRoute(
         request: request,
@@ -1465,7 +1465,7 @@ extension _RouterBindingMcp on RouterBinding {
         mcpSessionId: mcpSessionId,
       ),
     );
-    endpoint?.dispose();
+    await endpoint?.dispose();
     return endpoint;
   }
 }
@@ -1549,12 +1549,22 @@ class _RouterMcpEndpoint {
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
   final List<mcp.JsonMap> _pendingSseMessages = <mcp.JsonMap>[];
   final Map<String, int> _sseStreamSequences = <String, int>{};
+  final Set<int> _wampSubscriptionIds = <int>{};
   int _nextSseStream = 0;
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
 
-  void dispose() {
+  Future<void> dispose() async {
     server.shutdown();
+    final subscriptionIds = _wampSubscriptionIds.toList(growable: false);
+    _wampSubscriptionIds.clear();
+    for (final subscriptionId in subscriptionIds) {
+      try {
+        await session.unsubscribe(subscriptionId);
+      } catch (_) {
+        // Best-effort cleanup during endpoint disposal.
+      }
+    }
   }
 
   Future<Object?> handleMessage(Object? rawMessage) async {
@@ -2274,6 +2284,7 @@ class _RouterMcpEndpoint {
     subscribed.onEventPayload(
       (event) => onEvent(mcp.McpWampEvent.fromPayload(event)),
     );
+    _wampSubscriptionIds.add(subscribed.subscriptionId);
     return mcp.McpWampSubscription(
       topic: request.topic,
       subscriptionId: subscribed.subscriptionId,
@@ -2283,7 +2294,11 @@ class _RouterMcpEndpoint {
   Future<void> _unsubscribe(mcp.McpWampSubscription subscription) async {
     final subscriptionId = subscription.subscriptionId;
     if (subscriptionId != null) {
-      await session.unsubscribe(subscriptionId);
+      try {
+        await session.unsubscribe(subscriptionId);
+      } finally {
+        _wampSubscriptionIds.remove(subscriptionId);
+      }
     }
   }
 
