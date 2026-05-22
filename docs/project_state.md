@@ -2,8 +2,23 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Current local implementation follow-up hardens
-public MCP HTTP client standard-header ownership.
+Last reviewed branch checkpoint: Current local implementation follow-up extends
+the generated client-only MCP consumer smoke for public package standard-header
+ownership.
+Latest fully clean hosted checkpoint: Commit `c30e9d1`.
+Current local implementation follow-up makes the generated client-only MCP
+consumer package smoke send stale caller `Mcp-Method` and `Mcp-Name` headers
+through direct JSON, Streamable POST, and GET/SSE poll requests. The smoke
+harness now records standard MCP headers by consumer trace and proves direct
+JSON and Streamable POST use client-owned synthesized `Mcp-Method` values while
+omitting stale caller `Mcp-Name`, and GET/SSE poll forwards neither standard
+MCP header while still using the owned Streamable session. Pre-change
+`bin/test-fast`, `bash -n bin/common.sh`, focused
+`bash -lc 'source bin/common.sh && run_mcp_client_package_smoke'`,
+`git diff --check`, and full local `bin/verify` passed.
+Hosted checkpoint details: Commit `c30e9d1`
+(`fix: keep mcp standard headers client-owned`) hardens public MCP HTTP client
+standard-header ownership.
 `McpStreamableHttpClient` now treats caller-provided `Mcp-Method` and
 `Mcp-Name` as controlled headers alongside `Accept`, `MCP-Protocol-Version`,
 `MCP-Session-Id`, and `Last-Event-ID`. The client still synthesizes
@@ -14,9 +29,23 @@ Streamable POST, GET/SSE poll, or JSON-RPC batch requests where they would be
 misleading. Pre-change `bin/test-fast`, `dart format`, the focused
 `owns MCP protocol and session headers despite caller headers` client test, the
 full `streamable_http_client_test.dart` suite, `git diff --check`, and full
-local `bin/verify` passed. Push and hosted deployment-chain evidence are
-pending for this follow-up.
-Latest fully clean hosted checkpoint: Commit `3a066b2`
+local `bin/verify` passed. The commit was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`c30e9d1`: `master` CI run `26264152549`, `master` Dart Package Publish Dry Run
+`26264152546`, `master` WAMP Profile Benchmarks `26264152545`, `master` Router
+Image dry-run `26264557016`, `add-router` CI run `26264149237`, `add-router`
+Dart Package Publish Dry Run `26264149235`, and `add-router` WAMP Profile
+Benchmarks `26264149240` passed. The first strict audit found the previous
+Router Image dry-run stale for this router-image-sensitive client/package
+change; after manual non-mutating Router Image dry-run `26264557016`, the
+strict deployment-chain audit passed required gates on `master` at `c30e9d1`,
+using current-head CI/logs, Dart package dry-run, WAMP profile benchmark, and
+Router Image dry-run evidence plus still-relevant native release dry-run
+evidence. RC readiness remains not-ready only because no approved numeric RC
+tag, GitHub prerelease, or matching RC router image tag has been selected, and
+pub.dev publishing remains deferred for release-order/operator decisions. No RC
+tag, GitHub Release, or router image was created or moved.
+Prior hosted checkpoint: Commit `3a066b2`
 (`test: cover mcp client rate-limit cleanup`) adds public-client regression
 coverage for rate-limited Streamable HTTP cleanup.
 `McpStreamableHttpClient` now has focused test evidence that a `429`

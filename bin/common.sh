@@ -1483,6 +1483,8 @@ Future<void> _smokeControlledMcpRequestHeaders(
       'MCP-Protocol-Version': '2099-01-01',
       'MCP-Session-Id': 'caller-direct-session',
       'Last-Event-ID': 'caller-direct-event',
+      'Mcp-Method': 'caller-direct-method',
+      'Mcp-Name': 'caller.direct.name',
       'x-consumer-trace': directTrace,
     },
   );
@@ -1494,9 +1496,61 @@ Future<void> _smokeControlledMcpRequestHeaders(
     endpoint.directTraceHeadersWithoutSession.contains(directTrace),
     'controlled MCP header direct JSON smoke forwarded caller session state',
   );
+  final directStandardHeaders =
+      endpoint.directMcpStandardHeadersByTrace[directTrace] ??
+      const <String, String>{};
+  _expect(
+    directStandardHeaders['mcp-method'] == _toolName,
+    'controlled MCP header direct JSON smoke forwarded caller method header',
+  );
+  _expect(
+    !directStandardHeaders.containsKey('mcp-name'),
+    'controlled MCP header direct JSON smoke forwarded caller name header',
+  );
   _expect(
     client.sessionId == sessionId && client.lastEventId == eventId,
     'controlled MCP header direct JSON smoke changed Streamable session state',
+  );
+
+  const streamableTrace = 'controlled-streamable-mcp-headers';
+  final streamablePing = await client.ping(
+    id: streamableTrace,
+    headers: const <String, String>{
+      HttpHeaders.acceptHeader: 'text/plain',
+      'MCP-Protocol-Version': '2099-02-01',
+      'MCP-Session-Id': 'caller-streamable-session',
+      'Last-Event-ID': 'caller-streamable-event',
+      'Mcp-Method': 'caller-streamable-method',
+      'Mcp-Name': 'caller.streamable.name',
+      'x-consumer-trace': streamableTrace,
+    },
+  );
+  _expect(
+    streamablePing.isEmpty,
+    'controlled MCP header Streamable ping smoke returned an error result',
+  );
+  _expect(
+    endpoint.streamableTraceHeadersWithSession.contains(
+      'POST:$streamableTrace',
+    ),
+    'controlled MCP header Streamable ping did not use the owned session',
+  );
+  final streamableStandardHeaders =
+      endpoint.streamableMcpStandardHeadersByTrace[
+        'POST:$streamableTrace'
+      ] ??
+      const <String, String>{};
+  _expect(
+    streamableStandardHeaders['mcp-method'] == 'ping',
+    'controlled MCP header Streamable ping forwarded caller method header',
+  );
+  _expect(
+    !streamableStandardHeaders.containsKey('mcp-name'),
+    'controlled MCP header Streamable ping forwarded caller name header',
+  );
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'controlled MCP header Streamable ping changed session state',
   );
 
   const pollTrace = 'controlled-poll-mcp-headers';
@@ -1506,6 +1560,8 @@ Future<void> _smokeControlledMcpRequestHeaders(
       HttpHeaders.acceptHeader: 'application/json',
       'MCP-Session-Id': 'caller-poll-session',
       'Last-Event-ID': 'caller-poll-event',
+      'Mcp-Method': 'caller-poll-method',
+      'Mcp-Name': 'caller.poll.name',
       'x-consumer-trace': pollTrace,
     },
   );
@@ -1520,6 +1576,14 @@ Future<void> _smokeControlledMcpRequestHeaders(
   _expect(
     endpoint.streamableTraceHeadersWithSession.contains('GET:$pollTrace'),
     'controlled MCP header poll smoke did not use the owned Streamable session',
+  );
+  final pollStandardHeaders =
+      endpoint.streamableMcpStandardHeadersByTrace['GET:$pollTrace'] ??
+      const <String, String>{};
+  _expect(
+    !pollStandardHeaders.containsKey('mcp-method') &&
+        !pollStandardHeaders.containsKey('mcp-name'),
+    'controlled MCP header poll smoke forwarded caller standard MCP headers',
   );
   client.lastEventId = eventId;
 }
@@ -3356,7 +3420,9 @@ final class _AgentMcpEndpoint {
   final directMethodsWithoutSession = <String>{};
   final directToolNamesWithoutSession = <String>{};
   final directTraceHeadersWithoutSession = <String>{};
+  final directMcpStandardHeadersByTrace = <String, Map<String, String>>{};
   final directMcpParameterHeadersByTrace = <String, Map<String, String>>{};
+  final streamableMcpStandardHeadersByTrace = <String, Map<String, String>>{};
   final streamableTraceHeadersWithoutSession = <String>{};
   final streamableTraceHeadersWithSession = <String>{};
   final authRequestBodies = <Map<String, Object?>>[];
@@ -3811,13 +3877,21 @@ final class _AgentMcpEndpoint {
       final trace = request.headers.value('x-consumer-trace');
       if (trace != null) {
         directTraceHeadersWithoutSession.add(trace);
+        final standardHeaders = <String, String>{};
         final parameterHeaders = <String, String>{};
         request.headers.forEach((name, values) {
           final lowerName = name.toLowerCase();
+          if ((lowerName == 'mcp-method' || lowerName == 'mcp-name') &&
+              values.isNotEmpty) {
+            standardHeaders[lowerName] = values.first;
+          }
           if (lowerName.startsWith('mcp-param-') && values.isNotEmpty) {
             parameterHeaders[lowerName] = values.first;
           }
         });
+        if (standardHeaders.isNotEmpty) {
+          directMcpStandardHeadersByTrace[trace] = standardHeaders;
+        }
         if (parameterHeaders.isNotEmpty) {
           directMcpParameterHeadersByTrace[trace] = parameterHeaders;
         }
@@ -3842,10 +3916,22 @@ final class _AgentMcpEndpoint {
     if (trace == null) {
       return;
     }
+    final key = '$method:$trace';
+    final standardHeaders = <String, String>{};
+    request.headers.forEach((name, values) {
+      final lowerName = name.toLowerCase();
+      if ((lowerName == 'mcp-method' || lowerName == 'mcp-name') &&
+          values.isNotEmpty) {
+        standardHeaders[lowerName] = values.first;
+      }
+    });
+    if (standardHeaders.isNotEmpty) {
+      streamableMcpStandardHeadersByTrace[key] = standardHeaders;
+    }
     if (request.headers.value('MCP-Session-Id') == null) {
-      streamableTraceHeadersWithoutSession.add('$method:$trace');
+      streamableTraceHeadersWithoutSession.add(key);
     } else {
-      streamableTraceHeadersWithSession.add('$method:$trace');
+      streamableTraceHeadersWithSession.add(key);
     }
   }
 
