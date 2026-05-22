@@ -533,6 +533,25 @@ void main() {
         expect(client.lastEventId, isNull);
         expect(endpoint.requests.single.sessionId, isNull);
 
+        await expectLater(
+          client.initialize(
+            id: 'empty-response-session',
+            headers: const <String, String>{
+              'x-test-empty-response-session-id': '1',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.toString(),
+              'message',
+              contains('MCP-Session-Id'),
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(endpoint.requests.last.sessionId, isNull);
+
         final initialize = await client.initialize(id: 'fresh-after-malformed');
         expect(initialize['id'], 'fresh-after-malformed');
         expect(client.sessionId, 'session-1');
@@ -3244,7 +3263,9 @@ final class _FakeMcpEndpoint {
       McpStreamableHttpClient.latestProtocolVersion,
     );
     final responseSessionId =
-        sessionId ?? request.headers.value('x-test-response-session-id');
+        request.headers.value('x-test-empty-response-session-id') != null
+        ? ''
+        : sessionId ?? request.headers.value('x-test-response-session-id');
     if (responseSessionId != null) {
       request.response.headers.set(_headerSessionId, responseSessionId);
     }

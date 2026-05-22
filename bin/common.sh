@@ -998,6 +998,25 @@ Future<void> _smokeMalformedResponseSessionHeader(
       'malformed response session poisoned client state',
     );
 
+    try {
+      await client.initialize(
+        id: 'empty-response-session',
+        headers: const <String, String>{
+          'x-test-empty-response-session-id': '1',
+        },
+      );
+      throw StateError('MCP client accepted an empty MCP-Session-Id.');
+    } on McpStreamableProtocolException catch (error) {
+      _expect(
+        error.toString().contains('MCP-Session-Id'),
+        'empty response session error did not mention MCP-Session-Id',
+      );
+    }
+    _expect(
+      client.sessionId == null && client.lastEventId == null,
+      'empty response session poisoned client state',
+    );
+
     final recovered = await client.initialize(
       id: 'recovered-after-malformed-session',
     );
@@ -4626,7 +4645,9 @@ final class _AgentMcpEndpoint {
     final responseSessionId = request.headers.value(
       'x-test-response-session-id',
     );
-    if (responseSessionId != null) {
+    if (request.headers.value('x-test-empty-response-session-id') != null) {
+      request.response.headers.set('MCP-Session-Id', '');
+    } else if (responseSessionId != null) {
       request.response.headers.set('MCP-Session-Id', responseSessionId);
     }
   }

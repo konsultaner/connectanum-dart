@@ -897,7 +897,7 @@ final class McpStreamableHttpClient {
 
   void _captureSessionHeaders(HttpClientResponse response) {
     final negotiatedSessionId = response.headers.value(_headerSessionId);
-    if (negotiatedSessionId != null && negotiatedSessionId.isNotEmpty) {
+    if (negotiatedSessionId != null) {
       if (!_mcpSessionIdHeaderValueValid(negotiatedSessionId)) {
         _clearSessionState();
         throw const McpStreamableProtocolException(
