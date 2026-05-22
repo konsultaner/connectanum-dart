@@ -2268,6 +2268,66 @@ void main() {
       expect(endpoint.requests.last.sessionId, isNull);
       expect(endpoint.requests.last.lastEventId, isNull);
 
+      await expectLater(
+        client.notificationDirect(
+          'notifications/progress',
+          params: const <String, Object?>{
+            'progressToken': 'direct-notification-body',
+            'progress': 1,
+          },
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-notification-body',
+            'x-test-json-notification-response': '1',
+            'x-test-response-session-id': 'direct-notification-body-ignored',
+          },
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('notification response must not include a body'),
+          ),
+        ),
+      );
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+
+      await expectLater(
+        client.postBatchDirect(
+          [
+            {
+              'jsonrpc': '2.0',
+              'method': 'notifications/progress',
+              'params': <String, Object?>{
+                'progressToken': 'direct-notification-batch-body',
+                'progress': 1,
+              },
+            },
+          ],
+          headers: const <String, String>{
+            'x-consumer-trace': 'direct-notification-batch-body',
+            'x-test-json-notification-response': '1',
+            'x-test-response-session-id':
+                'direct-notification-batch-body-ignored',
+          },
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains(
+              'notification-only batch response must not include a body',
+            ),
+          ),
+        ),
+      );
+      expect(client.sessionId, sessionId);
+      expect(client.lastEventId, eventId);
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+
       final ping = await client.ping(id: 'session-header-still-usable');
       expect(ping, isEmpty);
       expect(client.sessionId, sessionId);

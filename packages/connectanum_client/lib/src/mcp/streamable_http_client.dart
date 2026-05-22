@@ -788,8 +788,8 @@ final class McpStreamableHttpClient {
     if (response.statusCode == HttpStatus.accepted ||
         response.statusCode == HttpStatus.noContent ||
         body.isEmpty) {
+      _validatePostResponseShape(message, null);
       if (capturesSessionHeaders) {
-        _validatePostResponseBeforeSessionCapture(message, null);
         _captureSessionHeaders(response);
       }
       return null;
@@ -798,31 +798,27 @@ final class McpStreamableHttpClient {
     if (_isSse(response)) {
       final events = parseMcpSseEvents(body);
       final value = _jsonRpcResponseValueFromSseEvents(message, events);
+      _validatePostResponseShape(
+        message,
+        value,
+        responseBodyReturned: body.isNotEmpty,
+      );
       if (capturesSessionHeaders) {
-        _validatePostResponseBeforeSessionCapture(
-          message,
-          value,
-          responseBodyReturned: body.isNotEmpty,
-        );
         _captureSessionHeaders(response);
+        _captureLastEventId(events);
       }
-      _captureLastEventId(events);
       return value;
     }
 
     final value = _jsonValueFromBody(body);
+    _validatePostResponseShape(message, value, responseBodyReturned: true);
     if (capturesSessionHeaders) {
-      _validatePostResponseBeforeSessionCapture(
-        message,
-        value,
-        responseBodyReturned: true,
-      );
       _captureSessionHeaders(response);
     }
     return value;
   }
 
-  void _validatePostResponseBeforeSessionCapture(
+  void _validatePostResponseShape(
     Object? requestPayload,
     Object? responseValue, {
     bool responseBodyReturned = false,

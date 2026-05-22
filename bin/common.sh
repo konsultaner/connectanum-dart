@@ -1745,6 +1745,38 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
     'lifecycle-free',
   );
 
+  const responseBodyNotificationTrace = 'direct-notification-body-rejected';
+  try {
+    await client.notificationDirect(
+      'notifications/progress',
+      params: const <String, Object?>{
+        'progressToken': responseBodyNotificationTrace,
+        'progress': 1,
+      },
+      headers: const <String, String>{
+        'x-consumer-trace': responseBodyNotificationTrace,
+        'x-test-json-notification-response': '1',
+        'x-test-response-session-id': 'direct-notification-body-ignored',
+      },
+    );
+    throw StateError('direct JSON notification accepted a response body.');
+  } on FormatException catch (error) {
+    _expect(
+      error.message.contains('notification response must not include a body'),
+      'direct JSON notification rejected with unexpected error: $error',
+    );
+  }
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'direct JSON notification response body changed Streamable session state',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.contains(
+      responseBodyNotificationTrace,
+    ),
+    'direct JSON notification response body did not stay lifecycle-free',
+  );
+
   const responseSessionNotificationBatchTrace =
       'direct-response-session-notification-batch-header';
   final responseSessionNotificationBatch = await client.postBatchDirect(
@@ -1779,6 +1811,52 @@ Future<void> _smokeDirectJsonHttpErrorsPreserveSession(
       responseSessionNotificationBatchTrace,
     ),
     'direct JSON notification-only batch response session header did not stay '
+    'lifecycle-free',
+  );
+
+  const responseBodyNotificationBatchTrace =
+      'direct-notification-batch-body-rejected';
+  try {
+    await client.postBatchDirect(
+      const <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/progress',
+          'params': <String, Object?>{
+            'progressToken': responseBodyNotificationBatchTrace,
+            'progress': 1,
+          },
+        },
+      ],
+      headers: const <String, String>{
+        'x-consumer-trace': responseBodyNotificationBatchTrace,
+        'x-test-json-notification-response': '1',
+        'x-test-response-session-id':
+            'direct-notification-batch-body-ignored',
+      },
+    );
+    throw StateError(
+      'direct JSON notification-only batch accepted a response body.',
+    );
+  } on FormatException catch (error) {
+    _expect(
+      error.message.contains(
+        'notification-only batch response must not include a body',
+      ),
+      'direct JSON notification-only batch rejected with unexpected error: '
+      '$error',
+    );
+  }
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == eventId,
+    'direct JSON notification-only batch response body changed Streamable '
+    'session state',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.contains(
+      responseBodyNotificationBatchTrace,
+    ),
+    'direct JSON notification-only batch response body did not stay '
     'lifecycle-free',
   );
 
@@ -3963,6 +4041,13 @@ final class _AgentMcpEndpoint {
         ]);
         return;
       }
+      request.response.statusCode = HttpStatus.accepted;
+      _applyTestResponseHeaders(request);
+      await request.response.close();
+      return;
+    }
+
+    if (!message.containsKey('id')) {
       request.response.statusCode = HttpStatus.accepted;
       _applyTestResponseHeaders(request);
       await request.response.close();

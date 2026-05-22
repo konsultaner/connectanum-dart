@@ -78,6 +78,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: `McpStreamableHttpClient._postPayload()` now validates
+  JSON-RPC POST response semantics for lifecycle-free direct JSON calls as well
+  as Streamable HTTP session calls before accepting response state. Successful
+  non-empty JSON or POST/SSE response bodies to JSON-RPC notifications or
+  notification-only batches now throw even when the caller used
+  `streamable: false` / `includeSession: false`; accepted, no-content, and
+  empty notification responses remain accepted. Direct JSON helpers remain
+  lifecycle-free because response `MCP-Session-Id` / protocol-version headers
+  and SSE resume cursors are only captured for lifecycle-bound Streamable
+  requests. Focused client coverage now exercises direct JSON single
+  notifications and notification-only batches with response bodies and proves
+  the active Streamable `sessionId` and `lastEventId` remain unchanged. The
+  generated client-only consumer-package smoke covers the same direct JSON
+  notification-body rejection through public `connectanum_mcp_io.dart` APIs.
+  The generated smoke endpoint now returns accepted/no-body responses for
+  ordinary no-id JSON-RPC messages unless a test hook explicitly forces a
+  malformed notification response body. After the fix, focused direct JSON
+  regression coverage, full `streamable_http_client_test.dart`, `bash -n
+  bin/common.sh`, `dart analyze packages/connectanum_client`, focused
+  generated client-only consumer smoke, repeated `bin/test-fast`, and full
+  local `bin/verify` passed. Hosted evidence still points at `f15518b` until
+  this implementation checkpoint is committed, pushed, and audited.
 - 2026-05-23: `McpStreamableHttpClient._postPayload()` now rejects non-empty
   successful POST response bodies for JSON-RPC notifications and
   notification-only batches before accepting response `MCP-Session-Id` /
@@ -99,8 +121,27 @@ decision because `connectanum_client` still depends on private
   `streamable_http_client_test.dart`, `bash -n bin/common.sh`, focused
   generated client-only consumer smoke, `dart analyze
   packages/connectanum_client`, repeated `bin/test-fast`, and full local
-  `bin/verify` passed. Hosted evidence still points at `bed07fa` until this
-  implementation checkpoint is committed, pushed, and audited.
+  `bin/verify` passed. Commit `f15518b`
+  (`fix: reject mcp notification response bodies`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is clean
+  at `f15518b`: `master` CI run `26315819342` passed with Fast Checks and Full
+  Verify green and clean logs, `add-router` CI run `26315818609` passed,
+  `master` Dart Package Publish Dry Run `26315819303` and `add-router` Dart
+  Package Publish Dry Run `26315818619` passed, `master` WAMP Profile
+  Benchmarks `26315819251` and `add-router` WAMP Profile Benchmarks
+  `26315818639` passed, and Router Image dry-run `26315836302` passed for
+  `0.1.0-rc.2-validation.f15518b` with preview upload, skipped GHCR login,
+  completed multi-arch build, and clean annotations. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed since `89c7915`. The strict deployment-chain audit passed required
+  gates on `master` at `f15518b`, including clean current-head CI/logs, Dart
+  package dry-run, WAMP profile benchmark evidence, Router Image dry-run,
+  native release dry-run relevance, branch protection, workflow visibility,
+  and router package visibility. RC readiness remains not-ready only because no
+  approved numeric RC tag, GitHub prerelease, or matching RC router image tag
+  has been selected, and pub.dev publishing remains deferred for release-order
+  and operator decisions. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-22: `McpStreamableHttpClient._postPayload()` now validates
   response-bearing JSON-RPC POST response shapes before accepting successful
   response `MCP-Session-Id` / protocol-version headers or POST/SSE resume
