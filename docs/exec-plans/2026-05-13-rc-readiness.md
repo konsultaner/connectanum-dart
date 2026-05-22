@@ -1394,17 +1394,44 @@ decision because `connectanum_client` still depends on private
   initialization, prior cleanup, or local state reset. Pre-change
   `bin/test-fast`, `dart format`, and focused
   `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`
-  passed.
+  passed, followed by full local `bin/verify`. Commit `182c236`
+  (`fix: skip mcp delete without active session`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence
+  is clean at `182c236`: `master` CI run `26270250594`, `add-router` CI run
+  `26270245743`, `master` Dart Package Publish Dry Run `26270250595`,
+  `add-router` Dart Package Publish Dry Run `26270245773`, `master` WAMP
+  Profile Benchmarks `26270250619`, `add-router` WAMP Profile Benchmarks
+  `26270245772`, and manual non-mutating `master` Router Image dry-run
+  `26270676681` passed. The strict deployment-chain audit passed required
+  gates on `master` at `182c236`; RC readiness remains blocked only by explicit
+  RC tag/prerelease/router-image tag selection and deferred pub.dev
+  release-order decisions.
+- 2026-05-22: Local release-gate test follow-up adds regression coverage for
+  the first-RC Dart package deferral boundary.
+  `tool/test_dart_package_publish_dry_run.py` now proves strict release-ready
+  mode fails on the known `connectanum_client` private `connectanum_core`
+  dependency while preserving zero-warning dry-run and release-plan output.
+  `tool/test_audit_github_deployment_chain.py` now proves the RC audit rejects
+  unexpected strict Dart package blockers instead of treating them as the
+  intentional first-RC pub.dev deferral. Pre-change `bin/test-fast`, focused
+  Python suites, `git diff --check`, and full local `bin/verify` passed.
+  Hosted evidence is pending until this follow-up is pushed and audited.
 
 ## Handoff
 
-Active. The current local implementation follow-up makes
+Active. The current local release-gate test follow-up hardens the Dart package
+strict publish and RC audit deferral boundary; local `bin/test-fast`, focused
+Python regressions, `git diff --check`, and full `bin/verify` passed, with
+hosted evidence pending. The latest fully clean hosted
+implementation follow-up makes
 `McpStreamableHttpClient.deleteSession()` a local cleanup no-op when no
 Streamable HTTP session is active, so downstream applications can call cleanup
 after failed initialization or prior cleanup without generating an invalid
-network DELETE; pre-change `bin/test-fast`, formatting, and the focused MCP
-client suite passed. The latest fully clean hosted implementation follow-up
-keeps
+network DELETE; pre-change `bin/test-fast`, formatting, the focused MCP client
+suite, full local `bin/verify`, hosted CI, hosted Dart package dry-run, hosted
+WAMP profile benchmark, hosted Router Image dry-run, and the strict
+deployment-chain audit passed at commit `182c236`. The prior fully clean hosted
+implementation follow-up keeps
 `McpStreamableHttpClient` SSE cursors scoped to the negotiated Streamable HTTP
 session by clearing `lastEventId` whenever a response changes the active
 `MCP-Session-Id`; local focused MCP client tests, full `bin/verify`, hosted
@@ -1431,7 +1458,7 @@ implementation follow-up lets router-hosted MCP Streamable HTTP `DELETE`
 cleanup bypass route-level rate-limit exhaustion so a downstream application
 can remove its owned session after receiving a rate-limited Streamable POST
 failure. The latest fully clean hosted deployment-chain checkpoint is
-`742c004`. The prior fully hosted implementation follow-up extends the
+`182c236`. The prior fully hosted implementation follow-up extends the
 generated consumer-package router-hosted MCP smoke so downstream applications
 prove the route-level rate-limit response-session contract against a real MCP
 endpoint. The prior fully hosted
@@ -1467,35 +1494,34 @@ inventory that local and audit dry-runs already expose. The default branch
 contains the router-hosted MCP downstream-readiness work plus explicit
 branch-protection and GitHub RC-tag audit handoff evidence; the latest hosted
 implementation checkpoints harden scoped Dart package release-plan diagnostics
-and add the WAMP Profile Benchmarks evidence gate. MCP coverage includes
-auth/session
+and add the WAMP Profile Benchmarks evidence gate. MCP coverage includes auth/session
 correctness, router-provided MCP endpoints, direct JSON tool and meta APIs,
 WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26268556973` for checkpoint `742c004`: Fast
+Hosted `master` CI is green at run `26270250594` for checkpoint `182c236`: Fast
 Checks and Full Verify passed. Hosted `add-router` CI is green at run
-`26268556046`. Hosted Dart Package Publish Dry Run is green at run
-`26268556951` on `master` and logs the release-order plan and private-package
+`26270245743`. Hosted Dart Package Publish Dry Run is green at run
+`26270250595` on `master` and logs the release-order plan and private-package
 blocker sections from `--show-release-plan`; `add-router` Dart Package Publish
-Dry Run `26268556045` passed too. Hosted `master` WAMP Profile Benchmarks run
-`26268556950` passed with artifact upload, and matching `add-router` WAMP
-Profile Benchmarks run `26268556047` passed. The strict deployment-chain audit
-passes on `master` at `742c004` with clean current-head CI/log, current Dart
+Dry Run `26270245773` passed too. Hosted `master` WAMP Profile Benchmarks run
+`26270250619` passed with artifact upload, and matching `add-router` WAMP
+Profile Benchmarks run `26270245772` passed. The strict deployment-chain audit
+passes on `master` at `182c236` with clean current-head CI/log, current Dart
 package dry-run, relevant native release dry-run, current router image dry-run,
 current WAMP profile benchmark evidence, workflow visibility, branch
 protection, and router package visibility gates.
 The router package visibility gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26268965259` at `742c004`; it used manual `image_tag=0.1.0-rc.2`,
+run `26270676681` at `182c236`; it used manual `image_tag=0.1.0-rc.2`,
 uploaded the preview artifact, skipped GHCR login, and the audit downloads the
 preview metadata and verifies primary tag `0.1.0-rc.2` before accepting it.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `742c004`. It suggests
+older commit `47bbf9c`, not the current candidate head `182c236`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.

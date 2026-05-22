@@ -143,6 +143,37 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
 
+    def test_rc_readiness_rejects_unexpected_strict_dart_blocker(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_rc_readiness_with_native_prerelease(
+            current_head,
+            require_rc_ready=True,
+            extra_dart_publish_blocker=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Dart package strict publish dry-run: not ready", result.stdout)
+        self.assertIn(
+            "- connectanum_client depends on private workspace package "
+            "connectanum_core (packages/connectanum_core); publish "
+            "connectanum_core first or remove the hosted dependency before "
+            "publishing connectanum_client.",
+            result.stdout,
+        )
+        self.assertIn(
+            "- connectanum_router depends on private workspace package "
+            "connectanum_internal (packages/connectanum_internal); publish "
+            "connectanum_internal first or remove the hosted dependency before "
+            "publishing connectanum_router.",
+            result.stdout,
+        )
+        self.assertIn("Release candidate readiness audit failed.", result.stdout)
+        self.assertNotIn(
+            "Dart package strict publish dry-run: deferred for first GitHub RC",
+            result.stdout,
+        )
+
     def test_rc_readiness_rejects_v_prefixed_router_image_preview_tag(
         self,
     ) -> None:
@@ -333,15 +364,40 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         replacement = "0" if sha[0] != "0" else "1"
         return f"{replacement}{sha[1:]}"
 
-    def _write_deferred_dart_publish_dry_run(self, path: Path) -> None:
+    def _write_deferred_dart_publish_dry_run(
+        self,
+        path: Path,
+        extra_blocker: bool = False,
+    ) -> None:
+        extra_blocker_line = ""
+        extra_private_dependency_line = ""
+        extra_dependency_edge_line = ""
+        if extra_blocker:
+            extra_blocker_line = (
+                "                printf -- '- connectanum_router depends on "
+                "private workspace package connectanum_internal "
+                "(packages/connectanum_internal); publish "
+                "connectanum_internal first or remove the hosted dependency "
+                "before publishing connectanum_router.\\n'\n"
+            )
+            extra_private_dependency_line = (
+                "                printf -- '- connectanum_internal 0.1.0 "
+                "(packages/connectanum_internal)\\n'\n"
+            )
+            extra_dependency_edge_line = (
+                "                printf -- '- connectanum_internal -> "
+                "connectanum_router\\n'\n"
+            )
+
         path.write_text(
             textwrap.dedent(
-                """\
+                f"""\
                 #!/usr/bin/env bash
                 set -euo pipefail
                 printf 'Dart package publish dry-run completed for 1 package(s).\\n'
                 printf '\\nDart package release-readiness blockers:\\n'
                 printf -- '- connectanum_client depends on private workspace package connectanum_core (packages/connectanum_core); publish connectanum_core first or remove the hosted dependency before publishing connectanum_client.\\n'
+{extra_blocker_line}
                 printf '\\nAll Dart package publish dry-runs reported zero warnings.\\n'
                 printf '\\nDart package release-order plan:\\n'
                 printf '\\nCurrently publishable package archives:\\n'
@@ -350,8 +406,10 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 printf -- '- connectanum_core 0.1.0 (packages/connectanum_core)\\n'
                 printf '\\nPrivate workspace packages blocking publishable targets:\\n'
                 printf -- '- connectanum_core 0.1.0 (packages/connectanum_core)\\n'
+{extra_private_dependency_line}
                 printf '\\nWorkspace dependency order that must be satisfied before public publishing:\\n'
                 printf -- '- publish connectanum_core before connectanum_client\\n'
+{extra_dependency_edge_line}
                 printf '\\nOperator decisions still required before a real publish:\\n'
                 printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\\n'
                 exit 1
@@ -789,6 +847,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         router_image_tag: str = "0.1.0-rc.2",
         router_preview_tag: str = "0.1.0-rc.2",
         require_rc_ready: bool = False,
+        extra_dart_publish_blocker: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1098,7 +1157,10 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 )
             )
             fake_curl.chmod(0o755)
-            self._write_deferred_dart_publish_dry_run(fake_dart_publish)
+            self._write_deferred_dart_publish_dry_run(
+                fake_dart_publish,
+                extra_blocker=extra_dart_publish_blocker,
+            )
 
             env = os.environ.copy()
             env["GH_BIN"] = str(fake_gh)

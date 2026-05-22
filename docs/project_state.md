@@ -2,10 +2,22 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Current local implementation follow-up makes
-public MCP Streamable HTTP session cleanup safe when no session is active.
-Latest fully clean hosted checkpoint: Commit `742c004`.
-The current local implementation follow-up changes
+Last reviewed branch checkpoint: Local release-gate test follow-up hardens
+strict Dart package publish deferral coverage.
+Latest fully clean hosted checkpoint: Commit `182c236`.
+The current local follow-up adds regression coverage proving
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+fails on the known `connectanum_client` private `connectanum_core` dependency
+while still reporting zero publish warnings and the release-order plan. It also
+adds fake-hosted RC audit coverage proving the first-RC pub.dev deferral is not
+accepted when strict Dart package output contains any unexpected private
+workspace dependency blocker. Pre-change `bin/test-fast`, focused
+`python3 tool/test_dart_package_publish_dry_run.py`,
+`python3 tool/test_audit_github_deployment_chain.py`, `git diff --check`, and
+full local `bin/verify` passed. Hosted evidence is pending until this
+follow-up is pushed and audited.
+Latest fully clean hosted checkpoint details: Commit `182c236`
+(`fix: skip mcp delete without active session`) changes
 `McpStreamableHttpClient.deleteSession()` to return after local cleanup when
 `sessionId` is already null, clearing any orphan SSE cursor without sending an
 invalid network `DELETE` lacking `MCP-Session-Id`. This keeps downstream
@@ -13,7 +25,20 @@ application `finally` cleanup paths safe after failed initialization, prior
 cleanup, or local state reset. Pre-change `bin/test-fast`, `dart format`, and
 focused
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`
-passed.
+passed, followed by full local `bin/verify`. The commit was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `182c236`: `master` CI run `26270250594`, `add-router` CI run
+`26270245743`, `master` Dart Package Publish Dry Run `26270250595`,
+`add-router` Dart Package Publish Dry Run `26270245773`, `master` WAMP Profile
+Benchmarks `26270250619`, `add-router` WAMP Profile Benchmarks `26270245772`,
+and manual non-mutating `master` Router Image dry-run `26270676681` passed.
+The strict deployment-chain audit passed required gates on `master` at
+`182c236`, using current-head CI/log, Dart package dry-run, WAMP profile
+benchmark, and Router Image dry-run evidence plus still-relevant native release
+dry-run evidence. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected, and pub.dev publishing remains deferred for release-order/operator
+decisions. No RC tag, GitHub Release, or router image was created or moved.
 Prior hosted checkpoint details: Commit `742c004`
 (`fix: reset mcp sse cursor on session change`) updates
 `McpStreamableHttpClient._captureSessionHeaders` so `lastEventId` is cleared

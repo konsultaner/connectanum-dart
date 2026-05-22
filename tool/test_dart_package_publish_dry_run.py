@@ -67,6 +67,33 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         )
         self.assertNotIn("## Publish dry-run: connectanum_core", result.stdout)
 
+    def test_strict_release_ready_fails_on_known_private_dependency(self) -> None:
+        result = self._run_with_fake_dart(
+            "--strict-release-ready",
+            "--show-release-plan",
+            "connectanum_client",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Dart package release-readiness blockers:", result.stdout)
+        self.assertIn(
+            "- connectanum_client depends on private workspace package "
+            "connectanum_core (packages/connectanum_core); publish "
+            "connectanum_core first or remove the hosted dependency before "
+            "publishing connectanum_client.",
+            result.stdout,
+        )
+        self.assertIn(
+            "All Dart package publish dry-runs reported zero warnings.",
+            result.stdout,
+        )
+        self.assertIn("Dart package release-order plan:", result.stdout)
+        self.assertNotIn(
+            "Default dry-run mode reports release-readiness blockers without "
+            "failing.",
+            result.stdout,
+        )
+
     def _run_with_fake_dart(self, *args: str) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             fake_bin = Path(temp_dir)
