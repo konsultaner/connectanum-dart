@@ -2,10 +2,21 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Local RC audit deferral hardening requires
-strict Dart package release-plan evidence.
-Latest fully clean hosted checkpoint: Commit `690c3c6`.
-The current local follow-up tightens
+Last reviewed branch checkpoint: Local hosted browser-smoke retry hardening.
+Latest fully clean hosted checkpoint: Commit `209b91c`.
+The current local follow-up hardens hosted CI browser-smoke reliability after
+`master` CI run `26274326442` needed a Full Verify rerun for a retryable
+package:test Chrome browser-manager load flake (`Bad state: Cannot add stream
+while adding stream`). `bin/test-all` now retries the client browser WebSocket
+smoke, keeps non-final retry attempts on the expanded reporter to avoid GitHub
+error annotations, and preserves the default reporter on the final attempt so
+real failures still surface normally. `tool/test_verification_scripts.py`
+regresses the verification-script contract and is wired into `bin/test-fast`
+and `bin/test-all`. Pre-change `bin/test-fast`, `bash -n bin/test-fast
+bin/test-all`, and focused `python3 tool/test_verification_scripts.py` passed;
+full local `bin/verify` passed for this follow-up.
+Latest fully clean hosted checkpoint details: Commit `209b91c`
+(`test: require dart release plan for rc deferral`) tightens
 `bin/audit-github-deployment-chain` so first-RC pub.dev deferral is accepted
 only when the strict Dart publish dry-run output includes zero warnings, the
 known private `connectanum_core` blocker, the release-order inventory, the
@@ -15,10 +26,23 @@ the blocker line alone as sufficient. `tool/test_audit_github_deployment_chain.p
 adds fake-hosted RC coverage for a strict dry-run that has the known blocker but
 omits the release plan. Pre-change `bin/test-fast`, focused
 `python3 tool/test_audit_github_deployment_chain.py`,
-`bash -n bin/audit-github-deployment-chain`, `git diff --check`, and the live
-read-only strict deployment-chain audit against `master` passed locally. Full
-local `bin/verify` passed for this follow-up.
-Latest fully clean hosted checkpoint details: Commit `690c3c6`
+`bash -n bin/audit-github-deployment-chain`, `git diff --check`, the live
+read-only strict deployment-chain audit against `master`, and full local
+`bin/verify` passed. The commit was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`209b91c`: `master` CI run `26274326442` passed with Fast Checks and a rerun
+Full Verify on attempt 2 after a hosted browser-runner load flake, and
+`add-router` CI run `26274323057` passed with Fast Checks and Full Verify green.
+The strict deployment-chain audit passed required gates on `master` at
+`209b91c`, using current-head CI/log evidence plus still-relevant Dart package
+dry-run, native release dry-run, Router Image dry-run, and WAMP profile
+benchmark evidence because no package, native-release, router-image, or WAMP
+profile inputs changed in this audit/test/docs checkpoint. RC readiness remains
+not-ready only because no approved numeric RC tag, GitHub prerelease, or
+matching RC router image tag has been selected, and pub.dev publishing remains
+deferred for release-order/operator decisions. No RC tag, GitHub Release, or
+router image was created or moved.
+Prior hosted checkpoint details: Commit `690c3c6`
 (`test: cover strict dart publish deferral`) adds regression
 coverage proving
 `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`

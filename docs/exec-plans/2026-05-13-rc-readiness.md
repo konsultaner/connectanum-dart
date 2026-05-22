@@ -1437,18 +1437,45 @@ decision because `connectanum_client` still depends on private
   `python3 tool/test_audit_github_deployment_chain.py`,
   `bash -n bin/audit-github-deployment-chain`, `git diff --check`, and the live
   read-only strict deployment-chain audit against `master` passed locally. Full
-  local `bin/verify` passed for this follow-up.
+  local `bin/verify` passed for this follow-up. Commit `209b91c`
+  (`test: require dart release plan for rc deferral`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted `add-router` CI
+  run `26274323057` passed with Fast Checks and Full Verify green. Hosted
+  `master` CI run `26274326442` passed with Fast Checks and a rerun Full Verify
+  on attempt 2 after a hosted browser-runner load flake. The strict
+  deployment-chain audit passed required gates on `master` at `209b91c`, using
+  current-head CI/log evidence plus still-relevant Dart package dry-run, native
+  release dry-run, Router Image dry-run, and WAMP profile benchmark evidence
+  because no package, native-release, router-image, or WAMP profile inputs
+  changed in this audit/test/docs checkpoint. RC readiness remains blocked only
+  by explicit RC tag/prerelease/router-image tag selection and deferred pub.dev
+  release-order decisions.
+- 2026-05-22: Local hosted CI reliability follow-up hardens the client browser
+  WebSocket smoke after `master` CI run `26274326442` needed a Full Verify rerun
+  for a retryable package:test Chrome browser-manager load flake (`Bad state:
+  Cannot add stream while adding stream`). `bin/test-all` now retries the
+  browser smoke, uses the expanded reporter on non-final attempts to avoid
+  GitHub error annotations, and keeps the default reporter on the final attempt
+  so real failures remain visible. `tool/test_verification_scripts.py` regresses
+  this verification-script contract and is wired into `bin/test-fast` and
+  `bin/test-all`. Pre-change `bin/test-fast`, `bash -n bin/test-fast
+  bin/test-all`, and focused `python3 tool/test_verification_scripts.py` passed;
+  full local `bin/verify` passed for this follow-up.
 
 ## Handoff
 
-Active. The current local release-chain follow-up hardens the first-RC pub.dev
-deferral boundary so the audit requires strict Dart dry-run release-plan and
-operator-decision evidence before accepting the known private workspace
-dependency blocker; pre-change `bin/test-fast`, focused audit tests,
-`bash -n`, `git diff --check`, and the live read-only strict deployment-chain
-audit passed locally, and full local `bin/verify` passed. The latest fully clean
-hosted release-gate test follow-up hardens the Dart package strict publish and
-RC audit unexpected-blocker boundary; local `bin/test-fast`, focused Python
+Active. The current local CI reliability follow-up adds a retrying browser
+WebSocket smoke wrapper to `bin/test-all` and a focused verification-script
+regression wired into fast/full local verification; full local `bin/verify`
+passed. The latest fully clean hosted release-chain follow-up hardens the
+first-RC pub.dev deferral boundary so the audit requires strict Dart dry-run
+release-plan and operator-decision evidence before accepting the known private
+workspace dependency blocker; pre-change `bin/test-fast`, focused audit tests,
+`bash -n`, `git diff --check`, live read-only strict deployment-chain audit,
+full local `bin/verify`, hosted CI on `master` and `add-router`, and the strict
+deployment-chain audit passed at commit `209b91c`. The prior fully clean hosted
+release-gate test follow-up hardens the Dart package strict publish and RC
+audit unexpected-blocker boundary; local `bin/test-fast`, focused Python
 regressions, `git diff --check`, full `bin/verify`, hosted CI on `master` and
 `add-router`, and the strict deployment-chain audit passed at commit `690c3c6`.
 The prior fully clean hosted
@@ -1487,7 +1514,7 @@ implementation follow-up lets router-hosted MCP Streamable HTTP `DELETE`
 cleanup bypass route-level rate-limit exhaustion so a downstream application
 can remove its owned session after receiving a rate-limited Streamable POST
 failure. The latest fully clean hosted deployment-chain checkpoint is
-`690c3c6`. The prior fully hosted implementation follow-up extends the
+`209b91c`. The prior fully hosted implementation follow-up extends the
 generated consumer-package router-hosted MCP smoke so downstream applications
 prove the route-level rate-limit response-session contract against a real MCP
 endpoint. The prior fully hosted
@@ -1529,19 +1556,20 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26271999722` for checkpoint `690c3c6`: Fast
-Checks and Full Verify passed. Hosted `add-router` CI is green at run
-`26271999694`. Hosted Dart Package Publish Dry Run remains relevant and green
-at run `26270250595` on `master`, and logs the release-order plan and
-private-package blocker sections from `--show-release-plan`; `add-router` Dart
-Package Publish Dry Run `26270245773` passed too. Hosted `master` WAMP Profile
-Benchmarks run `26270250619` remains relevant and passed with artifact upload,
-and matching `add-router` WAMP Profile Benchmarks run `26270245772` passed. The
-strict deployment-chain audit passes on `master` at `690c3c6` with clean
-current-head CI/log, relevant Dart package dry-run, relevant native release
-dry-run, relevant router image dry-run, relevant WAMP profile benchmark
-evidence, workflow visibility, branch protection, and router package visibility
-gates.
+Hosted `master` CI is green at run `26274326442` for checkpoint `209b91c`: Fast
+Checks passed, and Full Verify passed on rerun attempt 2 after a hosted
+browser-runner load flake on attempt 1. Hosted `add-router` CI is green at run
+`26274323057` with Fast Checks and Full Verify passed. Hosted Dart Package
+Publish Dry Run remains relevant and green at run `26270250595` on `master`,
+and logs the release-order plan and private-package blocker sections from
+`--show-release-plan`; `add-router` Dart Package Publish Dry Run `26270245773`
+passed too. Hosted `master` WAMP Profile Benchmarks run `26270250619` remains
+relevant and passed with artifact upload, and matching `add-router` WAMP
+Profile Benchmarks run `26270245772` passed. The strict deployment-chain audit
+passes on `master` at `209b91c` with clean current-head CI/log, relevant Dart
+package dry-run, relevant native release dry-run, relevant router image
+dry-run, relevant WAMP profile benchmark evidence, workflow visibility, branch
+protection, and router package visibility gates.
 The router package visibility gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
 run `26270676681` at `182c236`; it used manual `image_tag=0.1.0-rc.2`,
@@ -1551,7 +1579,7 @@ preview metadata and verifies primary tag `0.1.0-rc.2` before accepting it.
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `690c3c6`. It suggests
+older commit `47bbf9c`, not the current candidate head `209b91c`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.

@@ -54,6 +54,56 @@ run_bench_vm_tests() {
   )
 }
 
+run_client_browser_websocket_test() {
+  (
+    cd packages/connectanum_client
+    local browser_compiler
+    local max_attempts
+    local status
+
+    browser_compiler=dart2wasm
+    if [[ "${CI:-}" == "true" && "$(uname -s)" == "Linux" ]]; then
+      browser_compiler=dart2js
+      printf 'Using dart2js for hosted Linux browser smoke; dart2wasm hybrid browser loading is unstable under CI Chrome.\n'
+    fi
+
+    max_attempts="${CONNECTANUM_BROWSER_TEST_ATTEMPTS:-2}"
+    if ! [[ "$max_attempts" =~ ^[1-9][0-9]*$ ]]; then
+      printf 'CONNECTANUM_BROWSER_TEST_ATTEMPTS must be a positive integer, got %s.\n' "$max_attempts" >&2
+      return 2
+    fi
+
+    for attempt in $(seq 1 "$max_attempts"); do
+      local args=(
+        test/transport/websocket/websocket_transport_web_test.dart
+        -p chrome
+        --compiler="$browser_compiler"
+        --timeout=5m
+        --concurrency=1
+      )
+
+      # Keep retryable package:test browser-manager startup flakes out of
+      # GitHub annotations; the final attempt keeps the default reporter.
+      if (( attempt < max_attempts )); then
+        args+=(--reporter=expanded)
+      fi
+
+      if dart test "${args[@]}"; then
+        return 0
+      else
+        status=$?
+      fi
+
+      if (( attempt == max_attempts )); then
+        return "$status"
+      fi
+
+      printf 'Browser WebSocket smoke failed on attempt %s/%s; retrying.\n' "$attempt" "$max_attempts" >&2
+      sleep 2
+    done
+  )
+}
+
 if native_runtime_supported; then
   cargo test --manifest-path native/transport/Cargo.toml -p ct_core
   cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi
@@ -69,6 +119,7 @@ fi
 build_native_ffi_test_release
 
 python3 tool/test_package_native_artifact.py
+python3 tool/test_verification_scripts.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 dart test packages/connectanum_core/test
@@ -84,20 +135,7 @@ run_router_vm_tests
 run_router_zero_copy_publish_tests
 
 if ensure_chrome_env; then
-  (
-    cd packages/connectanum_client
-    browser_compiler=dart2wasm
-    if [[ "${CI:-}" == "true" && "$(uname -s)" == "Linux" ]]; then
-      browser_compiler=dart2js
-      printf 'Using dart2js for hosted Linux browser smoke; dart2wasm hybrid browser loading is unstable under CI Chrome.\n'
-    fi
-    dart test \
-      test/transport/websocket/websocket_transport_web_test.dart \
-      -p chrome \
-      --compiler="$browser_compiler" \
-      --timeout=5m \
-      --concurrency=1
-  )
+  run_client_browser_websocket_test
 else
   printf 'Chrome not found; skipping browser-platform tests.\n'
 fi
