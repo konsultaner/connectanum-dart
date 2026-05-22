@@ -698,13 +698,102 @@ void main() {
         expect(endpoint.requests.last.method, 'POST');
         expect(endpoint.requests.last.sessionId, 'session-1');
 
+        client.lastEventId = 'session-1:get:kept-notification-json';
+        await expectLater(
+          client.notification(
+            'notifications/progress',
+            params: const <String, Object?>{
+              'progressToken': 'malformed-notification-json',
+              'progress': 1,
+            },
+            headers: const <String, String>{
+              'x-test-json-notification-response': '1',
+              'x-test-response-session-id': 'post-notification-json-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-notification-json');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-notification-sse';
+        await expectLater(
+          client.notification(
+            'notifications/tools/list_changed',
+            params: const <String, Object?>{},
+            headers: const <String, String>{
+              'x-test-sse-notification-only-response': '1',
+              'x-test-response-session-id': 'post-notification-sse-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-notification-sse');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-notification-batch-json';
+        await expectLater(
+          client.postBatch(
+            const <McpJsonMap>[
+              {
+                'jsonrpc': '2.0',
+                'method': 'notifications/progress',
+                'params': <String, Object?>{
+                  'progressToken': 'malformed-notification-batch-json',
+                  'progress': 1,
+                },
+              },
+            ],
+            headers: const <String, String>{
+              'x-test-json-notification-response': '1',
+              'x-test-response-session-id':
+                  'post-notification-batch-json-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(
+          client.lastEventId,
+          'session-1:get:kept-notification-batch-json',
+        );
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-notification-batch-sse';
+        await expectLater(
+          client.postBatch(
+            const <McpJsonMap>[
+              {
+                'jsonrpc': '2.0',
+                'method': 'notifications/tools/list_changed',
+                'params': <String, Object?>{},
+              },
+            ],
+            headers: const <String, String>{
+              'x-test-sse-notification-only-response': '1',
+              'x-test-response-session-id':
+                  'post-notification-batch-sse-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-notification-batch-sse');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
         final page = await client.listTools(
           id: 'fresh-after-malformed-post',
           streamable: false,
         );
         expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
         expect(client.sessionId, 'session-1');
-        expect(client.lastEventId, 'session-1:get:kept-missing-sse');
+        expect(client.lastEventId, 'session-1:get:kept-notification-batch-sse');
       },
     );
 
@@ -2746,6 +2835,29 @@ final class _FakeMcpEndpoint {
             },
       ];
       if (responses.isEmpty) {
+        if (request.headers.value('x-test-json-notification-response') == '1') {
+          _writeJson(request, <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'notifications/progress',
+            'params': <String, Object?>{
+              'progressToken': 'server-response-to-notification-batch',
+              'progress': 1,
+            },
+          });
+          return;
+        }
+        if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
+              'text/event-stream',
+            ) &&
+            request.headers.value('x-test-sse-notification-only-response') ==
+                '1') {
+          _writeSse(
+            request,
+            'id: session-1:post-batch:notification\n'
+            'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n',
+          );
+          return;
+        }
         request.response.statusCode = HttpStatus.accepted;
         _applyTestResponseHeaders(request);
         await request.response.close();
@@ -2819,6 +2931,29 @@ final class _FakeMcpEndpoint {
     }
 
     if (method is String && method.startsWith('notifications/')) {
+      if (request.headers.value('x-test-json-notification-response') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/progress',
+          'params': <String, Object?>{
+            'progressToken': 'server-response-to-notification',
+            'progress': 1,
+          },
+        });
+        return;
+      }
+      if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
+            'text/event-stream',
+          ) &&
+          request.headers.value('x-test-sse-notification-only-response') ==
+              '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:notification\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n',
+        );
+        return;
+      }
       request.response.statusCode = HttpStatus.accepted;
       _applyTestResponseHeaders(request);
       await request.response.close();

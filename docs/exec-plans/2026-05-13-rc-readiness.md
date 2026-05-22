@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-22
+Last updated: 2026-05-23
 
 ## Problem
 
@@ -78,6 +78,29 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: `McpStreamableHttpClient._postPayload()` now rejects non-empty
+  successful POST response bodies for JSON-RPC notifications and
+  notification-only batches before accepting response `MCP-Session-Id` /
+  protocol-version headers or POST/SSE resume cursors. This follows the MCP
+  Streamable HTTP transport contract
+  (`https://modelcontextprotocol.io/specification/2025-06-18/basic/transports`):
+  accepted client notifications or responses use `202 Accepted` with no body,
+  while response-bearing requests use JSON or SSE bodies. Empty, accepted, or
+  no-content notification responses still remain accepted. The focused
+  regression was added first and failed against the prior behavior because a
+  notification-only POST with a body returned normally instead of throwing
+  before state capture. Coverage now exercises single notifications and
+  notification-only batches over both JSON and POST/SSE bodies, proving
+  `sessionId` and `lastEventId` stay unchanged when the server includes
+  replacement session headers or SSE event ids. The generated client-only
+  consumer-package smoke covers the same paths through public
+  `connectanum_mcp_io.dart` APIs. Pre-change `bin/test-fast` passed before
+  edits; after the fix, focused client regression coverage, full
+  `streamable_http_client_test.dart`, `bash -n bin/common.sh`, focused
+  generated client-only consumer smoke, `dart analyze
+  packages/connectanum_client`, repeated `bin/test-fast`, and full local
+  `bin/verify` passed. Hosted evidence still points at `bed07fa` until this
+  implementation checkpoint is committed, pushed, and audited.
 - 2026-05-22: `McpStreamableHttpClient._postPayload()` now validates
   response-bearing JSON-RPC POST response shapes before accepting successful
   response `MCP-Session-Id` / protocol-version headers or POST/SSE resume
@@ -96,8 +119,19 @@ decision because `connectanum_client` still depends on private
   `streamable_http_client_test.dart`, `bash -n bin/common.sh`, focused
   generated client-only consumer smoke, `dart analyze
   packages/connectanum_client`, repeated `bin/test-fast`, and full local
-  `bin/verify` passed. Hosted evidence remains at `66e89c6` until this
-  implementation change is pushed and CI completes.
+  `bin/verify` passed. Commit `bed07fa`
+  (`fix: validate mcp post response shape`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted `master` CI run
+  `26313816851` passed with clean logs, `add-router` CI run `26313816819`
+  passed, hosted Dart Package Publish Dry Run runs `26313816817` and
+  `26313816843` passed, hosted WAMP Profile Benchmarks runs `26313816842` and
+  `26313816821` passed, and current-head Router Image dry-run `26313868479`
+  passed for `0.1.0-rc.2-validation.bed07fa`. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed. The strict deployment-chain audit passed required gates on `master`
+  at `bed07fa`; RC readiness remains blocked only by explicit RC tag,
+  prerelease, router-image tag selection, and deferred pub.dev release-order
+  decisions.
 - 2026-05-22: `McpStreamableHttpClient._postPayload()` now captures
   successful POST response `MCP-Session-Id` and protocol-version headers only
   after JSON bodies or POST/SSE event data parse successfully. POST/SSE resume

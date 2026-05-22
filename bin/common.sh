@@ -1282,6 +1282,110 @@ Future<void> _smokeMalformedPostResponseSessionIsolation(
     'wrong-shape POST batch JSON poisoned Streamable session state',
   );
 
+  const preservedNotificationJsonEventId =
+      'agent-session:get:preserved-notification-json';
+  client.lastEventId = preservedNotificationJsonEventId;
+  try {
+    await client.notification(
+      'notifications/progress',
+      params: const <String, Object?>{
+        'progressToken': 'malformed-notification-json',
+        'progress': 1,
+      },
+      headers: const <String, String>{
+        'x-test-json-notification-response': '1',
+        'x-test-response-session-id': 'agent-post-notification-json-session',
+      },
+    );
+    throw StateError('MCP client accepted a POST notification JSON body.');
+  } on FormatException {
+    // Expected: notification-only POST responses must not carry a body.
+  }
+  _expect(
+    client.sessionId == sessionId &&
+        client.lastEventId == preservedNotificationJsonEventId,
+    'POST notification JSON body poisoned Streamable session state',
+  );
+
+  const preservedNotificationSseEventId =
+      'agent-session:get:preserved-notification-sse';
+  client.lastEventId = preservedNotificationSseEventId;
+  try {
+    await client.notification(
+      'notifications/tools/list_changed',
+      headers: const <String, String>{
+        'x-test-sse-notification-only-response': '1',
+        'x-test-response-session-id': 'agent-post-notification-sse-session',
+      },
+    );
+    throw StateError('MCP client accepted a POST notification SSE body.');
+  } on FormatException {
+    // Expected: notification-only POST/SSE responses must not carry events.
+  }
+  _expect(
+    client.sessionId == sessionId &&
+        client.lastEventId == preservedNotificationSseEventId,
+    'POST notification SSE body poisoned Streamable session state',
+  );
+
+  const preservedNotificationBatchJsonEventId =
+      'agent-session:get:preserved-notification-batch-json';
+  client.lastEventId = preservedNotificationBatchJsonEventId;
+  try {
+    await client.postBatch(
+      const <Map<String, Object?>>[
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/progress',
+          'params': <String, Object?>{
+            'progressToken': 'malformed-notification-batch-json',
+            'progress': 1,
+          },
+        },
+      ],
+      headers: const <String, String>{
+        'x-test-json-notification-response': '1',
+        'x-test-response-session-id':
+            'agent-post-notification-batch-json-session',
+      },
+    );
+    throw StateError('MCP client accepted a notification-only batch JSON body.');
+  } on FormatException {
+    // Expected: notification-only batch responses must not carry a body.
+  }
+  _expect(
+    client.sessionId == sessionId &&
+        client.lastEventId == preservedNotificationBatchJsonEventId,
+    'POST notification-only batch JSON body poisoned Streamable session state',
+  );
+
+  const preservedNotificationBatchSseEventId =
+      'agent-session:get:preserved-notification-batch-sse';
+  client.lastEventId = preservedNotificationBatchSseEventId;
+  try {
+    await client.postBatch(
+      const <Map<String, Object?>>[
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/tools/list_changed',
+        },
+      ],
+      headers: const <String, String>{
+        'x-test-sse-notification-only-response': '1',
+        'x-test-response-session-id':
+            'agent-post-notification-batch-sse-session',
+      },
+    );
+    throw StateError('MCP client accepted a notification-only batch SSE body.');
+  } on FormatException {
+    // Expected: notification-only batch POST/SSE responses must not carry events.
+  }
+  _expect(
+    client.sessionId == sessionId &&
+        client.lastEventId == preservedNotificationBatchSseEventId,
+    'POST notification-only batch SSE body poisoned Streamable session state',
+  );
+
   final tools = await client.listTools(
     id: 'malformed-post-recovery',
     streamable: false,
@@ -3836,6 +3940,29 @@ final class _AgentMcpEndpoint {
         await _writeSessionError(request);
         return;
       }
+      if (request.headers.value('x-test-json-notification-response') == '1') {
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/progress',
+          'params': <String, Object?>{'progress': 1},
+        });
+        return;
+      }
+      if (accept.contains('text/event-stream') &&
+          request.headers.value('x-test-sse-notification-only-response') ==
+              '1') {
+        await _writeSseValues(request, const <MapEntry<String, Object?>>[
+          MapEntry<String, Object?>(
+            'agent-session:post:notification',
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'method': 'notifications/progress',
+              'params': <String, Object?>{'progress': 1},
+            },
+          ),
+        ]);
+        return;
+      }
       request.response.statusCode = HttpStatus.accepted;
       _applyTestResponseHeaders(request);
       await request.response.close();
@@ -4090,6 +4217,29 @@ final class _AgentMcpEndpoint {
       }
     }
     if (responses.isEmpty) {
+      if (request.headers.value('x-test-json-notification-response') == '1') {
+        await _writeJson(request, const <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/progress',
+          'params': <String, Object?>{'progress': 1},
+        });
+        return;
+      }
+      if (_isStreamableRequest(request) &&
+          request.headers.value('x-test-sse-notification-only-response') ==
+              '1') {
+        await _writeSseValues(request, const <MapEntry<String, Object?>>[
+          MapEntry<String, Object?>(
+            'agent-session:post-batch:notification',
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'method': 'notifications/progress',
+              'params': <String, Object?>{'progress': 1},
+            },
+          ),
+        ]);
+        return;
+      }
       request.response.statusCode = HttpStatus.accepted;
       _applyTestResponseHeaders(request);
       await request.response.close();

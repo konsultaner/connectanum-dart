@@ -799,7 +799,11 @@ final class McpStreamableHttpClient {
       final events = parseMcpSseEvents(body);
       final value = _jsonRpcResponseValueFromSseEvents(message, events);
       if (capturesSessionHeaders) {
-        _validatePostResponseBeforeSessionCapture(message, value);
+        _validatePostResponseBeforeSessionCapture(
+          message,
+          value,
+          responseBodyReturned: body.isNotEmpty,
+        );
         _captureSessionHeaders(response);
       }
       _captureLastEventId(events);
@@ -808,7 +812,11 @@ final class McpStreamableHttpClient {
 
     final value = _jsonValueFromBody(body);
     if (capturesSessionHeaders) {
-      _validatePostResponseBeforeSessionCapture(message, value);
+      _validatePostResponseBeforeSessionCapture(
+        message,
+        value,
+        responseBodyReturned: true,
+      );
       _captureSessionHeaders(response);
     }
     return value;
@@ -816,13 +824,23 @@ final class McpStreamableHttpClient {
 
   void _validatePostResponseBeforeSessionCapture(
     Object? requestPayload,
-    Object? responseValue,
-  ) {
+    Object? responseValue, {
+    bool responseBodyReturned = false,
+  }) {
     if (requestPayload is Map && requestPayload.containsKey('id')) {
       if (responseValue == null) {
         throw const FormatException('JSON-RPC response was not returned');
       }
       _jsonMapFrom(responseValue, label: 'JSON-RPC response');
+      return;
+    }
+
+    if (requestPayload is Map) {
+      if (responseBodyReturned) {
+        throw const FormatException(
+          'JSON-RPC notification response must not include a body',
+        );
+      }
       return;
     }
 
@@ -835,6 +853,11 @@ final class McpStreamableHttpClient {
         }
       }
       if (!expectsResponses) {
+        if (responseBodyReturned) {
+          throw const FormatException(
+            'JSON-RPC notification-only batch response must not include a body',
+          );
+        }
         return;
       }
       if (responseValue == null) {
