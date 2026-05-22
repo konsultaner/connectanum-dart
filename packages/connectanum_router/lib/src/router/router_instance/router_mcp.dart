@@ -1321,6 +1321,16 @@ Future<void> _handleMcpHttpRequestForBinding(
       ? _mcpGenerateHttpSessionId()
       : null;
   final effectiveMcpSessionId = requestMcpSessionId ?? issuedSessionId;
+  final endpointAlreadyExisted =
+      effectiveMcpSessionId != null &&
+      binding._mcpEndpointForRoute(
+            request: request,
+            route: route,
+            session: session,
+            mcpSessionId: effectiveMcpSessionId,
+            create: false,
+          ) !=
+          null;
   final endpoint = binding._mcpEndpointForRoute(
     request: request,
     route: route,
@@ -1363,6 +1373,24 @@ Future<void> _handleMcpHttpRequestForBinding(
   }
 
   final response = await endpoint.handleMessage(rawMessage);
+  final rejectedNewInitialize =
+      isInitialize &&
+      streamableHttpRequest &&
+      !endpointAlreadyExisted &&
+      effectiveMcpSessionId != null &&
+      response is Map &&
+      response['error'] is Map;
+  final responseSessionId = rejectedNewInitialize
+      ? null
+      : effectiveMcpSessionId;
+  if (rejectedNewInitialize) {
+    await binding._removeMcpEndpointForRoute(
+      request: request,
+      route: route,
+      session: session,
+      mcpSessionId: effectiveMcpSessionId,
+    );
+  }
   if (response != null &&
       _mcpPostResponsesUseSse(
         binding,
@@ -1396,7 +1424,7 @@ Future<void> _handleMcpHttpRequestForBinding(
             status: HttpStatus.accepted,
             headers: _mcpHttpResponseHeaders(
               json: false,
-              sessionId: effectiveMcpSessionId,
+              sessionId: responseSessionId,
               extra: corsHeaders,
             ),
             body: NativeHttpResponseText(''),
@@ -1404,7 +1432,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         : NativeHttpResponse(
             status: HttpStatus.ok,
             headers: _mcpHttpResponseHeaders(
-              sessionId: effectiveMcpSessionId,
+              sessionId: responseSessionId,
               extra: corsHeaders,
             ),
             body: NativeHttpResponseJson(response),

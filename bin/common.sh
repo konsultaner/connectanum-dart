@@ -14601,6 +14601,11 @@ Future<void> _smokeStreamableMcp(
   RouterSession serviceSession,
   {required String label}
 ) async {
+  await _assertRejectedStreamableInitializeDoesNotCaptureSession(
+    client,
+    label: label,
+  );
+
   final initializeResult = await client.initialize(
     clientInfo: const {
       'name': 'connectanum_consumer_package_smoke',
@@ -14721,6 +14726,48 @@ Future<void> _smokeStreamableMcp(
     serviceSession,
     label: label,
   );
+}
+
+Future<void> _assertRejectedStreamableInitializeDoesNotCaptureSession(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final rejected = await client.post(
+    const <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': 'rejected-initialize',
+      'method': 'initialize',
+      'params': <String, Object?>{
+        'protocolVersion': 123,
+        'capabilities': <String, Object?>{},
+        'clientInfo': <String, Object?>{
+          'name': 'connectanum_consumer_package_smoke',
+          'version': '0.1.0',
+        },
+      },
+    },
+    includeSession: false,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-rejected-streamable-initialize',
+    },
+  );
+  if (rejected == null ||
+      rejected['id'] != 'rejected-initialize' ||
+      rejected['error'] is! Map<String, Object?>) {
+    throw StateError(
+      'Rejected Streamable MCP initialize did not return a JSON-RPC error.',
+    );
+  }
+  if (!jsonEncode(rejected['error']).contains('protocolVersion')) {
+    throw StateError(
+      'Rejected Streamable MCP initialize did not explain protocolVersion.',
+    );
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Rejected Streamable MCP initialize captured session state.',
+    );
+  }
 }
 
 Future<void> _smokeDirectJsonWhileStreamableInitialized(

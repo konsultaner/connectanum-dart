@@ -78,6 +78,20 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-22: Router-hosted MCP Streamable `initialize` handling now treats
+  newly created endpoints as tentative until initialization succeeds. If the
+  MCP server returns a JSON-RPC error for a new Streamable `initialize`
+  request, the router disposes that endpoint and omits `MCP-Session-Id` so
+  consumer applications cannot reuse a failed initialization as an active MCP
+  session. The router integration regression was added first and failed against
+  the previous session leak; the generated consumer-package smoke now proves
+  the same rejected-initialize behavior through public
+  `McpStreamableHttpClient.post(...)` before the normal Streamable lifecycle.
+  Pre-change `bin/test-fast` passed; after the fix, focused router integration
+  coverage, `dart analyze packages/connectanum_router`, `bash -n
+  bin/common.sh`, focused generated router-hosted MCP consumer smoke, and
+  repeated `bin/test-fast` passed. Full local `bin/verify` also passed. Hosted
+  deployment-chain evidence is pending for this checkpoint.
 - 2026-05-22: Router-hosted MCP Streamable HTTP session deletion now cleans up
   endpoint-created WAMP pub/sub subscriptions. `_RouterMcpEndpoint` tracks
   subscription ids created through MCP pub/sub helpers, removes ids on explicit
@@ -89,8 +103,17 @@ decision because `connectanum_client` still depends on private
   `bin/test-fast`, focused router integration coverage, `dart analyze
   packages/connectanum_router`, `bash -n bin/common.sh`, focused generated
   router-hosted MCP consumer smoke, `git diff --check`, and full local
-  `bin/verify` passed. Hosted deployment-chain evidence remains pending for
-  this checkpoint.
+  `bin/verify` passed. Commit `383e0a9`
+  (`fix: clean up mcp delete subscriptions`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted `master` CI run
+  `26289774583` passed after rerun with clean logs, `add-router` CI run
+  `26289773557` passed, hosted Dart Package Publish Dry Run runs `26289774620`
+  and `26289773603` passed, hosted WAMP Profile Benchmarks runs `26289774563`
+  and `26289773604` passed, and current-head Router Image dry-run
+  `26290485783` passed for `0.1.0-rc.2-validation.383e0a9`. The strict
+  deployment-chain audit passed required gates on `master` at `383e0a9`; RC
+  readiness remains blocked only by explicit RC tag/prerelease/router-image tag
+  selection and deferred pub.dev release-order decisions.
 - 2026-05-22: Current implementation checkpoint adds per-method HTTP route
   action overrides for the Dart router config surface. `HttpRouteSettings`
   now carries `methodActions`, `RouterConfigLoader` accepts
@@ -1542,20 +1565,24 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The latest local implementation follow-up makes router-hosted MCP
-Streamable HTTP `DELETE` dispose endpoint-owned WAMP pub/sub subscriptions.
+Active. The latest fully clean hosted implementation follow-up makes
+router-hosted MCP Streamable HTTP `DELETE` dispose endpoint-owned WAMP pub/sub
+subscriptions.
 `_RouterMcpEndpoint` now tracks subscription ids created through MCP pub/sub
 helpers, removes ids on explicit unsubscribe, and best-effort unsubscribes
 remaining ids when DELETE removes the MCP session or the endpoint is disposed.
 Router integration coverage and the generated consumer-package smoke prove a
 Streamable MCP subscription has one route-visible subscriber before DELETE and
 zero after DELETE through direct JSON WAMP subscription meta. Local focused
-coverage and full `bin/verify` passed on 2026-05-22. This checkpoint still
-needs hosted deployment-chain evidence before it becomes the latest fully clean
-hosted checkpoint. The latest fully clean hosted implementation checkpoint is
-`3c5d977`, which adds router-hosted HTTP method-mismatch coverage across native
-matching, native HTTP/1 responses, and Dart synthetic dispatch; hosted CI,
-hosted Dart Package Publish Dry Run, hosted WAMP Profile Benchmarks, hosted
+coverage, full `bin/verify`, hosted CI on `master` and `add-router`, hosted
+Dart Package Publish Dry Run on both branches, hosted WAMP Profile Benchmarks
+on both branches, current-head Router Image dry-run, and the strict
+deployment-chain audit passed at `383e0a9`. RC readiness remains blocked only
+by explicit RC tag/prerelease/router-image tag selection and deferred pub.dev
+release-order decisions. The prior fully clean hosted implementation checkpoint
+is `3c5d977`, which adds router-hosted HTTP method-mismatch coverage across
+native matching, native HTTP/1 responses, and Dart synthetic dispatch; hosted
+CI, hosted Dart Package Publish Dry Run, hosted WAMP Profile Benchmarks, hosted
 kTLS Validation, Native Artifacts dry-run, Router Image dry-run, and the strict
 deployment-chain audit passed at `3c5d977`. The prior fully clean hosted
 implementation follow-up makes router-hosted HTTP route protocol mismatches

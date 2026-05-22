@@ -1399,6 +1399,30 @@ void main() {
       );
       expect(invalidVersion.statusCode, equals(HttpStatus.badRequest));
 
+      final rejectedInitialize = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'bad-initialize',
+          'method': 'initialize',
+          'params': {'protocolVersion': 123},
+        },
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'initialize',
+        },
+      );
+      expect(rejectedInitialize.statusCode, equals(HttpStatus.ok));
+      expect(rejectedInitialize.json?['error'], isA<Map<String, Object?>>());
+      expect(
+        jsonEncode(rejectedInitialize.json?['error']),
+        contains('protocolVersion'),
+      );
+      expect(rejectedInitialize.headers, isNot(contains('mcp-session-id')));
+
       final missingMethodHeader = await _postJson(
         client,
         listener.port,

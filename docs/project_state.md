@@ -2,26 +2,61 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP Streamable DELETE pub/sub cleanup.
-Latest fully clean hosted checkpoint: Commit `3c5d977`.
-Current implementation checkpoint: Router-hosted MCP endpoints now clean up
-MCP-created WAMP pub/sub subscriptions when a Streamable HTTP session is
-deleted or an endpoint is disposed. `_RouterMcpEndpoint` tracks subscription
-ids created through `connectanum.pubsub.subscribe`, removes them on explicit
-unsubscribe, and best-effort unsubscribes remaining ids during DELETE/disposal.
-The router integration smoke proves a Streamable MCP subscription reports one
-route-visible subscriber before DELETE and zero afterward through direct JSON
-WAMP subscription meta. The generated consumer-package smoke now proves the
-same cleanup through public `McpStreamableHttpClient` helper calls. Pre-change
-`bin/test-fast`, focused `dart test
-packages/connectanum_router/test/router_integration_native_test.dart -r
-expanded --plain-name "deletes MCP Streamable HTTP sessions and cleans up
-pubsub subscribers"`, `dart analyze packages/connectanum_router`, `bash -n
-bin/common.sh`, focused `bash -lc 'source bin/common.sh &&
-run_mcp_consumer_package_smoke'`, `git diff --check`, and full local
-`bin/verify` passed on 2026-05-22. Hosted GitHub deployment-chain evidence is
-still pending for this checkpoint.
-Latest fully clean hosted checkpoint details: Commit `3c5d977`
+Last reviewed branch checkpoint: Router-hosted MCP rejected initialize cleanup.
+Latest fully clean hosted checkpoint: Commit `383e0a9`.
+Current implementation checkpoint: Router-hosted MCP Streamable HTTP
+`initialize` endpoints are now tentative until initialization succeeds. If a
+newly created Streamable endpoint returns a JSON-RPC error for `initialize`,
+the router disposes that endpoint and omits `MCP-Session-Id` from the response
+so consumer applications cannot reuse a failed initialization as an active MCP
+session. The router integration regression was added first and failed against
+the prior behavior because the rejected initialize response leaked a session
+id. The generated consumer-package smoke now sends the same rejected initialize
+through public `McpStreamableHttpClient.post(...)` and proves no Streamable
+session state is captured before the normal initialization flow. Pre-change
+`bin/test-fast` passed. After the fix, focused
+`dart test packages/connectanum_router/test/router_integration_native_test.dart
+-r expanded --plain-name "guards MCP Streamable HTTP ingress and sessions"`,
+`dart analyze packages/connectanum_router`, `bash -n bin/common.sh`, focused
+`bash -lc 'source bin/common.sh && run_mcp_consumer_package_smoke'`, and
+repeated `bin/test-fast` passed on 2026-05-22. Full local `bin/verify` also
+passed on 2026-05-22. Hosted deployment-chain evidence is pending for this
+checkpoint.
+Prior hosted checkpoint details: Commit `383e0a9`
+(`fix: clean up mcp delete subscriptions`) makes router-hosted MCP endpoints
+clean up MCP-created WAMP pub/sub subscriptions when a Streamable HTTP session
+is deleted or an endpoint is disposed. `_RouterMcpEndpoint` tracks
+subscription ids created through `connectanum.pubsub.subscribe`, removes ids
+on explicit unsubscribe, and best-effort unsubscribes remaining ids during
+DELETE/disposal. The router integration smoke proves a Streamable MCP
+subscription reports one route-visible subscriber before DELETE and zero
+afterward through direct JSON WAMP subscription meta. The generated
+consumer-package smoke proves the same cleanup through public
+`McpStreamableHttpClient` helper calls. Pre-change `bin/test-fast`, focused
+router integration coverage, `dart analyze packages/connectanum_router`,
+`bash -n bin/common.sh`, focused generated router-hosted MCP consumer smoke,
+`git diff --check`, repeated `bin/test-fast`, and full local `bin/verify`
+passed on 2026-05-22. Commit `383e0a9` was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`383e0a9`: `master` CI run `26289774583` passed after rerun with Fast Checks
+and Full Verify green and clean logs, `add-router` CI run `26289773557`
+passed, `master` Dart Package Publish Dry Run `26289774620` and `add-router`
+Dart Package Publish Dry Run `26289773603` passed, `master` WAMP Profile
+Benchmarks `26289774563` and `add-router` WAMP Profile Benchmarks
+`26289773604` passed, and current-head Router Image dry-run `26290485783`
+passed for `0.1.0-rc.2-validation.383e0a9` with preview upload, skipped GHCR
+login, completed multi-arch build, and clean annotations. Native Artifacts
+dry-run `26286794628` remains relevant because no native-release-sensitive
+inputs changed since `89c7915`. The strict deployment-chain audit passed
+required gates on `master` at `383e0a9`, including clean current-head CI/logs,
+Dart package dry-run, WAMP profile benchmark evidence, Router Image dry-run,
+native release dry-run relevance, branch protection, workflow visibility, and
+router package visibility. RC readiness remains not-ready only because no
+approved numeric RC tag, GitHub prerelease, or matching RC router image tag has
+been selected, and pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
+Prior hosted checkpoint details: Commit `3c5d977`
 (`test: cover http route method mismatches`) adds focused production-readiness
 coverage for HTTP route method whitelist mismatches. Native route matching now
 has regression coverage proving existing paths with disallowed methods return
