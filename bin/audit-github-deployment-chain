@@ -101,6 +101,7 @@ USAGE
 
 repository="${GITHUB_REPOSITORY:-konsultaner/connectanum-dart}"
 branch=""
+dart_package_publish_dry_run_bin="${DART_PACKAGE_PUBLISH_DRY_RUN_BIN:-bin/dart-package-publish-dry-run}"
 run_limit=6
 strict=0
 check_clean_latest_ci=0
@@ -2126,9 +2127,9 @@ print_rc_readiness() {
     rc_ready_failed=1
   fi
 
-  if [[ -x bin/dart-package-publish-dry-run ]]; then
+  if [[ -x "$dart_package_publish_dry_run_bin" ]]; then
     strict_dart_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-strict.XXXXXX")"
-    if bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan >"$strict_dart_output" 2>&1; then
+    if "$dart_package_publish_dry_run_bin" --strict-release-ready --show-release-plan >"$strict_dart_output" 2>&1; then
       printf 'Dart package strict publish dry-run: ready\n'
     elif strict_dart_output_is_deferred_pub_dev_only "$strict_dart_output"; then
       printf 'Dart package strict publish dry-run: deferred for first GitHub RC\n'
@@ -2142,7 +2143,7 @@ print_rc_readiness() {
     fi
     rm -f "$strict_dart_output"
   else
-    printf 'Dart package strict publish dry-run: not ready; bin/dart-package-publish-dry-run is missing or not executable.\n'
+    printf 'Dart package strict publish dry-run: not ready; %s is missing or not executable.\n' "$dart_package_publish_dry_run_bin"
     rc_ready_failed=1
   fi
 

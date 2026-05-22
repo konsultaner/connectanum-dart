@@ -371,6 +371,55 @@ void main() {
       },
     );
 
+    test(
+      'keeps Streamable HTTP session state after rate-limit failures',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'rate-limit-init');
+        expect(initialize['id'], 'rate-limit-init');
+        final sessionId = client.sessionId;
+        expect(sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept';
+        await expectLater(
+          client.listTools(
+            id: 'rate-limited-tools',
+            headers: <String, String>{
+              'x-test-force-status': '${HttpStatus.tooManyRequests}',
+              'x-test-response-session-id': sessionId!,
+            },
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.tooManyRequests,
+            ),
+          ),
+        );
+        expect(client.sessionId, sessionId);
+        expect(client.lastEventId, 'session-1:get:kept');
+        expect(endpoint.requests.last.sessionId, sessionId);
+        expect(endpoint.requests.last.method, 'POST');
+
+        await client.deleteSession(
+          headers: const <String, String>{
+            'x-consumer-trace': 'rate-limit-cleanup',
+          },
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(endpoint.requests.last.method, 'DELETE');
+        expect(endpoint.requests.last.sessionId, sessionId);
+        expect(endpoint.requests.last.consumerTrace, 'rate-limit-cleanup');
+      },
+    );
+
     test('rejects empty bearer tokens', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);

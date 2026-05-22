@@ -2,19 +2,37 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Current implementation checkpoint (this
-commit) lets router-hosted MCP Streamable HTTP `DELETE` cleanup bypass the
-route-level rate-limit gate so exhausted clients can still remove owned
-sessions. Runtime regression coverage and the generated consumer-package
-router-hosted MCP smoke prove the exhausted Streamable POST path still returns
-`429 rate_limited` with the owned `MCP-Session-Id`, while cleanup `DELETE`
-returns `202`, keeps the session header, and omits route rate-limit headers.
-Pre-change `bin/test-fast`, fail-first focused runtime regression, focused
-rate-limited MCP runtime tests, `bash -n bin/common.sh`, focused generated
-`run_mcp_consumer_package_smoke`, `dart analyze packages/connectanum_router`,
-`git diff --check`, and full local `bin/verify` passed. Hosted
-deployment-chain evidence remains at prior checkpoint `fafbc56` until this
-implementation follow-up is pushed and hosted CI/dry-run evidence completes.
+Last reviewed branch checkpoint: Current local implementation follow-up adds
+public-client regression coverage for rate-limited Streamable HTTP cleanup.
+`McpStreamableHttpClient` now has focused test evidence that a `429`
+Streamable POST failure preserves the active session id and SSE cursor, and
+that a following `DELETE` cleanup still sends the owned `MCP-Session-Id` before
+clearing local state. Pre-change `bin/test-fast`, the focused
+`keeps Streamable HTTP session state after rate-limit failures` client test,
+and the full `streamable_http_client_test.dart` suite passed. Full local
+`bin/verify` passed on rerun after terminating the stale failed verify process
+group from a native-runtime lock-contention attempt. Push and hosted
+deployment-chain evidence are pending for this follow-up.
+Latest fully clean hosted checkpoint: Commit `7f48714`
+(`fix: allow mcp delete after route limit`) lets router-hosted MCP Streamable
+HTTP `DELETE` cleanup bypass the route-level rate-limit gate so exhausted
+clients can still remove owned sessions. Runtime regression coverage and the
+generated consumer-package router-hosted MCP smoke prove the exhausted
+Streamable POST path still returns `429 rate_limited` with the owned
+`MCP-Session-Id`, while cleanup `DELETE` returns `202`, keeps the session
+header, and omits route rate-limit headers. Hosted GitHub evidence is clean at
+`7f48714`: `master` CI run `26260457692`, `master` Dart Package Publish Dry Run
+`26260457644`, `master` WAMP Profile Benchmarks `26260457656`, `master` Router
+Image dry-run `26260908932`, `add-router` CI run `26260453248`, `add-router`
+Dart Package Publish Dry Run `26260453292`, and `add-router` WAMP Profile
+Benchmarks `26260453365` passed. The strict deployment-chain audit passed
+required gates on `master` at `7f48714`, using current-head CI/logs, Dart
+package dry-run, WAMP profile benchmark, and Router Image dry-run evidence plus
+still-relevant native release dry-run evidence. RC readiness remains not-ready
+only because no approved numeric RC tag, GitHub prerelease, or matching RC
+router image tag has been selected, and pub.dev publishing remains deferred for
+release-order/operator decisions. No RC tag, GitHub Release, or router image
+was created or moved.
 Prior hosted checkpoint: Commit `fafbc56`
 (`test: cover consumer mcp rate-limit smoke`) extends route-level rate-limit
 MCP response-session evidence from the focused router runtime test into the

@@ -333,6 +333,33 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         replacement = "0" if sha[0] != "0" else "1"
         return f"{replacement}{sha[1:]}"
 
+    def _write_deferred_dart_publish_dry_run(self, path: Path) -> None:
+        path.write_text(
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                printf 'Dart package publish dry-run completed for 1 package(s).\\n'
+                printf '\\nDart package release-readiness blockers:\\n'
+                printf -- '- connectanum_client depends on private workspace package connectanum_core (packages/connectanum_core); publish connectanum_core first or remove the hosted dependency before publishing connectanum_client.\\n'
+                printf '\\nAll Dart package publish dry-runs reported zero warnings.\\n'
+                printf '\\nDart package release-order plan:\\n'
+                printf '\\nCurrently publishable package archives:\\n'
+                printf -- '- connectanum_client 2.2.6 (packages/connectanum_client)\\n'
+                printf '\\nPrivate workspace packages not currently publishable:\\n'
+                printf -- '- connectanum_core 0.1.0 (packages/connectanum_core)\\n'
+                printf '\\nPrivate workspace packages blocking publishable targets:\\n'
+                printf -- '- connectanum_core 0.1.0 (packages/connectanum_core)\\n'
+                printf '\\nWorkspace dependency order that must be satisfied before public publishing:\\n'
+                printf -- '- publish connectanum_core before connectanum_client\\n'
+                printf '\\nOperator decisions still required before a real publish:\\n'
+                printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\\n'
+                exit 1
+                """
+            )
+        )
+        path.chmod(0o755)
+
     def _run_audit(
         self,
         ci_head: str,
@@ -768,6 +795,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             fake_gh = temp_path / "gh"
             fake_git = temp_path / "git"
             fake_curl = temp_path / "curl"
+            fake_dart_publish = temp_path / "dart-package-publish-dry-run"
             real_git = shutil.which("git")
             self.assertIsNotNone(real_git)
 
@@ -1070,9 +1098,11 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 )
             )
             fake_curl.chmod(0o755)
+            self._write_deferred_dart_publish_dry_run(fake_dart_publish)
 
             env = os.environ.copy()
             env["GH_BIN"] = str(fake_gh)
+            env["DART_PACKAGE_PUBLISH_DRY_RUN_BIN"] = str(fake_dart_publish)
             env["FAKE_CI_HEAD"] = ci_head
             env["FAKE_BRANCH_HEAD"] = branch_head or ci_head
             env["FAKE_GITHUB_TAG_HEAD"] = (
@@ -1113,6 +1143,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             fake_gh = temp_path / "gh"
             fake_git = temp_path / "git"
             fake_curl = temp_path / "curl"
+            fake_dart_publish = temp_path / "dart-package-publish-dry-run"
             real_git = shutil.which("git")
             self.assertIsNotNone(real_git)
 
@@ -1401,9 +1432,11 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 )
             )
             fake_curl.chmod(0o755)
+            self._write_deferred_dart_publish_dry_run(fake_dart_publish)
 
             env = os.environ.copy()
             env["GH_BIN"] = str(fake_gh)
+            env["DART_PACKAGE_PUBLISH_DRY_RUN_BIN"] = str(fake_dart_publish)
             env["FAKE_CI_HEAD"] = ci_head
             env["FAKE_STALE_HEAD"] = stale_head
             env["FAKE_BRANCH_HEAD"] = branch_head or ci_head
