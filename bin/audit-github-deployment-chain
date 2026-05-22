@@ -709,9 +709,14 @@ strict_dart_output_is_deferred_pub_dev_only() {
   local unexpected_blockers
 
   grep -Fq 'All Dart package publish dry-runs reported zero warnings.' "$output_file" || return 1
+  grep -Fq 'Dart package publish dry-run warning gate failed:' "$output_file" && return 1
   grep -Fq 'Dart package release-readiness blockers:' "$output_file" || return 1
+  grep -Fq 'Dart package release-order plan:' "$output_file" || return 1
+  grep -Fq 'Currently publishable package archives:' "$output_file" || return 1
   grep -Fq 'Private workspace packages blocking publishable targets:' "$output_file" || return 1
   grep -Eq '^- connectanum_core [^ ]+ \(packages/connectanum_core\)$' "$output_file" || return 1
+  grep -Fq 'Workspace dependency order that must be satisfied before public publishing:' "$output_file" || return 1
+  grep -Fq 'Operator decisions still required before a real publish:' "$output_file" || return 1
 
   blocker_lines="$(
     grep -E '^- .+ depends on private workspace package .+' "$output_file" || true

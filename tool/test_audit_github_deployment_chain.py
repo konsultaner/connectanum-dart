@@ -174,6 +174,32 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
 
+    def test_rc_readiness_rejects_deferred_dart_output_without_release_plan(
+        self,
+    ) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_rc_readiness_with_native_prerelease(
+            current_head,
+            require_rc_ready=True,
+            omit_dart_release_plan=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Dart package strict publish dry-run: not ready", result.stdout)
+        self.assertIn(
+            "- connectanum_client depends on private workspace package "
+            "connectanum_core (packages/connectanum_core); publish "
+            "connectanum_core first or remove the hosted dependency before "
+            "publishing connectanum_client.",
+            result.stdout,
+        )
+        self.assertIn("Release candidate readiness audit failed.", result.stdout)
+        self.assertNotIn(
+            "Dart package strict publish dry-run: deferred for first GitHub RC",
+            result.stdout,
+        )
+
     def test_rc_readiness_rejects_v_prefixed_router_image_preview_tag(
         self,
     ) -> None:
@@ -368,6 +394,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self,
         path: Path,
         extra_blocker: bool = False,
+        omit_release_plan: bool = False,
     ) -> None:
         extra_blocker_line = ""
         extra_private_dependency_line = ""
@@ -389,6 +416,33 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 "connectanum_router\\n'\n"
             )
 
+        release_plan_output = ""
+        if not omit_release_plan:
+            release_plan_output = (
+                "                printf '\\nDart package release-order plan:\\n'\n"
+                "                printf '\\nCurrently publishable package archives:\\n'\n"
+                "                printf -- '- connectanum_client 2.2.6 "
+                "(packages/connectanum_client)\\n'\n"
+                "                printf '\\nPrivate workspace packages not "
+                "currently publishable:\\n'\n"
+                "                printf -- '- connectanum_core 0.1.0 "
+                "(packages/connectanum_core)\\n'\n"
+                "                printf '\\nPrivate workspace packages blocking "
+                "publishable targets:\\n'\n"
+                "                printf -- '- connectanum_core 0.1.0 "
+                "(packages/connectanum_core)\\n'\n"
+                f"{extra_private_dependency_line}"
+                "                printf '\\nWorkspace dependency order that must "
+                "be satisfied before public publishing:\\n'\n"
+                "                printf -- '- publish connectanum_core before "
+                "connectanum_client\\n'\n"
+                f"{extra_dependency_edge_line}"
+                "                printf '\\nOperator decisions still required "
+                "before a real publish:\\n'\n"
+                "                printf -- '- Confirm package-name ownership and "
+                "publisher configuration on pub.dev.\\n'\n"
+            )
+
         path.write_text(
             textwrap.dedent(
                 f"""\
@@ -399,19 +453,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 printf -- '- connectanum_client depends on private workspace package connectanum_core (packages/connectanum_core); publish connectanum_core first or remove the hosted dependency before publishing connectanum_client.\\n'
 {extra_blocker_line}
                 printf '\\nAll Dart package publish dry-runs reported zero warnings.\\n'
-                printf '\\nDart package release-order plan:\\n'
-                printf '\\nCurrently publishable package archives:\\n'
-                printf -- '- connectanum_client 2.2.6 (packages/connectanum_client)\\n'
-                printf '\\nPrivate workspace packages not currently publishable:\\n'
-                printf -- '- connectanum_core 0.1.0 (packages/connectanum_core)\\n'
-                printf '\\nPrivate workspace packages blocking publishable targets:\\n'
-                printf -- '- connectanum_core 0.1.0 (packages/connectanum_core)\\n'
-{extra_private_dependency_line}
-                printf '\\nWorkspace dependency order that must be satisfied before public publishing:\\n'
-                printf -- '- publish connectanum_core before connectanum_client\\n'
-{extra_dependency_edge_line}
-                printf '\\nOperator decisions still required before a real publish:\\n'
-                printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\\n'
+{release_plan_output}
                 exit 1
                 """
             )
@@ -848,6 +890,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         router_preview_tag: str = "0.1.0-rc.2",
         require_rc_ready: bool = False,
         extra_dart_publish_blocker: bool = False,
+        omit_dart_release_plan: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1160,6 +1203,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             self._write_deferred_dart_publish_dry_run(
                 fake_dart_publish,
                 extra_blocker=extra_dart_publish_blocker,
+                omit_release_plan=omit_dart_release_plan,
             )
 
             env = os.environ.copy()

@@ -2,10 +2,25 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Local release-gate test follow-up hardens
-strict Dart package publish deferral coverage.
-Latest fully clean hosted checkpoint: Commit `182c236`.
-The current local follow-up adds regression coverage proving
+Last reviewed branch checkpoint: Local RC audit deferral hardening requires
+strict Dart package release-plan evidence.
+Latest fully clean hosted checkpoint: Commit `690c3c6`.
+The current local follow-up tightens
+`bin/audit-github-deployment-chain` so first-RC pub.dev deferral is accepted
+only when the strict Dart publish dry-run output includes zero warnings, the
+known private `connectanum_core` blocker, the release-order inventory, the
+workspace dependency order, and operator decisions. It rejects missing
+release-plan evidence and contradictory warning-gate output instead of treating
+the blocker line alone as sufficient. `tool/test_audit_github_deployment_chain.py`
+adds fake-hosted RC coverage for a strict dry-run that has the known blocker but
+omits the release plan. Pre-change `bin/test-fast`, focused
+`python3 tool/test_audit_github_deployment_chain.py`,
+`bash -n bin/audit-github-deployment-chain`, `git diff --check`, and the live
+read-only strict deployment-chain audit against `master` passed locally. Full
+local `bin/verify` passed for this follow-up.
+Latest fully clean hosted checkpoint details: Commit `690c3c6`
+(`test: cover strict dart publish deferral`) adds regression
+coverage proving
 `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
 fails on the known `connectanum_client` private `connectanum_core` dependency
 while still reporting zero publish warnings and the release-order plan. It also
@@ -14,9 +29,19 @@ accepted when strict Dart package output contains any unexpected private
 workspace dependency blocker. Pre-change `bin/test-fast`, focused
 `python3 tool/test_dart_package_publish_dry_run.py`,
 `python3 tool/test_audit_github_deployment_chain.py`, `git diff --check`, and
-full local `bin/verify` passed. Hosted evidence is pending until this
-follow-up is pushed and audited.
-Latest fully clean hosted checkpoint details: Commit `182c236`
+full local `bin/verify` passed. The commit was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`690c3c6`: `master` CI run `26271999722` and `add-router` CI run
+`26271999694` passed with Fast Checks and Full Verify green. The strict
+deployment-chain audit passed required gates on `master` at `690c3c6`, using
+current-head CI/log evidence plus still-relevant Dart package dry-run, native
+release dry-run, Router Image dry-run, and WAMP profile benchmark evidence
+because no package, native-release, router-image, or WAMP profile inputs changed
+in this test/docs checkpoint. RC readiness remains not-ready only because no
+approved numeric RC tag, GitHub prerelease, or matching RC router image tag has
+been selected, and pub.dev publishing remains deferred for release-order/operator
+decisions. No RC tag, GitHub Release, or router image was created or moved.
+Prior hosted checkpoint details: Commit `182c236`
 (`fix: skip mcp delete without active session`) changes
 `McpStreamableHttpClient.deleteSession()` to return after local cleanup when
 `sessionId` is already null, clearing any orphan SSE cursor without sending an
