@@ -129,6 +129,25 @@ void main() {
       },
     );
 
+    test('treats delete without an active session as local cleanup', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      client.lastEventId = 'orphan-event';
+      await client.deleteSession(
+        headers: const <String, String>{
+          'x-consumer-trace': 'delete-without-session',
+        },
+      );
+
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+      expect(endpoint.requests, isEmpty);
+    });
+
     test(
       'selects matching JSON-RPC responses from Streamable HTTP SSE events',
       () async {

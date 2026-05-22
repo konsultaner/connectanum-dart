@@ -825,6 +825,10 @@ final class McpStreamableHttpClient {
   Future<void> deleteSession({
     Map<String, String> headers = const <String, String>{},
   }) async {
+    if (sessionId == null) {
+      _clearSessionState();
+      return;
+    }
     final request = await _httpClient.deleteUrl(endpoint);
     _applyHeaders(request, accept: _acceptJson, extraHeaders: headers);
 
