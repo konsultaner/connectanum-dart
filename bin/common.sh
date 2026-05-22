@@ -11871,6 +11871,7 @@ Future<void> _smokeDirectToolApi(
     arguments: {'taskId': headerOverrideTaskId, 'note': _headerWrappedNote},
     headers: <String, String>{
       'x-consumer-trace': '$label-direct-tool-header-override',
+      'Mcp-Method': 'consumer.tool.wrong',
       'Mcp-Name': 'consumer.task.wrong',
       'Mcp-Param-TaskId': 'wrong-task',
       'Mcp-Param-Note': 'wrong-note',
@@ -13625,6 +13626,8 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
         },
       },
       headers: {
+        'Mcp-Method': 'consumer.streamable.wrong',
+        'Mcp-Name': 'consumer.streamable.wrong',
         'Mcp-Param-TaskId': taskId,
         'Mcp-Param-Note': _mcpBase64Header(_headerWrappedNote),
       },
@@ -17402,6 +17405,8 @@ Future<void> _smokeStreamableNotificationPubSub(
       _topic,
       argumentsKeywords: {'taskId': helperTaskId},
       headers: <String, String>{
+        'Mcp-Method': 'consumer.pubsub.wrong',
+        'Mcp-Name': 'consumer.pubsub.wrong',
         'Mcp-Param-Topic': 'wrong-topic',
         'x-consumer-trace': '$label-streamable-notification-pubsub-helper',
       },
@@ -17630,6 +17635,8 @@ Future<void> _smokeStreamableNotificationToolCall(
     _procedure,
     arguments: {'taskId': helperTaskId},
     headers: <String, String>{
+      'Mcp-Method': 'consumer.tool.notification.wrong',
+      'Mcp-Name': 'consumer.tool.notification.wrong',
       'Mcp-Param-TaskId': 'wrong-task',
       'x-consumer-trace': '$label-streamable-notification-tool-helper',
     },
