@@ -631,6 +631,23 @@ void main() {
         expect(endpoint.requests.last.method, 'POST');
         expect(endpoint.requests.last.sessionId, 'session-1');
 
+        client.lastEventId = 'session-1:get:kept-shape';
+        await expectLater(
+          client.listTools(
+            id: 'wrong-json-shape-tools',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-json-array-response': '1',
+              'x-test-response-session-id': 'post-json-shape-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-shape');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
         client.lastEventId = 'session-1:get:kept-sse';
         await expectLater(
           client.listTools(
@@ -647,13 +664,47 @@ void main() {
         expect(endpoint.requests.last.method, 'POST');
         expect(endpoint.requests.last.sessionId, 'session-1');
 
+        client.lastEventId = 'session-1:get:kept-missing-sse';
+        await expectLater(
+          client.listTools(
+            id: 'missing-sse-tools',
+            headers: const <String, String>{
+              'x-test-sse-notification-only-response': '1',
+              'x-test-response-session-id': 'post-sse-missing-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-missing-sse');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        await expectLater(
+          client.postBatch(
+            const <McpJsonMap>[
+              {'jsonrpc': '2.0', 'id': 'batch-shape', 'method': 'tools/list'},
+            ],
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-batch-json-object-response': '1',
+              'x-test-response-session-id': 'post-batch-shape-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-missing-sse');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
         final page = await client.listTools(
           id: 'fresh-after-malformed-post',
           streamable: false,
         );
         expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
         expect(client.sessionId, 'session-1');
-        expect(client.lastEventId, 'session-1:get:kept-sse');
+        expect(client.lastEventId, 'session-1:get:kept-missing-sse');
       },
     );
 
@@ -2700,6 +2751,14 @@ final class _FakeMcpEndpoint {
         await request.response.close();
         return;
       }
+      if (request.headers.value('x-test-batch-json-object-response') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': responses.first['id'],
+          'result': <String, Object?>{'tools': <Object?>[]},
+        });
+        return;
+      }
       if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
         'text/event-stream',
       )) {
@@ -2793,6 +2852,10 @@ final class _FakeMcpEndpoint {
       _applyTestResponseHeaders(request);
       request.response.write('{');
       await request.response.close();
+      return;
+    }
+    if (request.headers.value('x-test-json-array-response') == '1') {
+      _writeJsonValue(request, const <Object?>[]);
       return;
     }
 
@@ -3199,6 +3262,15 @@ final class _FakeMcpEndpoint {
           'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n'
           'id: session-1:post:3\n'
           'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
+        );
+        return;
+      }
+      if (request.headers.value('x-test-sse-notification-only-response') ==
+          '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:missing\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n',
         );
         return;
       }

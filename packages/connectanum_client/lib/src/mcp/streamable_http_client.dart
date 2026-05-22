@@ -789,6 +789,7 @@ final class McpStreamableHttpClient {
         response.statusCode == HttpStatus.noContent ||
         body.isEmpty) {
       if (capturesSessionHeaders) {
+        _validatePostResponseBeforeSessionCapture(message, null);
         _captureSessionHeaders(response);
       }
       return null;
@@ -798,6 +799,7 @@ final class McpStreamableHttpClient {
       final events = parseMcpSseEvents(body);
       final value = _jsonRpcResponseValueFromSseEvents(message, events);
       if (capturesSessionHeaders) {
+        _validatePostResponseBeforeSessionCapture(message, value);
         _captureSessionHeaders(response);
       }
       _captureLastEventId(events);
@@ -806,9 +808,45 @@ final class McpStreamableHttpClient {
 
     final value = _jsonValueFromBody(body);
     if (capturesSessionHeaders) {
+      _validatePostResponseBeforeSessionCapture(message, value);
       _captureSessionHeaders(response);
     }
     return value;
+  }
+
+  void _validatePostResponseBeforeSessionCapture(
+    Object? requestPayload,
+    Object? responseValue,
+  ) {
+    if (requestPayload is Map && requestPayload.containsKey('id')) {
+      if (responseValue == null) {
+        throw const FormatException('JSON-RPC response was not returned');
+      }
+      _jsonMapFrom(responseValue, label: 'JSON-RPC response');
+      return;
+    }
+
+    if (requestPayload is List) {
+      var expectsResponses = false;
+      for (final item in requestPayload) {
+        if (item is Map && item.containsKey('id')) {
+          expectsResponses = true;
+          break;
+        }
+      }
+      if (!expectsResponses) {
+        return;
+      }
+      if (responseValue == null) {
+        throw const FormatException('JSON-RPC batch response was not returned');
+      }
+      if (responseValue is! List) {
+        throw const FormatException('JSON-RPC batch response must be an array');
+      }
+      for (final item in responseValue) {
+        _jsonMapFrom(item, label: 'JSON-RPC batch response item');
+      }
+    }
   }
 
   Future<List<McpSseEvent>> poll({

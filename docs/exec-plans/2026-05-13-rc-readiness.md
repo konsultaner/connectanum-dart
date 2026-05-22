@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-22: `McpStreamableHttpClient._postPayload()` now validates
+  response-bearing JSON-RPC POST response shapes before accepting successful
+  response `MCP-Session-Id` / protocol-version headers or POST/SSE resume
+  cursors. Single requests with an `id` must receive a JSON object, batches
+  with request ids must receive an array of JSON objects, and accepted,
+  no-content, empty, or POST/SSE streams without a matching response now throw
+  before mutating Streamable HTTP session state. The client regression was
+  added first and failed against the prior behavior because a valid JSON array
+  response with `MCP-Session-Id: post-json-shape-session` changed the active
+  session from `session-1` before the public helper rejected the response
+  shape. Coverage now also exercises POST/SSE streams that contain only
+  notifications and response-bearing batches that return a single JSON object.
+  The generated client-only consumer-package smoke covers the same paths
+  through public `connectanum_mcp_io.dart` APIs. Pre-change `bin/test-fast`
+  passed before edits; after the fix, focused client regression coverage, full
+  `streamable_http_client_test.dart`, `bash -n bin/common.sh`, focused
+  generated client-only consumer smoke, `dart analyze
+  packages/connectanum_client`, repeated `bin/test-fast`, and full local
+  `bin/verify` passed. Hosted evidence remains at `66e89c6` until this
+  implementation change is pushed and CI completes.
 - 2026-05-22: `McpStreamableHttpClient._postPayload()` now captures
   successful POST response `MCP-Session-Id` and protocol-version headers only
   after JSON bodies or POST/SSE event data parse successfully. POST/SSE resume
@@ -96,8 +116,19 @@ decision because `connectanum_client` still depends on private
   focused client regression coverage, full `streamable_http_client_test.dart`,
   `bash -n bin/common.sh`, focused generated client-only consumer smoke,
   `dart analyze packages/connectanum_client`, repeated `bin/test-fast`, and
-  full local `bin/verify` passed. Hosted evidence remains clean at `f782968`
-  until this implementation is pushed and audited.
+  full local `bin/verify` passed. Commit `66e89c6`
+  (`fix: preserve mcp post sessions`) was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. Hosted `master` CI run `26311665595`
+  passed with clean logs, `add-router` CI run `26311662052` passed, hosted
+  Dart Package Publish Dry Run runs `26311665598` and `26311662027` passed,
+  hosted WAMP Profile Benchmarks runs `26311665596` and `26311662028` passed,
+  and current-head Router Image dry-run `26311683317` passed for
+  `0.1.0-rc.2-validation.66e89c6`. Native Artifacts dry-run `26286794628`
+  remains relevant because no native-release-sensitive inputs changed. The
+  strict deployment-chain audit passed required gates on `master` at
+  `66e89c6`; RC readiness remains blocked only by explicit RC tag,
+  prerelease, router-image tag selection, and deferred pub.dev release-order
+  decisions.
 - 2026-05-22: `McpStreamableHttpClient.poll()` now validates successful
   Streamable HTTP GET responses as `text/event-stream` before capturing
   server-provided `MCP-Session-Id` or protocol-version headers. A non-SSE

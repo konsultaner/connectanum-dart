@@ -1201,6 +1201,27 @@ Future<void> _smokeMalformedPostResponseSessionIsolation(
     'malformed POST JSON poisoned Streamable session state',
   );
 
+  const preservedJsonShapeEventId = 'agent-session:get:preserved-json-shape';
+  client.lastEventId = preservedJsonShapeEventId;
+  try {
+    await client.listTools(
+      id: 'malformed-post-json-shape',
+      streamable: false,
+      headers: const <String, String>{
+        'x-test-json-array-response': '1',
+        'x-test-response-session-id': 'agent-post-json-shape-session',
+      },
+    );
+    throw StateError('MCP client accepted wrong-shape POST JSON.');
+  } on FormatException {
+    // Expected: valid JSON with the wrong response shape is still invalid.
+  }
+  _expect(
+    client.sessionId == sessionId &&
+        client.lastEventId == preservedJsonShapeEventId,
+    'wrong-shape POST JSON poisoned Streamable session state',
+  );
+
   const preservedSseEventId = 'agent-session:get:preserved-sse-post';
   client.lastEventId = preservedSseEventId;
   try {
@@ -1218,6 +1239,47 @@ Future<void> _smokeMalformedPostResponseSessionIsolation(
   _expect(
     client.sessionId == sessionId && client.lastEventId == preservedSseEventId,
     'malformed POST SSE poisoned Streamable session state',
+  );
+
+  const preservedMissingSseEventId = 'agent-session:get:preserved-missing-sse';
+  client.lastEventId = preservedMissingSseEventId;
+  try {
+    await client.listTools(
+      id: 'malformed-post-sse-missing',
+      headers: const <String, String>{
+        'x-test-sse-notification-only-response': '1',
+        'x-test-response-session-id': 'agent-post-sse-missing-session',
+      },
+    );
+    throw StateError('MCP client accepted POST SSE without a matching response.');
+  } on FormatException {
+    // Expected: POST/SSE streams must include a response for request ids.
+  }
+  _expect(
+    client.sessionId == sessionId &&
+        client.lastEventId == preservedMissingSseEventId,
+    'missing POST SSE response poisoned Streamable session state',
+  );
+
+  try {
+    await client.postBatch(
+      const <Map<String, Object?>>[
+        {'jsonrpc': '2.0', 'id': 'malformed-post-batch', 'method': 'tools/list'},
+      ],
+      streamable: false,
+      headers: const <String, String>{
+        'x-test-batch-json-object-response': '1',
+        'x-test-response-session-id': 'agent-post-batch-shape-session',
+      },
+    );
+    throw StateError('MCP client accepted wrong-shape POST batch JSON.');
+  } on FormatException {
+    // Expected: batch responses must remain arrays.
+  }
+  _expect(
+    client.sessionId == sessionId &&
+        client.lastEventId == preservedMissingSseEventId,
+    'wrong-shape POST batch JSON poisoned Streamable session state',
   );
 
   final tools = await client.listTools(
@@ -3823,9 +3885,28 @@ final class _AgentMcpEndpoint {
           await _writeMalformedJson(request);
           return;
         }
+        if (request.headers.value('x-test-json-array-response') == '1') {
+          await _writeJson(request, const <Object?>[]);
+          return;
+        }
         if (_isStreamableRequest(request) &&
             request.headers.value('x-test-malformed-sse-response') == '1') {
           await _writeMalformedSse(request);
+          return;
+        }
+        if (_isStreamableRequest(request) &&
+            request.headers.value('x-test-sse-notification-only-response') ==
+                '1') {
+          await _writeSseValues(request, const <MapEntry<String, Object?>>[
+            MapEntry<String, Object?>(
+              'agent-session:post:missing',
+              <String, Object?>{
+                'jsonrpc': '2.0',
+                'method': 'notifications/progress',
+                'params': <String, Object?>{'progress': 1},
+              },
+            ),
+          ]);
           return;
         }
         if (_isStreamableRequest(request) &&
@@ -4012,6 +4093,10 @@ final class _AgentMcpEndpoint {
       request.response.statusCode = HttpStatus.accepted;
       _applyTestResponseHeaders(request);
       await request.response.close();
+      return;
+    }
+    if (request.headers.value('x-test-batch-json-object-response') == '1') {
+      await _writeJson(request, responses.first);
       return;
     }
     if (_isStreamableRequest(request) &&

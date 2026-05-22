@@ -2,9 +2,34 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP malformed POST response session isolation.
-Latest fully clean hosted checkpoint: Commit `f782968`.
+Last reviewed branch checkpoint: MCP POST response shape/session isolation.
+Latest fully clean hosted checkpoint: Commit `66e89c6`.
 Current implementation checkpoint: `McpStreamableHttpClient._postPayload()` now
+validates the JSON-RPC response shape for stateful POST requests before
+accepting successful response `MCP-Session-Id` / protocol-version headers or
+POST/SSE resume cursors. Single JSON-RPC requests with an `id` must receive a
+JSON object, request batches with response-bearing items must receive an array
+of JSON objects, and accepted/no-content/empty or POST/SSE streams without a
+matching response now throw before session/cursor capture. The client
+regression was added first and failed against the prior behavior because a
+valid JSON array response with `MCP-Session-Id: post-json-shape-session`
+changed the active session from `session-1` before `listTools` rejected the
+response shape. The regression now also covers POST/SSE streams that contain
+only notifications plus response-bearing batches that return a single JSON
+object, proving both `sessionId` and `lastEventId` remain unchanged before a
+fresh request recovers on the same session. The generated client-only
+consumer-package smoke exercises the same wrong-shape JSON, missing POST/SSE
+response, and wrong-shape batch paths through public
+`connectanum_mcp_io.dart` APIs. Pre-change `bin/test-fast` passed before edits.
+After the fix, the focused malformed POST regression, full
+`streamable_http_client_test.dart`, `bash -n bin/common.sh`, focused generated
+client-only consumer smoke, `dart analyze packages/connectanum_client`,
+repeated `bin/test-fast`, and full local `bin/verify` passed on 2026-05-22.
+Hosted evidence remains at the previous fully clean checkpoint until this
+implementation change is pushed and CI completes.
+Prior hosted checkpoint details: Commit `66e89c6`
+(`fix: preserve mcp post sessions`) was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. `McpStreamableHttpClient._postPayload()` now
 defers successful POST response `MCP-Session-Id` / protocol-version capture
 until the JSON body or POST/SSE event data parses successfully. POST/SSE resume
 cursor capture now also happens only after SSE event JSON is valid and a
@@ -23,8 +48,26 @@ passed before edits. After the fix, the focused malformed POST regression, full
 `streamable_http_client_test.dart`, `bash -n bin/common.sh`, focused generated
 client-only consumer smoke, `dart analyze packages/connectanum_client`,
 repeated `bin/test-fast`, and full local `bin/verify` passed on 2026-05-22.
-Hosted GitHub evidence remains clean at `f782968` until this implementation is
-pushed and audited.
+Commit `66e89c6` (`fix: preserve mcp post sessions`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `66e89c6`: `master` CI run `26311665595` passed with Fast Checks and
+Full Verify green and clean logs, `add-router` CI run `26311662052` passed,
+`master` Dart Package Publish Dry Run `26311665598` and `add-router` Dart
+Package Publish Dry Run `26311662027` passed, `master` WAMP Profile Benchmarks
+`26311665596` and `add-router` WAMP Profile Benchmarks `26311662028` passed,
+and current-head Router Image dry-run `26311683317` passed for
+`0.1.0-rc.2-validation.66e89c6` with preview upload, skipped GHCR login,
+completed multi-arch build, and clean annotations. Native Artifacts dry-run
+`26286794628` remains relevant because no native-release-sensitive inputs
+changed since `89c7915`. The strict deployment-chain audit passed required
+gates on `master` at `66e89c6`, including clean current-head CI/logs, Dart
+package dry-run, WAMP profile benchmark evidence, Router Image dry-run, native
+release dry-run relevance, branch protection, workflow visibility, and router
+package visibility. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected, and pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
 Prior hosted checkpoint details: Commit `f782968`
 (`fix: preserve mcp poll sessions`) was pushed to GitLab `origin`, GitHub
 `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
