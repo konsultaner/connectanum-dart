@@ -3502,6 +3502,189 @@ void main() {
     );
   });
 
+  test('rate limited MCP routes allow Streamable DELETE cleanup', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addAuthenticator(
+        'anonymous',
+        const AuthenticatorDefinition(type: 'anonymous'),
+      )
+      ..addRealmFromBuilder(
+        RealmSettingsBuilder('router.http')
+          ..addAuthMethod('anonymous')
+          ..addRoleFromBuilder(
+            RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+              PermissionSettingsBuilder('')
+                ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                ..allowOperations(const [
+                  'call',
+                  'publish',
+                  'subscribe',
+                  'unsubscribe',
+                ]),
+            ),
+          ),
+      )
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    rateLimit: HttpRouteRateLimitSettings(
+                      maxRequests: 1,
+                      windowMs: 60000,
+                    ),
+                    options: <String, Object?>{
+                      'allowed_origins': ['https://agent.example'],
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    void enqueueMcpRequest({
+      required int connectionId,
+      required int handle,
+      required String method,
+      required Map<String, String> headers,
+      Uint8List? body,
+    }) {
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: handle,
+          method: method,
+          target: '/mcp',
+          path: '/mcp',
+          protocol: 'http/1.1',
+          headers: headers,
+          body: body ?? Uint8List(0),
+          realm: 'router.http',
+          procedure: 'router.http.mcp',
+        ),
+      );
+    }
+
+    final initializeBody = Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 'initialize-rate-limited-session',
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': '2025-11-25',
+            'capabilities': <String, Object?>{},
+            'clientInfo': {
+              'name': 'router-runtime-rate-limit-delete-test',
+              'version': '0.1.0',
+            },
+          },
+        }),
+      ),
+    );
+    enqueueMcpRequest(
+      connectionId: 52,
+      handle: 11,
+      method: 'POST',
+      headers: const {
+        'origin': 'https://agent.example',
+        'accept': 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+        'mcp-method': 'initialize',
+      },
+      body: initializeBody,
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[52]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final initializeResponse = runtime.httpResponses[52]!.single;
+    expect(initializeResponse.status, HttpStatus.ok);
+    final sessionId = initializeResponse.headers['MCP-Session-Id'];
+    expect(sessionId, isNotNull);
+    expect(sessionId, isNotEmpty);
+
+    final toolsBody = Uint8List.fromList(
+      utf8.encode(
+        '{"jsonrpc":"2.0","id":"limited-tools","method":"tools/list","params":{}}',
+      ),
+    );
+    enqueueMcpRequest(
+      connectionId: 53,
+      handle: 12,
+      method: 'POST',
+      headers: {
+        'origin': 'https://agent.example',
+        'accept': 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        'mcp-session-id': sessionId!,
+        'mcp-protocol-version': '2025-11-25',
+        'mcp-method': 'tools/list',
+      },
+      body: toolsBody,
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[53]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final limitedResponse = runtime.httpResponses[53]!.single;
+    expect(limitedResponse.status, 429);
+    expect(limitedResponse.headers['MCP-Session-Id'], sessionId);
+
+    enqueueMcpRequest(
+      connectionId: 54,
+      handle: 13,
+      method: 'DELETE',
+      headers: {
+        'origin': 'https://agent.example',
+        'accept': 'application/json, text/event-stream',
+        'mcp-session-id': sessionId,
+        'mcp-protocol-version': '2025-11-25',
+      },
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[54]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final deleteResponse = runtime.httpResponses[54]!.single;
+    expect(deleteResponse.status, HttpStatus.accepted);
+    expect(deleteResponse.headers['MCP-Session-Id'], sessionId);
+    expect(deleteResponse.headers, isNot(contains('x-ratelimit-limit')));
+  });
+
   test('creates internal sessions from session profile defaults', () async {
     final runtime = _HandleRuntime();
     final router = Router(

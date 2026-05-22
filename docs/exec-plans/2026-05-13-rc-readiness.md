@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 ## Problem
 
@@ -1231,7 +1231,8 @@ decision because `connectanum_client` still depends on private
   selected. The Router Image dry-run uploaded preview metadata for
   `0.1.0-rc.2` and skipped GHCR login. No RC tag, GitHub Release, or router
   image was created or moved.
-- 2026-05-22: This implementation follow-up extends route-level rate-limit MCP
+- 2026-05-22: Commit `fafbc56`
+  (`test: cover consumer mcp rate-limit smoke`) extends route-level rate-limit MCP
   response-session evidence from the focused router runtime test into the
   generated consumer-package router-hosted MCP smoke. The neutral consumer app
   now hosts a real rate-limited MCP route, spends the first two allowed
@@ -1241,21 +1242,42 @@ decision because `connectanum_client` still depends on private
   true Streamable POST failure. Pre-change `bin/test-fast`,
   `bash -n bin/common.sh`, focused generated
   `run_mcp_consumer_package_smoke`, `git diff --check`, and full local
-  `bin/verify` passed. Hosted deployment-chain evidence remains at `6db2c26`
-  until this implementation follow-up is pushed and hosted CI/dry-run evidence
-  completes.
+  `bin/verify` passed. The commit was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `fafbc56`: `master` CI run `26258446014` and `add-router` CI run
+  `26258445002` passed. The strict deployment-chain audit passed required
+  gates on `master` at `fafbc56`, using current-head CI/log evidence plus the
+  latest relevant Dart package dry-run, native dry-run, WAMP profile benchmark,
+  and Router Image dry-run evidence. RC readiness still reports not-ready only
+  because no approved numeric RC tag, GitHub prerelease, or matching RC router
+  image tag has been selected. No RC tag, GitHub Release, or router image was
+  created or moved.
+- 2026-05-22: Current local implementation follow-up lets MCP Streamable HTTP
+  `DELETE` cleanup bypass the route-level rate-limit gate while retaining route
+  auth/session validation. Fail-first focused runtime coverage reproduced
+  cleanup `DELETE` returning `429` after route-limit exhaustion; after the fix,
+  focused rate-limited MCP runtime tests, `bash -n bin/common.sh`, the
+  generated consumer-package router-hosted MCP smoke,
+  `dart analyze packages/connectanum_router`, `git diff --check`, and full
+  local `bin/verify` passed. Hosted deployment-chain evidence remains at
+  `fafbc56` until this implementation follow-up is pushed and hosted
+  CI/dry-run evidence completes.
 
 ## Handoff
 
-Active. The latest local implementation follow-up extends the generated
-consumer-package router-hosted MCP smoke so downstream applications prove the
-route-level rate-limit response-session contract against a real MCP endpoint.
-The latest fully clean hosted deployment-chain checkpoint remains `6db2c26`
-until this implementation follow-up is pushed and hosted CI/dry-run evidence
-completes. The latest fully hosted implementation follow-up adds focused router
-runtime regression coverage proving pre-dispatch MCP route rate-limit response
-session isolation for lifecycle-free direct JSON POST failures while preserving
-owned session ids for true Streamable HTTP POST failures. The prior fully hosted
+Active. The latest local implementation follow-up lets router-hosted MCP
+Streamable HTTP `DELETE` cleanup bypass route-level rate-limit exhaustion so a
+downstream application can remove its owned session after receiving a
+rate-limited Streamable POST failure. The latest fully clean hosted
+deployment-chain checkpoint remains `fafbc56` until this implementation
+follow-up is pushed and hosted CI/dry-run evidence completes. The latest fully
+hosted implementation follow-up extends the generated consumer-package
+router-hosted MCP smoke so downstream applications prove the route-level
+rate-limit response-session contract against a real MCP endpoint. The prior
+fully hosted implementation follow-up adds focused router runtime regression
+coverage proving pre-dispatch MCP route rate-limit response session isolation
+for lifecycle-free direct JSON POST failures while preserving owned session ids
+for true Streamable HTTP POST failures. The prior fully hosted
 implementation follow-up adds focused router integration regression coverage
 proving pre-dispatch MCP route auth response session isolation for direct JSON
 missing/invalid bearer failures while preserving owned session ids for true
@@ -1291,15 +1313,19 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26256185398` for checkpoint `6db2c26`: Fast
-Checks and Full Verify passed. Hosted Dart Package Publish Dry Run is green at
-run `26256185362` on `master` and logs the release-order plan and
-private-package blocker sections from `--show-release-plan`. Hosted `master`
-WAMP Profile Benchmarks run `26256185401` passed with artifact upload. The
-strict deployment-chain audit passes on `master` at `6db2c26` with clean
-current-head CI/log, relevant Dart package dry-run, relevant native release
-dry-run, current router image dry-run, current WAMP profile benchmark evidence,
-workflow visibility, branch protection, and router package visibility gates.
+Hosted `master` CI is green at run `26258446014` for checkpoint `fafbc56`: Fast
+Checks and Full Verify passed. Hosted `add-router` CI is green at run
+`26258445002`. Hosted Dart Package Publish Dry Run remains green at run
+`26256185362` on `master` and logs the release-order plan and private-package
+blocker sections from `--show-release-plan`; the strict audit accepts it as the
+latest relevant package evidence because `fafbc56` did not change
+publish-sensitive package metadata. Hosted `master` WAMP Profile Benchmarks
+run `26256185401` remains the latest relevant benchmark evidence with artifact
+upload. The strict deployment-chain audit passes on `master` at `fafbc56` with
+clean current-head CI/log, relevant Dart package dry-run, relevant native
+release dry-run, current router image dry-run, current WAMP profile benchmark
+evidence, workflow visibility, branch protection, and router package visibility
+gates.
 The router package visibility gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
 run `26256205180` at `6db2c26`; it used manual
@@ -1310,7 +1336,7 @@ the audit downloads the preview metadata and verifies primary tag
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `6db2c26`. It suggests
+older commit `47bbf9c`, not the current candidate head `fafbc56`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.

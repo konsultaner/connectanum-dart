@@ -6215,6 +6215,34 @@ Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
       '2',
       label: 'rate-limited Streamable session',
     );
+
+    final deleteSession = await _mcpRawSessionRequest(
+      client,
+      endpoint,
+      'DELETE',
+      sessionId: sessionId,
+    );
+    if (deleteSession.statusCode != HttpStatus.accepted) {
+      throw StateError(
+        'MCP rate-limited Streamable DELETE returned '
+        '${deleteSession.statusCode} instead of ${HttpStatus.accepted}: '
+        '${deleteSession.body}',
+      );
+    }
+    _assertMcpCorsStatefulResponse(
+      deleteSession,
+      label: 'rate-limited Streamable DELETE',
+    );
+    if (deleteSession.header('mcp-session-id') != sessionId) {
+      throw StateError(
+        'MCP rate-limited Streamable DELETE returned the wrong session id.',
+      );
+    }
+    if (deleteSession.header('x-ratelimit-limit') != null) {
+      throw StateError(
+        'MCP rate-limited Streamable DELETE was still rate limited.',
+      );
+    }
   } finally {
     client.close(force: true);
   }

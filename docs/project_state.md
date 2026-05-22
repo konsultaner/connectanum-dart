@@ -3,37 +3,35 @@
 Last updated: 2026-05-22
 Current branch: `add-router`
 Last reviewed branch checkpoint: Current implementation checkpoint (this
-commit) extends the generated consumer-package router-hosted MCP smoke with a
-real rate-limited MCP route. The smoke now proves a consumer application can
-reach a router-provided rate-limited MCP endpoint, establish a Streamable HTTP
-session before the route limit is exhausted, receive a `429 rate_limited`
-direct JSON failure without echoing a stale caller `MCP-Session-Id`, and
-receive a `429 rate_limited` Streamable POST failure that preserves the owned
-session id. Pre-change `bin/test-fast`, `bash -n bin/common.sh`, focused
-generated `run_mcp_consumer_package_smoke`, `git diff --check`, and full local
-`bin/verify` passed. Hosted deployment-chain evidence remains at prior
-checkpoint `6db2c26` until this implementation follow-up is pushed and hosted
-CI/dry-run evidence completes.
-Prior hosted checkpoint: Commit `6db2c26`
-(`test: cover mcp rate-limit session isolation`) adds focused router runtime
-regression coverage for the MCP route-level rate-limit response session
-contract. The rate-limited MCP route test now proves lifecycle-free direct JSON
-POSTs with stale `MCP-Session-Id` headers do not echo that session id when the
-route limit has already been exceeded, while true Streamable HTTP POST failures
-still preserve the owned session id. The commit was pushed to GitLab `origin`,
-GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
-`6db2c26`: `master` CI run `26256185398`, `master` Dart Package Publish Dry
-Run `26256185362`, `master` WAMP Profile Benchmarks `26256185401`, `master`
-Router Image dry-run `26256205180`, `add-router` CI run `26256184044`,
-`add-router` Dart Package Publish Dry Run `26256184045`, and `add-router` WAMP
-Profile Benchmarks `26256184042` passed. The initial `add-router` CI attempt
-failed in the hosted Dart browser harness before the browser test body ran,
-then the failed-job rerun passed. The strict deployment-chain audit passed
-required gates on `master` at `6db2c26`; RC readiness remains not-ready only
-because no approved numeric RC tag, GitHub prerelease, or matching RC router
-image tag has been selected. The Router Image dry-run uploaded preview metadata
-for `0.1.0-rc.2` and skipped GHCR login. No RC tag, GitHub Release, or router
-image was created or moved.
+commit) lets router-hosted MCP Streamable HTTP `DELETE` cleanup bypass the
+route-level rate-limit gate so exhausted clients can still remove owned
+sessions. Runtime regression coverage and the generated consumer-package
+router-hosted MCP smoke prove the exhausted Streamable POST path still returns
+`429 rate_limited` with the owned `MCP-Session-Id`, while cleanup `DELETE`
+returns `202`, keeps the session header, and omits route rate-limit headers.
+Pre-change `bin/test-fast`, fail-first focused runtime regression, focused
+rate-limited MCP runtime tests, `bash -n bin/common.sh`, focused generated
+`run_mcp_consumer_package_smoke`, `dart analyze packages/connectanum_router`,
+`git diff --check`, and full local `bin/verify` passed. Hosted
+deployment-chain evidence remains at prior checkpoint `fafbc56` until this
+implementation follow-up is pushed and hosted CI/dry-run evidence completes.
+Prior hosted checkpoint: Commit `fafbc56`
+(`test: cover consumer mcp rate-limit smoke`) extends route-level rate-limit
+MCP response-session evidence from the focused router runtime test into the
+generated consumer-package router-hosted MCP smoke. The neutral consumer app
+hosts a real rate-limited MCP route, spends the first two allowed requests on
+direct JSON `tools/list` and Streamable `initialize`, then proves the exhausted
+route returns `429 rate_limited` without echoing a stale direct JSON caller
+session id while preserving the owned Streamable session id on a true
+Streamable POST failure. The commit was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`fafbc56`: `master` CI run `26258446014` and `add-router` CI run
+`26258445002` passed. The strict deployment-chain audit passed required gates
+on `master` at `fafbc56`, using current-head CI/log evidence plus the latest
+relevant Dart package dry-run, native dry-run, WAMP profile benchmark, and
+Router Image dry-run evidence. RC readiness remains not-ready only because no
+approved numeric RC tag, GitHub prerelease, or matching RC router image tag has
+been selected. No RC tag, GitHub Release, or router image was created or moved.
 Prior router-hosted MCP checkpoint: Router-hosted MCP notification correctness now
 has native-router and generated consumer-package smoke coverage for direct JSON
 single-message, mixed-batch, all-notification batch, pub/sub notification side

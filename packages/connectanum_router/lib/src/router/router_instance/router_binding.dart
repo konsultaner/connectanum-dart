@@ -1113,10 +1113,9 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
-    final rateLimitDecision = _evaluateHttpRouteRateLimit(
-      request: request,
-      route: matchedRoute,
-    );
+    final rateLimitDecision = mcpRoute != null && httpMethod == 'DELETE'
+        ? null
+        : _evaluateHttpRouteRateLimit(request: request, route: matchedRoute);
     if (rateLimitDecision != null) {
       final rateLimitHeaders = rateLimitDecision.headers;
       final responseHeaders = mcpRoute == null
