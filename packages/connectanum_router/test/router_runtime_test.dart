@@ -4051,9 +4051,10 @@ void main() {
         () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
       );
       final response = runtime.httpResponses[connectionId]!.single;
-      expect(response.status, HttpStatus.notFound);
+      expect(response.status, HttpStatus.upgradeRequired);
+      expect(response.headers[HttpHeaders.upgradeHeader], 'http2');
       final jsonBody = _jsonResponseBody(response);
-      expect(jsonBody['reason'], 'route_not_found');
+      expect(jsonBody['reason'], 'protocol_not_allowed');
       expect(
         events.any((event) => event['type'] == 'http_request_dispatched'),
         isFalse,

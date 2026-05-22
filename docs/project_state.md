@@ -2,20 +2,53 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Local hosted browser-smoke retry hardening.
-Latest fully clean hosted checkpoint: Commit `209b91c`.
-The current local follow-up hardens hosted CI browser-smoke reliability after
-`master` CI run `26274326442` needed a Full Verify rerun for a retryable
-package:test Chrome browser-manager load flake (`Bad state: Cannot add stream
-while adding stream`). `bin/test-all` now retries the client browser WebSocket
-smoke, keeps non-final retry attempts on the expanded reporter to avoid GitHub
-error annotations, and preserves the default reporter on the final attempt so
-real failures still surface normally. `tool/test_verification_scripts.py`
+Last reviewed branch checkpoint: Router HTTP route protocol whitelist hardening.
+Latest fully clean hosted checkpoint: Commit `d9d8a82`.
+Latest fully clean hosted checkpoint details: Commit `d9d8a82`
+(`ci: retry browser smoke on hosted flake`) hardens hosted CI browser-smoke
+reliability after `master` CI run `26274326442` needed a Full Verify rerun for
+a retryable package:test Chrome browser-manager load flake (`Bad state: Cannot
+add stream while adding stream`). `bin/test-all` now retries the client browser
+WebSocket smoke, keeps non-final retry attempts on the expanded reporter to
+avoid GitHub error annotations, and preserves the default reporter on the final
+attempt so real failures still surface normally. `tool/test_verification_scripts.py`
 regresses the verification-script contract and is wired into `bin/test-fast`
 and `bin/test-all`. Pre-change `bin/test-fast`, `bash -n bin/test-fast
-bin/test-all`, and focused `python3 tool/test_verification_scripts.py` passed;
-full local `bin/verify` passed for this follow-up.
-Latest fully clean hosted checkpoint details: Commit `209b91c`
+bin/test-all`, focused `python3 tool/test_verification_scripts.py`, and full
+local `bin/verify` passed. The commit was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`d9d8a82`: `master` CI run `26276704174` and `add-router` CI run
+`26276703045` passed with Fast Checks and Full Verify green. The strict
+deployment-chain audit passed required gates on `master` at `d9d8a82`, using
+current-head CI/log evidence plus still-relevant Dart package dry-run, native
+release dry-run, Router Image dry-run, and WAMP profile benchmark evidence
+because no package, native-release, router-image, or WAMP profile inputs
+changed in this CI-script/docs checkpoint. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected, and pub.dev publishing remains deferred for
+release-order/operator decisions. No RC tag, GitHub Release, or router image
+was created or moved.
+Current local implementation status: Router-hosted HTTP route protocol
+whitelists now distinguish configured route protocol mismatches from route
+misses. Native route matching canonicalizes route/request HTTP protocol aliases
+(`http`, `http/1.1`, `h2`, `http/2`, `h3`, and `http/3`) and returns a
+protocol-not-allowed match when an existing route path is served over a
+disallowed protocol. HTTP/1 native responses return `426 Upgrade Required` with
+an `Upgrade` header, and HTTP/2/HTTP/3 native responses return `426` without
+invalid connection-specific upgrade headers. The Dart synthetic HTTP dispatch
+path now mirrors the same `426` JSON error with the `protocol_not_allowed`
+reason, so consumer applications see a deterministic configuration error
+instead of an ambiguous `404 route_not_found`. Pre-change
+`bin/test-fast`, focused native
+`cargo test --manifest-path native/transport/Cargo.toml -p ct_core
+http_route_protocol_aliases_and_mismatches_are_explicit -- --nocapture`,
+focused Dart
+`dart test packages/connectanum_router/test/router_runtime_test.dart -r
+expanded --chain-stack-traces -n "honors typed HTTP route protocol restrictions
+before dispatch"`, and full local `bin/verify` passed on 2026-05-22. Hosted
+evidence for this implementation is pending until the implementation commit is
+pushed; the latest fully clean hosted checkpoint remains `d9d8a82`.
+Prior hosted checkpoint details: Commit `209b91c`
 (`test: require dart release plan for rc deferral`) tightens
 `bin/audit-github-deployment-chain` so first-RC pub.dev deferral is accepted
 only when the strict Dart publish dry-run output includes zero warnings, the

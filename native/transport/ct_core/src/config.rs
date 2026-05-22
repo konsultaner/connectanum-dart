@@ -679,7 +679,7 @@ fn normalise_protocols(protocols: &[String]) -> Result<Vec<String>, String> {
     let mut result = Vec::new();
     let mut seen = HashSet::new();
     for protocol in protocols {
-        let cleaned = protocol.trim().to_lowercase();
+        let cleaned = normalise_http_route_protocol(protocol);
         if cleaned.is_empty() {
             return Err("protocol identifiers cannot be empty".into());
         }
@@ -689,6 +689,16 @@ fn normalise_protocols(protocols: &[String]) -> Result<Vec<String>, String> {
         result.push(cleaned);
     }
     Ok(result)
+}
+
+fn normalise_http_route_protocol(protocol: &str) -> String {
+    let cleaned = protocol.trim().to_lowercase();
+    match cleaned.as_str() {
+        "http" | "http1" | "http/1" | "http/1.0" | "http/1.1" => "http".to_string(),
+        "h2" | "http2" | "http/2" => "http2".to_string(),
+        "h3" | "http3" | "http/3" => "http3".to_string(),
+        _ => cleaned,
+    }
 }
 
 fn default_endpoint_protocols() -> Vec<TransportProtocol> {
@@ -764,6 +774,47 @@ mod tests {
             format!("{err}").contains("defines http routes but HTTP protocol disabled"),
             "{err}"
         );
+    }
+
+    #[test]
+    fn http_route_protocol_aliases_and_mismatches_are_explicit() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "protocols": ["http"],
+            "http_routes": [
+                {
+                    "path": "/api/h1",
+                    "protocols": ["http"],
+                    "methods": {
+                        "GET": {"type": "reserved_realm"}
+                    }
+                },
+                {
+                    "path": "/api/h2-only",
+                    "protocols": ["http/2", "h2"],
+                    "methods": {
+                        "GET": {"type": "reserved_realm"}
+                    }
+                }
+            ]
+        }))
+        .unwrap();
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+
+        let h1_match = runtime.match_http_route("/api/h1", None, "GET", "http/1.1");
+        assert!(matches!(h1_match, HttpRouteMatch::Resolved(_)));
+
+        match runtime.match_http_route("/api/h2-only", None, "GET", "http/1.1") {
+            HttpRouteMatch::ProtocolNotAllowed { allowed_protocols } => {
+                assert_eq!(allowed_protocols, vec!["http2".to_string()]);
+            }
+            other => panic!("expected protocol mismatch, got {other:?}"),
+        }
+
+        let h2_match = runtime.match_http_route("/api/h2-only", None, "GET", "http2");
+        assert!(matches!(h2_match, HttpRouteMatch::Resolved(_)));
     }
 
     #[test]
@@ -892,6 +943,7 @@ pub struct HttpRouteResolution {
 pub enum HttpRouteMatch {
     NotFound,
     MethodNotAllowed { allowed_methods: Vec<String> },
+    ProtocolNotAllowed { allowed_protocols: Vec<String> },
     Resolved(HttpRouteResolution),
 }
 
@@ -905,12 +957,17 @@ impl EndpointRuntimeConfig {
     ) -> HttpRouteMatch {
         let mut best: Option<(usize, HttpRouteResolution)> = None;
         let mut method_not_allowed: Option<HashSet<String>> = None;
-        let protocol_lc = protocol.to_lowercase();
+        let mut protocol_not_allowed: Option<HashSet<String>> = None;
+        let request_protocol = normalise_http_route_protocol(protocol);
         for route in &self.http_routes {
             if !route.matches_path(path) {
                 continue;
             }
-            if !route.allows_protocol(&protocol_lc) {
+            if !route.allows_protocol(&request_protocol) {
+                let entry = protocol_not_allowed.get_or_insert_with(HashSet::new);
+                for allowed in route.allowed_protocols() {
+                    entry.insert(allowed);
+                }
                 continue;
             }
             match route.resolve_for_method(path, query, method, protocol) {
@@ -940,6 +997,12 @@ impl EndpointRuntimeConfig {
             allowed.sort();
             HttpRouteMatch::MethodNotAllowed {
                 allowed_methods: allowed,
+            }
+        } else if let Some(allowed_set) = protocol_not_allowed {
+            let mut allowed: Vec<String> = allowed_set.into_iter().collect();
+            allowed.sort();
+            HttpRouteMatch::ProtocolNotAllowed {
+                allowed_protocols: allowed,
             }
         } else {
             HttpRouteMatch::NotFound
@@ -999,6 +1062,12 @@ impl HttpRouteRuntime {
         let mut methods: Vec<String> = self.methods.keys().cloned().collect();
         methods.sort();
         methods
+    }
+
+    fn allowed_protocols(&self) -> Vec<String> {
+        let mut protocols = self.protocols.clone();
+        protocols.sort();
+        protocols
     }
 }
 

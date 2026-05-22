@@ -1097,6 +1097,25 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    if (routeMatch.isProtocolNotAllowed) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.upgradeRequired,
+          headers: <String, String>{
+            HttpHeaders.upgradeHeader: routeMatch.allowedProtocols.join(', '),
+          },
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'protocol_not_allowed',
+            'message': 'HTTP protocol is not allowed for this route',
+          }),
+        ),
+      );
+      retainedHandshake?.release();
+      return;
+    }
     if (routeMatch.isNotFound && listenerSettings?.http != null) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -1713,6 +1732,7 @@ class RouterBinding {
       return const _HttpRouteMatchResult.notFound();
     }
     final allowedMethods = <String>{};
+    final allowedProtocols = <String>{};
     for (final route in httpSettings.routes) {
       if (_httpRouteMatchesRequest(route, request)) {
         return _HttpRouteMatchResult.route(route);
@@ -1722,10 +1742,29 @@ class RouterBinding {
           route.match.methods.map((method) => method.trim().toUpperCase()),
         );
       }
+      if (route.match.protocols.isNotEmpty &&
+          _httpRouteMatchesRequest(
+            route,
+            request,
+            ignoreMethod: true,
+            ignoreProtocol: true,
+          )) {
+        final requestProtocol = _normaliseHttpRouteProtocol(request.protocol);
+        final routeProtocols = route.match.protocols
+            .map(_normaliseHttpRouteProtocol)
+            .where((protocol) => protocol.isNotEmpty);
+        if (!routeProtocols.contains(requestProtocol)) {
+          allowedProtocols.addAll(routeProtocols);
+        }
+      }
     }
     if (allowedMethods.isNotEmpty) {
       final normalized = allowedMethods.toList(growable: false)..sort();
       return _HttpRouteMatchResult.methodNotAllowed(normalized);
+    }
+    if (allowedProtocols.isNotEmpty) {
+      final normalized = allowedProtocols.toList(growable: false)..sort();
+      return _HttpRouteMatchResult.protocolNotAllowed(normalized);
     }
     return const _HttpRouteMatchResult.notFound();
   }
@@ -1734,6 +1773,7 @@ class RouterBinding {
     HttpRouteSettings route,
     RouterHttpRequest request, {
     bool ignoreMethod = false,
+    bool ignoreProtocol = false,
   }) {
     final match = route.match;
     if (match.path != null && match.path != request.path) {
@@ -1759,11 +1799,9 @@ class RouterBinding {
         return false;
       }
     }
-    if (match.protocols.isNotEmpty) {
-      final requestProtocol = request.protocol.trim().toLowerCase();
-      final allowedProtocols = match.protocols.map(
-        (protocol) => protocol.trim().toLowerCase(),
-      );
+    if (!ignoreProtocol && match.protocols.isNotEmpty) {
+      final requestProtocol = _normaliseHttpRouteProtocol(request.protocol);
+      final allowedProtocols = match.protocols.map(_normaliseHttpRouteProtocol);
       if (!allowedProtocols.contains(requestProtocol)) {
         return false;
       }
@@ -4619,7 +4657,11 @@ class _HttpRefreshTokenRecord {
 }
 
 class _HttpRouteMatchResult {
-  const _HttpRouteMatchResult._({this.route, this.allowedMethods = const []});
+  const _HttpRouteMatchResult._({
+    this.route,
+    this.allowedMethods = const [],
+    this.allowedProtocols = const [],
+  });
 
   const _HttpRouteMatchResult.route(HttpRouteSettings route)
     : this._(route: route);
@@ -4627,13 +4669,30 @@ class _HttpRouteMatchResult {
   const _HttpRouteMatchResult.methodNotAllowed(List<String> allowedMethods)
     : this._(allowedMethods: allowedMethods);
 
+  const _HttpRouteMatchResult.protocolNotAllowed(List<String> allowedProtocols)
+    : this._(allowedProtocols: allowedProtocols);
+
   const _HttpRouteMatchResult.notFound() : this._();
 
   final HttpRouteSettings? route;
   final List<String> allowedMethods;
+  final List<String> allowedProtocols;
 
   bool get isMethodNotAllowed => route == null && allowedMethods.isNotEmpty;
-  bool get isNotFound => route == null && allowedMethods.isEmpty;
+  bool get isProtocolNotAllowed =>
+      route == null && allowedMethods.isEmpty && allowedProtocols.isNotEmpty;
+  bool get isNotFound =>
+      route == null && allowedMethods.isEmpty && allowedProtocols.isEmpty;
+}
+
+String _normaliseHttpRouteProtocol(String protocol) {
+  final cleaned = protocol.trim().toLowerCase();
+  return switch (cleaned) {
+    'http' || 'http1' || 'http/1' || 'http/1.0' || 'http/1.1' => 'http',
+    'h2' || 'http2' || 'http/2' => 'http2',
+    'h3' || 'http3' || 'http/3' => 'http3',
+    _ => cleaned,
+  };
 }
 
 class _HttpRouteTransportAuthFailure {

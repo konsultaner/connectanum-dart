@@ -5336,6 +5336,25 @@ async fn serve_http_connection(
                     break;
                 }
             }
+            HttpRouteMatch::ProtocolNotAllowed { allowed_protocols } => {
+                let upgrade_value = allowed_protocols.join(", ");
+                if let Err(err) = send_http_simple_response(
+                    &mut write_half,
+                    version,
+                    StatusCode::UPGRADE_REQUIRED,
+                    keep_alive,
+                    b"protocol not allowed",
+                    &[("Upgrade", upgrade_value.as_str())],
+                )
+                .await
+                {
+                    eprintln!(
+                        "failed to send 426 response for listener {:?}: {}",
+                        listener_id, err
+                    );
+                    break;
+                }
+            }
             HttpRouteMatch::NotFound => {
                 if let Err(err) = send_http_simple_response(
                     &mut write_half,
@@ -6263,6 +6282,15 @@ async fn handle_http2_request(
             )
             .await
         }
+        HttpRouteMatch::ProtocolNotAllowed { .. } => {
+            send_http2_plain_response(
+                respond,
+                StatusCode::UPGRADE_REQUIRED,
+                b"protocol not allowed",
+                &[],
+            )
+            .await
+        }
         HttpRouteMatch::NotFound => {
             send_http2_plain_response(respond, StatusCode::NOT_FOUND, b"route not found", &[]).await
         }
@@ -6804,6 +6832,15 @@ async fn process_http3_request(
                 StatusCode::METHOD_NOT_ALLOWED,
                 b"method not allowed",
                 &[("allow", allow_value.as_str())],
+            )
+            .await
+        }
+        HttpRouteMatch::ProtocolNotAllowed { .. } => {
+            send_http3_plain_response(
+                &mut send_stream,
+                StatusCode::UPGRADE_REQUIRED,
+                b"protocol not allowed",
+                &[],
             )
             .await
         }

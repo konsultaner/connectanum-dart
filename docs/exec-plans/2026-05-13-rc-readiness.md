@@ -78,6 +78,17 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-22: Router HTTP route protocol whitelist enforcement now returns a
+  deterministic protocol mismatch response instead of falling through to route
+  not found. Native route matching canonicalizes HTTP protocol aliases and
+  returns `ProtocolNotAllowed` for existing route paths served over disallowed
+  protocols; HTTP/1 native responses return `426 Upgrade Required` with an
+  `Upgrade` header, while HTTP/2 and HTTP/3 avoid invalid connection-specific
+  upgrade headers. The Dart synthetic HTTP dispatch path mirrors the same
+  `426` JSON error with `protocol_not_allowed`. Pre-change `bin/test-fast`,
+  focused native and Dart route-protocol tests, and full local `bin/verify`
+  passed. Hosted evidence remains pending until this implementation commit is
+  pushed; the latest fully clean hosted checkpoint remains `d9d8a82`.
 - 2026-05-13: The first RC target is a downstream-consumable GitHub prerelease
   with native artifacts and router image validation. Pub.dev publishing is
   deferred until package ownership, public versions, and release order are
@@ -1460,14 +1471,27 @@ decision because `connectanum_client` still depends on private
   this verification-script contract and is wired into `bin/test-fast` and
   `bin/test-all`. Pre-change `bin/test-fast`, `bash -n bin/test-fast
   bin/test-all`, and focused `python3 tool/test_verification_scripts.py` passed;
-  full local `bin/verify` passed for this follow-up.
+  full local `bin/verify` passed for this follow-up. Commit `d9d8a82`
+  (`ci: retry browser smoke on hosted flake`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted `master` CI run
+  `26276704174` and hosted `add-router` CI run `26276703045` passed with Fast
+  Checks and Full Verify green. The strict deployment-chain audit passed
+  required gates on `master` at `d9d8a82`, using current-head CI/log evidence
+  plus still-relevant Dart package dry-run, native release dry-run, Router Image
+  dry-run, and WAMP profile benchmark evidence because no package,
+  native-release, router-image, or WAMP profile inputs changed in this
+  CI-script/docs checkpoint. RC readiness remains blocked only by explicit RC
+  tag/prerelease/router-image tag selection and deferred pub.dev release-order
+  decisions.
 
 ## Handoff
 
-Active. The current local CI reliability follow-up adds a retrying browser
-WebSocket smoke wrapper to `bin/test-all` and a focused verification-script
-regression wired into fast/full local verification; full local `bin/verify`
-passed. The latest fully clean hosted release-chain follow-up hardens the
+Active. The latest fully clean hosted CI reliability follow-up adds a retrying
+browser WebSocket smoke wrapper to `bin/test-all` and a focused
+verification-script regression wired into fast/full local verification; local
+`bin/verify`, hosted CI on `master` and `add-router`, and the strict
+deployment-chain audit passed at commit `d9d8a82`. The prior fully clean hosted
+release-chain follow-up hardens the
 first-RC pub.dev deferral boundary so the audit requires strict Dart dry-run
 release-plan and operator-decision evidence before accepting the known private
 workspace dependency blocker; pre-change `bin/test-fast`, focused audit tests,
@@ -1514,7 +1538,7 @@ implementation follow-up lets router-hosted MCP Streamable HTTP `DELETE`
 cleanup bypass route-level rate-limit exhaustion so a downstream application
 can remove its owned session after receiving a rate-limited Streamable POST
 failure. The latest fully clean hosted deployment-chain checkpoint is
-`209b91c`. The prior fully hosted implementation follow-up extends the
+`d9d8a82`. The prior fully hosted implementation follow-up extends the
 generated consumer-package router-hosted MCP smoke so downstream applications
 prove the route-level rate-limit response-session contract against a real MCP
 endpoint. The prior fully hosted
@@ -1556,17 +1580,16 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26274326442` for checkpoint `209b91c`: Fast
-Checks passed, and Full Verify passed on rerun attempt 2 after a hosted
-browser-runner load flake on attempt 1. Hosted `add-router` CI is green at run
-`26274323057` with Fast Checks and Full Verify passed. Hosted Dart Package
+Hosted `master` CI is green at run `26276704174` for checkpoint `d9d8a82`: Fast
+Checks and Full Verify passed. Hosted `add-router` CI is green at run
+`26276703045` with Fast Checks and Full Verify passed. Hosted Dart Package
 Publish Dry Run remains relevant and green at run `26270250595` on `master`,
 and logs the release-order plan and private-package blocker sections from
 `--show-release-plan`; `add-router` Dart Package Publish Dry Run `26270245773`
 passed too. Hosted `master` WAMP Profile Benchmarks run `26270250619` remains
 relevant and passed with artifact upload, and matching `add-router` WAMP
 Profile Benchmarks run `26270245772` passed. The strict deployment-chain audit
-passes on `master` at `209b91c` with clean current-head CI/log, relevant Dart
+passes on `master` at `d9d8a82` with clean current-head CI/log, relevant Dart
 package dry-run, relevant native release dry-run, relevant router image
 dry-run, relevant WAMP profile benchmark evidence, workflow visibility, branch
 protection, and router package visibility gates.
@@ -1579,7 +1602,7 @@ preview metadata and verifies primary tag `0.1.0-rc.2` before accepting it.
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `209b91c`. It suggests
+older commit `47bbf9c`, not the current candidate head `d9d8a82`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.
