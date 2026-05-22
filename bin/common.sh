@@ -14605,6 +14605,10 @@ Future<void> _smokeStreamableMcp(
     client,
     label: label,
   );
+  await _assertClientSuppliedStreamableInitializeSessionRejected(
+    client,
+    label: label,
+  );
 
   final initializeResult = await client.initialize(
     clientInfo: const {
@@ -14767,6 +14771,77 @@ Future<void> _assertRejectedStreamableInitializeDoesNotCaptureSession(
     throw StateError(
       'Rejected Streamable MCP initialize captured session state.',
     );
+  }
+}
+
+Future<void> _assertClientSuppliedStreamableInitializeSessionRejected(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final httpClient = HttpClient();
+  try {
+    final request = await httpClient.postUrl(client.endpoint);
+    request.headers.contentType = ContentType.json;
+    request.headers.set(
+      HttpHeaders.acceptHeader,
+      'application/json, text/event-stream',
+    );
+    request.headers.set(
+      'MCP-Protocol-Version',
+      McpStreamableHttpClient.latestProtocolVersion,
+    );
+    request.headers.set('Mcp-Method', 'initialize');
+    request.headers.set('MCP-Session-Id', 'consumer-chosen-session');
+    request.headers.set('origin', _allowedOrigin);
+    request.headers.set(
+      'x-consumer-trace',
+      '$label-client-session-initialize',
+    );
+    for (final entry in client.headers.entries) {
+      request.headers.set(entry.key, entry.value);
+    }
+    final body = utf8.encode(
+      jsonEncode(const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'client-session-initialize',
+        'method': 'initialize',
+        'params': <String, Object?>{
+          'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+          'capabilities': <String, Object?>{},
+          'clientInfo': <String, Object?>{
+            'name': 'connectanum_consumer_package_smoke',
+            'version': '0.1.0',
+          },
+        },
+      }),
+    );
+    request.contentLength = body.length;
+    request.add(body);
+    final response = await _mcpRawResponseFrom(await request.close());
+    if (response.statusCode != HttpStatus.badRequest) {
+      throw StateError(
+        'Client-supplied Streamable MCP initialize session returned '
+        '${response.statusCode}, expected 400.',
+      );
+    }
+    if (response.header('mcp-session-id') != null) {
+      throw StateError(
+        'Client-supplied Streamable MCP initialize session was echoed.',
+      );
+    }
+    if (!response.body.contains('MCP-Session-Id')) {
+      throw StateError(
+        'Client-supplied Streamable MCP initialize session was rejected '
+        'without explaining MCP-Session-Id.',
+      );
+    }
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError(
+        'Client-supplied Streamable MCP initialize changed client state.',
+      );
+    }
+  } finally {
+    httpClient.close(force: true);
   }
 }
 

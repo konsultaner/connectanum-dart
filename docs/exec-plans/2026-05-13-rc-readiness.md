@@ -78,6 +78,22 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-22: Router-hosted MCP Streamable HTTP `initialize` now rejects
+  requests that include a client-supplied `MCP-Session-Id` before endpoint
+  lookup or creation. The router returns a `400` JSON-RPC `invalid_request`,
+  omits `MCP-Session-Id` from the response, and keeps Streamable HTTP sessions
+  server-assigned so consumer applications or agents cannot select predictable
+  session ids. The router integration regression was added first and failed
+  against the previous behavior because the same request was accepted with
+  `200 OK`. The generated consumer-package smoke now sends the same request
+  through a raw `HttpClient` against public `McpStreamableHttpClient.endpoint`,
+  including configured bearer headers, and proves public and bearer-protected
+  router-hosted MCP endpoints reject it without capturing Streamable client
+  state. Pre-change `bin/test-fast` passed; after the fix, focused router
+  integration coverage, `dart analyze packages/connectanum_router`, `bash -n
+  bin/common.sh`, focused generated router-hosted MCP consumer smoke, repeated
+  `bin/test-fast`, `git diff --check`, and full local `bin/verify` passed.
+  Hosted deployment-chain evidence is pending for this checkpoint.
 - 2026-05-22: Router-hosted MCP Streamable `initialize` handling now treats
   newly created endpoints as tentative until initialization succeeds. If the
   MCP server returns a JSON-RPC error for a new Streamable `initialize`
@@ -90,8 +106,19 @@ decision because `connectanum_client` still depends on private
   Pre-change `bin/test-fast` passed; after the fix, focused router integration
   coverage, `dart analyze packages/connectanum_router`, `bash -n
   bin/common.sh`, focused generated router-hosted MCP consumer smoke, and
-  repeated `bin/test-fast` passed. Full local `bin/verify` also passed. Hosted
-  deployment-chain evidence is pending for this checkpoint.
+  repeated `bin/test-fast` passed. Full local `bin/verify` also passed. Commit
+  `08557f7` (`fix: drop rejected mcp initialize sessions`) was pushed to
+  GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted `master`
+  CI run `26293468018` passed with clean logs, `add-router` CI run
+  `26293451755` passed, hosted Dart Package Publish Dry Run runs `26293468008`
+  and `26293451704` passed, hosted WAMP Profile Benchmarks runs `26293468009`
+  and `26293451763` passed, and current-head Router Image dry-run
+  `26293615506` passed for `0.1.0-rc.2-validation.08557f7`. Native Artifacts
+  dry-run `26286794628` remains relevant because no native-release-sensitive
+  inputs changed. The strict deployment-chain audit passed required gates on
+  `master` at `08557f7`; RC readiness remains blocked only by explicit RC
+  tag/prerelease/router-image tag selection and deferred pub.dev release-order
+  decisions.
 - 2026-05-22: Router-hosted MCP Streamable HTTP session deletion now cleans up
   endpoint-created WAMP pub/sub subscriptions. `_RouterMcpEndpoint` tracks
   subscription ids created through MCP pub/sub helpers, removes ids on explicit

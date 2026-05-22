@@ -1423,6 +1423,31 @@ void main() {
       );
       expect(rejectedInitialize.headers, isNot(contains('mcp-session-id')));
 
+      final clientSuppliedSessionInitialize = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        payload,
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'initialize',
+          'MCP-Session-Id': 'client-chosen-session',
+        },
+      );
+      expect(
+        clientSuppliedSessionInitialize.statusCode,
+        equals(HttpStatus.badRequest),
+      );
+      expect(
+        jsonEncode(clientSuppliedSessionInitialize.json?['error']),
+        contains('MCP-Session-Id'),
+      );
+      expect(
+        clientSuppliedSessionInitialize.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
       final missingMethodHeader = await _postJson(
         client,
         listener.port,

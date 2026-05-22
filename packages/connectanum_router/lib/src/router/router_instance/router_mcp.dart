@@ -1285,6 +1285,20 @@ Future<void> _handleMcpHttpRequestForBinding(
 
   final requestMethod = _mcpRequestMethod(rawMessage);
   final isInitialize = requestMethod == 'initialize';
+  if (isInitialize && streamableHttpRequest && mcpSessionId != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message:
+            'MCP Streamable HTTP initialize requests must not include MCP-Session-Id',
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
   final standardHeaderError = _mcpStandardHeaderValidationError(
     binding,
     request: request,

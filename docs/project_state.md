@@ -2,26 +2,50 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP rejected initialize cleanup.
-Latest fully clean hosted checkpoint: Commit `383e0a9`.
+Last reviewed branch checkpoint: Router-hosted MCP client-supplied initialize
+session rejection.
+Latest fully clean hosted checkpoint: Commit `08557f7`.
 Current implementation checkpoint: Router-hosted MCP Streamable HTTP
-`initialize` endpoints are now tentative until initialization succeeds. If a
-newly created Streamable endpoint returns a JSON-RPC error for `initialize`,
-the router disposes that endpoint and omits `MCP-Session-Id` from the response
-so consumer applications cannot reuse a failed initialization as an active MCP
-session. The router integration regression was added first and failed against
-the prior behavior because the rejected initialize response leaked a session
-id. The generated consumer-package smoke now sends the same rejected initialize
-through public `McpStreamableHttpClient.post(...)` and proves no Streamable
-session state is captured before the normal initialization flow. Pre-change
-`bin/test-fast` passed. After the fix, focused
+`initialize` now rejects requests that include a client-supplied
+`MCP-Session-Id` before endpoint lookup or creation. The router returns a `400`
+JSON-RPC `invalid_request`, omits `MCP-Session-Id` from the response, and keeps
+Streamable HTTP sessions server-assigned so consumer applications or agents
+cannot select predictable session ids. The router integration regression was
+added first and failed against the prior behavior because the same request was
+accepted with `200 OK`. The generated consumer-package smoke now sends the same
+request through a raw `HttpClient` against public
+`McpStreamableHttpClient.endpoint`, including configured bearer headers, and
+proves public and bearer-protected router-hosted MCP endpoints reject it without
+capturing Streamable client state. Pre-change `bin/test-fast` passed. After the
+fix, focused
 `dart test packages/connectanum_router/test/router_integration_native_test.dart
 -r expanded --plain-name "guards MCP Streamable HTTP ingress and sessions"`,
 `dart analyze packages/connectanum_router`, `bash -n bin/common.sh`, focused
 `bash -lc 'source bin/common.sh && run_mcp_consumer_package_smoke'`, and
-repeated `bin/test-fast` passed on 2026-05-22. Full local `bin/verify` also
-passed on 2026-05-22. Hosted deployment-chain evidence is pending for this
-checkpoint.
+repeated `bin/test-fast` passed on 2026-05-22. `git diff --check` and full
+local `bin/verify` also passed on 2026-05-22. Hosted deployment-chain evidence
+is pending for this checkpoint.
+Prior hosted checkpoint details: Commit `08557f7`
+(`fix: drop rejected mcp initialize sessions`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`08557f7`: `master` CI run `26293468018` passed with Fast Checks and Full
+Verify green and clean logs, `add-router` CI run `26293451755` passed,
+`master` Dart Package Publish Dry Run `26293468008` and `add-router` Dart
+Package Publish Dry Run `26293451704` passed, `master` WAMP Profile Benchmarks
+`26293468009` and `add-router` WAMP Profile Benchmarks `26293451763` passed,
+and current-head Router Image dry-run `26293615506` passed for
+`0.1.0-rc.2-validation.08557f7` with preview upload, skipped GHCR login,
+completed multi-arch build, and clean annotations. Native Artifacts dry-run
+`26286794628` remains relevant because no native-release-sensitive inputs
+changed since `89c7915`. The strict deployment-chain audit passed required
+gates on `master` at `08557f7`, including clean current-head CI/logs, Dart
+package dry-run, WAMP profile benchmark evidence, Router Image dry-run, native
+release dry-run relevance, branch protection, workflow visibility, and router
+package visibility. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected, and pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
 Prior hosted checkpoint details: Commit `383e0a9`
 (`fix: clean up mcp delete subscriptions`) makes router-hosted MCP endpoints
 clean up MCP-created WAMP pub/sub subscriptions when a Streamable HTTP session
