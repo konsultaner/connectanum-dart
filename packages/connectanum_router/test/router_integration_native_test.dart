@@ -1448,6 +1448,45 @@ void main() {
         isNot(contains('mcp-session-id')),
       );
 
+      final malformedSessionIdHeaders = {
+        'origin': 'http://127.0.0.1:${listener.port}',
+        HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2025-11-25',
+        'Mcp-Method': 'tools/list',
+        'MCP-Session-Id': 'malformed session',
+      };
+      final malformedSessionId =
+          await _postJson(client, listener.port, '/mcp', {
+            'jsonrpc': '2.0',
+            'id': 'malformed-session-id',
+            'method': 'tools/list',
+            'params': {},
+          }, headers: malformedSessionIdHeaders);
+      expect(malformedSessionId.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        jsonEncode(malformedSessionId.json?['error']),
+        contains('MCP-Session-Id'),
+      );
+      expect(malformedSessionId.headers, isNot(contains('mcp-session-id')));
+
+      final malformedSessionIdPoll = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'MCP-Protocol-Version': '2025-11-25',
+          'MCP-Session-Id': 'malformed session',
+        },
+      );
+      expect(malformedSessionIdPoll.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        jsonEncode(malformedSessionIdPoll.json?['error']),
+        contains('MCP-Session-Id'),
+      );
+      expect(malformedSessionIdPoll.headers, isNot(contains('mcp-session-id')));
+
       final missingMethodHeader = await _postJson(
         client,
         listener.port,

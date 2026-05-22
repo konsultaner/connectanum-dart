@@ -117,6 +117,15 @@ String? _mcpHeaderValue(
   return value == null || value.isEmpty ? null : value;
 }
 
+bool _mcpSessionIdHeaderValueValid(String value) {
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit < 0x21 || codeUnit > 0x7e) {
+      return false;
+    }
+  }
+  return value.isNotEmpty;
+}
+
 String? _mcpHeaderValueRaw(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -139,6 +148,9 @@ String? _mcpResponseSessionIdForRequest({
   required bool streamableHttpRequest,
   required String? sessionId,
 }) {
+  if (sessionId == null || !_mcpSessionIdHeaderValueValid(sessionId)) {
+    return null;
+  }
   return switch (httpMethod) {
     'GET' || 'DELETE' => sessionId,
     'POST' when streamableHttpRequest => sessionId,
@@ -937,6 +949,24 @@ Future<void> _handleMcpHttpRequestForBinding(
           },
         ),
         body: NativeHttpResponseText(''),
+      ),
+    );
+    return;
+  }
+
+  final streamableSessionScopedRequest =
+      httpMethod == 'GET' || httpMethod == 'DELETE' || streamableHttpRequest;
+  if (mcpSessionId != null &&
+      streamableSessionScopedRequest &&
+      !_mcpSessionIdHeaderValueValid(mcpSessionId)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'Invalid MCP-Session-Id header',
+        extraHeaders: corsHeaders,
       ),
     );
     return;

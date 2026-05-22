@@ -14609,6 +14609,7 @@ Future<void> _smokeStreamableMcp(
     client,
     label: label,
   );
+  await _assertMalformedStreamableSessionRejected(client, label: label);
 
   final initializeResult = await client.initialize(
     clientInfo: const {
@@ -14840,6 +14841,99 @@ Future<void> _assertClientSuppliedStreamableInitializeSessionRejected(
         'Client-supplied Streamable MCP initialize changed client state.',
       );
     }
+  } finally {
+    httpClient.close(force: true);
+  }
+}
+
+Future<void> _assertMalformedStreamableSessionRejected(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  const malformedSessionId = 'malformed session';
+  final httpClient = HttpClient();
+  try {
+    Future<HttpClientRequest> openRequest(
+      String method, {
+      required String accept,
+      String? mcpMethod,
+    }) async {
+      final request = await httpClient.openUrl(method, client.endpoint);
+      request.headers.set('origin', _allowedOrigin);
+      request.headers.set(HttpHeaders.acceptHeader, accept);
+      request.headers.set(
+        'MCP-Protocol-Version',
+        McpStreamableHttpClient.latestProtocolVersion,
+      );
+      request.headers.set('MCP-Session-Id', malformedSessionId);
+      request.headers.set(
+        'x-consumer-trace',
+        '$label-malformed-session-${method.toLowerCase()}',
+      );
+      if (mcpMethod != null) {
+        request.headers.set('Mcp-Method', mcpMethod);
+      }
+      for (final entry in client.headers.entries) {
+        request.headers.set(entry.key, entry.value);
+      }
+      return request;
+    }
+
+    Future<void> expectRejected(
+      Future<HttpClientResponse> responseFuture,
+      String operation,
+    ) async {
+      final response = await _mcpRawResponseFrom(await responseFuture);
+      if (response.statusCode != HttpStatus.badRequest) {
+        throw StateError(
+          'Malformed Streamable MCP session $operation returned '
+          '${response.statusCode}, expected 400.',
+        );
+      }
+      if (response.header('mcp-session-id') != null) {
+        throw StateError(
+          'Malformed Streamable MCP session $operation echoed MCP-Session-Id.',
+        );
+      }
+      if (!response.body.contains('MCP-Session-Id')) {
+        throw StateError(
+          'Malformed Streamable MCP session $operation was rejected without '
+          'explaining MCP-Session-Id.',
+        );
+      }
+      if (client.sessionId != null || client.lastEventId != null) {
+        throw StateError(
+          'Malformed Streamable MCP session $operation changed client state.',
+        );
+      }
+    }
+
+    final post = await openRequest(
+      'POST',
+      accept: 'application/json, text/event-stream',
+      mcpMethod: 'tools/list',
+    );
+    post.headers.contentType = ContentType.json;
+    final postBody = utf8.encode(
+      jsonEncode(const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'malformed-session-tools',
+        'method': 'tools/list',
+        'params': <String, Object?>{},
+      }),
+    );
+    post.contentLength = postBody.length;
+    post.add(postBody);
+    await expectRejected(post.close(), 'POST');
+
+    final poll = await openRequest('GET', accept: 'text/event-stream');
+    await expectRejected(poll.close(), 'GET');
+
+    final delete = await openRequest(
+      'DELETE',
+      accept: 'application/json, text/event-stream',
+    );
+    await expectRejected(delete.close(), 'DELETE');
   } finally {
     httpClient.close(force: true);
   }
