@@ -173,6 +173,66 @@ void main() {
       expect(settings.internalRealms.single.sessionProfile, 'http-handler');
     });
 
+    test('parses and round-trips per-method HTTP route actions', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'listeners': [
+            <String, Object?>{
+              'type': 'rawsocket',
+              'endpoint': '127.0.0.1:0',
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{
+                      'prefix': '/tasks/',
+                      'methods': ['GET'],
+                    },
+                    'action': <String, Object?>{
+                      'type': 'rpc',
+                      'realm': 'realm1',
+                      'procedure': 'com.example.tasks.read',
+                    },
+                    'method_actions': <String, Object?>{
+                      'post': <String, Object?>{
+                        'type': 'rpc',
+                        'realm': 'realm1',
+                        'procedure': 'com.example.tasks.create',
+                      },
+                      'DELETE': <String, Object?>{
+                        'type': 'reserved_realm',
+                        'namespace': 'tasks',
+                        'append_method_suffix': false,
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.match.methods, ['GET']);
+      expect(route.methodActions.keys, containsAll(<String>['POST', 'DELETE']));
+      expect(
+        route.methodActions['POST']?.procedure,
+        'com.example.tasks.create',
+      );
+      expect(route.methodActions['DELETE']?.namespace, 'tasks');
+      expect(route.methodActions['DELETE']?.appendMethodSuffix, isFalse);
+
+      final decoded = RouterSettingsCodec.fromMap(
+        RouterSettingsCodec.toMap(settings),
+      );
+      final decodedRoute = decoded.listeners.single.http!.routes.single;
+      expect(decodedRoute, route);
+      expect(
+        decodedRoute.methodActions['POST']?.procedure,
+        'com.example.tasks.create',
+      );
+    });
+
     test('parses internal realms and open metrics settings', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{

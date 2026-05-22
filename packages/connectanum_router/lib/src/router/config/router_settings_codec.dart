@@ -213,6 +213,10 @@ abstract final class RouterSettingsCodec {
     return <String, Object?>{
       'match': _httpRouteMatchToMap(route.match),
       'action': _httpRouteActionToMap(route.action),
+      if (route.methodActions.isNotEmpty)
+        'method_actions': route.methodActions.map(
+          (method, action) => MapEntry(method, _httpRouteActionToMap(action)),
+        ),
     };
   }
 

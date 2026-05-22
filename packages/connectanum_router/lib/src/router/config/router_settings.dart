@@ -982,10 +982,15 @@ class HttpRouteAction {
 
 @immutable
 class HttpRouteSettings {
-  const HttpRouteSettings({required this.match, required this.action});
+  const HttpRouteSettings({
+    required this.match,
+    required this.action,
+    this.methodActions = const <String, HttpRouteAction>{},
+  });
 
   final HttpRouteMatch match;
   final HttpRouteAction action;
+  final Map<String, HttpRouteAction> methodActions;
 
   @override
   bool operator ==(Object other) {
@@ -994,11 +999,19 @@ class HttpRouteSettings {
     }
     return other is HttpRouteSettings &&
         other.match == match &&
-        other.action == action;
+        other.action == action &&
+        const MapEquality<String, HttpRouteAction>().equals(
+          other.methodActions,
+          methodActions,
+        );
   }
 
   @override
-  int get hashCode => Object.hash(match, action);
+  int get hashCode => Object.hash(
+    match,
+    action,
+    const MapEquality<String, HttpRouteAction>().hash(methodActions),
+  );
 }
 
 /// Equality helpers

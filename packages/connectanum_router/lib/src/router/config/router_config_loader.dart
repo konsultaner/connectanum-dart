@@ -115,9 +115,40 @@ class RouterConfigLoader {
           }
           final match = _parseHttpRouteMatch(route['match']);
           final action = _parseHttpRouteAction(route['action']);
-          return HttpRouteSettings(match: match, action: action);
+          final methodActions = _parseHttpRouteMethodActions(
+            route['method_actions'] ?? route['methodActions'],
+          );
+          return HttpRouteSettings(
+            match: match,
+            action: action,
+            methodActions: methodActions,
+          );
         })
         .toList(growable: false);
+  }
+
+  static Map<String, HttpRouteAction> _parseHttpRouteMethodActions(
+    dynamic node,
+  ) {
+    if (node == null) {
+      return const {};
+    }
+    if (node is! Map<String, Object?>) {
+      throw FormatException(
+        'listener.http.routes.method_actions must be a map',
+      );
+    }
+    final actions = <String, HttpRouteAction>{};
+    for (final entry in node.entries) {
+      final method = entry.key.trim().toUpperCase();
+      if (method.isEmpty) {
+        throw FormatException(
+          'listener.http.routes.method_actions keys must be non-empty methods',
+        );
+      }
+      actions[method] = _parseHttpRouteAction(entry.value);
+    }
+    return Map.unmodifiable(actions);
   }
 
   static HttpRouteMatch _parseHttpRouteMatch(dynamic node) {

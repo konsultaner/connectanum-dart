@@ -99,7 +99,8 @@
   - [ ] Expose bridge configuration via listener protocols with pluggable pipelines (REST→RPC proxy, static asset serving, metrics scraping, custom handlers).
   - [x] Add router-hosted Dart `handler` route actions with delegate IDs passed to `Router.start(httpRouteHandlers: ...)`, including structured `501 handler_not_registered` failures instead of falling through to WAMP dispatch.
   - [x] Introduce shared `session_profiles` across WAMP listeners, HTTP listeners/routes, and `internal_realms`, so transport-specific ingress config can reference one common realm/auth/authz profile shape. Listeners can now inherit `auth.methods` from a profile, HTTP dispatch resolves route/listener session profiles before creating internal caller sessions, and internal sessions can derive `realm`, `auth_id`, `auth_role`, and role maps from the same shared profile definition.
-  - [ ] Support translation tables that map HTTP path/method/protocol combinations to explicit WAMP realms and procedures, including per-method overrides and catch-all wildcards.
+  - [x] Support per-method HTTP route action overrides in Dart config, settings codec, native config encoding, and synthetic route matching so a path/protocol match can dispatch individual methods to explicit WAMP realms/procedures or reserved/namespace targets.
+  - [ ] Extend HTTP route translation tables with catch-all wildcard mappings for path/method/protocol combinations.
   - [ ] Provide reserved realm/namespace shorthand so routes can auto-map into a router-managed HTTP realm with deterministic URI derivation (e.g. `/` → `router.http.index`).
   - [ ] Allow namespace-based auto-mapping (path segments → URI prefixes) for teams already organising registrations by namespace.
   - [ ] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies.

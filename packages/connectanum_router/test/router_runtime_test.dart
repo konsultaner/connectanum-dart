@@ -1674,6 +1674,12 @@ RouterSettings _buildRouterSettingsWithHttpMethodRoute() {
                     type: HttpRouteActionType.rpc,
                     procedure: 'com.example.api.items',
                   ),
+                  methodActions: {
+                    'POST': HttpRouteAction(
+                      type: HttpRouteActionType.rpc,
+                      procedure: 'com.example.api.items.create',
+                    ),
+                  },
                 ),
               ],
             ),
@@ -1911,6 +1917,117 @@ void main() {
       expect(namespace['realm'], 'realm1');
       expect(namespace['namespace'], 'api');
       expect(namespace['append_method_suffix'], isTrue);
+    });
+
+    test('encodes per-method HTTP route action overrides', () {
+      final builder = RouterSettingsBuilder()
+        ..addRealmFromBuilder(
+          RealmSettingsBuilder('realm1')
+            ..addAuthMethod('anonymous')
+            ..addRoleFromBuilder(
+              RoleSettingsBuilder('member')..addPermissionFromBuilder(
+                PermissionSettingsBuilder('')
+                  ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                  ..allowOperations(const [
+                    'subscribe',
+                    'publish',
+                    'call',
+                    'register',
+                    'unregister',
+                  ]),
+              ),
+            ),
+        )
+        ..addListenerFromBuilder(
+          (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+              ..addAuthMethod('anonymous')
+              ..addProtocol(ListenerProtocol.rawsocket)
+              ..addProtocol(ListenerProtocol.http)
+              ..setOptions(const {'max_rawsocket_size_exponent': 16})
+              ..setHttpOptions(
+                const HttpListenerSettings(
+                  routes: [
+                    HttpRouteSettings(
+                      match: HttpRouteMatch(
+                        prefix: '/tasks/',
+                        methods: ['GET'],
+                      ),
+                      action: HttpRouteAction(
+                        type: HttpRouteActionType.rpc,
+                        realm: 'realm1',
+                        procedure: 'com.example.tasks.read',
+                      ),
+                      methodActions: {
+                        'POST': HttpRouteAction(
+                          type: HttpRouteActionType.rpc,
+                          realm: 'realm1',
+                          procedure: 'com.example.tasks.create',
+                        ),
+                        'DELETE': HttpRouteAction(
+                          type: HttpRouteActionType.reservedRealm,
+                          namespace: 'tasks',
+                          appendMethodSuffix: false,
+                        ),
+                      },
+                    ),
+                  ],
+                ),
+              ))
+            ..setRawSocketOptions(
+              const RawSocketListenerSettings(maxFrameExponent: 16),
+            ),
+        )
+        ..addAuthenticator(
+          'anonymous',
+          const AuthenticatorDefinition(type: 'anonymous'),
+        );
+      final settings = builder.build();
+
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: settings,
+      );
+
+      final jsonBytes = router.buildNativeConfigJson();
+      final config =
+          json.decode(utf8.decode(jsonBytes)) as Map<String, Object?>;
+      final endpoints = config['endpoints'] as List<dynamic>;
+      final first = endpoints.first as Map<String, Object?>;
+      final routes = first['http_routes'] as List<dynamic>;
+      expect(routes, hasLength(1));
+
+      final route = routes.single as Map<String, Object?>;
+      expect(route['path'], '/tasks/');
+      expect(route['match_kind'], 'prefix');
+      expect(route.containsKey('default'), isFalse);
+
+      final methods = route['methods'] as Map<String, Object?>;
+      expect(methods.keys, containsAll(<String>['GET', 'POST', 'DELETE']));
+
+      final get = methods['GET'] as Map<String, Object?>;
+      expect(get['type'], 'translation');
+      expect(get['realm'], 'realm1');
+      expect(get['procedure'], 'com.example.tasks.read');
+
+      final post = methods['POST'] as Map<String, Object?>;
+      expect(post['type'], 'translation');
+      expect(post['realm'], 'realm1');
+      expect(post['procedure'], 'com.example.tasks.create');
+
+      final delete = methods['DELETE'] as Map<String, Object?>;
+      expect(delete['type'], 'reserved_realm');
+      expect(delete['namespace'], 'tasks');
+      expect(delete['append_method_suffix'], isFalse);
     });
 
     test('pollNativeMessages drains pending connections and messages', () {
@@ -4070,7 +4187,7 @@ void main() {
       connectionId,
       NativeHttpHandshake.synthetic(
         handle: 114,
-        method: 'POST',
+        method: 'DELETE',
         target: '/api/items',
         path: '/api/items',
         protocol: 'http/1.1',
@@ -4086,7 +4203,7 @@ void main() {
     );
     final response = runtime.httpResponses[connectionId]!.single;
     expect(response.status, HttpStatus.methodNotAllowed);
-    expect(response.headers[HttpHeaders.allowHeader], 'GET');
+    expect(response.headers[HttpHeaders.allowHeader], 'GET, POST');
     final jsonBody = _jsonResponseBody(response);
     expect(jsonBody['reason'], 'method_not_allowed');
     expect(

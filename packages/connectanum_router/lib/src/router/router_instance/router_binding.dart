@@ -1738,9 +1738,7 @@ class RouterBinding {
         return _HttpRouteMatchResult.route(route);
       }
       if (_httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
-        allowedMethods.addAll(
-          route.match.methods.map((method) => method.trim().toUpperCase()),
-        );
+        allowedMethods.addAll(_httpRouteAllowedMethods(route));
       }
       if (route.match.protocols.isNotEmpty &&
           _httpRouteMatchesRequest(
@@ -1767,6 +1765,23 @@ class RouterBinding {
       return _HttpRouteMatchResult.protocolNotAllowed(normalized);
     }
     return const _HttpRouteMatchResult.notFound();
+  }
+
+  List<String> _httpRouteAllowedMethods(HttpRouteSettings route) {
+    final allowed = <String>{};
+    for (final method in route.match.methods) {
+      final normalized = method.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        allowed.add(normalized);
+      }
+    }
+    for (final method in route.methodActions.keys) {
+      final normalized = method.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        allowed.add(normalized);
+      }
+    }
+    return allowed.toList(growable: false);
   }
 
   bool _httpRouteMatchesRequest(
@@ -1806,12 +1821,10 @@ class RouterBinding {
         return false;
       }
     }
-    if (!ignoreMethod && match.methods.isNotEmpty) {
+    final allowedMethods = _httpRouteAllowedMethods(route);
+    if (!ignoreMethod && allowedMethods.isNotEmpty) {
       final requestMethod = request.method.trim().toUpperCase();
-      final allowed = match.methods.map(
-        (method) => method.trim().toUpperCase(),
-      );
-      if (!allowed.contains(requestMethod)) {
+      if (!allowedMethods.contains(requestMethod)) {
         return false;
       }
     }

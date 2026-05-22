@@ -143,11 +143,20 @@ class Router {
       routeMap['transport_auth'] = transportAuth.toNativeMap();
     }
 
-    final methods = match.methods
-        .map((method) => method.trim().toUpperCase())
-        .where((method) => method.isNotEmpty)
-        .toList(growable: false);
-    if (methods.isEmpty) {
+    final methodTargets = <String, HttpRouteAction>{};
+    for (final method in match.methods) {
+      final normalized = method.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        methodTargets[normalized] = route.action;
+      }
+    }
+    for (final entry in route.methodActions.entries) {
+      final normalized = entry.key.trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        methodTargets[normalized] = entry.value;
+      }
+    }
+    if (methodTargets.isEmpty) {
       routeMap['default'] = _httpRouteActionToNative(
         route.action,
         listener,
@@ -155,9 +164,9 @@ class Router {
       );
     } else {
       final targets = <String, Object?>{};
-      for (final method in methods) {
-        targets[method] = _httpRouteActionToNative(
-          route.action,
+      for (final entry in methodTargets.entries) {
+        targets[entry.key] = _httpRouteActionToNative(
+          entry.value,
           listener,
           settings,
         );

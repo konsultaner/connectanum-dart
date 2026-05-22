@@ -2,9 +2,28 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router HTTP route method whitelist coverage.
-Latest fully clean hosted checkpoint: Commit `c45aa4b`.
-Current local checkpoint: The working tree adds focused production-readiness
+Last reviewed branch checkpoint: Router per-method HTTP route action overrides.
+Latest fully clean hosted checkpoint: Commit `3c5d977`.
+Current implementation checkpoint: Per-method HTTP route action overrides have
+local verification evidence. `HttpRouteSettings` now carries
+`methodActions`, the config loader accepts `method_actions` / `methodActions`,
+the settings codec round-trips method overrides, native config encoding emits
+method-specific targets, and Dart synthetic route matching treats those method
+keys as allowed methods for `405`/`Allow` responses. `ROADMAP.md` now splits the
+HTTP translation-table item so per-method overrides are complete while catch-all
+wildcard mapping remains open. Pre-change `bin/test-fast`, focused
+`dart test packages/connectanum_router/test/router_config_loader_test.dart -r
+expanded --chain-stack-traces -n "parses and round-trips per-method HTTP route
+actions"`, focused `dart test
+packages/connectanum_router/test/router_runtime_test.dart -r expanded
+--chain-stack-traces -n "encodes per-method HTTP route action overrides"`,
+focused `dart test packages/connectanum_router/test/router_runtime_test.dart -r
+expanded --chain-stack-traces -n "honors typed HTTP route method restrictions
+before dispatch"`, `git diff --check`, and full local `bin/verify` passed on
+2026-05-22. Hosted GitHub deployment-chain evidence is still pending for this
+checkpoint.
+Latest fully clean hosted checkpoint details: Commit `3c5d977`
+(`test: cover http route method mismatches`) adds focused production-readiness
 coverage for HTTP route method whitelist mismatches. Native route matching now
 has regression coverage proving existing paths with disallowed methods return
 `HttpRouteMatch::MethodNotAllowed` with sorted allowed methods instead of
@@ -19,9 +38,28 @@ native `cargo test -p ct_core method_mismatch -- --nocapture`, focused Dart
 `dart test packages/connectanum_router/test/router_runtime_test.dart -r
 expanded --chain-stack-traces -n "honors typed HTTP route method restrictions
 before dispatch"`, `git diff --check`, and full local `bin/verify` passed on
-2026-05-22. This local checkpoint has not yet been committed, pushed, or
-validated in hosted CI.
-Latest fully clean hosted checkpoint details: Commit `c45aa4b`
+2026-05-22. The commit was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`. Hosted GitHub evidence is clean at `3c5d977`: `master` CI run
+`26282723125` and `add-router` CI run `26282711412` passed with Fast Checks and
+Full Verify green; `master` Dart Package Publish Dry Run `26282723109` and
+`add-router` Dart Package Publish Dry Run `26282711355` passed; `master` WAMP
+Profile Benchmarks `26282723154` and `add-router` WAMP Profile Benchmarks
+`26282711353` passed; `master` kTLS Validation `26282723160` and `add-router`
+kTLS Validation `26282711453` passed. Current-head Native Artifacts dry-run
+`26283321576` passed for `v0.1.0-rc.2-validation.3c5d977` with all five
+platform jobs and release-preview upload green and no GitHub Release mutation.
+Current-head Router Image dry-run `26283321578` passed for
+`0.1.0-rc.2-validation.3c5d977`, uploaded `router-image-preview`, skipped GHCR
+login, completed the multi-arch build step, and had clean check annotations.
+The strict deployment-chain audit passed required gates on `master` at
+`3c5d977`, including clean current-head CI/logs, Dart package dry-run, native
+release dry-run, Router Image dry-run, WAMP profile benchmark evidence,
+workflow visibility, branch protection, and router package visibility. RC
+readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected, and pub.dev
+publishing remains deferred for release-order/operator decisions. No RC tag,
+GitHub Release, or router image was created or moved.
+Prior hosted checkpoint details: Commit `c45aa4b`
 (`fix: return 426 for http route protocol mismatch`) makes router-hosted HTTP
 route protocol whitelists distinguish configured route protocol mismatches from
 route misses. Native route matching canonicalizes route/request HTTP protocol
