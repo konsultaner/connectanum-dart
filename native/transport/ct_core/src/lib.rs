@@ -7807,6 +7807,82 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn http1_route_method_mismatch_returns_405_without_dispatch() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let config = json!({
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[{
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"disabled",
+                "protocols":["http"],
+                "http_routes":[{
+                    "path":"/api/items",
+                    "methods":{
+                        "GET":{"type":"reserved_realm"},
+                        "POST":{"type":"reserved_realm"}
+                    }
+                }]
+            }]
+        });
+        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream
+            .write_all(
+                b"DELETE /api/items HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
+            )
+            .await
+            .unwrap();
+
+        let mut response_bytes = Vec::new();
+        let mut buf = [0u8; 256];
+        loop {
+            let read = tokio::time::timeout(Duration::from_secs(2), stream.read(&mut buf))
+                .await
+                .expect("405 response should arrive")
+                .expect("response read succeeds");
+            assert!(read > 0, "response closed before body was read");
+            response_bytes.extend_from_slice(&buf[..read]);
+            if response_bytes
+                .windows(b"method not allowed".len())
+                .any(|window| window == b"method not allowed")
+            {
+                break;
+            }
+            assert!(
+                response_bytes.len() < 1024,
+                "unexpectedly large 405 response"
+            );
+        }
+        let response = std::str::from_utf8(&response_bytes).expect("response is utf8");
+        assert!(
+            response.starts_with("HTTP/1.1 405 Method Not Allowed"),
+            "{response}"
+        );
+        assert!(response.contains("\r\nAllow: GET, POST\r\n"), "{response}");
+        assert!(response.ends_with("method not allowed"), "{response}");
+        let connection_id = receiver
+            .try_recv()
+            .expect("http connection should be tracked");
+        assert!(
+            connection_http_poll_request(connection_id)
+                .unwrap()
+                .is_none(),
+            "method mismatch should not enqueue a Dart-dispatched HTTP request"
+        );
+        drop(stream);
+
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn listener_close_removes_entry() {
         let _guard = test_guard();
         shutdown().ok();

@@ -78,6 +78,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-22: The working tree adds focused evidence for the HTTP route method
+  whitelist half of the roadmap's 405/426 route-readiness item. Native route
+  matching now has regression coverage for `MethodNotAllowed` and sorted
+  `Allow` methods, the native HTTP/1 listener has a network regression proving
+  a method mismatch returns `405 Method Not Allowed` without queuing a
+  Dart-dispatched HTTP request, and the Dart synthetic dispatch path has
+  matching coverage for `405`, the `Allow` header, `method_not_allowed`, and no
+  `http_request_dispatched` event. `ROADMAP.md` now marks the method/protocol
+  whitelist item complete. Pre-change `bin/test-fast`, focused native
+  `cargo test -p ct_core method_mismatch -- --nocapture`, focused Dart
+  route-method runtime testing, `git diff --check`, and full local
+  `bin/verify` passed. This checkpoint is local only until committed, pushed,
+  and hosted CI/deployment-chain evidence is collected.
 - 2026-05-22: Router HTTP route protocol whitelist enforcement now returns a
   deterministic protocol mismatch response instead of falling through to route
   not found. Native route matching canonicalizes HTTP protocol aliases and
@@ -87,8 +100,17 @@ decision because `connectanum_client` still depends on private
   upgrade headers. The Dart synthetic HTTP dispatch path mirrors the same
   `426` JSON error with `protocol_not_allowed`. Pre-change `bin/test-fast`,
   focused native and Dart route-protocol tests, and full local `bin/verify`
-  passed. Hosted evidence remains pending until this implementation commit is
-  pushed; the latest fully clean hosted checkpoint remains `d9d8a82`.
+  passed. Commit `c45aa4b`
+  (`fix: return 426 for http route protocol mismatch`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted `master` CI run
+  `26278863274`, `add-router` CI run `26278857982`, hosted Dart Package
+  Publish Dry Run runs `26278863327` and `26278857984`, hosted WAMP Profile
+  Benchmarks runs `26278863232` and `26278857985`, hosted kTLS Validation runs
+  `26278863231` and `26278858035`, Native Artifacts dry-run `26279547806`, and
+  Router Image dry-run `26279547969` all passed at `c45aa4b`. The strict
+  deployment-chain audit passed required gates on `master` at `c45aa4b`; RC
+  readiness remains blocked only by explicit RC tag/prerelease/router-image tag
+  selection and deferred pub.dev release-order decisions.
 - 2026-05-13: The first RC target is a downstream-consumable GitHub prerelease
   with native artifacts and router image validation. Pub.dev publishing is
   deferred until package ownership, public versions, and release order are
@@ -1486,12 +1508,26 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The latest fully clean hosted CI reliability follow-up adds a retrying
-browser WebSocket smoke wrapper to `bin/test-all` and a focused
-verification-script regression wired into fast/full local verification; local
-`bin/verify`, hosted CI on `master` and `add-router`, and the strict
-deployment-chain audit passed at commit `d9d8a82`. The prior fully clean hosted
-release-chain follow-up hardens the
+Active. The latest fully clean hosted implementation follow-up makes
+router-hosted HTTP route protocol mismatches return deterministic
+`426 protocol_not_allowed` responses instead of ambiguous route misses across
+native and Dart synthetic dispatch. Local `bin/test-fast`, focused native and
+Dart route-protocol tests, full local `bin/verify`, hosted CI on `master` and
+`add-router`, hosted Dart Package Publish Dry Run, hosted WAMP Profile
+Benchmarks, hosted kTLS Validation, Native Artifacts dry-run, Router Image
+dry-run, and the strict deployment-chain audit passed at commit `c45aa4b`. The
+current local working tree adds method-whitelist readiness coverage for the
+same route matching surface: native route matching, native HTTP/1 listener
+responses, and Dart synthetic dispatch now prove disallowed methods produce
+`405 Method Not Allowed` / `method_not_allowed` without enqueuing or emitting a
+dispatched HTTP request, and local `bin/verify` passed on 2026-05-22. This
+method-whitelist checkpoint still needs commit/push and hosted evidence before
+it becomes the latest fully clean hosted checkpoint. The
+prior fully clean hosted CI reliability follow-up adds a retrying browser
+WebSocket smoke wrapper to `bin/test-all` and a focused verification-script
+regression wired into fast/full local verification; local `bin/verify`, hosted
+CI on `master` and `add-router`, and the strict deployment-chain audit passed
+at commit `d9d8a82`. The prior fully clean hosted release-chain follow-up hardens the
 first-RC pub.dev deferral boundary so the audit requires strict Dart dry-run
 release-plan and operator-decision evidence before accepting the known private
 workspace dependency blocker; pre-change `bin/test-fast`, focused audit tests,
@@ -1538,7 +1574,7 @@ implementation follow-up lets router-hosted MCP Streamable HTTP `DELETE`
 cleanup bypass route-level rate-limit exhaustion so a downstream application
 can remove its owned session after receiving a rate-limited Streamable POST
 failure. The latest fully clean hosted deployment-chain checkpoint is
-`d9d8a82`. The prior fully hosted implementation follow-up extends the
+`c45aa4b`. The prior fully hosted implementation follow-up extends the
 generated consumer-package router-hosted MCP smoke so downstream applications
 prove the route-level rate-limit response-session contract against a real MCP
 endpoint. The prior fully hosted
@@ -1580,29 +1616,32 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26276704174` for checkpoint `d9d8a82`: Fast
+Hosted `master` CI is green at run `26278863274` for checkpoint `c45aa4b`: Fast
 Checks and Full Verify passed. Hosted `add-router` CI is green at run
-`26276703045` with Fast Checks and Full Verify passed. Hosted Dart Package
-Publish Dry Run remains relevant and green at run `26270250595` on `master`,
-and logs the release-order plan and private-package blocker sections from
-`--show-release-plan`; `add-router` Dart Package Publish Dry Run `26270245773`
-passed too. Hosted `master` WAMP Profile Benchmarks run `26270250619` remains
-relevant and passed with artifact upload, and matching `add-router` WAMP
-Profile Benchmarks run `26270245772` passed. The strict deployment-chain audit
-passes on `master` at `d9d8a82` with clean current-head CI/log, relevant Dart
+`26278857982` with Fast Checks and Full Verify passed. Hosted Dart Package
+Publish Dry Run is green at run `26278863327` on `master`, and matching
+`add-router` Dart Package Publish Dry Run `26278857984` passed. Hosted
+`master` WAMP Profile Benchmarks run `26278863232` passed with artifact upload,
+and matching `add-router` WAMP Profile Benchmarks run `26278857985` passed.
+Hosted kTLS Validation runs `26278863231` on `master` and `26278858035` on
+`add-router` passed. Native Artifacts dry-run `26279547806` passed for
+`v0.1.0-rc.2-validation.c45aa4b`, and Router Image dry-run `26279547969`
+passed for `0.1.0-rc.2-validation.c45aa4b`. The strict deployment-chain audit
+passes on `master` at `c45aa4b` with clean current-head CI/log, relevant Dart
 package dry-run, relevant native release dry-run, relevant router image
 dry-run, relevant WAMP profile benchmark evidence, workflow visibility, branch
 protection, and router package visibility gates.
 The router package visibility gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26270676681` at `182c236`; it used manual `image_tag=0.1.0-rc.2`,
-uploaded the preview artifact, skipped GHCR login, and the audit downloads the
-preview metadata and verifies primary tag `0.1.0-rc.2` before accepting it.
+run `26279547969` at `c45aa4b`; it used manual
+`image_tag=0.1.0-rc.2-validation.c45aa4b`, uploaded the preview artifact,
+skipped GHCR login, completed the multi-arch build, and the audit verifies
+primary tag `0.1.0-rc.2-validation.c45aa4b` before accepting it.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `d9d8a82`. It suggests
+older commit `47bbf9c`, not the current candidate head `c45aa4b`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.

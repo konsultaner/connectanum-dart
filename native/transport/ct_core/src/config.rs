@@ -818,6 +818,37 @@ mod tests {
     }
 
     #[test]
+    fn http_route_method_mismatches_are_explicit() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "protocols": ["http"],
+            "http_routes": [{
+                "path": "/api/items",
+                "methods": {
+                    "GET": {"type": "reserved_realm"},
+                    "POST": {"type": "reserved_realm"}
+                }
+            }]
+        }))
+        .unwrap();
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+
+        match runtime.match_http_route("/api/items", None, "DELETE", "http/1.1") {
+            HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
+                assert_eq!(allowed_methods, vec!["GET".to_string(), "POST".to_string()]);
+            }
+            other => panic!("expected method mismatch, got {other:?}"),
+        }
+
+        assert!(matches!(
+            runtime.match_http_route("/api/missing", None, "DELETE", "http/1.1"),
+            HttpRouteMatch::NotFound
+        ));
+    }
+
+    #[test]
     fn http_settings_parse_alpn_and_options() {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",

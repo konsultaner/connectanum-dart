@@ -104,7 +104,7 @@
   - [ ] Allow namespace-based auto-mapping (path segments → URI prefixes) for teams already organising registrations by namespace.
   - [ ] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies.
   - [ ] Provide policy-driven routing (path → WAMP procedure/topic, file proxy, custom isolate handler) with per-route auth hooks aligned with realm permissions.
-  - [ ] Enforce method/protocol whitelists from the configuration; return 405/426 at the native layer before touching Dart.
+  - [x] Enforce method/protocol whitelists from the configuration; return 405/426 at the native layer before touching Dart.
   - [x] Keep HTTP payloads zero-copy by exposing request/response body handles over FFI and streaming through Rust.
   - [x] Support request/response streaming and file-backed payloads to preserve zero-copy semantics for large bodies.
   - [x] Surface structured responses (status, headers, trailers) back to the native runtime without materialising entire payloads in Dart.
