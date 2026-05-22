@@ -1273,31 +1273,59 @@ decision because `connectanum_client` still depends on private
   has been selected, and pub.dev publishing remains deferred for
   release-order/operator decisions. No RC tag, GitHub Release, or router image
   was created or moved.
-- 2026-05-22: Current local implementation follow-up adds public-client
-  regression coverage for rate-limited Streamable HTTP cleanup.
+- 2026-05-22: Commit `3a066b2`
+  (`test: cover mcp client rate-limit cleanup`) adds public-client regression
+  coverage for rate-limited Streamable HTTP cleanup.
   `McpStreamableHttpClient` now has focused test evidence that a `429`
   Streamable POST failure preserves the active session id and SSE cursor, and
   that a following `DELETE` cleanup still sends the owned `MCP-Session-Id`
   before clearing local state. Pre-change `bin/test-fast`, the focused
   `keeps Streamable HTTP session state after rate-limit failures` client test,
-  and the full `streamable_http_client_test.dart` suite passed. Full local
-  `bin/verify` passed on rerun after terminating the stale failed verify
-  process group from a native-runtime lock-contention attempt. Push and hosted
-  deployment-chain evidence are pending for this follow-up.
+  the full `streamable_http_client_test.dart` suite, `git diff --check`, and
+  full local `bin/verify` passed. The first full local `bin/verify` attempt hit
+  stale failed-process native-runtime lock contention; after terminating that
+  process group, the two affected benchmark tests passed in isolation and the
+  full `bin/verify` rerun passed. The commit was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `3a066b2`: `master` CI run `26262595795`, Dart Package Publish Dry Run
+  `26262595840`, WAMP Profile Benchmarks `26262595846`, Router Image dry-run
+  `26263051056`, and matching `add-router` CI/dry-run/WAMP runs passed. The
+  strict deployment-chain audit passed required gates on `master` at
+  `3a066b2`. RC readiness still reports not-ready only because no approved
+  numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+  selected, and pub.dev publishing remains deferred for release-order/operator
+  decisions. No RC tag, GitHub Release, or router image was created or moved.
+- 2026-05-22: Current local implementation follow-up hardens public MCP HTTP
+  client standard-header ownership. `McpStreamableHttpClient` now filters
+  caller-provided `Mcp-Method` and `Mcp-Name` from constructor and per-call
+  header maps before applying the synthesized single-message standard headers
+  or intentionally omitting them on GET/SSE polling and JSON-RPC batches.
+  Focused regression coverage now proves stale caller standard headers cannot
+  leak into initialize, direct JSON, Streamable POST, GET/SSE poll, or batch
+  requests while ordinary consumer trace headers still pass through.
+  Pre-change `bin/test-fast`, `dart format`, the focused
+  `owns MCP protocol and session headers despite caller headers` client test,
+  the full `streamable_http_client_test.dart` suite, `git diff --check`, and
+  full local `bin/verify` passed. Push and hosted deployment-chain evidence
+  are pending for this follow-up.
 
 ## Handoff
 
-Active. The latest local implementation follow-up adds public-client regression
-coverage proving `McpStreamableHttpClient` preserves active Streamable session
-state after `429` rate-limit failures and can still send session-scoped
-`DELETE` cleanup. The latest fully clean hosted implementation follow-up lets
-router-hosted MCP Streamable HTTP `DELETE` cleanup bypass route-level
-rate-limit exhaustion so a downstream application can remove its owned session
-after receiving a rate-limited Streamable POST failure. The latest fully clean
-hosted deployment-chain checkpoint is `7f48714`. The prior fully hosted
-implementation follow-up extends the generated consumer-package router-hosted
-MCP smoke so downstream applications prove the route-level rate-limit
-response-session contract against a real MCP endpoint. The prior fully hosted
+Active. The current local implementation follow-up hardens public MCP HTTP
+client standard-header ownership so stale caller `Mcp-Method`/`Mcp-Name`
+headers cannot leak into initialize, direct JSON, Streamable POST, GET/SSE
+poll, or batch requests. The latest fully clean hosted implementation follow-up
+adds public-client regression coverage proving `McpStreamableHttpClient`
+preserves active Streamable session state after `429` rate-limit failures and
+can still send session-scoped `DELETE` cleanup. The prior fully clean hosted
+implementation follow-up lets router-hosted MCP Streamable HTTP `DELETE`
+cleanup bypass route-level rate-limit exhaustion so a downstream application
+can remove its owned session after receiving a rate-limited Streamable POST
+failure. The latest fully clean hosted deployment-chain checkpoint is
+`3a066b2`. The prior fully hosted implementation follow-up extends the
+generated consumer-package router-hosted MCP smoke so downstream applications
+prove the route-level rate-limit response-session contract against a real MCP
+endpoint. The prior fully hosted
 implementation follow-up adds focused router runtime regression coverage
 proving pre-dispatch MCP route rate-limit response session isolation for
 lifecycle-free direct JSON POST failures while preserving owned session ids for
@@ -1337,28 +1365,28 @@ WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
 generated consumer-package smokes that use public package APIs without private
 project assumptions.
 
-Hosted `master` CI is green at run `26260457692` for checkpoint `7f48714`: Fast
+Hosted `master` CI is green at run `26262595795` for checkpoint `3a066b2`: Fast
 Checks and Full Verify passed. Hosted `add-router` CI is green at run
-`26260453248`. Hosted Dart Package Publish Dry Run is green at run
-`26260457644` on `master` and logs the release-order plan and private-package
+`26262595587`. Hosted Dart Package Publish Dry Run is green at run
+`26262595840` on `master` and logs the release-order plan and private-package
 blocker sections from `--show-release-plan`; `add-router` Dart Package Publish
-Dry Run `26260453292` passed too. Hosted `master` WAMP Profile Benchmarks run
-`26260457656` passed with artifact upload, and matching `add-router` WAMP
-Profile Benchmarks run `26260453365` passed. The strict deployment-chain audit
-passes on `master` at `7f48714` with clean current-head CI/log, relevant Dart
+Dry Run `26262595586` passed too. Hosted `master` WAMP Profile Benchmarks run
+`26262595846` passed with artifact upload, and matching `add-router` WAMP
+Profile Benchmarks run `26262595584` passed. The strict deployment-chain audit
+passes on `master` at `3a066b2` with clean current-head CI/log, relevant Dart
 package dry-run, relevant native release dry-run, current router image dry-run,
 current WAMP profile benchmark evidence, workflow visibility, branch
 protection, and router package visibility gates.
 The router package visibility gate verifies public GHCR registry metadata for
 `ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26260908932` at `7f48714`; it used manual `image_tag=v0.1.0-rc.2`,
+run `26263051056` at `3a066b2`; it used manual `image_tag=v0.1.0-rc.2`,
 uploaded the preview artifact, skipped GHCR login, and the audit downloads the
 preview metadata and verifies primary tag `0.1.0-rc.2` before accepting it.
 
 Continue with RC tag/prerelease selection from a checkout aligned with GitHub
 `master`. The audit inventories stale
 local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `7f48714`. It suggests
+older commit `47bbf9c`, not the current candidate head `3a066b2`. It suggests
 `v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
 reporting RC prerelease and matching router image RC tag selection as not-ready.
 Moving the stale tag or approving a follow-up RC tag remains a release decision.

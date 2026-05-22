@@ -197,6 +197,8 @@ void main() {
             _headerProtocolVersion: '2099-01-01',
             _headerSessionId: 'default-stale-session',
             'Last-Event-ID': 'default-stale-event',
+            _headerMethod: 'default-stale-method',
+            _headerName: 'default-stale-name',
             'x-consumer-default': 'kept',
           },
         );
@@ -208,6 +210,8 @@ void main() {
             _headerProtocolVersion: '2099-02-01',
             _headerSessionId: 'initialize-stale-session',
             'Last-Event-ID': 'initialize-stale-event',
+            _headerMethod: 'initialize-stale-method',
+            _headerName: 'initialize-stale-name',
             'x-consumer-trace': 'controlled-initialize',
           },
         );
@@ -219,6 +223,8 @@ void main() {
         );
         expect(endpoint.requests.last.sessionId, isNull);
         expect(endpoint.requests.last.lastEventId, isNull);
+        expect(endpoint.requests.last.mcpMethod, 'initialize');
+        expect(endpoint.requests.last.mcpName, isNull);
 
         await client.notifyInitialized();
         final sessionId = client.sessionId;
@@ -234,6 +240,8 @@ void main() {
             _headerProtocolVersion: '2099-03-01',
             _headerSessionId: 'direct-stale-session',
             'Last-Event-ID': 'direct-stale-event',
+            _headerMethod: 'direct-stale-method',
+            _headerName: 'direct-stale-name',
             'x-consumer-trace': 'controlled-direct',
           },
         );
@@ -245,6 +253,11 @@ void main() {
         );
         expect(endpoint.requests.last.sessionId, isNull);
         expect(endpoint.requests.last.lastEventId, isNull);
+        expect(
+          endpoint.requests.last.mcpMethod,
+          'app.direct.controlled-headers',
+        );
+        expect(endpoint.requests.last.mcpName, isNull);
         expect(endpoint.requests.last.consumerTrace, 'controlled-direct');
 
         final streamable = await client.ping(
@@ -254,6 +267,8 @@ void main() {
             _headerProtocolVersion: '2099-04-01',
             _headerSessionId: 'streamable-stale-session',
             'Last-Event-ID': 'streamable-stale-event',
+            _headerMethod: 'streamable-stale-method',
+            _headerName: 'streamable-stale-name',
             'x-consumer-trace': 'controlled-streamable',
           },
         );
@@ -265,12 +280,16 @@ void main() {
         );
         expect(endpoint.requests.last.sessionId, sessionId);
         expect(endpoint.requests.last.lastEventId, isNull);
+        expect(endpoint.requests.last.mcpMethod, 'ping');
+        expect(endpoint.requests.last.mcpName, isNull);
 
         final events = await client.poll(
           headers: const <String, String>{
             HttpHeaders.acceptHeader: 'application/json',
             _headerSessionId: 'poll-stale-session',
             'Last-Event-ID': 'poll-stale-event',
+            _headerMethod: 'poll-stale-method',
+            _headerName: 'poll-stale-name',
             'x-consumer-trace': 'controlled-poll',
           },
         );
@@ -278,7 +297,29 @@ void main() {
         expect(endpoint.requests.last.accept, 'text/event-stream');
         expect(endpoint.requests.last.sessionId, sessionId);
         expect(endpoint.requests.last.lastEventId, isNull);
+        expect(endpoint.requests.last.mcpMethod, isNull);
+        expect(endpoint.requests.last.mcpName, isNull);
         expect(endpoint.requests.last.consumerTrace, 'controlled-poll');
+
+        final batch = await client.postBatch(
+          [
+            {
+              'jsonrpc': '2.0',
+              'id': 'controlled-batch-tools',
+              'method': 'tools/list',
+            },
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+          ],
+          headers: const <String, String>{
+            _headerMethod: 'batch-stale-method',
+            _headerName: 'batch-stale-name',
+            'x-consumer-trace': 'controlled-batch',
+          },
+        );
+        expect(batch, hasLength(1));
+        expect(endpoint.requests.last.mcpMethod, isNull);
+        expect(endpoint.requests.last.mcpName, isNull);
+        expect(endpoint.requests.last.consumerTrace, 'controlled-batch');
       },
     );
 

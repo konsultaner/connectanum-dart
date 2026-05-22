@@ -2,18 +2,47 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Current local implementation follow-up adds
-public-client regression coverage for rate-limited Streamable HTTP cleanup.
+Last reviewed branch checkpoint: Current local implementation follow-up hardens
+public MCP HTTP client standard-header ownership.
+`McpStreamableHttpClient` now treats caller-provided `Mcp-Method` and
+`Mcp-Name` as controlled headers alongside `Accept`, `MCP-Protocol-Version`,
+`MCP-Session-Id`, and `Last-Event-ID`. The client still synthesizes
+`Mcp-Method` and `Mcp-Name` for single-message POSTs when the request body has
+a method/name, but stale caller values are stripped from constructor and
+per-call header maps and therefore cannot leak into initialize, direct JSON,
+Streamable POST, GET/SSE poll, or JSON-RPC batch requests where they would be
+misleading. Pre-change `bin/test-fast`, `dart format`, the focused
+`owns MCP protocol and session headers despite caller headers` client test, the
+full `streamable_http_client_test.dart` suite, `git diff --check`, and full
+local `bin/verify` passed. Push and hosted deployment-chain evidence are
+pending for this follow-up.
+Latest fully clean hosted checkpoint: Commit `3a066b2`
+(`test: cover mcp client rate-limit cleanup`) adds public-client regression
+coverage for rate-limited Streamable HTTP cleanup.
 `McpStreamableHttpClient` now has focused test evidence that a `429`
 Streamable POST failure preserves the active session id and SSE cursor, and
 that a following `DELETE` cleanup still sends the owned `MCP-Session-Id` before
 clearing local state. Pre-change `bin/test-fast`, the focused
 `keeps Streamable HTTP session state after rate-limit failures` client test,
-and the full `streamable_http_client_test.dart` suite passed. Full local
-`bin/verify` passed on rerun after terminating the stale failed verify process
-group from a native-runtime lock-contention attempt. Push and hosted
-deployment-chain evidence are pending for this follow-up.
-Latest fully clean hosted checkpoint: Commit `7f48714`
+the full `streamable_http_client_test.dart` suite, `git diff --check`, and full
+local `bin/verify` passed. The first full local `bin/verify` attempt hit stale
+failed-process native-runtime lock contention; after terminating that process
+group, the two affected benchmark tests passed in isolation and the full
+`bin/verify` rerun passed. The commit was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`3a066b2`: `master` CI run `26262595795`, `master` Dart Package Publish Dry Run
+`26262595840`, `master` WAMP Profile Benchmarks `26262595846`, `master` Router
+Image dry-run `26263051056`, `add-router` CI run `26262595587`, `add-router`
+Dart Package Publish Dry Run `26262595586`, and `add-router` WAMP Profile
+Benchmarks `26262595584` passed. The strict deployment-chain audit passed
+required gates on `master` at `3a066b2`, using current-head CI/logs, Dart
+package dry-run, WAMP profile benchmark, and Router Image dry-run evidence plus
+still-relevant native release dry-run evidence. RC readiness remains not-ready
+only because no approved numeric RC tag, GitHub prerelease, or matching RC
+router image tag has been selected, and pub.dev publishing remains deferred for
+release-order/operator decisions. No RC tag, GitHub Release, or router image
+was created or moved.
+Prior hosted checkpoint: Commit `7f48714`
 (`fix: allow mcp delete after route limit`) lets router-hosted MCP Streamable
 HTTP `DELETE` cleanup bypass the route-level rate-limit gate so exhausted
 clients can still remove owned sessions. Runtime regression coverage and the

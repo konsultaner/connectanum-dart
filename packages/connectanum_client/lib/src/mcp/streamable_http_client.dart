@@ -1095,7 +1095,9 @@ bool _isControlledMcpRequestHeader(String name) {
   return normalized == HttpHeaders.acceptHeader ||
       normalized == _headerProtocolVersion.toLowerCase() ||
       normalized == _headerSessionId.toLowerCase() ||
-      normalized == _headerLastEventId.toLowerCase();
+      normalized == _headerLastEventId.toLowerCase() ||
+      normalized == _headerMethod.toLowerCase() ||
+      normalized == _headerName.toLowerCase();
 }
 
 final class _McpToolHeaderParameter {
