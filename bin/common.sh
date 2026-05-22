@@ -910,6 +910,7 @@ Future<void> main() async {
     await _smokeGenericJsonRpcApi(client, endpoint);
     await _smokeStreamableSseResponseSelection(client);
     await _smokeStreamablePollNonSseSessionIsolation(client);
+    await _smokeMalformedPostResponseSessionIsolation(client);
     await _smokeControlledMcpRequestHeaders(client, endpoint);
     await _smokeDirectJsonHttpErrorsPreserveSession(client, endpoint);
     await _smokeGenericJsonRpcBatchErrors(client);
@@ -1166,6 +1167,70 @@ Future<void> _smokeStreamablePollNonSseSessionIsolation(
   _expect(
     events.length == 1 && client.lastEventId == _firstEventId,
     'non-SSE poll recovery did not reuse the preserved session',
+  );
+  client.lastEventId = eventId;
+}
+
+Future<void> _smokeMalformedPostResponseSessionIsolation(
+  McpStreamableHttpClient client,
+) async {
+  final sessionId = client.sessionId;
+  final eventId = client.lastEventId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable malformed POST smoke has no session.');
+  }
+
+  const preservedJsonEventId = 'agent-session:get:preserved-json-post';
+  client.lastEventId = preservedJsonEventId;
+  try {
+    await client.listTools(
+      id: 'malformed-post-json',
+      streamable: false,
+      headers: const <String, String>{
+        'x-test-malformed-json-response': '1',
+        'x-test-response-session-id': 'agent-post-json-session',
+      },
+    );
+    throw StateError('MCP client accepted malformed POST JSON.');
+  } on FormatException {
+    // Expected: malformed response bodies must not mutate session state.
+  }
+  _expect(
+    client.sessionId == sessionId &&
+        client.lastEventId == preservedJsonEventId,
+    'malformed POST JSON poisoned Streamable session state',
+  );
+
+  const preservedSseEventId = 'agent-session:get:preserved-sse-post';
+  client.lastEventId = preservedSseEventId;
+  try {
+    await client.listTools(
+      id: 'malformed-post-sse',
+      headers: const <String, String>{
+        'x-test-malformed-sse-response': '1',
+        'x-test-response-session-id': 'agent-post-sse-session',
+      },
+    );
+    throw StateError('MCP client accepted malformed POST SSE data.');
+  } on FormatException {
+    // Expected: malformed SSE event data must not mutate session state.
+  }
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == preservedSseEventId,
+    'malformed POST SSE poisoned Streamable session state',
+  );
+
+  final tools = await client.listTools(
+    id: 'malformed-post-recovery',
+    streamable: false,
+  );
+  _expect(
+    tools.tools.any((tool) => tool['name'] == _toolName),
+    'malformed POST recovery did not reuse the preserved session',
+  );
+  _expect(
+    client.sessionId == sessionId,
+    'malformed POST recovery lost the active session',
   );
   client.lastEventId = eventId;
 }
@@ -3754,6 +3819,15 @@ final class _AgentMcpEndpoint {
           await _writeSessionError(request);
           return;
         }
+        if (request.headers.value('x-test-malformed-json-response') == '1') {
+          await _writeMalformedJson(request);
+          return;
+        }
+        if (_isStreamableRequest(request) &&
+            request.headers.value('x-test-malformed-sse-response') == '1') {
+          await _writeMalformedSse(request);
+          return;
+        }
         if (_isStreamableRequest(request) &&
             request.headers.value('x-test-sse-prefix-notification') == '1') {
           await _writeSseValues(request, <MapEntry<String, Object?>>[
@@ -4679,6 +4753,13 @@ final class _AgentMcpEndpoint {
     await request.response.close();
   }
 
+  Future<void> _writeMalformedJson(HttpRequest request) async {
+    request.response.headers.contentType = ContentType.json;
+    _applyTestResponseHeaders(request);
+    request.response.write('{');
+    await request.response.close();
+  }
+
   Future<void> _writeText(
     HttpRequest request,
     String body, {
@@ -4711,9 +4792,23 @@ final class _AgentMcpEndpoint {
       'event-stream',
       charset: 'utf-8',
     );
+    _applyTestResponseHeaders(request);
     request.response.write('id: $id\n');
     request.response.write('event: message\n');
     request.response.write('data: ${jsonEncode(message)}\n\n');
+    await request.response.close();
+  }
+
+  Future<void> _writeMalformedSse(HttpRequest request) async {
+    request.response.headers.contentType = ContentType(
+      'text',
+      'event-stream',
+      charset: 'utf-8',
+    );
+    _applyTestResponseHeaders(request);
+    request.response.write('id: agent-session:post:malformed\n');
+    request.response.write('event: message\n');
+    request.response.write('data: {\n\n');
     await request.response.close();
   }
 
@@ -4726,6 +4821,7 @@ final class _AgentMcpEndpoint {
       'event-stream',
       charset: 'utf-8',
     );
+    _applyTestResponseHeaders(request);
     for (final event in events) {
       request.response.write('id: ${event.key}\n');
       request.response.write('event: message\n');

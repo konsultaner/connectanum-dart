@@ -781,7 +781,6 @@ final class McpStreamableHttpClient {
     final body = await _readBody(response);
     if (capturesSessionHeaders) {
       _throwIfHttpErrorForSession(response, body);
-      _captureSessionHeaders(response);
     } else {
       _throwIfHttpError(response, body);
     }
@@ -789,16 +788,27 @@ final class McpStreamableHttpClient {
     if (response.statusCode == HttpStatus.accepted ||
         response.statusCode == HttpStatus.noContent ||
         body.isEmpty) {
+      if (capturesSessionHeaders) {
+        _captureSessionHeaders(response);
+      }
       return null;
     }
 
     if (_isSse(response)) {
-      return _jsonRpcResponseValueFromSseEvents(
-        message,
-        parseMcpSseEvents(body),
-      );
+      final events = parseMcpSseEvents(body);
+      final value = _jsonRpcResponseValueFromSseEvents(message, events);
+      if (capturesSessionHeaders) {
+        _captureSessionHeaders(response);
+      }
+      _captureLastEventId(events);
+      return value;
     }
-    return _jsonValueFromBody(body);
+
+    final value = _jsonValueFromBody(body);
+    if (capturesSessionHeaders) {
+      _captureSessionHeaders(response);
+    }
+    return value;
   }
 
   Future<List<McpSseEvent>> poll({
@@ -940,7 +950,6 @@ final class McpStreamableHttpClient {
     Object? requestPayload,
     List<McpSseEvent> events,
   ) {
-    _captureLastEventId(events);
     final values = <Object?>[];
     for (final event in events) {
       final value = event.jsonValue;

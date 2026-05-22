@@ -601,6 +601,62 @@ void main() {
       },
     );
 
+    test(
+      'keeps Streamable HTTP session state after malformed POST responses',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'malformed-post-init');
+        expect(initialize['id'], 'malformed-post-init');
+        expect(client.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-json';
+        await expectLater(
+          client.listTools(
+            id: 'malformed-json-tools',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-malformed-json-response': '1',
+              'x-test-response-session-id': 'post-json-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-json');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-sse';
+        await expectLater(
+          client.listTools(
+            id: 'malformed-sse-tools',
+            headers: const <String, String>{
+              'x-test-malformed-sse-response': '1',
+              'x-test-response-session-id': 'post-sse-session',
+            },
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-sse');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        final page = await client.listTools(
+          id: 'fresh-after-malformed-post',
+          streamable: false,
+        );
+        expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-sse');
+      },
+    );
+
     test('rejects empty bearer tokens', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -2731,6 +2787,15 @@ final class _FakeMcpEndpoint {
       return;
     }
 
+    if (request.headers.value('x-test-malformed-json-response') == '1') {
+      request.response.statusCode = HttpStatus.ok;
+      request.response.headers.contentType = ContentType.json;
+      _applyTestResponseHeaders(request);
+      request.response.write('{');
+      await request.response.close();
+      return;
+    }
+
     if (method == 'connectanum.tools.list') {
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
@@ -3106,6 +3171,14 @@ final class _FakeMcpEndpoint {
         (request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
           'text/event-stream',
         )) {
+      if (request.headers.value('x-test-malformed-sse-response') == '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:malformed\n'
+          'data: {\n\n',
+        );
+        return;
+      }
       if (request.headers.value('x-test-sse-reset-event-id') == '1') {
         _writeSse(
           request,
@@ -3343,7 +3416,10 @@ final class _FakeMcpEndpoint {
       _headerProtocolVersion,
       McpStreamableHttpClient.latestProtocolVersion,
     );
-    request.response.headers.set(_headerSessionId, 'session-1');
+    request.response.headers.set(
+      _headerSessionId,
+      request.headers.value('x-test-response-session-id') ?? 'session-1',
+    );
     request.response.write(body);
     unawaited(request.response.close());
   }
