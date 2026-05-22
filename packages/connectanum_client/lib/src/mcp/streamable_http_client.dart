@@ -887,6 +887,9 @@ final class McpStreamableHttpClient {
   void _captureSessionHeaders(HttpClientResponse response) {
     final negotiatedSessionId = response.headers.value(_headerSessionId);
     if (negotiatedSessionId != null && negotiatedSessionId.isNotEmpty) {
+      if (sessionId != negotiatedSessionId) {
+        lastEventId = null;
+      }
       sessionId = negotiatedSessionId;
     }
     final negotiatedProtocolVersion = response.headers.value(

@@ -2,20 +2,44 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Current local implementation follow-up extends
-the generated router-hosted MCP consumer smoke for public package
-standard-header ownership against a real router.
-Latest fully clean hosted checkpoint: Commit `6cc318b`.
-Current local implementation follow-up makes the generated router-hosted MCP
-consumer package smoke send stale caller `Mcp-Method` and `Mcp-Name` headers
+Last reviewed branch checkpoint: Current local implementation follow-up resets
+the public MCP Streamable HTTP client SSE cursor when a response negotiates a
+different session id.
+Latest fully clean hosted checkpoint: Commit `f08e002`.
+The current local implementation follow-up updates
+`McpStreamableHttpClient._captureSessionHeaders` so `lastEventId` is cleared
+before adopting a changed non-empty `MCP-Session-Id`. This keeps
+`Last-Event-ID` scoped to the active Streamable HTTP session and prevents
+re-initialize or session-rotation flows from sending a previous session's SSE
+cursor on the next GET/SSE poll. The existing stale-session regression now
+asserts re-initialize clears the cursor. Pre-change `bin/test-fast`, focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`git diff --check`, and full local `bin/verify` passed.
+Prior hosted checkpoint details: Commit `f08e002`
+(`test: cover router mcp standard headers`) extends the generated
+router-hosted MCP consumer smoke for public package standard-header ownership
+against a real router. The generated router-hosted MCP
+consumer package smoke sends stale caller `Mcp-Method` and `Mcp-Name` headers
 through public direct JSON tool helper calls, generic Streamable JSON-RPC
 `tools/call` POSTs, Streamable WAMP pub/sub notifications, and Streamable tool
 notifications. The smoke now proves public consumer-package APIs sanitize or
 own standard MCP headers before the real router validates direct JSON and
 Streamable HTTP requests. Pre-change `bin/test-fast`, `bash -n bin/common.sh`,
 focused `bash -lc 'source bin/common.sh && run_mcp_consumer_package_smoke'`,
-`git diff --check`, and full local `bin/verify` passed.
-Latest hosted checkpoint details: Commit `6cc318b`
+`git diff --check`, and full local `bin/verify` passed. The commit was pushed
+to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `f08e002`: `master` CI run `26267304417` and
+`add-router` CI run `26267301141` passed with Fast Checks and Full Verify
+green. The strict deployment-chain audit passed required gates on `master` at
+`f08e002`, using current-head CI/log evidence plus still-relevant Dart package
+dry-run, native release dry-run, Router Image dry-run, and WAMP profile
+benchmark evidence because no package, native-release, router-image, or WAMP
+profile inputs changed in this script/docs checkpoint. RC readiness remains
+not-ready only because no approved numeric RC tag, GitHub prerelease, or
+matching RC router image tag has been selected, and pub.dev publishing remains
+deferred for release-order/operator decisions. No RC tag, GitHub Release, or
+router image was created or moved.
+Prior hosted checkpoint details: Commit `6cc318b`
 (`test: cover consumer mcp standard headers`) extends the generated
 client-only MCP consumer smoke for public package standard-header ownership.
 The generated client-only MCP consumer package smoke now sends stale caller

@@ -392,6 +392,7 @@ void main() {
         final initialize = await client.initialize(id: 'fresh-initialize');
         expect(initialize['id'], 'fresh-initialize');
         expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, isNull);
         expect(endpoint.requests.single.sessionId, isNull);
 
         await expectSessionFailureClearsState(
