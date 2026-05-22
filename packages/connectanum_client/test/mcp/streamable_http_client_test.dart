@@ -506,6 +506,48 @@ void main() {
     );
 
     test(
+      'keeps Streamable HTTP session state after non-SSE poll responses',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'poll-session-init');
+        expect(initialize['id'], 'poll-session-init');
+        expect(client.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept';
+        await expectLater(
+          client.poll(
+            headers: const <String, String>{
+              'x-test-poll-json-response': '1',
+              'x-test-response-session-id': 'poll-json-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('Expected text/event-stream'),
+            ),
+          ),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept');
+        expect(endpoint.requests.last.method, 'GET');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+        expect(endpoint.requests.last.lastEventId, 'session-1:get:kept');
+
+        final events = await client.poll();
+        expect(events, hasLength(1));
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:1');
+      },
+    );
+
+    test(
       'rejects malformed response session headers without poisoning state',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -2560,6 +2602,14 @@ final class _FakeMcpEndpoint {
         await _handlePost(request, jsonBody);
         return;
       case 'GET':
+        if (request.headers.value('x-test-poll-json-response') == '1') {
+          _writeJson(request, <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'poll-json',
+            'result': <String, Object?>{},
+          });
+          return;
+        }
         _writeSse(
           request,
           'id: session-1:get:1\n'

@@ -2,30 +2,63 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP empty response session header rejection.
-Latest fully clean hosted checkpoint: Commit `dbaa0f3`.
-Current implementation checkpoint: `McpStreamableHttpClient` now treats any
-present Streamable HTTP `MCP-Session-Id` response header as a value that must
-pass `_mcpSessionIdHeaderValueValid(...)`; a missing response header still
-means no session negotiation, but an explicit empty `MCP-Session-Id` now clears
-`sessionId` and `lastEventId` and throws `McpStreamableProtocolException`.
-The client regression was added first and failed against the prior behavior
-because an empty response `MCP-Session-Id` was accepted as a successful
-`initialize` result instead of a protocol error. The generated client-only
-consumer-package smoke now exercises the same explicit empty response-session
-header through public `connectanum_mcp_io.dart` APIs and proves the client
-state remains clear before a fresh initialize recovers. The pre-change
-`bin/test-fast` gate was started before edits and completed cleanly. After the
-fix, focused
+Last reviewed branch checkpoint: MCP non-SSE poll response session isolation.
+Latest fully clean hosted checkpoint: Commit `d0f5358`.
+Current implementation checkpoint: `McpStreamableHttpClient.poll()` now
+validates that a successful Streamable HTTP GET response is
+`text/event-stream` before capturing server-provided `MCP-Session-Id` or
+protocol-version headers. A non-SSE `200 OK` poll response with a valid-looking
+response session header still throws `FormatException`, but no longer replaces
+the active `sessionId` or clears the existing `lastEventId`. The client
+regression was added first and failed against the prior behavior because a JSON
+poll response with `MCP-Session-Id: poll-json-session` changed the active
+session from `session-1` before throwing. The generated client-only
+consumer-package smoke now exercises the same non-SSE poll response through
+public `connectanum_mcp_io.dart` APIs, proves the active session and resume
+cursor remain intact, clears the test cursor, and verifies a fresh poll can
+recover on the same session. The pre-change `bin/test-fast` gate passed before
+edits. After the fix, focused
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
--r expanded --plain-name "rejects malformed response session headers without
-poisoning state"`, full
+-r expanded -n "keeps Streamable HTTP session state after non-SSE poll
+responses"`, full
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
 -r expanded`, `bash -n bin/common.sh`, focused `bash -lc 'source
 bin/common.sh && run_mcp_client_package_smoke'`, `dart analyze
-packages/connectanum_client`, repeated `bin/test-fast`, `git diff --check`,
-and full local `bin/verify` passed on 2026-05-22. Hosted deployment-chain
-evidence is pending for this checkpoint.
+packages/connectanum_client`, and repeated `bin/test-fast` passed on
+2026-05-22. Full local `bin/verify` also passed on 2026-05-22.
+Hosted GitHub evidence remains clean at `d0f5358`: `master` CI run
+`26306530073` passed with Fast Checks and Full Verify green and clean logs,
+`add-router` CI run `26306530125` passed, `master` Dart Package Publish Dry Run
+`26306530127` and `add-router` Dart Package Publish Dry Run `26306530072`
+passed, `master` WAMP Profile Benchmarks `26306530135` and `add-router` WAMP
+Profile Benchmarks `26306530124` passed, and current-head Router Image dry-run
+`26306568456` passed for `0.1.0-rc.2-validation.d0f5358` with preview upload,
+skipped GHCR login, completed multi-arch build, and clean annotations. Native
+Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed since `89c7915`. The strict
+deployment-chain audit passed required gates on `master` at `d0f5358`,
+including clean current-head CI/logs, Dart package dry-run, WAMP profile
+benchmark evidence, Router Image dry-run, native release dry-run relevance,
+branch protection, workflow visibility, and router package visibility. RC
+readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected, and pub.dev
+publishing remains deferred for release-order and operator decisions. No RC tag,
+GitHub Release, or router image was created or moved.
+Prior hosted checkpoint details: Commit `d0f5358`
+(`fix: reject empty mcp response sessions`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. `McpStreamableHttpClient` now treats
+any present Streamable HTTP `MCP-Session-Id` response header as a value that
+must pass `_mcpSessionIdHeaderValueValid(...)`; a missing response header still
+means no session negotiation, but an explicit empty `MCP-Session-Id` now clears
+`sessionId` and `lastEventId` and throws `McpStreamableProtocolException`. The
+client regression was added first and failed against the prior behavior because
+an empty response `MCP-Session-Id` was accepted as a successful `initialize`
+result instead of a protocol error. The generated client-only consumer-package
+smoke now exercises the same explicit empty response-session header through
+public `connectanum_mcp_io.dart` APIs and proves the client state remains clear
+before a fresh initialize recovers. Pre-change and post-change local gates,
+including full local `bin/verify`, passed on 2026-05-22. Hosted evidence is
+clean at `d0f5358` as summarized above.
 Prior hosted checkpoint details: Commit `dbaa0f3`
 (`fix: reset mcp sse resume cursor`) was pushed to GitLab `origin`, GitHub
 `add-router`, and GitHub `master`. `McpStreamableHttpClient` now treats an

@@ -909,6 +909,7 @@ Future<void> main() async {
 
     await _smokeGenericJsonRpcApi(client, endpoint);
     await _smokeStreamableSseResponseSelection(client);
+    await _smokeStreamablePollNonSseSessionIsolation(client);
     await _smokeControlledMcpRequestHeaders(client, endpoint);
     await _smokeDirectJsonHttpErrorsPreserveSession(client, endpoint);
     await _smokeGenericJsonRpcBatchErrors(client);
@@ -1125,6 +1126,46 @@ Future<void> _smokeStreamableSseResponseSelection(
   _expect(
     client.sessionId == sessionId,
     'Streamable SSE response selection changed the active session id',
+  );
+  client.lastEventId = eventId;
+}
+
+Future<void> _smokeStreamablePollNonSseSessionIsolation(
+  McpStreamableHttpClient client,
+) async {
+  final sessionId = client.sessionId;
+  final eventId = client.lastEventId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Streamable non-SSE poll smoke has no session.');
+  }
+
+  const preservedEventId = 'agent-session:get:preserved';
+  client.lastEventId = preservedEventId;
+  try {
+    await client.poll(
+      headers: const <String, String>{
+        'x-test-poll-json-response': '1',
+        'x-test-response-session-id': 'agent-poll-json-session',
+      },
+    );
+    throw StateError('MCP client accepted a non-SSE poll response.');
+  } on FormatException catch (error) {
+    _expect(
+      error.message.contains('text/event-stream'),
+      'non-SSE poll response error did not mention text/event-stream',
+    );
+  }
+
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == preservedEventId,
+    'non-SSE poll response poisoned Streamable session state',
+  );
+
+  client.lastEventId = null;
+  final events = await client.poll();
+  _expect(
+    events.length == 1 && client.lastEventId == _firstEventId,
+    'non-SSE poll recovery did not reuse the preserved session',
   );
   client.lastEventId = eventId;
 }
@@ -3587,6 +3628,14 @@ final class _AgentMcpEndpoint {
         return;
       }
       _recordStreamableTrace('GET', request);
+      if (request.headers.value('x-test-poll-json-response') == '1') {
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'poll-json',
+          'result': <String, Object?>{},
+        });
+        return;
+      }
       final lastEventId = request.headers.value('Last-Event-ID');
       if (lastEventId != null) {
         if (lastEventId == _firstEventId) {

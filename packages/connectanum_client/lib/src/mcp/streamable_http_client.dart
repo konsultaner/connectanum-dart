@@ -816,7 +816,6 @@ final class McpStreamableHttpClient {
     final response = await request.close();
     final body = await _readBody(response);
     _throwIfHttpErrorForSession(response, body);
-    _captureSessionHeaders(response);
 
     if (!_isSse(response)) {
       throw FormatException(
@@ -824,6 +823,7 @@ final class McpStreamableHttpClient {
       );
     }
 
+    _captureSessionHeaders(response);
     final events = parseMcpSseEvents(body);
     _captureLastEventId(events);
     return events;

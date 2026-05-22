@@ -78,6 +78,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-22: `McpStreamableHttpClient.poll()` now validates successful
+  Streamable HTTP GET responses as `text/event-stream` before capturing
+  server-provided `MCP-Session-Id` or protocol-version headers. A non-SSE
+  `200 OK` poll response with a valid-looking response session header still
+  throws `FormatException`, but no longer replaces the active session id or
+  clears the resume cursor. The client regression was added first and failed
+  against the prior behavior because a JSON poll response with
+  `MCP-Session-Id: poll-json-session` changed the active session from
+  `session-1` before throwing. The generated client-only consumer-package smoke
+  now exercises the same non-SSE poll response through public
+  `connectanum_mcp_io.dart` APIs, proves the active session and resume cursor
+  remain intact, clears the test cursor, and verifies a fresh poll can recover
+  on the same session. Pre-change `bin/test-fast` passed before edits; after
+  the fix, focused client regression coverage, full
+  `streamable_http_client_test.dart`, `bash -n bin/common.sh`, focused
+  generated client-only consumer smoke, `dart analyze
+  packages/connectanum_client`, repeated `bin/test-fast`, and full local
+  `bin/verify` passed. Hosted evidence remains clean at `d0f5358` until this
+  implementation is pushed and audited.
 - 2026-05-22: `McpStreamableHttpClient` now rejects explicit empty
   Streamable HTTP `MCP-Session-Id` response headers instead of silently
   ignoring them. A missing response session header still means no negotiation,
@@ -95,8 +114,19 @@ decision because `connectanum_client` still depends on private
   `streamable_http_client_test.dart`, `bash -n bin/common.sh`, focused
   generated client-only consumer smoke, `dart analyze
   packages/connectanum_client`, repeated `bin/test-fast`, `git diff --check`,
-  and full local `bin/verify` passed on 2026-05-22. Hosted deployment-chain
-  evidence is pending for this checkpoint.
+  and full local `bin/verify` passed on 2026-05-22. Commit `d0f5358`
+  (`fix: reject empty mcp response sessions`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted `master` CI run
+  `26306530073` passed with clean logs, `add-router` CI run `26306530125`
+  passed, hosted Dart Package Publish Dry Run runs `26306530127` and
+  `26306530072` passed, hosted WAMP Profile Benchmarks runs `26306530135` and
+  `26306530124` passed, and current-head Router Image dry-run `26306568456`
+  passed for `0.1.0-rc.2-validation.d0f5358`. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed. The strict deployment-chain audit passed required gates on `master`
+  at `d0f5358`; RC readiness remains blocked only by explicit RC tag,
+  prerelease, router-image tag selection, and deferred pub.dev release-order
+  decisions.
 - 2026-05-22: `McpStreamableHttpClient` now treats an empty SSE `id:` field as
   an explicit Streamable HTTP resume-cursor reset instead of ignoring it.
   `event.id == null` still means the event did not carry an id field, while
