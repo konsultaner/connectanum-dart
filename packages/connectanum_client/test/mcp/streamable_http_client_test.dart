@@ -174,6 +174,30 @@ void main() {
       },
     );
 
+    test('clears the resume cursor when SSE sends an empty id', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+
+      final response = await client.request(
+        'tools/list',
+        id: 'tools-after-reset',
+        headers: const <String, String>{'x-test-sse-reset-event-id': '1'},
+      );
+
+      expect(response['id'], 'tools-after-reset');
+      expect(client.lastEventId, isNull);
+
+      await client.poll();
+      expect(endpoint.requests.last.method, 'GET');
+      expect(endpoint.requests.last.lastEventId, isNull);
+    });
+
     test('collects batch responses from Streamable HTTP SSE events', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -3013,6 +3037,16 @@ final class _FakeMcpEndpoint {
         (request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
           'text/event-stream',
         )) {
+      if (request.headers.value('x-test-sse-reset-event-id') == '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:1\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n'
+          'id:\n'
+          'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
+        );
+        return;
+      }
       if (request.headers.value('x-test-sse-prefix-notification') == '1') {
         _writeSse(
           request,

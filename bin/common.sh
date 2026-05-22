@@ -1044,6 +1044,30 @@ Future<void> _smokeStreamableSseResponseSelection(
     client.lastEventId == 'agent-session:post:2',
     'Streamable SSE response selection did not capture the response event id',
   );
+  final resetResponse = await client.request(
+    'tools/list',
+    id: 'streamable-sse-reset-event-id',
+    headers: const <String, String>{
+      'x-test-sse-reset-event-id': '1',
+    },
+  );
+  _expect(
+    _jsonRpcResult(
+      resetResponse,
+      id: 'streamable-sse-reset-event-id',
+      label: 'Streamable SSE empty id reset tools/list',
+    ).containsKey('tools'),
+    'Streamable SSE empty id reset returned an invalid response',
+  );
+  _expect(
+    client.lastEventId == null,
+    'Streamable SSE empty id did not clear the resume cursor',
+  );
+  await client.poll();
+  _expect(
+    client.lastEventId == _firstEventId,
+    'Streamable SSE empty id recovery poll did not resume without a stale cursor',
+  );
 
   final batch = await client.postBatch(
     const <McpJsonMap>[
@@ -3677,6 +3701,21 @@ final class _AgentMcpEndpoint {
               'agent-session:post:2',
               _toolListResponse(id, message),
             ),
+          ]);
+          return;
+        }
+        if (_isStreamableRequest(request) &&
+            request.headers.value('x-test-sse-reset-event-id') == '1') {
+          await _writeSseValues(request, <MapEntry<String, Object?>>[
+            const MapEntry<String, Object?>(
+              'agent-session:post-reset:1',
+              <String, Object?>{
+                'jsonrpc': '2.0',
+                'method': 'notifications/progress',
+                'params': <String, Object?>{'progress': 1},
+              },
+            ),
+            MapEntry<String, Object?>('', _toolListResponse(id, message)),
           ]);
           return;
         }

@@ -2,34 +2,49 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable client malformed response
-session rejection.
-Latest fully clean hosted checkpoint: Commit `eb9a9c5`.
-Current implementation checkpoint: `McpStreamableHttpClient` now validates
-server-provided Streamable HTTP `MCP-Session-Id` response headers before
-capturing them. Valid response session ids must be non-empty visible ASCII,
-matching the router-hosted session-id invariant. A malformed response
-`MCP-Session-Id` clears `sessionId` and `lastEventId` and throws
-`McpStreamableProtocolException`, so consumer applications cannot poison later
-requests with invalid MCP session state. Session headers are now captured only
-after HTTP error handling, preserving stale-session cleanup semantics for
-401/403/404 responses without accepting response session headers from failed
-requests. The client regression was added first and failed against the prior
-behavior because `initialize` accepted `malformed session` as the active
-session id. The generated client-only consumer-package smoke now uses public
-`connectanum_mcp_io.dart` APIs against a bearer-protected fake endpoint to
-prove malformed response session headers are rejected, client state remains
-clear, and a fresh Streamable initialize can recover. Pre-change
-`bin/test-fast` passed. After the fix, focused
+Last reviewed branch checkpoint: MCP Streamable SSE empty id cursor reset.
+Latest fully clean hosted checkpoint: Commit `730e75b`.
+Current implementation checkpoint: `McpStreamableHttpClient` now treats an
+empty SSE `id:` field as an explicit Streamable HTTP resume-cursor reset
+instead of ignoring it. `event.id == null` still means the event did not carry
+an id field, while `event.id == ''` clears `lastEventId`, so later `poll()`
+requests do not send a stale `Last-Event-ID` after a standards-compatible SSE
+reset. The client regression was added first and failed against the prior
+behavior because an empty response event id left `lastEventId` at
+`session-1:post:1`. The generated client-only consumer-package smoke now sends
+the same empty-id SSE response through public `connectanum_mcp_io.dart` APIs
+and follows it with a poll to prove the stale cursor was not replayed.
+Pre-change `bin/test-fast` passed. After the fix, focused
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
--r expanded --plain-name "rejects malformed response session headers without
-poisoning state"`, full
+-r expanded --plain-name "clears the resume cursor when SSE sends an empty
+id"`, full
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
--r expanded`, `dart analyze packages/connectanum_client`, `bash -n
-bin/common.sh`, focused `bash -lc 'source bin/common.sh &&
-run_mcp_client_package_smoke'`, and repeated `bin/test-fast` passed on
+-r expanded`, `bash -n bin/common.sh`, focused `bash -lc 'source
+bin/common.sh && run_mcp_client_package_smoke'`, `dart analyze
+packages/connectanum_client`, and repeated `bin/test-fast` passed on
 2026-05-22. Full local `bin/verify` passed on 2026-05-22. Hosted
 deployment-chain evidence is pending for this checkpoint.
+Prior hosted checkpoint details: Commit `730e75b`
+(`fix: reject malformed mcp response sessions`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`730e75b`: `master` CI run `26301874277` passed with Fast Checks and Full
+Verify green and clean logs, `add-router` CI run `26301874343` passed,
+`master` Dart Package Publish Dry Run `26301874299` and `add-router` Dart
+Package Publish Dry Run `26301874267` passed, `master` WAMP Profile Benchmarks
+`26301874338` and `add-router` WAMP Profile Benchmarks `26301874276` passed,
+and current-head Router Image dry-run `26301886236` passed for
+`0.1.0-rc.2-validation.730e75b` with preview upload, skipped GHCR login,
+completed multi-arch build, and clean annotations. Native Artifacts dry-run
+`26286794628` remains relevant because no native-release-sensitive inputs
+changed since `89c7915`. The strict deployment-chain audit passed required
+gates on `master` at `730e75b`, including clean current-head CI/logs, Dart
+package dry-run, WAMP profile benchmark evidence, Router Image dry-run, native
+release dry-run relevance, branch protection, workflow visibility, and router
+package visibility. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected, and pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
 Prior hosted checkpoint details: Commit `eb9a9c5`
 (`fix: reject malformed mcp session ids`) was pushed to GitLab `origin`,
 GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at

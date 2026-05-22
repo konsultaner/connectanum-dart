@@ -1008,8 +1008,8 @@ final class McpStreamableHttpClient {
   void _captureLastEventId(List<McpSseEvent> events) {
     for (final event in events) {
       final id = event.id;
-      if (id != null && id.isNotEmpty) {
-        lastEventId = id;
+      if (id != null) {
+        lastEventId = id.isEmpty ? null : id;
       }
     }
   }
