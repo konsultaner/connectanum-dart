@@ -791,6 +791,8 @@ Future<void> main() async {
       'auth client did not forward default auth headers',
     );
 
+    await _smokeMalformedResponseSessionHeader(endpoint);
+
     client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
 
     final initialize = await client.initialize(
@@ -965,6 +967,53 @@ Future<void> _smokeNonJsonAuthError(_AgentMcpEndpoint endpoint) async {
     endpoint.authTextErrorTraceHeaders.single == 'auth-text-error',
     'non-JSON auth error smoke did not forward per-call auth headers',
   );
+}
+
+Future<void> _smokeMalformedResponseSessionHeader(
+  _AgentMcpEndpoint endpoint,
+) async {
+  final client = McpStreamableHttpClient.withBearerToken(
+    endpoint.uri,
+    _accessToken,
+  );
+  try {
+    try {
+      await client.initialize(
+        id: 'malformed-response-session',
+        headers: const <String, String>{
+          'x-test-response-session-id': 'malformed session',
+        },
+      );
+      throw StateError(
+        'MCP client accepted a malformed response MCP-Session-Id.',
+      );
+    } on McpStreamableProtocolException catch (error) {
+      _expect(
+        error.toString().contains('MCP-Session-Id'),
+        'malformed response session error did not mention MCP-Session-Id',
+      );
+    }
+    _expect(
+      client.sessionId == null && client.lastEventId == null,
+      'malformed response session poisoned client state',
+    );
+
+    final recovered = await client.initialize(
+      id: 'recovered-after-malformed-session',
+    );
+    _expect(
+      recovered['id'] == 'recovered-after-malformed-session' &&
+          client.sessionId == _sessionId,
+      'client did not recover after malformed response session',
+    );
+    await client.deleteSession();
+    _expect(
+      client.sessionId == null && client.lastEventId == null,
+      'malformed response recovery cleanup did not clear session state',
+    );
+  } finally {
+    client.close(force: true);
+  }
 }
 
 Future<void> _smokeStreamableSseResponseSelection(

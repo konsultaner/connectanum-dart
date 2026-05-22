@@ -78,6 +78,27 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-22: `McpStreamableHttpClient` now validates server-provided
+  Streamable HTTP `MCP-Session-Id` response headers before capturing them.
+  Valid response session ids must be non-empty visible ASCII, matching the
+  router-hosted session-id invariant. A malformed response `MCP-Session-Id`
+  clears `sessionId` and `lastEventId` and throws
+  `McpStreamableProtocolException`, so consumer applications cannot poison
+  later requests with invalid MCP session state. Session headers are now
+  captured only after HTTP error handling, preserving stale-session cleanup
+  semantics for 401/403/404 responses without accepting response session
+  headers from failed requests. The client regression was added first and
+  failed against the previous behavior because `initialize` accepted
+  `malformed session` as the active session id. The generated client-only
+  consumer-package smoke now uses public `connectanum_mcp_io.dart` APIs against
+  a bearer-protected fake endpoint to prove malformed response session headers
+  are rejected, client state remains clear, and a fresh Streamable initialize
+  can recover. Pre-change `bin/test-fast` passed; after the fix, focused client
+  regression coverage, full `streamable_http_client_test.dart`, `dart analyze
+  packages/connectanum_client`, `bash -n bin/common.sh`, focused generated
+  client-only consumer smoke, and repeated `bin/test-fast` passed. Full local
+  `bin/verify` passed on 2026-05-22. Hosted deployment-chain evidence is
+  pending for this checkpoint.
 - 2026-05-22: Router-hosted MCP Streamable HTTP session IDs now reject
   malformed client headers before endpoint lookup or response-header echo.
   `_mcpSessionIdHeaderValueValid(...)` permits only non-empty visible ASCII for
@@ -93,9 +114,20 @@ decision because `connectanum_client` still depends on private
   reject them without capturing Streamable client state. Pre-change
   `bin/test-fast` passed; after the fix, focused router integration coverage,
   `dart analyze packages/connectanum_router`, `bash -n bin/common.sh`, focused
-  generated router-hosted MCP consumer smoke, repeated `bin/test-fast`, and
-  full local `bin/verify` passed. Hosted deployment-chain evidence is pending
-  for this checkpoint.
+  generated router-hosted MCP consumer smoke, repeated `bin/test-fast`, `git
+  diff --check`, and full local `bin/verify` passed. Commit `eb9a9c5`
+  (`fix: reject malformed mcp session ids`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted `master` CI run
+  `26299150343` passed with clean logs, `add-router` CI run `26299150459`
+  passed, hosted Dart Package Publish Dry Run runs `26299150379` and
+  `26299150397` passed, hosted WAMP Profile Benchmarks runs `26299150488` and
+  `26299150455` passed, and current-head Router Image dry-run `26299168032`
+  passed for `0.1.0-rc.2-validation.eb9a9c5`. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed. The strict deployment-chain audit passed required gates on `master`
+  at `eb9a9c5`; RC readiness remains blocked only by explicit RC tag,
+  prerelease, router-image tag selection, and deferred pub.dev release-order
+  decisions.
 - 2026-05-22: Router-hosted MCP Streamable HTTP `initialize` now rejects
   requests that include a client-supplied `MCP-Session-Id` before endpoint
   lookup or creation. The router returns a `400` JSON-RPC `invalid_request`,

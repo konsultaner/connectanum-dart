@@ -481,6 +481,41 @@ void main() {
       },
     );
 
+    test(
+      'rejects malformed response session headers without poisoning state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.initialize(
+            id: 'malformed-response-session',
+            headers: const <String, String>{
+              'x-test-response-session-id': 'malformed session',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.toString(),
+              'message',
+              contains('MCP-Session-Id'),
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(endpoint.requests.single.sessionId, isNull);
+
+        final initialize = await client.initialize(id: 'fresh-after-malformed');
+        expect(initialize['id'], 'fresh-after-malformed');
+        expect(client.sessionId, 'session-1');
+        expect(endpoint.requests.last.sessionId, isNull);
+      },
+    );
+
     test('rejects empty bearer tokens', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -2555,18 +2590,23 @@ final class _FakeMcpEndpoint {
         await request.response.close();
         return;
       }
-      _writeJson(request, <String, Object?>{
-        'jsonrpc': '2.0',
-        'id': requestBody['id'],
-        'result': <String, Object?>{
-          'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
-          'capabilities': <String, Object?>{},
-          'serverInfo': <String, Object?>{
-            'name': 'fake-router',
-            'version': '1.0.0',
+      _writeJson(
+        request,
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+            'capabilities': <String, Object?>{},
+            'serverInfo': <String, Object?>{
+              'name': 'fake-router',
+              'version': '1.0.0',
+            },
           },
         },
-      }, sessionId: 'session-1');
+        sessionId:
+            request.headers.value('x-test-response-session-id') ?? 'session-1',
+      );
       return;
     }
 

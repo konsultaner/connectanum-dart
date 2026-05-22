@@ -2,43 +2,48 @@
 
 Last updated: 2026-05-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP malformed session-id
-rejection.
-Latest fully clean hosted checkpoint: Commit `27c65d2`.
-Current implementation checkpoint: Router-hosted MCP Streamable HTTP
-session IDs now reject malformed client headers before endpoint lookup or
-response-header echo. `_mcpSessionIdHeaderValueValid(...)` permits only
-non-empty visible ASCII for session-scoped Streamable requests; malformed
-`MCP-Session-Id` on POST/GET/DELETE returns `400` JSON-RPC `invalid_request`,
-omits `MCP-Session-Id` from the response, and leaves direct JSON POST requests
-lifecycle-free. The router integration regression was added first and failed
-against the prior behavior because a malformed session id was treated as an
-unknown session with `404`. The generated consumer-package smoke now sends
-malformed Streamable POST, GET, and DELETE requests through raw `HttpClient`
-against public `McpStreamableHttpClient.endpoint`, including configured bearer
-headers, and proves public and bearer-protected router-hosted MCP endpoints
-reject them without capturing Streamable client state. Pre-change
+Last reviewed branch checkpoint: MCP Streamable client malformed response
+session rejection.
+Latest fully clean hosted checkpoint: Commit `eb9a9c5`.
+Current implementation checkpoint: `McpStreamableHttpClient` now validates
+server-provided Streamable HTTP `MCP-Session-Id` response headers before
+capturing them. Valid response session ids must be non-empty visible ASCII,
+matching the router-hosted session-id invariant. A malformed response
+`MCP-Session-Id` clears `sessionId` and `lastEventId` and throws
+`McpStreamableProtocolException`, so consumer applications cannot poison later
+requests with invalid MCP session state. Session headers are now captured only
+after HTTP error handling, preserving stale-session cleanup semantics for
+401/403/404 responses without accepting response session headers from failed
+requests. The client regression was added first and failed against the prior
+behavior because `initialize` accepted `malformed session` as the active
+session id. The generated client-only consumer-package smoke now uses public
+`connectanum_mcp_io.dart` APIs against a bearer-protected fake endpoint to
+prove malformed response session headers are rejected, client state remains
+clear, and a fresh Streamable initialize can recover. Pre-change
 `bin/test-fast` passed. After the fix, focused
-`dart test packages/connectanum_router/test/router_integration_native_test.dart
--r expanded --plain-name "guards MCP Streamable HTTP ingress and sessions"`,
-`dart analyze packages/connectanum_router`, `bash -n bin/common.sh`, focused
-`bash -lc 'source bin/common.sh && run_mcp_consumer_package_smoke'`, repeated
-`bin/test-fast`, and full local `bin/verify` passed on 2026-05-22. Hosted
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
+-r expanded --plain-name "rejects malformed response session headers without
+poisoning state"`, full
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
+-r expanded`, `dart analyze packages/connectanum_client`, `bash -n
+bin/common.sh`, focused `bash -lc 'source bin/common.sh &&
+run_mcp_client_package_smoke'`, and repeated `bin/test-fast` passed on
+2026-05-22. Full local `bin/verify` passed on 2026-05-22. Hosted
 deployment-chain evidence is pending for this checkpoint.
-Prior hosted checkpoint details: Commit `27c65d2`
-(`fix: reject client mcp initialize sessions`) was pushed to GitLab `origin`,
+Prior hosted checkpoint details: Commit `eb9a9c5`
+(`fix: reject malformed mcp session ids`) was pushed to GitLab `origin`,
 GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
-`27c65d2`: `master` CI run `26296339766` passed with Fast Checks and Full
-Verify green and clean logs, `add-router` CI run `26296339683` passed,
-`master` Dart Package Publish Dry Run `26296339784` and `add-router` Dart
-Package Publish Dry Run `26296339688` passed, `master` WAMP Profile Benchmarks
-`26296339687` and `add-router` WAMP Profile Benchmarks `26296339710` passed,
-and current-head Router Image dry-run `26296373275` passed for
-`0.1.0-rc.2-validation.27c65d2` with preview upload, skipped GHCR login,
+`eb9a9c5`: `master` CI run `26299150343` passed with Fast Checks and Full
+Verify green and clean logs, `add-router` CI run `26299150459` passed,
+`master` Dart Package Publish Dry Run `26299150379` and `add-router` Dart
+Package Publish Dry Run `26299150397` passed, `master` WAMP Profile Benchmarks
+`26299150488` and `add-router` WAMP Profile Benchmarks `26299150455` passed,
+and current-head Router Image dry-run `26299168032` passed for
+`0.1.0-rc.2-validation.eb9a9c5` with preview upload, skipped GHCR login,
 completed multi-arch build, and clean annotations. Native Artifacts dry-run
 `26286794628` remains relevant because no native-release-sensitive inputs
 changed since `89c7915`. The strict deployment-chain audit passed required
-gates on `master` at `27c65d2`, including clean current-head CI/logs, Dart
+gates on `master` at `eb9a9c5`, including clean current-head CI/logs, Dart
 package dry-run, WAMP profile benchmark evidence, Router Image dry-run, native
 release dry-run relevance, branch protection, workflow visibility, and router
 package visibility. RC readiness remains not-ready only because no approved
@@ -46,6 +51,16 @@ numeric RC tag, GitHub prerelease, or matching RC router image tag has been
 selected, and pub.dev publishing remains deferred for release-order and
 operator decisions. No RC tag, GitHub Release, or router image was created or
 moved.
+Prior hosted checkpoint details: Commit `27c65d2`
+(`fix: reject client mcp initialize sessions`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence was clean at
+`27c65d2`: `master` CI run `26296339766` passed with Fast Checks and Full
+Verify green and clean logs, `add-router` CI run `26296339683` passed,
+`master` Dart Package Publish Dry Run `26296339784` and `add-router` Dart
+Package Publish Dry Run `26296339688` passed, `master` WAMP Profile Benchmarks
+`26296339687` and `add-router` WAMP Profile Benchmarks `26296339710` passed,
+and current-head Router Image dry-run `26296373275` passed for
+`0.1.0-rc.2-validation.27c65d2`.
 Prior hosted checkpoint details: Commit `08557f7`
 (`fix: drop rejected mcp initialize sessions`) was pushed to GitLab `origin`,
 GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at

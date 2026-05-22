@@ -17,6 +17,15 @@ const _headerParameterPrefix = 'Mcp-Param-';
 const _base64HeaderPrefix = '=?base64?';
 const _base64HeaderSuffix = '?=';
 
+bool _mcpSessionIdHeaderValueValid(String value) {
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit < 0x21 || codeUnit > 0x7e) {
+      return false;
+    }
+  }
+  return value.isNotEmpty;
+}
+
 /// Minimal Dart IO client for MCP Streamable HTTP endpoints.
 ///
 /// The client keeps the negotiated MCP session headers and SSE cursor so
@@ -769,12 +778,10 @@ final class McpStreamableHttpClient {
     final capturesSessionHeaders =
         includeSession || (streamable && requestMethod == 'initialize');
     final response = await request.close();
-    if (capturesSessionHeaders) {
-      _captureSessionHeaders(response);
-    }
     final body = await _readBody(response);
     if (capturesSessionHeaders) {
       _throwIfHttpErrorForSession(response, body);
+      _captureSessionHeaders(response);
     } else {
       _throwIfHttpError(response, body);
     }
@@ -807,9 +814,9 @@ final class McpStreamableHttpClient {
     );
 
     final response = await request.close();
-    _captureSessionHeaders(response);
     final body = await _readBody(response);
     _throwIfHttpErrorForSession(response, body);
+    _captureSessionHeaders(response);
 
     if (!_isSse(response)) {
       throw FormatException(
@@ -891,6 +898,12 @@ final class McpStreamableHttpClient {
   void _captureSessionHeaders(HttpClientResponse response) {
     final negotiatedSessionId = response.headers.value(_headerSessionId);
     if (negotiatedSessionId != null && negotiatedSessionId.isNotEmpty) {
+      if (!_mcpSessionIdHeaderValueValid(negotiatedSessionId)) {
+        _clearSessionState();
+        throw const McpStreamableProtocolException(
+          'Invalid MCP-Session-Id response header',
+        );
+      }
       if (sessionId != negotiatedSessionId) {
         lastEventId = null;
       }
@@ -1364,6 +1377,15 @@ final class McpStreamableHttpException implements Exception {
     final detail = error ?? (body.isEmpty ? reasonPhrase : body);
     return 'McpStreamableHttpException($statusCode): $detail';
   }
+}
+
+final class McpStreamableProtocolException implements Exception {
+  const McpStreamableProtocolException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'McpStreamableProtocolException: $message';
 }
 
 List<McpSseEvent> parseMcpSseEvents(String body) {
