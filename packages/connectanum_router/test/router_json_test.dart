@@ -343,6 +343,16 @@ void main() {
         ],
       }, 'MCP topics[0].allow_publish must be a boolean');
       _expectInvalidMcpOptions({
+        'topics': [
+          {'topic': 'app.events', 'allowPublish': 'true'},
+        ],
+      }, 'MCP topics[0].allowPublish must be a boolean');
+      _expectInvalidMcpOptions({
+        'topics': [
+          {'topic': 'app.events', 'allowSubscribe': 'true'},
+        ],
+      }, 'MCP topics[0].allowSubscribe must be a boolean');
+      _expectInvalidMcpOptions({
         'resources': [
           {'uri': 'file:///context', 'text': 'context', 'size': '7'},
         ],

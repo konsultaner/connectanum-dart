@@ -78,6 +78,16 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: Router-hosted MCP topic route config now validates and honors
+  camel-case `allowPublish` and `allowSubscribe` aliases in addition to the
+  existing snake-case config keys, matching the public MCP WAMP topic metadata
+  shape. The router-hosted MCP smoke now declares a public read-only topic with
+  `allowPublish: false`; direct JSON and Streamable HTTP checks prove the
+  metadata exposes `allowPublish: false`/`allowSubscribe: true` and that
+  publish attempts fail instead of silently defaulting to publishable.
+  Pre-change `bin/test-fast`, focused router JSON config test, focused
+  router-hosted MCP integration smoke, and full local `bin/verify` passed.
+  Hosted evidence for this local checkpoint is pending push.
 - 2026-05-23: MCP route option validation now also rejects malformed nested
   configured procedure/topic/resource/prompt fields while building native
   router config, including non-boolean procedure call flags, non-boolean topic
@@ -87,8 +97,27 @@ decision because `connectanum_client` still depends on private
   fail-fast for consumer application configuration errors instead of silently
   ignoring nested route fields or falling back to defaults. Pre-change
   `bin/test-fast`, focused router JSON config test, and full local
-  `bin/verify` passed. Hosted evidence for this local checkpoint is pending
-  push.
+  `bin/verify` passed. Commit `9b3e96d`
+  (`fix: validate nested mcp route options`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `9b3e96d`: `master` CI run `26328491376` passed with Fast Checks and Full
+  Verify green plus clean logs, `add-router` CI run `26328491411` passed,
+  `master` Dart Package Publish Dry Run `26328491393` passed, `add-router`
+  Dart Package Publish Dry Run `26328491409` passed, `master` WAMP Profile
+  Benchmarks `26328491395` passed, `add-router` WAMP Profile Benchmarks
+  `26328491408` passed, and clean Router Image dry-run `26328839965` passed
+  for current head with preview metadata `sha-9b3e96d38542`, GHCR login
+  skipped, and no image publish. Native Artifacts dry-run `26286794628`
+  remains relevant because no native-release-sensitive inputs changed. The
+  strict deployment-chain audit passed required gates on `master` at
+  `9b3e96d`, including clean current-head CI/logs, current Dart package
+  dry-run, current WAMP profile benchmark evidence, current Router Image
+  dry-run, native release dry-run relevance, branch protection, workflow
+  visibility, and router package visibility. RC readiness remains not-ready
+  only because no approved numeric RC tag, GitHub prerelease, or matching RC
+  router image tag has been selected, and pub.dev publishing remains deferred
+  for release-order and operator decisions. No RC tag, GitHub Release, or
+  router image was created or moved.
 - 2026-05-23: MCP route option validation now also rejects non-boolean include
   flags, non-positive or non-integer list page sizes, malformed
   allowed-origin option shapes, and malformed configured

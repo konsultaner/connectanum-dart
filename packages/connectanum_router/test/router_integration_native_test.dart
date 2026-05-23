@@ -2797,7 +2797,18 @@ void main() {
         streamableTopicCatalogResult['structuredContent'],
       );
       expect(streamableTopicCatalogJson, contains('app.events.audit'));
+      expect(streamableTopicCatalogJson, contains('app.events.readonly'));
       expect(streamableTopicCatalogJson, isNot(contains('app.secure.audit')));
+
+      final streamableReadOnlyTopic = await streamableClient.callTool(
+        'connectanum.api.describe',
+        id: 'streamable-readonly-topic',
+        arguments: {'uri': 'app.events.readonly'},
+      );
+      final streamableReadOnlyTopicDetails =
+          streamableReadOnlyTopic['structuredContent'] as Map<String, Object?>;
+      expect(streamableReadOnlyTopicDetails['allowPublish'], isFalse);
+      expect(streamableReadOnlyTopicDetails['allowSubscribe'], isTrue);
 
       final streamableSafeRegistration = await streamableClient
           .matchWampRegistration(
@@ -2867,6 +2878,26 @@ void main() {
           ((streamablePublish['result'] as Map)['structuredContent'] as Map)
               .cast<String, Object?>();
       expect(streamablePublishResult['acknowledged'], isTrue);
+
+      final streamableReadOnlyPublish = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-readonly-publish',
+        params: {
+          'name': 'connectanum.pubsub.publish',
+          'arguments': {
+            'topic': 'app.events.readonly',
+            'argumentsKeywords': {'via': 'streamable-readonly'},
+            'acknowledge': true,
+          },
+        },
+      );
+      final streamableReadOnlyPublishResult =
+          (streamableReadOnlyPublish['result'] as Map).cast<String, Object?>();
+      expect(streamableReadOnlyPublishResult['isError'], isTrue);
+      expect(
+        jsonEncode(streamableReadOnlyPublishResult),
+        contains('not publishable'),
+      );
 
       await serviceSession.publish(
         'app.events.audit',
@@ -3245,6 +3276,43 @@ void main() {
         directJson: true,
       );
       expect(directPubSubPublish.acknowledged, isTrue);
+
+      final directReadOnlyTopic = await _callMcpTool(
+        client,
+        listener.port,
+        '/mcp/public',
+        'connectanum.api.describe',
+        {'uri': 'app.events.readonly'},
+      );
+      final directReadOnlyTopicDetails =
+          directReadOnlyTopic['structuredContent'] as Map<String, Object?>;
+      expect(directReadOnlyTopicDetails['allowPublish'], isFalse);
+      expect(directReadOnlyTopicDetails['allowSubscribe'], isTrue);
+
+      final directReadOnlyPublish = await _postJson(
+        client,
+        listener.port,
+        '/mcp/public',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-readonly-publish',
+          'method': 'connectanum.pubsub.publish',
+          'params': {
+            'topic': 'app.events.readonly',
+            'argumentsKeywords': {'via': 'direct-readonly'},
+            'acknowledge': true,
+          },
+        },
+      );
+      expect(directReadOnlyPublish.statusCode, equals(HttpStatus.ok));
+      final directReadOnlyPublishResult =
+          (directReadOnlyPublish.json?['result'] as Map)
+              .cast<String, Object?>();
+      expect(directReadOnlyPublishResult['isError'], isTrue);
+      expect(
+        jsonEncode(directReadOnlyPublishResult),
+        contains('not publishable'),
+      );
 
       await serviceSession.publish(
         'app.events.audit',
@@ -5135,6 +5203,13 @@ RouterSettings _buildMcpSmokeSettings() {
             },
           },
         },
+      },
+      {
+        'topic': 'app.events.readonly',
+        'title': 'Read-only audit events',
+        'description': 'Audit events that MCP clients may subscribe to only.',
+        'allowPublish': false,
+        'allowSubscribe': true,
       },
       {
         'topic': 'app.secure.audit',

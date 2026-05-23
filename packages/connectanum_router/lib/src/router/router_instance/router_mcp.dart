@@ -2865,7 +2865,12 @@ void _validateMcpTopicRouteOptionShapes(Map<String, Object?> options) {
   for (var i = 0; i < entries.length; i += 1) {
     final config = (entries[i] as Map).cast<String, Object?>();
     final label = 'topics[$i]';
-    for (final key in const <String>['allow_publish', 'allow_subscribe']) {
+    for (final key in const <String>[
+      'allow_publish',
+      'allow_subscribe',
+      'allowPublish',
+      'allowSubscribe',
+    ]) {
       _validateMcpBoolConfigOption(config, label, key);
     }
   }
@@ -3070,8 +3075,14 @@ mcp.McpWampTopic _topicFromConfig(Map<String, Object?> config) {
         _stringFrom(config['description']) ?? metadata?.shortDescription,
     eventSchema:
         _schemaFromDetails(config, 'event') ?? metadata?.outputJsonSchema,
-    allowPublish: _boolOption(config, 'allow_publish', defaultValue: true),
-    allowSubscribe: _boolOption(config, 'allow_subscribe', defaultValue: true),
+    allowPublish: _boolOptionAny(config, const [
+      'allow_publish',
+      'allowPublish',
+    ], defaultValue: true),
+    allowSubscribe: _boolOptionAny(config, const [
+      'allow_subscribe',
+      'allowSubscribe',
+    ], defaultValue: true),
     metadata: metadata,
   );
 }
@@ -3633,6 +3644,20 @@ bool _boolOption(
 }) {
   final value = options[key];
   return value is bool ? value : defaultValue;
+}
+
+bool _boolOptionAny(
+  Map<String, Object?> options,
+  Iterable<String> keys, {
+  required bool defaultValue,
+}) {
+  for (final key in keys) {
+    final value = options[key];
+    if (value is bool) {
+      return value;
+    }
+  }
+  return defaultValue;
 }
 
 int? _intOption(Map<String, Object?> options, String key) {
