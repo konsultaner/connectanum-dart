@@ -78,6 +78,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: The generated router-hosted MCP consumer package smoke now
+  proves public `mcpWampPublishOptions(...)` delivery semantics through both
+  direct JSON and Streamable MCP paths. Each path publishes with
+  `acknowledge: true` and `excludeMe: false`, then polls the same MCP
+  subscription to prove the caller receives its own event; each path also
+  publishes with `excludeMe: true` and asserts the caller does not receive that
+  event. The smoke still verifies service-session publication delivery
+  afterward, so the coverage now proves the public option builder affects real
+  router pub/sub delivery instead of only publish acknowledgements. Pre-change
+  `bin/test-fast`, `bash -n bin/common.sh`, focused generated router-hosted MCP
+  consumer smoke, repeated `bin/test-fast`, and full local `bin/verify` passed.
+  Hosted evidence is pending until this implementation is committed, pushed,
+  and audited; the latest fully clean hosted checkpoint remains `8aba33c`.
 - 2026-05-23: Public MCP WAMP pub/sub clients now have
   `mcpWampPublishOptions(...)` and `mcpWampSubscribeOptions(...)` builders for
   canonical WAMP option maps instead of hand-built string-key maps. The
@@ -92,9 +105,27 @@ decision because `connectanum_client` still depends on private
   `bin/test-fast`, focused client/MCP tests,
   `dart analyze packages/connectanum_client packages/connectanum_mcp`, focused
   generated client-only and router-hosted consumer smokes, repeated
-  `bin/test-fast`, and full local `bin/verify` passed. Hosted evidence is
-  pending until this implementation is committed, pushed, and audited; the
-  latest fully clean hosted checkpoint remains `06228fb`.
+  `bin/test-fast`, and full local `bin/verify` passed. Commit `8aba33c`
+  (`feat: add mcp wamp option builders`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted evidence is clean at
+  `8aba33c`: `master` CI run `26319930691` passed with Fast Checks and Full
+  Verify green and clean logs, `add-router` CI run `26319930213` passed,
+  `master` Dart Package Publish Dry Run `26319930721` and `add-router` Dart
+  Package Publish Dry Run `26319930224` passed, `master` WAMP Profile
+  Benchmarks `26319930699` and `add-router` WAMP Profile Benchmarks
+  `26319930217` passed, and Router Image dry-run `26320203435` passed for
+  `0.1.0-rc.2-validation.8aba33c` with preview upload, skipped GHCR login,
+  completed multi-arch build, and clean annotations. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed since `89c7915`. The strict deployment-chain audit passed required
+  gates on `master` at `8aba33c`, including clean current-head CI/logs, Dart
+  package dry-run, WAMP profile benchmark evidence, Router Image dry-run,
+  native release dry-run relevance, branch protection, workflow visibility,
+  and router package visibility. RC readiness remains not-ready only because no
+  approved numeric RC tag, GitHub prerelease, or matching RC router image tag
+  has been selected, and pub.dev publishing remains deferred for release-order
+  and operator decisions. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-23: `McpWampApi` now normalizes standard WAMP publish and subscribe
   option keys from public MCP pub/sub `options` maps into typed
   `PublishOptions` and `SubscribeOptions` before dispatching through the WAMP

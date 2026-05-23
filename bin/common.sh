@@ -12045,6 +12045,7 @@ Future<void> _smokeDirectJson(
       argumentsKeywords: {'taskId': 'T-$label-direct-publish'},
       options: mcpWampPublishOptions(
         acknowledge: true,
+        excludeMe: false,
         custom: <String, Object?>{
           'x_consumer_trace': '$label-direct-publish',
         },
@@ -12052,6 +12053,48 @@ Future<void> _smokeDirectJson(
     );
     if (!publication.acknowledged) {
       throw StateError('Direct JSON MCP pub/sub publish was not acknowledged.');
+    }
+    final selfEvents = await _pollMcpEventsUntil(
+      client,
+      subscription.handle,
+      directJson: true,
+    );
+    if (!jsonEncode(selfEvents.events).contains('T-$label-direct-publish')) {
+      throw StateError(
+        'Direct JSON MCP pub/sub publish with exclude_me=false was not '
+        'delivered to its own subscription.',
+      );
+    }
+
+    final excludedPublication = await client.publishWampEventDirect(
+      _topic,
+      id: '$label-direct-publish-exclude-me',
+      argumentsKeywords: {'taskId': 'T-$label-direct-publish-exclude-me'},
+      options: mcpWampPublishOptions(
+        acknowledge: true,
+        excludeMe: true,
+        custom: <String, Object?>{
+          'x_consumer_trace': '$label-direct-publish-exclude-me',
+        },
+      ),
+    );
+    if (!excludedPublication.acknowledged) {
+      throw StateError(
+        'Direct JSON MCP pub/sub exclude_me publish was not acknowledged.',
+      );
+    }
+    final excludedEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: '$label-direct-poll-exclude-me',
+      limit: 4,
+    );
+    if (jsonEncode(excludedEvents.events).contains(
+      'T-$label-direct-publish-exclude-me',
+    )) {
+      throw StateError(
+        'Direct JSON MCP pub/sub publish with exclude_me=true reached its own '
+        'subscription.',
+      );
     }
 
     await serviceSession.publish(
@@ -15308,6 +15351,62 @@ Future<void> _smokeStreamableMcp(
   );
   try {
     await _smokeWampSubscriptionMeta(client, serviceSession, label: label);
+
+    final selfPublication = await client.publishWampEvent(
+      _topic,
+      id: '$label-streamable-publish',
+      argumentsKeywords: {'taskId': 'T-$label-streamable-publish'},
+      options: mcpWampPublishOptions(
+        acknowledge: true,
+        excludeMe: false,
+        custom: <String, Object?>{
+          'x_consumer_trace': '$label-streamable-publish',
+        },
+      ),
+    );
+    if (!selfPublication.acknowledged) {
+      throw StateError('Streamable MCP pub/sub publish was not acknowledged.');
+    }
+    final selfEvents = await _pollMcpEventsUntil(client, subscription.handle);
+    if (!jsonEncode(selfEvents.events).contains(
+      'T-$label-streamable-publish',
+    )) {
+      throw StateError(
+        'Streamable MCP pub/sub publish with exclude_me=false was not '
+        'delivered to its own subscription.',
+      );
+    }
+
+    final excludedPublication = await client.publishWampEvent(
+      _topic,
+      id: '$label-streamable-publish-exclude-me',
+      argumentsKeywords: {'taskId': 'T-$label-streamable-publish-exclude-me'},
+      options: mcpWampPublishOptions(
+        acknowledge: true,
+        excludeMe: true,
+        custom: <String, Object?>{
+          'x_consumer_trace': '$label-streamable-publish-exclude-me',
+        },
+      ),
+    );
+    if (!excludedPublication.acknowledged) {
+      throw StateError(
+        'Streamable MCP pub/sub exclude_me publish was not acknowledged.',
+      );
+    }
+    final excludedEvents = await client.pollWampEvents(
+      subscription.handle,
+      id: '$label-streamable-poll-exclude-me',
+      limit: 4,
+    );
+    if (jsonEncode(excludedEvents.events).contains(
+      'T-$label-streamable-publish-exclude-me',
+    )) {
+      throw StateError(
+        'Streamable MCP pub/sub publish with exclude_me=true reached its own '
+        'subscription.',
+      );
+    }
 
     await serviceSession.publish(
       _topic,
