@@ -2,24 +2,45 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP WAMP pub/sub standard option normalization.
-Latest fully clean hosted checkpoint: Commit `d35ac42`.
-Current implementation checkpoint: `McpWampApi` now normalizes standard WAMP
-publish and subscribe option keys from public MCP pub/sub `options` maps into
-typed `PublishOptions` and `SubscribeOptions` before dispatching through the
-WAMP session. Publish options now accept `acknowledge`, session
-`exclude`/`eligible` filters, authid/authrole include/exclude filters,
-`exclude_me`, `disclose_me`, `retain`, and PPT option aliases; the top-level
-MCP `acknowledge` argument wins over `options.acknowledge`. Subscribe options
-now accept `match`, `meta_topic`, and `get_retained`. Unknown option keys are
-still preserved in `custom`, so consumer applications can pass extension
-fields without losing them. The MCP WAMP API regression now captures publish
-and subscribe requests and asserts typed option mapping plus custom-option
-preservation. Focused `wamp_api_test.dart`, full `wamp_api_test.dart`, `dart
-analyze packages/connectanum_mcp`, repeated `bin/test-fast`, and full local
-`bin/verify` passed on 2026-05-23. Hosted evidence is pending until this
-implementation is committed, pushed, and audited; the latest fully clean
-hosted checkpoint remains `d35ac42`.
+Last reviewed branch checkpoint: MCP WAMP pub/sub public option builders.
+Latest fully clean hosted checkpoint: Commit `06228fb`.
+Current implementation checkpoint: public MCP WAMP pub/sub clients now have
+`mcpWampPublishOptions(...)` and `mcpWampSubscribeOptions(...)` builders for
+canonical WAMP option maps instead of hand-built string-key maps. The builders
+emit standard wire keys such as `exclude_me`, `meta_topic`, `get_retained`,
+and PPT option fields while preserving consumer extension keys from `custom`;
+typed parameters override duplicate `custom` entries for standard fields. The
+Streamable client tests now prove both active-session and lifecycle-free direct
+JSON helpers send these option maps, the MCP IO export smoke covers the same
+helpers through `connectanum_mcp_io.dart`, and the generated client-only plus
+router-hosted consumer smokes use the public builders for subscribe/publish
+acknowledgement paths. Pre-change `bin/test-fast`, focused client/MCP tests,
+`dart analyze packages/connectanum_client packages/connectanum_mcp`, focused
+generated client-only and router-hosted consumer smokes, repeated
+`bin/test-fast`, and full local `bin/verify` passed on 2026-05-23. Hosted
+evidence is pending until this implementation is committed, pushed, and
+audited; the latest fully clean hosted checkpoint remains `06228fb`.
+Prior hosted checkpoint details: Commit `06228fb`
+(`fix: normalize mcp wamp pubsub options`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`06228fb`: `master` CI run `26318444140` passed with Fast Checks and Full
+Verify green and clean logs, `add-router` CI run `26318442150` passed,
+`master` Dart Package Publish Dry Run `26318444109` and `add-router` Dart
+Package Publish Dry Run `26318442141` passed, and current-head Router Image
+dry-run `26318773516` passed for `0.1.0-rc.2-validation.06228fb` with preview
+upload, skipped GHCR login, completed multi-arch build, and clean annotations.
+WAMP Profile Benchmarks `26317169023` on `master` and `26317168999` on
+`add-router` remain relevant because no WAMP profile benchmark-sensitive inputs
+changed since `d35ac42`. Native Artifacts dry-run `26286794628` remains
+relevant because no native-release-sensitive inputs changed since `89c7915`.
+The strict deployment-chain audit passed required gates on `master` at
+`06228fb`, including clean current-head CI/logs, Dart package dry-run, WAMP
+profile benchmark evidence, Router Image dry-run, native release dry-run
+relevance, branch protection, workflow visibility, and router package
+visibility. RC readiness remains not-ready only because no approved numeric RC
+tag, GitHub prerelease, or matching RC router image tag has been selected, and
+pub.dev publishing remains deferred for release-order and operator decisions.
+No RC tag, GitHub Release, or router image was created or moved.
 Prior hosted checkpoint details: Commit `d35ac42`
 (`fix: reject direct mcp notification responses`) was pushed to GitLab
 `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is

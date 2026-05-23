@@ -1249,6 +1249,12 @@ void main() {
       _ioTopic,
       id: 'io-streamable-subscribe',
       queueLimit: 5,
+      options: mcpWampSubscribeOptions(
+        match: 'exact',
+        custom: const <String, Object?>{
+          'x_consumer_subscription': 'io-streamable-subscribe',
+        },
+      ),
       headers: const <String, String>{
         'x-consumer-trace': 'io-streamable-subscribe',
       },
@@ -1263,7 +1269,13 @@ void main() {
       _ioTopic,
       id: 'io-streamable-publish',
       argumentsKeywords: const <String, Object?>{'message': 'streamable'},
-      acknowledge: true,
+      options: mcpWampPublishOptions(
+        acknowledge: true,
+        excludeMe: false,
+        custom: const <String, Object?>{
+          'x_consumer_trace': 'io-streamable-publish',
+        },
+      ),
       headers: const <String, String>{
         'x-consumer-trace': 'io-streamable-publish',
       },
@@ -1354,6 +1366,7 @@ void main() {
       _ioTopic,
       id: 'io-direct-subscribe',
       queueLimit: 3,
+      options: mcpWampSubscribeOptions(match: 'exact'),
       headers: const <String, String>{
         'x-consumer-trace': 'io-direct-subscribe',
       },
@@ -1364,7 +1377,7 @@ void main() {
       _ioTopic,
       id: 'io-direct-publish',
       argumentsKeywords: const <String, Object?>{'message': 'direct'},
-      acknowledge: true,
+      options: mcpWampPublishOptions(acknowledge: true),
       headers: const <String, String>{'x-consumer-trace': 'io-direct-publish'},
     );
     expect(directPublication.acknowledged, isTrue);

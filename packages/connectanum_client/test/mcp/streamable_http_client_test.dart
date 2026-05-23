@@ -1559,7 +1559,15 @@ void main() {
         'app.events.audit',
         id: 'wamp-subscribe',
         queueLimit: 3,
-        options: const <String, Object?>{'match': 'exact'},
+        options: mcpWampSubscribeOptions(
+          match: 'exact',
+          metaTopic: 'app.events.audit.meta',
+          getRetained: true,
+          custom: const <String, Object?>{
+            'x_consumer_subscription': 'custom-subscribe',
+            'match': 'custom-match',
+          },
+        ),
         streamable: false,
         headers: const <String, String>{'x-consumer-trace': 'wamp-subscribe'},
       );
@@ -1572,7 +1580,16 @@ void main() {
         'app.events.audit',
         id: 'wamp-publish',
         argumentsKeywords: const <String, Object?>{'message': 'hello'},
-        acknowledge: true,
+        options: mcpWampPublishOptions(
+          acknowledge: true,
+          excludeMe: false,
+          discloseMe: true,
+          pptScheme: 'wamp',
+          custom: const <String, Object?>{
+            'x_consumer_trace': 'custom-publish',
+            'acknowledge': false,
+          },
+        ),
         streamable: false,
         headers: const <String, String>{'x-consumer-trace': 'wamp-publish'},
       );
@@ -1647,6 +1664,43 @@ void main() {
           'wamp-denied',
         ],
       );
+      final subscribeBody = _jsonMapFrom(
+        endpoint.requests[4].body,
+        label: 'WAMP subscribe request body',
+      );
+      final subscribeParams = _jsonMapFrom(
+        subscribeBody['params'],
+        label: 'WAMP subscribe params',
+      );
+      final subscribeArguments = _jsonMapFrom(
+        subscribeParams['arguments'],
+        label: 'WAMP subscribe arguments',
+      );
+      expect(subscribeArguments['options'], {
+        'x_consumer_subscription': 'custom-subscribe',
+        'match': 'exact',
+        'meta_topic': 'app.events.audit.meta',
+        'get_retained': true,
+      });
+      final publishBody = _jsonMapFrom(
+        endpoint.requests[5].body,
+        label: 'WAMP publish request body',
+      );
+      final publishParams = _jsonMapFrom(
+        publishBody['params'],
+        label: 'WAMP publish params',
+      );
+      final publishArguments = _jsonMapFrom(
+        publishParams['arguments'],
+        label: 'WAMP publish arguments',
+      );
+      expect(publishArguments['options'], {
+        'x_consumer_trace': 'custom-publish',
+        'acknowledge': true,
+        'exclude_me': false,
+        'disclose_me': true,
+        'ppt_scheme': 'wamp',
+      });
       expect(endpoint.requests[6].accept, contains('text/event-stream'));
       expect(endpoint.requests[6].sessionId, 'session-1');
       expect(endpoint.requests[6].mcpParameterHeaders, isEmpty);
@@ -1685,6 +1739,12 @@ void main() {
           'app.events.audit',
           id: 'direct-helper-subscribe',
           queueLimit: 3,
+          options: mcpWampSubscribeOptions(
+            match: 'exact',
+            custom: const <String, Object?>{
+              'x_consumer_subscription': 'direct-custom-subscribe',
+            },
+          ),
           headers: const <String, String>{
             'x-consumer-trace': 'direct-helper-subscribe',
           },
@@ -1695,7 +1755,13 @@ void main() {
           'app.events.audit',
           id: 'direct-helper-publish',
           argumentsKeywords: const <String, Object?>{'message': 'hello'},
-          acknowledge: true,
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            excludeMe: false,
+            custom: const <String, Object?>{
+              'x_consumer_trace': 'direct-custom-publish',
+            },
+          ),
           headers: const <String, String>{
             'x-consumer-trace': 'direct-helper-publish',
           },
@@ -1756,6 +1822,31 @@ void main() {
           {'kind': 'topic'},
         );
         expect(firstParams['name'], 'connectanum.api.list');
+        final subscribeParams = _jsonMapFrom(
+          (endpoint.requests[1].body as Map)['params'],
+          label: 'direct helper subscribe params',
+        );
+        final subscribeArguments = _jsonMapFrom(
+          subscribeParams['arguments'],
+          label: 'direct helper subscribe arguments',
+        );
+        expect(subscribeArguments['options'], {
+          'x_consumer_subscription': 'direct-custom-subscribe',
+          'match': 'exact',
+        });
+        final publishParams = _jsonMapFrom(
+          (endpoint.requests[2].body as Map)['params'],
+          label: 'direct helper publish params',
+        );
+        final publishArguments = _jsonMapFrom(
+          publishParams['arguments'],
+          label: 'direct helper publish arguments',
+        );
+        expect(publishArguments['options'], {
+          'x_consumer_trace': 'direct-custom-publish',
+          'acknowledge': true,
+          'exclude_me': false,
+        });
       },
     );
 

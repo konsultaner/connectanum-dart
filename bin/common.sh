@@ -3335,6 +3335,12 @@ Future<void> _smokeWampHelpers(
     _topic,
     id: 'streamable-subscribe',
     queueLimit: 5,
+    options: mcpWampSubscribeOptions(
+      match: 'exact',
+      custom: const <String, Object?>{
+        'x_consumer_subscription': 'streamable-subscribe',
+      },
+    ),
     headers: const <String, String>{
       'x-consumer-trace': 'streamable-subscribe',
     },
@@ -3348,7 +3354,12 @@ Future<void> _smokeWampHelpers(
     _topic,
     id: 'streamable-publish',
     argumentsKeywords: const <String, Object?>{'text': 'streamable'},
-    acknowledge: true,
+    options: mcpWampPublishOptions(
+      acknowledge: true,
+      custom: const <String, Object?>{
+        'x_consumer_trace': 'streamable-publish',
+      },
+    ),
     headers: const <String, String>{
       'x-consumer-trace': 'streamable-publish',
     },
@@ -3423,13 +3434,14 @@ Future<void> _smokeWampHelpers(
   final directSubscription = await client.subscribeWampTopicDirect(
     _topic,
     id: 'direct-subscribe',
+    options: mcpWampSubscribeOptions(match: 'exact'),
     headers: const <String, String>{'x-consumer-trace': 'direct-subscribe'},
   );
   final directPublication = await client.publishWampEventDirect(
     _topic,
     id: 'direct-publish',
     argumentsKeywords: const <String, Object?>{'text': 'direct'},
-    acknowledge: true,
+    options: mcpWampPublishOptions(acknowledge: true),
     headers: const <String, String>{'x-consumer-trace': 'direct-publish'},
   );
   _expect(
@@ -4842,6 +4854,9 @@ final class _AgentMcpEndpoint {
     Map<String, Object?> arguments,
   ) {
     final topic = arguments['topic'] as String? ?? _topic;
+    final options = arguments['options'] is Map<Object?, Object?>
+        ? _jsonMapFrom(arguments['options'], label: 'publish options')
+        : const <String, Object?>{};
     final event = <String, Object?>{
       'topic': topic,
       'arguments': arguments['arguments'] ?? <Object?>[],
@@ -4855,7 +4870,8 @@ final class _AgentMcpEndpoint {
     }
     return <String, Object?>{
       'topic': topic,
-      'acknowledged': arguments['acknowledge'] == true,
+      'acknowledged':
+          arguments['acknowledge'] == true || options['acknowledge'] == true,
       'publicationId': _publicationId,
     };
   }
@@ -12008,6 +12024,12 @@ Future<void> _smokeDirectJson(
     _topic,
     id: '$label-direct-subscribe',
     queueLimit: 4,
+    options: mcpWampSubscribeOptions(
+      match: 'exact',
+      custom: <String, Object?>{
+        'x_consumer_subscription': '$label-direct-subscribe',
+      },
+    ),
   );
   try {
     await _smokeWampSubscriptionMeta(
@@ -12021,7 +12043,12 @@ Future<void> _smokeDirectJson(
       _topic,
       id: '$label-direct-publish',
       argumentsKeywords: {'taskId': 'T-$label-direct-publish'},
-      acknowledge: true,
+      options: mcpWampPublishOptions(
+        acknowledge: true,
+        custom: <String, Object?>{
+          'x_consumer_trace': '$label-direct-publish',
+        },
+      ),
     );
     if (!publication.acknowledged) {
       throw StateError('Direct JSON MCP pub/sub publish was not acknowledged.');
@@ -15272,6 +15299,12 @@ Future<void> _smokeStreamableMcp(
     _topic,
     id: '$label-streamable-subscribe',
     queueLimit: 4,
+    options: mcpWampSubscribeOptions(
+      match: 'exact',
+      custom: <String, Object?>{
+        'x_consumer_subscription': '$label-streamable-subscribe',
+      },
+    ),
   );
   try {
     await _smokeWampSubscriptionMeta(client, serviceSession, label: label);

@@ -78,6 +78,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: Public MCP WAMP pub/sub clients now have
+  `mcpWampPublishOptions(...)` and `mcpWampSubscribeOptions(...)` builders for
+  canonical WAMP option maps instead of hand-built string-key maps. The
+  builders emit standard wire keys such as `exclude_me`, `meta_topic`,
+  `get_retained`, and PPT option fields while preserving consumer extension
+  keys from `custom`; typed parameters override duplicate `custom` entries for
+  standard fields. Streamable client tests prove both active-session and
+  lifecycle-free direct JSON helpers send these option maps, the MCP IO export
+  smoke covers the same helpers through `connectanum_mcp_io.dart`, and the
+  generated client-only plus router-hosted consumer smokes use the public
+  builders for subscribe/publish acknowledgement paths. Pre-change
+  `bin/test-fast`, focused client/MCP tests,
+  `dart analyze packages/connectanum_client packages/connectanum_mcp`, focused
+  generated client-only and router-hosted consumer smokes, repeated
+  `bin/test-fast`, and full local `bin/verify` passed. Hosted evidence is
+  pending until this implementation is committed, pushed, and audited; the
+  latest fully clean hosted checkpoint remains `06228fb`.
 - 2026-05-23: `McpWampApi` now normalizes standard WAMP publish and subscribe
   option keys from public MCP pub/sub `options` maps into typed
   `PublishOptions` and `SubscribeOptions` before dispatching through the WAMP
@@ -91,9 +108,28 @@ decision because `connectanum_client` still depends on private
   captures publish and subscribe requests and asserts typed option mapping plus
   custom-option preservation. Focused `wamp_api_test.dart`, full
   `wamp_api_test.dart`, `dart analyze packages/connectanum_mcp`, repeated
-  `bin/test-fast`, and full local `bin/verify` passed. Hosted evidence is
-  pending until this implementation is committed, pushed, and audited; the
-  latest fully clean hosted checkpoint remains `d35ac42`.
+  `bin/test-fast`, and full local `bin/verify` passed. Commit `06228fb`
+  (`fix: normalize mcp wamp pubsub options`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted evidence is clean at
+  `06228fb`: `master` CI run `26318444140` passed with Fast Checks and Full
+  Verify green and clean logs, `add-router` CI run `26318442150` passed,
+  `master` Dart Package Publish Dry Run `26318444109` and `add-router` Dart
+  Package Publish Dry Run `26318442141` passed, and Router Image dry-run
+  `26318773516` passed for `0.1.0-rc.2-validation.06228fb` with preview
+  upload, skipped GHCR login, completed multi-arch build, and clean
+  annotations. WAMP Profile Benchmarks `26317169023` on `master` and
+  `26317168999` on `add-router` remain relevant because no WAMP profile
+  benchmark-sensitive inputs changed since `d35ac42`. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed since `89c7915`. The strict deployment-chain audit passed required
+  gates on `master` at `06228fb`, including clean current-head CI/logs, Dart
+  package dry-run, WAMP profile benchmark evidence, Router Image dry-run,
+  native release dry-run relevance, branch protection, workflow visibility,
+  and router package visibility. RC readiness remains not-ready only because no
+  approved numeric RC tag, GitHub prerelease, or matching RC router image tag
+  has been selected, and pub.dev publishing remains deferred for release-order
+  and operator decisions. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-23: `McpStreamableHttpClient._postPayload()` now validates
   JSON-RPC POST response semantics for lifecycle-free direct JSON calls as well
   as Streamable HTTP session calls before accepting response state. Successful

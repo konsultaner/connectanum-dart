@@ -25,6 +25,62 @@ const _wampSubscriptionListSubscribersProcedure =
 const _wampSubscriptionCountSubscribersProcedure =
     'wamp.subscription.count_subscribers';
 
+/// Builds a JSON options map for Connectanum MCP WAMP publish helpers.
+///
+/// Standard WAMP option fields are emitted with canonical wire names, and
+/// typed arguments override any same-named entries in [custom].
+McpJsonMap mcpWampPublishOptions({
+  bool? acknowledge,
+  List<int>? exclude,
+  List<String>? excludeAuthId,
+  List<String>? excludeAuthRole,
+  List<int>? eligible,
+  List<String>? eligibleAuthId,
+  List<String>? eligibleAuthRole,
+  bool? excludeMe,
+  bool? discloseMe,
+  bool? retain,
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
+  McpJsonMap custom = const <String, Object?>{},
+}) {
+  final options = <String, Object?>{...custom};
+  _putWampOption(options, 'acknowledge', acknowledge);
+  _putWampOption(options, 'exclude', exclude);
+  _putWampOption(options, 'exclude_authid', excludeAuthId);
+  _putWampOption(options, 'exclude_authrole', excludeAuthRole);
+  _putWampOption(options, 'eligible', eligible);
+  _putWampOption(options, 'eligible_authid', eligibleAuthId);
+  _putWampOption(options, 'eligible_authrole', eligibleAuthRole);
+  _putWampOption(options, 'exclude_me', excludeMe);
+  _putWampOption(options, 'disclose_me', discloseMe);
+  _putWampOption(options, 'retain', retain);
+  _putWampOption(options, 'ppt_scheme', pptScheme);
+  _putWampOption(options, 'ppt_serializer', pptSerializer);
+  _putWampOption(options, 'ppt_cipher', pptCipher);
+  _putWampOption(options, 'ppt_keyid', pptKeyId);
+  return options;
+}
+
+/// Builds a JSON options map for Connectanum MCP WAMP subscribe helpers.
+///
+/// Standard WAMP option fields are emitted with canonical wire names, and
+/// typed arguments override any same-named entries in [custom].
+McpJsonMap mcpWampSubscribeOptions({
+  String? match,
+  String? metaTopic,
+  bool? getRetained,
+  McpJsonMap custom = const <String, Object?>{},
+}) {
+  final options = <String, Object?>{...custom};
+  _putWampOption(options, 'match', match);
+  _putWampOption(options, 'meta_topic', metaTopic);
+  _putWampOption(options, 'get_retained', getRetained);
+  return options;
+}
+
 /// Convenience helpers for Connectanum router-hosted WAMP MCP tools.
 extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpJsonMap> listWampApi({
@@ -770,6 +826,12 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       directJson: true,
       headers: headers,
     );
+  }
+}
+
+void _putWampOption(McpJsonMap options, String key, Object? value) {
+  if (value != null) {
+    options[key] = value;
   }
 }
 
