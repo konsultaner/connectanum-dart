@@ -2161,14 +2161,20 @@ Map<String, Object?> _publishOptionsToMap(publish_msg.PublishOptions? options) {
   if (options.exclude != null) {
     map['exclude'] = List<int>.from(options.exclude!);
   }
+  if (options.excludeAuthId != null) {
+    map['exclude_authid'] = List<String>.from(options.excludeAuthId!);
+  }
+  if (options.excludeAuthRole != null) {
+    map['exclude_authrole'] = List<String>.from(options.excludeAuthRole!);
+  }
   if (options.eligible != null) {
     map['eligible'] = List<int>.from(options.eligible!);
   }
-  if (options.excludeAuthRole != null) {
-    map['exclude_authroles'] = List<String>.from(options.excludeAuthRole!);
+  if (options.eligibleAuthId != null) {
+    map['eligible_authid'] = List<String>.from(options.eligibleAuthId!);
   }
   if (options.eligibleAuthRole != null) {
-    map['eligible_authroles'] = List<String>.from(options.eligibleAuthRole!);
+    map['eligible_authrole'] = List<String>.from(options.eligibleAuthRole!);
   }
   if (options.excludeMe != null) {
     map['exclude_me'] = options.excludeMe;

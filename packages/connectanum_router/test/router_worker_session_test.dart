@@ -7766,6 +7766,185 @@ void main() {
       );
     });
 
+    test('enforces authid include/exclude lists for EVENT delivery', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final publisherState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      publisherState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 9290;
+
+      final memberState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      memberState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 9291;
+
+      final guestState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      guestState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 9292;
+
+      final adminState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      adminState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 9293;
+
+      _openSession(
+        stateStore,
+        sessionId: 9290,
+        listener: listener,
+        connectionId: 140,
+        authId: 'publisher-user',
+        authRole: 'member',
+      );
+      _openSession(
+        stateStore,
+        sessionId: 9291,
+        listener: listener,
+        connectionId: 141,
+        authId: 'member-user',
+        authRole: 'member',
+      );
+      _openSession(
+        stateStore,
+        sessionId: 9292,
+        listener: listener,
+        connectionId: 142,
+        authId: 'guest-user',
+        authRole: 'member',
+      );
+      _openSession(
+        stateStore,
+        sessionId: 9293,
+        listener: listener,
+        connectionId: 143,
+        authId: 'admin-user',
+        authRole: 'member',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      addTearDown(realmContexts.dispose);
+
+      Future<int> subscribe({
+        required WorkerConnectionState state,
+        required int connectionId,
+        required int requestId,
+      }) async {
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: state,
+          message: subscribe_msg.Subscribe(requestId, 'com.authid.topic'),
+          connectionId: connectionId,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final frame =
+            jsonDecode(
+                  utf8.decode(
+                    _extractWorkerSend(bossMessages)['payload'] as Uint8List,
+                  ),
+                )
+                as List<dynamic>;
+        bossMessages.clear();
+        return frame[2] as int;
+      }
+
+      final memberSubscription = await subscribe(
+        state: memberState,
+        connectionId: 141,
+        requestId: 9791,
+      );
+      final guestSubscription = await subscribe(
+        state: guestState,
+        connectionId: 142,
+        requestId: 9792,
+      );
+      final adminSubscription = await subscribe(
+        state: adminState,
+        connectionId: 143,
+        requestId: 9793,
+      );
+
+      final publish =
+          publish_msg.Publish(
+              98991,
+              'com.authid.topic',
+              arguments: const ['payload'],
+            )
+            ..options = publish_msg.PublishOptions(
+              excludeAuthId: ['guest-user'],
+              eligibleAuthId: ['member-user', 'guest-user'],
+            );
+
+      await handleSessionMessageForTest(
+        bossPort: bossPort.sendPort,
+        statePort: stateStore.commandPort,
+        realmContexts: realmContexts,
+        state: publisherState,
+        message: publish,
+        connectionId: 140,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final forwards = _extractForwardMessages(bossMessages);
+      expect(forwards, hasLength(1));
+      final forward = forwards.single;
+      expect(forward['connectionId'], equals(141));
+      final event = forward['message'] as event_msg.Event;
+      expect(event.subscriptionId, equals(memberSubscription));
+      expect(event.arguments, equals(['payload']));
+
+      final workerSends = _collectWorkerSends(bossMessages);
+      expect(workerSends, isEmpty);
+
+      expect(guestSubscription, isNotNull);
+      expect(adminSubscription, isNotNull);
+    });
+
     test(
       'enforces authrole include/exclude lists for EVENT delivery',
       () async {

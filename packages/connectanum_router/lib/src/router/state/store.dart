@@ -733,8 +733,18 @@ class RouterStateStore {
     final excludeMe = options['exclude_me'] == true;
     final excludeIds = _decodeIdSet(options['exclude']);
     final eligibleIds = _decodeIdSet(options['eligible']);
-    final excludeAuthRoles = _decodeStringSet(options['exclude_authroles']);
-    final eligibleAuthRoles = _decodeStringSet(options['eligible_authroles']);
+    final excludeAuthIds =
+        _decodeStringSet(options['exclude_authid']) ??
+        _decodeStringSet(options['exclude_authids']);
+    final excludeAuthRoles =
+        _decodeStringSet(options['exclude_authrole']) ??
+        _decodeStringSet(options['exclude_authroles']);
+    final eligibleAuthIds =
+        _decodeStringSet(options['eligible_authid']) ??
+        _decodeStringSet(options['eligible_authids']);
+    final eligibleAuthRoles =
+        _decodeStringSet(options['eligible_authrole']) ??
+        _decodeStringSet(options['eligible_authroles']);
     final entries = realm.subscriptionAtlas.match(topic);
     for (final entry in entries) {
       entry.subscribers.forEach((sessionId, record) {
@@ -747,7 +757,21 @@ class RouterStateStore {
         if (eligibleIds != null && !eligibleIds.contains(sessionId)) {
           return;
         }
-        final recordAuthRole = record.authRole;
+        final session = realm.sessions[sessionId];
+        if (session == null) {
+          return;
+        }
+        final recordAuthId = session.authId;
+        if (excludeAuthIds != null &&
+            recordAuthId != null &&
+            excludeAuthIds.contains(recordAuthId)) {
+          return;
+        }
+        if (eligibleAuthIds != null &&
+            (recordAuthId == null || !eligibleAuthIds.contains(recordAuthId))) {
+          return;
+        }
+        final recordAuthRole = record.authRole ?? session.authRole;
         if (excludeAuthRoles != null &&
             recordAuthRole != null &&
             excludeAuthRoles.contains(recordAuthRole)) {
@@ -756,10 +780,6 @@ class RouterStateStore {
         if (eligibleAuthRoles != null &&
             (recordAuthRole == null ||
                 !eligibleAuthRoles.contains(recordAuthRole))) {
-          return;
-        }
-        final session = realm.sessions[sessionId];
-        if (session == null) {
           return;
         }
         matches.add(
