@@ -2,25 +2,49 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: JSON-response MCP direct JSON smoke coverage.
-Latest fully clean hosted checkpoint: Commit `f860178`.
+Last reviewed branch checkpoint: JSON-response MCP direct JSON notification smoke coverage.
+Latest fully clean hosted checkpoint: Commit `f8497d6`.
 Current implementation checkpoint: The generated consumer-package
-router-hosted MCP smoke now applies the raw direct JSON CORS single and batch
-assertions to both JSON-response Streamable compatibility routes before
-opening a Streamable session: `postResponseTransport: json` and
-`streamPostResponses: false`. This proves sessionless direct JSON access for
-tools/list, ping, tool-call aliases, WAMP API list/describe metadata,
-resources/list/read/templates, prompts/list/get, and pub/sub
-subscribe/publish/poll/unsubscribe on those JSON response routes, including
-batch JSON-RPC catalog, detail, tool-call, and pub/sub flows. This closes a
-consumer-readiness gap where the compatibility routes had typed Streamable
-resource/prompt coverage and raw stateful tools/ping coverage, but not the
-direct JSON tool/meta API and pub/sub surface expected by agents that do not
-use the typed Dart client. Pre-change `bin/test-fast` passed on 2026-05-24.
+router-hosted MCP smoke now applies the raw direct JSON CORS single, batch,
+and notification-only assertions to both JSON-response Streamable
+compatibility routes before opening a Streamable session:
+`postResponseTransport: json` and `streamPostResponses: false`. This proves
+sessionless direct JSON access for tools/list, ping, tool-call aliases, WAMP
+API list/describe metadata, resources/list/read/templates, prompts/list/get,
+and pub/sub subscribe/publish/poll/unsubscribe on those JSON response routes,
+including batch JSON-RPC catalog, detail, tool-call, and pub/sub flows. It
+also proves raw notification-only POSTs on those routes remain CORS-visible,
+bodyless `202 Accepted` responses that do not create or mutate Streamable MCP
+session state, including notification-only initialized/tools, tool-call, and
+pub/sub publish batches. This closes a consumer-readiness gap where the
+compatibility routes had typed Streamable resource/prompt coverage and raw
+direct JSON request/response coverage, but not the notification-only behavior
+expected by agents that mix JSON-RPC requests and notifications without using
+the typed Dart client. Pre-change `bin/test-fast` passed on 2026-05-24.
 Focused local coverage passed on 2026-05-24:
-`bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
 `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
 and `git diff --check`. Full local `bin/verify` passed on 2026-05-24.
+Commit `f8497d6` (`test: cover direct json mcp response routes`) was pushed
+to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `f8497d6`: `master` CI run `26345815906` passed with
+Fast Checks and Full Verify green plus clean logs, `add-router` CI run
+`26345815895` passed, and clean Router Image dry-run `26345818520` passed for
+current head with preview metadata `sha-f8497d6ea540`, GHCR login skipped, and
+no image publish. The latest Dart Package Publish Dry Run `26344002614` at
+`9ac5e22` remains relevant because no publish-sensitive paths changed, the
+latest WAMP Profile Benchmarks run `26344002624` at `9ac5e22` remains
+relevant because no WAMP-profile-sensitive paths changed, and Native Artifacts
+dry-run `26286794628` remains relevant because no native-release-sensitive
+inputs changed. The strict deployment-chain audit passed required gates on
+`master` at `f8497d6`, including clean current-head CI/logs, relevant Dart
+package dry-run, relevant WAMP profile benchmark evidence, current Router
+Image dry-run, native release dry-run relevance, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected, and pub.dev publishing remains deferred for
+release-order and operator decisions. No RC tag, GitHub Release, or router
+image was created or moved.
 Prior checkpoint details: Commit `f860178`
 (`test: cover json-response mcp context routes`) was pushed to GitLab
 `origin`, GitHub `add-router`, and GitHub `master`. It configured resources,

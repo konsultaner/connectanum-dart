@@ -7011,6 +7011,11 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
       serviceSession,
       label: '$label-json-response',
     );
+    await _assertMcpDirectJsonNotificationCorsResponse(
+      rawClient,
+      endpoint,
+      label: '$label-json-response',
+    );
 
     final initializeId = '$label-streamable-initialize';
     final initialize = await client.initialize(
