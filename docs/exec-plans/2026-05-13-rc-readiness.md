@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## Problem
 
@@ -78,6 +78,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: The generated consumer-package router-hosted MCP smoke now
+  applies the raw direct JSON CORS single and batch assertions to both
+  JSON-response Streamable compatibility routes before opening a Streamable
+  session: `postResponseTransport: json` and `streamPostResponses: false`.
+  This proves sessionless direct JSON access for tools/list, ping, tool-call
+  aliases, WAMP API list/describe metadata, resources/list/read/templates,
+  prompts/list/get, and pub/sub subscribe/publish/poll/unsubscribe on those
+  JSON response routes, including batch JSON-RPC catalog, detail, tool-call,
+  and pub/sub flows. This closes a consumer-readiness gap where the
+  compatibility routes had typed Streamable resource/prompt coverage and raw
+  stateful tools/ping coverage, but not the direct JSON tool/meta API and
+  pub/sub surface expected by agents that do not use the typed Dart client.
+  Pre-change `bin/test-fast` passed on 2026-05-24. Focused local coverage
+  passed:
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+  `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
+  and `git diff --check`. Full local `bin/verify` passed on 2026-05-24.
 - 2026-05-23: The generated consumer-package router-hosted MCP smoke now
   configures resources, resource templates, prompts, and pagination limits on
   both JSON-response Streamable compatibility routes:
@@ -92,6 +109,26 @@ decision because `connectanum_client` still depends on private
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
   `bash -n bin/common.sh`, and `git diff --check`. Full local `bin/verify`
   passed on 2026-05-23.
+- 2026-05-23: Hosted evidence for commit `f860178`
+  (`test: cover json-response mcp context routes`) is clean: `master` CI run
+  `26344918687` passed with Fast Checks and Full Verify green plus clean logs,
+  `add-router` CI run `26344909791` passed, and clean Router Image dry-run
+  `26344922913` passed for current head with preview metadata
+  `sha-f86017842835`, GHCR login skipped, and no image publish. The latest
+  Dart Package Publish Dry Run `26344002614` at `9ac5e22` remains relevant
+  because no publish-sensitive paths changed, the latest WAMP Profile
+  Benchmarks run `26344002624` at `9ac5e22` remains relevant because no
+  WAMP-profile-sensitive paths changed, and Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed. The strict deployment-chain audit passed required gates on
+  `master` at `f860178`, including clean current-head CI/logs, relevant Dart
+  package dry-run, relevant WAMP profile benchmark evidence, current Router
+  Image dry-run, native release dry-run relevance, branch protection, workflow
+  visibility, and router package visibility. RC readiness remains not-ready
+  only because no approved numeric RC tag, GitHub prerelease, or matching RC
+  router image tag has been selected, and pub.dev publishing remains deferred
+  for release-order and operator decisions. No RC tag, GitHub Release, or
+  router image was created or moved.
 - 2026-05-23: Non-initialize per-call `protocolVersion` overrides on
   `McpStreamableHttpClient` Streamable HTTP requests are now header-only and
   no longer replace the client's negotiated MCP protocol version from the
