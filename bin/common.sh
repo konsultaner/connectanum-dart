@@ -6654,6 +6654,77 @@ Future<void> _assertUnsupportedMcpProtocolVersionRejected(
   }
 }
 
+Future<void> _smokeTypedProtocolVersionOverrides(
+  McpStreamableHttpClient client, {
+  required String label,
+  required String routeLabel,
+}) async {
+  final previousProtocolVersion = client.protocolVersion;
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final olderProtocolVersion = _supportedOlderProtocolVersions.first;
+  final newerProtocolVersion = _supportedOlderProtocolVersions.last;
+
+  final tools = await client.listToolsDirect(
+    id: '$label-direct-protocol-tools',
+    protocolVersion: olderProtocolVersion,
+  );
+  if (tools.tools.isEmpty) {
+    throw StateError(
+      '$routeLabel direct protocol tools/list returned no tools.',
+    );
+  }
+
+  final toolCall = await client.callToolDirect(
+    _procedure,
+    id: '$label-direct-protocol-call',
+    arguments: {'taskId': 'T-$label-direct-protocol'},
+    protocolVersion: newerProtocolVersion,
+  );
+  if (!jsonEncode(toolCall).contains('T-$label-direct-protocol')) {
+    throw StateError('$routeLabel direct protocol tools/call missed payload.');
+  }
+
+  final api = await client.describeWampApiDirect(
+    _procedure,
+    id: '$label-direct-protocol-api',
+    kind: 'procedure',
+    protocolVersion: olderProtocolVersion,
+  );
+  if (!jsonEncode(api).contains(_procedure)) {
+    throw StateError(
+      '$routeLabel direct protocol WAMP API describe missed tool.',
+    );
+  }
+
+  final publication = await client.publishWampEventDirect(
+    _topic,
+    id: '$label-direct-protocol-publish',
+    argumentsKeywords: {'taskId': 'T-$label-direct-protocol-publish'},
+    acknowledge: true,
+    protocolVersion: newerProtocolVersion,
+  );
+  if (!publication.acknowledged) {
+    throw StateError('$routeLabel direct protocol pub/sub publish failed.');
+  }
+
+  final streamablePing = await client.ping(
+    id: '$label-streamable-protocol-ping',
+    protocolVersion: olderProtocolVersion,
+  );
+  if (streamablePing.isNotEmpty) {
+    throw StateError('$routeLabel Streamable protocol ping returned data.');
+  }
+
+  if (client.protocolVersion != previousProtocolVersion ||
+      client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError(
+      '$routeLabel typed protocol overrides changed client state.',
+    );
+  }
+}
+
 Future<void> _smokeJsonPostMcpRoute(
   RouterBinding binding,
   RouterSession serviceSession,
@@ -6840,6 +6911,12 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
     if (rawPingResult.isNotEmpty) {
       throw StateError('$routeLabel raw ping returned data.');
     }
+
+    await _smokeTypedProtocolVersionOverrides(
+      client,
+      label: label,
+      routeLabel: routeLabel,
+    );
 
     final subscription = await client.subscribeWampTopic(
       _topic,

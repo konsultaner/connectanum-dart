@@ -864,6 +864,8 @@ final class McpStreamableHttpClient {
     final requestMethod = _requestMethodForStandardHeaders(message);
     final capturesSessionHeaders =
         includeSession || (streamable && requestMethod == 'initialize');
+    final capturesProtocolVersion =
+        protocolVersion == null || requestMethod == 'initialize';
     final response = await request.close();
     final body = await _readBody(response);
     if (capturesSessionHeaders) {
@@ -877,7 +879,10 @@ final class McpStreamableHttpClient {
         body.isEmpty) {
       _validatePostResponseShape(message, null);
       if (capturesSessionHeaders) {
-        _captureSessionHeaders(response);
+        _captureSessionHeaders(
+          response,
+          captureProtocolVersion: capturesProtocolVersion,
+        );
       }
       return null;
     }
@@ -891,7 +896,10 @@ final class McpStreamableHttpClient {
         responseBodyReturned: body.isNotEmpty,
       );
       if (capturesSessionHeaders) {
-        _captureSessionHeaders(response);
+        _captureSessionHeaders(
+          response,
+          captureProtocolVersion: capturesProtocolVersion,
+        );
         _captureLastEventId(events);
       }
       return value;
@@ -900,7 +908,10 @@ final class McpStreamableHttpClient {
     final value = _jsonValueFromBody(body);
     _validatePostResponseShape(message, value, responseBodyReturned: true);
     if (capturesSessionHeaders) {
-      _captureSessionHeaders(response);
+      _captureSessionHeaders(
+        response,
+        captureProtocolVersion: capturesProtocolVersion,
+      );
     }
     return value;
   }
@@ -1053,7 +1064,10 @@ final class McpStreamableHttpClient {
     }
   }
 
-  void _captureSessionHeaders(HttpClientResponse response) {
+  void _captureSessionHeaders(
+    HttpClientResponse response, {
+    bool captureProtocolVersion = true,
+  }) {
     final negotiatedSessionId = response.headers.value(_headerSessionId);
     if (negotiatedSessionId != null) {
       if (!_mcpSessionIdHeaderValueValid(negotiatedSessionId)) {
@@ -1067,12 +1081,14 @@ final class McpStreamableHttpClient {
       }
       sessionId = negotiatedSessionId;
     }
-    final negotiatedProtocolVersion = response.headers.value(
-      _headerProtocolVersion,
-    );
-    if (negotiatedProtocolVersion != null &&
-        negotiatedProtocolVersion.isNotEmpty) {
-      protocolVersion = negotiatedProtocolVersion;
+    if (captureProtocolVersion) {
+      final negotiatedProtocolVersion = response.headers.value(
+        _headerProtocolVersion,
+      );
+      if (negotiatedProtocolVersion != null &&
+          negotiatedProtocolVersion.isNotEmpty) {
+        protocolVersion = negotiatedProtocolVersion;
+      }
     }
   }
 

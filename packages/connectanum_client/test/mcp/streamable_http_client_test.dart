@@ -176,6 +176,39 @@ void main() {
       },
     );
 
+    test(
+      'keeps negotiated protocol after streamable helper overrides',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'streamable-protocol-override-init');
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
+        final sessionId = client.sessionId;
+        expect(sessionId, isNotNull);
+
+        final ping = await client.ping(
+          id: 'streamable-protocol-override-ping',
+          protocolVersion: '2025-03-26',
+        );
+
+        expect(ping, isEmpty);
+        expect(endpoint.requests.last.protocolVersion, '2025-03-26');
+        expect(endpoint.requests.last.sessionId, sessionId);
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
+        expect(client.sessionId, sessionId);
+      },
+    );
+
     test('lets direct JSON helpers override protocol headers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);

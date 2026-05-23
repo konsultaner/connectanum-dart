@@ -983,6 +983,99 @@ Future<void> _assertUnsupportedMcpProtocolVersionRejected(
   }
 }
 
+Future<void> _smokeTypedDirectProtocolVersionOverrides(
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
+  final previousProtocolVersion = client.protocolVersion;
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final olderProtocolVersion = _supportedOlderProtocolVersions.first;
+  final newerProtocolVersion = _supportedOlderProtocolVersions.last;
+
+  final tools = await client.listToolsDirect(
+    id: '$label-direct-protocol-tools',
+    protocolVersion: olderProtocolVersion,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-protocol-tools',
+    },
+  );
+  if (!tools.tools.any((tool) => tool['name'] == 'example.task.lookup')) {
+    throw StateError('Direct protocol override tools/list missed tool.');
+  }
+
+  final toolCall = await client.callToolDirect(
+    'example.task.lookup',
+    id: '$label-direct-protocol-call',
+    arguments: {'taskId': 'T-$label-direct-protocol'},
+    protocolVersion: newerProtocolVersion,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-protocol-call',
+    },
+  );
+  if (!jsonEncode(toolCall).contains('T-$label-direct-protocol')) {
+    throw StateError('Direct protocol override tools/call missed payload.');
+  }
+
+  final resources = await client.listResourcesDirect(
+    id: '$label-direct-protocol-resources',
+    protocolVersion: olderProtocolVersion,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-protocol-resources',
+    },
+  );
+  if (!resources.resources.any(
+    (resource) => resource['uri'] == 'app://example/context',
+  )) {
+    throw StateError('Direct protocol override resources/list missed context.');
+  }
+
+  final prompt = await client.getPromptDirect(
+    'summarize-task',
+    id: '$label-direct-protocol-prompt',
+    arguments: {'taskId': 'T-$label-direct-protocol'},
+    protocolVersion: newerProtocolVersion,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-protocol-prompt',
+    },
+  );
+  if (!jsonEncode(prompt).contains('T-$label-direct-protocol')) {
+    throw StateError('Direct protocol override prompts/get missed payload.');
+  }
+
+  final api = await client.listWampApiDirect(
+    id: '$label-direct-protocol-api',
+    kind: 'procedure',
+    protocolVersion: olderProtocolVersion,
+    headers: <String, String>{'x-consumer-trace': '$label-direct-protocol-api'},
+  );
+  if (!jsonEncode(api).contains('example.task.lookup')) {
+    throw StateError('Direct protocol override WAMP API list missed tool.');
+  }
+
+  final publication = await client.publishWampEventDirect(
+    'example.events.task',
+    id: '$label-direct-protocol-publish',
+    argumentsKeywords: {'taskId': 'T-$label-direct-protocol-publish'},
+    acknowledge: true,
+    protocolVersion: newerProtocolVersion,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-protocol-publish',
+    },
+  );
+  if (!publication.acknowledged) {
+    throw StateError('Direct protocol override pub/sub publish failed.');
+  }
+
+  if (client.protocolVersion != previousProtocolVersion ||
+      client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError(
+      'Typed direct protocol overrides changed Streamable client state.',
+    );
+  }
+}
+
 Future<void> _smokeMcpEndpoint(
   McpStreamableHttpClient client, {
   required String label,
@@ -1008,6 +1101,7 @@ Future<void> _smokeMcpEndpoint(
   print('[$label] Direct JSON-RPC result: ${jsonEncode(directResult)}');
   await _smokeDirectJsonToolMetaApi(client, label: label);
   await _smokeDirectJsonTopicMetaApi(client, label: label);
+  await _smokeTypedDirectProtocolVersionOverrides(client, label: label);
   await _smokeDirectJsonErrorRecovery(client, label: label);
 
   final directResources = await client.listResourcesDirect(
@@ -1158,6 +1252,21 @@ Future<void> _smokeMcpEndpoint(
       'x-consumer-trace': '$label-streamable-initialized',
     },
   );
+  final streamableProtocolOverridePing = await client.ping(
+    id: '$label-streamable-protocol-ping',
+    protocolVersion: _supportedOlderProtocolVersions.first,
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-protocol-ping',
+    },
+  );
+  if (streamableProtocolOverridePing.isNotEmpty) {
+    throw StateError('Streamable protocol override ping returned data.');
+  }
+  if (client.protocolVersion != McpStreamableHttpClient.latestProtocolVersion) {
+    throw StateError(
+      'Streamable protocol override ping changed negotiated protocol version.',
+    );
+  }
 
   final streamableTools = await client.listTools(
     id: 'example-tools-list',
