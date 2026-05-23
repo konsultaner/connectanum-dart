@@ -12032,12 +12032,13 @@ Future<void> _smokeDirectJson(
     ),
   );
   try {
-    await _smokeWampSubscriptionMeta(
+    final subscriberIds = await _smokeWampSubscriptionMeta(
       client,
       serviceSession,
       label: label,
       directJson: true,
     );
+    final subscriberId = subscriberIds.first;
 
     final publication = await client.publishWampEventDirect(
       _topic,
@@ -12096,6 +12097,14 @@ Future<void> _smokeDirectJson(
         'subscription.',
       );
     }
+
+    await _smokeWampPublishSessionFilters(
+      client,
+      subscription.handle,
+      subscriberId,
+      label: label,
+      directJson: true,
+    );
 
     await serviceSession.publish(
       _topic,
@@ -15350,7 +15359,12 @@ Future<void> _smokeStreamableMcp(
     ),
   );
   try {
-    await _smokeWampSubscriptionMeta(client, serviceSession, label: label);
+    final subscriberIds = await _smokeWampSubscriptionMeta(
+      client,
+      serviceSession,
+      label: label,
+    );
+    final subscriberId = subscriberIds.first;
 
     final selfPublication = await client.publishWampEvent(
       _topic,
@@ -15407,6 +15421,13 @@ Future<void> _smokeStreamableMcp(
         'subscription.',
       );
     }
+
+    await _smokeWampPublishSessionFilters(
+      client,
+      subscription.handle,
+      subscriberId,
+      label: label,
+    );
 
     await serviceSession.publish(
       _topic,
@@ -18165,7 +18186,7 @@ Future<void> _smokeWampMetaDiscovery(
   }
 }
 
-Future<void> _smokeWampSubscriptionMeta(
+Future<List<int>> _smokeWampSubscriptionMeta(
   McpStreamableHttpClient client,
   RouterSession serviceSession, {
   required String label,
@@ -18243,6 +18264,7 @@ Future<void> _smokeWampSubscriptionMeta(
       'WAMP subscription subscriber count did not match visible sessions.',
     );
   }
+  return subscriberIds;
 }
 
 int _singleMetaId(List<Object?> arguments, String label) {
@@ -18299,6 +18321,137 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   throw StateError('Timed out waiting for MCP pub/sub event.');
+}
+
+Future<void> _smokeWampPublishSessionFilters(
+  McpStreamableHttpClient client,
+  String subscriptionHandle,
+  int subscriberId, {
+  required String label,
+  bool directJson = false,
+}) async {
+  final mode = directJson ? 'direct' : 'streamable';
+  final eligibleTaskId = 'T-$label-$mode-publish-eligible';
+  final eligiblePublication = directJson
+      ? await client.publishWampEventDirect(
+          _topic,
+          id: '$label-$mode-publish-eligible',
+          argumentsKeywords: {'taskId': eligibleTaskId},
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            excludeMe: false,
+            eligible: <int>[subscriberId],
+            custom: <String, Object?>{
+              'x_consumer_trace': '$label-$mode-publish-eligible',
+            },
+          ),
+        )
+      : await client.publishWampEvent(
+          _topic,
+          id: '$label-$mode-publish-eligible',
+          argumentsKeywords: {'taskId': eligibleTaskId},
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            excludeMe: false,
+            eligible: <int>[subscriberId],
+            custom: <String, Object?>{
+              'x_consumer_trace': '$label-$mode-publish-eligible',
+            },
+          ),
+        );
+  if (!eligiblePublication.acknowledged) {
+    throw StateError('MCP pub/sub eligible publish was not acknowledged.');
+  }
+  final eligibleEvents = await _pollMcpEventsUntil(
+    client,
+    subscriptionHandle,
+    directJson: directJson,
+  );
+  if (!jsonEncode(eligibleEvents.events).contains(eligibleTaskId)) {
+    throw StateError(
+      'MCP pub/sub publish with an eligible subscriber did not reach that '
+      'subscription.',
+    );
+  }
+
+  final excludedTaskId = 'T-$label-$mode-publish-exclude-session';
+  final excludedPublication = directJson
+      ? await client.publishWampEventDirect(
+          _topic,
+          id: '$label-$mode-publish-exclude-session',
+          argumentsKeywords: {'taskId': excludedTaskId},
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            exclude: <int>[subscriberId],
+            excludeMe: false,
+            custom: <String, Object?>{
+              'x_consumer_trace': '$label-$mode-publish-exclude-session',
+            },
+          ),
+        )
+      : await client.publishWampEvent(
+          _topic,
+          id: '$label-$mode-publish-exclude-session',
+          argumentsKeywords: {'taskId': excludedTaskId},
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            exclude: <int>[subscriberId],
+            excludeMe: false,
+            custom: <String, Object?>{
+              'x_consumer_trace': '$label-$mode-publish-exclude-session',
+            },
+          ),
+        );
+  if (!excludedPublication.acknowledged) {
+    throw StateError('MCP pub/sub exclude publish was not acknowledged.');
+  }
+  final excludedFlushTaskId = 'T-$label-$mode-publish-exclude-flush';
+  final excludedFlushPublication = directJson
+      ? await client.publishWampEventDirect(
+          _topic,
+          id: '$label-$mode-publish-exclude-flush',
+          argumentsKeywords: {'taskId': excludedFlushTaskId},
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            excludeMe: false,
+            custom: <String, Object?>{
+              'x_consumer_trace': '$label-$mode-publish-exclude-flush',
+            },
+          ),
+        )
+      : await client.publishWampEvent(
+          _topic,
+          id: '$label-$mode-publish-exclude-flush',
+          argumentsKeywords: {'taskId': excludedFlushTaskId},
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            excludeMe: false,
+            custom: <String, Object?>{
+              'x_consumer_trace': '$label-$mode-publish-exclude-flush',
+            },
+          ),
+        );
+  if (!excludedFlushPublication.acknowledged) {
+    throw StateError('MCP pub/sub exclude flush publish was not acknowledged.');
+  }
+  final excludedEvents = await _pollMcpEventsUntil(
+    client,
+    subscriptionHandle,
+    directJson: directJson,
+  );
+  final encodedExcludedEvents = jsonEncode(excludedEvents.events);
+  if (!encodedExcludedEvents.contains(excludedFlushTaskId)) {
+    throw StateError(
+      'MCP pub/sub exclude flush publish was not delivered to that '
+      'subscription.',
+    );
+  }
+  if (encodedExcludedEvents.contains(excludedTaskId)) {
+    throw StateError(
+      'MCP pub/sub publish with an excluded subscriber reached that '
+      'subscription.',
+    );
+  }
 }
 
 Future<void> _smokeStreamableNotificationPubSub(

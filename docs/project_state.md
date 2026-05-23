@@ -2,22 +2,46 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP publish-option delivery smoke.
-Latest fully clean hosted checkpoint: Commit `8aba33c`.
+Last reviewed branch checkpoint: router-hosted MCP session-filter delivery smoke.
+Latest fully clean hosted checkpoint: Commit `2e3a792`.
 Current implementation checkpoint: the generated router-hosted MCP consumer
-package smoke now proves public `mcpWampPublishOptions(...)` delivery semantics
-through both direct JSON and Streamable MCP paths. Each path publishes with
-`acknowledge: true` and `excludeMe: false`, then polls the same MCP
-subscription to prove the caller receives its own event; each path also
-publishes with `excludeMe: true` and asserts the caller does not receive that
-event. The smoke still verifies service-session publication delivery afterward,
-so the coverage now proves the public option builder affects real router
-pub/sub delivery instead of only publish acknowledgements. Pre-change
-`bin/test-fast`, `bash -n bin/common.sh`, focused generated router-hosted MCP
-consumer smoke, repeated `bin/test-fast`, and full local `bin/verify` passed
-on 2026-05-23. Hosted evidence is pending until this implementation is
-committed, pushed, and audited; the latest fully clean hosted checkpoint
-remains `8aba33c`.
+package smoke now proves public `mcpWampPublishOptions(...)` session-filter
+delivery semantics through both direct JSON and Streamable MCP paths. The
+smoke discovers the MCP subscriber session through WAMP subscription meta,
+publishes with `eligible: [subscriberId]` and proves delivery, then publishes
+with `exclude: [subscriberId]` plus `excludeMe: false` and uses a follow-up
+delivered marker to prove the same subscription does not receive the excluded
+event. It keeps the earlier
+`excludeMe: false` self-delivery, `excludeMe: true` non-delivery, and
+service-session publication delivery checks, so the generated consumer package
+now covers acknowledged publish options and real router pub/sub delivery filters
+without private project assumptions. Pre-change `bin/test-fast`, `bash -n bin/common.sh`,
+focused generated router-hosted MCP consumer smoke, repeated `bin/test-fast`,
+and full local `bin/verify` passed on 2026-05-23. Hosted evidence for this
+implementation is pending until the commit is pushed and audited; the latest
+fully clean hosted checkpoint remains `2e3a792`.
+Prior hosted checkpoint details: Commit `2e3a792`
+(`test: cover mcp exclude-me publish options`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`2e3a792`: `master` CI run `26321124924` passed with Fast Checks and Full
+Verify green and clean logs, and `add-router` CI run `26321124820` passed.
+`master` Dart Package Publish Dry Run `26319930721` and `add-router` Dart
+Package Publish Dry Run `26319930224` remain relevant because no
+publish-sensitive paths changed since `8aba33c`; `master` WAMP Profile
+Benchmarks `26319930699` and `add-router` WAMP Profile Benchmarks
+`26319930217` remain relevant because no WAMP profile benchmark-sensitive paths
+changed since `8aba33c`; current-head Router Image dry-run `26320203435`
+remains relevant because no router-image-sensitive paths changed since
+`8aba33c`; Native Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed since `89c7915`. The strict
+deployment-chain audit passed required gates on `master` at `2e3a792`,
+including clean current-head CI/logs, relevant Dart package dry-run, relevant
+WAMP profile benchmark evidence, relevant Router Image dry-run, native release
+dry-run relevance, branch protection, workflow visibility, and router package
+visibility. RC readiness remains not-ready only because no approved numeric RC
+tag, GitHub prerelease, or matching RC router image tag has been selected, and
+pub.dev publishing remains deferred for release-order and operator decisions.
+No RC tag, GitHub Release, or router image was created or moved.
 Prior hosted checkpoint details: Commit `8aba33c`
 (`feat: add mcp wamp option builders`) added public
 `mcpWampPublishOptions(...)` and `mcpWampSubscribeOptions(...)` builders for
