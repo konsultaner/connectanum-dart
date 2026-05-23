@@ -132,18 +132,20 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final requestedProtocolVersion = protocolVersion ?? this.protocolVersion;
     final response = await post(
       <String, Object?>{
         'jsonrpc': '2.0',
         'id': id,
         'method': 'initialize',
         'params': <String, Object?>{
-          'protocolVersion': protocolVersion ?? this.protocolVersion,
+          'protocolVersion': requestedProtocolVersion,
           'capabilities': capabilities,
           'clientInfo': clientInfo,
         },
       },
       includeSession: false,
+      protocolVersion: requestedProtocolVersion,
       headers: headers,
     );
     if (response == null) {
@@ -701,12 +703,14 @@ final class McpStreamableHttpClient {
     McpJsonMap message, {
     bool streamable = true,
     bool includeSession = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await _postPayload(
       message,
       streamable: streamable,
       includeSession: includeSession,
+      protocolVersion: protocolVersion,
       extraHeaders: headers,
     );
     if (response == null) {
@@ -717,12 +721,14 @@ final class McpStreamableHttpClient {
 
   Future<McpJsonMap?> postDirect(
     McpJsonMap message, {
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return post(
       message,
       streamable: false,
       includeSession: false,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -731,12 +737,14 @@ final class McpStreamableHttpClient {
     List<McpJsonMap> messages, {
     bool streamable = true,
     bool includeSession = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await _postPayload(
       messages,
       streamable: streamable,
       includeSession: includeSession,
+      protocolVersion: protocolVersion,
       extraHeaders: headers,
     );
     if (response == null) {
@@ -753,12 +761,14 @@ final class McpStreamableHttpClient {
 
   Future<List<McpJsonMap>?> postBatchDirect(
     List<McpJsonMap> messages, {
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return postBatch(
       messages,
       streamable: false,
       includeSession: false,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -767,6 +777,7 @@ final class McpStreamableHttpClient {
     Object? message, {
     bool streamable = true,
     bool includeSession = true,
+    String? protocolVersion,
     Map<String, String> extraHeaders = const <String, String>{},
   }) async {
     final request = await _httpClient.postUrl(endpoint);
@@ -774,6 +785,7 @@ final class McpStreamableHttpClient {
       request,
       accept: streamable ? _acceptStreamableHttp : _acceptJson,
       includeSession: includeSession,
+      protocolVersion: protocolVersion,
       extraHeaders: extraHeaders,
     );
     _applyStandardRequestHeaders(request, message);
@@ -946,10 +958,14 @@ final class McpStreamableHttpClient {
     required String accept,
     String? lastEventId,
     bool includeSession = true,
+    String? protocolVersion,
     Map<String, String> extraHeaders = const <String, String>{},
   }) {
     request.headers.set(HttpHeaders.acceptHeader, accept);
-    request.headers.set(_headerProtocolVersion, protocolVersion);
+    request.headers.set(
+      _headerProtocolVersion,
+      protocolVersion ?? this.protocolVersion,
+    );
     void applyConsumerHeaders(Map<String, String> source) {
       for (final entry in source.entries) {
         if (_isControlledMcpRequestHeader(entry.key)) {

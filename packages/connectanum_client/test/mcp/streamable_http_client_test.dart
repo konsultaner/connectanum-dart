@@ -150,6 +150,60 @@ void main() {
       expect(endpoint.requests.last.protocolVersion, '2025-06-18');
     });
 
+    test(
+      'uses explicit initialize protocol version in request headers',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(
+          id: 'explicit-protocol-init',
+          protocolVersion: '2025-06-18',
+        );
+
+        final result = (initialize['result'] as Map).cast<String, Object?>();
+        expect(result['protocolVersion'], '2025-06-18');
+        expect(client.protocolVersion, '2025-06-18');
+        expect(endpoint.requests.single.protocolVersion, '2025-06-18');
+        final initializeBody = (endpoint.requests.single.body as Map)
+            .cast<String, Object?>();
+        final initializeParams = (initializeBody['params'] as Map)
+            .cast<String, Object?>();
+        expect(initializeParams['protocolVersion'], '2025-06-18');
+      },
+    );
+
+    test('lets low-level POST helpers override protocol headers', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.postDirect(<String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'ping',
+        'method': 'ping',
+      }, protocolVersion: '2025-03-26');
+      await client.postBatchDirect(<McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'batch-tools',
+          'method': 'tools/list',
+        },
+      ], protocolVersion: '2025-06-18');
+
+      expect(endpoint.requests[0].protocolVersion, '2025-03-26');
+      expect(endpoint.requests[1].protocolVersion, '2025-06-18');
+      expect(
+        client.protocolVersion,
+        McpStreamableHttpClient.latestProtocolVersion,
+      );
+    });
+
     test('treats delete without an active session as local cleanup', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);

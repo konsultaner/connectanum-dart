@@ -78,6 +78,20 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: Streamable HTTP explicit initialize negotiation now sends the
+  requested supported MCP protocol version in both the JSON-RPC initialize body
+  and the `MCP-Protocol-Version` request header. The low-level direct JSON POST
+  helpers also accept a protocol-version header override without mutating the
+  negotiated client version, so compatibility probes can exercise older
+  supported MCP versions through direct JSON access. Generated
+  consumer-package smokes and the router-hosted example now keep the client
+  default at latest while passing explicit initialize versions, proving
+  header/body alignment from the consumer boundary. Pre-change `bin/test-fast`
+  passed, focused MCP client test, generated consumer smoke, router-hosted
+  example smoke, public-artifact guard, shell syntax check, diff checks, and
+  full local `bin/verify` passed on 2026-05-23. Hosted evidence is pending for
+  the next pushed implementation commit; the latest fully clean hosted
+  checkpoint remains `d216a2d`.
 - 2026-05-23: MCP initialize negotiation now returns a requested supported
   protocol version (`2025-03-26`, `2025-06-18`, or `2025-11-25`) instead of
   always upgrading to latest, while unsupported body versions still fall back
@@ -89,9 +103,27 @@ decision because `connectanum_client` still depends on private
   negotiated for downstream application readiness. Pre-change `bin/test-fast`
   passed, focused lifecycle/client/router, generated consumer smoke,
   router-hosted example smoke, public-artifact guard, and diff checks passed,
-  and full local `bin/verify` passed on 2026-05-23. Hosted evidence is pending
-  for the next pushed commit; the latest fully clean hosted checkpoint remains
-  `c704248`.
+  and full local `bin/verify` passed on 2026-05-23. Commit `d216a2d`
+  (`fix: honor supported mcp protocol versions`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence
+  is clean at `d216a2d`: `master` CI run `26339458336` passed with Fast Checks
+  and Full Verify green plus clean logs, `add-router` CI run `26339456857`
+  passed, `master` Dart Package Publish Dry Run `26339458338` passed,
+  `add-router` Dart Package Publish Dry Run `26339456838` passed, `master`
+  WAMP Profile Benchmarks `26339458339` passed, `add-router` WAMP Profile
+  Benchmarks `26339456830` passed, and clean Router Image dry-run
+  `26339470709` passed for current head with preview metadata
+  `sha-d216a2d5ae8e`, GHCR login skipped, and no image publish. Native
+  Artifacts dry-run `26286794628` remains relevant because no
+  native-release-sensitive inputs changed. The strict deployment-chain audit
+  passed required gates on `master` at `d216a2d`, including clean current-head
+  CI/logs, current Dart package dry-run, current WAMP profile benchmark
+  evidence, current Router Image dry-run, native release dry-run relevance,
+  branch protection, workflow visibility, and router package visibility. RC
+  readiness remains not-ready only because no approved numeric RC tag, GitHub
+  prerelease, or matching RC router image tag has been selected, and pub.dev
+  publishing remains deferred for release-order and operator decisions. No RC
+  tag, GitHub Release, or router image was created or moved.
 - 2026-05-23: The public artifact reference guard now also scans
   `bin/common.sh`, keeping the generated MCP consumer smoke packages and their
   embedded package metadata under the same local downstream path and

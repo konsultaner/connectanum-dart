@@ -902,12 +902,15 @@ Future<void> _smokeSupportedMcpProtocolVersion(
 }) async {
   final client = _protocolVersionClient(
     endpoint,
-    defaultProtocolVersion: protocolVersion,
+    defaultProtocolVersion: McpStreamableHttpClient.latestProtocolVersion,
     authGrant: authGrant,
   );
   try {
     final initializeId = '$label-$protocolVersion-initialize';
-    final initialize = await client.initialize(id: initializeId);
+    final initialize = await client.initialize(
+      id: initializeId,
+      protocolVersion: protocolVersion,
+    );
     if (initialize['id'] != initializeId) {
       throw StateError(
         'MCP $label initialize with $protocolVersion returned the wrong id.',
