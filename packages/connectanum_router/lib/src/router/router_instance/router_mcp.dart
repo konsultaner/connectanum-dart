@@ -2773,6 +2773,7 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
   }
 
   _validateMcpAllowedOriginsRouteOption(options);
+  _validateMcpConfiguredRouteOptionShapes(options);
 }
 
 void _validateMcpBoolRouteOption(Map<String, Object?> options, String key) {
@@ -2832,6 +2833,137 @@ void _validateMcpAllowedOriginsRouteOption(Map<String, Object?> options) {
       continue;
     }
     throw FormatException('MCP $key must be a string or list of strings');
+  }
+}
+
+void _validateMcpConfiguredRouteOptionShapes(Map<String, Object?> options) {
+  _validateMcpProcedureRouteOptionShapes(options);
+  _validateMcpTopicRouteOptionShapes(options);
+  _validateMcpResourceRouteOptionShapes(options);
+  _validateMcpPromptRouteOptionShapes(options);
+}
+
+void _validateMcpProcedureRouteOptionShapes(Map<String, Object?> options) {
+  final entries = options['procedures'];
+  if (entries is! List) {
+    return;
+  }
+  for (var i = 0; i < entries.length; i += 1) {
+    final config = (entries[i] as Map).cast<String, Object?>();
+    final label = 'procedures[$i]';
+    for (final key in const <String>['allow_call', 'allowCall', 'callable']) {
+      _validateMcpBoolConfigOption(config, label, key);
+    }
+  }
+}
+
+void _validateMcpTopicRouteOptionShapes(Map<String, Object?> options) {
+  final entries = options['topics'];
+  if (entries is! List) {
+    return;
+  }
+  for (var i = 0; i < entries.length; i += 1) {
+    final config = (entries[i] as Map).cast<String, Object?>();
+    final label = 'topics[$i]';
+    for (final key in const <String>['allow_publish', 'allow_subscribe']) {
+      _validateMcpBoolConfigOption(config, label, key);
+    }
+  }
+}
+
+void _validateMcpResourceRouteOptionShapes(Map<String, Object?> options) {
+  final entries = options['resources'];
+  if (entries is! List) {
+    return;
+  }
+  for (var i = 0; i < entries.length; i += 1) {
+    final config = (entries[i] as Map).cast<String, Object?>();
+    _validateMcpNonNegativeIntConfigOption(config, 'resources[$i]', 'size');
+  }
+}
+
+void _validateMcpPromptRouteOptionShapes(Map<String, Object?> options) {
+  final entries = options['prompts'];
+  if (entries is! List) {
+    return;
+  }
+  for (var i = 0; i < entries.length; i += 1) {
+    final config = (entries[i] as Map).cast<String, Object?>();
+    final label = 'prompts[$i]';
+    _validateMcpNestedObjectListConfigOption(config, label, 'arguments');
+    _validateMcpNestedObjectListConfigOption(config, label, 'messages');
+
+    final arguments = config['arguments'];
+    if (arguments is List) {
+      for (var j = 0; j < arguments.length; j += 1) {
+        final argument = (arguments[j] as Map).cast<String, Object?>();
+        _validateMcpBoolConfigOption(
+          argument,
+          '$label.arguments[$j]',
+          'required',
+        );
+      }
+    }
+
+    final messages = config['messages'];
+    if (messages is List) {
+      for (var j = 0; j < messages.length; j += 1) {
+        final message = (messages[j] as Map).cast<String, Object?>();
+        final role = message['role'];
+        if (role != null && role is! String) {
+          throw FormatException(
+            'MCP $label.messages[$j].role must be a string',
+          );
+        }
+      }
+    }
+  }
+}
+
+void _validateMcpBoolConfigOption(
+  Map<String, Object?> config,
+  String label,
+  String key,
+) {
+  final value = config[key];
+  if (value != null && value is! bool) {
+    throw FormatException('MCP $label.$key must be a boolean');
+  }
+}
+
+void _validateMcpNonNegativeIntConfigOption(
+  Map<String, Object?> config,
+  String label,
+  String key,
+) {
+  final value = config[key];
+  if (value != null && (value is! int || value < 0)) {
+    throw FormatException('MCP $label.$key must be a non-negative integer');
+  }
+}
+
+void _validateMcpNestedObjectListConfigOption(
+  Map<String, Object?> config,
+  String label,
+  String key,
+) {
+  final value = config[key];
+  if (value == null) {
+    return;
+  }
+  if (value is! List) {
+    throw FormatException('MCP $label.$key must be a list of objects');
+  }
+  for (var i = 0; i < value.length; i += 1) {
+    final entry = value[i];
+    if (entry is! Map) {
+      throw FormatException('MCP $label.$key[$i] must be an object');
+    }
+    for (final entryKey in entry.keys) {
+      if (entryKey is! String) {
+        throw FormatException('MCP $label.$key[$i] keys must be strings');
+      }
+    }
   }
 }
 

@@ -332,6 +332,47 @@ void main() {
       _expectInvalidMcpOptions({
         'procedures': ['not-an-object'],
       }, 'MCP procedures[0] must be an object');
+      _expectInvalidMcpOptions({
+        'procedures': [
+          {'procedure': 'app.lookup', 'allow_call': 'true'},
+        ],
+      }, 'MCP procedures[0].allow_call must be a boolean');
+      _expectInvalidMcpOptions({
+        'topics': [
+          {'topic': 'app.events', 'allow_publish': 'true'},
+        ],
+      }, 'MCP topics[0].allow_publish must be a boolean');
+      _expectInvalidMcpOptions({
+        'resources': [
+          {'uri': 'file:///context', 'text': 'context', 'size': '7'},
+        ],
+      }, 'MCP resources[0].size must be a non-negative integer');
+      _expectInvalidMcpOptions({
+        'prompts': [
+          {'name': 'summarize', 'text': 'Summarize', 'arguments': 'taskId'},
+        ],
+      }, 'MCP prompts[0].arguments must be a list of objects');
+      _expectInvalidMcpOptions({
+        'prompts': [
+          {
+            'name': 'summarize',
+            'text': 'Summarize {{taskId}}',
+            'arguments': [
+              {'name': 'taskId', 'required': 'true'},
+            ],
+          },
+        ],
+      }, 'MCP prompts[0].arguments[0].required must be a boolean');
+      _expectInvalidMcpOptions({
+        'prompts': [
+          {
+            'name': 'summarize',
+            'messages': [
+              {'role': 7, 'text': 'Summarize'},
+            ],
+          },
+        ],
+      }, 'MCP prompts[0].messages[0].role must be a string');
     });
 
     test('accepts MCP non-streaming post response options', () {
