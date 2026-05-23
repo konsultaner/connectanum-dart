@@ -338,6 +338,19 @@ void main() {
         ],
       }, 'MCP procedures[0].allow_call must be a boolean');
       _expectInvalidMcpOptions({
+        'procedures': [
+          {'procedure': 'app.lookup', 'inputSchema': 'object'},
+        ],
+      }, 'MCP procedures[0].inputSchema must be an object');
+      _expectInvalidMcpOptions({
+        'procedures': [
+          {
+            'procedure': 'app.lookup',
+            'metadata': {'inputJsonSchema': 'object'},
+          },
+        ],
+      }, 'MCP procedures[0].metadata.inputJsonSchema must be an object');
+      _expectInvalidMcpOptions({
         'topics': [
           {'topic': 'app.events', 'allow_publish': 'true'},
         ],
@@ -352,6 +365,19 @@ void main() {
           {'topic': 'app.events', 'allowSubscribe': 'true'},
         ],
       }, 'MCP topics[0].allowSubscribe must be a boolean');
+      _expectInvalidMcpOptions({
+        'topics': [
+          {'topic': 'app.events', 'eventSchema': 'object'},
+        ],
+      }, 'MCP topics[0].eventSchema must be an object');
+      _expectInvalidMcpOptions({
+        'topics': [
+          {
+            'topic': 'app.events',
+            '_ai_meta_data': {'outputJsonSchema': 'object'},
+          },
+        ],
+      }, 'MCP topics[0]._ai_meta_data.outputJsonSchema must be an object');
       _expectInvalidMcpOptions({
         'resources': [
           {'uri': 'file:///context', 'text': 'context', 'size': '7'},

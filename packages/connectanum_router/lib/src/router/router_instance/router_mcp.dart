@@ -2854,6 +2854,19 @@ void _validateMcpProcedureRouteOptionShapes(Map<String, Object?> options) {
     for (final key in const <String>['allow_call', 'allowCall', 'callable']) {
       _validateMcpBoolConfigOption(config, label, key);
     }
+    for (final key in const <String>[
+      'input_schema',
+      'inputSchema',
+      'input_json_schema',
+      'inputJsonSchema',
+      'output_schema',
+      'outputSchema',
+      'output_json_schema',
+      'outputJsonSchema',
+    ]) {
+      _validateMcpJsonObjectConfigOption(config, label, key);
+    }
+    _validateMcpMetadataConfigOptionShapes(config, label);
   }
 }
 
@@ -2873,6 +2886,15 @@ void _validateMcpTopicRouteOptionShapes(Map<String, Object?> options) {
     ]) {
       _validateMcpBoolConfigOption(config, label, key);
     }
+    for (final key in const <String>[
+      'event_schema',
+      'eventSchema',
+      'event_json_schema',
+      'eventJsonSchema',
+    ]) {
+      _validateMcpJsonObjectConfigOption(config, label, key);
+    }
+    _validateMcpMetadataConfigOptionShapes(config, label);
   }
 }
 
@@ -2944,6 +2966,63 @@ void _validateMcpNonNegativeIntConfigOption(
   final value = config[key];
   if (value != null && (value is! int || value < 0)) {
     throw FormatException('MCP $label.$key must be a non-negative integer');
+  }
+}
+
+void _validateMcpJsonObjectConfigOption(
+  Map<String, Object?> config,
+  String label,
+  String key,
+) {
+  final value = config[key];
+  if (value == null) {
+    return;
+  }
+  if (value is! Map) {
+    throw FormatException('MCP $label.$key must be an object');
+  }
+  for (final entryKey in value.keys) {
+    if (entryKey is! String) {
+      throw FormatException('MCP $label.$key keys must be strings');
+    }
+  }
+}
+
+void _validateMcpMetadataConfigOptionShapes(
+  Map<String, Object?> config,
+  String label,
+) {
+  for (final metadataKey in const <String>[
+    '_ai_meta_data',
+    'ai_meta_data',
+    'aiMetaData',
+    'metadata',
+  ]) {
+    final metadata = config[metadataKey];
+    if (metadata == null) {
+      continue;
+    }
+    if (metadata is! Map) {
+      throw FormatException('MCP $label.$metadataKey must be an object');
+    }
+    for (final entryKey in metadata.keys) {
+      if (entryKey is! String) {
+        throw FormatException('MCP $label.$metadataKey keys must be strings');
+      }
+    }
+    final metadataConfig = metadata.cast<String, Object?>();
+    for (final schemaKey in const <String>[
+      'input_json_schema',
+      'inputJsonSchema',
+      'output_json_schema',
+      'outputJsonSchema',
+    ]) {
+      _validateMcpJsonObjectConfigOption(
+        metadataConfig,
+        '$label.$metadataKey',
+        schemaKey,
+      );
+    }
   }
 }
 
