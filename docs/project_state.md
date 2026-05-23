@@ -2,30 +2,45 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP direct JSON notification response-body isolation.
-Latest fully clean hosted checkpoint: Commit `f15518b`.
-Current implementation checkpoint: `McpStreamableHttpClient._postPayload()` now
-validates JSON-RPC POST response semantics for lifecycle-free direct JSON calls
-as well as Streamable HTTP session calls before accepting response state. A
-successful non-empty JSON or POST/SSE response body to a JSON-RPC notification
-or notification-only batch now throws even when the caller used
-`streamable: false` / `includeSession: false`; accepted, no-content, and empty
-notification responses remain accepted. Direct JSON helpers remain
-lifecycle-free: response `MCP-Session-Id` / protocol-version headers and SSE
-resume cursors are only captured for lifecycle-bound Streamable requests. The
-focused direct JSON regression covers single notifications and
-notification-only batches with response bodies and proves the active
-Streamable `sessionId` and `lastEventId` remain unchanged. The generated
-client-only consumer-package smoke now exercises the same direct JSON
-notification-body rejection through public `connectanum_mcp_io.dart` APIs. The
-generated smoke endpoint was also corrected to return accepted/no-body
-responses for ordinary no-id JSON-RPC messages unless a test hook explicitly
-forces a malformed notification response body. After the fix, focused direct
-JSON regression coverage, full `streamable_http_client_test.dart`, `bash -n
-bin/common.sh`, `dart analyze packages/connectanum_client`, focused generated
-client-only consumer smoke, repeated `bin/test-fast`, and full local
-`bin/verify` passed on 2026-05-23. Hosted evidence still points at `f15518b`
-until this implementation checkpoint is committed, pushed, and audited.
+Last reviewed branch checkpoint: MCP WAMP pub/sub standard option normalization.
+Latest fully clean hosted checkpoint: Commit `d35ac42`.
+Current implementation checkpoint: `McpWampApi` now normalizes standard WAMP
+publish and subscribe option keys from public MCP pub/sub `options` maps into
+typed `PublishOptions` and `SubscribeOptions` before dispatching through the
+WAMP session. Publish options now accept `acknowledge`, session
+`exclude`/`eligible` filters, authid/authrole include/exclude filters,
+`exclude_me`, `disclose_me`, `retain`, and PPT option aliases; the top-level
+MCP `acknowledge` argument wins over `options.acknowledge`. Subscribe options
+now accept `match`, `meta_topic`, and `get_retained`. Unknown option keys are
+still preserved in `custom`, so consumer applications can pass extension
+fields without losing them. The MCP WAMP API regression now captures publish
+and subscribe requests and asserts typed option mapping plus custom-option
+preservation. Focused `wamp_api_test.dart`, full `wamp_api_test.dart`, `dart
+analyze packages/connectanum_mcp`, repeated `bin/test-fast`, and full local
+`bin/verify` passed on 2026-05-23. Hosted evidence is pending until this
+implementation is committed, pushed, and audited; the latest fully clean
+hosted checkpoint remains `d35ac42`.
+Prior hosted checkpoint details: Commit `d35ac42`
+(`fix: reject direct mcp notification responses`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `d35ac42`: `master` CI run `26317169024` passed with Fast Checks and
+Full Verify green and clean logs, `add-router` CI run `26317168997` passed,
+`master` Dart Package Publish Dry Run `26317168989` and `add-router` Dart
+Package Publish Dry Run `26317168998` passed, `master` WAMP Profile Benchmarks
+`26317169023` and `add-router` WAMP Profile Benchmarks `26317168999` passed,
+and current-head Router Image dry-run `26317182342` passed for
+`0.1.0-rc.2-validation.d35ac42` with preview upload, skipped GHCR login,
+completed multi-arch build, and clean annotations. Native Artifacts dry-run
+`26286794628` remains relevant because no native-release-sensitive inputs
+changed since `89c7915`. The strict deployment-chain audit passed required
+gates on `master` at `d35ac42`, including clean current-head CI/logs, Dart
+package dry-run, WAMP profile benchmark evidence, Router Image dry-run, native
+release dry-run relevance, branch protection, workflow visibility, and router
+package visibility. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected, and pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
 Prior hosted checkpoint details: Commit `f15518b`
 (`fix: reject mcp notification response bodies`)
 rejects non-empty successful POST response bodies for JSON-RPC notifications

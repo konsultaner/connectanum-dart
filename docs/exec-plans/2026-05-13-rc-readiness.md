@@ -78,6 +78,22 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: `McpWampApi` now normalizes standard WAMP publish and subscribe
+  option keys from public MCP pub/sub `options` maps into typed
+  `PublishOptions` and `SubscribeOptions` before dispatching through the WAMP
+  session. Publish options now accept `acknowledge`, session
+  `exclude`/`eligible` filters, authid/authrole include/exclude filters,
+  `exclude_me`, `disclose_me`, `retain`, and PPT option aliases; the top-level
+  MCP `acknowledge` argument wins over `options.acknowledge`. Subscribe
+  options now accept `match`, `meta_topic`, and `get_retained`. Unknown option
+  keys are still preserved in `custom`, so consumer applications can pass
+  extension fields without losing them. The MCP WAMP API regression now
+  captures publish and subscribe requests and asserts typed option mapping plus
+  custom-option preservation. Focused `wamp_api_test.dart`, full
+  `wamp_api_test.dart`, `dart analyze packages/connectanum_mcp`, repeated
+  `bin/test-fast`, and full local `bin/verify` passed. Hosted evidence is
+  pending until this implementation is committed, pushed, and audited; the
+  latest fully clean hosted checkpoint remains `d35ac42`.
 - 2026-05-23: `McpStreamableHttpClient._postPayload()` now validates
   JSON-RPC POST response semantics for lifecycle-free direct JSON calls as well
   as Streamable HTTP session calls before accepting response state. Successful
@@ -98,8 +114,27 @@ decision because `connectanum_client` still depends on private
   regression coverage, full `streamable_http_client_test.dart`, `bash -n
   bin/common.sh`, `dart analyze packages/connectanum_client`, focused
   generated client-only consumer smoke, repeated `bin/test-fast`, and full
-  local `bin/verify` passed. Hosted evidence still points at `f15518b` until
-  this implementation checkpoint is committed, pushed, and audited.
+  local `bin/verify` passed. Commit `d35ac42`
+  (`fix: reject direct mcp notification responses`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is clean
+  at `d35ac42`: `master` CI run `26317169024` passed with Fast Checks and Full
+  Verify green and clean logs, `add-router` CI run `26317168997` passed,
+  `master` Dart Package Publish Dry Run `26317168989` and `add-router` Dart
+  Package Publish Dry Run `26317168998` passed, `master` WAMP Profile
+  Benchmarks `26317169023` and `add-router` WAMP Profile Benchmarks
+  `26317168999` passed, and Router Image dry-run `26317182342` passed for
+  `0.1.0-rc.2-validation.d35ac42` with preview upload, skipped GHCR login,
+  completed multi-arch build, and clean annotations. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed since `89c7915`. The strict deployment-chain audit passed required
+  gates on `master` at `d35ac42`, including clean current-head CI/logs, Dart
+  package dry-run, WAMP profile benchmark evidence, Router Image dry-run,
+  native release dry-run relevance, branch protection, workflow visibility,
+  and router package visibility. RC readiness remains not-ready only because no
+  approved numeric RC tag, GitHub prerelease, or matching RC router image tag
+  has been selected, and pub.dev publishing remains deferred for release-order
+  and operator decisions. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-23: `McpStreamableHttpClient._postPayload()` now rejects non-empty
   successful POST response bodies for JSON-RPC notifications and
   notification-only batches before accepting response `MCP-Session-Id` /

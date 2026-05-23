@@ -815,9 +815,9 @@ class _McpWampPubSubTools {
         topic: topic.topic,
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
-        options: PublishOptions(
+        options: _publishOptionsFrom(
           acknowledge: acknowledge,
-          custom: customOptions,
+          options: customOptions,
         ),
       ),
     );
@@ -851,9 +851,7 @@ class _McpWampPubSubTools {
       McpWampSubscribeRequest(
         topic: topic.topic,
         queueLimit: queueLimit,
-        options: customOptions == null
-            ? null
-            : SubscribeOptions(custom: customOptions),
+        options: _subscribeOptionsFrom(customOptions),
       ),
       buffer.add,
     );
@@ -1127,6 +1125,149 @@ List<dynamic>? _optionalList(JsonMap arguments, String key) {
     return List<dynamic>.from(value);
   }
   throw ArgumentError('arguments.$key must be an array');
+}
+
+PublishOptions _publishOptionsFrom({
+  required bool? acknowledge,
+  required Map<String, dynamic>? options,
+}) {
+  final custom = <String, dynamic>{...?options};
+  final optionAcknowledge = _takeBoolOption(custom, ['acknowledge']);
+  return PublishOptions(
+    acknowledge: acknowledge ?? optionAcknowledge,
+    exclude: _takeIntListOption(custom, ['exclude']),
+    excludeAuthId: _takeStringListOption(custom, [
+      'exclude_authid',
+      'exclude_auth_id',
+      'excludeAuthId',
+    ]),
+    excludeAuthRole: _takeStringListOption(custom, [
+      'exclude_authrole',
+      'exclude_auth_role',
+      'excludeAuthRole',
+    ]),
+    eligible: _takeIntListOption(custom, ['eligible']),
+    eligibleAuthId: _takeStringListOption(custom, [
+      'eligible_authid',
+      'eligible_auth_id',
+      'eligibleAuthId',
+    ]),
+    eligibleAuthRole: _takeStringListOption(custom, [
+      'eligible_authrole',
+      'eligible_auth_role',
+      'eligibleAuthRole',
+    ]),
+    excludeMe: _takeBoolOption(custom, ['exclude_me', 'excludeMe']),
+    discloseMe: _takeBoolOption(custom, ['disclose_me', 'discloseMe']),
+    retain: _takeBoolOption(custom, ['retain']),
+    pptScheme: _takeStringOption(custom, ['ppt_scheme', 'pptScheme']),
+    pptSerializer: _takeStringOption(custom, [
+      'ppt_serializer',
+      'pptSerializer',
+    ]),
+    pptCipher: _takeStringOption(custom, ['ppt_cipher', 'pptCipher']),
+    pptKeyId: _takeStringOption(custom, [
+      'ppt_keyid',
+      'ppt_key_id',
+      'pptKeyId',
+    ]),
+    custom: custom.isEmpty ? null : custom,
+  );
+}
+
+SubscribeOptions? _subscribeOptionsFrom(Map<String, dynamic>? options) {
+  if (options == null) {
+    return null;
+  }
+  final custom = <String, dynamic>{...options};
+  return SubscribeOptions(
+    match: _takeStringOption(custom, ['match']),
+    metaTopic: _takeStringOption(custom, ['meta_topic', 'metaTopic']),
+    getRetained: _takeBoolOption(custom, ['get_retained', 'getRetained']),
+    custom: custom.isEmpty ? null : custom,
+  );
+}
+
+Object? _takeOption(Map<String, dynamic> options, List<String> keys) {
+  var found = false;
+  Object? value;
+  for (final key in keys) {
+    if (options.containsKey(key)) {
+      if (!found) {
+        value = options[key];
+        found = true;
+      }
+      options.remove(key);
+    }
+  }
+  return found ? value : null;
+}
+
+bool? _takeBoolOption(Map<String, dynamic> options, List<String> keys) {
+  final value = _takeOption(options, keys);
+  if (value == null) {
+    return null;
+  }
+  if (value is bool) {
+    return value;
+  }
+  throw ArgumentError('arguments.options.${keys.first} must be a boolean');
+}
+
+String? _takeStringOption(Map<String, dynamic> options, List<String> keys) {
+  final value = _takeOption(options, keys);
+  if (value == null) {
+    return null;
+  }
+  if (value is String && value.isNotEmpty) {
+    return value;
+  }
+  throw ArgumentError(
+    'arguments.options.${keys.first} must be a non-empty string',
+  );
+}
+
+List<int>? _takeIntListOption(Map<String, dynamic> options, List<String> keys) {
+  final value = _takeOption(options, keys);
+  if (value == null) {
+    return null;
+  }
+  if (value is! List) {
+    throw ArgumentError('arguments.options.${keys.first} must be an array');
+  }
+  final values = <int>[];
+  for (final item in value) {
+    if (item is! int) {
+      throw ArgumentError(
+        'arguments.options.${keys.first} must contain only integers',
+      );
+    }
+    values.add(item);
+  }
+  return values;
+}
+
+List<String>? _takeStringListOption(
+  Map<String, dynamic> options,
+  List<String> keys,
+) {
+  final value = _takeOption(options, keys);
+  if (value == null) {
+    return null;
+  }
+  if (value is! List) {
+    throw ArgumentError('arguments.options.${keys.first} must be an array');
+  }
+  final values = <String>[];
+  for (final item in value) {
+    if (item is! String) {
+      throw ArgumentError(
+        'arguments.options.${keys.first} must contain only strings',
+      );
+    }
+    values.add(item);
+  }
+  return values;
 }
 
 Map<String, dynamic>? _optionalDynamicMap(JsonMap arguments, String key) {

@@ -265,6 +265,7 @@ void main() {
 
     test('publishes and polls declared WAMP topics through MCP', () async {
       late McpWampPublishRequest published;
+      late McpWampSubscribeRequest subscribed;
       late void Function(McpWampEvent event) onEvent;
       late McpWampSubscription unsubscribed;
       final api = McpWampApi(
@@ -291,6 +292,7 @@ void main() {
             );
           },
           subscribe: (request, handler) {
+            subscribed = request;
             onEvent = handler;
             return const McpWampSubscription(
               topic: 'app.events',
@@ -314,11 +316,43 @@ void main() {
             'topic': 'app.events',
             'argumentsKeywords': {'message': 'hello'},
             'acknowledge': true,
+            'options': {
+              'acknowledge': false,
+              'exclude': [123],
+              'exclude_authid': ['blocked-user'],
+              'exclude_authrole': ['blocked-role'],
+              'eligible': [456],
+              'eligibleAuthId': ['allowed-user'],
+              'eligibleAuthRole': ['allowed-role'],
+              'exclude_me': false,
+              'discloseMe': true,
+              'retain': true,
+              'ppt_scheme': 'wamp',
+              'pptSerializer': 'cbor',
+              'ppt_cipher': 'xsalsa20poly1305',
+              'pptKeyId': 'task-key',
+              'x_app_trace': 'custom-publish',
+            },
           },
         },
       });
       expect(published.topic, 'app.events');
       expect(published.argumentsKeywords, {'message': 'hello'});
+      expect(published.options?.acknowledge, isTrue);
+      expect(published.options?.exclude, [123]);
+      expect(published.options?.excludeAuthId, ['blocked-user']);
+      expect(published.options?.excludeAuthRole, ['blocked-role']);
+      expect(published.options?.eligible, [456]);
+      expect(published.options?.eligibleAuthId, ['allowed-user']);
+      expect(published.options?.eligibleAuthRole, ['allowed-role']);
+      expect(published.options?.excludeMe, isFalse);
+      expect(published.options?.discloseMe, isTrue);
+      expect(published.options?.retain, isTrue);
+      expect(published.options?.pptScheme, 'wamp');
+      expect(published.options?.pptSerializer, 'cbor');
+      expect(published.options?.pptCipher, 'xsalsa20poly1305');
+      expect(published.options?.pptKeyId, 'task-key');
+      expect(published.options?.custom, {'x_app_trace': 'custom-publish'});
       final publishResult = publishResponse?['result'] as Map<String, Object?>;
       expect(
         publishResult['structuredContent'],
@@ -331,7 +365,16 @@ void main() {
         'method': 'tools/call',
         'params': {
           'name': 'connectanum.pubsub.subscribe',
-          'arguments': {'topic': 'app.events', 'queueLimit': 1},
+          'arguments': {
+            'topic': 'app.events',
+            'queueLimit': 1,
+            'options': {
+              'match': 'prefix',
+              'metaTopic': 'app.events.meta',
+              'get_retained': true,
+              'x_app_subscription': 'custom-subscribe',
+            },
+          },
         },
       });
       final handle =
@@ -339,6 +382,14 @@ void main() {
                   as Map<String, Object?>)['structuredContent']
               as Map<String, Object?>;
       expect(handle['subscriptionId'], 7);
+      expect(subscribed.topic, 'app.events');
+      expect(subscribed.queueLimit, 1);
+      expect(subscribed.options?.match, 'prefix');
+      expect(subscribed.options?.metaTopic, 'app.events.meta');
+      expect(subscribed.options?.getRetained, isTrue);
+      expect(subscribed.options?.custom, {
+        'x_app_subscription': 'custom-subscribe',
+      });
 
       onEvent(
         const McpWampEvent(
