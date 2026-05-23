@@ -5348,6 +5348,13 @@ const _unsupportedProtocolVersion = '2099-01-01';
 const _unknownAccessToken = 'consumer-unknown-access-token';
 const _allowedOrigin = 'https://consumer.example';
 const _disallowedOrigin = 'https://attacker.example';
+const _publicMcpServerName = 'consumer-router-mcp';
+const _publicMcpServerVersion = '9.8.7';
+const _publicMcpServerTitle = 'Consumer router MCP';
+const _publicMcpServerDescription =
+    'Route metadata visible to consumer MCP clients.';
+const _publicMcpInstructions =
+    'Use this endpoint with consumer route-scoped credentials.';
 
 final _consumerProcedureTaskIds = <String>[];
 
@@ -5582,26 +5589,31 @@ RouterSettings _consumerRouterSettings() {
               realm: _realm,
               sessionProfile: 'mcp-public',
               options: {
-                'include_registered_procedures': true,
-                'include_pubsub_tools': true,
-                'tool_list_page_size': 1,
-                'resource_list_page_size': 1,
-                'resource_template_list_page_size': 1,
-                'prompt_list_page_size': 1,
-                'allowed_origins': [_allowedOrigin],
+                'name': _publicMcpServerName,
+                'version': _publicMcpServerVersion,
+                'title': _publicMcpServerTitle,
+                'description': _publicMcpServerDescription,
+                'instructions': _publicMcpInstructions,
+                'includeRegisteredProcedures': true,
+                'includePubsubTools': true,
+                'toolListPageSize': 1,
+                'resourceListPageSize': 1,
+                'resourceTemplateListPageSize': 1,
+                'promptListPageSize': 1,
+                'allowedOrigins': [_allowedOrigin],
                 'topics': [
                   {
                     'topic': _topic,
                     'title': 'Consumer task events',
                     'description': 'Events emitted by consumer task tools.',
-                    'event_json_schema': {
+                    'eventJsonSchema': {
                       'type': 'object',
                       'properties': {
                         'taskId': {'type': 'string'},
                       },
                     },
                     'metadata': {
-                      'short_description':
+                      'shortDescription':
                           'Consumer task lifecycle event stream',
                       'domain': 'consumer',
                       'entity': 'task',
@@ -5623,7 +5635,7 @@ RouterSettings _consumerRouterSettings() {
                     'title': 'Consumer MCP context',
                     'description':
                         'Static context exposed by the consumer MCP route.',
-                    'mime_type': 'text/plain',
+                    'mimeType': 'text/plain',
                     'text':
                         'Consumer package router-hosted MCP context document.',
                   },
@@ -5633,26 +5645,26 @@ RouterSettings _consumerRouterSettings() {
                     'title': 'Consumer MCP follow-up context',
                     'description':
                         'Second-page static context for catalog smoke checks.',
-                    'mime_type': 'text/plain',
+                    'mimeType': 'text/plain',
                     'text': 'Consumer package follow-up MCP context document.',
                   },
                 ],
-                'resource_templates': [
+                'resourceTemplates': [
                   {
-                    'uri_template': _resourceTemplateUri,
+                    'uriTemplate': _resourceTemplateUri,
                     'name': 'consumer-task-context',
                     'title': 'Consumer task context',
                     'description':
                         'Template for consumer task context resources.',
-                    'mime_type': 'application/json',
+                    'mimeType': 'application/json',
                   },
                   {
-                    'uri_template': _pagedResourceTemplateUri,
+                    'uriTemplate': _pagedResourceTemplateUri,
                     'name': 'consumer-task-followup-context',
                     'title': 'Consumer task follow-up context',
                     'description':
                         'Second-page template for catalog smoke checks.',
-                    'mime_type': 'application/json',
+                    'mimeType': 'application/json',
                   },
                 ],
                 'prompts': [
@@ -5850,7 +5862,7 @@ RouterSettings _consumerRouterSettings() {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
                 'tool_list_page_size': 1,
-                'post_response_transport': 'json',
+                'postResponseTransport': 'json',
                 'allowed_origins': [_allowedOrigin],
                 'topics': [
                   {
@@ -5878,7 +5890,7 @@ RouterSettings _consumerRouterSettings() {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
                 'tool_list_page_size': 1,
-                'stream_post_responses': false,
+                'streamPostResponses': false,
                 'allowed_origins': [_allowedOrigin],
                 'topics': [
                   {
@@ -13125,6 +13137,46 @@ Map<String, Object?> _jsonObjectFrom(Object? value, {required String label}) {
   throw StateError('$label was not a JSON object.');
 }
 
+void _expectPublicMcpInitializeMetadata(Map<String, Object?> initialize) {
+  void expectField(
+    Map<String, Object?> object,
+    String field,
+    Object? expected,
+    String label,
+  ) {
+    final actual = object[field];
+    if (actual != expected) {
+      throw StateError(
+        '$label returned unexpected $field: $actual.',
+      );
+    }
+  }
+
+  final result = _jsonObjectFrom(
+    initialize['result'],
+    label: 'public Streamable initialize result',
+  );
+  final serverInfo = _jsonObjectFrom(
+    result['serverInfo'],
+    label: 'public Streamable initialize serverInfo',
+  );
+  expectField(serverInfo, 'name', _publicMcpServerName, 'public MCP');
+  expectField(serverInfo, 'version', _publicMcpServerVersion, 'public MCP');
+  expectField(serverInfo, 'title', _publicMcpServerTitle, 'public MCP');
+  expectField(
+    serverInfo,
+    'description',
+    _publicMcpServerDescription,
+    'public MCP',
+  );
+  expectField(
+    result,
+    'instructions',
+    _publicMcpInstructions,
+    'public MCP initialize',
+  );
+}
+
 String _mcpBase64Header(String value) =>
     '=?base64?${base64Encode(utf8.encode(value))}?=';
 
@@ -15626,6 +15678,9 @@ Future<void> _smokeStreamableMcp(
     throw StateError(
       'Streamable MCP initialize did not advertise resources and prompts.',
     );
+  }
+  if (label == 'public') {
+    _expectPublicMcpInitializeMetadata(initializeResult);
   }
   await client.notifyInitialized(
     headers: <String, String>{

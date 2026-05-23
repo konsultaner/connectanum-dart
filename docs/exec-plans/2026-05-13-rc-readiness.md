@@ -78,6 +78,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: The generated consumer package smoke now exercises
+  router-hosted MCP from the package boundary with the public MCP route
+  configured through camel-case route option aliases for server identity,
+  catalog page sizes, allowed origins, topic schema metadata, and resource
+  template/content fields. The smoke asserts that Streamable HTTP
+  `initialize` returns the route-provided MCP `serverInfo` and `instructions`;
+  the JSON POST and non-streaming POST route smokes also use the camel-case
+  response-mode aliases while the secure route keeps the legacy snake-case
+  options covered. Local verification passed: pre-change `bin/test-fast`,
+  focused generated MCP consumer package smoke, `bash -n bin/common.sh`,
+  `git diff --check`, and full local `bin/verify`. Hosted evidence is pending
+  for the next pushed commit; the latest fully clean hosted checkpoint remains
+  `e14615a`.
 - 2026-05-23: Router-hosted MCP route options now honor and validate
   top-level camel-case aliases for agent-facing controls, including
   `includePubsubTools`, `includeStandardMetaApi`,
@@ -91,8 +104,27 @@ decision because `connectanum_client` still depends on private
   verification passed: pre-change `bin/test-fast`, focused router JSON config
   test, focused router-hosted MCP alias/server identity integration test,
   `dart analyze packages/connectanum_router`, `git diff --check`, and full
-  local `bin/verify`. Hosted evidence is pending for the next pushed commit;
-  the latest fully clean hosted checkpoint remains `ef4906b`.
+  local `bin/verify`. Commit `e14615a`
+  (`fix: honor mcp route option aliases`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `e14615a`: `master` CI run `26334367559` passed with Fast Checks and Full
+  Verify green plus clean logs, `add-router` CI run `26334364715` passed,
+  `master` Dart Package Publish Dry Run `26334367577` passed, `add-router`
+  Dart Package Publish Dry Run `26334364694` passed, `master` WAMP Profile
+  Benchmarks `26334368013` passed, `add-router` WAMP Profile Benchmarks
+  `26334364701` passed, and clean Router Image dry-run `26334375630` passed
+  for current head with preview metadata `sha-e14615a40cc2`, GHCR login
+  skipped, and no image publish. Native Artifacts dry-run `26286794628`
+  remains relevant because no native-release-sensitive inputs changed. The
+  strict deployment-chain audit passed required gates on `master` at
+  `e14615a`, including clean current-head CI/logs, current Dart package
+  dry-run, current WAMP profile benchmark evidence, current Router Image
+  dry-run, native release dry-run relevance, branch protection, workflow
+  visibility, and router package visibility. RC readiness remains not-ready
+  only because no approved numeric RC tag, GitHub prerelease, or matching RC
+  router image tag has been selected, and pub.dev publishing remains deferred
+  for release-order and operator decisions. No RC tag, GitHub Release, or
+  router image was created or moved.
 - 2026-05-23: Router-hosted MCP route options now validate agent-facing
   string fields before building the native router config. Malformed server
   `name`, configured procedure/topic display fields, configured resource and
