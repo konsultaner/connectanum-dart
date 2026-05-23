@@ -15693,6 +15693,10 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
     client,
     label: '$label-direct-after-streamable',
   );
+  await _smokeDirectWampApiHelpers(
+    client,
+    label: '$label-direct-after-streamable',
+  );
   await _smokeGenericDirectJsonRpcAccess(
     client,
     serviceSession,
@@ -15721,6 +15725,11 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
     label: '$label-direct-after-streamable',
     directJson: true,
   );
+  await _smokeDirectWampMetaHelpers(
+    client,
+    serviceSession,
+    label: '$label-direct-after-streamable',
+  );
 
   await _smokeWampMetaDiscovery(
     client,
@@ -15735,9 +15744,18 @@ Future<void> _smokeDirectJsonWhileStreamableInitialized(
     queueLimit: 4,
   );
   try {
-    await _smokeWampSubscriptionMeta(
+    final subscribers = await _smokeWampSubscriptionMeta(
       client,
       serviceSession,
+      label: '$label-direct-after-streamable',
+      directJson: true,
+    );
+    final subscriber = subscribers.first;
+
+    await _smokeWampPublishSessionFilters(
+      client,
+      subscription.handle,
+      subscriber,
       label: '$label-direct-after-streamable',
       directJson: true,
     );

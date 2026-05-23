@@ -2,11 +2,26 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP auth-filter delivery smoke.
-Latest fully clean hosted checkpoint: Commit `f7cf3d3`.
-Current implementation checkpoint: router publish delivery now honors standard
-WAMP authid/authrole include and exclude option keys from raw WAMP, direct JSON
-MCP, and Streamable MCP publish calls. The router worker maps
+Last reviewed branch checkpoint: router-hosted MCP active-session direct JSON smoke.
+Latest fully clean hosted checkpoint: Commit `3c6ff20`.
+Current implementation checkpoint: the generated router-hosted MCP consumer
+package smoke now proves active Streamable sessions do not contaminate
+lifecycle-free direct JSON WAMP API/meta helpers or direct JSON pub/sub filter
+delivery. After Streamable initialization, the smoke calls public direct JSON
+WAMP API helpers, public direct JSON WAMP meta helpers, direct JSON WAMP
+subscription meta discovery, and direct JSON session/authid/authrole publish
+filters, then verifies the original Streamable `sessionId` and `lastEventId`
+remain unchanged. This keeps downstream application smoke coverage on public
+APIs and neutral route fixtures without private project assumptions.
+Pre-change `bin/test-fast`, `bash -n bin/common.sh`, focused generated
+router-hosted MCP consumer smoke, and full local `bin/verify` passed on
+2026-05-23. Hosted evidence for this implementation is pending until the
+commit is pushed and audited; the latest fully clean hosted checkpoint remains
+`3c6ff20`.
+Prior hosted checkpoint details: Commit `3c6ff20`
+(`fix: honor mcp auth publish filters`) made router publish delivery honor
+standard WAMP authid/authrole include and exclude option keys from raw WAMP,
+direct JSON MCP, and Streamable MCP publish calls. The router worker maps
 `exclude_authid`, `exclude_authrole`, `eligible_authid`, and
 `eligible_authrole` into state matching, while the state matcher still accepts
 legacy plural auth filter aliases for compatibility. The generated
@@ -14,12 +29,26 @@ router-hosted MCP consumer package smoke discovers the MCP subscriber session
 and auth metadata through WAMP meta, then proves session ID, authid, and
 authrole delivery/suppression filters through both direct JSON and Streamable
 MCP paths without private project assumptions. A router worker regression covers
-raw WAMP authid include/exclude delivery. Pre-change `bin/test-fast`,
-`bash -n bin/common.sh`, focused router worker authid/authrole tests, focused
-generated router-hosted MCP consumer smoke, repeated `bin/test-fast`, and full
-local `bin/verify` passed on 2026-05-23. Hosted evidence for this implementation
-is pending until the commit is pushed and audited; the latest fully clean
-hosted checkpoint remains `f7cf3d3`.
+raw WAMP authid include/exclude delivery. Local verification passed, then
+commit `3c6ff20` was pushed to GitLab `origin`, GitHub `add-router`, and
+GitHub `master`. Hosted GitHub evidence is clean at `3c6ff20`: `master` CI run
+`26323732469` passed with Fast Checks and Full Verify green and clean logs,
+`add-router` CI run `26323730795` passed, `master` Dart Package Publish Dry Run
+`26323732462` and `add-router` Dart Package Publish Dry Run `26323730799`
+passed, `master` WAMP Profile Benchmarks `26323732487` and `add-router` WAMP
+Profile Benchmarks `26323730797` passed, and Router Image dry-run
+`26323764121` passed for `0.1.0-rc.1-validation.3c6ff20` with preview upload,
+skipped GHCR login, completed multi-arch build, and clean annotations. Native
+Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed since `89c7915`. The strict
+deployment-chain audit passed required gates on `master` at `3c6ff20`,
+including clean current-head CI/logs, Dart package dry-run, WAMP profile
+benchmark evidence, Router Image dry-run, native release dry-run relevance,
+branch protection, workflow visibility, and router package visibility. RC
+readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected, and pub.dev
+publishing remains deferred for release-order and operator decisions. No RC
+tag, GitHub Release, or router image was created or moved.
 Prior hosted checkpoint details: Commit `f7cf3d3`
 (`test: cover mcp session publish filters`) was pushed to GitLab `origin`,
 GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
