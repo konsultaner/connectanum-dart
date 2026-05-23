@@ -35,6 +35,7 @@ PUBLIC_PACKAGE_MARKERS = (
 )
 PUBLIC_RELEASE_TEMPLATE_FILES = {
     "bin/audit-github-deployment-chain",
+    "bin/common.sh",
     "bin/dart-package-publish-dry-run",
     "tool/render_native_release_notes.py",
     "tool/render_router_image_metadata.py",

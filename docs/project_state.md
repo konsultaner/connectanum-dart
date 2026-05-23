@@ -2,21 +2,37 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: public artifact reference guard for
-release-readiness.
-Latest fully clean hosted checkpoint: Commit `cbb1382`.
-Current implementation checkpoint: Fast and full verification now run
+Last reviewed branch checkpoint: public artifact guard coverage for generated
+MCP consumer smokes.
+Latest fully clean hosted checkpoint: Commit `b259c79`.
+Current implementation checkpoint: The public artifact reference guard now
+also scans `bin/common.sh`, keeping the generated MCP consumer smoke packages
+and their embedded package metadata under the same local downstream path and
+private-literal guard as checked-in public docs, package metadata, release-note
+templates, and examples. Pre-change `bin/test-fast` passed on 2026-05-23, and
+focused local checks passed:
+`python3 tool/check_public_artifact_references.py` and
+`python3 tool/test_public_artifact_references.py`. Full local `bin/verify`
+passed on 2026-05-23 for this checkpoint. Hosted evidence is pending for the
+next pushed commit.
+Prior hosted checkpoint details: Fast and full verification now run
 `tool/check_public_artifact_references.py` plus its focused regression tests,
 guarding checked-in public docs, release-note templates, package metadata, and
 examples against local downstream paths while allowing neutral "consumer
-application" or "downstream application" wording. Pre-change `bin/test-fast`
-passed, and focused local checks passed on 2026-05-23:
-`python3 tool/check_public_artifact_references.py`,
-`python3 tool/test_public_artifact_references.py`, `bash -n bin/test-fast
-bin/test-all`, and `git diff --check`. Full local `bin/verify` passed on
-2026-05-23 after the verification guard was wired into fast/full verification.
-Hosted evidence is pending for the next pushed commit. The prior fully clean
-hosted checkpoint is `cbb1382`.
+application" or "downstream application" wording.
+Commit `b259c79` (`test: guard public artifact references`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `b259c79`: `master` CI run `26336504930` passed with Fast
+Checks and Full Verify green plus clean logs, and `add-router` CI run
+`26336504920` passed. The strict deployment-chain audit passed required gates
+on `master` at `b259c79`; Dart Package Publish Dry Run, Native Artifacts
+dry-run, Router Image dry-run, and WAMP Profile Benchmarks evidence from
+`e14615a` or earlier remained relevant because `b259c79` did not change those
+sensitive inputs. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected, and pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
 Prior hosted checkpoint details: Commit `cbb1382`
 (`test: harden mcp consumer alias smoke`) extended the generated consumer
 package smoke for router-hosted MCP route aliases and initialize metadata. It

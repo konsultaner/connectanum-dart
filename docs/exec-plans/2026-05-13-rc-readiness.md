@@ -78,6 +78,16 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: The public artifact reference guard now also scans
+  `bin/common.sh`, keeping the generated MCP consumer smoke packages and their
+  embedded package metadata under the same local downstream path and
+  private-literal guard as checked-in public docs, package metadata,
+  release-note templates, and examples. Pre-change `bin/test-fast` passed, and
+  focused local checks passed: `python3 tool/check_public_artifact_references.py`
+  and `python3 tool/test_public_artifact_references.py`. Full local
+  `bin/verify` passed on 2026-05-23 for this checkpoint. Hosted evidence is
+  pending for the next pushed commit; the latest fully clean hosted checkpoint
+  remains `b259c79`.
 - 2026-05-23: Fast and full verification now run
   `tool/check_public_artifact_references.py` plus focused unit coverage to
   guard checked-in public docs, release-note templates, package metadata, and
@@ -88,9 +98,19 @@ decision because `connectanum_client` still depends on private
   `python3 tool/check_public_artifact_references.py`,
   `python3 tool/test_public_artifact_references.py`, `bash -n bin/test-fast
   bin/test-all`, and `git diff --check`. Full local `bin/verify` passed after
-  the verification guard was wired into fast/full verification. Hosted
-  evidence is pending for the next pushed commit; the latest fully clean hosted
-  checkpoint is `cbb1382`.
+  the verification guard was wired into fast/full verification. Commit
+  `b259c79` was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
+  `master`. Hosted GitHub evidence is clean at `b259c79`: `master` CI run
+  `26336504930` passed with Fast Checks and Full Verify green plus clean logs,
+  and `add-router` CI run `26336504920` passed. The strict deployment-chain
+  audit passed required gates on `master` at `b259c79`; Dart Package Publish
+  Dry Run, Native Artifacts dry-run, Router Image dry-run, and WAMP Profile
+  Benchmarks evidence from `e14615a` or earlier remained relevant because
+  `b259c79` did not change those sensitive inputs. RC readiness remains
+  not-ready only because no approved numeric RC tag, GitHub prerelease, or
+  matching RC router image tag has been selected, and pub.dev publishing
+  remains deferred for release-order and operator decisions. No RC tag, GitHub
+  Release, or router image was created or moved.
 - 2026-05-23: The generated consumer package smoke now exercises
   router-hosted MCP from the package boundary with the public MCP route
   configured through camel-case route option aliases for server identity,

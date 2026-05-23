@@ -36,6 +36,7 @@ class PublicArtifactReferenceGuardTest(unittest.TestCase):
         self.assertTrue(
             guard.is_public_artifact(".github/workflows/native-artifacts.yml")
         )
+        self.assertTrue(guard.is_public_artifact("bin/common.sh"))
         self.assertFalse(
             guard.is_public_artifact("packages/connectanum_router/test/foo.dart")
         )
