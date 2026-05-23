@@ -120,6 +120,8 @@ build_native_ffi_test_release
 
 python3 tool/test_package_native_artifact.py
 python3 tool/test_verification_scripts.py
+python3 tool/check_public_artifact_references.py
+python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 dart test packages/connectanum_core/test

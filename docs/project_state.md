@@ -2,22 +2,42 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: consumer package router-hosted MCP smoke
-coverage for route aliases and initialize metadata.
-Latest fully clean hosted checkpoint: Commit `e14615a`.
-Current implementation checkpoint: The generated consumer package smoke now
-exercises router-hosted MCP from the package boundary with the public MCP route
-configured through camel-case route option aliases for server identity,
-catalog page sizes, allowed origins, topic schema metadata, and resource
-template/content fields. The smoke asserts that Streamable HTTP `initialize`
-returns the route-provided MCP `serverInfo` and `instructions`; the JSON POST
-and non-streaming POST route smokes also use the camel-case response-mode
-aliases while the secure route keeps the legacy snake-case options covered.
-Local verification passed on 2026-05-23: pre-change `bin/test-fast`, focused
-generated MCP consumer package smoke, `bash -n bin/common.sh`,
-`git diff --check`, and full local `bin/verify`. Hosted evidence is pending
-for the next pushed commit; the latest fully clean hosted checkpoint remains
-`e14615a`.
+Last reviewed branch checkpoint: public artifact reference guard for
+release-readiness.
+Latest fully clean hosted checkpoint: Commit `cbb1382`.
+Current implementation checkpoint: Fast and full verification now run
+`tool/check_public_artifact_references.py` plus its focused regression tests,
+guarding checked-in public docs, release-note templates, package metadata, and
+examples against local downstream paths while allowing neutral "consumer
+application" or "downstream application" wording. Pre-change `bin/test-fast`
+passed, and focused local checks passed on 2026-05-23:
+`python3 tool/check_public_artifact_references.py`,
+`python3 tool/test_public_artifact_references.py`, `bash -n bin/test-fast
+bin/test-all`, and `git diff --check`. Full local `bin/verify` passed on
+2026-05-23 after the verification guard was wired into fast/full verification.
+Hosted evidence is pending for the next pushed commit. The prior fully clean
+hosted checkpoint is `cbb1382`.
+Prior hosted checkpoint details: Commit `cbb1382`
+(`test: harden mcp consumer alias smoke`) extended the generated consumer
+package smoke for router-hosted MCP route aliases and initialize metadata. It
+exercises the public MCP route with camel-case route option aliases for server
+identity, catalog page sizes, allowed origins, topic schema metadata, and
+resource template/content fields; asserts that Streamable HTTP `initialize`
+returns route-provided MCP `serverInfo` and `instructions`; and keeps the JSON
+POST, non-streaming POST, and secure snake-case route paths covered. Local
+verification passed: pre-change `bin/test-fast`, focused generated MCP
+consumer package smoke, `bash -n bin/common.sh`, `git diff --check`, and full
+local `bin/verify`. Hosted GitHub evidence is clean at `cbb1382`: `master` CI
+run `26335448261` passed with Fast Checks and Full Verify green plus clean
+logs, and `add-router` CI run `26335445322` passed. The strict deployment-chain
+audit passed required gates on `master` at `cbb1382`; Dart Package Publish Dry
+Run, Native Artifacts dry-run, Router Image dry-run, and WAMP Profile
+Benchmarks evidence from `e14615a` or earlier remained relevant because
+`cbb1382` did not change those sensitive inputs. RC readiness remains
+not-ready only because no approved numeric RC tag, GitHub prerelease, or
+matching RC router image tag has been selected, and pub.dev publishing remains
+deferred for release-order and operator decisions. No RC tag, GitHub Release,
+or router image was created or moved.
 Prior hosted checkpoint details: Commit `e14615a`
 (`fix: honor mcp route option aliases`) added router-hosted MCP route option
 support and validation for top-level camel-case aliases for agent-facing

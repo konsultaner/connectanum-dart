@@ -78,6 +78,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: Fast and full verification now run
+  `tool/check_public_artifact_references.py` plus focused unit coverage to
+  guard checked-in public docs, release-note templates, package metadata, and
+  examples against local downstream paths. The guard keeps the release/public
+  artifact boundary aligned with neutral "consumer application" and
+  "downstream application" wording without checking in private application
+  names. Pre-change `bin/test-fast` passed, and focused local checks passed:
+  `python3 tool/check_public_artifact_references.py`,
+  `python3 tool/test_public_artifact_references.py`, `bash -n bin/test-fast
+  bin/test-all`, and `git diff --check`. Full local `bin/verify` passed after
+  the verification guard was wired into fast/full verification. Hosted
+  evidence is pending for the next pushed commit; the latest fully clean hosted
+  checkpoint is `cbb1382`.
 - 2026-05-23: The generated consumer package smoke now exercises
   router-hosted MCP from the package boundary with the public MCP route
   configured through camel-case route option aliases for server identity,
