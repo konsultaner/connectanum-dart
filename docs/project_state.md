@@ -2,22 +2,41 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP active-session direct JSON smoke.
-Latest fully clean hosted checkpoint: Commit `3c6ff20`.
+Last reviewed branch checkpoint: router-hosted MCP JSON POST response smoke.
+Latest fully clean hosted checkpoint: Commit `dfedfd5`.
 Current implementation checkpoint: the generated router-hosted MCP consumer
-package smoke now proves active Streamable sessions do not contaminate
-lifecycle-free direct JSON WAMP API/meta helpers or direct JSON pub/sub filter
-delivery. After Streamable initialization, the smoke calls public direct JSON
-WAMP API helpers, public direct JSON WAMP meta helpers, direct JSON WAMP
-subscription meta discovery, and direct JSON session/authid/authrole publish
-filters, then verifies the original Streamable `sessionId` and `lastEventId`
-remain unchanged. This keeps downstream application smoke coverage on public
-APIs and neutral route fixtures without private project assumptions.
-Pre-change `bin/test-fast`, `bash -n bin/common.sh`, focused generated
-router-hosted MCP consumer smoke, and full local `bin/verify` passed on
-2026-05-23. Hosted evidence for this implementation is pending until the
-commit is pushed and audited; the latest fully clean hosted checkpoint remains
-`3c6ff20`.
+package smoke now adds a public `/mcp/json-post` route with
+`post_response_transport: json` and a declared pub/sub topic. The smoke
+initializes a Streamable session with the package client, proves normal
+Streamable POST operations stay JSON instead of SSE even when `Accept` permits
+both JSON and `text/event-stream`, verifies `sessionId` stability and no POST
+SSE cursor capture across tool catalog, tool call, raw `tools/list`, raw
+`ping`, and pub/sub publish/poll paths, then proves GET/SSE polling remains
+available for server notifications before session deletion clears state. This
+keeps downstream application smoke coverage on public APIs and neutral router
+fixtures without private project assumptions. Pre-change `bin/test-fast`,
+`bash -n bin/common.sh`, focused generated router-hosted MCP consumer smoke,
+and full local `bin/verify` passed on 2026-05-23. Hosted evidence for the new
+implementation commit is pending until it is pushed and GitHub CI completes;
+the latest fully clean hosted checkpoint remains `dfedfd5`.
+Prior hosted checkpoint details: Commit `dfedfd5`
+(`test: cover active-session direct mcp access`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `dfedfd5`: `master` CI run `26324656392` passed with Fast Checks and
+Full Verify green plus clean logs, and `add-router` CI run `26324655835`
+passed. `master` Dart Package Publish Dry Run `26323732462`, `master` WAMP
+Profile Benchmarks `26323732487`, Router Image dry-run `26323764121`, and
+Native Artifacts dry-run `26286794628` remain relevant because no
+publish-sensitive, WAMP-profile-benchmark-sensitive, router-image-sensitive,
+or native-release-sensitive inputs changed since those runs. The strict
+deployment-chain audit passed required gates on `master` at `dfedfd5`,
+including clean current-head CI/logs, relevant Dart package dry-run, relevant
+WAMP profile benchmark evidence, relevant Router Image dry-run, native release
+dry-run relevance, branch protection, workflow visibility, and router package
+visibility. RC readiness remains not-ready only because no approved numeric RC
+tag, GitHub prerelease, or matching RC router image tag has been selected, and
+pub.dev publishing remains deferred for release-order and operator decisions.
+No RC tag, GitHub Release, or router image was created or moved.
 Prior hosted checkpoint details: Commit `3c6ff20`
 (`fix: honor mcp auth publish filters`) made router publish delivery honor
 standard WAMP authid/authrole include and exclude option keys from raw WAMP,

@@ -5322,6 +5322,7 @@ const _realm = 'consumer.mcp.realm';
 const _authPath = '/auth';
 const _publicMcpPath = '/mcp';
 const _secureMcpPath = '/mcp/secure';
+const _jsonPostMcpPath = '/mcp/json-post';
 const _rateLimitedMcpPath = '/mcp/rate-limited';
 const _ticketAuthId = 'consumer-user';
 const _ticketSecret = 'consumer-ticket';
@@ -5431,6 +5432,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       serviceSession,
       label: 'public',
     );
+    await _smokeJsonPostMcpRoute(binding, serviceSession);
     await _smokeRateLimitedMcpRoute(binding);
 
     await _assertSecureMcpRequiresBearer(binding);
@@ -5836,6 +5838,34 @@ RouterSettings _consumerRouterSettings() {
               },
             ),
           ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: _jsonPostMcpPath),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: _realm,
+              sessionProfile: 'mcp-public',
+              options: {
+                'include_registered_procedures': true,
+                'include_pubsub_tools': true,
+                'tool_list_page_size': 1,
+                'post_response_transport': 'json',
+                'allowed_origins': [_allowedOrigin],
+                'topics': [
+                  {
+                    'topic': _topic,
+                    'title': 'Consumer task events',
+                    'description': 'Events emitted by consumer task tools.',
+                    'event_json_schema': {
+                      'type': 'object',
+                      'properties': {
+                        'taskId': {'type': 'string'},
+                      },
+                    },
+                  },
+                ],
+              },
+            ),
+          ),
         ],
       ),
     )
@@ -5951,6 +5981,16 @@ Uri _rateLimitedMcpEndpoint(RouterBinding binding) {
     host: '127.0.0.1',
     port: listener.port,
     path: _rateLimitedMcpPath,
+  );
+}
+
+Uri _jsonPostMcpEndpoint(RouterBinding binding) {
+  final listener = binding.listeners.single;
+  return Uri(
+    scheme: 'http',
+    host: '127.0.0.1',
+    port: listener.port,
+    path: _jsonPostMcpPath,
   );
 }
 
@@ -6548,6 +6588,245 @@ Future<void> _assertUnsupportedMcpProtocolVersionRejected(
       );
     }
   } finally {
+    client.close();
+  }
+}
+
+Future<void> _smokeJsonPostMcpRoute(
+  RouterBinding binding,
+  RouterSession serviceSession,
+) async {
+  final endpoint = _jsonPostMcpEndpoint(binding);
+  final client = McpStreamableHttpClient(endpoint);
+  final rawClient = HttpClient();
+
+  Map<String, Object?> expectJsonPostResponse(
+    _McpRawHttpResponse response, {
+    required Object id,
+    required String label,
+  }) {
+    if (response.statusCode != HttpStatus.ok) {
+      throw StateError('MCP $label returned ${response.statusCode}.');
+    }
+    _assertMcpCorsStatefulResponse(response, label: label);
+    _assertHeaderContains(
+      response,
+      'content-type',
+      'application/json',
+      label: label,
+    );
+    if (response.body.contains('\ndata:') ||
+        response.body.contains('\nevent:') ||
+        response.body.startsWith('data:') ||
+        response.body.startsWith('event:')) {
+      throw StateError('MCP $label returned an SSE event body.');
+    }
+    final payload = _jsonObjectFrom(
+      jsonDecode(response.body),
+      label: '$label JSON response',
+    );
+    if (payload['jsonrpc'] != '2.0' || payload['id'] != id) {
+      throw StateError('MCP $label returned invalid JSON-RPC.');
+    }
+    return payload;
+  }
+
+  void expectNoPostSseCursor(String operation) {
+    if (client.lastEventId != null) {
+      throw StateError(
+        'JSON POST MCP route captured an SSE cursor after $operation.',
+      );
+    }
+  }
+
+  try {
+    final initializeId = 'json-post-streamable-initialize';
+    final initialize = await client.initialize(
+      id: initializeId,
+      clientInfo: const {
+        'name': 'connectanum_consumer_json_post_smoke',
+        'version': '0.1.0',
+      },
+      headers: const <String, String>{
+        'x-consumer-trace': 'json-post-streamable-initialize',
+      },
+    );
+    if (initialize['id'] != initializeId) {
+      throw StateError(
+        'JSON POST MCP route initialize returned unexpected id.',
+      );
+    }
+    final sessionId = client.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError('JSON POST MCP route did not create a session.');
+    }
+    expectNoPostSseCursor('initialize');
+
+    await client.notifyInitialized(
+      headers: const <String, String>{
+        'x-consumer-trace': 'json-post-streamable-initialized',
+      },
+    );
+    if (client.sessionId != sessionId) {
+      throw StateError(
+        'JSON POST MCP route initialized notification changed session id.',
+      );
+    }
+    expectNoPostSseCursor('initialized notification');
+
+    await _expectPagedToolCatalog(
+      client,
+      label: 'json-post',
+      directJson: false,
+    );
+    if (client.sessionId != sessionId) {
+      throw StateError('JSON POST MCP route tool catalog changed session id.');
+    }
+    expectNoPostSseCursor('tool catalog');
+
+    final toolCall = await client.callTool(
+      _procedure,
+      id: 'json-post-tool-call',
+      arguments: const <String, Object?>{
+        'taskId': 'T-json-post-tool-call',
+      },
+      headers: const <String, String>{
+        'x-consumer-trace': 'json-post-tool-call',
+      },
+    );
+    if (!jsonEncode(toolCall).contains('T-json-post-tool-call')) {
+      throw StateError('JSON POST MCP route missed tool call payload.');
+    }
+    if (client.sessionId != sessionId) {
+      throw StateError('JSON POST MCP route tool call changed session id.');
+    }
+    expectNoPostSseCursor('tool call');
+
+    final rawToolsId = 'json-post-raw-tools';
+    final rawTools = await _mcpRawJsonPost(
+      rawClient,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': rawToolsId,
+        'method': 'tools/list',
+      },
+      sessionId: sessionId,
+    );
+    final rawToolsPayload = expectJsonPostResponse(
+      rawTools,
+      id: rawToolsId,
+      label: 'JSON POST route raw tools/list',
+    );
+    final rawToolsResult = _jsonRpcResult(
+      rawToolsPayload,
+      id: rawToolsId,
+      label: 'MCP JSON POST route raw tools/list',
+    );
+    if (rawToolsResult['tools'] is! List) {
+      throw StateError('JSON POST MCP route raw tools/list missed catalog.');
+    }
+
+    final rawPingId = 'json-post-raw-ping';
+    final rawPing = await _mcpRawJsonPost(
+      rawClient,
+      endpoint,
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': rawPingId,
+        'method': 'ping',
+      },
+      sessionId: sessionId,
+    );
+    final rawPingResult = _jsonRpcResult(
+      expectJsonPostResponse(
+        rawPing,
+        id: rawPingId,
+        label: 'JSON POST route raw ping',
+      ),
+      id: rawPingId,
+      label: 'MCP JSON POST route raw ping',
+    );
+    if (rawPingResult.isNotEmpty) {
+      throw StateError('JSON POST MCP route raw ping returned data.');
+    }
+
+    final subscription = await client.subscribeWampTopic(
+      _topic,
+      id: 'json-post-pubsub-subscribe',
+      queueLimit: 4,
+    );
+    try {
+      const taskId = 'T-json-post-service-event';
+      await serviceSession.publish(
+        _topic,
+        argumentsKeywords: const {'taskId': taskId},
+        options: PublishOptions(acknowledge: true),
+      );
+      final events = await _pollMcpEventsUntil(client, subscription.handle);
+      if (!jsonEncode(events.events).contains(taskId)) {
+        throw StateError('JSON POST MCP route pub/sub poll missed event.');
+      }
+    } finally {
+      await client.unsubscribeWampTopic(
+        subscription.handle,
+        id: 'json-post-pubsub-unsubscribe',
+      );
+    }
+    if (client.sessionId != sessionId) {
+      throw StateError('JSON POST MCP route pub/sub changed session id.');
+    }
+    expectNoPostSseCursor('pub/sub');
+
+    final dynamicProcedure = 'consumer.task.json_post';
+    final registration = await serviceSession.register(
+      dynamicProcedure,
+      options: RegisterOptions(
+        custom: const {
+          '_ai_meta_data': {
+            'short_description': 'JSON POST consumer task',
+            'description':
+                'Procedure registered during JSON POST MCP route smoke.',
+            'read_only_hint': true,
+            'destructive_hint': false,
+            'idempotent_hint': true,
+            'open_world_hint': false,
+          },
+        },
+      ),
+    );
+    registration.onInvoke((invocation) {
+      invocation.respondWith(
+        argumentsKeywords: const {
+          'source': 'json-post-mcp-route-smoke',
+        },
+      );
+    });
+
+    final poll = await _mcpRawPollUntilToolListChanged(
+      rawClient,
+      endpoint,
+      sessionId: sessionId,
+      label: 'json-post',
+    );
+    final pollEventId = _mcpFirstSseEventId(
+      poll,
+      label: 'json-post Streamable GET/SSE poll',
+    );
+    if (pollEventId == null || pollEventId.isEmpty) {
+      throw StateError('JSON POST MCP route GET/SSE poll missed event id.');
+    }
+    if (client.sessionId != sessionId) {
+      throw StateError('JSON POST MCP route GET/SSE changed session id.');
+    }
+    expectNoPostSseCursor('GET/SSE poll');
+
+    await client.deleteSession();
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError('JSON POST MCP route leaked session state.');
+    }
+  } finally {
+    rawClient.close(force: true);
     client.close();
   }
 }
