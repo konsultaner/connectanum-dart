@@ -3021,6 +3021,69 @@ void _validateMcpJsonValueConfigOption(Object? value, String label) {
   throw FormatException('$label must be JSON-compatible');
 }
 
+void _validateMcpStringConfigOption(
+  Map<String, Object?> config,
+  String label,
+  String key,
+) {
+  final value = config[key];
+  if (value != null && value is! String) {
+    throw FormatException('MCP $label.$key must be a string');
+  }
+}
+
+void _validateMcpStringListConfigOption(
+  Map<String, Object?> config,
+  String label,
+  String key,
+) {
+  final value = config[key];
+  if (value == null) {
+    return;
+  }
+  if (value is! List) {
+    throw FormatException('MCP $label.$key must be a list of strings');
+  }
+  for (var i = 0; i < value.length; i += 1) {
+    if (value[i] is! String) {
+      throw FormatException('MCP $label.$key[$i] must be a string');
+    }
+  }
+}
+
+void _validateMcpMetadataAnnotationsConfigOption(
+  Map<String, Object?> config,
+  String label,
+) {
+  final annotations = config['annotations'];
+  if (annotations == null) {
+    return;
+  }
+  if (annotations is! Map) {
+    throw FormatException('MCP $label.annotations must be an object');
+  }
+  for (final entry in annotations.entries) {
+    final key = entry.key;
+    if (key is! String) {
+      throw FormatException('MCP $label.annotations keys must be strings');
+    }
+    if (const <String>{
+      'read_only_hint',
+      'readOnlyHint',
+      'destructive_hint',
+      'destructiveHint',
+      'idempotent_hint',
+      'idempotentHint',
+      'open_world_hint',
+      'openWorldHint',
+    }.contains(key)) {
+      if (entry.value is! bool) {
+        throw FormatException('MCP $label.annotations.$key must be a boolean');
+      }
+    }
+  }
+}
+
 void _validateMcpMetadataConfigOptionShapes(
   Map<String, Object?> config,
   String label,
@@ -3044,6 +3107,32 @@ void _validateMcpMetadataConfigOptionShapes(
       }
     }
     final metadataConfig = metadata.cast<String, Object?>();
+    for (final key in const <String>[
+      'short_description',
+      'shortDescription',
+      'description',
+      'domain',
+      'entity',
+    ]) {
+      _validateMcpStringConfigOption(
+        metadataConfig,
+        '$label.$metadataKey',
+        key,
+      );
+    }
+    for (final key in const <String>[
+      'verbs',
+      'tags',
+      'synonyms',
+      'publishes_events',
+      'publishesEvents',
+    ]) {
+      _validateMcpStringListConfigOption(
+        metadataConfig,
+        '$label.$metadataKey',
+        key,
+      );
+    }
     for (final schemaKey in const <String>[
       'input_json_schema',
       'inputJsonSchema',
@@ -3056,6 +3145,22 @@ void _validateMcpMetadataConfigOptionShapes(
         schemaKey,
       );
     }
+    for (final key in const <String>[
+      'read_only_hint',
+      'readOnlyHint',
+      'destructive_hint',
+      'destructiveHint',
+      'idempotent_hint',
+      'idempotentHint',
+      'open_world_hint',
+      'openWorldHint',
+    ]) {
+      _validateMcpBoolConfigOption(metadataConfig, '$label.$metadataKey', key);
+    }
+    _validateMcpMetadataAnnotationsConfigOption(
+      metadataConfig,
+      '$label.$metadataKey',
+    );
   }
 }
 

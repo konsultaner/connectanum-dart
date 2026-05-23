@@ -363,6 +363,32 @@ void main() {
         ],
       }, 'MCP procedures[0].metadata.inputJsonSchema must be an object');
       _expectInvalidMcpOptions({
+        'procedures': [
+          {
+            'procedure': 'app.lookup',
+            'metadata': {'shortDescription': 7},
+          },
+        ],
+      }, 'MCP procedures[0].metadata.shortDescription must be a string');
+      _expectInvalidMcpOptions({
+        'procedures': [
+          {
+            'procedure': 'app.lookup',
+            'metadata': {
+              'publishesEvents': ['app.events.audit', 7],
+            },
+          },
+        ],
+      }, 'MCP procedures[0].metadata.publishesEvents[1] must be a string');
+      _expectInvalidMcpOptions({
+        'procedures': [
+          {
+            'procedure': 'app.lookup',
+            'metadata': {'readOnlyHint': 'true'},
+          },
+        ],
+      }, 'MCP procedures[0].metadata.readOnlyHint must be a boolean');
+      _expectInvalidMcpOptions({
         'topics': [
           {'topic': 'app.events', 'allow_publish': 'true'},
         ],
@@ -407,6 +433,19 @@ void main() {
         },
         'MCP topics[0]._ai_meta_data.outputJsonSchema.properties.count.minimum '
         'must be a finite number',
+      );
+      _expectInvalidMcpOptions(
+        {
+          'topics': [
+            {
+              'topic': 'app.events',
+              '_ai_meta_data': {
+                'annotations': {'destructiveHint': 'false'},
+              },
+            },
+          ],
+        },
+        'MCP topics[0]._ai_meta_data.annotations.destructiveHint must be a boolean',
       );
       _expectInvalidMcpOptions({
         'resources': [
