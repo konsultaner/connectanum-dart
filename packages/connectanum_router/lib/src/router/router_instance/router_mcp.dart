@@ -2978,14 +2978,47 @@ void _validateMcpJsonObjectConfigOption(
   if (value == null) {
     return;
   }
+  _validateMcpJsonObjectValueConfigOption(value, 'MCP $label.$key');
+}
+
+void _validateMcpJsonObjectValueConfigOption(Object? value, String label) {
   if (value is! Map) {
-    throw FormatException('MCP $label.$key must be an object');
+    throw FormatException('$label must be an object');
   }
-  for (final entryKey in value.keys) {
-    if (entryKey is! String) {
-      throw FormatException('MCP $label.$key keys must be strings');
+  _validateMcpJsonMapConfigOption(value, label);
+}
+
+void _validateMcpJsonMapConfigOption(Map value, String label) {
+  for (final entry in value.entries) {
+    final key = entry.key;
+    if (key is! String) {
+      throw FormatException('$label keys must be strings');
     }
+    _validateMcpJsonValueConfigOption(entry.value, '$label.$key');
   }
+}
+
+void _validateMcpJsonValueConfigOption(Object? value, String label) {
+  if (value == null || value is String || value is bool) {
+    return;
+  }
+  if (value is num) {
+    if (value is double && !value.isFinite) {
+      throw FormatException('$label must be a finite number');
+    }
+    return;
+  }
+  if (value is List) {
+    for (var i = 0; i < value.length; i += 1) {
+      _validateMcpJsonValueConfigOption(value[i], '$label[$i]');
+    }
+    return;
+  }
+  if (value is Map) {
+    _validateMcpJsonMapConfigOption(value, label);
+    return;
+  }
+  throw FormatException('$label must be JSON-compatible');
 }
 
 void _validateMcpMetadataConfigOptionShapes(

@@ -346,6 +346,18 @@ void main() {
         'procedures': [
           {
             'procedure': 'app.lookup',
+            'inputSchema': {
+              'properties': {
+                1: {'type': 'string'},
+              },
+            },
+          },
+        ],
+      }, 'MCP procedures[0].inputSchema.properties keys must be strings');
+      _expectInvalidMcpOptions({
+        'procedures': [
+          {
+            'procedure': 'app.lookup',
             'metadata': {'inputJsonSchema': 'object'},
           },
         ],
@@ -378,6 +390,24 @@ void main() {
           },
         ],
       }, 'MCP topics[0]._ai_meta_data.outputJsonSchema must be an object');
+      _expectInvalidMcpOptions(
+        {
+          'topics': [
+            {
+              'topic': 'app.events',
+              '_ai_meta_data': {
+                'outputJsonSchema': {
+                  'properties': {
+                    'count': {'minimum': double.nan},
+                  },
+                },
+              },
+            },
+          ],
+        },
+        'MCP topics[0]._ai_meta_data.outputJsonSchema.properties.count.minimum '
+        'must be a finite number',
+      );
       _expectInvalidMcpOptions({
         'resources': [
           {'uri': 'file:///context', 'text': 'context', 'size': '7'},

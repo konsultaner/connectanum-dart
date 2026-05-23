@@ -2,16 +2,44 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP schema option validation.
-Latest fully clean hosted checkpoint: Commit `2659ee0`.
-Current implementation checkpoint: Router-hosted MCP procedure and topic route
-config now validates direct JSON schema aliases plus nested metadata schema
-aliases as JSON objects with string keys. Malformed `inputSchema`,
-`outputJsonSchema`, `eventSchema`, and metadata schema variants now fail while
-building native router config instead of silently dropping agent-facing tool or
-topic schema metadata for a consumer application. Pre-change `bin/test-fast`,
-focused router JSON config test, and full local `bin/verify` passed on
-2026-05-23. Hosted evidence for this local checkpoint is pending push.
+Last reviewed branch checkpoint: recursive router-hosted MCP schema JSON
+validation.
+Latest fully clean hosted checkpoint: Commit `49ff2c5`.
+Current implementation checkpoint: Router-hosted MCP schema route option
+validation now walks nested procedure and topic schema metadata recursively,
+requiring map keys to be strings, values to be JSON-compatible, and numbers to
+be finite. Malformed nested `inputSchema`, `outputJsonSchema`, `eventSchema`,
+and metadata schema aliases now fail while building native router config
+instead of escaping into agent-facing tool/topic metadata for direct JSON or
+Streamable HTTP clients. Pre-change `bin/test-fast`, focused router JSON
+config test, and full local `bin/verify` passed on 2026-05-23. Hosted evidence
+for this local checkpoint is pending push.
+Prior hosted checkpoint details: Commit `49ff2c5`
+(`fix: validate mcp schema route options`) added router-hosted MCP procedure
+and topic route config validation for direct JSON schema aliases plus nested
+metadata schema aliases as JSON objects with string keys. Malformed
+`inputSchema`, `outputJsonSchema`, `eventSchema`, and metadata schema variants
+now fail while building native router config instead of silently dropping
+agent-facing tool or topic schema metadata for a consumer application. Commit
+`49ff2c5` was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
+`master`. Hosted GitHub evidence is clean at `49ff2c5`: `master` CI run
+`26330377110` passed with Fast Checks and Full Verify green plus clean logs,
+`add-router` CI run `26330375276` passed, `master` Dart Package Publish Dry
+Run `26330377353` passed, `add-router` Dart Package Publish Dry Run
+`26330375284` passed, `master` WAMP Profile Benchmarks `26330377119` passed,
+`add-router` WAMP Profile Benchmarks `26330375274` passed, and clean Router
+Image dry-run `26330382749` passed for current head with preview metadata
+`sha-49ff2c504620`, GHCR login skipped, and no image publish. Native Artifacts
+dry-run `26286794628` remains relevant because no native-release-sensitive
+inputs changed. The strict deployment-chain audit passed required gates on
+`master` at `49ff2c5`, including clean current-head CI/logs, current Dart
+package dry-run, current WAMP profile benchmark evidence, current Router Image
+dry-run, native release dry-run relevance, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected, and pub.dev publishing remains deferred for
+release-order and operator decisions. No RC tag, GitHub Release, or router
+image was created or moved.
 Prior hosted checkpoint details: Commit `2659ee0`
 (`fix: honor camel mcp topic options`) added router-hosted MCP topic route
 config validation and support for camel-case `allowPublish` and
