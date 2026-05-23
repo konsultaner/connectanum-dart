@@ -129,6 +129,27 @@ void main() {
       },
     );
 
+    test('keeps supported initialize protocol versions', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(
+        endpoint.uri,
+        defaultProtocolVersion: '2025-06-18',
+      );
+      addTearDown(() => client.close(force: true));
+
+      final initialize = await client.initialize(id: 'older-protocol-init');
+
+      final result = (initialize['result'] as Map).cast<String, Object?>();
+      expect(result['protocolVersion'], '2025-06-18');
+      expect(client.protocolVersion, '2025-06-18');
+      expect(endpoint.requests.single.protocolVersion, '2025-06-18');
+
+      await client.notifyInitialized();
+      expect(endpoint.requests.last.protocolVersion, '2025-06-18');
+    });
+
     test('treats delete without an active session as local cleanup', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -3061,13 +3082,20 @@ final class _FakeMcpEndpoint {
         await request.response.close();
         return;
       }
+      final params = _jsonMapFrom(
+        requestBody['params'],
+        label: 'initialize params',
+      );
+      final requestedProtocolVersion = params['protocolVersion'];
       _writeJson(
         request,
         <String, Object?>{
           'jsonrpc': '2.0',
           'id': requestBody['id'],
           'result': <String, Object?>{
-            'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+            'protocolVersion': requestedProtocolVersion is String
+                ? requestedProtocolVersion
+                : McpStreamableHttpClient.latestProtocolVersion,
             'capabilities': <String, Object?>{},
             'serverInfo': <String, Object?>{
               'name': 'fake-router',
@@ -3741,7 +3769,8 @@ final class _FakeMcpEndpoint {
   void _applyTestResponseHeaders(HttpRequest request, {String? sessionId}) {
     request.response.headers.set(
       _headerProtocolVersion,
-      McpStreamableHttpClient.latestProtocolVersion,
+      request.headers.value(_headerProtocolVersion) ??
+          McpStreamableHttpClient.latestProtocolVersion,
     );
     final responseSessionId =
         request.headers.value('x-test-empty-response-session-id') != null
@@ -3772,7 +3801,8 @@ final class _FakeMcpEndpoint {
     );
     request.response.headers.set(
       _headerProtocolVersion,
-      McpStreamableHttpClient.latestProtocolVersion,
+      request.headers.value(_headerProtocolVersion) ??
+          McpStreamableHttpClient.latestProtocolVersion,
     );
     request.response.headers.set(
       _headerSessionId,

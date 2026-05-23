@@ -6584,11 +6584,18 @@ Future<void> _smokeSupportedMcpProtocolVersion(
         'a Streamable HTTP session.',
       );
     }
-    if (client.protocolVersion !=
-        McpStreamableHttpClient.latestProtocolVersion) {
+    final initializeResult = initialize['result'];
+    if (initializeResult is! Map ||
+        initializeResult['protocolVersion'] != protocolVersion) {
       throw StateError(
-        'MCP $label initialize with protocol $protocolVersion did not '
-        'negotiate the latest server protocol version.',
+        'MCP $label initialize with protocol $protocolVersion returned '
+        'unexpected negotiated protocol version.',
+      );
+    }
+    if (client.protocolVersion != protocolVersion) {
+      throw StateError(
+        'MCP $label initialize with protocol $protocolVersion did not keep '
+        'the requested supported protocol version.',
       );
     }
 

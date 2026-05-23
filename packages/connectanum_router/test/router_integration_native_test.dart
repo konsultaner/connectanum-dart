@@ -1474,6 +1474,90 @@ void main() {
       );
       expect(invalidVersion.statusCode, equals(HttpStatus.badRequest));
 
+      final olderVersionInitialize = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'older-protocol-init',
+          'method': 'initialize',
+          'params': {'protocolVersion': '2025-06-18'},
+        },
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'MCP-Protocol-Version': '2025-06-18',
+          'Mcp-Method': 'initialize',
+        },
+      );
+      expect(olderVersionInitialize.statusCode, equals(HttpStatus.ok));
+      expect(
+        olderVersionInitialize.headers['mcp-protocol-version'],
+        equals('2025-06-18'),
+      );
+      final olderVersionResult = (olderVersionInitialize.json?['result'] as Map)
+          .cast<String, Object?>();
+      expect(olderVersionResult['protocolVersion'], equals('2025-06-18'));
+      final olderVersionSessionId =
+          olderVersionInitialize.headers['mcp-session-id'];
+      expect(olderVersionSessionId, isNotNull);
+      final olderVersionDelete = await _deleteHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          'MCP-Session-Id': olderVersionSessionId!,
+          'MCP-Protocol-Version': '2025-06-18',
+        },
+      );
+      expect(olderVersionDelete.statusCode, equals(HttpStatus.accepted));
+
+      final unsupportedBodyVersionInitialize = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'unsupported-body-protocol-init',
+          'method': 'initialize',
+          'params': {'protocolVersion': '2099-01-01'},
+        },
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'initialize',
+        },
+      );
+      expect(
+        unsupportedBodyVersionInitialize.statusCode,
+        equals(HttpStatus.ok),
+      );
+      expect(
+        unsupportedBodyVersionInitialize.headers['mcp-protocol-version'],
+        equals('2025-11-25'),
+      );
+      final unsupportedBodyVersionResult =
+          (unsupportedBodyVersionInitialize.json?['result'] as Map)
+              .cast<String, Object?>();
+      expect(
+        unsupportedBodyVersionResult['protocolVersion'],
+        equals('2025-11-25'),
+      );
+      final unsupportedBodyVersionSessionId =
+          unsupportedBodyVersionInitialize.headers['mcp-session-id'];
+      expect(unsupportedBodyVersionSessionId, isNotNull);
+      final unsupportedBodyVersionDelete = await _deleteHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {'MCP-Session-Id': unsupportedBodyVersionSessionId!},
+      );
+      expect(
+        unsupportedBodyVersionDelete.statusCode,
+        equals(HttpStatus.accepted),
+      );
+
       final rejectedInitialize = await _postJson(
         client,
         listener.port,

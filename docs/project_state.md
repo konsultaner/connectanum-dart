@@ -2,19 +2,43 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: public artifact guard coverage for generated
-MCP consumer smokes.
-Latest fully clean hosted checkpoint: Commit `b259c79`.
-Current implementation checkpoint: The public artifact reference guard now
-also scans `bin/common.sh`, keeping the generated MCP consumer smoke packages
-and their embedded package metadata under the same local downstream path and
+Last reviewed branch checkpoint: spec-correct MCP protocol version negotiation.
+Latest fully clean hosted checkpoint: Commit `c704248`.
+Current implementation checkpoint: MCP initialize negotiation now returns a
+requested supported protocol version (`2025-03-26`, `2025-06-18`, or
+`2025-11-25`) instead of always upgrading to latest, while unsupported body
+versions still fall back to latest. Router-hosted Streamable HTTP and direct
+JSON responses propagate the negotiated or supported request protocol version
+in MCP response headers, and the Streamable HTTP client updates its negotiated
+protocol version from the initialize result. Generated consumer-package smokes
+and the router-hosted example now assert that supported older MCP versions
+remain negotiated for downstream application readiness. Pre-change
+`bin/test-fast` passed on 2026-05-23, focused lifecycle/client/router,
+generated consumer smoke, router-hosted example smoke, public-artifact guard,
+and diff checks passed, and full local `bin/verify` passed on 2026-05-23.
+Hosted evidence is pending for the next pushed commit; the latest fully clean
+hosted checkpoint remains `c704248`.
+Prior hosted checkpoint details: The public artifact reference guard now also
+scans `bin/common.sh`, keeping the generated MCP consumer smoke packages and
+their embedded package metadata under the same local downstream path and
 private-literal guard as checked-in public docs, package metadata, release-note
 templates, and examples. Pre-change `bin/test-fast` passed on 2026-05-23, and
 focused local checks passed:
 `python3 tool/check_public_artifact_references.py` and
 `python3 tool/test_public_artifact_references.py`. Full local `bin/verify`
-passed on 2026-05-23 for this checkpoint. Hosted evidence is pending for the
-next pushed commit.
+passed on 2026-05-23 for this checkpoint. Commit `c704248`
+(`test: scan generated mcp smoke artifacts`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`c704248`: `master` CI run `26337377257` passed with Fast Checks and Full
+Verify green plus clean logs, and `add-router` CI run `26337374836` passed.
+The strict deployment-chain audit passed required gates on `master` at
+`c704248`; Dart Package Publish Dry Run, Native Artifacts dry-run, Router
+Image dry-run, and WAMP Profile Benchmarks evidence from `e14615a` or earlier
+remained relevant because `c704248` did not change those sensitive inputs. RC
+readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected, and pub.dev
+publishing remains deferred for release-order and operator decisions. No RC
+tag, GitHub Release, or router image was created or moved.
 Prior hosted checkpoint details: Fast and full verification now run
 `tool/check_public_artifact_references.py` plus its focused regression tests,
 guarding checked-in public docs, release-note templates, package metadata, and

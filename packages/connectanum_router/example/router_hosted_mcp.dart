@@ -919,11 +919,17 @@ Future<void> _smokeSupportedMcpProtocolVersion(
         'MCP $label initialize with $protocolVersion did not set a session id.',
       );
     }
-    if (client.protocolVersion !=
-        McpStreamableHttpClient.latestProtocolVersion) {
+    final initializeResult = initialize['result'];
+    if (initializeResult is! Map ||
+        initializeResult['protocolVersion'] != protocolVersion) {
       throw StateError(
-        'MCP $label did not negotiate $protocolVersion to '
-        '${McpStreamableHttpClient.latestProtocolVersion}.',
+        'MCP $label initialize with $protocolVersion returned an unexpected '
+        'negotiated protocol version.',
+      );
+    }
+    if (client.protocolVersion != protocolVersion) {
+      throw StateError(
+        'MCP $label did not keep supported protocol version $protocolVersion.',
       );
     }
     await client.notifyInitialized();

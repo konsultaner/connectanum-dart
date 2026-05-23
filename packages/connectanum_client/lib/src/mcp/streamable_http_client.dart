@@ -149,6 +149,14 @@ final class McpStreamableHttpClient {
     if (response == null) {
       throw const FormatException('initialize did not return a JSON-RPC body');
     }
+    final result = response['result'];
+    if (result is Map) {
+      final negotiatedProtocolVersion = result['protocolVersion'];
+      if (negotiatedProtocolVersion is String &&
+          negotiatedProtocolVersion.isNotEmpty) {
+        this.protocolVersion = negotiatedProtocolVersion;
+      }
+    }
     return response;
   }
 

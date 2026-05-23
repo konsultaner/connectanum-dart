@@ -172,7 +172,7 @@ class McpServer {
       );
     }
     final result = <String, Object?>{
-      'protocolVersion': mcpLatestProtocolVersion,
+      'protocolVersion': mcpNegotiateProtocolVersion(protocolVersion),
       'capabilities': capabilities.toJson(),
       'serverInfo': serverInfo.toJson(),
     };

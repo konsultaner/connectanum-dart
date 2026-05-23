@@ -31,6 +31,22 @@ void main() {
       },
     );
 
+    test('initialize keeps supported older protocol versions', () async {
+      final server = _server();
+
+      final result = await _initializeResult(server, '2025-06-18');
+
+      expect(result['protocolVersion'], '2025-06-18');
+    });
+
+    test('initialize falls back to latest for unsupported versions', () async {
+      final server = _server();
+
+      final result = await _initializeResult(server, '2099-01-01');
+
+      expect(result['protocolVersion'], mcpLatestProtocolVersion);
+    });
+
     test(
       'requires initialized notification before operation requests',
       () async {
@@ -174,6 +190,23 @@ Future<void> _initialize(McpServer server) async {
       'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
     },
   });
+}
+
+Future<Map<String, Object?>> _initializeResult(
+  McpServer server,
+  String protocolVersion,
+) async {
+  final response = await server.handleMessage({
+    'jsonrpc': '2.0',
+    'id': 'initialize-$protocolVersion',
+    'method': 'initialize',
+    'params': {
+      'protocolVersion': protocolVersion,
+      'capabilities': {},
+      'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
+    },
+  });
+  return (response?['result'] as Map).cast<String, Object?>();
 }
 
 Future<void> _initializeAndStart(McpServer server) async {

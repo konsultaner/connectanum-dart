@@ -23,11 +23,8 @@ const String _mcpCorsDefaultAllowHeaders =
     'Accept, Authorization, Content-Type, Last-Event-ID, MCP-Method, '
     'MCP-Name, MCP-Protocol-Version, MCP-Session-Id';
 const int _mcpSseEventHistoryLimit = 128;
-const Set<String> _mcpSupportedHttpProtocolVersions = <String>{
-  '2025-03-26',
-  '2025-06-18',
-  mcp.mcpLatestProtocolVersion,
-};
+const Set<String> _mcpSupportedHttpProtocolVersions =
+    mcp.mcpSupportedProtocolVersions;
 const Set<String> _mcpPostResponseTransportModes = <String>{
   'json',
   'off',
@@ -78,11 +75,12 @@ Map<String, String> _mcpCorsResponseHeaders(
 Map<String, String> _mcpHttpResponseHeaders({
   bool json = true,
   String? sessionId,
+  String protocolVersion = mcp.mcpLatestProtocolVersion,
   Map<String, String> extra = const <String, String>{},
 }) {
   return <String, String>{
     if (json) HttpHeaders.contentTypeHeader: _mcpJsonContentType,
-    _mcpProtocolVersionHeader: mcp.mcpLatestProtocolVersion,
+    _mcpProtocolVersionHeader: protocolVersion,
     if (sessionId != null && sessionId.isNotEmpty)
       _mcpSessionIdHeader: sessionId,
     ...extra,
@@ -107,11 +105,16 @@ NativeHttpResponse _mcpJsonRpcHttpError({
   required String message,
   Object? id,
   String? sessionId,
+  String protocolVersion = mcp.mcpLatestProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) {
   return NativeHttpResponse(
     status: status,
-    headers: _mcpHttpResponseHeaders(sessionId: sessionId, extra: extraHeaders),
+    headers: _mcpHttpResponseHeaders(
+      sessionId: sessionId,
+      protocolVersion: protocolVersion,
+      extra: extraHeaders,
+    ),
     body: NativeHttpResponseJson(
       _mcpJsonRpcErrorPayload(code: code, message: message, id: id),
     ),
@@ -151,6 +154,21 @@ bool _mcpProtocolVersionHeaderSupported(
 ) {
   final value = _mcpHeaderValue(binding, request, _mcpProtocolVersionHeader);
   return value == null || _mcpSupportedHttpProtocolVersions.contains(value);
+}
+
+String? _mcpNegotiatedInitializeProtocolVersion(Object? rawMessage) {
+  if (rawMessage is! Map || _mcpRequestMethod(rawMessage) != 'initialize') {
+    return null;
+  }
+  final params = rawMessage['params'];
+  if (params is! Map) {
+    return null;
+  }
+  final protocolVersion = params['protocolVersion'];
+  if (protocolVersion is! String) {
+    return null;
+  }
+  return mcp.mcpNegotiateProtocolVersion(protocolVersion);
 }
 
 String? _mcpResponseSessionIdForRequest({
@@ -465,6 +483,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
   required Object? rawMessage,
   required bool requireHeaders,
   String? sessionId,
+  String protocolVersion = mcp.mcpLatestProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) {
   final bodyMethod = _mcpRequestMethod(rawMessage);
@@ -483,6 +502,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
       message: 'Header mismatch: missing Mcp-Method header',
       id: id,
       sessionId: sessionId,
+      protocolVersion: protocolVersion,
       extraHeaders: extraHeaders,
     );
   }
@@ -495,6 +515,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
           "match body method '$bodyMethod'",
       id: id,
       sessionId: sessionId,
+      protocolVersion: protocolVersion,
       extraHeaders: extraHeaders,
     );
   }
@@ -514,6 +535,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
       message: 'Header mismatch: missing Mcp-Name header',
       id: id,
       sessionId: sessionId,
+      protocolVersion: protocolVersion,
       extraHeaders: extraHeaders,
     );
   }
@@ -526,6 +548,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
           "match body value '$bodyName'",
       id: id,
       sessionId: sessionId,
+      protocolVersion: protocolVersion,
       extraHeaders: extraHeaders,
     );
   }
@@ -539,6 +562,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
   required _RouterMcpEndpoint endpoint,
   required bool requireHeaders,
   String? sessionId,
+  String protocolVersion = mcp.mcpLatestProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) {
   for (final header in request.headers.entries) {
@@ -553,6 +577,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
             'Header mismatch: ${header.key} header contains invalid characters',
         id: _recoverDirectJsonRequestId(rawMessage),
         sessionId: sessionId,
+        protocolVersion: protocolVersion,
         extraHeaders: extraHeaders,
       );
     }
@@ -611,6 +636,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
               "for '${parameter.argumentName}' is missing",
           id: id,
           sessionId: sessionId,
+          protocolVersion: protocolVersion,
           extraHeaders: extraHeaders,
         );
       }
@@ -626,6 +652,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
             'be a string, number, or boolean',
         id: id,
         sessionId: sessionId,
+        protocolVersion: protocolVersion,
         extraHeaders: extraHeaders,
       );
     }
@@ -639,6 +666,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
         message: 'Header mismatch: missing $headerName header',
         id: id,
         sessionId: sessionId,
+        protocolVersion: protocolVersion,
         extraHeaders: extraHeaders,
       );
     }
@@ -650,6 +678,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
         message: 'Header mismatch: malformed $headerName header',
         id: id,
         sessionId: sessionId,
+        protocolVersion: protocolVersion,
         extraHeaders: extraHeaders,
       );
     }
@@ -662,6 +691,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
             "not match body value '$expectedValue'",
         id: id,
         sessionId: sessionId,
+        protocolVersion: protocolVersion,
         extraHeaders: extraHeaders,
       );
     }
@@ -840,6 +870,7 @@ Future<bool> _mcpSendSseResponse(
   required NativeHttpHandshake? handshake,
   required String sessionId,
   required List<_RouterMcpSseEvent> events,
+  String protocolVersion = mcp.mcpLatestProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) async {
   final handle = handshake?.handle ?? request.handshakeHandle;
@@ -860,6 +891,7 @@ Future<bool> _mcpSendSseResponse(
       headers: _mcpHttpResponseHeaders(
         json: false,
         sessionId: sessionId,
+        protocolVersion: protocolVersion,
         extra: <String, String>{
           HttpHeaders.contentTypeHeader: 'text/event-stream; charset=utf-8',
           HttpHeaders.cacheControlHeader: 'no-cache',
@@ -915,6 +947,16 @@ Future<void> _handleMcpHttpRequestForBinding(
 }) async {
   final httpMethod = request.method.trim().toUpperCase();
   final mcpSessionId = _mcpHeaderValue(binding, request, _mcpSessionIdHeader);
+  final requestMcpProtocolVersion = _mcpHeaderValue(
+    binding,
+    request,
+    _mcpProtocolVersionHeader,
+  );
+  final responseMcpProtocolVersion =
+      requestMcpProtocolVersion != null &&
+          _mcpSupportedHttpProtocolVersions.contains(requestMcpProtocolVersion)
+      ? requestMcpProtocolVersion
+      : mcp.mcpLatestProtocolVersion;
   final streamableHttpRequest =
       httpMethod == 'POST' &&
       _mcpAcceptRequestsStreamableHttpSession(binding, request);
@@ -933,6 +975,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'Invalid Origin for MCP endpoint',
         sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
       ),
     );
     return;
@@ -948,6 +991,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         headers: _mcpHttpResponseHeaders(
           json: false,
           sessionId: responseMcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
           extra: <String, String>{
             HttpHeaders.allowHeader: _mcpCorsAllowMethods,
             ..._mcpCorsResponseHeaders(
@@ -976,6 +1020,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.badRequest,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'Invalid MCP-Session-Id header',
+        protocolVersion: responseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1007,6 +1052,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           code: mcp.McpErrorCodes.invalidRequest,
           message: 'MCP GET responses require an Accept header allowing SSE',
           sessionId: responseMcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),
       );
@@ -1023,6 +1069,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'MCP HTTP endpoint supports GET, POST, DELETE and OPTIONS',
         sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
         extraHeaders: <String, String>{
           ...corsHeaders,
           HttpHeaders.allowHeader: _mcpCorsAllowMethods,
@@ -1041,6 +1088,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'MCP POST responses require an Accept header allowing JSON',
         sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1057,6 +1105,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'MCP POST requests must use a JSON content type',
         sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1076,6 +1125,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.internalError,
         message: 'MCP route has no resolved WAMP realm',
         sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1106,6 +1156,7 @@ Future<void> _handleMcpHttpRequestForBinding(
             status: HttpStatus.unauthorized,
             headers: _mcpHttpResponseHeaders(
               sessionId: responseMcpSessionId,
+              protocolVersion: responseMcpProtocolVersion,
               extra: <String, String>{
                 ...corsHeaders,
                 ...binding._httpUnauthorizedHeaders(
@@ -1146,6 +1197,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.unauthorized,
         headers: _mcpHttpResponseHeaders(
           sessionId: responseMcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
           extra: <String, String>{
             ...corsHeaders,
             ...binding._httpUnauthorizedHeaders(
@@ -1173,6 +1225,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           status: HttpStatus.badRequest,
           code: mcp.McpErrorCodes.invalidRequest,
           message: 'MCP GET requests require an MCP-Session-Id header',
+          protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),
       );
@@ -1194,6 +1247,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           code: mcp.McpErrorCodes.invalidRequest,
           message: 'Unknown MCP HTTP session',
           sessionId: mcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),
       );
@@ -1220,6 +1274,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           code: mcp.McpErrorCodes.invalidRequest,
           message: 'Unknown MCP SSE Last-Event-ID',
           sessionId: mcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),
       );
@@ -1231,6 +1286,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       handshake: handshake,
       sessionId: mcpSessionId,
       events: pollBatch.events,
+      protocolVersion: responseMcpProtocolVersion,
       extraHeaders: corsHeaders,
     );
     if (!sent) {
@@ -1243,6 +1299,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           code: mcp.McpErrorCodes.internalError,
           message: 'MCP SSE stream could not be opened',
           sessionId: mcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),
       );
@@ -1261,6 +1318,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           status: HttpStatus.badRequest,
           code: mcp.McpErrorCodes.invalidRequest,
           message: 'MCP DELETE requests require an MCP-Session-Id header',
+          protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),
       );
@@ -1281,6 +1339,7 @@ Future<void> _handleMcpHttpRequestForBinding(
               code: mcp.McpErrorCodes.invalidRequest,
               message: 'Unknown MCP HTTP session',
               sessionId: mcpSessionId,
+              protocolVersion: responseMcpProtocolVersion,
               extraHeaders: corsHeaders,
             )
           : NativeHttpResponse(
@@ -1288,6 +1347,7 @@ Future<void> _handleMcpHttpRequestForBinding(
               headers: _mcpHttpResponseHeaders(
                 json: false,
                 sessionId: mcpSessionId,
+                protocolVersion: responseMcpProtocolVersion,
                 extra: corsHeaders,
               ),
               body: NativeHttpResponseText(''),
@@ -1307,6 +1367,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.badRequest,
         headers: _mcpHttpResponseHeaders(
           sessionId: responseMcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
           extra: corsHeaders,
         ),
         body: NativeHttpResponseJson(
@@ -1325,6 +1386,11 @@ Future<void> _handleMcpHttpRequestForBinding(
 
   final requestMethod = _mcpRequestMethod(rawMessage);
   final isInitialize = requestMethod == 'initialize';
+  final effectiveResponseMcpProtocolVersion = requestMcpProtocolVersion == null
+      ? _mcpNegotiatedInitializeProtocolVersion(rawMessage) ??
+            responseMcpProtocolVersion
+      : _mcpNegotiatedInitializeProtocolVersion(rawMessage) ??
+            responseMcpProtocolVersion;
   if (isInitialize && streamableHttpRequest && mcpSessionId != null) {
     await binding._sendImmediateHttpResponse(
       request: request,
@@ -1334,6 +1400,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.invalidRequest,
         message:
             'MCP Streamable HTTP initialize requests must not include MCP-Session-Id',
+        protocolVersion: effectiveResponseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1345,6 +1412,7 @@ Future<void> _handleMcpHttpRequestForBinding(
     rawMessage: rawMessage,
     requireHeaders: streamableHttpRequest,
     sessionId: responseMcpSessionId,
+    protocolVersion: effectiveResponseMcpProtocolVersion,
     extraHeaders: corsHeaders,
   );
   if (standardHeaderError != null) {
@@ -1364,6 +1432,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.invalidRequest,
         message:
             'MCP Streamable HTTP requests require MCP-Session-Id after initialize',
+        protocolVersion: effectiveResponseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1401,6 +1470,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'Unknown MCP HTTP session',
         sessionId: effectiveMcpSessionId,
+        protocolVersion: effectiveResponseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
     );
@@ -1415,6 +1485,7 @@ Future<void> _handleMcpHttpRequestForBinding(
     endpoint: endpoint,
     requireHeaders: streamableHttpRequest,
     sessionId: effectiveMcpSessionId,
+    protocolVersion: effectiveResponseMcpProtocolVersion,
     extraHeaders: corsHeaders,
   );
   if (toolParameterHeaderError != null) {
@@ -1463,6 +1534,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       handshake: handshake,
       sessionId: effectiveMcpSessionId,
       events: responseBatch.events,
+      protocolVersion: effectiveResponseMcpProtocolVersion,
       extraHeaders: corsHeaders,
     );
     if (sent) {
@@ -1479,6 +1551,7 @@ Future<void> _handleMcpHttpRequestForBinding(
             headers: _mcpHttpResponseHeaders(
               json: false,
               sessionId: responseSessionId,
+              protocolVersion: effectiveResponseMcpProtocolVersion,
               extra: corsHeaders,
             ),
             body: NativeHttpResponseText(''),
@@ -1487,6 +1560,7 @@ Future<void> _handleMcpHttpRequestForBinding(
             status: HttpStatus.ok,
             headers: _mcpHttpResponseHeaders(
               sessionId: responseSessionId,
+              protocolVersion: effectiveResponseMcpProtocolVersion,
               extra: corsHeaders,
             ),
             body: NativeHttpResponseJson(response),

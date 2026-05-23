@@ -78,6 +78,20 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: MCP initialize negotiation now returns a requested supported
+  protocol version (`2025-03-26`, `2025-06-18`, or `2025-11-25`) instead of
+  always upgrading to latest, while unsupported body versions still fall back
+  to latest. Router-hosted Streamable HTTP and direct JSON responses propagate
+  the negotiated or supported request protocol version in MCP response headers,
+  and the Streamable HTTP client updates its negotiated protocol version from
+  the initialize result. Generated consumer-package smokes and the
+  router-hosted example now assert that supported older MCP versions remain
+  negotiated for downstream application readiness. Pre-change `bin/test-fast`
+  passed, focused lifecycle/client/router, generated consumer smoke,
+  router-hosted example smoke, public-artifact guard, and diff checks passed,
+  and full local `bin/verify` passed on 2026-05-23. Hosted evidence is pending
+  for the next pushed commit; the latest fully clean hosted checkpoint remains
+  `c704248`.
 - 2026-05-23: The public artifact reference guard now also scans
   `bin/common.sh`, keeping the generated MCP consumer smoke packages and their
   embedded package metadata under the same local downstream path and
@@ -85,9 +99,19 @@ decision because `connectanum_client` still depends on private
   release-note templates, and examples. Pre-change `bin/test-fast` passed, and
   focused local checks passed: `python3 tool/check_public_artifact_references.py`
   and `python3 tool/test_public_artifact_references.py`. Full local
-  `bin/verify` passed on 2026-05-23 for this checkpoint. Hosted evidence is
-  pending for the next pushed commit; the latest fully clean hosted checkpoint
-  remains `b259c79`.
+  `bin/verify` passed on 2026-05-23 for this checkpoint. Commit `c704248` was
+  pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted
+  GitHub evidence is clean at `c704248`: `master` CI run `26337377257` passed
+  with Fast Checks and Full Verify green plus clean logs, and `add-router` CI
+  run `26337374836` passed. The strict deployment-chain audit passed required
+  gates on `master` at `c704248`; Dart Package Publish Dry Run, Native
+  Artifacts dry-run, Router Image dry-run, and WAMP Profile Benchmarks evidence
+  from `e14615a` or earlier remained relevant because `c704248` did not change
+  those sensitive inputs. RC readiness remains not-ready only because no
+  approved numeric RC tag, GitHub prerelease, or matching RC router image tag
+  has been selected, and pub.dev publishing remains deferred for release-order
+  and operator decisions. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-23: Fast and full verification now run
   `tool/check_public_artifact_references.py` plus focused unit coverage to
   guard checked-in public docs, release-note templates, package metadata, and
