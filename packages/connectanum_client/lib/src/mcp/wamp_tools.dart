@@ -89,6 +89,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? tag,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return _callStructuredTool(
@@ -98,6 +99,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <String, Object?>{'kind': ?kind, 'tag': ?tag},
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -108,6 +110,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? kind,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return _callStructuredTool(
@@ -117,6 +120,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <String, Object?>{'uri': uri, 'kind': ?kind},
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -128,6 +132,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     McpJsonMap? argumentsKeywords,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     if (!procedure.startsWith('wamp.')) {
@@ -147,6 +152,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       ),
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     return McpStreamableWampMetaCallResult.fromJson(
@@ -159,6 +165,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -166,6 +173,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -174,6 +182,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -181,6 +190,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -190,6 +200,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -198,6 +209,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[sessionId],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -206,6 +218,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -213,6 +226,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -223,6 +237,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? match,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -232,6 +247,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       argumentsKeywords: _wampMetaMatchArguments(match),
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -241,6 +257,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -249,6 +266,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[procedure],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -258,6 +276,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -266,6 +285,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[registrationId],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -275,6 +295,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -283,6 +304,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[registrationId],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -292,6 +314,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -300,6 +323,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[registrationId],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -308,6 +332,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -315,6 +340,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -325,6 +351,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? match,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -334,6 +361,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       argumentsKeywords: _wampMetaMatchArguments(match),
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -343,6 +371,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -351,6 +380,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[topic],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -360,6 +390,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -368,6 +399,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[subscriptionId],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -377,6 +409,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -385,6 +418,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[subscriptionId],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -394,6 +428,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -402,6 +437,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <Object?>[subscriptionId],
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -415,6 +451,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     McpJsonMap? options,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final structuredContent = await _callStructuredTool(
@@ -430,6 +467,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       },
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     return McpStreamableWampPublicationResult.fromJson(structuredContent);
@@ -441,6 +479,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     McpJsonMap? argumentsKeywords,
     McpJsonMap? options,
     bool streamable = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return notifyConnectanumMethod(
@@ -452,6 +491,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
         'options': ?options,
       },
       streamable: streamable,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -463,6 +503,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     McpJsonMap? options,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final structuredContent = await _callStructuredTool(
@@ -476,6 +517,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       },
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     return McpStreamableWampSubscriptionResult.fromJson(structuredContent);
@@ -487,6 +529,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     int? limit,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final structuredContent = await _callStructuredTool(
@@ -496,6 +539,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <String, Object?>{'handle': handle, 'limit': ?limit},
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     return McpStreamableWampEventBatch.fromJson(structuredContent);
@@ -506,6 +550,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final structuredContent = await _callStructuredTool(
@@ -515,6 +560,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: <String, Object?>{'handle': handle},
       streamable: streamable,
       directJson: directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     return McpStreamableWampUnsubscribeResult.fromJson(structuredContent);
@@ -524,6 +570,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     String? kind,
     String? tag,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return listWampApi(
@@ -531,6 +578,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       kind: kind,
       tag: tag,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -539,6 +587,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String uri, {
     Object? id,
     String? kind,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return describeWampApi(
@@ -546,6 +595,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       kind: kind,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -555,6 +605,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     List<Object?>? arguments,
     McpJsonMap? argumentsKeywords,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return callWampMetaProcedure(
@@ -563,48 +614,70 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       arguments: arguments,
       argumentsKeywords: argumentsKeywords,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
 
   Future<McpStreamableWampMetaCallResult> countWampSessionsDirect({
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
-    return countWampSessions(id: id, directJson: true, headers: headers);
+    return countWampSessions(
+      id: id,
+      directJson: true,
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
   }
 
   Future<McpStreamableWampMetaCallResult> listWampSessionsDirect({
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
-    return listWampSessions(id: id, directJson: true, headers: headers);
+    return listWampSessions(
+      id: id,
+      directJson: true,
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
   }
 
   Future<McpStreamableWampMetaCallResult> getWampSessionDirect(
     int sessionId, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return getWampSession(
       sessionId,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
 
   Future<McpStreamableWampMetaCallResult> listWampRegistrationsDirect({
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
-    return listWampRegistrations(id: id, directJson: true, headers: headers);
+    return listWampRegistrations(
+      id: id,
+      directJson: true,
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
   }
 
   Future<McpStreamableWampMetaCallResult> lookupWampRegistrationDirect(
     String procedure, {
     Object? id,
     String? match,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return lookupWampRegistration(
@@ -612,6 +685,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       match: match,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -619,12 +693,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpStreamableWampMetaCallResult> matchWampRegistrationDirect(
     String procedure, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return matchWampRegistration(
       procedure,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -632,12 +708,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpStreamableWampMetaCallResult> getWampRegistrationDirect(
     int registrationId, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return getWampRegistration(
       registrationId,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -645,12 +723,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpStreamableWampMetaCallResult> listWampRegistrationCalleesDirect(
     int registrationId, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return listWampRegistrationCallees(
       registrationId,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -658,27 +738,36 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpStreamableWampMetaCallResult> countWampRegistrationCalleesDirect(
     int registrationId, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return countWampRegistrationCallees(
       registrationId,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
 
   Future<McpStreamableWampMetaCallResult> listWampSubscriptionsDirect({
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
-    return listWampSubscriptions(id: id, directJson: true, headers: headers);
+    return listWampSubscriptions(
+      id: id,
+      directJson: true,
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
   }
 
   Future<McpStreamableWampMetaCallResult> lookupWampSubscriptionDirect(
     String topic, {
     Object? id,
     String? match,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return lookupWampSubscription(
@@ -686,6 +775,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       match: match,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -693,12 +783,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpStreamableWampMetaCallResult> matchWampSubscriptionDirect(
     String topic, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return matchWampSubscription(
       topic,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -706,12 +798,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpStreamableWampMetaCallResult> getWampSubscriptionDirect(
     int subscriptionId, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return getWampSubscription(
       subscriptionId,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -719,12 +813,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpStreamableWampMetaCallResult> listWampSubscriptionSubscribersDirect(
     int subscriptionId, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return listWampSubscriptionSubscribers(
       subscriptionId,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -733,12 +829,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   countWampSubscriptionSubscribersDirect(
     int subscriptionId, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return countWampSubscriptionSubscribers(
       subscriptionId,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -750,6 +848,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     McpJsonMap? argumentsKeywords,
     bool? acknowledge,
     McpJsonMap? options,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return publishWampEvent(
@@ -760,6 +859,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       acknowledge: acknowledge,
       options: options,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -769,6 +869,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     List<Object?>? arguments,
     McpJsonMap? argumentsKeywords,
     McpJsonMap? options,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return notifyConnectanumMethodDirect(
@@ -779,6 +880,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
         'argumentsKeywords': ?argumentsKeywords,
         'options': ?options,
       },
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -788,6 +890,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     int? queueLimit,
     McpJsonMap? options,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return subscribeWampTopic(
@@ -796,6 +899,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       queueLimit: queueLimit,
       options: options,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -804,6 +908,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String handle, {
     Object? id,
     int? limit,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return pollWampEvents(
@@ -811,6 +916,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       limit: limit,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -818,12 +924,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
   Future<McpStreamableWampUnsubscribeResult> unsubscribeWampTopicDirect(
     String handle, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return unsubscribeWampTopic(
       handle,
       id: id,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -1005,6 +1113,7 @@ Future<McpJsonMap> _callStructuredTool(
   McpJsonMap arguments = const <String, Object?>{},
   bool streamable = true,
   bool directJson = false,
+  String? protocolVersion,
   Map<String, String> headers = const <String, String>{},
 }) async {
   final result = directJson
@@ -1012,6 +1121,7 @@ Future<McpJsonMap> _callStructuredTool(
           toolName,
           id: id,
           arguments: arguments,
+          protocolVersion: protocolVersion,
           headers: headers,
         )
       : await client.callTool(
@@ -1019,6 +1129,7 @@ Future<McpJsonMap> _callStructuredTool(
           id: id,
           arguments: arguments,
           streamable: streamable,
+          protocolVersion: protocolVersion,
           headers: headers,
         );
   if (result['isError'] == true) {

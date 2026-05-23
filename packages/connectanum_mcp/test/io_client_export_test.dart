@@ -36,6 +36,7 @@ void main() {
       final catalog = await client.listWampApiDirect(
         id: 'io-entrypoint-api-list',
         kind: 'procedure',
+        protocolVersion: '2025-03-26',
         headers: const <String, String>{
           'x-consumer-trace': 'io-entrypoint-api-list',
         },
@@ -48,6 +49,7 @@ void main() {
       final request = endpoint.requests.single;
       expect(request.accept, 'application/json');
       expect(request.sessionId, isNull);
+      expect(request.protocolVersion, '2025-03-26');
       expect(request.consumerTrace, 'io-entrypoint-api-list');
       expect(request.body['method'], 'connectanum.tool.call');
 
@@ -68,6 +70,7 @@ void main() {
 
     final ping = await client.pingDirect(
       id: 'io-direct-ping',
+      protocolVersion: '2025-06-18',
       headers: const <String, String>{'x-consumer-trace': 'io-direct-ping'},
     );
     expect(ping, isEmpty);
@@ -84,6 +87,7 @@ void main() {
 
     final tools = await client.listToolsDirect(
       id: 'io-direct-tools',
+      protocolVersion: '2025-03-26',
       headers: const <String, String>{
         'x-consumer-trace': 'io-direct-tools-list',
       },
@@ -95,6 +99,7 @@ void main() {
       'app.echo',
       id: 'io-direct-tool-call',
       arguments: const <String, Object?>{'message': 'tool'},
+      protocolVersion: '2025-06-18',
       headers: const <String, String>{
         'x-consumer-trace': 'io-direct-tool-call',
       },
@@ -107,6 +112,7 @@ void main() {
     await client.notifyToolDirect(
       'app.echo',
       arguments: const <String, Object?>{'message': 'notify'},
+      protocolVersion: '2025-03-26',
       headers: const <String, String>{
         'x-consumer-trace': 'io-direct-tool-notify',
       },
@@ -135,11 +141,15 @@ void main() {
       'connectanum.event',
     ]);
     expect(endpoint.requests[0].consumerTrace, 'io-direct-ping');
+    expect(endpoint.requests[0].protocolVersion, '2025-06-18');
     expect(endpoint.requests[1].consumerTrace, 'io-direct-protocol-ping');
     expect(endpoint.requests[1].protocolVersion, '2025-03-26');
     expect(endpoint.requests[2].consumerTrace, 'io-direct-tools-list');
+    expect(endpoint.requests[2].protocolVersion, '2025-03-26');
     expect(endpoint.requests[3].consumerTrace, 'io-direct-tool-call');
+    expect(endpoint.requests[3].protocolVersion, '2025-06-18');
     expect(endpoint.requests[4].consumerTrace, 'io-direct-tool-notify');
+    expect(endpoint.requests[4].protocolVersion, '2025-03-26');
     expect(endpoint.requests[5].consumerTrace, 'io-direct-protocol-notify');
     expect(endpoint.requests[5].protocolVersion, '2025-06-18');
 
@@ -176,6 +186,7 @@ void main() {
 
       final tools = await client.listConnectanumToolsDirect(
         id: 'io-direct-tools',
+        protocolVersion: '2025-03-26',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-tools-list',
         },
@@ -190,6 +201,7 @@ void main() {
         'app.echo',
         id: 'io-direct-tool-call',
         arguments: const <String, Object?>{'message': 'tool'},
+        protocolVersion: '2025-06-18',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-tool-call',
         },
@@ -203,6 +215,7 @@ void main() {
         'app.echo',
         id: 'io-direct-method-call',
         params: const <String, Object?>{'message': 'method'},
+        protocolVersion: '2025-03-26',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-method-call',
         },
@@ -217,6 +230,7 @@ void main() {
         params: const <String, Object?>{
           'arguments': <Object?>['app.echo'],
         },
+        protocolVersion: '2025-06-18',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-meta-method',
         },
@@ -230,6 +244,7 @@ void main() {
         'app.echo',
         id: 'io-direct-api-describe',
         kind: 'procedure',
+        protocolVersion: '2025-03-26',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-api-describe',
         },
@@ -240,6 +255,7 @@ void main() {
       final registration = await client.matchWampRegistrationDirect(
         'app.echo',
         id: 'io-direct-registration-match',
+        protocolVersion: '2025-06-18',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-registration-match',
         },
@@ -250,6 +266,7 @@ void main() {
       await client.notifyConnectanumToolDirect(
         'app.echo',
         arguments: const <String, Object?>{'message': 'notify-tool'},
+        protocolVersion: '2025-03-26',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-notify-tool',
         },
@@ -258,6 +275,7 @@ void main() {
       await client.notifyConnectanumMethodDirect(
         'app.echo',
         params: const <String, Object?>{'message': 'notify-method'},
+        protocolVersion: '2025-06-18',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-notify-method',
         },
@@ -266,6 +284,7 @@ void main() {
       await client.notifyWampEventDirect(
         _ioTopic,
         argumentsKeywords: const <String, Object?>{'message': 'notify-pubsub'},
+        protocolVersion: '2025-03-26',
         headers: const <String, String>{
           'x-consumer-trace': 'io-direct-notify-pubsub',
         },
@@ -289,17 +308,26 @@ void main() {
         'connectanum.pubsub.publish',
       ]);
       expect(endpoint.requests[0].consumerTrace, 'io-direct-tools-list');
+      expect(endpoint.requests[0].protocolVersion, '2025-03-26');
       expect(endpoint.requests[1].consumerTrace, 'io-direct-tool-call');
+      expect(endpoint.requests[1].protocolVersion, '2025-06-18');
       expect(endpoint.requests[2].consumerTrace, 'io-direct-method-call');
+      expect(endpoint.requests[2].protocolVersion, '2025-03-26');
       expect(endpoint.requests[3].consumerTrace, 'io-direct-meta-method');
+      expect(endpoint.requests[3].protocolVersion, '2025-06-18');
       expect(endpoint.requests[4].consumerTrace, 'io-direct-api-describe');
+      expect(endpoint.requests[4].protocolVersion, '2025-03-26');
       expect(
         endpoint.requests[5].consumerTrace,
         'io-direct-registration-match',
       );
+      expect(endpoint.requests[5].protocolVersion, '2025-06-18');
       expect(endpoint.requests[6].consumerTrace, 'io-direct-notify-tool');
+      expect(endpoint.requests[6].protocolVersion, '2025-03-26');
       expect(endpoint.requests[7].consumerTrace, 'io-direct-notify-method');
+      expect(endpoint.requests[7].protocolVersion, '2025-06-18');
       expect(endpoint.requests[8].consumerTrace, 'io-direct-notify-pubsub');
+      expect(endpoint.requests[8].protocolVersion, '2025-03-26');
 
       final toolCallParams = _jsonMapFrom(
         endpoint.requests[1].body['params'],

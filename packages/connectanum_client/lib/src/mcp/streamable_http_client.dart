@@ -217,6 +217,7 @@ final class McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -224,6 +225,7 @@ final class McpStreamableHttpClient {
       id: id,
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     return _jsonRpcResultFrom(response, method: 'ping');
@@ -231,9 +233,15 @@ final class McpStreamableHttpClient {
 
   Future<McpJsonMap> pingDirect({
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
-    final response = await requestDirect('ping', id: id, headers: headers);
+    final response = await requestDirect(
+      'ping',
+      id: id,
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
     return _jsonRpcResultFrom(response, method: 'ping');
   }
 
@@ -241,6 +249,7 @@ final class McpStreamableHttpClient {
     Object? id,
     String? cursor,
     bool streamable = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -248,6 +257,7 @@ final class McpStreamableHttpClient {
       id: id,
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: streamable,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'tools/list');
@@ -268,6 +278,7 @@ final class McpStreamableHttpClient {
   Future<McpStreamableToolListPage> listToolsDirect({
     Object? id,
     String? cursor,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     const method = 'tools/list';
@@ -275,6 +286,7 @@ final class McpStreamableHttpClient {
       method,
       id: id,
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: method);
@@ -297,6 +309,7 @@ final class McpStreamableHttpClient {
     Object? id,
     McpJsonMap arguments = const <String, Object?>{},
     bool streamable = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -304,6 +317,7 @@ final class McpStreamableHttpClient {
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: streamable,
+      protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
@@ -313,12 +327,14 @@ final class McpStreamableHttpClient {
     String name, {
     McpJsonMap arguments = const <String, Object?>{},
     bool streamable = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return notification(
       'tools/call',
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: streamable,
+      protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
   }
@@ -327,12 +343,14 @@ final class McpStreamableHttpClient {
     String name, {
     Object? id,
     McpJsonMap arguments = const <String, Object?>{},
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await requestDirect(
       'tools/call',
       id: id,
       params: <String, Object?>{'name': name, 'arguments': arguments},
+      protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
@@ -341,11 +359,13 @@ final class McpStreamableHttpClient {
   Future<void> notifyToolDirect(
     String name, {
     McpJsonMap arguments = const <String, Object?>{},
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return notificationDirect(
       'tools/call',
       params: <String, Object?>{'name': name, 'arguments': arguments},
+      protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
   }
@@ -353,6 +373,7 @@ final class McpStreamableHttpClient {
   Future<McpStreamableToolListPage> listConnectanumToolsDirect({
     Object? id,
     String? cursor,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     const method = 'connectanum.tools.list';
@@ -362,6 +383,7 @@ final class McpStreamableHttpClient {
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: false,
       includeSession: false,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: method);
@@ -383,6 +405,7 @@ final class McpStreamableHttpClient {
     String name, {
     Object? id,
     McpJsonMap arguments = const <String, Object?>{},
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     const method = 'connectanum.tool.call';
@@ -392,6 +415,7 @@ final class McpStreamableHttpClient {
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: false,
       includeSession: false,
+      protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: method);
@@ -403,6 +427,7 @@ final class McpStreamableHttpClient {
     McpJsonMap params = const <String, Object?>{},
     bool streamable = true,
     bool includeSession = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -411,6 +436,7 @@ final class McpStreamableHttpClient {
       params: params,
       streamable: streamable,
       includeSession: includeSession,
+      protocolVersion: protocolVersion,
       headers: _headersWithConnectanumMethodParameterHeaders(
         method,
         params,
@@ -424,12 +450,14 @@ final class McpStreamableHttpClient {
     String method, {
     Object? id,
     McpJsonMap params = const <String, Object?>{},
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await requestDirect(
       method,
       id: id,
       params: params,
+      protocolVersion: protocolVersion,
       headers: _headersWithConnectanumMethodParameterHeaders(
         method,
         params,
@@ -442,11 +470,13 @@ final class McpStreamableHttpClient {
   Future<void> notifyConnectanumToolDirect(
     String name, {
     McpJsonMap arguments = const <String, Object?>{},
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return notificationDirect(
       'connectanum.tool.call',
       params: <String, Object?>{'name': name, 'arguments': arguments},
+      protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(name, arguments, headers),
     );
   }
@@ -455,12 +485,14 @@ final class McpStreamableHttpClient {
     String method, {
     McpJsonMap params = const <String, Object?>{},
     bool streamable = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return notification(
       method,
       params: params,
       streamable: streamable,
+      protocolVersion: protocolVersion,
       headers: _headersWithConnectanumMethodParameterHeaders(
         method,
         params,
@@ -472,11 +504,13 @@ final class McpStreamableHttpClient {
   Future<void> notifyConnectanumMethodDirect(
     String method, {
     McpJsonMap params = const <String, Object?>{},
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return notificationDirect(
       method,
       params: params,
+      protocolVersion: protocolVersion,
       headers: _headersWithConnectanumMethodParameterHeaders(
         method,
         params,
@@ -490,6 +524,7 @@ final class McpStreamableHttpClient {
     String? cursor,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -498,6 +533,7 @@ final class McpStreamableHttpClient {
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'resources/list');
@@ -517,6 +553,7 @@ final class McpStreamableHttpClient {
     Object? id,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -525,6 +562,7 @@ final class McpStreamableHttpClient {
       params: <String, Object?>{'uri': uri},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'resources/read');
@@ -541,6 +579,7 @@ final class McpStreamableHttpClient {
     String? cursor,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -549,6 +588,7 @@ final class McpStreamableHttpClient {
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     final result = _jsonRpcResultFrom(
@@ -571,6 +611,7 @@ final class McpStreamableHttpClient {
     String? cursor,
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -579,6 +620,7 @@ final class McpStreamableHttpClient {
       params: cursor == null ? null : <String, Object?>{'cursor': cursor},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'prompts/list');
@@ -599,6 +641,7 @@ final class McpStreamableHttpClient {
     Map<String, String> arguments = const <String, String>{},
     bool streamable = true,
     bool directJson = false,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await request(
@@ -607,6 +650,7 @@ final class McpStreamableHttpClient {
       params: <String, Object?>{'name': name, 'arguments': arguments},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     return _jsonRpcResultFrom(response, method: 'prompts/get');
@@ -615,12 +659,14 @@ final class McpStreamableHttpClient {
   Future<McpStreamableResourceListPage> listResourcesDirect({
     Object? id,
     String? cursor,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return listResources(
       id: id,
       cursor: cursor,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -628,20 +674,29 @@ final class McpStreamableHttpClient {
   Future<List<McpJsonMap>> readResourceDirect(
     String uri, {
     Object? id,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
-    return readResource(uri, id: id, directJson: true, headers: headers);
+    return readResource(
+      uri,
+      id: id,
+      directJson: true,
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
   }
 
   Future<McpStreamableResourceTemplateListPage> listResourceTemplatesDirect({
     Object? id,
     String? cursor,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return listResourceTemplates(
       id: id,
       cursor: cursor,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -649,12 +704,14 @@ final class McpStreamableHttpClient {
   Future<McpStreamablePromptListPage> listPromptsDirect({
     Object? id,
     String? cursor,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return listPrompts(
       id: id,
       cursor: cursor,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -663,6 +720,7 @@ final class McpStreamableHttpClient {
     String name, {
     Object? id,
     Map<String, String> arguments = const <String, String>{},
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return getPrompt(
@@ -670,6 +728,7 @@ final class McpStreamableHttpClient {
       id: id,
       arguments: arguments,
       directJson: true,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }

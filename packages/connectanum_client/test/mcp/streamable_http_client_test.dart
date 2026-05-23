@@ -204,11 +204,59 @@ void main() {
         'connectanum.event',
         protocolVersion: '2025-06-18',
       );
+      await client.listToolsDirect(
+        id: 'typed-tools',
+        protocolVersion: '2025-03-26',
+      );
+      await client.callToolDirect(
+        'app.echo',
+        id: 'typed-tool-call',
+        arguments: const <String, Object?>{'message': 'typed'},
+        protocolVersion: '2025-06-18',
+      );
+      await client.listConnectanumToolsDirect(
+        id: 'typed-connectanum-tools',
+        protocolVersion: '2025-03-26',
+      );
+      await client.notifyConnectanumToolDirect(
+        'app.echo',
+        arguments: const <String, Object?>{'message': 'typed-notify'},
+        protocolVersion: '2025-06-18',
+      );
+      await client.listResourcesDirect(
+        id: 'typed-resources',
+        protocolVersion: '2025-03-26',
+      );
+      await client.getPromptDirect(
+        'summarize',
+        id: 'typed-prompt',
+        protocolVersion: '2025-06-18',
+      );
+      await client.listWampApiDirect(
+        id: 'typed-wamp-api',
+        protocolVersion: '2025-03-26',
+      );
+      await client.publishWampEventDirect(
+        'app.events.audit',
+        id: 'typed-pubsub',
+        argumentsKeywords: const <String, Object?>{'message': 'typed'},
+        protocolVersion: '2025-06-18',
+      );
 
-      expect(endpoint.requests[0].protocolVersion, '2025-03-26');
-      expect(endpoint.requests[1].protocolVersion, '2025-06-18');
-      expect(endpoint.requests[2].protocolVersion, '2025-03-26');
-      expect(endpoint.requests[3].protocolVersion, '2025-06-18');
+      expect(endpoint.requests.map((request) => request.protocolVersion), [
+        '2025-03-26',
+        '2025-06-18',
+        '2025-03-26',
+        '2025-06-18',
+        '2025-03-26',
+        '2025-06-18',
+        '2025-03-26',
+        '2025-06-18',
+        '2025-03-26',
+        '2025-06-18',
+        '2025-03-26',
+        '2025-06-18',
+      ]);
       expect(
         client.protocolVersion,
         McpStreamableHttpClient.latestProtocolVersion,
