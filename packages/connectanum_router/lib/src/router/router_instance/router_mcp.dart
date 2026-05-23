@@ -2744,6 +2744,8 @@ void _validateMcpRouteOptions(Map<String, Object?> options) {
 }
 
 void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
+  _validateMcpStringConfigOption(options, 'route', 'name');
+
   for (final key in const <String>[
     'include_registered_procedures',
     'include_subscribed_topics',
@@ -2851,6 +2853,17 @@ void _validateMcpProcedureRouteOptionShapes(Map<String, Object?> options) {
   for (var i = 0; i < entries.length; i += 1) {
     final config = (entries[i] as Map).cast<String, Object?>();
     final label = 'procedures[$i]';
+    for (final key in const <String>[
+      'procedure',
+      'uri',
+      'tool_name',
+      'toolName',
+      'name',
+      'title',
+      'description',
+    ]) {
+      _validateMcpStringConfigOption(config, label, key);
+    }
     for (final key in const <String>['allow_call', 'allowCall', 'callable']) {
       _validateMcpBoolConfigOption(config, label, key);
     }
@@ -2878,6 +2891,9 @@ void _validateMcpTopicRouteOptionShapes(Map<String, Object?> options) {
   for (var i = 0; i < entries.length; i += 1) {
     final config = (entries[i] as Map).cast<String, Object?>();
     final label = 'topics[$i]';
+    for (final key in const <String>['topic', 'uri', 'title', 'description']) {
+      _validateMcpStringConfigOption(config, label, key);
+    }
     for (final key in const <String>[
       'allow_publish',
       'allow_subscribe',
@@ -2900,12 +2916,50 @@ void _validateMcpTopicRouteOptionShapes(Map<String, Object?> options) {
 
 void _validateMcpResourceRouteOptionShapes(Map<String, Object?> options) {
   final entries = options['resources'];
-  if (entries is! List) {
-    return;
+  if (entries is List) {
+    for (var i = 0; i < entries.length; i += 1) {
+      final config = (entries[i] as Map).cast<String, Object?>();
+      final label = 'resources[$i]';
+      for (final key in const <String>[
+        'uri',
+        'name',
+        'title',
+        'description',
+        'mime_type',
+        'mimeType',
+        'text',
+        'content',
+        'blob',
+      ]) {
+        _validateMcpStringConfigOption(config, label, key);
+      }
+      _validateMcpNonNegativeIntConfigOption(config, label, 'size');
+    }
   }
-  for (var i = 0; i < entries.length; i += 1) {
-    final config = (entries[i] as Map).cast<String, Object?>();
-    _validateMcpNonNegativeIntConfigOption(config, 'resources[$i]', 'size');
+
+  for (final optionKey in const <String>[
+    'resource_templates',
+    'resourceTemplates',
+  ]) {
+    final templates = options[optionKey];
+    if (templates is! List) {
+      continue;
+    }
+    for (var i = 0; i < templates.length; i += 1) {
+      final config = (templates[i] as Map).cast<String, Object?>();
+      final label = '$optionKey[$i]';
+      for (final key in const <String>[
+        'uri_template',
+        'uriTemplate',
+        'name',
+        'title',
+        'description',
+        'mime_type',
+        'mimeType',
+      ]) {
+        _validateMcpStringConfigOption(config, label, key);
+      }
+    }
   }
 }
 
@@ -2917,6 +2971,16 @@ void _validateMcpPromptRouteOptionShapes(Map<String, Object?> options) {
   for (var i = 0; i < entries.length; i += 1) {
     final config = (entries[i] as Map).cast<String, Object?>();
     final label = 'prompts[$i]';
+    for (final key in const <String>[
+      'name',
+      'title',
+      'description',
+      'text',
+      'content',
+      'result_description',
+    ]) {
+      _validateMcpStringConfigOption(config, label, key);
+    }
     _validateMcpNestedObjectListConfigOption(config, label, 'arguments');
     _validateMcpNestedObjectListConfigOption(config, label, 'messages');
 
@@ -2924,11 +2988,11 @@ void _validateMcpPromptRouteOptionShapes(Map<String, Object?> options) {
     if (arguments is List) {
       for (var j = 0; j < arguments.length; j += 1) {
         final argument = (arguments[j] as Map).cast<String, Object?>();
-        _validateMcpBoolConfigOption(
-          argument,
-          '$label.arguments[$j]',
-          'required',
-        );
+        final argumentLabel = '$label.arguments[$j]';
+        for (final key in const <String>['name', 'title', 'description']) {
+          _validateMcpStringConfigOption(argument, argumentLabel, key);
+        }
+        _validateMcpBoolConfigOption(argument, argumentLabel, 'required');
       }
     }
 
@@ -2936,11 +3000,9 @@ void _validateMcpPromptRouteOptionShapes(Map<String, Object?> options) {
     if (messages is List) {
       for (var j = 0; j < messages.length; j += 1) {
         final message = (messages[j] as Map).cast<String, Object?>();
-        final role = message['role'];
-        if (role != null && role is! String) {
-          throw FormatException(
-            'MCP $label.messages[$j].role must be a string',
-          );
+        final messageLabel = '$label.messages[$j]';
+        for (final key in const <String>['role', 'text', 'content']) {
+          _validateMcpStringConfigOption(message, messageLabel, key);
         }
       }
     }
@@ -3266,7 +3328,10 @@ mcp.McpWampProcedure _procedureFromConfig(Map<String, Object?> config) {
   final metadata = _metadataFromDetails(config);
   return mcp.McpWampProcedure(
     procedure: procedure,
-    toolName: _stringFrom(config['tool_name']) ?? _stringFrom(config['name']),
+    toolName:
+        _stringFrom(config['tool_name']) ??
+        _stringFrom(config['toolName']) ??
+        _stringFrom(config['name']),
     title: _stringFrom(config['title']),
     description:
         _stringFrom(config['description']) ?? metadata?.shortDescription,

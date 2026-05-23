@@ -78,14 +78,42 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: Router-hosted MCP route options now validate agent-facing
+  string fields before building the native router config. Malformed server
+  `name`, configured procedure/topic display fields, configured resource and
+  resource-template URI/display/content fields, and configured prompt,
+  prompt-argument, and prompt-message string fields fail fast instead of being
+  silently dropped or reported as vague missing values. Configured procedures
+  now also honor the camel-case `toolName` alias. Pre-change `bin/test-fast`,
+  focused router JSON config test, and full local `bin/verify` passed. Hosted
+  evidence for this checkpoint is pending push.
 - 2026-05-23: Router-hosted MCP procedure and topic metadata route options now
   validate agent-facing metadata shapes before native router config export.
   Metadata string fields, string-list fields such as `publishesEvents`, direct
   annotation hints, and nested `annotations` hint values now fail fast when
   malformed instead of being silently dropped from direct JSON or Streamable
   HTTP tool/topic metadata. Pre-change `bin/test-fast`, focused router JSON
-  config test, and full local `bin/verify` passed. Hosted evidence for this
-  checkpoint is pending push.
+  config test, and full local `bin/verify` passed. Commit `de79b40`
+  (`fix: validate mcp metadata route options`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `de79b40`: `master` CI run `26332071957` passed with Fast Checks and Full
+  Verify green plus clean logs, `add-router` CI run `26332071970` passed,
+  `master` Dart Package Publish Dry Run `26332071969` passed, `add-router`
+  Dart Package Publish Dry Run `26332071958` passed, `master` WAMP Profile
+  Benchmarks `26332071941` passed, `add-router` WAMP Profile Benchmarks
+  `26332071959` passed, and clean Router Image dry-run `26332103181` passed
+  for current head with preview metadata `sha-de79b40edc18`, GHCR login
+  skipped, and no image publish. Native Artifacts dry-run `26286794628`
+  remains relevant because no native-release-sensitive inputs changed. The
+  strict deployment-chain audit passed required gates on `master` at
+  `de79b40`, including clean current-head CI/logs, current Dart package
+  dry-run, current WAMP profile benchmark evidence, current Router Image
+  dry-run, native release dry-run relevance, branch protection, workflow
+  visibility, and router package visibility. RC readiness remains not-ready
+  only because no approved numeric RC tag, GitHub prerelease, or matching RC
+  router image tag has been selected, and pub.dev publishing remains deferred
+  for release-order and operator decisions. No RC tag, GitHub Release, or
+  router image was created or moved.
 - 2026-05-23: Router-hosted MCP schema route option validation now walks
   nested procedure and topic schema metadata recursively, requiring map keys to
   be strings, values to be JSON-compatible, and numbers to be finite. Malformed

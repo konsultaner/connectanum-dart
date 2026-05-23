@@ -317,6 +317,7 @@ void main() {
     });
 
     test('validates MCP route option shapes while building native config', () {
+      _expectInvalidMcpOptions({'name': 7}, 'MCP route.name must be a string');
       _expectInvalidMcpOptions({
         'include_pubsub_tools': 'true',
       }, 'MCP include_pubsub_tools must be a boolean');
@@ -337,6 +338,11 @@ void main() {
           {'procedure': 'app.lookup', 'allow_call': 'true'},
         ],
       }, 'MCP procedures[0].allow_call must be a boolean');
+      _expectInvalidMcpOptions({
+        'procedures': [
+          {'procedure': 'app.lookup', 'toolName': 7},
+        ],
+      }, 'MCP procedures[0].toolName must be a string');
       _expectInvalidMcpOptions({
         'procedures': [
           {'procedure': 'app.lookup', 'inputSchema': 'object'},
@@ -393,6 +399,11 @@ void main() {
           {'topic': 'app.events', 'allow_publish': 'true'},
         ],
       }, 'MCP topics[0].allow_publish must be a boolean');
+      _expectInvalidMcpOptions({
+        'topics': [
+          {'topic': 'app.events', 'description': 7},
+        ],
+      }, 'MCP topics[0].description must be a string');
       _expectInvalidMcpOptions({
         'topics': [
           {'topic': 'app.events', 'allowPublish': 'true'},
@@ -453,10 +464,25 @@ void main() {
         ],
       }, 'MCP resources[0].size must be a non-negative integer');
       _expectInvalidMcpOptions({
+        'resources': [
+          {'uri': 'file:///context', 'text': 'context', 'mimeType': 7},
+        ],
+      }, 'MCP resources[0].mimeType must be a string');
+      _expectInvalidMcpOptions({
+        'resourceTemplates': [
+          {'uriTemplate': 7, 'name': 'task-template'},
+        ],
+      }, 'MCP resourceTemplates[0].uriTemplate must be a string');
+      _expectInvalidMcpOptions({
         'prompts': [
           {'name': 'summarize', 'text': 'Summarize', 'arguments': 'taskId'},
         ],
       }, 'MCP prompts[0].arguments must be a list of objects');
+      _expectInvalidMcpOptions({
+        'prompts': [
+          {'name': 'summarize', 'text': 7},
+        ],
+      }, 'MCP prompts[0].text must be a string');
       _expectInvalidMcpOptions({
         'prompts': [
           {
@@ -472,12 +498,33 @@ void main() {
         'prompts': [
           {
             'name': 'summarize',
+            'text': 'Summarize {{taskId}}',
+            'arguments': [
+              {'name': 7},
+            ],
+          },
+        ],
+      }, 'MCP prompts[0].arguments[0].name must be a string');
+      _expectInvalidMcpOptions({
+        'prompts': [
+          {
+            'name': 'summarize',
             'messages': [
               {'role': 7, 'text': 'Summarize'},
             ],
           },
         ],
       }, 'MCP prompts[0].messages[0].role must be a string');
+      _expectInvalidMcpOptions({
+        'prompts': [
+          {
+            'name': 'summarize',
+            'messages': [
+              {'role': 'user', 'content': 7},
+            ],
+          },
+        ],
+      }, 'MCP prompts[0].messages[0].content must be a string');
     });
 
     test('accepts MCP non-streaming post response options', () {
