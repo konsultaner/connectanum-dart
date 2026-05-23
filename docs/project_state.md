@@ -2,23 +2,47 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP JSON POST response smoke.
-Latest fully clean hosted checkpoint: Commit `dfedfd5`.
-Current implementation checkpoint: the generated router-hosted MCP consumer
-package smoke now adds a public `/mcp/json-post` route with
-`post_response_transport: json` and a declared pub/sub topic. The smoke
-initializes a Streamable session with the package client, proves normal
-Streamable POST operations stay JSON instead of SSE even when `Accept` permits
-both JSON and `text/event-stream`, verifies `sessionId` stability and no POST
-SSE cursor capture across tool catalog, tool call, raw `tools/list`, raw
-`ping`, and pub/sub publish/poll paths, then proves GET/SSE polling remains
-available for server notifications before session deletion clears state. This
-keeps downstream application smoke coverage on public APIs and neutral router
+Last reviewed branch checkpoint: router-hosted MCP non-streaming POST response
+compatibility.
+Latest fully clean hosted checkpoint: Commit `d2cc63b`.
+Current implementation checkpoint: MCP route option validation now rejects
+invalid `post_response_transport` values and non-boolean
+`stream_post_responses` values while building native router config. The
+generated router-hosted MCP consumer package smoke now covers both public
+non-streaming POST response configuration forms: `/mcp/json-post` with
+`post_response_transport: json`, and `/mcp/non-streaming-post` with
+`stream_post_responses: false`. The shared smoke initializes Streamable
+sessions with the package client, proves normal Streamable POST operations
+stay JSON instead of SSE even when `Accept` permits both JSON and
+`text/event-stream`, verifies `sessionId` stability and no POST SSE cursor
+capture across tool catalog, tool call, raw `tools/list`, raw `ping`, and
+pub/sub publish/poll paths, then proves GET/SSE polling remains available for
+server notifications before session deletion clears state. This keeps
+downstream application smoke coverage on public APIs and neutral router
 fixtures without private project assumptions. Pre-change `bin/test-fast`,
-`bash -n bin/common.sh`, focused generated router-hosted MCP consumer smoke,
-and full local `bin/verify` passed on 2026-05-23. Hosted evidence for the new
-implementation commit is pending until it is pushed and GitHub CI completes;
-the latest fully clean hosted checkpoint remains `dfedfd5`.
+`bash -n bin/common.sh`, focused router JSON config test, focused generated
+router-hosted MCP consumer smoke, and full local `bin/verify` passed on
+2026-05-23. Hosted evidence for the new implementation commit is pending until
+it is pushed and GitHub CI completes; the latest fully clean hosted checkpoint
+remains `d2cc63b`.
+Prior hosted checkpoint details: Commit `d2cc63b`
+(`test: cover mcp json post responses`) was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`d2cc63b`: `master` CI run `26325673314` passed with Fast Checks and Full
+Verify green plus clean logs, and `add-router` CI run `26325672952` passed.
+`master` Dart Package Publish Dry Run `26323732462`, `master` WAMP Profile
+Benchmarks `26323732487`, Router Image dry-run `26323764121`, and Native
+Artifacts dry-run `26286794628` remain relevant because no publish-sensitive,
+WAMP-profile-benchmark-sensitive, router-image-sensitive, or
+native-release-sensitive inputs changed since those runs. The strict
+deployment-chain audit passed required gates on `master` at `d2cc63b`,
+including clean current-head CI/logs, relevant Dart package dry-run, relevant
+WAMP profile benchmark evidence, relevant Router Image dry-run, native release
+dry-run relevance, branch protection, workflow visibility, and router package
+visibility. RC readiness remains not-ready only because no approved numeric RC
+tag, GitHub prerelease, or matching RC router image tag has been selected, and
+pub.dev publishing remains deferred for release-order and operator decisions.
+No RC tag, GitHub Release, or router image was created or moved.
 Prior hosted checkpoint details: Commit `dfedfd5`
 (`test: cover active-session direct mcp access`) was pushed to GitLab
 `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is

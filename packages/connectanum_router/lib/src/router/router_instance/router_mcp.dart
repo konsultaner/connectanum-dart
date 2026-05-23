@@ -28,6 +28,16 @@ const Set<String> _mcpSupportedHttpProtocolVersions = <String>{
   '2025-06-18',
   mcp.mcpLatestProtocolVersion,
 };
+const Set<String> _mcpPostResponseTransportModes = <String>{
+  'json',
+  'off',
+  'false',
+  'disabled',
+  'sse',
+  'stream',
+  'streamable',
+  'auto',
+};
 
 Map<String, String> _mcpCorsResponseHeaders(
   RouterBinding binding,
@@ -2719,6 +2729,7 @@ List<mcp.McpWampTopic> _configuredTopics(Map<String, Object?> options) {
 
 void _validateMcpRouteOptions(Map<String, Object?> options) {
   try {
+    _validateMcpPostResponseOptions(options);
     _configuredProcedures(options);
     _configuredTopics(options);
     _configuredResources(options);
@@ -2728,6 +2739,24 @@ void _validateMcpRouteOptions(Map<String, Object?> options) {
     throw StateError('Invalid MCP route options: ${error.message}');
   } on ArgumentError catch (error) {
     throw StateError('Invalid MCP route options: ${error.message}');
+  }
+}
+
+void _validateMcpPostResponseOptions(Map<String, Object?> options) {
+  final transport = options['post_response_transport'];
+  if (transport != null) {
+    final mode = _stringFrom(transport)?.trim().toLowerCase();
+    if (mode == null || !_mcpPostResponseTransportModes.contains(mode)) {
+      throw const FormatException(
+        'MCP post_response_transport must be one of auto, disabled, false, '
+        'json, off, sse, stream, or streamable',
+      );
+    }
+  }
+
+  final streamPostResponses = options['stream_post_responses'];
+  if (streamPostResponses != null && streamPostResponses is! bool) {
+    throw const FormatException('MCP stream_post_responses must be a boolean');
   }
 }
 

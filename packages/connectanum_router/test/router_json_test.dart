@@ -290,5 +290,55 @@ void main() {
         ),
       );
     });
+
+    test('validates MCP post response transport options while building native '
+        'config', () {
+      final invalidTransport = _routerWithMcpOptions({
+        'post_response_transport': 'xml',
+      });
+      expect(
+        invalidTransport.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            allOf(
+              contains('Invalid MCP route options'),
+              contains('MCP post_response_transport must be one of'),
+            ),
+          ),
+        ),
+      );
+
+      final invalidStreamFlag = _routerWithMcpOptions({
+        'stream_post_responses': 'false',
+      });
+      expect(
+        invalidStreamFlag.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            allOf(
+              contains('Invalid MCP route options'),
+              contains('MCP stream_post_responses must be a boolean'),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('accepts MCP non-streaming post response options', () {
+      for (final options in const <Map<String, Object?>>[
+        {'post_response_transport': 'json'},
+        {'post_response_transport': 'SSE'},
+        {'stream_post_responses': false},
+      ]) {
+        expect(
+          _routerWithMcpOptions(options).buildNativeConfigJson,
+          returnsNormally,
+        );
+      }
+    });
   });
 }
