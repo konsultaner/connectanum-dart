@@ -2,29 +2,39 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP non-streaming POST response
-compatibility.
-Latest fully clean hosted checkpoint: Commit `d2cc63b`.
-Current implementation checkpoint: MCP route option validation now rejects
-invalid `post_response_transport` values and non-boolean
-`stream_post_responses` values while building native router config. The
-generated router-hosted MCP consumer package smoke now covers both public
-non-streaming POST response configuration forms: `/mcp/json-post` with
-`post_response_transport: json`, and `/mcp/non-streaming-post` with
-`stream_post_responses: false`. The shared smoke initializes Streamable
-sessions with the package client, proves normal Streamable POST operations
-stay JSON instead of SSE even when `Accept` permits both JSON and
-`text/event-stream`, verifies `sessionId` stability and no POST SSE cursor
-capture across tool catalog, tool call, raw `tools/list`, raw `ping`, and
-pub/sub publish/poll paths, then proves GET/SSE polling remains available for
-server notifications before session deletion clears state. This keeps
-downstream application smoke coverage on public APIs and neutral router
-fixtures without private project assumptions. Pre-change `bin/test-fast`,
-`bash -n bin/common.sh`, focused router JSON config test, focused generated
-router-hosted MCP consumer smoke, and full local `bin/verify` passed on
-2026-05-23. Hosted evidence for the new implementation commit is pending until
-it is pushed and GitHub CI completes; the latest fully clean hosted checkpoint
-remains `d2cc63b`.
+Last reviewed branch checkpoint: router-hosted MCP route option shape
+validation.
+Latest fully clean hosted checkpoint: Commit `e274b5a`.
+Current implementation checkpoint: MCP route option validation now also
+rejects non-boolean include flags, non-positive or non-integer list page
+sizes, malformed allowed-origin option shapes, and malformed configured
+procedure/topic/resource/resource-template/prompt list entries while building
+native router config. This keeps router-hosted MCP endpoints fail-fast for
+consumer application configuration errors instead of silently disabling
+catalog entries, defaulting capability switches, or deferring page-size
+failures until request-time endpoint construction. Pre-change `bin/test-fast`,
+focused router JSON config test, and full local `bin/verify` passed on
+2026-05-23. Hosted evidence for this local checkpoint is pending push.
+Prior hosted checkpoint details: Commit `e274b5a`
+(`fix: validate mcp post response options`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`e274b5a`: `master` CI run `26326611407` passed with Fast Checks and Full
+Verify green plus clean logs, `add-router` CI run `26326609144` passed,
+`master` Dart Package Publish Dry Run `26326611413` passed, `add-router` Dart
+Package Publish Dry Run `26326609130` passed, `master` WAMP Profile
+Benchmarks `26326611401` passed, `add-router` WAMP Profile Benchmarks
+`26326609137` passed, and Router Image dry-run `26326876433` passed for
+current head with GHCR login skipped and no image publish. Native Artifacts
+dry-run `26286794628` remains relevant because no native-release-sensitive
+inputs changed. The strict deployment-chain audit passed required gates on
+`master` at `e274b5a`, including clean current-head CI/logs, current Dart
+package dry-run, current WAMP profile benchmark evidence, current Router Image
+dry-run, native release dry-run relevance, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected, and pub.dev publishing remains deferred for
+release-order and operator decisions. No RC tag, GitHub Release, or router
+image was created or moved.
 Prior hosted checkpoint details: Commit `d2cc63b`
 (`test: cover mcp json post responses`) was pushed to GitLab `origin`, GitHub
 `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at

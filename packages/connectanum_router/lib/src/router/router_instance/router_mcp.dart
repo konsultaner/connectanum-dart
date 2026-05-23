@@ -2730,6 +2730,7 @@ List<mcp.McpWampTopic> _configuredTopics(Map<String, Object?> options) {
 void _validateMcpRouteOptions(Map<String, Object?> options) {
   try {
     _validateMcpPostResponseOptions(options);
+    _validateMcpRouteOptionShapes(options);
     _configuredProcedures(options);
     _configuredTopics(options);
     _configuredResources(options);
@@ -2739,6 +2740,98 @@ void _validateMcpRouteOptions(Map<String, Object?> options) {
     throw StateError('Invalid MCP route options: ${error.message}');
   } on ArgumentError catch (error) {
     throw StateError('Invalid MCP route options: ${error.message}');
+  }
+}
+
+void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
+  for (final key in const <String>[
+    'include_registered_procedures',
+    'include_subscribed_topics',
+    'include_pubsub_tools',
+  ]) {
+    _validateMcpBoolRouteOption(options, key);
+  }
+
+  for (final key in const <String>[
+    'tool_list_page_size',
+    'prompt_list_page_size',
+    'resource_list_page_size',
+    'resource_template_list_page_size',
+  ]) {
+    _validateMcpPositiveIntRouteOption(options, key);
+  }
+
+  for (final key in const <String>[
+    'procedures',
+    'topics',
+    'resources',
+    'resource_templates',
+    'resourceTemplates',
+    'prompts',
+  ]) {
+    _validateMcpObjectListRouteOption(options, key);
+  }
+
+  _validateMcpAllowedOriginsRouteOption(options);
+}
+
+void _validateMcpBoolRouteOption(Map<String, Object?> options, String key) {
+  final value = options[key];
+  if (value != null && value is! bool) {
+    throw FormatException('MCP $key must be a boolean');
+  }
+}
+
+void _validateMcpPositiveIntRouteOption(
+  Map<String, Object?> options,
+  String key,
+) {
+  final value = options[key];
+  if (value != null && (value is! int || value <= 0)) {
+    throw FormatException('MCP $key must be a positive integer');
+  }
+}
+
+void _validateMcpObjectListRouteOption(
+  Map<String, Object?> options,
+  String key,
+) {
+  final value = options[key];
+  if (value == null) {
+    return;
+  }
+  if (value is! List) {
+    throw FormatException('MCP $key must be a list of objects');
+  }
+  for (var i = 0; i < value.length; i += 1) {
+    final entry = value[i];
+    if (entry is! Map) {
+      throw FormatException('MCP $key[$i] must be an object');
+    }
+    for (final entryKey in entry.keys) {
+      if (entryKey is! String) {
+        throw FormatException('MCP $key[$i] keys must be strings');
+      }
+    }
+  }
+}
+
+void _validateMcpAllowedOriginsRouteOption(Map<String, Object?> options) {
+  for (final key in const <String>[
+    'allowedOrigins',
+    'allowed_origins',
+    'allowedOrigin',
+    'allowed_origin',
+    'origins',
+  ]) {
+    final value = options[key];
+    if (value == null || value is String) {
+      continue;
+    }
+    if (value is Iterable && value.every((origin) => origin is String)) {
+      continue;
+    }
+    throw FormatException('MCP $key must be a string or list of strings');
   }
 }
 

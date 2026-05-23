@@ -56,6 +56,20 @@ Router _routerWithMcpOptions(Map<String, Object?> options) {
   return Router(RouterConfig(endpoints: [endpoint]), settings: settings);
 }
 
+void _expectInvalidMcpOptions(Map<String, Object?> options, String message) {
+  final router = _routerWithMcpOptions(options);
+  expect(
+    router.buildNativeConfigJson,
+    throwsA(
+      isA<StateError>().having(
+        (error) => error.message,
+        'message',
+        allOf(contains('Invalid MCP route options'), contains(message)),
+      ),
+    ),
+  );
+}
+
 void main() {
   group('Router buildNativeConfigJson', () {
     test('encodes schema, version and endpoints', () {
@@ -293,39 +307,31 @@ void main() {
 
     test('validates MCP post response transport options while building native '
         'config', () {
-      final invalidTransport = _routerWithMcpOptions({
+      _expectInvalidMcpOptions({
         'post_response_transport': 'xml',
-      });
-      expect(
-        invalidTransport.buildNativeConfigJson,
-        throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            allOf(
-              contains('Invalid MCP route options'),
-              contains('MCP post_response_transport must be one of'),
-            ),
-          ),
-        ),
-      );
+      }, 'MCP post_response_transport must be one of');
 
-      final invalidStreamFlag = _routerWithMcpOptions({
+      _expectInvalidMcpOptions({
         'stream_post_responses': 'false',
-      });
-      expect(
-        invalidStreamFlag.buildNativeConfigJson,
-        throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            allOf(
-              contains('Invalid MCP route options'),
-              contains('MCP stream_post_responses must be a boolean'),
-            ),
-          ),
-        ),
-      );
+      }, 'MCP stream_post_responses must be a boolean');
+    });
+
+    test('validates MCP route option shapes while building native config', () {
+      _expectInvalidMcpOptions({
+        'include_pubsub_tools': 'true',
+      }, 'MCP include_pubsub_tools must be a boolean');
+      _expectInvalidMcpOptions({
+        'tool_list_page_size': 0,
+      }, 'MCP tool_list_page_size must be a positive integer');
+      _expectInvalidMcpOptions({
+        'allowed_origins': ['https://agent.example', 7],
+      }, 'MCP allowed_origins must be a string or list of strings');
+      _expectInvalidMcpOptions({
+        'resources': 'not-a-list',
+      }, 'MCP resources must be a list of objects');
+      _expectInvalidMcpOptions({
+        'procedures': ['not-an-object'],
+      }, 'MCP procedures[0] must be an object');
     });
 
     test('accepts MCP non-streaming post response options', () {

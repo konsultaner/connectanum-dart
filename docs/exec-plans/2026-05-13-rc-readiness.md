@@ -78,6 +78,17 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: MCP route option validation now also rejects non-boolean include
+  flags, non-positive or non-integer list page sizes, malformed
+  allowed-origin option shapes, and malformed configured
+  procedure/topic/resource/resource-template/prompt list entries while
+  building native router config. This keeps router-hosted MCP endpoints
+  fail-fast for consumer application configuration errors instead of silently
+  disabling catalog entries, defaulting capability switches, or deferring
+  page-size failures until request-time endpoint construction. Pre-change
+  `bin/test-fast`, focused router JSON config test, and full local
+  `bin/verify` passed. Hosted evidence for this local checkpoint is pending
+  push.
 - 2026-05-23: MCP route option validation now rejects invalid
   `post_response_transport` values and non-boolean `stream_post_responses`
   values while building native router config, so consumer applications fail
@@ -96,10 +107,26 @@ decision because `connectanum_client` still depends on private
   downstream application readiness coverage on public APIs and neutral router
   fixtures without private project assumptions. Pre-change `bin/test-fast`,
   `bash -n bin/common.sh`, focused router JSON config test, focused generated
-  router-hosted MCP consumer smoke, and full local `bin/verify` passed. Hosted
-  evidence for the new implementation commit is pending until it is pushed and
-  GitHub CI completes; the latest fully clean hosted checkpoint remains
-  `d2cc63b`.
+  router-hosted MCP consumer smoke, and full local `bin/verify` passed. Commit
+  `e274b5a` (`fix: validate mcp post response options`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence
+  is clean at `e274b5a`: `master` CI run `26326611407` passed with Fast Checks
+  and Full Verify green plus clean logs, `add-router` CI run `26326609144`
+  passed, `master` Dart Package Publish Dry Run `26326611413` passed,
+  `add-router` Dart Package Publish Dry Run `26326609130` passed, `master`
+  WAMP Profile Benchmarks `26326611401` passed, `add-router` WAMP Profile
+  Benchmarks `26326609137` passed, and Router Image dry-run `26326876433`
+  passed for current head with GHCR login skipped and no image publish. Native
+  Artifacts dry-run `26286794628` remains relevant because no
+  native-release-sensitive inputs changed. The strict deployment-chain audit
+  passed required gates on `master` at `e274b5a`, including clean current-head
+  CI/logs, current Dart package dry-run, current WAMP profile benchmark
+  evidence, current Router Image dry-run, native release dry-run relevance,
+  branch protection, workflow visibility, and router package visibility. RC
+  readiness remains not-ready only because no approved numeric RC tag, GitHub
+  prerelease, or matching RC router image tag has been selected, and pub.dev
+  publishing remains deferred for release-order and operator decisions. No RC
+  tag, GitHub Release, or router image was created or moved.
 - 2026-05-23: The generated router-hosted MCP consumer package smoke now adds
   a public `/mcp/json-post` route with `post_response_transport: json` and a
   declared pub/sub topic. The smoke initializes a Streamable session with the
