@@ -2,28 +2,42 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: Streamable MCP protocol override state isolation.
-Latest fully clean hosted checkpoint: Commit `e2cd258`.
-Current implementation checkpoint: Non-initialize per-call
-`protocolVersion` overrides on `McpStreamableHttpClient` Streamable HTTP
-requests are now header-only and no longer replace the client's negotiated MCP
-protocol version from the response header. Initialize requests still negotiate
-and update the client protocol state, while session-scoped helper calls such as
-`ping(protocolVersion: ...)` keep the existing session id, event cursor, and
-negotiated version. The public router-hosted MCP example now proves typed
-direct protocol-version overrides across live tools, resources, prompts, WAMP
-metadata, and pub/sub endpoints, including bearer-protected access. The
-generated consumer-package smoke also exercises typed direct and Streamable
-helper protocol-version overrides from an app-shaped package boundary without
-private project assumptions. Pre-change `bin/test-fast` passed on
+Last reviewed branch checkpoint: JSON-response MCP resource/prompt smoke coverage.
+Latest fully clean hosted checkpoint: Commit `9ac5e22`.
+Current implementation checkpoint: The generated consumer-package
+router-hosted MCP smoke now configures resources, resource templates, prompts,
+and pagination limits on both JSON-response Streamable compatibility routes:
+`postResponseTransport: json` and `streamPostResponses: false`. The smoke
+verifies typed Streamable resources/prompts helpers on those routes, confirms
+the responses stay JSON rather than POST/SSE, keeps the active session id
+stable, and extends typed direct protocol-version override coverage to
+resources/read and prompts/get from the same app-shaped package boundary. This
+closes a remaining consumer-readiness gap where JSON-response MCP routes were
+only proving tools and pub/sub. Pre-change `bin/test-fast` passed on
 2026-05-23. Focused local coverage passed on 2026-05-23:
-`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
-`bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke; run_mcp_consumer_package_smoke'`,
-`bash -n bin/common.sh`, and
-`dart analyze packages/connectanum_client packages/connectanum_router`. Full
-local `bin/verify` passed on 2026-05-23. Hosted evidence is pending for the
-next pushed commit; the latest fully clean hosted checkpoint remains
-`e2cd258`.
+`bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+`bash -n bin/common.sh`, and `git diff --check`. Full local `bin/verify`
+passed on 2026-05-23.
+Prior hosted checkpoint details: Commit `9ac5e22`
+(`fix: keep streamable protocol overrides stateless`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `9ac5e22`: `master` CI run `26344002623` passed with Fast Checks and
+Full Verify green plus clean logs, `add-router` CI run `26344001242` passed,
+`master` Dart Package Publish Dry Run `26344002614` passed, `add-router` Dart
+Package Publish Dry Run `26344001253` passed, `master` WAMP Profile Benchmarks
+`26344002624` passed, `add-router` WAMP Profile Benchmarks `26344001266`
+passed, and clean Router Image dry-run `26344012477` passed for current head
+with preview metadata `sha-9ac5e22430a4`, GHCR login skipped, and no image
+publish. Native Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed. The strict deployment-chain audit
+passed required gates on `master` at `9ac5e22`, including clean current-head
+CI/logs, current Dart package dry-run, current WAMP profile benchmark evidence,
+current Router Image dry-run, native release dry-run relevance, branch
+protection, workflow visibility, and router package visibility. RC readiness
+remains not-ready only because no approved numeric RC tag, GitHub prerelease,
+or matching RC router image tag has been selected, and pub.dev publishing
+remains deferred for release-order and operator decisions. No RC tag, GitHub
+Release, or router image was created or moved.
 Prior hosted checkpoint details: Commit `e2cd258`
 (`fix: expose mcp protocol override on typed helpers`) was pushed to GitLab
 `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is

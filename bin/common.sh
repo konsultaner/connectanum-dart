@@ -5862,6 +5862,9 @@ RouterSettings _consumerRouterSettings() {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
                 'tool_list_page_size': 1,
+                'resource_list_page_size': 1,
+                'resource_template_list_page_size': 1,
+                'prompt_list_page_size': 1,
                 'postResponseTransport': 'json',
                 'allowed_origins': [_allowedOrigin],
                 'topics': [
@@ -5877,6 +5880,86 @@ RouterSettings _consumerRouterSettings() {
                     },
                   },
                 ],
+                'resources': [
+                  {
+                    'uri': _resourceUri,
+                    'name': 'consumer-mcp-context',
+                    'title': 'Consumer MCP context',
+                    'description':
+                        'Static context exposed by the JSON POST route.',
+                    'mime_type': 'text/plain',
+                    'text':
+                        'Consumer package router-hosted MCP context document.',
+                  },
+                  {
+                    'uri': _pagedResourceUri,
+                    'name': 'consumer-mcp-followup-context',
+                    'title': 'Consumer MCP follow-up context',
+                    'description':
+                        'Second-page static context for JSON POST smoke.',
+                    'mime_type': 'text/plain',
+                    'text': 'Consumer package follow-up MCP context document.',
+                  },
+                ],
+                'resource_templates': [
+                  {
+                    'uri_template': _resourceTemplateUri,
+                    'name': 'consumer-task-context',
+                    'title': 'Consumer task context',
+                    'description':
+                        'Template for consumer task context resources.',
+                    'mime_type': 'application/json',
+                  },
+                  {
+                    'uri_template': _pagedResourceTemplateUri,
+                    'name': 'consumer-task-followup-context',
+                    'title': 'Consumer task follow-up context',
+                    'description':
+                        'Second-page template for JSON POST smoke.',
+                    'mime_type': 'application/json',
+                  },
+                ],
+                'prompts': [
+                  {
+                    'name': _promptName,
+                    'title': 'Inspect consumer task',
+                    'description': 'Builds a prompt for a consumer task id.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect consumer task {{taskId}} using MCP route context.',
+                      },
+                    ],
+                  },
+                  {
+                    'name': _pagedPromptName,
+                    'title': 'Inspect consumer task follow-up',
+                    'description':
+                        'Second-page prompt for JSON POST smoke.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect follow-up consumer task {{taskId}}.',
+                      },
+                    ],
+                  },
+                ],
               },
             ),
           ),
@@ -5890,6 +5973,9 @@ RouterSettings _consumerRouterSettings() {
                 'include_registered_procedures': true,
                 'include_pubsub_tools': true,
                 'tool_list_page_size': 1,
+                'resource_list_page_size': 1,
+                'resource_template_list_page_size': 1,
+                'prompt_list_page_size': 1,
                 'streamPostResponses': false,
                 'allowed_origins': [_allowedOrigin],
                 'topics': [
@@ -5903,6 +5989,86 @@ RouterSettings _consumerRouterSettings() {
                         'taskId': {'type': 'string'},
                       },
                     },
+                  },
+                ],
+                'resources': [
+                  {
+                    'uri': _resourceUri,
+                    'name': 'consumer-mcp-context',
+                    'title': 'Consumer MCP context',
+                    'description':
+                        'Static context exposed by the non-streaming route.',
+                    'mime_type': 'text/plain',
+                    'text':
+                        'Consumer package router-hosted MCP context document.',
+                  },
+                  {
+                    'uri': _pagedResourceUri,
+                    'name': 'consumer-mcp-followup-context',
+                    'title': 'Consumer MCP follow-up context',
+                    'description':
+                        'Second-page static context for non-streaming smoke.',
+                    'mime_type': 'text/plain',
+                    'text': 'Consumer package follow-up MCP context document.',
+                  },
+                ],
+                'resource_templates': [
+                  {
+                    'uri_template': _resourceTemplateUri,
+                    'name': 'consumer-task-context',
+                    'title': 'Consumer task context',
+                    'description':
+                        'Template for consumer task context resources.',
+                    'mime_type': 'application/json',
+                  },
+                  {
+                    'uri_template': _pagedResourceTemplateUri,
+                    'name': 'consumer-task-followup-context',
+                    'title': 'Consumer task follow-up context',
+                    'description':
+                        'Second-page template for non-streaming smoke.',
+                    'mime_type': 'application/json',
+                  },
+                ],
+                'prompts': [
+                  {
+                    'name': _promptName,
+                    'title': 'Inspect consumer task',
+                    'description': 'Builds a prompt for a consumer task id.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect consumer task {{taskId}} using MCP route context.',
+                      },
+                    ],
+                  },
+                  {
+                    'name': _pagedPromptName,
+                    'title': 'Inspect consumer task follow-up',
+                    'description':
+                        'Second-page prompt for non-streaming smoke.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect follow-up consumer task {{taskId}}.',
+                      },
+                    ],
                   },
                 ],
               },
@@ -6685,6 +6851,39 @@ Future<void> _smokeTypedProtocolVersionOverrides(
     throw StateError('$routeLabel direct protocol tools/call missed payload.');
   }
 
+  final resources = await client.listResourcesDirect(
+    id: '$label-direct-protocol-resources',
+    protocolVersion: olderProtocolVersion,
+  );
+  if (!jsonEncode(resources.resources).contains(_resourceUri)) {
+    throw StateError(
+      '$routeLabel direct protocol resources/list missed route context.',
+    );
+  }
+
+  final readResource = await client.readResourceDirect(
+    _resourceUri,
+    id: '$label-direct-protocol-resource-read',
+    protocolVersion: newerProtocolVersion,
+  );
+  if (!jsonEncode(readResource).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError(
+      '$routeLabel direct protocol resources/read missed route context.',
+    );
+  }
+
+  final prompt = await client.getPromptDirect(
+    _promptName,
+    id: '$label-direct-protocol-prompt',
+    arguments: {'taskId': 'T-$label-direct-protocol-prompt'},
+    protocolVersion: olderProtocolVersion,
+  );
+  if (!jsonEncode(prompt).contains('T-$label-direct-protocol-prompt')) {
+    throw StateError('$routeLabel direct protocol prompts/get missed payload.');
+  }
+
   final api = await client.describeWampApiDirect(
     _procedure,
     id: '$label-direct-protocol-api',
@@ -6862,6 +7061,12 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
       throw StateError('$routeLabel tool call changed session id.');
     }
     expectNoPostSseCursor('tool call');
+
+    await _smokeResourcesAndPrompts(client, label: label);
+    if (client.sessionId != sessionId) {
+      throw StateError('$routeLabel resources/prompts changed session id.');
+    }
+    expectNoPostSseCursor('resources/prompts');
 
     final rawToolsId = '$label-raw-tools';
     final rawTools = await _mcpRawJsonPost(
