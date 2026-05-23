@@ -174,6 +174,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? params,
     bool streamable = true,
     bool includeSession = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     final response = await post(
@@ -185,6 +186,7 @@ final class McpStreamableHttpClient {
       },
       streamable: streamable,
       includeSession: includeSession,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
     if (response == null) {
@@ -197,6 +199,7 @@ final class McpStreamableHttpClient {
     String method, {
     Object? id,
     McpJsonMap? params,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return request(
@@ -205,6 +208,7 @@ final class McpStreamableHttpClient {
       params: params,
       streamable: false,
       includeSession: false,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -675,12 +679,14 @@ final class McpStreamableHttpClient {
     McpJsonMap? params,
     bool streamable = true,
     bool includeSession = true,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
     await post(
       <String, Object?>{'jsonrpc': '2.0', 'method': method, 'params': ?params},
       streamable: streamable,
       includeSession: includeSession,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }
@@ -688,6 +694,7 @@ final class McpStreamableHttpClient {
   Future<void> notificationDirect(
     String method, {
     McpJsonMap? params,
+    String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
     return notification(
@@ -695,6 +702,7 @@ final class McpStreamableHttpClient {
       params: params,
       streamable: false,
       includeSession: false,
+      protocolVersion: protocolVersion,
       headers: headers,
     );
   }

@@ -2,10 +2,26 @@
 
 Last updated: 2026-05-23
 Current branch: `add-router`
-Last reviewed branch checkpoint: Streamable HTTP explicit MCP protocol
-header/body alignment.
-Latest fully clean hosted checkpoint: Commit `d216a2d`.
-Current implementation checkpoint: Streamable HTTP explicit initialize
+Last reviewed branch checkpoint: Direct JSON MCP protocol-version helper
+override.
+Latest fully clean hosted checkpoint: Commit `25fd0f7`.
+Current implementation checkpoint: Generic MCP HTTP client helpers now expose
+the same protocol-version override that low-level POST helpers already had:
+`McpStreamableHttpClient.request(...)`, `requestDirect(...)`,
+`notification(...)`, and `notificationDirect(...)` accept an optional
+`protocolVersion` and forward it as `MCP-Protocol-Version` without mutating the
+client's negotiated Streamable HTTP version. This keeps downstream
+applications on public direct JSON tool/meta APIs when they need to probe
+older supported MCP protocol versions, instead of forcing raw JSON-RPC POST
+bodies for that compatibility path. Focused local coverage passed on
+2026-05-23:
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`
+and
+`dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`.
+Pre-change `bin/test-fast` and full local `bin/verify` passed on 2026-05-23.
+Hosted evidence is pending for the next pushed commit; the latest fully clean
+hosted checkpoint remains `25fd0f7`.
+Prior hosted checkpoint details: Streamable HTTP explicit initialize
 negotiation now sends the requested supported MCP protocol version in both the
 JSON-RPC initialize body and the `MCP-Protocol-Version` request header. The
 low-level direct JSON POST helpers also accept a protocol-version header
@@ -16,9 +32,26 @@ client default at latest while passing explicit initialize versions, proving
 header/body alignment from the consumer boundary. Pre-change `bin/test-fast`
 passed on 2026-05-23, focused MCP client test, generated consumer smoke,
 router-hosted example smoke, public-artifact guard, shell syntax check, diff
-checks, and full local `bin/verify` passed on 2026-05-23. Hosted evidence is
-pending for the next pushed implementation commit; the latest fully clean
-hosted checkpoint remains `d216a2d`.
+checks, and full local `bin/verify` passed on 2026-05-23. Commit `25fd0f7`
+(`fix: align explicit mcp protocol headers`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`25fd0f7`: `master` CI run `26340457507` passed with Fast Checks and Full
+Verify green plus clean logs, `add-router` CI run `26340457117` passed,
+`master` Dart Package Publish Dry Run `26340457490` passed, `add-router` Dart
+Package Publish Dry Run `26340457128` passed, `master` WAMP Profile Benchmarks
+`26340457495` passed, `add-router` WAMP Profile Benchmarks `26340457141`
+passed, and clean Router Image dry-run `26340473727` passed for current head
+with preview metadata `sha-25fd0f778518`, GHCR login skipped, and no image
+publish. Native Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed. The strict deployment-chain audit
+passed required gates on `master` at `25fd0f7`, including clean current-head
+CI/logs, current Dart package dry-run, current WAMP profile benchmark evidence,
+current Router Image dry-run, native release dry-run relevance, branch
+protection, workflow visibility, and router package visibility. RC readiness
+remains not-ready only because no approved numeric RC tag, GitHub prerelease,
+or matching RC router image tag has been selected, and pub.dev publishing
+remains deferred for release-order and operator decisions. No RC tag, GitHub
+Release, or router image was created or moved.
 Prior hosted checkpoint details: Commit `d216a2d`
 (`fix: honor supported mcp protocol versions`) made MCP initialize negotiation
 return a requested supported protocol version (`2025-03-26`, `2025-06-18`, or

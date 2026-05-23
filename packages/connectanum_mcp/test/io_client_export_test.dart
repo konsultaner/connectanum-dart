@@ -72,6 +72,16 @@ void main() {
     );
     expect(ping, isEmpty);
 
+    final protocolPing = await client.requestDirect(
+      'ping',
+      id: 'io-direct-protocol-ping',
+      protocolVersion: '2025-03-26',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-direct-protocol-ping',
+      },
+    );
+    expect(protocolPing['id'], 'io-direct-protocol-ping');
+
     final tools = await client.listToolsDirect(
       id: 'io-direct-tools',
       headers: const <String, String>{
@@ -102,25 +112,39 @@ void main() {
       },
     );
 
+    await client.notificationDirect(
+      'connectanum.event',
+      protocolVersion: '2025-06-18',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-direct-protocol-notify',
+      },
+    );
+
     expect(client.sessionId, isNull);
-    expect(endpoint.requests, hasLength(4));
+    expect(endpoint.requests, hasLength(6));
     for (final request in endpoint.requests) {
       expect(request.accept, 'application/json');
       expect(request.sessionId, isNull);
     }
     expect(endpoint.requests.map((request) => request.body['method']), [
       'ping',
+      'ping',
       'tools/list',
       'tools/call',
       'tools/call',
+      'connectanum.event',
     ]);
     expect(endpoint.requests[0].consumerTrace, 'io-direct-ping');
-    expect(endpoint.requests[1].consumerTrace, 'io-direct-tools-list');
-    expect(endpoint.requests[2].consumerTrace, 'io-direct-tool-call');
-    expect(endpoint.requests[3].consumerTrace, 'io-direct-tool-notify');
+    expect(endpoint.requests[1].consumerTrace, 'io-direct-protocol-ping');
+    expect(endpoint.requests[1].protocolVersion, '2025-03-26');
+    expect(endpoint.requests[2].consumerTrace, 'io-direct-tools-list');
+    expect(endpoint.requests[3].consumerTrace, 'io-direct-tool-call');
+    expect(endpoint.requests[4].consumerTrace, 'io-direct-tool-notify');
+    expect(endpoint.requests[5].consumerTrace, 'io-direct-protocol-notify');
+    expect(endpoint.requests[5].protocolVersion, '2025-06-18');
 
     final toolCallParams = _jsonMapFrom(
-      endpoint.requests[2].body['params'],
+      endpoint.requests[3].body['params'],
       label: 'standard direct tool call params',
     );
     expect(toolCallParams['name'], 'app.echo');
@@ -131,7 +155,7 @@ void main() {
       ),
       {'message': 'tool'},
     );
-    expect(endpoint.requests[3].body, {
+    expect(endpoint.requests[4].body, {
       'jsonrpc': '2.0',
       'method': 'tools/call',
       'params': {
@@ -2094,12 +2118,14 @@ final class _SeenRequest {
   const _SeenRequest({
     required this.accept,
     required this.sessionId,
+    required this.protocolVersion,
     required this.consumerTrace,
     required this.body,
   });
 
   final String? accept;
   final String? sessionId;
+  final String? protocolVersion;
   final String? consumerTrace;
   final Map<String, Object?> body;
 
@@ -2107,6 +2133,7 @@ final class _SeenRequest {
     return _SeenRequest(
       accept: request.headers.value(HttpHeaders.acceptHeader),
       sessionId: request.headers.value('MCP-Session-Id'),
+      protocolVersion: request.headers.value('MCP-Protocol-Version'),
       consumerTrace: request.headers.value('x-consumer-trace'),
       body: body,
     );

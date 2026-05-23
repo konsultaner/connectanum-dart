@@ -176,7 +176,7 @@ void main() {
       },
     );
 
-    test('lets low-level POST helpers override protocol headers', () async {
+    test('lets direct JSON helpers override protocol headers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
 
@@ -195,9 +195,20 @@ void main() {
           'method': 'tools/list',
         },
       ], protocolVersion: '2025-06-18');
+      await client.requestDirect(
+        'tools/list',
+        id: 'direct-tools',
+        protocolVersion: '2025-03-26',
+      );
+      await client.notificationDirect(
+        'connectanum.event',
+        protocolVersion: '2025-06-18',
+      );
 
       expect(endpoint.requests[0].protocolVersion, '2025-03-26');
       expect(endpoint.requests[1].protocolVersion, '2025-06-18');
+      expect(endpoint.requests[2].protocolVersion, '2025-03-26');
+      expect(endpoint.requests[3].protocolVersion, '2025-06-18');
       expect(
         client.protocolVersion,
         McpStreamableHttpClient.latestProtocolVersion,
