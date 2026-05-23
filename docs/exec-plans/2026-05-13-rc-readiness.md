@@ -78,6 +78,21 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-23: Router-hosted MCP route options now honor and validate
+  top-level camel-case aliases for agent-facing controls, including
+  `includePubsubTools`, `includeStandardMetaApi`,
+  `includeRegisteredProcedures`, `includeSubscribedTopics`,
+  `toolListPageSize`, `promptListPageSize`, `resourceListPageSize`,
+  `resourceTemplateListPageSize`, `postResponseTransport`, and
+  `streamPostResponses`. Route `name`, `version`, `title`, `description`, and
+  `instructions` now flow into MCP `initialize` server metadata and
+  instructions instead of only influencing direct WAMP API metadata, and prompt
+  `resultDescription` is accepted and validated as the camel-case alias. Local
+  verification passed: pre-change `bin/test-fast`, focused router JSON config
+  test, focused router-hosted MCP alias/server identity integration test,
+  `dart analyze packages/connectanum_router`, `git diff --check`, and full
+  local `bin/verify`. Hosted evidence is pending for the next pushed commit;
+  the latest fully clean hosted checkpoint remains `ef4906b`.
 - 2026-05-23: Router-hosted MCP route options now validate agent-facing
   string fields before building the native router config. Malformed server
   `name`, configured procedure/topic display fields, configured resource and
@@ -85,8 +100,27 @@ decision because `connectanum_client` still depends on private
   prompt-argument, and prompt-message string fields fail fast instead of being
   silently dropped or reported as vague missing values. Configured procedures
   now also honor the camel-case `toolName` alias. Pre-change `bin/test-fast`,
-  focused router JSON config test, and full local `bin/verify` passed. Hosted
-  evidence for this checkpoint is pending push.
+  focused router JSON config test, and full local `bin/verify` passed. Commit
+  `ef4906b` (`fix: validate mcp string route options`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence
+  is clean at `ef4906b`: `master` CI run `26333047829` passed with Fast Checks
+  and Full Verify green plus clean logs, `add-router` CI run `26333047819`
+  passed, `master` Dart Package Publish Dry Run `26333047828` passed,
+  `add-router` Dart Package Publish Dry Run `26333047820` passed, `master`
+  WAMP Profile Benchmarks `26333047831` passed, `add-router` WAMP Profile
+  Benchmarks `26333047818` passed, and clean Router Image dry-run
+  `26333056237` passed for current head with preview metadata
+  `sha-ef4906b7cab3`, GHCR login skipped, and no image publish. Native
+  Artifacts dry-run `26286794628` remains relevant because no
+  native-release-sensitive inputs changed. The strict deployment-chain audit
+  passed required gates on `master` at `ef4906b`, including clean current-head
+  CI/logs, current Dart package dry-run, current WAMP profile benchmark
+  evidence, current Router Image dry-run, native release dry-run relevance,
+  branch protection, workflow visibility, and router package visibility. RC
+  readiness remains not-ready only because no approved numeric RC tag, GitHub
+  prerelease, or matching RC router image tag has been selected, and pub.dev
+  publishing remains deferred for release-order and operator decisions. No RC
+  tag, GitHub Release, or router image was created or moved.
 - 2026-05-23: Router-hosted MCP procedure and topic metadata route options now
   validate agent-facing metadata shapes before native router config export.
   Metadata string fields, string-list fields such as `publishesEvents`, direct

@@ -310,20 +310,38 @@ void main() {
       _expectInvalidMcpOptions({
         'post_response_transport': 'xml',
       }, 'MCP post_response_transport must be one of');
+      _expectInvalidMcpOptions({
+        'postResponseTransport': 'xml',
+      }, 'MCP postResponseTransport must be one of');
 
       _expectInvalidMcpOptions({
         'stream_post_responses': 'false',
       }, 'MCP stream_post_responses must be a boolean');
+      _expectInvalidMcpOptions({
+        'streamPostResponses': 'false',
+      }, 'MCP streamPostResponses must be a boolean');
     });
 
     test('validates MCP route option shapes while building native config', () {
       _expectInvalidMcpOptions({'name': 7}, 'MCP route.name must be a string');
       _expectInvalidMcpOptions({
+        'version': 7,
+      }, 'MCP route.version must be a string');
+      _expectInvalidMcpOptions({
+        'instructions': 7,
+      }, 'MCP route.instructions must be a string');
+      _expectInvalidMcpOptions({
         'include_pubsub_tools': 'true',
       }, 'MCP include_pubsub_tools must be a boolean');
       _expectInvalidMcpOptions({
+        'includeStandardMetaApi': 'true',
+      }, 'MCP includeStandardMetaApi must be a boolean');
+      _expectInvalidMcpOptions({
         'tool_list_page_size': 0,
       }, 'MCP tool_list_page_size must be a positive integer');
+      _expectInvalidMcpOptions({
+        'toolListPageSize': 0,
+      }, 'MCP toolListPageSize must be a positive integer');
       _expectInvalidMcpOptions({
         'allowed_origins': ['https://agent.example', 7],
       }, 'MCP allowed_origins must be a string or list of strings');
@@ -485,6 +503,11 @@ void main() {
       }, 'MCP prompts[0].text must be a string');
       _expectInvalidMcpOptions({
         'prompts': [
+          {'name': 'summarize', 'text': 'Summarize', 'resultDescription': 7},
+        ],
+      }, 'MCP prompts[0].resultDescription must be a string');
+      _expectInvalidMcpOptions({
+        'prompts': [
           {
             'name': 'summarize',
             'text': 'Summarize {{taskId}}',
@@ -531,7 +554,9 @@ void main() {
       for (final options in const <Map<String, Object?>>[
         {'post_response_transport': 'json'},
         {'post_response_transport': 'SSE'},
+        {'postResponseTransport': 'json'},
         {'stream_post_responses': false},
+        {'streamPostResponses': false},
       ]) {
         expect(
           _routerWithMcpOptions(options).buildNativeConfigJson,

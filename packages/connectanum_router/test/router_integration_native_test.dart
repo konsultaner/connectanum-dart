@@ -1307,6 +1307,81 @@ void main() {
       expect(exact, isNotEmpty);
     }, skip: skipReason);
 
+    test('honors MCP route aliases and server identity metadata', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9113,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(
+          enableHttp3: false,
+          enableMcp: true,
+          mcpOptions: const <String, Object?>{
+            'name': 'consumer-router-mcp',
+            'version': '9.8.7',
+            'title': 'Consumer router MCP',
+            'description': 'Route metadata visible to MCP clients.',
+            'instructions': 'Use this endpoint with route-scoped credentials.',
+            'toolListPageSize': 1,
+            'includePubsubTools': false,
+            'includeStandardMetaApi': false,
+            'includeRegisteredProcedures': false,
+            'includeSubscribedTopics': false,
+            'procedures': [
+              {'procedure': 'app.alpha', 'toolName': 'alphaTask'},
+              {'procedure': 'app.beta', 'toolName': 'betaTask'},
+            ],
+          },
+        ),
+      );
+      addTearDown(harness.dispose);
+
+      final listener = harness.binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+
+      final initialize = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'initialize-aliases',
+        'method': 'initialize',
+        'params': {'protocolVersion': '2025-11-25'},
+      });
+      expect(initialize.statusCode, equals(HttpStatus.ok));
+      final initializeResult =
+          initialize.json?['result'] as Map<String, Object?>;
+      final serverInfo = initializeResult['serverInfo'] as Map<String, Object?>;
+      expect(serverInfo['name'], equals('consumer-router-mcp'));
+      expect(serverInfo['version'], equals('9.8.7'));
+      expect(serverInfo['title'], equals('Consumer router MCP'));
+      expect(
+        serverInfo['description'],
+        equals('Route metadata visible to MCP clients.'),
+      );
+      expect(
+        initializeResult['instructions'],
+        equals('Use this endpoint with route-scoped credentials.'),
+      );
+
+      final tools = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'tools-list-aliases',
+        'method': 'tools/list',
+        'params': {},
+      });
+      expect(tools.statusCode, equals(HttpStatus.ok));
+      final toolsResult = tools.json?['result'] as Map<String, Object?>;
+      final toolList = (toolsResult['tools'] as List).cast<Map>();
+      expect(toolList, hasLength(1));
+      expect(toolList.single['name'], equals('alphaTask'));
+      expect(toolsResult['nextCursor'], isA<String>());
+      expect(
+        toolList.map((tool) => tool['name']),
+        isNot(contains('connectanum.pubsub.publish')),
+      );
+      expect(
+        toolList.map((tool) => tool['name']),
+        isNot(contains('wamp.registration.list')),
+      );
+    }, skip: skipReason);
+
     test('guards MCP Streamable HTTP ingress and sessions', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9114,
@@ -4882,6 +4957,7 @@ RouterSettings _buildRouterSettings({
   required bool enableHttp3,
   bool enableMetrics = false,
   bool enableMcp = false,
+  Map<String, Object?>? mcpOptions,
 }) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
@@ -4988,59 +5064,62 @@ RouterSettings _buildRouterSettings({
     );
   }
   if (enableMcp) {
+    final effectiveMcpOptions =
+        mcpOptions ??
+        const <String, Object?>{
+          'tool_list_page_size': 100,
+          'resource_list_page_size': 10,
+          'resource_template_list_page_size': 10,
+          'prompt_list_page_size': 10,
+          'resources': [
+            {
+              'uri': 'app://example/context',
+              'name': 'example-context',
+              'title': 'Example context',
+              'description':
+                  'Static context exposed by the router MCP endpoint.',
+              'mime_type': 'text/plain',
+              'text': 'This context came from router-hosted MCP.',
+            },
+          ],
+          'resource_templates': [
+            {
+              'uri_template': 'app://example/task/{taskId}',
+              'name': 'example-task',
+              'title': 'Example task resource',
+              'description':
+                  'Template for task resources exposed by the router.',
+              'mime_type': 'application/json',
+            },
+          ],
+          'prompts': [
+            {
+              'name': 'summarize-task',
+              'title': 'Summarize task',
+              'description': 'Builds a task summary prompt.',
+              'arguments': [
+                {
+                  'name': 'taskId',
+                  'description': 'Task identifier to summarize.',
+                  'required': true,
+                },
+              ],
+              'messages': [
+                {
+                  'role': 'user',
+                  'text': 'Summarize task {{taskId}} using router context.',
+                },
+              ],
+            },
+          ],
+        };
     routes.add(
-      const HttpRouteSettings(
-        match: HttpRouteMatch(path: '/mcp'),
+      HttpRouteSettings(
+        match: const HttpRouteMatch(path: '/mcp'),
         action: HttpRouteAction(
           type: HttpRouteActionType.mcp,
           realm: 'realm1',
-          options: {
-            'tool_list_page_size': 100,
-            'resource_list_page_size': 10,
-            'resource_template_list_page_size': 10,
-            'prompt_list_page_size': 10,
-            'resources': [
-              {
-                'uri': 'app://example/context',
-                'name': 'example-context',
-                'title': 'Example context',
-                'description':
-                    'Static context exposed by the router MCP endpoint.',
-                'mime_type': 'text/plain',
-                'text': 'This context came from router-hosted MCP.',
-              },
-            ],
-            'resource_templates': [
-              {
-                'uri_template': 'app://example/task/{taskId}',
-                'name': 'example-task',
-                'title': 'Example task resource',
-                'description':
-                    'Template for task resources exposed by the router.',
-                'mime_type': 'application/json',
-              },
-            ],
-            'prompts': [
-              {
-                'name': 'summarize-task',
-                'title': 'Summarize task',
-                'description': 'Builds a task summary prompt.',
-                'arguments': [
-                  {
-                    'name': 'taskId',
-                    'description': 'Task identifier to summarize.',
-                    'required': true,
-                  },
-                ],
-                'messages': [
-                  {
-                    'role': 'user',
-                    'text': 'Summarize task {{taskId}} using router context.',
-                  },
-                ],
-              },
-            ],
-          },
+          options: effectiveMcpOptions,
         ),
       ),
     );

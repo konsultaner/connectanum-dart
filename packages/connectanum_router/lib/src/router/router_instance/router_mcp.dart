@@ -334,9 +334,10 @@ bool _mcpPostResponsesUseSse(
     return false;
   }
 
-  final mode = _stringFrom(
-    route.action.options['post_response_transport'],
-  )?.trim().toLowerCase();
+  final mode = _stringOptionAny(route.action.options, const [
+    'post_response_transport',
+    'postResponseTransport',
+  ])?.trim().toLowerCase();
   switch (mode) {
     case 'json':
     case 'off':
@@ -349,11 +350,10 @@ bool _mcpPostResponsesUseSse(
     case 'auto':
       return true;
   }
-  return _boolOption(
-    route.action.options,
+  return _boolOptionAny(route.action.options, const [
     'stream_post_responses',
-    defaultValue: true,
-  );
+    'streamPostResponses',
+  ], defaultValue: true);
 }
 
 bool _mcpContentTypeAllowsJsonBody(
@@ -1592,31 +1592,29 @@ class _RouterMcpEndpoint {
     required this.route,
     required this.session,
   }) : server = mcp.McpServer(
-         serverInfo: const mcp.McpServerInfo(
-           name: 'connectanum-router',
-           version: '0.1.0',
-         ),
+         serverInfo: _mcpServerInfoForOptions(route.action.options),
          resources: _configuredResources(route.action.options),
          resourceTemplates: _configuredResourceTemplates(route.action.options),
          prompts: _configuredPrompts(route.action.options),
-         instructions:
-             'This MCP endpoint is hosted by the Connectanum router and uses '
-             'the route-authenticated WAMP principal for calls and pub/sub.',
-         toolListPageSize: _intOption(
-           route.action.options,
+         instructions: _mcpInstructionsForOptions(route.action.options),
+         toolListPageSize: _intOptionAny(route.action.options, const [
            'tool_list_page_size',
-         ),
-         promptListPageSize: _intOption(
-           route.action.options,
+           'toolListPageSize',
+         ]),
+         promptListPageSize: _intOptionAny(route.action.options, const [
            'prompt_list_page_size',
-         ),
-         resourceListPageSize: _intOption(
-           route.action.options,
+           'promptListPageSize',
+         ]),
+         resourceListPageSize: _intOptionAny(route.action.options, const [
            'resource_list_page_size',
-         ),
-         resourceTemplateListPageSize: _intOption(
+           'resourceListPageSize',
+         ]),
+         resourceTemplateListPageSize: _intOptionAny(
            route.action.options,
-           'resource_template_list_page_size',
+           const [
+             'resource_template_list_page_size',
+             'resourceTemplateListPageSize',
+           ],
          ),
          capabilities: _mcpServerCapabilitiesForOptions(route.action.options),
        );
@@ -2124,11 +2122,10 @@ class _RouterMcpEndpoint {
       publish: _publish,
       subscribe: _subscribe,
       unsubscribe: _unsubscribe,
-      includePubSubTools: _boolOption(
-        route.action.options,
+      includePubSubTools: _boolOptionAny(route.action.options, const [
         'include_pubsub_tools',
-        defaultValue: true,
-      ),
+        'includePubsubTools',
+      ], defaultValue: true),
     );
     final signature = jsonEncode([for (final tool in tools) tool.toJson()]);
     if (signature == _toolSignature) {
@@ -2151,16 +2148,14 @@ class _RouterMcpEndpoint {
     final topics = <String, mcp.McpWampTopic>{
       for (final topic in _configuredTopics(options)) topic.topic: topic,
     };
-    final includeRegistered = _boolOption(
-      options,
+    final includeRegistered = _boolOptionAny(options, const [
       'include_registered_procedures',
-      defaultValue: true,
-    );
-    final includeSubscriptions = _boolOption(
-      options,
+      'includeRegisteredProcedures',
+    ], defaultValue: true);
+    final includeSubscriptions = _boolOptionAny(options, const [
       'include_subscribed_topics',
-      defaultValue: true,
-    );
+      'includeSubscribedTopics',
+    ], defaultValue: true);
     if (includeRegistered || includeSubscriptions) {
       final snapshot = await _snapshot();
       if (includeRegistered) {
@@ -2217,11 +2212,10 @@ class _RouterMcpEndpoint {
     }
     _addPublishedEventTopics(topics, procedures.values);
 
-    final includeStandardMetaApi = _boolOption(
-      options,
+    final includeStandardMetaApi = _boolOptionAny(options, const [
       'include_standard_meta_api',
-      defaultValue: true,
-    );
+      'includeStandardMetaApi',
+    ], defaultValue: true);
     if (includeStandardMetaApi) {
       for (final procedure in mcp.McpWampStandardMetaApi.procedures) {
         procedures.putIfAbsent(procedure.procedure, () => procedure);
@@ -2264,7 +2258,7 @@ class _RouterMcpEndpoint {
     }
 
     return mcp.McpWampApi(
-      name: _stringFrom(options['name']) ?? 'connectanum-router',
+      name: _stringOptionAny(options, const ['name']) ?? 'connectanum-router',
       procedures: filteredProcedures,
       topics: filteredTopics,
       includeStandardMetaApi: false,
@@ -2744,21 +2738,38 @@ void _validateMcpRouteOptions(Map<String, Object?> options) {
 }
 
 void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
-  _validateMcpStringConfigOption(options, 'route', 'name');
+  for (final key in const <String>[
+    'name',
+    'version',
+    'title',
+    'description',
+    'instructions',
+  ]) {
+    _validateMcpStringConfigOption(options, 'route', key);
+  }
 
   for (final key in const <String>[
     'include_registered_procedures',
+    'includeRegisteredProcedures',
     'include_subscribed_topics',
+    'includeSubscribedTopics',
     'include_pubsub_tools',
+    'includePubsubTools',
+    'include_standard_meta_api',
+    'includeStandardMetaApi',
   ]) {
     _validateMcpBoolRouteOption(options, key);
   }
 
   for (final key in const <String>[
     'tool_list_page_size',
+    'toolListPageSize',
     'prompt_list_page_size',
+    'promptListPageSize',
     'resource_list_page_size',
+    'resourceListPageSize',
     'resource_template_list_page_size',
+    'resourceTemplateListPageSize',
   ]) {
     _validateMcpPositiveIntRouteOption(options, key);
   }
@@ -2978,6 +2989,7 @@ void _validateMcpPromptRouteOptionShapes(Map<String, Object?> options) {
       'text',
       'content',
       'result_description',
+      'resultDescription',
     ]) {
       _validateMcpStringConfigOption(config, label, key);
     }
@@ -3252,20 +3264,31 @@ void _validateMcpNestedObjectListConfigOption(
 }
 
 void _validateMcpPostResponseOptions(Map<String, Object?> options) {
-  final transport = options['post_response_transport'];
-  if (transport != null) {
+  for (final key in const <String>[
+    'post_response_transport',
+    'postResponseTransport',
+  ]) {
+    final transport = options[key];
+    if (transport == null) {
+      continue;
+    }
     final mode = _stringFrom(transport)?.trim().toLowerCase();
     if (mode == null || !_mcpPostResponseTransportModes.contains(mode)) {
-      throw const FormatException(
-        'MCP post_response_transport must be one of auto, disabled, false, '
-        'json, off, sse, stream, or streamable',
+      throw FormatException(
+        'MCP $key must be one of auto, disabled, false, json, off, sse, '
+        'stream, or streamable',
       );
     }
   }
 
-  final streamPostResponses = options['stream_post_responses'];
-  if (streamPostResponses != null && streamPostResponses is! bool) {
-    throw const FormatException('MCP stream_post_responses must be a boolean');
+  for (final key in const <String>[
+    'stream_post_responses',
+    'streamPostResponses',
+  ]) {
+    final streamPostResponses = options[key];
+    if (streamPostResponses != null && streamPostResponses is! bool) {
+      throw FormatException('MCP $key must be a boolean');
+    }
   }
 }
 
@@ -3318,6 +3341,21 @@ mcp.McpServerCapabilities _mcpServerCapabilitiesForOptions(
         : null,
     resources: hasResources ? const mcp.McpResourceCapabilities() : null,
   );
+}
+
+mcp.McpServerInfo _mcpServerInfoForOptions(Map<String, Object?> options) {
+  return mcp.McpServerInfo(
+    name: _stringOptionAny(options, const ['name']) ?? 'connectanum-router',
+    version: _stringOptionAny(options, const ['version']) ?? '0.1.0',
+    title: _stringOptionAny(options, const ['title']),
+    description: _stringOptionAny(options, const ['description']),
+  );
+}
+
+String _mcpInstructionsForOptions(Map<String, Object?> options) {
+  return _stringOptionAny(options, const ['instructions']) ??
+      'This MCP endpoint is hosted by the Connectanum router and uses '
+          'the route-authenticated WAMP principal for calls and pub/sub.';
 }
 
 mcp.McpWampProcedure _procedureFromConfig(Map<String, Object?> config) {
@@ -3444,6 +3482,7 @@ mcp.McpPrompt _promptFromConfig(Map<String, Object?> config) {
         return mcp.McpPromptResult(
           description:
               _stringFrom(config['result_description']) ??
+              _stringFrom(config['resultDescription']) ??
               _stringFrom(config['description']),
           messages: [
             for (final message in messages)
@@ -3460,6 +3499,7 @@ mcp.McpPrompt _promptFromConfig(Map<String, Object?> config) {
         _renderConfiguredPromptText(text!, request.arguments),
         description:
             _stringFrom(config['result_description']) ??
+            _stringFrom(config['resultDescription']) ??
             _stringFrom(config['description']),
       );
     },
@@ -3900,6 +3940,16 @@ String? _matchOption(mcp.McpWampToolCall call) {
 String? _stringFrom(Object? value) =>
     value is String && value.isNotEmpty ? value : null;
 
+String? _stringOptionAny(Map<String, Object?> options, Iterable<String> keys) {
+  for (final key in keys) {
+    final value = _stringFrom(options[key]);
+    if (value != null) {
+      return value;
+    }
+  }
+  return null;
+}
+
 List<String> _stringListFrom(Object? value) {
   if (value is! List) {
     return const [];
@@ -3945,4 +3995,14 @@ bool _boolOptionAny(
 int? _intOption(Map<String, Object?> options, String key) {
   final value = options[key];
   return value is int ? value : null;
+}
+
+int? _intOptionAny(Map<String, Object?> options, Iterable<String> keys) {
+  for (final key in keys) {
+    final value = _intOption(options, key);
+    if (value != null) {
+      return value;
+    }
+  }
+  return null;
 }
