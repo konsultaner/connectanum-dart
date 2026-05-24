@@ -5322,6 +5322,7 @@ const _realm = 'consumer.mcp.realm';
 const _authPath = '/auth';
 const _publicMcpPath = '/mcp';
 const _secureMcpPath = '/mcp/secure';
+const _secureJsonPostMcpPath = '/mcp/secure-json-post';
 const _jsonPostMcpPath = '/mcp/json-post';
 const _nonStreamingPostMcpPath = '/mcp/non-streaming-post';
 const _rateLimitedMcpPath = '/mcp/rate-limited';
@@ -5445,11 +5446,23 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
     await _smokeRateLimitedMcpRoute(binding);
 
     await _assertSecureMcpRequiresBearer(binding);
+    await _assertSecureMcpRequiresBearer(
+      binding,
+      endpoint: _secureJsonPostMcpEndpoint(binding),
+    );
     await _assertSecureMcpRejectsBearer(
       binding,
       _unknownAccessToken,
       acceptedMessage:
           'Bearer-protected MCP endpoint accepted an unknown access token.',
+    );
+    await _assertSecureMcpRejectsBearer(
+      binding,
+      _unknownAccessToken,
+      endpoint: _secureJsonPostMcpEndpoint(binding),
+      acceptedMessage:
+          'Bearer-protected JSON-response MCP endpoint accepted an unknown '
+          'access token.',
     );
     final grant = await _issueTicketHttpGrant(binding);
     _expectHttpAuthGrant(
@@ -5466,6 +5479,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
     );
     await _smokeMcpOriginPolicy(binding, grant);
     await _smokeMcpCorsPreflight(binding, serviceSession, grant);
+    await _smokeSecureJsonPostMcpRoute(binding, serviceSession, grant);
     final otherGrant = await _issueTicketHttpGrant(
       binding,
       authId: _otherTicketAuthId,
@@ -5817,6 +5831,133 @@ RouterSettings _consumerRouterSettings() {
                     'title': 'Inspect consumer task follow-up',
                     'description':
                         'Second-page prompt for catalog smoke checks.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect follow-up consumer task {{taskId}}.',
+                      },
+                    ],
+                  },
+                ],
+              },
+            ),
+          ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: _secureJsonPostMcpPath),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: _realm,
+              sessionProfile: 'mcp-ticket',
+              options: {
+                'include_registered_procedures': true,
+                'include_pubsub_tools': true,
+                'allow_insecure_transport': true,
+                'tool_list_page_size': 1,
+                'resource_list_page_size': 1,
+                'resource_template_list_page_size': 1,
+                'prompt_list_page_size': 1,
+                'post_response_transport': 'json',
+                'allowed_origins': [_allowedOrigin],
+                'topics': [
+                  {
+                    'topic': _topic,
+                    'title': 'Consumer task events',
+                    'description': 'Events emitted by consumer task tools.',
+                    'event_json_schema': {
+                      'type': 'object',
+                      'properties': {
+                        'taskId': {'type': 'string'},
+                      },
+                    },
+                    'metadata': {
+                      'short_description':
+                          'Consumer task lifecycle event stream',
+                      'domain': 'consumer',
+                      'entity': 'task',
+                      'verbs': ['publish', 'subscribe'],
+                      'tags': ['safe', 'smoke', 'event'],
+                    },
+                  },
+                  {
+                    'topic': _batchTopic,
+                    'title': 'Consumer batch smoke events',
+                    'description':
+                        'Events used by consumer MCP batch smoke checks.',
+                  },
+                ],
+                'resources': [
+                  {
+                    'uri': _resourceUri,
+                    'name': 'consumer-mcp-context',
+                    'title': 'Consumer MCP context',
+                    'description':
+                        'Static context exposed by the secure JSON POST route.',
+                    'mime_type': 'text/plain',
+                    'text':
+                        'Consumer package router-hosted MCP context document.',
+                  },
+                  {
+                    'uri': _pagedResourceUri,
+                    'name': 'consumer-mcp-followup-context',
+                    'title': 'Consumer MCP follow-up context',
+                    'description':
+                        'Second-page static context for secure JSON POST '
+                        'smoke.',
+                    'mime_type': 'text/plain',
+                    'text': 'Consumer package follow-up MCP context document.',
+                  },
+                ],
+                'resource_templates': [
+                  {
+                    'uri_template': _resourceTemplateUri,
+                    'name': 'consumer-task-context',
+                    'title': 'Consumer task context',
+                    'description':
+                        'Template for consumer task context resources.',
+                    'mime_type': 'application/json',
+                  },
+                  {
+                    'uri_template': _pagedResourceTemplateUri,
+                    'name': 'consumer-task-followup-context',
+                    'title': 'Consumer task follow-up context',
+                    'description':
+                        'Second-page template for secure JSON POST smoke.',
+                    'mime_type': 'application/json',
+                  },
+                ],
+                'prompts': [
+                  {
+                    'name': _promptName,
+                    'title': 'Inspect consumer task',
+                    'description': 'Builds a prompt for a consumer task id.',
+                    'arguments': [
+                      {
+                        'name': 'taskId',
+                        'description': 'Task id to inspect.',
+                        'required': true,
+                      },
+                    ],
+                    'messages': [
+                      {
+                        'role': 'user',
+                        'text':
+                            'Inspect consumer task {{taskId}} using MCP route context.',
+                      },
+                    ],
+                  },
+                  {
+                    'name': _pagedPromptName,
+                    'title': 'Inspect consumer task follow-up',
+                    'description':
+                        'Second-page prompt for secure JSON POST smoke.',
                     'arguments': [
                       {
                         'name': 'taskId',
@@ -6202,6 +6343,16 @@ Uri _jsonPostMcpEndpoint(RouterBinding binding) {
   );
 }
 
+Uri _secureJsonPostMcpEndpoint(RouterBinding binding) {
+  final listener = binding.listeners.single;
+  return Uri(
+    scheme: 'http',
+    host: '127.0.0.1',
+    port: listener.port,
+    path: _secureJsonPostMcpPath,
+  );
+}
+
 Uri _nonStreamingPostMcpEndpoint(RouterBinding binding) {
   final listener = binding.listeners.single;
   return Uri(
@@ -6277,8 +6428,13 @@ void _expectNoConsumerProcedureInvocation(
   }
 }
 
-Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
-  final client = McpStreamableHttpClient(_mcpEndpoint(binding, secure: true));
+Future<void> _assertSecureMcpRequiresBearer(
+  RouterBinding binding, {
+  Uri? endpoint,
+}) async {
+  final client = McpStreamableHttpClient(
+    endpoint ?? _mcpEndpoint(binding, secure: true),
+  );
   try {
     await _assertSecureMcpUnauthorizedCoverage(client);
   } finally {
@@ -6936,6 +7092,20 @@ Future<void> _smokeJsonPostMcpRoute(
   );
 }
 
+Future<void> _smokeSecureJsonPostMcpRoute(
+  RouterBinding binding,
+  RouterSession serviceSession,
+  ConnectanumHttpAuthGrant grant,
+) async {
+  await _smokeJsonPostResponseMcpEndpoint(
+    _secureJsonPostMcpEndpoint(binding),
+    serviceSession,
+    label: 'secure-json-post',
+    routeName: 'secure JSON POST',
+    authGrant: grant,
+  );
+}
+
 Future<void> _smokeNonStreamingPostMcpRoute(
   RouterBinding binding,
   RouterSession serviceSession,
@@ -6953,9 +7123,14 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
   RouterSession serviceSession, {
   required String label,
   required String routeName,
+  ConnectanumHttpAuthGrant? authGrant,
 }) async {
-  final client = McpStreamableHttpClient(endpoint);
+  final grant = authGrant;
+  final client = grant == null
+      ? McpStreamableHttpClient(endpoint)
+      : McpStreamableHttpClient.withAuthGrant(endpoint, grant);
   final rawClient = HttpClient();
+  final bearerToken = grant?.accessToken;
   final clientName = label.replaceAll('-', '_');
   final routeLabel = '$routeName MCP route';
 
@@ -7004,22 +7179,26 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
       endpoint,
       serviceSession,
       label: '$label-json-response',
+      bearerToken: bearerToken,
     );
     await _assertMcpDirectJsonBatchCorsResponse(
       rawClient,
       endpoint,
       serviceSession,
       label: '$label-json-response',
+      bearerToken: bearerToken,
     );
     await _assertMcpDirectJsonNotificationCorsResponse(
       rawClient,
       endpoint,
       label: '$label-json-response',
+      bearerToken: bearerToken,
     );
     await _assertMcpDirectJsonErrorCorsResponse(
       rawClient,
       endpoint,
       label: '$label-json-response',
+      bearerToken: bearerToken,
     );
 
     final initializeId = '$label-streamable-initialize';
@@ -7101,6 +7280,7 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
         'method': 'tools/list',
       },
       sessionId: sessionId,
+      bearerToken: bearerToken,
     );
     final rawToolsPayload = expectJsonPostResponse(
       rawTools,
@@ -7126,6 +7306,7 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
         'method': 'ping',
       },
       sessionId: sessionId,
+      bearerToken: bearerToken,
     );
     final rawPingResult = _jsonRpcResult(
       expectJsonPostResponse(
@@ -7145,6 +7326,7 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
       endpoint,
       label: '$label-active-json-response',
       sessionId: sessionId,
+      bearerToken: bearerToken,
     );
     if (client.sessionId != sessionId) {
       throw StateError(
@@ -7216,6 +7398,7 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
       endpoint,
       sessionId: sessionId,
       label: label,
+      bearerToken: bearerToken,
     );
     final pollEventId = _mcpFirstSseEventId(
       poll,
@@ -11398,9 +11581,10 @@ Future<void> _assertSecureMcpRejectsBearer(
   RouterBinding binding,
   String bearerToken, {
   required String acceptedMessage,
+  Uri? endpoint,
 }) async {
   final client = McpStreamableHttpClient.withBearerToken(
-    _mcpEndpoint(binding, secure: true),
+    endpoint ?? _mcpEndpoint(binding, secure: true),
     bearerToken,
   );
   try {

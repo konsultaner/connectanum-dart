@@ -78,6 +78,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Added bearer-protected JSON-response MCP route coverage to the
+  generated consumer-package smoke. The fixture now exposes
+  `/mcp/secure-json-post` with snake-case `post_response_transport: json`,
+  rejects missing and unknown bearer tokens before authentication, then runs
+  the existing JSON-response compatibility route smoke through an HTTP ticket
+  auth grant. The authorized smoke covers direct JSON single, batch,
+  notification-only, and error/recovery requests, Streamable initialize and
+  initialized notifications, tools/resources/prompts, raw tools/list and ping
+  with the active `MCP-Session-Id`, WAMP pub/sub polling, GET/SSE notification
+  delivery, and DELETE cleanup without changing the Streamable session id or
+  capturing POST/SSE cursors. This closes the app-shaped gap where
+  JSON-response routes were only public while secure auth/session correctness
+  was proven on the standard Streamable route. Pre-change `bin/test-fast`
+  passed on 2026-05-24. Focused local coverage passed:
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+  `bash -n bin/common.sh`, and `git diff --check`. Full local `bin/verify`
+  passed on 2026-05-24.
 - 2026-05-24: Extended the generated consumer-package router-hosted MCP smoke
   for JSON-response Streamable compatibility routes after initialization. The
   route smoke now sends the active `MCP-Session-Id` through the raw direct JSON
@@ -91,6 +108,27 @@ decision because `connectanum_client` still depends on private
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
   `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
   and `git diff --check`. Full local `bin/verify` passed on 2026-05-24.
+- 2026-05-24: Hosted evidence for commit `cb6fdfc`
+  (`test: cover active json-response mcp errors`) is clean: `master` CI run
+  `26348290257` passed with Fast Checks and Full Verify green plus clean logs,
+  and `add-router` CI run `26348288465` passed with Fast Checks and Full
+  Verify green. The strict deployment-chain audit passed required gates on
+  `master` at `cb6fdfc`, including clean current-head CI/logs, relevant Dart
+  package dry-run, relevant WAMP profile benchmark evidence, relevant Router
+  Image dry-run, native release dry-run relevance, branch protection, workflow
+  visibility, and router package visibility. Router Image dry-run
+  `26345818520` at `f8497d6` remains relevant because no
+  router-image-sensitive paths changed, with preview metadata
+  `sha-f8497d6ea540`, GHCR login skipped, and no image publish. Dart Package
+  Publish Dry Run `26344002614` at `9ac5e22`, WAMP Profile Benchmarks
+  `26344002624` at `9ac5e22`, and Native Artifacts dry-run `26286794628`
+  remain relevant because no publish-, WAMP-profile-, or
+  native-release-sensitive inputs changed. RC readiness remains not-ready only
+  because no approved numeric RC tag, GitHub prerelease, or matching RC router
+  image tag has been selected; the audit suggests `v0.1.0-rc.2` as the next
+  numeric tag if release approval is given. Pub.dev publishing remains
+  deferred for release-order and operator decisions. No RC tag, GitHub
+  Release, or router image was created or moved.
 - 2026-05-24: Continued JSON-response Streamable compatibility route
   hardening in the generated consumer-package router-hosted MCP smoke by
   applying the existing raw direct JSON error/recovery CORS assertion to both
