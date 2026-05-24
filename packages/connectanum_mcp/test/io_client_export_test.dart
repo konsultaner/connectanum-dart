@@ -1387,14 +1387,20 @@ void main() {
     final streamableBatch = await client.pollWampEvents(
       streamableSubscription.handle,
       id: 'io-streamable-poll',
-      limit: 2,
+      limit: 4,
       headers: const <String, String>{'x-consumer-trace': 'io-streamable-poll'},
     );
     expect(streamableBatch.handle, streamableSubscription.handle);
     expect(streamableBatch.topic, _ioTopic);
-    expect(streamableBatch.events.single['argumentsKeywords'], {
-      'message': 'streamable',
-    });
+    expect(
+      streamableBatch.events.map(
+        (event) => _jsonMapFrom(
+          event['argumentsKeywords'],
+          label: 'streamable event kwargs',
+        )['message'],
+      ),
+      ['streamable', 'method', 'method-notify', 'notify'],
+    );
     expect(streamableBatch.dropped, 0);
     expect(streamableBatch.remaining, 0);
     expect(client.lastEventId, 'io-session-1:post:4');
@@ -1440,7 +1446,7 @@ void main() {
       headers: const <String, String>{'x-consumer-trace': 'io-direct-poll'},
     );
     expect(directBatch.events.single['argumentsKeywords'], {
-      'message': 'streamable',
+      'message': 'direct',
     });
 
     final directUnsubscribe = await client.unsubscribeWampTopicDirect(
@@ -2176,7 +2182,9 @@ final class _StreamableMcpEndpoint {
   final HttpServer _server;
   final requests = <_StreamableSeenRequest>[];
   late final StreamSubscription<HttpRequest> _subscription;
+  final _subscriptionEvents = <String, List<Map<String, Object?>>>{};
   var _eventCounter = 0;
+  var _publicationCounter = 42;
 
   Uri get uri => Uri(
     scheme: 'http',
@@ -2251,15 +2259,21 @@ final class _StreamableMcpEndpoint {
 
   Object? _responseFor(HttpRequest request, Object? message) {
     if (message case final List<Object?> batch) {
-      return <Object?>[
-        for (final item in batch)
-          if (item case final Map<Object?, Object?> map)
-            if (map['id'] != null)
-              _responseForSingle(request, <String, Object?>{
-                for (final entry in map.entries)
-                  if (entry.key case final String key) key: entry.value,
-              }),
-      ];
+      final responses = <Object?>[];
+      for (final item in batch) {
+        if (item case final Map<Object?, Object?> map) {
+          final json = <String, Object?>{
+            for (final entry in map.entries)
+              if (entry.key case final String key) key: entry.value,
+          };
+          if (json['id'] == null) {
+            _handleNotification(json);
+          } else {
+            responses.add(_responseForSingle(request, json));
+          }
+        }
+      }
+      return responses;
     }
     if (message case final Map<Object?, Object?> map) {
       final json = <String, Object?>{
@@ -2267,6 +2281,7 @@ final class _StreamableMcpEndpoint {
           if (entry.key case final String key) key: entry.value,
       };
       if (json['id'] == null) {
+        _handleNotification(json);
         return null;
       }
       return _responseForSingle(request, json);
@@ -2276,6 +2291,41 @@ final class _StreamableMcpEndpoint {
       'id': null,
       'error': <String, Object?>{'code': -32600, 'message': 'invalid request'},
     };
+  }
+
+  void _handleNotification(Map<String, Object?> message) {
+    final method = message['method'];
+    if (method is String && method.startsWith('connectanum.pubsub.')) {
+      final params = _jsonMapOrNull(message['params']);
+      if (params != null) {
+        _responseForToolCall(null, method, params);
+      }
+      return;
+    }
+
+    if (method != 'tools/call' && method != 'connectanum.tool.call') {
+      return;
+    }
+
+    final params = _jsonMapOrNull(message['params']);
+    if (params == null) {
+      return;
+    }
+    _responseForToolCall(
+      null,
+      params['name'],
+      _jsonMapOrNull(params['arguments']) ?? const <String, Object?>{},
+    );
+  }
+
+  Map<String, Object?>? _jsonMapOrNull(Object? value) {
+    if (value case final Map<Object?, Object?> map) {
+      return <String, Object?>{
+        for (final entry in map.entries)
+          if (entry.key case final String key) key: entry.value,
+      };
+    }
+    return null;
   }
 
   Map<String, Object?> _responseForSingle(
@@ -2384,6 +2434,7 @@ final class _StreamableMcpEndpoint {
   ) {
     switch (toolName) {
       case 'connectanum.pubsub.subscribe':
+        _subscriptionEvents[_ioSubscriptionHandle] = <Map<String, Object?>>[];
         return _toolResult(id, <String, Object?>{
           'handle': _ioSubscriptionHandle,
           'topic': arguments['topic'],
@@ -2391,33 +2442,41 @@ final class _StreamableMcpEndpoint {
           'queueLimit': arguments['queueLimit'],
         });
       case 'connectanum.pubsub.publish':
+        final publicationId = _publicationCounter++;
+        _recordPublication(arguments, publicationId);
         return _toolResult(id, <String, Object?>{
           'topic': arguments['topic'],
           'acknowledged': true,
-          'publicationId': 42,
+          'publicationId': publicationId,
         });
       case 'connectanum.pubsub.poll':
-        if (arguments['handle'] != _ioSubscriptionHandle) {
+        final handle = arguments['handle'];
+        final events = _subscriptionEvents[handle];
+        if (handle != _ioSubscriptionHandle || events == null) {
           return _toolError(
             id,
             'subscription not found: ${arguments['handle']}',
           );
         }
+        final limitValue = arguments['limit'];
+        final limit = limitValue is int && limitValue > 0
+            ? limitValue
+            : events.length;
+        final eventCount = limit < events.length ? limit : events.length;
+        final batch = events
+            .take(eventCount)
+            .map((event) => <String, Object?>{...event})
+            .toList();
+        events.removeRange(0, eventCount);
         return _toolResult(id, <String, Object?>{
           'handle': arguments['handle'],
           'topic': _ioTopic,
-          'events': <Object?>[
-            <String, Object?>{
-              'subscriptionId': 17,
-              'publicationId': 42,
-              'topic': _ioTopic,
-              'argumentsKeywords': <String, Object?>{'message': 'streamable'},
-            },
-          ],
+          'events': batch,
           'dropped': 0,
-          'remaining': 0,
+          'remaining': events.length,
         });
       case 'connectanum.pubsub.unsubscribe':
+        _subscriptionEvents.remove(arguments['handle']);
         return _toolResult(id, <String, Object?>{
           'handle': arguments['handle'],
           'topic': _ioTopic,
@@ -2538,6 +2597,29 @@ final class _StreamableMcpEndpoint {
       default:
         return _error(id, -32601, 'unsupported tool: $toolName');
     }
+  }
+
+  void _recordPublication(Map<String, Object?> arguments, int publicationId) {
+    if (arguments['topic'] != _ioTopic) {
+      return;
+    }
+    final events = _subscriptionEvents[_ioSubscriptionHandle];
+    if (events == null) {
+      return;
+    }
+
+    final event = <String, Object?>{
+      'subscriptionId': 17,
+      'publicationId': publicationId,
+      'topic': _ioTopic,
+    };
+    if (arguments.containsKey('arguments')) {
+      event['arguments'] = arguments['arguments'];
+    }
+    if (arguments.containsKey('argumentsKeywords')) {
+      event['argumentsKeywords'] = arguments['argumentsKeywords'];
+    }
+    events.add(event);
   }
 
   Map<String, Object?> _wampMetaToolResult(

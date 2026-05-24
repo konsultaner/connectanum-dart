@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Strengthened the checked-in `connectanum_mcp` IO entrypoint
+  pub/sub smoke so it proves side effects instead of only request shapes. The
+  fake Streamable MCP endpoint now records per-subscription event queues,
+  applies notification-only `connectanum.pubsub.publish` requests without
+  producing JSON-RPC responses, and returns the actual queued payloads through
+  `connectanum.pubsub.poll`. The smoke now proves a consumer application using
+  public `package:connectanum_mcp/connectanum_mcp_io.dart` APIs can publish
+  events through typed Streamable WAMP helpers, direct
+  `connectanum.pubsub.publish` calls, notification-only method publishes, and
+  `notifyWampEvent(...)`, then poll all four payloads while preserving the
+  Streamable session cursor for notifications. It also proves lifecycle-free
+  direct JSON pub/sub publish/poll returns the direct payload while the active
+  Streamable session state stays unchanged. Pre-change `bin/test-fast` passed
+  on 2026-05-24. Focused local coverage passed:
+  `dart format packages/connectanum_mcp/test/io_client_export_test.dart`,
+  `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
+  and `dart analyze packages/connectanum_mcp`. Full local `bin/verify` passed
+  on 2026-05-24. Hosted evidence remains clean at `7b4a88e`; no new hosted run
+  has completed for this local checkpoint yet. No RC tag, GitHub Release, or
+  router image was created or moved.
 - 2026-05-24: Extended the generated consumer-package smoke from the standard
   Streamable MCP tool notification helper and a `connectanum.tool.call`
   notification-only batch to the remaining sessionful tool-method aliases. A
@@ -92,10 +112,23 @@ decision because `connectanum_client` still depends on private
   `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
   `git diff --check`, and
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
-  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
-  evidence is still clean at `3feb797`; no new hosted run has completed for
-  this local checkpoint yet. No RC tag, GitHub Release, or router image was
-  created or moved.
+  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Commit
+  `7b4a88e` (`test: cover streamable mcp tool notifications`) was pushed to
+  GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+  evidence is clean at `7b4a88e`: `master` CI run `26368059584` and
+  `add-router` CI run `26368057989` passed with Fast Checks and Full Verify
+  green. Dart Package Publish Dry Run `26366801335`, WAMP Profile Benchmarks
+  `26366801338`, Router Image dry-run `26366846880`, and Native Artifacts
+  dry-run `26286794628` remain relevant because no corresponding sensitive
+  inputs changed after their clean runs. The strict deployment-chain audit
+  passed required gates on `master` at `7b4a88e`, including clean current-head
+  CI/logs, Dart package dry-run, WAMP profile benchmark evidence, current
+  Router Image dry-run, relevant native release dry-run, branch protection,
+  workflow visibility, and router package visibility. RC readiness remains
+  not-ready only because no approved numeric RC tag, GitHub prerelease, or
+  matching RC router image tag has been selected; pub.dev publishing remains
+  deferred for release-order and operator decisions. No RC tag, GitHub Release,
+  or router image was created or moved.
 - 2026-05-24: Extended checked-in native router MCP notification coverage from
   accepted HTTP responses to WAMP side effects. The router integration smoke
   now records `app.safe.lookup` invocations and proves notification-only direct

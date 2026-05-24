@@ -2,10 +2,29 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Streamable MCP tool notification alias
-consumer smoke.
-Latest fully clean hosted checkpoint: Commit `3feb797`.
-Current implementation checkpoint: The generated consumer-package smoke now
+Last reviewed branch checkpoint: MCP IO entrypoint pub/sub notification
+side-effect smoke.
+Latest fully clean hosted checkpoint: Commit `7b4a88e`.
+Current implementation checkpoint: The checked-in `connectanum_mcp` IO
+entrypoint smoke now uses a stateful Streamable MCP fake endpoint for pub/sub
+instead of a static poll response. The fake endpoint records per-subscription
+event queues, processes notification-only pub/sub publishes for side effects,
+and returns the actual queued event payloads through public
+`package:connectanum_mcp/connectanum_mcp_io.dart` helpers. The smoke now proves
+a consumer application can initialize a Streamable session, subscribe, publish
+through typed WAMP helpers, publish through `connectanum.pubsub.publish`, send
+notification-only method/helper publishes, poll back all four queued events
+without changing the POST/SSE resume cursor for notifications, unsubscribe,
+then use direct JSON pub/sub helpers while preserving the active Streamable
+session state.
+Pre-change `bin/test-fast` passed on 2026-05-24. Focused local coverage passed
+on 2026-05-24: `dart format packages/connectanum_mcp/test/io_client_export_test.dart`,
+`dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
+and `dart analyze packages/connectanum_mcp`. Full local `bin/verify` passed on
+2026-05-24 for this checkpoint. Hosted evidence remains clean at `7b4a88e`; no
+new hosted run has completed for this local checkpoint yet. No RC tag, GitHub
+Release, or router image was created or moved.
+Prior implementation checkpoint: The generated consumer-package smoke now
 proves a downstream application can use an initialized Streamable HTTP MCP
 session to send notification-only tool calls through the standard
 `tools/call` helper, Connectanum `connectanum.tool.call`, direct dotted
@@ -21,9 +40,20 @@ on 2026-05-24:
 `git diff --check`, and
 `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
 Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
-evidence is still clean at `3feb797`; no new hosted run has completed for this
-local checkpoint yet. No RC tag, GitHub Release, or router image was created
-or moved.
+GitHub evidence is clean at `7b4a88e`: `master` CI run `26368059584` and
+`add-router` CI run `26368057989` passed with Fast Checks and Full Verify
+green. Dart Package Publish Dry Run `26366801335`, WAMP Profile Benchmarks
+`26366801338`, Router Image dry-run `26366846880`, and Native Artifacts
+dry-run `26286794628` remain relevant because no corresponding sensitive
+inputs changed after their clean runs. The strict deployment-chain audit passed
+required gates on `master` at `7b4a88e`, including clean current-head CI/logs,
+Dart package dry-run, WAMP profile benchmark evidence, current Router Image
+dry-run, relevant native release dry-run, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected; pub.dev publishing remains deferred for
+release-order and operator decisions. No RC tag, GitHub Release, or router
+image was created or moved.
 Prior implementation checkpoint: The checked-in native router integration
 smoke now proves router-hosted MCP direct JSON-RPC notifications invoke the
 same WAMP procedure as request/response tool calls without creating or
