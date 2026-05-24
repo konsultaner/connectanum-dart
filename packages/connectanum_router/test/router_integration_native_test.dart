@@ -3862,6 +3862,9 @@ void main() {
         authId: 'user-2',
       );
       final authHeaders = {'authorization': 'Bearer ${grant.accessToken}'};
+      final otherAuthHeaders = {
+        'authorization': 'Bearer ${otherGrant.accessToken}',
+      };
       final directSecureMcpClient = McpStreamableHttpClient.withAuthGrant(
         Uri(
           scheme: 'http',
@@ -4099,6 +4102,69 @@ void main() {
       expect(otherPrincipalJsonPostClient.sessionId, isNull);
       expect(otherPrincipalJsonPostClient.lastEventId, isNull);
 
+      final otherPrincipalDirectTopicCatalog = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        'connectanum.api.list',
+        {'kind': 'topic'},
+        headers: otherAuthHeaders,
+      );
+      expect(
+        jsonEncode(otherPrincipalDirectTopicCatalog['structuredContent']),
+        contains('app.secure.audit'),
+      );
+
+      final otherPrincipalDirectSubscription = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        'connectanum.pubsub.subscribe',
+        {'topic': 'app.secure.audit', 'queueLimit': 5},
+        headers: otherAuthHeaders,
+      );
+      final otherPrincipalDirectSubscriptionContent =
+          otherPrincipalDirectSubscription['structuredContent']
+              as Map<String, Object?>;
+      final otherPrincipalDirectSubscriptionHandle =
+          otherPrincipalDirectSubscriptionContent['handle'] as String;
+      expect(
+        otherPrincipalDirectSubscriptionContent['topic'],
+        equals('app.secure.audit'),
+      );
+
+      await serviceSession.publish(
+        'app.secure.audit',
+        argumentsKeywords: {'via': 'secure-json-post-other-direct-service'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final otherPrincipalDirectPoll = await _pollDirectRouterJsonUntilEvents(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        otherPrincipalDirectSubscriptionHandle,
+        headers: otherAuthHeaders,
+      );
+      expect(
+        jsonEncode(otherPrincipalDirectPoll['events']),
+        contains('secure-json-post-other-direct-service'),
+      );
+
+      final otherPrincipalDirectUnsubscribe = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        'connectanum.pubsub.unsubscribe',
+        {'handle': otherPrincipalDirectSubscriptionHandle},
+        headers: otherAuthHeaders,
+      );
+      expect(
+        otherPrincipalDirectUnsubscribe['structuredContent'],
+        containsPair('unsubscribed', true),
+      );
+      expect(otherPrincipalJsonPostClient.sessionId, isNull);
+      expect(otherPrincipalJsonPostClient.lastEventId, isNull);
+
       final otherPrincipalInitialize = await otherPrincipalJsonPostClient
           .initialize(id: 'secure-json-post-other-initialize');
       expect(
@@ -4123,6 +4189,58 @@ void main() {
         equals(otherPrincipalSessionId),
       );
       expect(otherPrincipalJsonPostClient.lastEventId, isNull);
+
+      final otherPrincipalSubscribe = await otherPrincipalJsonPostClient
+          .request(
+            'tools/call',
+            id: 'secure-json-post-other-pubsub-subscribe',
+            params: {
+              'name': 'connectanum.pubsub.subscribe',
+              'arguments': {'topic': 'app.secure.audit', 'queueLimit': 5},
+            },
+          );
+      final otherPrincipalSubscription =
+          ((otherPrincipalSubscribe['result'] as Map)['structuredContent']
+                  as Map)
+              .cast<String, Object?>();
+      final otherPrincipalHandle =
+          otherPrincipalSubscription['handle'] as String;
+      expect(otherPrincipalSubscription['topic'], equals('app.secure.audit'));
+
+      await serviceSession.publish(
+        'app.secure.audit',
+        argumentsKeywords: {'via': 'secure-json-post-other-streamable-service'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final otherPrincipalPoll = await _pollStreamableMcpUntilEvents(
+        otherPrincipalJsonPostClient,
+        otherPrincipalHandle,
+      );
+      expect(
+        jsonEncode(otherPrincipalPoll['events']),
+        contains('secure-json-post-other-streamable-service'),
+      );
+
+      final otherPrincipalUnsubscribe = await otherPrincipalJsonPostClient
+          .request(
+            'tools/call',
+            id: 'secure-json-post-other-pubsub-unsubscribe',
+            params: {
+              'name': 'connectanum.pubsub.unsubscribe',
+              'arguments': {'handle': otherPrincipalHandle},
+            },
+          );
+      final otherPrincipalUnsubscribeResult =
+          ((otherPrincipalUnsubscribe['result'] as Map)['structuredContent']
+                  as Map)
+              .cast<String, Object?>();
+      expect(otherPrincipalUnsubscribeResult['unsubscribed'], isTrue);
+      expect(
+        otherPrincipalJsonPostClient.sessionId,
+        equals(otherPrincipalSessionId),
+      );
+      expect(otherPrincipalJsonPostClient.lastEventId, isNull);
+
       await otherPrincipalJsonPostClient.deleteSession();
       expect(otherPrincipalJsonPostClient.sessionId, isNull);
       expect(otherPrincipalJsonPostClient.lastEventId, isNull);

@@ -78,6 +78,30 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Extended secure JSON-response MCP independent-principal
+  coverage from tool-catalog/session isolation to direct WAMP/pubsub readiness.
+  After rejected cross-principal `MCP-Session-Id` reuse on
+  `/mcp/secure-json-post`, the checked-in router integration smoke, public
+  router-hosted MCP example, and generated consumer-package smoke now prove
+  the second valid bearer principal can access the direct JSON tool catalog
+  plus WAMP topic metadata and pub/sub without lifecycle side effects, then
+  initialize a distinct JSON-response Streamable HTTP session and run pub/sub
+  while keeping JSON POST responses in JSON mode without capturing a POST/SSE
+  cursor. The public example and generated consumer-package smoke cover
+  lifecycle-free direct JSON WAMP/pubsub access before initialize and
+  independent pub/sub after initialize; the native integration test pins
+  route-level direct WAMP topic catalog access, direct pub/sub delivery,
+  independent JSON-response Streamable pub/sub delivery, and owner-session
+  stability. Pre-change `bin/test-fast` passed on 2026-05-24. Focused local
+  coverage passed:
+  `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+  `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
+  and `git diff --check`. Post-change `bin/test-fast` passed locally, and full
+  local `bin/verify` passed for this checkpoint. Hosted evidence remains at
+  commit `a2c706f` until this checkpoint's deployment chain is inspected.
 - 2026-05-24: Extended secure standard Streamable MCP independent-principal
   coverage from tool-catalog/session isolation to direct WAMP/pubsub readiness.
   After rejected cross-principal `MCP-Session-Id` reuse on `/mcp/secure`, the
@@ -98,8 +122,25 @@ decision because `connectanum_client` still depends on private
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
   `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
   and `git diff --check`. Post-change `bin/test-fast` passed locally, and full
-  local `bin/verify` passed for this checkpoint. Hosted evidence remains at
-  commit `1e86c5a` until this checkpoint's deployment chain is inspected.
+  local `bin/verify` passed for this checkpoint. Commit `a2c706f`
+  (`test: cover independent mcp pubsub sessions`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is clean
+  at `a2c706f`: `master` CI run `26359793602` and `add-router` CI run
+  `26359791440` passed with Fast Checks and Full Verify green; Dart Package
+  Publish Dry Run `26359793607` on `master` and `26359791425` on `add-router`
+  passed; WAMP Profile Benchmarks `26359793618` on `master` and `26359791432`
+  on `add-router` passed; manual Router Image dry-run `26359802334` passed on
+  `master` with preview metadata `0.1.0-rc.2-validation.a2c706fc2275`, GHCR
+  login skipped, and preview metadata uploaded. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed. The strict deployment-chain audit passed required gates on `master`
+  at `a2c706f`, including clean current-head CI/logs, Dart package dry-run,
+  WAMP profile benchmark evidence, current Router Image dry-run, relevant
+  native release dry-run, branch protection, workflow visibility, and router
+  package visibility. RC readiness remains not-ready only because no approved
+  numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+  selected; pub.dev publishing remains deferred for release-order and operator
+  decisions. No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Extended secure standard Streamable MCP auth/session coverage to
   prove independent use by a second valid bearer principal, not only rejected
   reuse of the owner session. The checked-in router integration smoke, public

@@ -7348,6 +7348,7 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
       final sessionCursor = client.lastEventId;
       await _smokeJsonPostResponseMcpSessionIsolation(
         endpoint,
+        serviceSession: serviceSession,
         sessionId: sessionId,
         lastEventId: sessionCursor,
         label: label,
@@ -7451,6 +7452,7 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
 
 Future<void> _smokeJsonPostResponseMcpSessionIsolation(
   Uri endpoint, {
+  required RouterSession serviceSession,
   required String sessionId,
   String? lastEventId,
   required String label,
@@ -7475,6 +7477,7 @@ Future<void> _smokeJsonPostResponseMcpSessionIsolation(
     );
     await _assertJsonPostIndependentPrincipalSession(
       otherPrincipalClient,
+      serviceSession: serviceSession,
       ownerSessionId: sessionId,
       label: '$label-other-principal',
     );
@@ -7504,6 +7507,7 @@ Future<void> _smokeJsonPostResponseMcpSessionIsolation(
 
 Future<void> _assertJsonPostIndependentPrincipalSession(
   McpStreamableHttpClient client, {
+  required RouterSession serviceSession,
   required String ownerSessionId,
   required String label,
 }) async {
@@ -7515,6 +7519,16 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError(
       'JSON-response MCP $label direct tools/list changed session state.',
+    );
+  }
+  await _smokeGenericDirectJsonRpcPubSub(
+    client,
+    serviceSession,
+    label: '$label-independent',
+  );
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label direct WAMP/pubsub changed session state.',
     );
   }
 
@@ -7549,6 +7563,36 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
   if (client.sessionId != sessionId || client.lastEventId != null) {
     throw StateError(
       'JSON-response MCP $label independent tools/list changed session state.',
+    );
+  }
+
+  final subscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-independent-subscribe',
+    queueLimit: 4,
+  );
+  try {
+    final taskId = 'T-$label-independent-service-event';
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': taskId},
+      options: PublishOptions(acknowledge: true),
+    );
+    final events = await _pollMcpEventsUntil(client, subscription.handle);
+    if (!jsonEncode(events.events).contains(taskId)) {
+      throw StateError(
+        'JSON-response MCP $label independent pub/sub missed service event.',
+      );
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      subscription.handle,
+      id: '$label-independent-unsubscribe',
+    );
+  }
+  if (client.sessionId != sessionId || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label independent pub/sub changed session state.',
     );
   }
 

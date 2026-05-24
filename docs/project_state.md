@@ -2,10 +2,38 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Secure Streamable MCP independent-principal
+Last reviewed branch checkpoint: Secure JSON-response MCP independent-principal
 direct WAMP/pubsub coverage.
-Latest fully clean hosted checkpoint: Commit `1e86c5a`.
+Latest fully clean hosted checkpoint: Commit `a2c706f`.
 Current implementation checkpoint: The checked-in router integration smoke,
+public router-hosted MCP example, and generated consumer-package smoke now
+extend the bearer-protected JSON-response MCP route at `/mcp/secure-json-post`
+beyond rejected cross-principal session reuse. After a second valid bearer
+principal is rejected when it tries to reuse the owner `MCP-Session-Id`, the
+same valid principal can use public MCP HTTP helpers to access the direct JSON
+tool catalog plus WAMP topic metadata and pub/sub without lifecycle side
+effects, initialize a distinct JSON-response Streamable HTTP session, keep
+POST responses in JSON mode without capturing a POST/SSE cursor, run pub/sub
+on that independent session while preserving empty JSON-response cursor state,
+and delete its own session without mutating the owner session. The public
+example and generated consumer-package smoke prove lifecycle-free direct JSON
+WAMP/pubsub access before initialize and independent pub/sub after initialize;
+the checked-in router integration smoke pins route-level direct WAMP topic
+catalog access, direct pub/sub delivery, independent JSON-response Streamable
+pub/sub delivery, and owner-session stability for a second valid bearer
+principal.
+Pre-change `bin/test-fast` passed on 2026-05-24. Focused local coverage passed
+on 2026-05-24:
+`dart analyze packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+`bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
+and `git diff --check`. Post-change `bin/test-fast` passed on 2026-05-24.
+Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
+evidence remains at commit `a2c706f` until this checkpoint's deployment chain
+is inspected.
+Prior implementation checkpoint: The checked-in router integration smoke,
 public router-hosted MCP example, and generated consumer-package smoke now
 extend the bearer-protected standard Streamable MCP route at `/mcp/secure`
 beyond rejected cross-principal session reuse. After a second valid bearer
@@ -30,19 +58,19 @@ on 2026-05-24:
 `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
 and `git diff --check`. Post-change `bin/test-fast` passed on 2026-05-24.
 Full local `bin/verify` passed on 2026-05-24 for this checkpoint.
-Commit `1e86c5a` (`test: cover secure streamable mcp sessions`) was pushed to
+Commit `a2c706f` (`test: cover independent mcp pubsub sessions`) was pushed to
 GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
-evidence is clean at `1e86c5a`: `master` CI run `26358592094` passed with Fast
+evidence is clean at `a2c706f`: `master` CI run `26359793602` passed with Fast
 Checks and Full Verify green plus clean logs, and `add-router` CI run
-`26358590215` passed with Fast Checks and Full Verify green. Dart Package
-Publish Dry Run `26358592098` on `master` and `26358590188` on `add-router`
-passed at `1e86c5a`; WAMP Profile Benchmarks `26358592107` on `master` and
-`26358590204` on `add-router` passed at `1e86c5a`; manual non-mutating Router
-Image dry-run `26358602876` passed on `master` at `1e86c5a` with preview
-metadata `0.1.0-rc.2-validation.1e86c5a977a3`, GHCR login skipped, and preview
+`26359791440` passed with Fast Checks and Full Verify green. Dart Package
+Publish Dry Run `26359793607` on `master` and `26359791425` on `add-router`
+passed at `a2c706f`; WAMP Profile Benchmarks `26359793618` on `master` and
+`26359791432` on `add-router` passed at `a2c706f`; manual non-mutating Router
+Image dry-run `26359802334` passed on `master` at `a2c706f` with preview
+metadata `0.1.0-rc.2-validation.a2c706fc2275`, GHCR login skipped, and preview
 metadata uploaded; Native Artifacts dry-run `26286794628` remains relevant
 because no native-release-sensitive inputs changed. The strict
-deployment-chain audit passed required gates on `master` at `1e86c5a`,
+deployment-chain audit passed required gates on `master` at `a2c706f`,
 including clean current-head CI/logs, Dart package dry-run, WAMP profile
 benchmark evidence, current Router Image dry-run, relevant native release
 dry-run, branch protection, workflow visibility, and router package visibility.
