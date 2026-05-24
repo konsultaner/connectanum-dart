@@ -2,9 +2,33 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Generated consumer secure JSON-response MCP session-isolation coverage.
-Latest fully clean hosted checkpoint: Commit `c453949`.
-Current implementation checkpoint: The generated consumer-package
+Last reviewed branch checkpoint: Public router-hosted MCP JSON-response
+auth/session isolation example coverage.
+Latest fully clean hosted checkpoint: Commit `1d80b57`.
+Current implementation checkpoint: The public router-hosted MCP example now
+extends the bearer-protected JSON-response MCP route at
+`/mcp/secure-json-post` with active-session auth/ownership coverage. The
+example fixture issues a second ticket bearer principal and proves that a
+different valid bearer principal cannot reuse the owner `MCP-Session-Id`
+across Streamable batches, notifications, tools, resources, prompts,
+GET/SSE poll, and DELETE (`404 Not Found`). It also proves bearerless active
+session reuse is rejected with `401 Unauthorized`, and that an unknown bearer
+is rejected across active direct JSON tools, WAMP meta/pubsub, resources, and
+prompts without mutating the owner session state before Streamable failures
+clear the rejected client's stale session state. The owner JSON-response MCP
+client keeps its active session id stable, keeps the POST/SSE cursor empty,
+and continues through tools/call, resources, prompts, pub/sub, GET/SSE poll,
+and DELETE cleanup. Pre-change `bin/test-fast` passed on 2026-05-24. Focused
+local coverage passed on 2026-05-24:
+`dart analyze packages/connectanum_router/example/router_hosted_mcp.dart`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+`python3 tool/check_public_artifact_references.py`, and `git diff --check`.
+Full local `bin/verify` passed on 2026-05-24 for this checkpoint. The local
+code checkpoint is committed as
+`example: cover json-response mcp session isolation` and ready to push. Hosted
+evidence is still latest-clean at `1d80b57` until the new code checkpoint is
+pushed and GitHub checks complete.
+Prior implementation checkpoint: The generated consumer-package
 router-hosted MCP smoke now extends the bearer-protected JSON-response route
 at `/mcp/secure-json-post` with the same active-session isolation matrix used
 by the standard secure Streamable route. The generated consumer application
@@ -22,8 +46,26 @@ coverage passed on 2026-05-24:
 `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
 `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
 and `git diff --check`. Full local `bin/verify` passed on 2026-05-24 for this
-checkpoint. This checkpoint is not yet pushed or backed by hosted GitHub
-evidence.
+checkpoint. Commit `1d80b57`
+(`test: cover consumer json-response mcp sessions`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `1d80b57`: `master` CI run `26354715574` passed with Fast Checks and
+Full Verify green plus clean logs, and `add-router` CI run `26354713644`
+passed with Fast Checks and Full Verify green. Dart Package Publish Dry Run
+`26353736911` at `c453949`, WAMP Profile Benchmarks `26353736914` at
+`c453949`, Router Image dry-run `26353998120` at `c453949`, and Native
+Artifacts dry-run `26286794628` remain relevant because no publish-,
+WAMP-profile-, router-image-, or native-release-sensitive inputs changed. The
+strict deployment-chain audit passed required gates on `master` at `1d80b57`,
+including clean current-head CI/logs, relevant Dart package dry-run, relevant
+WAMP profile benchmark evidence, relevant Router Image dry-run, relevant
+native release dry-run, branch protection, workflow visibility, and router
+package visibility. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected; the audit suggests `v0.1.0-rc.2` as the next numeric tag if release
+approval is given. Pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
 Prior implementation checkpoint: The checked-in router native integration
 MCP smoke now also pins auth/session isolation for the bearer-protected
 JSON-response route at `/mcp/secure-json-post`. Before any Streamable
@@ -12843,7 +12885,7 @@ at the older `47bbf9c` commit.
   consumer integration bug appears. The current local checkpoint extends the
   generated consumer-package secure JSON-response MCP smoke with
   cross-principal, bearerless, and unknown-bearer active-session isolation;
-  the latest fully hosted checkpoint remains `c453949`.
+  the latest fully hosted checkpoint is `1d80b57`.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

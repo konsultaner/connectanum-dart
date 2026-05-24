@@ -78,6 +78,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Extended the public router-hosted MCP example with
+  auth/session isolation coverage for the bearer-protected JSON-response MCP
+  route at `/mcp/secure-json-post`. The example now issues a second valid
+  ticket bearer principal and proves a different bearer principal cannot reuse
+  the owner `MCP-Session-Id` across Streamable batches, notifications, tools,
+  resources, prompts, GET/SSE poll, and DELETE (`404 Not Found`). It also
+  proves bearerless active-session reuse returns `401 Unauthorized`, and an
+  unknown bearer is rejected across active direct JSON tools, WAMP meta/pubsub,
+  resources, and prompts without mutating the owner state before Streamable
+  failures clear the rejected client's stale session state. Pre-change
+  `bin/test-fast` passed on 2026-05-24. Focused local coverage passed:
+  `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+  `python3 tool/check_public_artifact_references.py`, and `git diff --check`.
+  Full local `bin/verify` passed on 2026-05-24. The local code checkpoint is
+  committed as `example: cover json-response mcp session isolation` and ready
+  to push.
 - 2026-05-24: Extended the generated consumer-package router-hosted MCP smoke
   for auth/session isolation on the bearer-protected JSON-response MCP route.
   The generated consumer application smoke now proves `/mcp/secure-json-post`
@@ -94,6 +111,24 @@ decision because `connectanum_client` still depends on private
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
   `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
   and `git diff --check`. Full local `bin/verify` passed on 2026-05-24.
+- 2026-05-24: Hosted evidence for commit `1d80b57`
+  (`test: cover consumer json-response mcp sessions`) is clean: `master` CI
+  run `26354715574` passed with Fast Checks and Full Verify green plus clean
+  logs, and `add-router` CI run `26354713644` passed with Fast Checks and Full
+  Verify green. Dart Package Publish Dry Run `26353736911` at `c453949`, WAMP
+  Profile Benchmarks `26353736914` at `c453949`, Router Image dry-run
+  `26353998120` at `c453949`, and Native Artifacts dry-run `26286794628`
+  remain relevant because no publish-, WAMP-profile-, router-image-, or
+  native-release-sensitive inputs changed. The strict deployment-chain audit
+  passed required gates on `master` at `1d80b57`, including clean current-head
+  CI/logs, relevant Dart package dry-run, relevant WAMP profile benchmark
+  evidence, relevant Router Image dry-run, relevant native release dry-run,
+  branch protection, workflow visibility, and router package visibility. RC
+  readiness remains not-ready only because no approved numeric RC tag, GitHub
+  prerelease, or matching RC router image tag has been selected; the audit
+  suggests `v0.1.0-rc.2` as the next numeric tag if release approval is given.
+  Pub.dev publishing remains deferred for release-order and operator
+  decisions. No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Extended the checked-in router native integration coverage for
   auth/session isolation on the bearer-protected JSON-response MCP route. The
   `smoke tests MCP router RPC pubsub and route security` integration test now

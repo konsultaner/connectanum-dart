@@ -13,6 +13,7 @@ const String _publicMcpPath = '/mcp';
 const String _secureMcpPath = '/mcp/secure';
 const String _secureJsonPostMcpPath = '/mcp/secure-json-post';
 const String _ticketAuthId = 'mcp-user';
+const String _otherTicketAuthId = 'mcp-other-user';
 const String _ticketSecret = 'mcp-demo-ticket';
 const List<String> _supportedOlderProtocolVersions = [
   '2025-03-26',
@@ -85,6 +86,10 @@ Future<void> main(List<String> args) async {
       routeLabel: 'Bearer-protected JSON-response MCP endpoint',
     );
     final grant = await _issueTicketHttpGrant(binding);
+    final otherGrant = await _issueTicketHttpGrant(
+      binding,
+      authId: _otherTicketAuthId,
+    );
     await _smokeMcpProtocolVersionCompatibility(
       binding,
       label: 'secure',
@@ -102,6 +107,7 @@ Future<void> main(List<String> args) async {
     await _smokeSecureJsonPostMcpEndpoint(
       binding,
       grant,
+      otherGrant: otherGrant,
       serviceSession: serviceSession,
     );
     secureMcpClient = McpStreamableHttpClient.withAuthGrant(
@@ -386,6 +392,11 @@ RouterSettings _buildSettings() {
                   'role': 'member',
                   'provider': 'example-local',
                 },
+                _otherTicketAuthId: {
+                  'ticket': _ticketSecret,
+                  'role': 'member',
+                  'provider': 'example-local',
+                },
               },
             },
           ),
@@ -537,13 +548,14 @@ Future<void> _expectSecureMcpUnauthorized(
 }
 
 Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
-  RouterBinding binding,
-) async {
+  RouterBinding binding, {
+  String authId = _ticketAuthId,
+}) async {
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   try {
     return await authClient.issueTicketToken(
       realm: _realm,
-      authId: _ticketAuthId,
+      authId: authId,
       ticket: _ticketSecret,
     );
   } finally {
@@ -717,6 +729,122 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
     label: 'direct JSON batch tools/list and tools/call',
     acceptedMessage: acceptedMessage,
   );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.postBatchDirect([
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-rejected-direct-batch-api-list',
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.api.list',
+            'arguments': {'kind': 'topic'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': '$label-rejected-direct-batch-pubsub-subscribe',
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.subscribe',
+            'arguments': {'topic': 'example.events.task', 'queueLimit': 1},
+          },
+        },
+      ]);
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON batch WAMP meta/pubsub',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listWampApi(
+        id: '$label-rejected-direct-topic-api',
+        kind: 'topic',
+        directJson: true,
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON WAMP meta API',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.subscribeWampTopicDirect(
+        'example.events.task',
+        id: '$label-rejected-direct-pubsub-subscribe',
+        queueLimit: 1,
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON pub/sub subscribe',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listResourcesDirect(id: '$label-rejected-direct-resources');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON resources/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.readResourceDirect(
+        'app://example/context',
+        id: '$label-rejected-direct-resource-read',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON resources/read',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listResourceTemplatesDirect(
+        id: '$label-rejected-direct-resource-templates',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON resources/templates/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listPromptsDirect(id: '$label-rejected-direct-prompts');
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON prompts/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _expectActiveDirectJsonRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.getPromptDirect(
+        'summarize-task',
+        id: '$label-rejected-direct-prompt-get',
+        arguments: {'taskId': 'T-$label-rejected-direct-prompt-get'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'direct JSON prompts/get',
+    acceptedMessage: acceptedMessage,
+  );
 
   client.sessionId = sessionId;
   client.lastEventId = lastEventId;
@@ -817,6 +945,7 @@ Future<void> _smokeSecureMcpRefreshedGrant(
 Future<void> _smokeSecureJsonPostMcpEndpoint(
   RouterBinding binding,
   ConnectanumHttpAuthGrant grant, {
+  required ConnectanumHttpAuthGrant otherGrant,
   required RouterSession serviceSession,
 }) async {
   const label = 'secure-json-post';
@@ -899,6 +1028,15 @@ Future<void> _smokeSecureJsonPostMcpEndpoint(
       );
     }
     expectJsonPostState('tools/list', sessionId);
+
+    await _smokeSecureJsonPostMcpSessionIsolation(
+      _secureJsonPostMcpEndpoint(binding),
+      sessionId: sessionId,
+      lastEventId: client.lastEventId,
+      label: label,
+      otherGrant: otherGrant,
+    );
+    expectJsonPostState('auth/session isolation', sessionId);
 
     final streamableTaskId = 'T-$label-streamable-tool-call';
     final streamableResult = await client.callTool(
@@ -996,6 +1134,204 @@ Future<void> _smokeSecureJsonPostMcpEndpoint(
   } finally {
     client.close(force: true);
   }
+}
+
+Future<void> _smokeSecureJsonPostMcpSessionIsolation(
+  Uri endpoint, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+  required ConnectanumHttpAuthGrant otherGrant,
+}) async {
+  final otherPrincipalClient = McpStreamableHttpClient.withBearerToken(
+    endpoint,
+    otherGrant.accessToken,
+  );
+  final bearerlessClient = McpStreamableHttpClient(endpoint);
+  final unknownBearerClient = McpStreamableHttpClient.withBearerToken(
+    endpoint,
+    'example-unknown-access-token',
+  );
+
+  try {
+    await _assertStreamableSessionReuseRejectedAcrossMethods(
+      otherPrincipalClient,
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label-other-principal',
+    );
+    await _assertStreamableSessionRequiresBearerAcrossMethods(
+      bearerlessClient,
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label-bearerless-reused-session',
+    );
+
+    unknownBearerClient.sessionId = sessionId;
+    unknownBearerClient.lastEventId = lastEventId;
+    await _assertActiveStreamableSessionRejectsBearer(
+      unknownBearerClient,
+      label: '$label-unknown-bearer',
+      acceptedMessage:
+          'JSON-response Streamable MCP session accepted an unknown access '
+          'token.',
+    );
+    await _assertStreamableSessionRequiresBearerAcrossMethods(
+      unknownBearerClient,
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label-unknown-bearer',
+    );
+  } finally {
+    otherPrincipalClient.close(force: true);
+    bearerlessClient.close(force: true);
+    unknownBearerClient.close(force: true);
+  }
+}
+
+Future<void> _assertStreamableSessionRequiresBearerAcrossMethods(
+  McpStreamableHttpClient client, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+}) async {
+  await _assertStreamableSessionFailureAcrossMethods(
+    client,
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: label,
+    expectedStatusCode: HttpStatus.unauthorized,
+    reason: 'without valid bearer credentials',
+  );
+}
+
+Future<void> _assertStreamableSessionReuseRejectedAcrossMethods(
+  McpStreamableHttpClient client, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+}) async {
+  await _assertStreamableSessionFailureAcrossMethods(
+    client,
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: label,
+    expectedStatusCode: HttpStatus.notFound,
+    reason: 'with a session owned by another principal',
+  );
+}
+
+Future<void> _assertStreamableSessionFailureAcrossMethods(
+  McpStreamableHttpClient client, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+  required int expectedStatusCode,
+  required String reason,
+}) async {
+  Future<void> expectFailure(
+    Future<void> Function() request,
+    String operationLabel,
+  ) async {
+    client.sessionId = sessionId;
+    client.lastEventId = lastEventId;
+    try {
+      await request();
+      throw StateError('Streamable MCP accepted $operationLabel $reason.');
+    } on McpStreamableHttpException catch (error) {
+      if (error.statusCode != expectedStatusCode) {
+        throw StateError(
+          'Streamable MCP $operationLabel returned ${error.statusCode} '
+          'instead of $expectedStatusCode $reason.',
+        );
+      }
+    }
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError(
+        'Streamable MCP $operationLabel did not clear rejected session state.',
+      );
+    }
+  }
+
+  await expectFailure(() async {
+    await client.postBatch([
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-session-batch-tools',
+        'method': 'tools/list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-session-batch-resources',
+        'method': 'resources/list',
+        'params': {},
+      },
+    ]);
+  }, '$label batch tools/resources');
+  await expectFailure(() async {
+    await client.postBatch([
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-session-batch-api-list',
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.api.list',
+          'arguments': {'kind': 'topic'},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': '$label-session-batch-pubsub-subscribe',
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'example.events.task', 'queueLimit': 1},
+        },
+      },
+    ]);
+  }, '$label batch WAMP meta/pubsub');
+  await expectFailure(() async {
+    await client.notifyInitialized();
+  }, '$label notification');
+  await expectFailure(() async {
+    await client.listTools(id: '$label-tools');
+  }, '$label tools/list');
+  await expectFailure(() async {
+    await client.callTool(
+      'example.task.lookup',
+      id: '$label-tool-call',
+      arguments: {'taskId': 'T-$label-tool-call'},
+    );
+  }, '$label tools/call');
+  await expectFailure(() async {
+    await client.listResources(id: '$label-resources');
+  }, '$label resources/list');
+  await expectFailure(() async {
+    await client.readResource(
+      'app://example/context',
+      id: '$label-resource-read',
+    );
+  }, '$label resources/read');
+  await expectFailure(() async {
+    await client.listResourceTemplates(id: '$label-resource-templates');
+  }, '$label resources/templates/list');
+  await expectFailure(() async {
+    await client.listPrompts(id: '$label-prompts');
+  }, '$label prompts/list');
+  await expectFailure(() async {
+    await client.getPrompt(
+      'summarize-task',
+      id: '$label-prompt-get',
+      arguments: {'taskId': 'T-$label-prompt-get'},
+    );
+  }, '$label prompts/get');
+  await expectFailure(() async {
+    await client.poll();
+  }, '$label GET/SSE poll');
+  await expectFailure(() async {
+    await client.deleteSession();
+  }, '$label DELETE');
 }
 
 Future<void> _smokeSecureMcpRefreshAndRevocation(
