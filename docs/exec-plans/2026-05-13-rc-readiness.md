@@ -78,6 +78,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Extended secure JSON-response MCP auth/session coverage to prove
+  independent use by a second valid bearer principal, not only rejected reuse of
+  the owner session. The checked-in router integration smoke, public
+  router-hosted MCP example, and generated consumer-package smoke now reject
+  cross-principal `MCP-Session-Id` reuse on `/mcp/secure-json-post`, then prove
+  the second valid principal can use public MCP HTTP helpers to access the
+  direct JSON tool catalog, initialize a distinct Streamable HTTP session, keep
+  JSON-response POSTs from capturing a POST/SSE cursor, list tools, and delete
+  its own session without mutating the owner session. The generated consumer
+  smoke follows paginated catalog pages because that route intentionally sets a
+  tool page size of one. Pre-change `bin/test-fast` passed on 2026-05-24.
+  Focused local coverage passed:
+  `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+  `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
+  and `git diff --check`. Post-change `bin/test-fast` passed locally, and full
+  local `bin/verify` passed for this checkpoint.
 - 2026-05-24: Extended the public router-hosted MCP example with
   auth/session isolation coverage for the bearer-protected JSON-response MCP
   route at `/mcp/secure-json-post`. The example now issues a second valid
@@ -92,9 +111,27 @@ decision because `connectanum_client` still depends on private
   `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart`,
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
   `python3 tool/check_public_artifact_references.py`, and `git diff --check`.
-  Full local `bin/verify` passed on 2026-05-24. The local code checkpoint is
-  committed as `example: cover json-response mcp session isolation` and ready
-  to push.
+  Full local `bin/verify` passed on 2026-05-24. Commit `bc2575c`
+  (`example: cover json-response mcp session isolation`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+  clean at `bc2575c`: `master` CI run `26355702455` passed with Fast Checks and
+  Full Verify green plus clean logs, and `add-router` CI run `26355702355`
+  passed with Fast Checks and Full Verify green. Dart Package Publish Dry Run
+  `26355702488` on `master` and `26355702383` on `add-router` passed at
+  `bc2575c`; WAMP Profile Benchmarks `26355702451` on `master` and
+  `26355702340` on `add-router` passed at `bc2575c`; manual non-mutating Router
+  Image dry-run `26355974643` passed on `master` at `bc2575c` with GHCR login
+  skipped and preview metadata uploaded; Native Artifacts dry-run `26286794628`
+  remains relevant because no native-release-sensitive inputs changed. The
+  strict deployment-chain audit passed required gates on `master` at
+  `bc2575c`, including clean current-head CI/logs, Dart package dry-run, WAMP
+  profile benchmark evidence, current Router Image dry-run, relevant native
+  release dry-run, branch protection, workflow visibility, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag, GitHub prerelease, or matching RC router image tag has been selected;
+  the audit suggests `v0.1.0-rc.2` as the next numeric tag if release approval
+  is given. Pub.dev publishing remains deferred for release-order and operator
+  decisions. No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Extended the generated consumer-package router-hosted MCP smoke
   for auth/session isolation on the bearer-protected JSON-response MCP route.
   The generated consumer application smoke now proves `/mcp/secure-json-post`
@@ -3049,150 +3086,36 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The latest fully clean hosted implementation follow-up makes
-router-hosted MCP Streamable HTTP `DELETE` dispose endpoint-owned WAMP pub/sub
-subscriptions.
-`_RouterMcpEndpoint` now tracks subscription ids created through MCP pub/sub
-helpers, removes ids on explicit unsubscribe, and best-effort unsubscribes
-remaining ids when DELETE removes the MCP session or the endpoint is disposed.
-Router integration coverage and the generated consumer-package smoke prove a
-Streamable MCP subscription has one route-visible subscriber before DELETE and
-zero after DELETE through direct JSON WAMP subscription meta. Local focused
-coverage, full `bin/verify`, hosted CI on `master` and `add-router`, hosted
-Dart Package Publish Dry Run on both branches, hosted WAMP Profile Benchmarks
-on both branches, current-head Router Image dry-run, and the strict
-deployment-chain audit passed at `383e0a9`. RC readiness remains blocked only
-by explicit RC tag/prerelease/router-image tag selection and deferred pub.dev
-release-order decisions. The prior fully clean hosted implementation checkpoint
-is `3c5d977`, which adds router-hosted HTTP method-mismatch coverage across
-native matching, native HTTP/1 responses, and Dart synthetic dispatch; hosted
-CI, hosted Dart Package Publish Dry Run, hosted WAMP Profile Benchmarks, hosted
-kTLS Validation, Native Artifacts dry-run, Router Image dry-run, and the strict
-deployment-chain audit passed at `3c5d977`. The prior fully clean hosted
-implementation follow-up makes router-hosted HTTP route protocol mismatches
-return deterministic `426 protocol_not_allowed` responses instead of ambiguous
-route misses across native and Dart synthetic dispatch. The
-prior fully clean hosted CI reliability follow-up adds a retrying browser
-WebSocket smoke wrapper to `bin/test-all` and a focused verification-script
-regression wired into fast/full local verification; local `bin/verify`, hosted
-CI on `master` and `add-router`, and the strict deployment-chain audit passed
-at commit `d9d8a82`. The prior fully clean hosted release-chain follow-up hardens the
-first-RC pub.dev deferral boundary so the audit requires strict Dart dry-run
-release-plan and operator-decision evidence before accepting the known private
-workspace dependency blocker; pre-change `bin/test-fast`, focused audit tests,
-`bash -n`, `git diff --check`, live read-only strict deployment-chain audit,
-full local `bin/verify`, hosted CI on `master` and `add-router`, and the strict
-deployment-chain audit passed at commit `209b91c`. The prior fully clean hosted
-release-gate test follow-up hardens the Dart package strict publish and RC
-audit unexpected-blocker boundary; local `bin/test-fast`, focused Python
-regressions, `git diff --check`, full `bin/verify`, hosted CI on `master` and
-`add-router`, and the strict deployment-chain audit passed at commit `690c3c6`.
-The prior fully clean hosted
-implementation follow-up makes
-`McpStreamableHttpClient.deleteSession()` a local cleanup no-op when no
-Streamable HTTP session is active, so downstream applications can call cleanup
-after failed initialization or prior cleanup without generating an invalid
-network DELETE; pre-change `bin/test-fast`, formatting, the focused MCP client
-suite, full local `bin/verify`, hosted CI, hosted Dart package dry-run, hosted
-WAMP profile benchmark, hosted Router Image dry-run, and the strict
-deployment-chain audit passed at commit `182c236`. The prior fully clean hosted
-implementation follow-up keeps
-`McpStreamableHttpClient` SSE cursors scoped to the negotiated Streamable HTTP
-session by clearing `lastEventId` whenever a response changes the active
-`MCP-Session-Id`; local focused MCP client tests, full `bin/verify`, hosted
-CI, hosted Dart package dry-run, hosted WAMP profile benchmark, hosted Router
-Image dry-run, and the strict deployment-chain audit passed at commit
-`742c004`.
-The prior fully clean hosted implementation follow-up extends the generated
-router-hosted MCP consumer package smoke so public consumer-package usage
-proves `Mcp-Method`/`Mcp-Name` ownership against a real router across direct
-JSON and Streamable HTTP tool/pubsub paths. The prior fully clean hosted
-implementation follow-up extends the generated client-only MCP consumer package
-smoke so consumer-style public package usage proves `Mcp-Method`/`Mcp-Name`
-ownership across direct JSON, Streamable POST, and GET/SSE poll requests. The
-prior fully clean hosted implementation follow-up hardens public MCP HTTP
-client standard-header ownership so stale caller `Mcp-Method`/`Mcp-Name`
-headers cannot leak into
-initialize, direct JSON, Streamable POST, GET/SSE poll, or batch requests. The
-prior fully clean hosted implementation follow-up adds public-client regression
-coverage proving
-`McpStreamableHttpClient`
-preserves active Streamable session state after `429` rate-limit failures and
-can still send session-scoped `DELETE` cleanup. The prior fully clean hosted
-implementation follow-up lets router-hosted MCP Streamable HTTP `DELETE`
-cleanup bypass route-level rate-limit exhaustion so a downstream application
-can remove its owned session after receiving a rate-limited Streamable POST
-failure. The latest fully clean hosted deployment-chain checkpoint is
-`3c5d977`. The prior fully hosted implementation follow-up extends the
-generated consumer-package router-hosted MCP smoke so downstream applications
-prove the route-level rate-limit response-session contract against a real MCP
-endpoint. The prior fully hosted
-implementation follow-up adds focused router runtime regression coverage
-proving pre-dispatch MCP route rate-limit response session isolation for
-lifecycle-free direct JSON POST failures while preserving owned session ids for
-true Streamable HTTP POST failures. The prior fully hosted
-implementation follow-up adds focused router integration regression coverage
-proving pre-dispatch MCP route auth response session isolation for direct JSON
-missing/invalid bearer failures while preserving owned session ids for true
-Streamable HTTP auth failures. The prior fully hosted implementation
-fixed pre-dispatch MCP route auth response session isolation so lifecycle-free
-direct JSON requests cannot echo stale `MCP-Session-Id` headers through missing
-or invalid bearer-token errors. The prior fully hosted implementation fixed
-router-hosted MCP direct JSON
-error-response session isolation so stale `MCP-Session-Id` headers cannot leak
-back through lifecycle-free malformed-body or unsupported-protocol errors. The
-prior fully hosted implementation before that fixed router-hosted MCP direct
-JSON endpoint lookup and success-response session isolation so stale session
-headers cannot make lifecycle-free direct JSON tool/meta API calls return
-`404`. Prior
-implementation follow-ups apply HTTP `Accept` media-range specificity so exact
-`q=0` JSON/SSE media ranges override less-specific wildcards before
-router-hosted MCP JSON/SSE response-path selection, honor MCP Accept quality
-weights, fix MCP Streamable HTTP SSE response selection when notifications are
-interleaved before JSON-RPC responses, harden MCP HTTP auth client non-JSON
-error handling for downstream applications, inspect Router Image dry-run
-preview metadata, normalize manual Router Image project-version tag inputs to
-the Docker tag shape required by exact RC audit evidence, and tighten
-RC-readiness router image tag auditing.
-The hosted Dart Package Publish Dry Run now prints the same release-order
-inventory that local and audit dry-runs already expose. The default branch
-contains the router-hosted MCP downstream-readiness work plus explicit
-branch-protection and GitHub RC-tag audit handoff evidence; the latest hosted
-implementation checkpoints harden scoped Dart package release-plan diagnostics
-and add the WAMP Profile Benchmarks evidence gate. MCP coverage includes auth/session
-correctness, router-provided MCP endpoints, direct JSON tool and meta APIs,
-WAMP pub/sub helpers, resources/prompts, Streamable HTTP compatibility, and
-generated consumer-package smokes that use public package APIs without private
-project assumptions.
+Active. The current local implementation checkpoint strengthens
+router-hosted MCP auth/session evidence for the bearer-protected
+JSON-response route at `/mcp/secure-json-post`. The checked-in router
+integration smoke, public example, and generated consumer-package smoke now
+prove that a second valid bearer principal cannot reuse the owner
+`MCP-Session-Id`, and can then use public MCP HTTP helpers to access the
+direct JSON catalog, initialize a distinct Streamable HTTP session, keep
+JSON-response POSTs cursor-free, list tools, and delete its own session
+without mutating the owner session.
 
-Hosted `master` CI is green at run `26282723125` for checkpoint `3c5d977`: Fast
-Checks and Full Verify passed. Hosted `add-router` CI is green at run
-`26282711412` with Fast Checks and Full Verify passed. Hosted Dart Package
-Publish Dry Run is green at run `26282723109` on `master`, and matching
-`add-router` Dart Package Publish Dry Run `26282711355` passed. Hosted
-`master` WAMP Profile Benchmarks run `26282723154` passed with artifact upload,
-and matching `add-router` WAMP Profile Benchmarks run `26282711353` passed.
-Hosted kTLS Validation runs `26282723160` on `master` and `26282711453` on
-`add-router` passed. Native Artifacts dry-run `26283321576` passed for
-`v0.1.0-rc.2-validation.3c5d977`, and Router Image dry-run `26283321578`
-passed for `0.1.0-rc.2-validation.3c5d977`. The strict deployment-chain audit
-passes on `master` at `3c5d977` with clean current-head CI/log, relevant Dart
-package dry-run, relevant native release dry-run, relevant router image
-dry-run, relevant WAMP profile benchmark evidence, workflow visibility, branch
-protection, and router package visibility gates.
-The router package visibility gate verifies public GHCR registry metadata for
-`ghcr.io/konsultaner/connectanum-router`. The latest Router Image dry-run is
-run `26283321578` at `3c5d977`; it used manual
-`image_tag=0.1.0-rc.2-validation.3c5d977`, uploaded the preview artifact,
-skipped GHCR login, completed the multi-arch build, and the audit verifies
-primary tag `0.1.0-rc.2-validation.3c5d977` before accepting it.
+Local evidence for this checkpoint: pre-change `bin/test-fast`, focused
+analyzer coverage for the example and router integration smoke, the focused
+native router MCP route-security test, the public router-hosted MCP example
+smoke, the generated consumer-package smoke, `bash -n bin/common.sh`,
+`python3 tool/check_public_artifact_references.py`, `git diff --check`,
+post-change `bin/test-fast`, and full local `bin/verify` passed on
+2026-05-24.
 
-Continue with RC tag/prerelease selection from a checkout aligned with GitHub
-`master`. The audit inventories stale
-local and GitHub RC tags and reports that existing `v0.1.0-rc.1` points at
-older commit `47bbf9c`, not the current candidate head `3c5d977`. It suggests
-`v0.1.0-rc.2` exactly once as the next numeric follow-up tag while still
-reporting RC prerelease and matching router image RC tag selection as not-ready.
-Moving the stale tag or approving a follow-up RC tag remains a release decision.
-No RC tag, GitHub Release, or router image was created or moved during this
-promotion/evidence update.
+The latest fully clean hosted checkpoint remains `bc2575c`: hosted `master` CI
+run `26355702455` and hosted `add-router` CI run `26355702355` passed with
+Fast Checks and Full Verify green. Dart Package Publish Dry Run
+`26355702488` on `master` and `26355702383` on `add-router` passed at
+`bc2575c`; WAMP Profile Benchmarks `26355702451` on `master` and
+`26355702340` on `add-router` passed at `bc2575c`; manual non-mutating Router
+Image dry-run `26355974643` passed on `master` at `bc2575c`; Native Artifacts
+dry-run `26286794628` remains relevant. The strict deployment-chain audit
+passed required gates on `master` at `bc2575c`.
+
+RC readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected; the audit
+suggests `v0.1.0-rc.2` as the next numeric tag if release approval is given.
+Pub.dev publishing remains deferred for release-order and operator decisions.
+No RC tag, GitHub Release, or router image was created or moved.

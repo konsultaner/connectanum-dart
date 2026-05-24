@@ -1160,6 +1160,11 @@ Future<void> _smokeSecureJsonPostMcpSessionIsolation(
       lastEventId: lastEventId,
       label: '$label-other-principal',
     );
+    await _assertJsonPostIndependentPrincipalSession(
+      otherPrincipalClient,
+      ownerSessionId: sessionId,
+      label: '$label-other-principal',
+    );
     await _assertStreamableSessionRequiresBearerAcrossMethods(
       bearerlessClient,
       sessionId: sessionId,
@@ -1186,6 +1191,64 @@ Future<void> _smokeSecureJsonPostMcpSessionIsolation(
     otherPrincipalClient.close(force: true);
     bearerlessClient.close(force: true);
     unknownBearerClient.close(force: true);
+  }
+}
+
+Future<void> _assertJsonPostIndependentPrincipalSession(
+  McpStreamableHttpClient client, {
+  required String ownerSessionId,
+  required String label,
+}) async {
+  final directTools = await client.listToolsDirect(id: '$label-direct-tools');
+  if (!directTools.tools.any((tool) => tool['name'] == 'example.task.lookup')) {
+    throw StateError(
+      'JSON-response MCP $label direct tools/list missed the route catalog.',
+    );
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label direct tools/list changed session state.',
+    );
+  }
+
+  await client.initialize(
+    id: '$label-independent-initialize',
+    clientInfo: const {
+      'name': 'router_hosted_mcp_independent_principal_example',
+      'version': '0.1.0',
+    },
+  );
+  await client.notifyInitialized();
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('JSON-response MCP $label did not create a session.');
+  }
+  if (sessionId == ownerSessionId) {
+    throw StateError(
+      'JSON-response MCP $label reused another principal session id.',
+    );
+  }
+  if (client.lastEventId != null) {
+    throw StateError('JSON-response MCP $label captured a POST/SSE cursor.');
+  }
+
+  final tools = await client.listTools(id: '$label-independent-tools');
+  if (!tools.tools.any((tool) => tool['name'] == 'example.task.lookup')) {
+    throw StateError(
+      'JSON-response MCP $label independent tools/list missed route catalog.',
+    );
+  }
+  if (client.sessionId != sessionId || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label independent tools/list changed session state.',
+    );
+  }
+
+  await client.deleteSession();
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label independent DELETE left session state.',
+    );
   }
 }
 

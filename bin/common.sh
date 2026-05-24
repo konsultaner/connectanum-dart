@@ -7472,6 +7472,11 @@ Future<void> _smokeJsonPostResponseMcpSessionIsolation(
       lastEventId: lastEventId,
       label: '$label-other-principal',
     );
+    await _assertJsonPostIndependentPrincipalSession(
+      otherPrincipalClient,
+      ownerSessionId: sessionId,
+      label: '$label-other-principal',
+    );
 
     await _assertStreamableSessionReuseRequiresBearerAcrossMethods(
       bearerlessClient,
@@ -7493,6 +7498,64 @@ Future<void> _smokeJsonPostResponseMcpSessionIsolation(
     otherPrincipalClient.close();
     bearerlessClient.close();
     unknownBearerClient.close();
+  }
+}
+
+Future<void> _assertJsonPostIndependentPrincipalSession(
+  McpStreamableHttpClient client, {
+  required String ownerSessionId,
+  required String label,
+}) async {
+  await _expectPagedToolCatalog(
+    client,
+    label: '$label-independent-direct',
+    directJson: true,
+  );
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label direct tools/list changed session state.',
+    );
+  }
+
+  await client.initialize(
+    id: '$label-independent-initialize',
+    clientInfo: const <String, Object?>{
+      'name': 'connectanum_consumer_independent_principal_smoke',
+      'version': '0.1.0',
+    },
+  );
+  await client.notifyInitialized();
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('JSON-response MCP $label did not create a session.');
+  }
+  if (sessionId == ownerSessionId) {
+    throw StateError(
+      'JSON-response MCP $label reused another principal session id.',
+    );
+  }
+  if (client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label captured a POST/SSE cursor.',
+    );
+  }
+
+  await _expectPagedToolCatalog(
+    client,
+    label: '$label-independent',
+    directJson: false,
+  );
+  if (client.sessionId != sessionId || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label independent tools/list changed session state.',
+    );
+  }
+
+  await client.deleteSession();
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label independent DELETE left session state.',
+    );
   }
 }
 

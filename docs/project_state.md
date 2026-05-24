@@ -2,10 +2,36 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Public router-hosted MCP JSON-response
-auth/session isolation example coverage.
-Latest fully clean hosted checkpoint: Commit `1d80b57`.
-Current implementation checkpoint: The public router-hosted MCP example now
+Last reviewed branch checkpoint: Secure JSON-response MCP independent-principal
+session coverage.
+Latest fully clean hosted checkpoint: Commit `bc2575c`.
+Current implementation checkpoint: The checked-in router integration smoke,
+public router-hosted MCP example, and generated consumer-package smoke now prove
+that the bearer-protected JSON-response MCP route at `/mcp/secure-json-post`
+does more than reject cross-principal session reuse. After a second valid bearer
+principal is rejected when it tries to reuse the owner `MCP-Session-Id`, the
+same valid principal can use the public MCP HTTP client helpers to access the
+direct JSON tool catalog, initialize a distinct Streamable HTTP session, keep
+POST responses in JSON mode without capturing a POST/SSE cursor, list tools on
+that independent session, and delete its own session without mutating the owner
+session. The generated consumer-package smoke follows the route's paginated tool
+catalog because the smoke route intentionally sets a page size of one.
+Pre-change `bin/test-fast` passed on 2026-05-24. Focused local coverage passed
+on 2026-05-24:
+`dart analyze packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+`bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
+and `git diff --check`. Post-change `bin/test-fast` passed on 2026-05-24.
+Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
+evidence remains clean at `bc2575c` until this local checkpoint is pushed and
+the GitHub chain is refreshed. RC readiness remains not-ready only because no
+approved numeric RC tag, GitHub prerelease, or matching RC router image tag has
+been selected; pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
+Prior implementation checkpoint: The public router-hosted MCP example now
 extends the bearer-protected JSON-response MCP route at
 `/mcp/secure-json-post` with active-session auth/ownership coverage. The
 example fixture issues a second ticket bearer principal and proves that a
@@ -23,11 +49,27 @@ local coverage passed on 2026-05-24:
 `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart`,
 `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
 `python3 tool/check_public_artifact_references.py`, and `git diff --check`.
-Full local `bin/verify` passed on 2026-05-24 for this checkpoint. The local
-code checkpoint is committed as
-`example: cover json-response mcp session isolation` and ready to push. Hosted
-evidence is still latest-clean at `1d80b57` until the new code checkpoint is
-pushed and GitHub checks complete.
+Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Commit
+`bc2575c` (`example: cover json-response mcp session isolation`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `bc2575c`: `master` CI run `26355702455` passed with Fast
+Checks and Full Verify green plus clean logs, and `add-router` CI run
+`26355702355` passed with Fast Checks and Full Verify green. Dart Package
+Publish Dry Run `26355702488` on `master` and `26355702383` on `add-router`
+passed at `bc2575c`; WAMP Profile Benchmarks `26355702451` on `master` and
+`26355702340` on `add-router` passed at `bc2575c`; manual non-mutating Router
+Image dry-run `26355974643` passed on `master` at `bc2575c` with GHCR login
+skipped and preview metadata uploaded; Native Artifacts dry-run `26286794628`
+remains relevant because no native-release-sensitive inputs changed. The strict
+deployment-chain audit passed required gates on `master` at `bc2575c`,
+including clean current-head CI/logs, Dart package dry-run, WAMP profile
+benchmark evidence, current Router Image dry-run, relevant native release
+dry-run, branch protection, workflow visibility, and router package visibility.
+RC readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected; the audit
+suggests `v0.1.0-rc.2` as the next numeric tag if release approval is given.
+Pub.dev publishing remains deferred for release-order and operator decisions.
+No RC tag, GitHub Release, or router image was created or moved.
 Prior implementation checkpoint: The generated consumer-package
 router-hosted MCP smoke now extends the bearer-protected JSON-response route
 at `/mcp/secure-json-post` with the same active-session isolation matrix used
@@ -12883,9 +12925,10 @@ at the older `47bbf9c` commit.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
   consumer integration bug appears. The current local checkpoint extends the
-  generated consumer-package secure JSON-response MCP smoke with
-  cross-principal, bearerless, and unknown-bearer active-session isolation;
-  the latest fully hosted checkpoint is `1d80b57`.
+  checked-in router integration smoke, public example, and generated
+  consumer-package secure JSON-response MCP smoke with independent-session
+  coverage for a second valid bearer principal after cross-principal reuse is
+  rejected; the latest fully hosted checkpoint remains `bc2575c`.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

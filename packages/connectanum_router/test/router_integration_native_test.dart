@@ -3770,13 +3770,14 @@ void main() {
       expect(jsonEncode(directSecurePrompt), contains('T-direct-secure'));
       expect(directSecureMcpClient.sessionId, isNull);
 
+      final secureJsonPostEndpoint = Uri(
+        scheme: 'http',
+        host: '127.0.0.1',
+        port: listener.port,
+        path: '/mcp/secure-json-post',
+      );
       final secureJsonPostClient = McpStreamableHttpClient.withAuthGrant(
-        Uri(
-          scheme: 'http',
-          host: '127.0.0.1',
-          port: listener.port,
-          path: '/mcp/secure-json-post',
-        ),
+        secureJsonPostEndpoint,
         grant,
       );
       addTearDown(() => secureJsonPostClient.close(force: true));
@@ -3952,6 +3953,51 @@ void main() {
         jsonEncode(activeOtherPrincipalJsonPost.json?['error']),
         contains('Unknown MCP HTTP session'),
       );
+      expect(secureJsonPostClient.sessionId, equals(activeSecureJsonSessionId));
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      final otherPrincipalJsonPostClient =
+          McpStreamableHttpClient.withBearerToken(
+            secureJsonPostEndpoint,
+            otherGrant.accessToken,
+          );
+      addTearDown(() => otherPrincipalJsonPostClient.close(force: true));
+      final otherPrincipalDirectTools = await otherPrincipalJsonPostClient
+          .listToolsDirect(id: 'secure-json-post-other-direct-tools');
+      expect(
+        otherPrincipalDirectTools.tools.map((tool) => tool['name']),
+        contains('app.safe.lookup'),
+      );
+      expect(otherPrincipalJsonPostClient.sessionId, isNull);
+      expect(otherPrincipalJsonPostClient.lastEventId, isNull);
+
+      final otherPrincipalInitialize = await otherPrincipalJsonPostClient
+          .initialize(id: 'secure-json-post-other-initialize');
+      expect(
+        otherPrincipalInitialize['id'],
+        equals('secure-json-post-other-initialize'),
+      );
+      final otherPrincipalSessionId = otherPrincipalJsonPostClient.sessionId;
+      expect(otherPrincipalSessionId, isNotNull);
+      expect(otherPrincipalSessionId, isNot(equals(activeSecureJsonSessionId)));
+      expect(otherPrincipalJsonPostClient.lastEventId, isNull);
+
+      await otherPrincipalJsonPostClient.notifyInitialized();
+      final otherPrincipalTools = await otherPrincipalJsonPostClient.listTools(
+        id: 'secure-json-post-other-tools',
+      );
+      expect(
+        otherPrincipalTools.tools.map((tool) => tool['name']),
+        contains('app.safe.lookup'),
+      );
+      expect(
+        otherPrincipalJsonPostClient.sessionId,
+        equals(otherPrincipalSessionId),
+      );
+      expect(otherPrincipalJsonPostClient.lastEventId, isNull);
+      await otherPrincipalJsonPostClient.deleteSession();
+      expect(otherPrincipalJsonPostClient.sessionId, isNull);
+      expect(otherPrincipalJsonPostClient.lastEventId, isNull);
       expect(secureJsonPostClient.sessionId, equals(activeSecureJsonSessionId));
       expect(secureJsonPostClient.lastEventId, isNull);
 
