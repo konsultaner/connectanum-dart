@@ -7521,6 +7521,7 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
       'JSON-response MCP $label direct tools/list changed session state.',
     );
   }
+  await _smokeDirectToolApi(client, label: '$label-independent');
   await _smokeGenericDirectJsonRpcPubSub(
     client,
     serviceSession,
@@ -12138,6 +12139,7 @@ Future<void> _assertStreamableIndependentPrincipalSession(
       'Secure Streamable MCP $label direct tools/list changed session state.',
     );
   }
+  await _smokeDirectToolApi(client, label: '$label-independent');
   await _smokeGenericDirectJsonRpcPubSub(
     client,
     serviceSession,

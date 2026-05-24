@@ -1278,6 +1278,7 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
       'JSON-response MCP $label direct tools/list changed session state.',
     );
   }
+  await _smokeDirectJsonToolMetaApi(client, label: '$label-independent');
   await _smokeDirectJsonTopicMetaApi(client, label: '$label-independent');
   await _smokeDirectJsonWampMetaHelpers(
     client,
@@ -1387,6 +1388,7 @@ Future<void> _assertStreamableIndependentPrincipalSession(
       'Secure Streamable MCP $label direct tools/list changed session state.',
     );
   }
+  await _smokeDirectJsonToolMetaApi(client, label: '$label-independent');
   await _smokeDirectJsonTopicMetaApi(client, label: '$label-independent');
   await _smokeDirectJsonWampMetaHelpers(
     client,
@@ -2531,6 +2533,16 @@ Future<void> _smokeDirectJsonToolMetaApi(
   );
   if (!jsonEncode(helperResult).contains(helperTaskId)) {
     throw StateError('Direct JSON-RPC tool helper did not return task id.');
+  }
+
+  final dottedMethodTaskId = 'T-$label-direct-dotted-method';
+  final dottedMethodResult = await client.callConnectanumMethodDirect(
+    'example.task.lookup',
+    id: '$label-direct-dotted-method',
+    params: {'taskId': dottedMethodTaskId},
+  );
+  if (!jsonEncode(dottedMethodResult).contains(dottedMethodTaskId)) {
+    throw StateError('Direct JSON-RPC dotted tool method failed.');
   }
 
   final pluralAliasTaskId = 'T-$label-direct-tools-call-alias';

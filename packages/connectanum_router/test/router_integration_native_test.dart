@@ -2292,6 +2292,11 @@ void main() {
           otherDirectTools.tools.map((tool) => tool['name']),
           contains('connectanum.api.list'),
         );
+        await _expectDirectSafeLookupMethod(
+          otherPrincipalMcpClient,
+          taskId: 'T-secure-other-direct-method',
+          label: 'secure-other',
+        );
         final otherDirectTopicCatalog = await otherPrincipalMcpClient
             .listWampApi(
               id: 'secure-other-direct-topic-catalog',
@@ -3916,6 +3921,11 @@ void main() {
         directJson: true,
       );
       expect(jsonEncode(directSecurePrompt), contains('T-direct-secure'));
+      await _expectDirectSafeLookupMethod(
+        directSecureMcpClient,
+        taskId: 'T-direct-secure-method',
+        label: 'direct-secure',
+      );
       expect(directSecureMcpClient.sessionId, isNull);
 
       final secureJsonPostEndpoint = Uri(
@@ -3937,6 +3947,11 @@ void main() {
       };
       expect(secureJsonDirectToolNames, contains('app.safe.lookup'));
       expect(secureJsonDirectToolNames, contains('app.unsafe.delete'));
+      await _expectDirectSafeLookupMethod(
+        secureJsonPostClient,
+        taskId: 'T-secure-json-post-direct-method',
+        label: 'secure-json-post',
+      );
       expect(secureJsonPostClient.sessionId, isNull);
 
       final secureJsonDirectTopicCatalog = await secureJsonPostClient
@@ -4115,6 +4130,11 @@ void main() {
       expect(
         otherPrincipalDirectTools.tools.map((tool) => tool['name']),
         contains('app.safe.lookup'),
+      );
+      await _expectDirectSafeLookupMethod(
+        otherPrincipalJsonPostClient,
+        taskId: 'T-secure-json-post-other-direct-method',
+        label: 'secure-json-post-other',
       );
       expect(otherPrincipalJsonPostClient.sessionId, isNull);
       expect(otherPrincipalJsonPostClient.lastEventId, isNull);
@@ -6945,6 +6965,25 @@ Future<void> _expectDirectPrincipalWampMetaHelpers(
     );
   }
 
+  expect(client.sessionId, equals(previousSessionId));
+  expect(client.lastEventId, equals(previousEventId));
+}
+
+Future<void> _expectDirectSafeLookupMethod(
+  McpStreamableHttpClient client, {
+  required String taskId,
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final result = await client.callConnectanumMethodDirect(
+    'app.safe.lookup',
+    id: '$label-direct-safe-method',
+    params: {'taskId': taskId, 'id': taskId},
+    headers: <String, String>{'x-consumer-trace': '$label-direct-safe-method'},
+  );
+  expect(result['isError'], isFalse);
+  expect(jsonEncode(result['structuredContent']), contains(taskId));
   expect(client.sessionId, equals(previousSessionId));
   expect(client.lastEventId, equals(previousEventId));
 }
