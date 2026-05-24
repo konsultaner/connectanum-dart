@@ -2,9 +2,30 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP auth-grant lifecycle coverage.
-Latest fully clean hosted checkpoint: Commit `8a8f09b`.
+Last reviewed branch checkpoint: MCP bearer-token request auth coverage.
+Latest fully clean hosted checkpoint: Commit `c588ff4`.
 Current implementation checkpoint: The public Streamable HTTP MCP client
+bearer-token regression now covers both Streamable HTTP and lifecycle-free
+direct JSON calls under stale per-call `Authorization` metadata. The primary
+`withBearerToken(...)` smoke sends conflicting per-call bearer headers across
+Streamable `initialize`, `notifications/initialized`, `tools/list`, GET/SSE
+polling, Streamable batch POST, DELETE cleanup, and direct JSON `tools/list`,
+`ping`, and batch POST, then asserts every recorded request still uses the
+client-owned trimmed bearer token. This keeps the public convenience
+constructor aligned with the auth-grant lifecycle regression and protects
+downstream applications that mix Streamable HTTP sessions with direct JSON MCP
+tool/meta access. Baseline `bin/test-fast` passed on 2026-05-25. Focused
+local coverage passed on 2026-05-25:
+`dart format packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart analyze packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+and
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
+Full local `bin/verify` passed on 2026-05-25, including the router-hosted MCP
+example smoke, generated consumer-package smoke, and Chrome/Dart2Wasm browser
+WebSocket smoke. The latest fully clean hosted checkpoint remains `c588ff4`
+until this local test/readiness change has hosted evidence. No RC tag, GitHub
+Release, or router image was created or moved.
+Prior implementation checkpoint: The public Streamable HTTP MCP client
 auth-grant regression now covers the full initialized lifecycle, not only
 `initialize(...)`. A client constructed from `ConnectanumHttpAuthGrant` now has
 coverage proving its owned bearer token is preserved when per-call headers try
@@ -20,9 +41,25 @@ and
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
 Full local `bin/verify` passed on 2026-05-25, including the router-hosted MCP
 example smoke, generated consumer-package smoke, and Chrome/Dart2Wasm browser
-WebSocket smoke. The latest fully clean hosted checkpoint remains `8a8f09b`
-until this local test/readiness change has hosted evidence. No RC tag, GitHub
-Release, or router image was created or moved.
+WebSocket smoke. Commit `c588ff4` (`test: cover mcp auth grant lifecycle`) was
+pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted
+GitHub evidence is clean at `c588ff4`: `master` CI run `26374623727` and
+`add-router` CI run `26374619965` passed with Fast Checks and Full Verify
+green. Dart Package Publish Dry Run `26374623735` on `master` and
+`26374619948` on `add-router`, plus WAMP Profile Benchmarks `26374623736` on
+`master` and `26374619943` on `add-router`, passed for the same head. Manual
+non-mutating Router Image dry-run `26374917999` passed on `master`, uploaded
+preview metadata for `sha-c588ff46d07c`, skipped GHCR login, and did not push
+an image. Native Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed. The strict deployment-chain audit
+passed required gates on `master` at `c588ff4`, including clean current-head
+CI/logs, Dart package dry-run, WAMP profile benchmark evidence, current Router
+Image dry-run, relevant native release dry-run, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected; pub.dev publishing remains deferred for
+release-order and operator decisions. No RC tag, GitHub Release, or published
+router image was created or moved.
 Prior implementation checkpoint: `bin/test-all` now bounds each browser
 WebSocket smoke attempt with
 `CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS`, defaulting to 420 seconds,

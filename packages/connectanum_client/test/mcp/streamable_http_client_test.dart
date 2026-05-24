@@ -25,6 +25,7 @@ void main() {
             'version': '1.0.0',
           },
           headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-initialize-token',
             'x-consumer-trace': 'streamable-initialize',
           },
         );
@@ -38,16 +39,24 @@ void main() {
 
         await client.notifyInitialized(
           headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-initialized-token',
             'x-consumer-trace': 'streamable-initialized',
           },
         );
 
-        final tools = await client.request('tools/list', id: 'tools-sse');
+        final tools = await client.request(
+          'tools/list',
+          id: 'tools-sse',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-tools-sse-token',
+          },
+        );
         expect(tools['id'], 'tools-sse');
         expect(client.lastEventId, 'session-1:post:2');
 
         final pollEvents = await client.poll(
           headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-poll-token',
             'x-consumer-trace': 'streamable-poll',
           },
         );
@@ -63,34 +72,50 @@ void main() {
           'tools/list',
           id: 'tools-json',
           streamable: false,
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-tools-json-token',
+          },
         );
         expect(jsonTools['id'], 'tools-json');
 
         final ping = await client.pingDirect(
           id: 'ping-json',
           headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-ping-json-token',
             'x-consumer-trace': 'ping-json-helper',
           },
         );
         expect(ping, isEmpty);
 
-        final streamableBatch = await client.postBatch([
-          {'jsonrpc': '2.0', 'id': 'batch-sse', 'method': 'tools/list'},
-          {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
-        ]);
+        final streamableBatch = await client.postBatch(
+          [
+            {'jsonrpc': '2.0', 'id': 'batch-sse', 'method': 'tools/list'},
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+          ],
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-batch-sse-token',
+          },
+        );
         expect(streamableBatch, hasLength(1));
         expect(streamableBatch?.single['id'], 'batch-sse');
         expect(client.lastEventId, 'session-1:post-batch:1');
 
-        final jsonBatch = await client.postBatch([
-          {'jsonrpc': '2.0', 'id': 'batch-json', 'method': 'tools/list'},
-          {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
-        ], streamable: false);
+        final jsonBatch = await client.postBatch(
+          [
+            {'jsonrpc': '2.0', 'id': 'batch-json', 'method': 'tools/list'},
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+          ],
+          streamable: false,
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-batch-json-token',
+          },
+        );
         expect(jsonBatch, hasLength(1));
         expect(jsonBatch?.single['id'], 'batch-json');
 
         await client.deleteSession(
           headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-delete-token',
             'x-consumer-trace': 'streamable-delete',
           },
         );
@@ -98,7 +123,10 @@ void main() {
         expect(client.lastEventId, isNull);
 
         expect(endpoint.requests, hasLength(9));
-        expect(endpoint.requests[0].authorization, 'Bearer test-token');
+        expect(
+          endpoint.requests.map((request) => request.authorization),
+          everyElement('Bearer test-token'),
+        );
         expect(endpoint.requests[0].accept, contains('text/event-stream'));
         expect(endpoint.requests[0].mcpMethod, 'initialize');
         expect(endpoint.requests[0].mcpName, isNull);
