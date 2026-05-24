@@ -3781,6 +3781,60 @@ void main() {
         contains('app.secure.audit'),
       );
 
+      final secureJsonDirectResources = await secureJsonPostClient
+          .listResources(
+            id: 'secure-json-post-direct-resources',
+            directJson: true,
+          );
+      expect(
+        secureJsonDirectResources.resources.map((resource) => resource['uri']),
+        contains('app://mcp/context'),
+      );
+
+      final secureJsonDirectResourceContents = await secureJsonPostClient
+          .readResource(
+            'app://mcp/context',
+            id: 'secure-json-post-direct-resource-read',
+            directJson: true,
+          );
+      expect(
+        secureJsonDirectResourceContents.single['text'],
+        contains('router-hosted MCP route'),
+      );
+
+      final secureJsonDirectResourceTemplates = await secureJsonPostClient
+          .listResourceTemplates(
+            id: 'secure-json-post-direct-resource-templates',
+            directJson: true,
+          );
+      expect(
+        secureJsonDirectResourceTemplates.resourceTemplates.map(
+          (template) => template['uriTemplate'],
+        ),
+        contains('app://mcp/task/{taskId}'),
+      );
+
+      final secureJsonDirectPrompts = await secureJsonPostClient.listPrompts(
+        id: 'secure-json-post-direct-prompts',
+        directJson: true,
+      );
+      expect(
+        secureJsonDirectPrompts.prompts.map((prompt) => prompt['name']),
+        contains('inspect-task'),
+      );
+
+      final secureJsonDirectPrompt = await secureJsonPostClient.getPrompt(
+        'inspect-task',
+        id: 'secure-json-post-direct-prompt',
+        arguments: {'taskId': 'T-secure-json-direct-prompt'},
+        directJson: true,
+      );
+      expect(
+        jsonEncode(secureJsonDirectPrompt),
+        contains('T-secure-json-direct-prompt'),
+      );
+      expect(secureJsonPostClient.sessionId, isNull);
+
       final secureJsonInitialize = await secureJsonPostClient.initialize(
         id: 'secure-json-post-initialize',
       );
@@ -3801,6 +3855,50 @@ void main() {
       };
       expect(secureJsonToolNames, contains('app.safe.lookup'));
       expect(secureJsonToolNames, contains('app.unsafe.delete'));
+      expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      final secureJsonResources = await secureJsonPostClient.listResources(
+        id: 'secure-json-post-resources',
+      );
+      expect(
+        secureJsonResources.resources.map((resource) => resource['uri']),
+        contains('app://mcp/context'),
+      );
+
+      final secureJsonResourceContents = await secureJsonPostClient
+          .readResource(
+            'app://mcp/context',
+            id: 'secure-json-post-resource-read',
+          );
+      expect(
+        secureJsonResourceContents.single['text'],
+        contains('router-hosted MCP route'),
+      );
+
+      final secureJsonResourceTemplates = await secureJsonPostClient
+          .listResourceTemplates(id: 'secure-json-post-resource-templates');
+      expect(
+        secureJsonResourceTemplates.resourceTemplates.map(
+          (template) => template['uriTemplate'],
+        ),
+        contains('app://mcp/task/{taskId}'),
+      );
+
+      final secureJsonPrompts = await secureJsonPostClient.listPrompts(
+        id: 'secure-json-post-prompts',
+      );
+      expect(
+        secureJsonPrompts.prompts.map((prompt) => prompt['name']),
+        contains('inspect-task'),
+      );
+
+      final secureJsonPrompt = await secureJsonPostClient.getPrompt(
+        'inspect-task',
+        id: 'secure-json-post-prompt',
+        arguments: {'taskId': 'T-secure-json-prompt'},
+      );
+      expect(jsonEncode(secureJsonPrompt), contains('T-secure-json-prompt'));
       expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
       expect(secureJsonPostClient.lastEventId, isNull);
 
