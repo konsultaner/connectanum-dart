@@ -7532,9 +7532,15 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
     serviceSession,
     label: '$label-independent',
   );
+  await _smokeResourcesAndPrompts(
+    client,
+    label: '$label-independent',
+    directJson: true,
+  );
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError(
-      'JSON-response MCP $label direct WAMP meta/pubsub changed session state.',
+      'JSON-response MCP $label direct resource/prompt WAMP meta/pubsub '
+      'changed session state.',
     );
   }
 
@@ -7569,6 +7575,14 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
   if (client.sessionId != sessionId || client.lastEventId != null) {
     throw StateError(
       'JSON-response MCP $label independent tools/list changed session state.',
+    );
+  }
+
+  await _smokeResourcesAndPrompts(client, label: '$label-independent');
+  if (client.sessionId != sessionId || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label independent resources/prompts changed '
+      'session state.',
     );
   }
 

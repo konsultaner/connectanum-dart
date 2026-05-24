@@ -4183,6 +4183,65 @@ void main() {
       expect(otherPrincipalJsonPostClient.sessionId, isNull);
       expect(otherPrincipalJsonPostClient.lastEventId, isNull);
 
+      final otherPrincipalDirectResources = await otherPrincipalJsonPostClient
+          .listResources(
+            id: 'secure-json-post-other-direct-resources',
+            directJson: true,
+          );
+      expect(
+        otherPrincipalDirectResources.resources.map(
+          (resource) => resource['uri'],
+        ),
+        contains('app://mcp/context'),
+      );
+
+      final otherPrincipalDirectResourceContents =
+          await otherPrincipalJsonPostClient.readResource(
+            'app://mcp/context',
+            id: 'secure-json-post-other-direct-resource-read',
+            directJson: true,
+          );
+      expect(
+        otherPrincipalDirectResourceContents.single['text'],
+        contains('router-hosted MCP route'),
+      );
+
+      final otherPrincipalDirectResourceTemplates =
+          await otherPrincipalJsonPostClient.listResourceTemplates(
+            id: 'secure-json-post-other-direct-resource-templates',
+            directJson: true,
+          );
+      expect(
+        otherPrincipalDirectResourceTemplates.resourceTemplates.map(
+          (template) => template['uriTemplate'],
+        ),
+        contains('app://mcp/task/{taskId}'),
+      );
+
+      final otherPrincipalDirectPrompts = await otherPrincipalJsonPostClient
+          .listPrompts(
+            id: 'secure-json-post-other-direct-prompts',
+            directJson: true,
+          );
+      expect(
+        otherPrincipalDirectPrompts.prompts.map((prompt) => prompt['name']),
+        contains('inspect-task'),
+      );
+
+      final otherPrincipalDirectPrompt = await otherPrincipalJsonPostClient
+          .getPrompt(
+            'inspect-task',
+            id: 'secure-json-post-other-direct-prompt',
+            arguments: {'taskId': 'T-secure-json-post-other-direct-prompt'},
+            directJson: true,
+          );
+      expect(
+        jsonEncode(otherPrincipalDirectPrompt),
+        contains('T-secure-json-post-other-direct-prompt'),
+      );
+      expect(otherPrincipalJsonPostClient.sessionId, isNull);
+      expect(otherPrincipalJsonPostClient.lastEventId, isNull);
+
       final otherPrincipalDirectTopicCatalog = await _callRouterJsonMethod(
         client,
         listener.port,
@@ -4273,6 +4332,56 @@ void main() {
       expect(
         otherPrincipalTools.tools.map((tool) => tool['name']),
         contains('app.safe.lookup'),
+      );
+      expect(
+        otherPrincipalJsonPostClient.sessionId,
+        equals(otherPrincipalSessionId),
+      );
+      expect(otherPrincipalJsonPostClient.lastEventId, isNull);
+
+      final otherPrincipalResources = await otherPrincipalJsonPostClient
+          .listResources(id: 'secure-json-post-other-resources');
+      expect(
+        otherPrincipalResources.resources.map((resource) => resource['uri']),
+        contains('app://mcp/context'),
+      );
+
+      final otherPrincipalResourceContents = await otherPrincipalJsonPostClient
+          .readResource(
+            'app://mcp/context',
+            id: 'secure-json-post-other-resource-read',
+          );
+      expect(
+        otherPrincipalResourceContents.single['text'],
+        contains('router-hosted MCP route'),
+      );
+
+      final otherPrincipalResourceTemplates = await otherPrincipalJsonPostClient
+          .listResourceTemplates(
+            id: 'secure-json-post-other-resource-templates',
+          );
+      expect(
+        otherPrincipalResourceTemplates.resourceTemplates.map(
+          (template) => template['uriTemplate'],
+        ),
+        contains('app://mcp/task/{taskId}'),
+      );
+
+      final otherPrincipalPrompts = await otherPrincipalJsonPostClient
+          .listPrompts(id: 'secure-json-post-other-prompts');
+      expect(
+        otherPrincipalPrompts.prompts.map((prompt) => prompt['name']),
+        contains('inspect-task'),
+      );
+
+      final otherPrincipalPrompt = await otherPrincipalJsonPostClient.getPrompt(
+        'inspect-task',
+        id: 'secure-json-post-other-prompt',
+        arguments: {'taskId': 'T-secure-json-post-other-prompt'},
+      );
+      expect(
+        jsonEncode(otherPrincipalPrompt),
+        contains('T-secure-json-post-other-prompt'),
       );
       expect(
         otherPrincipalJsonPostClient.sessionId,

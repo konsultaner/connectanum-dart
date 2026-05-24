@@ -1308,9 +1308,61 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
     serviceSession,
     label: '$label-independent',
   );
+  final directResources = await client.listResourcesDirect(
+    id: '$label-independent-direct-resources',
+  );
+  if (!directResources.resources.any(
+    (resource) => resource['uri'] == 'app://example/context',
+  )) {
+    throw StateError(
+      'JSON-response MCP $label direct resources/list missed context.',
+    );
+  }
+  final directResource = await client.readResourceDirect(
+    'app://example/context',
+    id: '$label-independent-direct-resource-read',
+  );
+  if (!jsonEncode(directResource).contains('Router-hosted MCP example')) {
+    throw StateError(
+      'JSON-response MCP $label direct resources/read missed context.',
+    );
+  }
+  final directTemplates = await client.listResourceTemplatesDirect(
+    id: '$label-independent-direct-resource-templates',
+  );
+  if (!directTemplates.resourceTemplates.any(
+    (template) => template['uriTemplate'] == 'app://example/tasks/{taskId}',
+  )) {
+    throw StateError(
+      'JSON-response MCP $label direct resources/templates/list '
+      'missed template.',
+    );
+  }
+  final directPrompts = await client.listPromptsDirect(
+    id: '$label-independent-direct-prompts',
+  );
+  if (!directPrompts.prompts.any(
+    (prompt) => prompt['name'] == 'summarize-task',
+  )) {
+    throw StateError(
+      'JSON-response MCP $label direct prompts/list missed prompt.',
+    );
+  }
+  final directPromptTaskId = 'T-$label-independent-direct-prompt';
+  final directPrompt = await client.getPromptDirect(
+    'summarize-task',
+    id: '$label-independent-direct-prompt',
+    arguments: {'taskId': directPromptTaskId},
+  );
+  if (!jsonEncode(directPrompt).contains(directPromptTaskId)) {
+    throw StateError(
+      'JSON-response MCP $label direct prompts/get missed task id.',
+    );
+  }
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError(
-      'JSON-response MCP $label direct WAMP meta/pubsub changed session state.',
+      'JSON-response MCP $label direct resource/prompt WAMP meta/pubsub '
+      'changed session state.',
     );
   }
 
@@ -1344,6 +1396,60 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
   if (client.sessionId != sessionId || client.lastEventId != null) {
     throw StateError(
       'JSON-response MCP $label independent tools/list changed session state.',
+    );
+  }
+
+  final resources = await client.listResources(
+    id: '$label-independent-resources',
+  );
+  if (!resources.resources.any(
+    (resource) => resource['uri'] == 'app://example/context',
+  )) {
+    throw StateError(
+      'JSON-response MCP $label independent resources/list missed context.',
+    );
+  }
+  final resource = await client.readResource(
+    'app://example/context',
+    id: '$label-independent-resource-read',
+  );
+  if (!jsonEncode(resource).contains('Router-hosted MCP example')) {
+    throw StateError(
+      'JSON-response MCP $label independent resources/read missed context.',
+    );
+  }
+  final templates = await client.listResourceTemplates(
+    id: '$label-independent-resource-templates',
+  );
+  if (!templates.resourceTemplates.any(
+    (template) => template['uriTemplate'] == 'app://example/tasks/{taskId}',
+  )) {
+    throw StateError(
+      'JSON-response MCP $label independent resources/templates/list '
+      'missed template.',
+    );
+  }
+  final prompts = await client.listPrompts(id: '$label-independent-prompts');
+  if (!prompts.prompts.any((prompt) => prompt['name'] == 'summarize-task')) {
+    throw StateError(
+      'JSON-response MCP $label independent prompts/list missed prompt.',
+    );
+  }
+  final promptTaskId = 'T-$label-independent-prompt';
+  final prompt = await client.getPrompt(
+    'summarize-task',
+    id: '$label-independent-prompt',
+    arguments: {'taskId': promptTaskId},
+  );
+  if (!jsonEncode(prompt).contains(promptTaskId)) {
+    throw StateError(
+      'JSON-response MCP $label independent prompts/get missed task id.',
+    );
+  }
+  if (client.sessionId != sessionId || client.lastEventId != null) {
+    throw StateError(
+      'JSON-response MCP $label independent resources/prompts changed '
+      'session state.',
     );
   }
 

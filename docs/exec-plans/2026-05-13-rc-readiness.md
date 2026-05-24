@@ -78,6 +78,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Extended the secure JSON-response MCP independent-principal
+  coverage across the native router integration smoke, public router-hosted
+  MCP example, and generated consumer-package smoke. A second valid bearer
+  principal now proves lifecycle-free direct JSON `resources/list`,
+  `resources/read`, `resources/templates/list`, `prompts/list`, and
+  `prompts/get` access before initialization, then repeats resource and prompt
+  access on its own initialized JSON-response Streamable HTTP session while
+  asserting the owner principal's session is not reused and POST/SSE cursor
+  state remains unchanged. Pre-change `bin/test-fast` passed on 2026-05-24.
+  Focused local coverage passed:
+  `dart analyze packages/connectanum_router/test/router_integration_native_test.dart packages/connectanum_router/example/router_hosted_mcp.dart`,
+  `cd packages/connectanum_router && dart test test/router_integration_native_test.dart --name "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+  `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
+  and `git diff --check`. Full local `bin/verify` passed on 2026-05-24.
+  Hosted evidence remains clean at `25afea8`; no hosted run has completed for
+  this local checkpoint yet. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-24: Strengthened the checked-in `connectanum_mcp` IO entrypoint
   pub/sub smoke so it proves side effects instead of only request shapes. The
   fake Streamable MCP endpoint now records per-subscription event queues,
@@ -95,9 +114,23 @@ decision because `connectanum_client` still depends on private
   `dart format packages/connectanum_mcp/test/io_client_export_test.dart`,
   `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
   and `dart analyze packages/connectanum_mcp`. Full local `bin/verify` passed
-  on 2026-05-24. Hosted evidence remains clean at `7b4a88e`; no new hosted run
-  has completed for this local checkpoint yet. No RC tag, GitHub Release, or
-  router image was created or moved.
+  on 2026-05-24. Commit `25afea8`
+  (`test: cover mcp io pubsub side effects`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `25afea8`: `master` CI run `26369187521` and `add-router` CI run
+  `26369185437` passed with Fast Checks and Full Verify green; Dart Package
+  Publish Dry Run `26369187504` on `master` and `26369185436` on `add-router`
+  passed; Router Image dry-run `26369504710` passed on `master`; WAMP Profile
+  Benchmarks `26366801338` and Native Artifacts dry-run `26286794628` remain
+  relevant because no corresponding sensitive inputs changed after their clean
+  runs. The strict deployment-chain audit passed required gates on `master` at
+  `25afea8`, including clean current-head CI/logs, Dart package dry-run, WAMP
+  profile benchmark evidence, current Router Image dry-run, relevant native
+  release dry-run, branch protection, workflow visibility, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag, GitHub prerelease, or matching RC router image tag has been selected;
+  pub.dev publishing remains deferred for release-order and operator decisions.
+  No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Extended the generated consumer-package smoke from the standard
   Streamable MCP tool notification helper and a `connectanum.tool.call`
   notification-only batch to the remaining sessionful tool-method aliases. A
