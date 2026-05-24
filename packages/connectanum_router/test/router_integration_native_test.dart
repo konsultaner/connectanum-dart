@@ -2161,6 +2161,14 @@ void main() {
           authRole: 'internal',
         );
         addTearDown(serviceSession.close);
+        final directMetaRegistration = await serviceSession.register(
+          'app.safe.lookup',
+        );
+        directMetaRegistration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: {'value': invocation.argumentsKeywords?['id']},
+          );
+        });
         final httpClient = HttpClient();
         addTearDown(() => httpClient.close(force: true));
 
@@ -2293,6 +2301,15 @@ void main() {
         expect(
           jsonEncode(otherDirectTopicCatalog),
           contains('app.secure.audit'),
+        );
+        await _expectDirectPrincipalWampMetaHelpers(
+          otherPrincipalMcpClient,
+          serviceSession,
+          procedure: 'app.safe.lookup',
+          topic: 'app.secure.audit',
+          authId: 'user-2',
+          authRole: 'member',
+          label: 'secure-other-direct',
         );
         final otherDirectSubscription = await otherPrincipalMcpClient
             .subscribeWampTopicDirect(
@@ -4113,6 +4130,15 @@ void main() {
       expect(
         jsonEncode(otherPrincipalDirectTopicCatalog['structuredContent']),
         contains('app.secure.audit'),
+      );
+      await _expectDirectPrincipalWampMetaHelpers(
+        otherPrincipalJsonPostClient,
+        serviceSession,
+        procedure: 'app.safe.lookup',
+        topic: 'app.secure.audit',
+        authId: 'user-2',
+        authRole: 'member',
+        label: 'secure-json-post-other-direct',
       );
 
       final otherPrincipalDirectSubscription = await _callRouterJsonMethod(
@@ -6749,6 +6775,178 @@ Future<Map<String, Object?>> _pollDirectRouterJsonUntilEvents(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   fail('Timed out waiting for direct JSON MCP subscription events for $handle');
+}
+
+Future<void> _expectDirectPrincipalWampMetaHelpers(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String procedure,
+  required String topic,
+  required String authId,
+  required String authRole,
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final sessionCount = await client.countWampSessionsDirect(
+    id: '$label-session-count',
+    headers: <String, String>{'x-consumer-trace': '$label-session-count'},
+  );
+  expect(sessionCount.argumentsKeywords['count'], equals(1));
+
+  final sessionList = await client.listWampSessionsDirect(
+    id: '$label-session-list',
+    headers: <String, String>{'x-consumer-trace': '$label-session-list'},
+  );
+  final sessionIds = (sessionList.argumentsKeywords['session_ids'] as List)
+      .cast<Object?>();
+  expect(sessionIds, hasLength(1));
+  expect(sessionIds, isNot(contains(serviceSession.sessionId)));
+  final visibleSessionId = (sessionIds.single as num).toInt();
+
+  final sessionGet = await client.getWampSessionDirect(
+    visibleSessionId,
+    id: '$label-session-get',
+    headers: <String, String>{'x-consumer-trace': '$label-session-get'},
+  );
+  final sessionDetails = (sessionGet.argumentsKeywords['details'] as Map)
+      .cast<String, Object?>();
+  expect(sessionDetails['authid'], equals(authId));
+  expect(sessionDetails['authrole'], equals(authRole));
+
+  final registrationLookup = await client.lookupWampRegistrationDirect(
+    procedure,
+    id: '$label-registration-lookup',
+    match: 'exact',
+    headers: <String, String>{'x-consumer-trace': '$label-registration-lookup'},
+  );
+  final registrationId = (registrationLookup.arguments.single as num).toInt();
+  expect(registrationId, greaterThan(0));
+
+  final registrationMatch = await client.matchWampRegistrationDirect(
+    procedure,
+    id: '$label-registration-match',
+    headers: <String, String>{'x-consumer-trace': '$label-registration-match'},
+  );
+  expect(registrationMatch.arguments, contains(registrationId));
+
+  final registrationList = await client.listWampRegistrationsDirect(
+    id: '$label-registration-list',
+    headers: <String, String>{'x-consumer-trace': '$label-registration-list'},
+  );
+  final exactRegistrations =
+      (registrationList.argumentsKeywords['exact'] as List).cast<Object?>();
+  expect(exactRegistrations, contains(registrationId));
+
+  final registrationGet = await client.getWampRegistrationDirect(
+    registrationId,
+    id: '$label-registration-get',
+    headers: <String, String>{'x-consumer-trace': '$label-registration-get'},
+  );
+  expect(registrationGet.argumentsKeywords['uri'], equals(procedure));
+
+  final registrationCallees = await client.listWampRegistrationCalleesDirect(
+    registrationId,
+    id: '$label-registration-callees',
+    headers: <String, String>{
+      'x-consumer-trace': '$label-registration-callees',
+    },
+  );
+  expect(registrationCallees.arguments, isEmpty);
+  expect(
+    registrationCallees.arguments,
+    isNot(contains(serviceSession.sessionId)),
+  );
+
+  final registrationCalleeCount = await client
+      .countWampRegistrationCalleesDirect(
+        registrationId,
+        id: '$label-registration-callee-count',
+        headers: <String, String>{
+          'x-consumer-trace': '$label-registration-callee-count',
+        },
+      );
+  expect(registrationCalleeCount.arguments, equals([0]));
+
+  final subscription = await client.subscribeWampTopicDirect(
+    topic,
+    id: '$label-subscribe',
+    queueLimit: 2,
+    headers: <String, String>{'x-consumer-trace': '$label-subscribe'},
+  );
+  try {
+    final subscriptionId = subscription.subscriptionId;
+    expect(subscriptionId, isNotNull);
+    expect(subscriptionId, greaterThan(0));
+
+    final subscriptionLookup = await client.lookupWampSubscriptionDirect(
+      topic,
+      id: '$label-subscription-lookup',
+      match: 'exact',
+      headers: <String, String>{
+        'x-consumer-trace': '$label-subscription-lookup',
+      },
+    );
+    expect(subscriptionLookup.arguments, contains(subscriptionId));
+
+    final subscriptionMatch = await client.matchWampSubscriptionDirect(
+      topic,
+      id: '$label-subscription-match',
+      headers: <String, String>{
+        'x-consumer-trace': '$label-subscription-match',
+      },
+    );
+    expect(subscriptionMatch.arguments, contains(subscriptionId));
+
+    final subscriptionList = await client.listWampSubscriptionsDirect(
+      id: '$label-subscription-list',
+      headers: <String, String>{'x-consumer-trace': '$label-subscription-list'},
+    );
+    final exactSubscriptions =
+        (subscriptionList.argumentsKeywords['exact'] as List).cast<Object?>();
+    expect(exactSubscriptions, contains(subscriptionId));
+
+    final subscriptionGet = await client.getWampSubscriptionDirect(
+      subscriptionId!,
+      id: '$label-subscription-get',
+      headers: <String, String>{'x-consumer-trace': '$label-subscription-get'},
+    );
+    expect(subscriptionGet.argumentsKeywords['uri'], equals(topic));
+
+    final subscriptionSubscribers = await client
+        .listWampSubscriptionSubscribersDirect(
+          subscriptionId,
+          id: '$label-subscription-subscribers',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-subscription-subscribers',
+          },
+        );
+    expect(subscriptionSubscribers.arguments, contains(visibleSessionId));
+    expect(
+      subscriptionSubscribers.arguments,
+      isNot(contains(serviceSession.sessionId)),
+    );
+
+    final subscriptionSubscriberCount = await client
+        .countWampSubscriptionSubscribersDirect(
+          subscriptionId,
+          id: '$label-subscription-subscriber-count',
+          headers: <String, String>{
+            'x-consumer-trace': '$label-subscription-subscriber-count',
+          },
+        );
+    expect(subscriptionSubscriberCount.arguments, equals([1]));
+  } finally {
+    await client.unsubscribeWampTopicDirect(
+      subscription.handle,
+      id: '$label-unsubscribe',
+      headers: <String, String>{'x-consumer-trace': '$label-unsubscribe'},
+    );
+  }
+
+  expect(client.sessionId, equals(previousSessionId));
+  expect(client.lastEventId, equals(previousEventId));
 }
 
 Future<Map<String, Object?>> _pollStreamableMcpUntilEvents(

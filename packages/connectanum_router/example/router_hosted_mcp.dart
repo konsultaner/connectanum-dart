@@ -1279,6 +1279,11 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
     );
   }
   await _smokeDirectJsonTopicMetaApi(client, label: '$label-independent');
+  await _smokeDirectJsonWampMetaHelpers(
+    client,
+    serviceSession,
+    label: '$label-independent',
+  );
   await _smokeDirectJsonBatchPubSub(
     client,
     serviceSession,
@@ -1286,7 +1291,7 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
   );
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError(
-      'JSON-response MCP $label direct WAMP/pubsub changed session state.',
+      'JSON-response MCP $label direct WAMP meta/pubsub changed session state.',
     );
   }
 
@@ -1383,6 +1388,11 @@ Future<void> _assertStreamableIndependentPrincipalSession(
     );
   }
   await _smokeDirectJsonTopicMetaApi(client, label: '$label-independent');
+  await _smokeDirectJsonWampMetaHelpers(
+    client,
+    serviceSession,
+    label: '$label-independent',
+  );
   await _smokeDirectJsonBatchPubSub(
     client,
     serviceSession,
@@ -1390,7 +1400,7 @@ Future<void> _assertStreamableIndependentPrincipalSession(
   );
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError(
-      'Secure Streamable MCP $label direct WAMP/pubsub changed session state.',
+      'Secure Streamable MCP $label direct WAMP meta/pubsub changed session state.',
     );
   }
 

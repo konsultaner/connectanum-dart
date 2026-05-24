@@ -2,10 +2,36 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Secure JSON-response MCP independent-principal
-direct WAMP/pubsub coverage.
-Latest fully clean hosted checkpoint: Commit `a2c706f`.
+Last reviewed branch checkpoint: Secure MCP independent-principal direct WAMP
+meta helper coverage.
+Latest fully clean hosted checkpoint: Commit `8cd8f5e`.
 Current implementation checkpoint: The checked-in router integration smoke,
+public router-hosted MCP example, and generated consumer-package smoke now
+extend independent-principal direct JSON coverage on both bearer-protected MCP
+routes, `/mcp/secure` and `/mcp/secure-json-post`, from direct tool/topic
+catalogs and pub/sub into the full direct WAMP meta helper surface. Before a
+second valid bearer principal initializes its own Streamable session, the smoke
+now proves direct helpers for WAMP session, registration, callee, subscription,
+subscriber, and subscriber-count metadata are callable with bearer auth, expose
+only the caller's visible session/subscription scope, keep internal service
+sessions hidden from callee/subscriber metadata, and do not populate
+`sessionId` or `lastEventId`. The public example and generated
+consumer-package smoke now run these direct WAMP meta helpers before direct
+pub/sub for both secure Streamable and secure JSON-response routes.
+Pre-change `bin/test-fast` passed on 2026-05-24. Focused local coverage passed
+on 2026-05-24:
+`dart analyze packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "isolates MCP Streamable HTTP sessions by route and bearer principal" --chain-stack-traces`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
+`bash -n bin/common.sh`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+and `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+Post-change `python3 tool/check_public_artifact_references.py`,
+`git diff --check`, `bin/test-fast`, and full local `bin/verify` passed on
+2026-05-24 for this checkpoint. Hosted evidence remains clean at commit
+`8cd8f5e` until this checkpoint's deployment chain is inspected. No RC tag,
+GitHub Release, or router image was created or moved.
+Prior implementation checkpoint: The checked-in router integration smoke,
 public router-hosted MCP example, and generated consumer-package smoke now
 extend the bearer-protected JSON-response MCP route at `/mcp/secure-json-post`
 beyond rejected cross-principal session reuse. After a second valid bearer
@@ -22,18 +48,25 @@ the checked-in router integration smoke pins route-level direct WAMP topic
 catalog access, direct pub/sub delivery, independent JSON-response Streamable
 pub/sub delivery, and owner-session stability for a second valid bearer
 principal.
-Pre-change `bin/test-fast` passed on 2026-05-24. Focused local coverage passed
-on 2026-05-24:
-`dart analyze packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
-`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
-`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
-`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
-`bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
-and `git diff --check`. Post-change `bin/test-fast` passed on 2026-05-24.
-Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
-evidence remains at commit `a2c706f` until this checkpoint's deployment chain
-is inspected.
-Prior implementation checkpoint: The checked-in router integration smoke,
+Commit `8cd8f5e` (`test: cover json-response mcp pubsub sessions`) was pushed
+to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `8cd8f5e`: `master` CI run `26361007393` and `add-router`
+CI run `26361003647` passed with Fast Checks and Full Verify green; Dart
+Package Publish Dry Run `26361007296` on `master` and `26361003643` on
+`add-router` passed; WAMP Profile Benchmarks `26361007284` on `master` and
+`26361003657` on `add-router` passed; manual non-mutating Router Image dry-run
+`26361298005` passed on `master` at `8cd8f5e` with preview metadata
+`0.1.0-rc.2-validation.8cd8f5e`, GHCR login skipped, and preview metadata
+uploaded. Native Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed. The strict deployment-chain audit
+passed required gates on `master` at `8cd8f5e`, including clean current-head
+CI/logs, Dart package dry-run, WAMP profile benchmark evidence, current Router
+Image dry-run, relevant native release dry-run, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected; pub.dev publishing remains deferred for
+release-order and operator decisions.
+Previous implementation checkpoint: The checked-in router integration smoke,
 public router-hosted MCP example, and generated consumer-package smoke now
 extend the bearer-protected standard Streamable MCP route at `/mcp/secure`
 beyond rejected cross-principal session reuse. After a second valid bearer
