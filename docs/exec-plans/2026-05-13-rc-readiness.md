@@ -79,20 +79,43 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-05-24: Extended the checked-in router native integration coverage for
-  rejected bearers on the bearer-protected JSON-response MCP route. The
+  auth/session isolation on the bearer-protected JSON-response MCP route. The
   `smoke tests MCP router RPC pubsub and route security` integration test now
   proves `/mcp/secure-json-post` rejects an unknown bearer before any
   Streamable lifecycle session exists, omits `MCP-Session-Id` on the
   unauthorized response, then rejects raw JSON POST requests that reuse an
-  active `MCP-Session-Id` without a bearer or with an unknown bearer. The
-  owner client keeps its active MCP session id, keeps the POST/SSE resume
-  cursor empty, and continues through the existing route-provided
-  resources/prompts, pub/sub, poll, unsubscribe, and DELETE cleanup assertions.
-  Pre-change `bin/test-fast` passed on 2026-05-24. Focused local coverage
-  passed: `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
+  active `MCP-Session-Id` without a bearer or with an unknown bearer. The same
+  smoke now also proves a Streamable HTTP POST from a different valid bearer
+  principal using the owner session id is rejected with `404 Not Found` /
+  `Unknown MCP HTTP session`. The owner client keeps its active MCP session id,
+  keeps the POST/SSE resume cursor empty, and continues through the existing
+  route-provided resources/prompts, pub/sub, poll, unsubscribe, and DELETE
+  cleanup assertions. Pre-change `bin/test-fast` passed on 2026-05-24.
+  Focused local coverage passed:
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
   `dart analyze packages/connectanum_router/test/router_integration_native_test.dart`,
   `python3 tool/check_public_artifact_references.py`, and `git diff --check`.
   Full local `bin/verify` passed on 2026-05-24.
+- 2026-05-24: Hosted evidence for commit `8299cd9`
+  (`test: cover rejected json-response mcp bearers`) is clean: `master` CI
+  run `26352813257` passed with Fast Checks and Full Verify green plus clean
+  logs, and `add-router` CI run `26352812811` passed with Fast Checks and Full
+  Verify green. Dart Package Publish Dry Run `26352813256` on `master` and
+  `26352812807` on `add-router` passed cleanly at `8299cd9`; WAMP Profile
+  Benchmarks `26352813275` on `master` and `26352812823` on `add-router`
+  passed at `8299cd9`. Router Image dry-run `26353070574` passed for current
+  head with preview metadata `sha-8299cd9de96b`, GHCR login skipped, and no
+  image publish. The strict deployment-chain audit passed required gates on
+  `master` at `8299cd9`, including clean current-head CI/logs, current Dart
+  package dry-run, current WAMP profile benchmark evidence, current Router
+  Image dry-run, native release dry-run relevance, branch protection, workflow
+  visibility, and router package visibility. Native Artifacts dry-run
+  `26286794628` remains relevant because no native-release-sensitive inputs
+  changed. RC readiness remains not-ready only because no approved numeric RC
+  tag, GitHub prerelease, or matching RC router image tag has been selected;
+  the audit suggests `v0.1.0-rc.2` as the next numeric tag if release approval
+  is given. Pub.dev publishing remains deferred for release-order and operator
+  decisions. No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Extended the checked-in router native integration coverage for
   the bearer-protected JSON-response MCP route. The
   `smoke tests MCP router RPC pubsub and route security` integration test now

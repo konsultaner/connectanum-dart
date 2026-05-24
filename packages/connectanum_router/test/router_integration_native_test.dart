@@ -3728,6 +3728,11 @@ void main() {
       expect(unknownBearerJsonPost.headers, isNot(contains('mcp-session-id')));
 
       final grant = await _issueTicketHttpGrant(client, listener.port);
+      final otherGrant = await _issueTicketHttpGrant(
+        client,
+        listener.port,
+        authId: 'user-2',
+      );
       final authHeaders = {'authorization': 'Bearer ${grant.accessToken}'};
       final directSecureMcpClient = McpStreamableHttpClient.withAuthGrant(
         Uri(
@@ -3917,6 +3922,35 @@ void main() {
       expect(
         activeUnknownBearerJsonPost.headers,
         isNot(contains('mcp-session-id')),
+      );
+      expect(secureJsonPostClient.sessionId, equals(activeSecureJsonSessionId));
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      final activeOtherPrincipalJsonPost = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        {
+          'jsonrpc': '2.0',
+          'id': 'secure-json-post-active-other-principal',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'authorization': 'Bearer ${otherGrant.accessToken}',
+          'MCP-Method': 'tools/list',
+          'MCP-Protocol-Version': '2025-11-25',
+          'mcp-session-id': activeSecureJsonSessionId,
+        },
+      );
+      expect(
+        activeOtherPrincipalJsonPost.statusCode,
+        equals(HttpStatus.notFound),
+      );
+      expect(
+        jsonEncode(activeOtherPrincipalJsonPost.json?['error']),
+        contains('Unknown MCP HTTP session'),
       );
       expect(secureJsonPostClient.sessionId, equals(activeSecureJsonSessionId));
       expect(secureJsonPostClient.lastEventId, isNull);
