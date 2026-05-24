@@ -2161,10 +2161,15 @@ void main() {
           authRole: 'internal',
         );
         addTearDown(serviceSession.close);
+        final observedSafeLookupTaskIds = <String>{};
         final directMetaRegistration = await serviceSession.register(
           'app.safe.lookup',
         );
         directMetaRegistration.onInvoke((invocation) {
+          final taskId = invocation.argumentsKeywords?['taskId'];
+          if (taskId != null) {
+            observedSafeLookupTaskIds.add(taskId.toString());
+          }
           invocation.respondWith(
             argumentsKeywords: {'value': invocation.argumentsKeywords?['id']},
           );
@@ -2295,6 +2300,11 @@ void main() {
         await _expectDirectSafeLookupMethod(
           otherPrincipalMcpClient,
           taskId: 'T-secure-other-direct-method',
+          label: 'secure-other',
+        );
+        await _expectDirectSafeLookupNotifications(
+          otherPrincipalMcpClient,
+          observedSafeLookupTaskIds,
           label: 'secure-other',
         );
         final otherDirectTopicCatalog = await otherPrincipalMcpClient
@@ -2756,7 +2766,12 @@ void main() {
           },
         ),
       );
+      final observedSafeLookupTaskIds = <String>{};
       safeRegistration.onInvoke((invocation) {
+        final taskId = invocation.argumentsKeywords?['taskId'];
+        if (taskId != null) {
+          observedSafeLookupTaskIds.add(taskId.toString());
+        }
         invocation.respondWith(
           argumentsKeywords: {
             'status': 'open',
@@ -3265,6 +3280,11 @@ void main() {
             as Map)['status'],
         equals('open'),
       );
+      await _expectDirectSafeLookupNotifications(
+        directPublicMcpClient,
+        observedSafeLookupTaskIds,
+        label: 'direct-public',
+      );
 
       final directBatch = await _postJsonValue(
         client,
@@ -3463,6 +3483,15 @@ void main() {
       expect(directNotificationOnlyBatch.headers['mcp-session-id'], isNull);
       expect(directNotificationOnlyBatch.body, isEmpty);
       expect(directNotificationOnlyBatch.json, isNull);
+      await _expectSafeLookupObserved(
+        observedSafeLookupTaskIds,
+        'T-notification-only-batch',
+        label: 'public notification-only batch',
+      );
+      expect(
+        observedSafeLookupTaskIds,
+        isNot(contains('T-invalid-notification-only-batch')),
+      );
 
       final nestedBatch = await _postJsonValue(
         client,
@@ -3926,6 +3955,11 @@ void main() {
         taskId: 'T-direct-secure-method',
         label: 'direct-secure',
       );
+      await _expectDirectSafeLookupNotifications(
+        directSecureMcpClient,
+        observedSafeLookupTaskIds,
+        label: 'direct-secure',
+      );
       expect(directSecureMcpClient.sessionId, isNull);
 
       final secureJsonPostEndpoint = Uri(
@@ -3950,6 +3984,11 @@ void main() {
       await _expectDirectSafeLookupMethod(
         secureJsonPostClient,
         taskId: 'T-secure-json-post-direct-method',
+        label: 'secure-json-post',
+      );
+      await _expectDirectSafeLookupNotifications(
+        secureJsonPostClient,
+        observedSafeLookupTaskIds,
         label: 'secure-json-post',
       );
       expect(secureJsonPostClient.sessionId, isNull);
@@ -4134,6 +4173,11 @@ void main() {
       await _expectDirectSafeLookupMethod(
         otherPrincipalJsonPostClient,
         taskId: 'T-secure-json-post-other-direct-method',
+        label: 'secure-json-post-other',
+      );
+      await _expectDirectSafeLookupNotifications(
+        otherPrincipalJsonPostClient,
+        observedSafeLookupTaskIds,
         label: 'secure-json-post-other',
       );
       expect(otherPrincipalJsonPostClient.sessionId, isNull);
@@ -6986,6 +7030,91 @@ Future<void> _expectDirectSafeLookupMethod(
   expect(jsonEncode(result['structuredContent']), contains(taskId));
   expect(client.sessionId, equals(previousSessionId));
   expect(client.lastEventId, equals(previousEventId));
+}
+
+Future<void> _expectDirectSafeLookupNotifications(
+  McpStreamableHttpClient client,
+  Set<String> observedTaskIds, {
+  required String label,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
+  final standardTaskId = 'T-$label-direct-standard-tool-notify';
+  await client.notifyToolDirect(
+    'app.safe.lookup',
+    arguments: {'taskId': standardTaskId},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-standard-tool-notify',
+    },
+  );
+  await _expectSafeLookupObserved(
+    observedTaskIds,
+    standardTaskId,
+    label: '$label standard tool notification',
+  );
+
+  final helperTaskId = 'T-$label-direct-tool-helper-notify';
+  await client.notifyConnectanumToolDirect(
+    'app.safe.lookup',
+    arguments: {'taskId': helperTaskId},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-tool-helper-notify',
+    },
+  );
+  await _expectSafeLookupObserved(
+    observedTaskIds,
+    helperTaskId,
+    label: '$label tool helper notification',
+  );
+
+  final dottedTaskId = 'T-$label-direct-dotted-method-notify';
+  await client.notifyConnectanumMethodDirect(
+    'app.safe.lookup',
+    params: {'taskId': dottedTaskId},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-dotted-method-notify',
+    },
+  );
+  await _expectSafeLookupObserved(
+    observedTaskIds,
+    dottedTaskId,
+    label: '$label dotted method notification',
+  );
+
+  final pluralAliasTaskId = 'T-$label-direct-tools-call-alias-notify';
+  await client.notifyConnectanumMethodDirect(
+    'connectanum.tools.call',
+    params: {
+      'name': 'app.safe.lookup',
+      'arguments': {'taskId': pluralAliasTaskId},
+    },
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-tools-call-alias-notify',
+    },
+  );
+  await _expectSafeLookupObserved(
+    observedTaskIds,
+    pluralAliasTaskId,
+    label: '$label plural tool alias notification',
+  );
+
+  expect(client.sessionId, equals(previousSessionId));
+  expect(client.lastEventId, equals(previousEventId));
+}
+
+Future<void> _expectSafeLookupObserved(
+  Set<String> observedTaskIds,
+  String taskId, {
+  required String label,
+}) async {
+  for (var attempt = 0; attempt < 30; attempt += 1) {
+    if (observedTaskIds.contains(taskId)) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  fail('Timed out waiting for app.safe.lookup notification: $label');
 }
 
 Future<Map<String, Object?>> _pollStreamableMcpUntilEvents(

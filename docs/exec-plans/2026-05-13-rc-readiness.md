@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Extended checked-in native router MCP notification coverage from
+  accepted HTTP responses to WAMP side effects. The router integration smoke
+  now records `app.safe.lookup` invocations and proves notification-only direct
+  JSON calls through standard `tools/call`, Connectanum
+  `connectanum.tool.call`, direct dotted `app.safe.lookup`, and plural
+  `connectanum.tools.call` invoke the registered WAMP procedure without
+  creating or mutating Streamable HTTP session state. Coverage runs on the
+  public MCP route, a public notification-only batch with an invalid
+  notification ignored, bearer-protected `/mcp/secure` for both the primary
+  secure route and a second valid bearer principal before initialization, and
+  bearer-protected `/mcp/secure-json-post` for both primary and independent
+  valid bearer principals before initialization. Pre-change `bin/test-fast`
+  passed on 2026-05-24. Focused local coverage passed:
+  `dart analyze packages/connectanum_router/test/router_integration_native_test.dart`
+  and
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "isolates MCP Streamable HTTP sessions by route and bearer principal|smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`.
+  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
+  evidence is still clean at `dbb52aa`; no new hosted run has completed for
+  this local checkpoint yet. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-24: Extended the public router-hosted MCP example direct JSON
   tool/meta smoke to notification-only tool-method paths. The example now
   records `example.task.lookup` invocations and proves standard `tools/call`,
@@ -90,10 +110,26 @@ decision because `connectanum_client` still depends on private
   2026-05-24. Focused local coverage passed:
   `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart` and
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`.
-  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
-  evidence remains clean at commit `26b7348` until this checkpoint's deployment
-  chain is inspected. No RC tag, GitHub Release, or router image was created or
-  moved.
+  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Commit
+  `dbb52aa` (`example: cover direct mcp tool notifications`) was pushed to
+  GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+  evidence is clean at `dbb52aa`: `master` CI run `26365310039` and
+  `add-router` CI run `26365307456` passed with Fast Checks and Full Verify
+  green; Dart Package Publish Dry Run `26365310038` on `master` and
+  `26365307444` on `add-router` passed; WAMP Profile Benchmarks `26365310040`
+  on `master` and `26365307457` on `add-router` passed; manual non-mutating
+  Router Image dry-run `26365614158` passed on `master` at `dbb52aa` with
+  preview metadata `sha-dbb52aa872f6`, GHCR login skipped, and preview metadata
+  uploaded. Native Artifacts dry-run `26286794628` remains relevant because no
+  native-release-sensitive inputs changed. The strict deployment-chain audit
+  passed required gates on `master` at `dbb52aa`, including clean current-head
+  CI/logs, Dart package dry-run, WAMP profile benchmark evidence, current
+  Router Image dry-run, relevant native release dry-run, branch protection,
+  workflow visibility, and router package visibility. RC readiness remains
+  not-ready only because no approved numeric RC tag, GitHub prerelease, or
+  matching RC router image tag has been selected; pub.dev publishing remains
+  deferred for release-order and operator decisions. No RC tag, GitHub Release,
+  or router image was created or moved.
 - 2026-05-24: Extended secure MCP direct JSON tool/meta API readiness from
   `tools/call` helpers and catalogs to direct dotted JSON-RPC tool-method names.
   The checked-in native router smoke now proves `app.safe.lookup` can be called
