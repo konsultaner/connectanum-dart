@@ -123,6 +123,7 @@ Future<void> main(List<String> args) async {
       binding,
       grant,
       otherGrant: otherGrant,
+      serviceSession: serviceSession,
     );
     await _smokeSecureMcpRefreshAndRevocation(binding, grant);
 
@@ -1203,6 +1204,7 @@ Future<void> _smokeSecureMcpSessionIsolation(
   RouterBinding binding,
   ConnectanumHttpAuthGrant grant, {
   required ConnectanumHttpAuthGrant otherGrant,
+  required RouterSession serviceSession,
 }) async {
   final ownerClient = await _openSecureMcpSession(
     binding,
@@ -1228,6 +1230,7 @@ Future<void> _smokeSecureMcpSessionIsolation(
     );
     await _assertStreamableIndependentPrincipalSession(
       otherPrincipalClient,
+      serviceSession: serviceSession,
       ownerSessionId: sessionId,
       label: 'secure-other-principal',
     );
@@ -1315,6 +1318,7 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
 
 Future<void> _assertStreamableIndependentPrincipalSession(
   McpStreamableHttpClient client, {
+  required RouterSession serviceSession,
   required String ownerSessionId,
   required String label,
 }) async {
@@ -1327,6 +1331,17 @@ Future<void> _assertStreamableIndependentPrincipalSession(
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError(
       'Secure Streamable MCP $label direct tools/list changed session state.',
+    );
+  }
+  await _smokeDirectJsonTopicMetaApi(client, label: '$label-independent');
+  await _smokeDirectJsonBatchPubSub(
+    client,
+    serviceSession,
+    label: '$label-independent',
+  );
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Secure Streamable MCP $label direct WAMP/pubsub changed session state.',
     );
   }
 
@@ -1364,6 +1379,21 @@ Future<void> _assertStreamableIndependentPrincipalSession(
     throw StateError(
       'Secure Streamable MCP $label independent tools/list did not capture '
       'a session-scoped POST/SSE cursor.',
+    );
+  }
+  await _smokeStreamableBatchPubSub(
+    client,
+    serviceSession,
+    label: '$label-independent',
+  );
+  final pubSubEventId = client.lastEventId;
+  if (client.sessionId != sessionId ||
+      pubSubEventId == null ||
+      !pubSubEventId.startsWith('$sessionId:') ||
+      pubSubEventId == lastEventId) {
+    throw StateError(
+      'Secure Streamable MCP $label independent pub/sub did not stay on the '
+      'new session cursor.',
     );
   }
 

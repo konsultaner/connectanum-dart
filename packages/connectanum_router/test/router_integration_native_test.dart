@@ -2155,6 +2155,12 @@ void main() {
         addTearDown(harness.dispose);
 
         final listener = harness.binding.listeners.single;
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-session-isolation-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
         final httpClient = HttpClient();
         addTearDown(() => httpClient.close(force: true));
 
@@ -2278,6 +2284,50 @@ void main() {
           otherDirectTools.tools.map((tool) => tool['name']),
           contains('connectanum.api.list'),
         );
+        final otherDirectTopicCatalog = await otherPrincipalMcpClient
+            .listWampApi(
+              id: 'secure-other-direct-topic-catalog',
+              kind: 'topic',
+              directJson: true,
+            );
+        expect(
+          jsonEncode(otherDirectTopicCatalog),
+          contains('app.secure.audit'),
+        );
+        final otherDirectSubscription = await otherPrincipalMcpClient
+            .subscribeWampTopicDirect(
+              'app.secure.audit',
+              id: 'secure-other-direct-subscribe',
+              queueLimit: 4,
+            );
+        try {
+          await serviceSession.publish(
+            'app.secure.audit',
+            argumentsKeywords: const <String, Object?>{
+              'via': 'secure-other-direct-service',
+            },
+            options: core.PublishOptions(acknowledge: true),
+          );
+          final otherDirectEvents = await _pollDirectRouterJsonUntilEvents(
+            httpClient,
+            listener.port,
+            '/mcp/secure',
+            otherDirectSubscription.handle,
+            headers: <String, String>{
+              HttpHeaders.authorizationHeader:
+                  'Bearer ${otherGrant.accessToken}',
+            },
+          );
+          expect(
+            jsonEncode(otherDirectEvents['events']),
+            contains('secure-other-direct-service'),
+          );
+        } finally {
+          await otherPrincipalMcpClient.unsubscribeWampTopicDirect(
+            otherDirectSubscription.handle,
+            id: 'secure-other-direct-unsubscribe',
+          );
+        }
         expect(otherPrincipalMcpClient.sessionId, isNull);
         expect(otherPrincipalMcpClient.lastEventId, isNull);
 
@@ -2300,6 +2350,43 @@ void main() {
         expect(
           otherPrincipalMcpClient.lastEventId,
           startsWith('$otherSessionId:'),
+        );
+        final otherToolsEventId = otherPrincipalMcpClient.lastEventId;
+        final otherStreamableSubscription = await otherPrincipalMcpClient
+            .subscribeWampTopic(
+              'app.secure.audit',
+              id: 'secure-other-streamable-subscribe',
+              queueLimit: 4,
+            );
+        try {
+          await serviceSession.publish(
+            'app.secure.audit',
+            argumentsKeywords: const <String, Object?>{
+              'via': 'secure-other-streamable-service',
+            },
+            options: core.PublishOptions(acknowledge: true),
+          );
+          final otherStreamableEvents = await _pollStreamableMcpUntilEvents(
+            otherPrincipalMcpClient,
+            otherStreamableSubscription.handle,
+          );
+          expect(
+            jsonEncode(otherStreamableEvents['events']),
+            contains('secure-other-streamable-service'),
+          );
+        } finally {
+          await otherPrincipalMcpClient.unsubscribeWampTopic(
+            otherStreamableSubscription.handle,
+            id: 'secure-other-streamable-unsubscribe',
+          );
+        }
+        expect(otherPrincipalMcpClient.sessionId, equals(otherSessionId));
+        expect(
+          otherPrincipalMcpClient.lastEventId,
+          allOf(
+            startsWith('$otherSessionId:'),
+            isNot(equals(otherToolsEventId)),
+          ),
         );
         await otherPrincipalMcpClient.deleteSession();
         expect(otherPrincipalMcpClient.sessionId, isNull);

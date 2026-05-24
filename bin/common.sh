@@ -5502,6 +5502,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
     );
     await _smokeStreamableSessionReuseIsolation(
       binding,
+      serviceSession,
       grant,
       otherGrant,
     );
@@ -11980,6 +11981,7 @@ Future<void> _smokeSecureMcpGrant(
 
 Future<void> _smokeStreamableSessionReuseIsolation(
   RouterBinding binding,
+  RouterSession serviceSession,
   ConnectanumHttpAuthGrant primaryGrant,
   ConnectanumHttpAuthGrant otherGrant,
 ) async {
@@ -12022,6 +12024,7 @@ Future<void> _smokeStreamableSessionReuseIsolation(
     );
     await _assertStreamableIndependentPrincipalSession(
       otherPrincipalClient,
+      serviceSession: serviceSession,
       ownerSessionId: sessionId,
       label: 'other bearer principal',
     );
@@ -12072,6 +12075,7 @@ Future<void> _smokeStreamableSessionReuseIsolation(
 
 Future<void> _assertStreamableIndependentPrincipalSession(
   McpStreamableHttpClient client, {
+  required RouterSession serviceSession,
   required String ownerSessionId,
   required String label,
 }) async {
@@ -12083,6 +12087,16 @@ Future<void> _assertStreamableIndependentPrincipalSession(
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError(
       'Secure Streamable MCP $label direct tools/list changed session state.',
+    );
+  }
+  await _smokeGenericDirectJsonRpcPubSub(
+    client,
+    serviceSession,
+    label: '$label-independent',
+  );
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Secure Streamable MCP $label direct WAMP/pubsub changed session state.',
     );
   }
 
@@ -12119,6 +12133,42 @@ Future<void> _assertStreamableIndependentPrincipalSession(
     throw StateError(
       'Secure Streamable MCP $label independent tools/list did not capture '
       'a session-scoped POST/SSE cursor.',
+    );
+  }
+
+  final subscription = await client.subscribeWampTopic(
+    _topic,
+    id: '$label-independent-streamable-subscribe',
+    queueLimit: 4,
+  );
+  try {
+    final taskId = 'T-$label-independent-streamable-event';
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': taskId},
+      options: PublishOptions(acknowledge: true),
+    );
+    final events = await _pollMcpEventsUntil(client, subscription.handle);
+    if (!jsonEncode(events.events).contains(taskId)) {
+      throw StateError(
+        'Secure Streamable MCP $label independent pub/sub missed service '
+        'event.',
+      );
+    }
+  } finally {
+    await client.unsubscribeWampTopic(
+      subscription.handle,
+      id: '$label-independent-streamable-unsubscribe',
+    );
+  }
+  final pubSubEventId = client.lastEventId;
+  if (client.sessionId != sessionId ||
+      pubSubEventId == null ||
+      !pubSubEventId.startsWith('$sessionId:') ||
+      pubSubEventId == lastEventId) {
+    throw StateError(
+      'Secure Streamable MCP $label independent pub/sub did not stay on the '
+      'new session cursor.',
     );
   }
 
