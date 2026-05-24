@@ -78,6 +78,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Hardened the public Streamable HTTP MCP client's
+  authorization ownership. `McpStreamableHttpClient` now captures a
+  client-level `Authorization` header from constructor headers,
+  `withBearerToken(...)`, or `withAuthGrant(...)` and reapplies it after
+  request-specific headers, preventing stale or conflicting per-call metadata
+  from swapping the bearer principal on a client that already owns auth/session
+  state. Plain clients without client-level auth state can still provide
+  per-call `Authorization` headers. Coverage now proves auth-grant clients keep
+  the grant bearer token even when `initialize(...)` receives a stale
+  `Authorization` header, and plain clients still send per-call authorization.
+  Baseline `bin/test-fast` passed on 2026-05-24. Focused local coverage
+  passed: `dart format` and `dart analyze` for
+  `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart` and
+  `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`, plus
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
+  Full local `bin/verify` passed on 2026-05-24. This checkpoint has
+  not yet been pushed, and no hosted CI or package dry-run evidence exists for
+  it yet. No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Extended the secure JSON-response MCP independent-principal
   coverage across the native router integration smoke, public router-hosted
   MCP example, and generated consumer-package smoke. A second valid bearer
@@ -94,9 +112,23 @@ decision because `connectanum_client` still depends on private
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
   `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
   and `git diff --check`. Full local `bin/verify` passed on 2026-05-24.
-  Hosted evidence remains clean at `25afea8`; no hosted run has completed for
-  this local checkpoint yet. No RC tag, GitHub Release, or router image was
-  created or moved.
+  Commit `e1a496e` (`test: cover secure json mcp resources prompts`) was
+  pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted
+  GitHub evidence is clean at `e1a496e`: `master` CI run `26370411899` and
+  `add-router` CI run `26370411877` passed with Fast Checks and Full Verify
+  green; Dart Package Publish Dry Run `26370411887` on `master` and
+  `26370411864` on `add-router` passed; WAMP Profile Benchmarks `26370411888`
+  on `master` and `26370411900` on `add-router` passed; Router Image dry-run
+  `26369504710` at `25afea8` and Native Artifacts dry-run `26286794628`
+  remain relevant because no corresponding sensitive inputs changed after
+  their clean runs. The strict deployment-chain audit passed required gates on
+  `master` at `e1a496e`, including clean current-head CI/logs, Dart package
+  dry-run, WAMP profile benchmark evidence, relevant Router Image and native
+  release dry-runs, branch protection, workflow visibility, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag, GitHub prerelease, or matching RC router image tag has been selected;
+  pub.dev publishing remains deferred for release-order and operator decisions.
+  No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Strengthened the checked-in `connectanum_mcp` IO entrypoint
   pub/sub smoke so it proves side effects instead of only request shapes. The
   fake Streamable MCP endpoint now records per-subscription event queues,

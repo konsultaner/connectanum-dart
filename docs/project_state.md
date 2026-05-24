@@ -2,10 +2,29 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: secure JSON-response MCP independent-principal
-resource/prompt smoke.
-Latest fully clean hosted checkpoint: Commit `25afea8`.
-Current implementation checkpoint: Router-hosted MCP secure JSON-response route
+Last reviewed branch checkpoint: MCP client bearer authorization header
+stability.
+Latest fully clean hosted checkpoint: Commit `e1a496e`.
+Current implementation checkpoint: The public Streamable HTTP MCP client now
+treats a client-level `Authorization` header as owned auth/session state once
+it is provided through constructor headers, `withBearerToken(...)`, or
+`withAuthGrant(...)`. Request-specific headers are still honored for plain
+clients, but a bearer/auth-grant client reapplies its captured authorization
+header after per-call headers so stale or conflicting per-call metadata cannot
+swap the bearer principal on an existing MCP client/session. Coverage now proves
+auth-grant clients keep the grant bearer token even when `initialize(...)`
+receives a stale `Authorization` header, while plain clients can still send a
+per-call `Authorization` header when they have no client-level auth state.
+Baseline `bin/test-fast` passed on 2026-05-24. Focused local coverage passed
+on 2026-05-24: `dart format` and `dart analyze` for
+`packages/connectanum_client/lib/src/mcp/streamable_http_client.dart` and
+`packages/connectanum_client/test/mcp/streamable_http_client_test.dart`, plus
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
+Full local `bin/verify` passed on 2026-05-24 for this
+checkpoint. This checkpoint has not yet been pushed, and no hosted CI or package
+dry-run evidence exists for it yet. No RC tag, GitHub Release, or router image
+was created or moved.
+Prior implementation checkpoint: Router-hosted MCP secure JSON-response route
 coverage now proves a second valid bearer principal can use the public
 resource/prompt surface without owning or mutating the first principal's
 session. The native router integration smoke, public router-hosted MCP example,
@@ -21,8 +40,23 @@ on 2026-05-24: `dart analyze packages/connectanum_router/test/router_integration
 `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
 `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
 and `git diff --check`. Full local `bin/verify` passed on 2026-05-24 for this
-checkpoint. Hosted evidence remains clean at `25afea8`; no hosted run has
-completed for this local checkpoint yet. No RC tag, GitHub Release, or router
+checkpoint. Commit `e1a496e`
+(`test: cover secure json mcp resources prompts`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `e1a496e`: `master` CI run `26370411899` and `add-router` CI run
+`26370411877` passed with Fast Checks and Full Verify green; Dart Package
+Publish Dry Run `26370411887` on `master` and `26370411864` on `add-router`
+passed; WAMP Profile Benchmarks `26370411888` on `master` and `26370411900` on
+`add-router` passed; Router Image dry-run `26369504710` at `25afea8` and Native
+Artifacts dry-run `26286794628` remain relevant because no corresponding
+sensitive inputs changed after their clean runs. The strict deployment-chain
+audit passed required gates on `master` at `e1a496e`, including clean
+current-head CI/logs, Dart package dry-run, WAMP profile benchmark evidence,
+relevant Router Image and native release dry-runs, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected; pub.dev publishing remains deferred for
+release-order and operator decisions. No RC tag, GitHub Release, or router
 image was created or moved.
 Prior implementation checkpoint: The checked-in `connectanum_mcp` IO
 entrypoint smoke now uses a stateful Streamable MCP fake endpoint for pub/sub

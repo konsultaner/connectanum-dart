@@ -991,11 +991,39 @@ void main() {
       );
       addTearDown(() => client.close(force: true));
 
-      await client.initialize(id: 'grant-initialize');
+      await client.initialize(
+        id: 'grant-initialize',
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+        },
+      );
 
       expect(endpoint.requests.single.authorization, 'Bearer grant-token');
       expect(endpoint.requests.single.consumerTrace, 'grant-session');
     });
+
+    test(
+      'allows plain clients to send per-call authorization headers',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(
+          id: 'plain-auth-initialize',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer plain-per-call-token',
+          },
+        );
+
+        expect(
+          endpoint.requests.single.authorization,
+          'Bearer plain-per-call-token',
+        );
+      },
+    );
 
     test('rejects non-bearer HTTP auth grants', () {
       expect(

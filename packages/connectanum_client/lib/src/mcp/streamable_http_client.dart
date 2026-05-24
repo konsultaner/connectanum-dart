@@ -42,6 +42,7 @@ final class McpStreamableHttpClient {
     bool closeHttpClient = false,
   }) : _httpClient = httpClient ?? HttpClient(),
        _ownsHttpClient = httpClient == null || closeHttpClient,
+       _authorizationHeader = _authorizationHeaderFrom(headers),
        protocolVersion = defaultProtocolVersion;
 
   /// Creates a client for bearer-protected MCP HTTP endpoints.
@@ -81,6 +82,7 @@ final class McpStreamableHttpClient {
   final String defaultProtocolVersion;
   final HttpClient _httpClient;
   final bool _ownsHttpClient;
+  final String? _authorizationHeader;
   final _toolHeaderParametersByName = <String, List<_McpToolHeaderParameter>>{};
 
   int _nextRequestId = 1;
@@ -102,9 +104,21 @@ final class McpStreamableHttpClient {
       );
     }
     return <String, String>{
-      ...headers,
+      for (final entry in headers.entries)
+        if (entry.key.toLowerCase() != HttpHeaders.authorizationHeader)
+          entry.key: entry.value,
       HttpHeaders.authorizationHeader: 'Bearer $token',
     };
+  }
+
+  static String? _authorizationHeaderFrom(Map<String, String> headers) {
+    String? value;
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == HttpHeaders.authorizationHeader) {
+        value = entry.value;
+      }
+    }
+    return value;
   }
 
   static Map<String, String> _headersWithAuthGrant(
@@ -1055,6 +1069,10 @@ final class McpStreamableHttpClient {
 
     applyConsumerHeaders(headers);
     applyConsumerHeaders(extraHeaders);
+    final authorizationHeader = _authorizationHeader;
+    if (authorizationHeader != null) {
+      request.headers.set(HttpHeaders.authorizationHeader, authorizationHeader);
+    }
     final session = includeSession ? sessionId : null;
     if (session != null) {
       request.headers.set(_headerSessionId, session);
