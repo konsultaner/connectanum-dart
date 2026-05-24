@@ -2,9 +2,27 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router integration secure JSON-response MCP resource/prompt coverage.
-Latest fully clean hosted checkpoint: Commit `26d5ed5`.
+Last reviewed branch checkpoint: Router integration secure JSON-response MCP rejected-bearer/session coverage.
+Latest fully clean hosted checkpoint: Commit `bb7d3a5`.
 Current implementation checkpoint: The checked-in router native integration
+MCP smoke now also pins rejected-bearer behavior for the bearer-protected
+JSON-response route at `/mcp/secure-json-post`. Before any Streamable
+lifecycle session exists, the smoke proves an unknown bearer token is rejected
+with `401 Unauthorized` and no response `MCP-Session-Id`. After an authorized
+client initializes a Streamable MCP session, the same route rejects raw JSON
+POST requests that reuse the active `MCP-Session-Id` without a bearer or with
+an unknown bearer, again without returning a response session id; the owner
+client retains its active MCP session id, keeps the POST/SSE cursor empty, and
+continues through the existing route-provided resources, prompts, pub/sub,
+poll, unsubscribe, and DELETE cleanup assertions. Pre-change `bin/test-fast`
+passed on 2026-05-24. Focused local coverage passed on 2026-05-24:
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
+`dart analyze packages/connectanum_router/test/router_integration_native_test.dart`,
+`python3 tool/check_public_artifact_references.py`, and `git diff --check`.
+Full local `bin/verify` passed on 2026-05-24. Hosted evidence still remains
+at the previous fully clean checkpoint `bb7d3a5` until this implementation
+checkpoint is pushed and observed.
+Prior implementation checkpoint: The checked-in router native integration
 MCP smoke now extends the bearer-protected JSON-response route at
 `/mcp/secure-json-post` to prove route-provided resources, resource
 templates, and prompts under the same auth/session mode as the route's tools,
@@ -23,10 +41,29 @@ poll, unsubscribe, and DELETE cleanup. Pre-change `bin/test-fast` passed on
 `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
 `dart analyze packages/connectanum_router/test/router_integration_native_test.dart`,
 `python3 tool/check_public_artifact_references.py`, and `git diff --check`.
-Full local `bin/verify` passed on 2026-05-24. Hosted evidence for the current
-checkpoint is pending; the latest fully clean hosted checkpoint remains
-`26d5ed5`.
-Prior implementation checkpoint: The checked-in router native integration
+Full local `bin/verify` passed on 2026-05-24. Commit `bb7d3a5`
+(`test: cover secure json-response mcp resources`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `bb7d3a5`: `master` CI run `26351940781` passed with Fast Checks and
+Full Verify green plus clean logs, and `add-router` CI run `26351939292`
+passed with Fast Checks and Full Verify green. Dart Package Publish Dry Run
+`26351940788` on `master` and `26351939291` on `add-router` passed cleanly at
+`bb7d3a5`; WAMP Profile Benchmarks `26351940789` on `master` and
+`26351939286` on `add-router` passed at `bb7d3a5`. Router Image dry-run
+`26352174318` passed for current head with preview metadata
+`sha-bb7d3a5d36c0`, GHCR login skipped, and no image publish. The strict
+deployment-chain audit passed required gates on `master` at `bb7d3a5`,
+including clean current-head CI/logs, current Dart package dry-run, current
+WAMP profile benchmark evidence, current Router Image dry-run, native release
+dry-run relevance, branch protection, workflow visibility, and router package
+visibility. Native Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected; the audit suggests `v0.1.0-rc.2` as the next
+numeric tag if release approval is given. Pub.dev publishing remains deferred
+for release-order and operator decisions. No RC tag, GitHub Release, or router
+image was created or moved.
+Earlier implementation checkpoint: The checked-in router native integration
 MCP smoke exposes a bearer-protected JSON-response route at
 `/mcp/secure-json-post` from the shared `_buildMcpSmokeSettings()` fixture,
 using the same route-provided tool, WAMP meta API, pub/sub, resources, and
@@ -12762,9 +12799,11 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears; the latest fully hosted verified checkpoint
-  extends pre-dispatch MCP response session-isolation coverage to route
-  rate-limit failures on top of the prior route auth response isolation.
+  consumer integration bug appears. The current local checkpoint extends the
+  checked-in router integration secure JSON-response MCP smoke to rejected
+  bearer/session reuse cases; the latest fully hosted verified checkpoint
+  remains `bb7d3a5` until this implementation checkpoint is pushed and
+  observed.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

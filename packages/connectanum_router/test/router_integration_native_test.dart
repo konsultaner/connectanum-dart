@@ -3712,6 +3712,21 @@ void main() {
       expect(unauthorizedJsonPost.statusCode, equals(HttpStatus.unauthorized));
       expect(unauthorizedJsonPost.headers, isNot(contains('mcp-session-id')));
 
+      final unknownBearerJsonPost = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        {
+          'jsonrpc': '2.0',
+          'id': 'secure-json-post-unknown-bearer',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {'authorization': 'Bearer unknown-access-token'},
+      );
+      expect(unknownBearerJsonPost.statusCode, equals(HttpStatus.unauthorized));
+      expect(unknownBearerJsonPost.headers, isNot(contains('mcp-session-id')));
+
       final grant = await _issueTicketHttpGrant(client, listener.port);
       final authHeaders = {'authorization': 'Bearer ${grant.accessToken}'};
       final directSecureMcpClient = McpStreamableHttpClient.withAuthGrant(
@@ -3841,6 +3856,7 @@ void main() {
       expect(secureJsonInitialize['id'], equals('secure-json-post-initialize'));
       final secureJsonSessionId = secureJsonPostClient.sessionId;
       expect(secureJsonSessionId, isNotNull);
+      final activeSecureJsonSessionId = secureJsonSessionId!;
       expect(secureJsonPostClient.lastEventId, isNull);
 
       await secureJsonPostClient.notifyInitialized();
@@ -3856,6 +3872,53 @@ void main() {
       expect(secureJsonToolNames, contains('app.safe.lookup'));
       expect(secureJsonToolNames, contains('app.unsafe.delete'));
       expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      final activeMissingBearerJsonPost = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        {
+          'jsonrpc': '2.0',
+          'id': 'secure-json-post-active-missing-bearer',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {'mcp-session-id': activeSecureJsonSessionId},
+      );
+      expect(
+        activeMissingBearerJsonPost.statusCode,
+        equals(HttpStatus.unauthorized),
+      );
+      expect(
+        activeMissingBearerJsonPost.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
+      final activeUnknownBearerJsonPost = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        {
+          'jsonrpc': '2.0',
+          'id': 'secure-json-post-active-unknown-bearer',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {
+          'authorization': 'Bearer unknown-access-token',
+          'mcp-session-id': activeSecureJsonSessionId,
+        },
+      );
+      expect(
+        activeUnknownBearerJsonPost.statusCode,
+        equals(HttpStatus.unauthorized),
+      );
+      expect(
+        activeUnknownBearerJsonPost.headers,
+        isNot(contains('mcp-session-id')),
+      );
+      expect(secureJsonPostClient.sessionId, equals(activeSecureJsonSessionId));
       expect(secureJsonPostClient.lastEventId, isNull);
 
       final secureJsonResources = await secureJsonPostClient.listResources(
