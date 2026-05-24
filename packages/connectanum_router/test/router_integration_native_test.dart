@@ -3698,6 +3698,20 @@ void main() {
         equals(HttpStatus.unauthorized),
       );
 
+      final unauthorizedJsonPost = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        {
+          'jsonrpc': '2.0',
+          'id': 'secure-json-post-unauthorized',
+          'method': 'initialize',
+          'params': {'protocolVersion': '2025-11-25'},
+        },
+      );
+      expect(unauthorizedJsonPost.statusCode, equals(HttpStatus.unauthorized));
+      expect(unauthorizedJsonPost.headers, isNot(contains('mcp-session-id')));
+
       final grant = await _issueTicketHttpGrant(client, listener.port);
       final authHeaders = {'authorization': 'Bearer ${grant.accessToken}'};
       final directSecureMcpClient = McpStreamableHttpClient.withAuthGrant(
@@ -3735,6 +3749,108 @@ void main() {
       );
       expect(jsonEncode(directSecurePrompt), contains('T-direct-secure'));
       expect(directSecureMcpClient.sessionId, isNull);
+
+      final secureJsonPostClient = McpStreamableHttpClient.withAuthGrant(
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/secure-json-post',
+        ),
+        grant,
+      );
+      addTearDown(() => secureJsonPostClient.close(force: true));
+
+      final secureJsonDirectTools = await secureJsonPostClient
+          .listConnectanumToolsDirect(id: 'secure-json-post-direct-tools');
+      final secureJsonDirectToolNames = {
+        for (final tool in secureJsonDirectTools.tools) tool['name'] as String,
+      };
+      expect(secureJsonDirectToolNames, contains('app.safe.lookup'));
+      expect(secureJsonDirectToolNames, contains('app.unsafe.delete'));
+      expect(secureJsonPostClient.sessionId, isNull);
+
+      final secureJsonDirectTopicCatalog = await secureJsonPostClient
+          .listWampApi(
+            id: 'secure-json-post-direct-topic-catalog',
+            kind: 'topic',
+            directJson: true,
+          );
+      expect(
+        jsonEncode(secureJsonDirectTopicCatalog),
+        contains('app.secure.audit'),
+      );
+
+      final secureJsonInitialize = await secureJsonPostClient.initialize(
+        id: 'secure-json-post-initialize',
+      );
+      expect(secureJsonInitialize['id'], equals('secure-json-post-initialize'));
+      final secureJsonSessionId = secureJsonPostClient.sessionId;
+      expect(secureJsonSessionId, isNotNull);
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      await secureJsonPostClient.notifyInitialized();
+      expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      final secureJsonTools = await secureJsonPostClient.listTools(
+        id: 'secure-json-post-tools',
+      );
+      final secureJsonToolNames = {
+        for (final tool in secureJsonTools.tools) tool['name'] as String,
+      };
+      expect(secureJsonToolNames, contains('app.safe.lookup'));
+      expect(secureJsonToolNames, contains('app.unsafe.delete'));
+      expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      final secureJsonSubscribe = await secureJsonPostClient.request(
+        'tools/call',
+        id: 'secure-json-post-pubsub-subscribe',
+        params: {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'app.secure.audit', 'queueLimit': 5},
+        },
+      );
+      final secureJsonSubscription =
+          ((secureJsonSubscribe['result'] as Map)['structuredContent'] as Map)
+              .cast<String, Object?>();
+      final secureJsonHandle = secureJsonSubscription['handle'] as String;
+      expect(secureJsonSubscription['topic'], equals('app.secure.audit'));
+      expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      await serviceSession.publish(
+        'app.secure.audit',
+        argumentsKeywords: {'via': 'secure-json-post-service'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final secureJsonPoll = await _pollStreamableMcpUntilEvents(
+        secureJsonPostClient,
+        secureJsonHandle,
+      );
+      expect(
+        jsonEncode(secureJsonPoll['events']),
+        contains('secure-json-post-service'),
+      );
+      expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
+      expect(secureJsonPostClient.lastEventId, isNull);
+
+      final secureJsonUnsubscribe = await secureJsonPostClient.request(
+        'tools/call',
+        id: 'secure-json-post-pubsub-unsubscribe',
+        params: {
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': {'handle': secureJsonHandle},
+        },
+      );
+      final secureJsonUnsubscribeResult =
+          ((secureJsonUnsubscribe['result'] as Map)['structuredContent'] as Map)
+              .cast<String, Object?>();
+      expect(secureJsonUnsubscribeResult['unsubscribed'], isTrue);
+      await secureJsonPostClient.deleteSession();
+      expect(secureJsonPostClient.sessionId, isNull);
+      expect(secureJsonPostClient.lastEventId, isNull);
 
       final directSecureUnsafeRegistration = await _callRouterJsonMethod(
         client,
@@ -5525,6 +5641,19 @@ RouterSettings _buildMcpSmokeSettings() {
               options: <String, Object?>{
                 ...mcpOptions,
                 'allow_insecure_transport': true,
+              },
+            ),
+          ),
+          HttpRouteSettings(
+            match: HttpRouteMatch(path: '/mcp/secure-json-post'),
+            action: HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: 'realm1',
+              sessionProfile: 'mcp-ticket',
+              options: <String, Object?>{
+                ...mcpOptions,
+                'allow_insecure_transport': true,
+                'post_response_transport': 'json',
               },
             ),
           ),
