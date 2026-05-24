@@ -78,6 +78,22 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Extended the public router-hosted MCP example direct JSON
+  tool/meta smoke to notification-only tool-method paths. The example now
+  records `example.task.lookup` invocations and proves standard `tools/call`,
+  Connectanum `connectanum.tool.call`, direct dotted `example.task.lookup`, and
+  plural `connectanum.tools.call` notifications invoke the registered WAMP
+  procedure without creating or mutating Streamable HTTP session state. Because
+  the helper is shared, the coverage runs on the public route, both
+  bearer-protected MCP routes, and independent valid bearer principal paths
+  before Streamable initialization. Pre-change `bin/test-fast` passed on
+  2026-05-24. Focused local coverage passed:
+  `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart` and
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`.
+  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
+  evidence remains clean at commit `26b7348` until this checkpoint's deployment
+  chain is inspected. No RC tag, GitHub Release, or router image was created or
+  moved.
 - 2026-05-24: Extended secure MCP direct JSON tool/meta API readiness from
   `tools/call` helpers and catalogs to direct dotted JSON-RPC tool-method names.
   The checked-in native router smoke now proves `app.safe.lookup` can be called
@@ -96,10 +112,26 @@ decision because `connectanum_client` still depends on private
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
   `python3 tool/check_public_artifact_references.py`, and `git diff --check`.
-  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
-  evidence remains clean at commit `20c6c97` until this checkpoint's deployment
-  chain is inspected. No RC tag, GitHub Release, or router image was created or
-  moved.
+  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Commit
+  `26b7348` (`test: cover direct mcp dotted methods`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+  clean at `26b7348`: `master` CI run `26364003714` and `add-router` CI run
+  `26364002656` passed with Fast Checks and Full Verify green; Dart Package
+  Publish Dry Run `26364003678` on `master` and `26364002658` on `add-router`
+  passed; WAMP Profile Benchmarks `26364003654` on `master` and `26364002655`
+  on `add-router` passed; manual non-mutating Router Image dry-run
+  `26364336014` passed on `master` at `26b7348` with preview metadata
+  `sha-26b734836c67`, GHCR login skipped, and preview metadata uploaded. Native
+  Artifacts dry-run `26286794628` remains relevant because no
+  native-release-sensitive inputs changed. The strict deployment-chain audit
+  passed required gates on `master` at `26b7348`, including clean current-head
+  CI/logs, Dart package dry-run, WAMP profile benchmark evidence, current Router
+  Image dry-run, relevant native release dry-run, branch protection, workflow
+  visibility, and router package visibility. RC readiness remains not-ready only
+  because no approved numeric RC tag, GitHub prerelease, or matching RC router
+  image tag has been selected; pub.dev publishing remains deferred for
+  release-order and operator decisions. No RC tag, GitHub Release, or router
+  image was created or moved.
 - 2026-05-24: Extended secure MCP independent-principal coverage from direct
   WAMP/pubsub readiness to the full direct WAMP meta helper surface on both
   bearer-protected MCP routes. The checked-in router integration smoke now

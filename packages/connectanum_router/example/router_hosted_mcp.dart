@@ -20,6 +20,7 @@ const List<String> _supportedOlderProtocolVersions = [
   '2025-06-18',
 ];
 const String _unsupportedProtocolVersion = '2099-01-01';
+final Set<String> _observedExampleTaskLookups = <String>{};
 
 Future<void> main(List<String> args) async {
   final smokeAndExit = args.contains('--smoke-and-exit');
@@ -449,6 +450,7 @@ Future<void> _registerExampleApi(RouterSession serviceSession) async {
 
   registration.onInvoke((invocation) {
     final taskId = invocation.argumentsKeywords?['taskId'] ?? 'unknown';
+    _observedExampleTaskLookups.add(taskId.toString());
     invocation.respondWith(
       argumentsKeywords: {
         'taskId': taskId,
@@ -457,6 +459,22 @@ Future<void> _registerExampleApi(RouterSession serviceSession) async {
       },
     );
   });
+}
+
+Future<void> _expectExampleTaskLookup(
+  String taskId, {
+  required String label,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!_observedExampleTaskLookups.contains(taskId)) {
+    if (DateTime.now().isAfter(deadline)) {
+      throw StateError(
+        'Direct JSON-RPC notification $label did not invoke '
+        'example.task.lookup for $taskId.',
+      );
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
 }
 
 Future<void> _closeMcpClient(McpStreamableHttpClient client) async {
@@ -2557,6 +2575,62 @@ Future<void> _smokeDirectJsonToolMetaApi(
   if (!jsonEncode(pluralAliasResult).contains(pluralAliasTaskId)) {
     throw StateError('Direct JSON-RPC plural tool alias failed.');
   }
+
+  final standardNotificationTaskId = 'T-$label-direct-standard-tool-notify';
+  await client.notifyToolDirect(
+    'example.task.lookup',
+    arguments: {'taskId': standardNotificationTaskId},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-standard-tool-notify',
+    },
+  );
+  await _expectExampleTaskLookup(
+    standardNotificationTaskId,
+    label: '$label standard tool notification',
+  );
+
+  final helperNotificationTaskId = 'T-$label-direct-tool-helper-notify';
+  await client.notifyConnectanumToolDirect(
+    'example.task.lookup',
+    arguments: {'taskId': helperNotificationTaskId},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-tool-helper-notify',
+    },
+  );
+  await _expectExampleTaskLookup(
+    helperNotificationTaskId,
+    label: '$label tool helper notification',
+  );
+
+  final dottedNotificationTaskId = 'T-$label-direct-dotted-method-notify';
+  await client.notifyConnectanumMethodDirect(
+    'example.task.lookup',
+    params: {'taskId': dottedNotificationTaskId},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-dotted-method-notify',
+    },
+  );
+  await _expectExampleTaskLookup(
+    dottedNotificationTaskId,
+    label: '$label dotted method notification',
+  );
+
+  final pluralAliasNotificationTaskId =
+      'T-$label-direct-tools-call-alias-notify';
+  await client.notifyConnectanumMethodDirect(
+    'connectanum.tools.call',
+    params: {
+      'name': 'example.task.lookup',
+      'arguments': {'taskId': pluralAliasNotificationTaskId},
+    },
+    headers: <String, String>{
+      'x-consumer-trace': '$label-direct-tools-call-alias-notify',
+    },
+  );
+  await _expectExampleTaskLookup(
+    pluralAliasNotificationTaskId,
+    label: '$label plural tool alias notification',
+  );
 
   final toolList = await client.listToolsDirect(
     id: '$label-direct-standard-tools-list',
