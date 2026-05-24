@@ -997,9 +997,38 @@ void main() {
           HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
         },
       );
+      await client.listTools(
+        id: 'grant-list-tools',
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+          'x-consumer-trace': 'grant-list-tools',
+        },
+      );
+      await client.poll(
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+          'x-consumer-trace': 'grant-poll',
+        },
+      );
+      await client.deleteSession(
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+          'x-consumer-trace': 'grant-delete',
+        },
+      );
 
-      expect(endpoint.requests.single.authorization, 'Bearer grant-token');
-      expect(endpoint.requests.single.consumerTrace, 'grant-session');
+      expect(
+        endpoint.requests.map((request) => request.authorization),
+        everyElement('Bearer grant-token'),
+      );
+      expect(endpoint.requests[0].consumerTrace, 'grant-session');
+      expect(endpoint.requests[1].consumerTrace, 'grant-list-tools');
+      expect(endpoint.requests[1].sessionId, 'session-1');
+      expect(endpoint.requests[2].consumerTrace, 'grant-poll');
+      expect(endpoint.requests[2].sessionId, 'session-1');
+      expect(endpoint.requests[3].consumerTrace, 'grant-delete');
+      expect(endpoint.requests[3].sessionId, 'session-1');
+      expect(client.sessionId, isNull);
     });
 
     test(

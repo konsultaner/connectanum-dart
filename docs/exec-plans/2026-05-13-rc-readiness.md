@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 ## Problem
 
@@ -78,6 +78,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Extended the public Streamable HTTP MCP client auth-grant
+  regression from initialization-only coverage to the full initialized session
+  lifecycle. `McpStreamableHttpClient.withAuthGrant(...)` is now covered across
+  Streamable `initialize`, sessionful `tools/list`, GET/SSE polling, and DELETE
+  cleanup while stale per-call `Authorization` headers are present. The
+  regression proves the client-owned bearer grant remains authoritative, custom
+  consumer trace headers still apply per request, sessionful operations attach
+  the active MCP session id, and `deleteSession(...)` clears local session
+  state. Baseline `bin/test-fast` passed on 2026-05-25. Focused local coverage
+  passed: `dart format packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart analyze packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  and
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
+  Full local `bin/verify` passed on 2026-05-25, including the router-hosted
+  MCP example smoke, generated consumer-package smoke, and Chrome/Dart2Wasm
+  browser WebSocket smoke. The latest fully clean hosted checkpoint remains
+  `8a8f09b` until this local test/readiness change has hosted evidence. No RC
+  tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Hardened the hosted browser WebSocket smoke in `bin/test-all`
   so retryable `package:test` browser-manager startup or load stalls cannot
   consume an entire GitHub CI job. Each attempt is now bounded by
@@ -91,8 +109,24 @@ decision because `connectanum_client` still depends on private
   2026-05-24. Focused local coverage passed: `bash -n bin/test-all` and
   `python3 tool/test_verification_scripts.py`. Full local `bin/verify` passed
   on 2026-05-24, including the Chrome/Dart2Wasm browser WebSocket smoke
-  through the updated wrapper. Hosted GitHub evidence is pending until this
-  code/config checkpoint is pushed and the deployment chain completes.
+  through the updated wrapper. Commit `8a8f09b`
+  (`ci: bound browser smoke attempts`) was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `8a8f09b`: `master` CI run `26373596238` and `add-router` CI run
+  `26373596242` passed with Fast Checks and Full Verify green. Dart Package
+  Publish Dry Run `26371382131` on `master` and `26371382110` on `add-router`,
+  WAMP Profile Benchmarks `26371382109` on `master` and `26371382129` on
+  `add-router`, Router Image dry-run `26372834591`, and Native Artifacts
+  dry-run `26286794628` remain relevant because no corresponding sensitive
+  inputs changed after their clean runs. The strict deployment-chain audit
+  passed required gates on `master` at `8a8f09b`, including clean current-head
+  CI/logs, Dart package dry-run, WAMP profile benchmark evidence, relevant
+  Router Image dry-run, relevant native release dry-run, branch protection,
+  workflow visibility, and router package visibility. RC readiness remains
+  not-ready only because no approved numeric RC tag, GitHub prerelease, or
+  matching RC router image tag has been selected; pub.dev publishing remains
+  deferred for release-order and operator decisions. No RC tag, GitHub Release,
+  or router image was created or moved.
 - 2026-05-24: Hardened the public Streamable HTTP MCP client's
   authorization ownership. `McpStreamableHttpClient` now captures a
   client-level `Authorization` header from constructor headers,
