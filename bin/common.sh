@@ -5477,13 +5477,18 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       secure: true,
       authGrant: grant,
     );
-    await _smokeMcpOriginPolicy(binding, grant);
-    await _smokeMcpCorsPreflight(binding, serviceSession, grant);
-    await _smokeSecureJsonPostMcpRoute(binding, serviceSession, grant);
     final otherGrant = await _issueTicketHttpGrant(
       binding,
       authId: _otherTicketAuthId,
       ticket: _otherTicketSecret,
+    );
+    await _smokeMcpOriginPolicy(binding, grant);
+    await _smokeMcpCorsPreflight(binding, serviceSession, grant);
+    await _smokeSecureJsonPostMcpRoute(
+      binding,
+      serviceSession,
+      grant,
+      otherGrant,
     );
     secureClient = McpStreamableHttpClient.withAuthGrant(
       _mcpEndpoint(binding, secure: true),
@@ -7096,6 +7101,7 @@ Future<void> _smokeSecureJsonPostMcpRoute(
   RouterBinding binding,
   RouterSession serviceSession,
   ConnectanumHttpAuthGrant grant,
+  ConnectanumHttpAuthGrant otherGrant,
 ) async {
   await _smokeJsonPostResponseMcpEndpoint(
     _secureJsonPostMcpEndpoint(binding),
@@ -7103,6 +7109,7 @@ Future<void> _smokeSecureJsonPostMcpRoute(
     label: 'secure-json-post',
     routeName: 'secure JSON POST',
     authGrant: grant,
+    otherAuthGrant: otherGrant,
   );
 }
 
@@ -7124,6 +7131,7 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
   required String label,
   required String routeName,
   ConnectanumHttpAuthGrant? authGrant,
+  ConnectanumHttpAuthGrant? otherAuthGrant,
 }) async {
   final grant = authGrant;
   final client = grant == null
@@ -7335,6 +7343,24 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
     }
     expectNoPostSseCursor('active direct JSON errors');
 
+    if (otherAuthGrant != null) {
+      final sessionCursor = client.lastEventId;
+      await _smokeJsonPostResponseMcpSessionIsolation(
+        endpoint,
+        sessionId: sessionId,
+        lastEventId: sessionCursor,
+        label: label,
+        otherAuthGrant: otherAuthGrant,
+      );
+      if (client.sessionId != sessionId ||
+          client.lastEventId != sessionCursor) {
+        throw StateError(
+          '$routeLabel auth/session isolation changed owner session state.',
+        );
+      }
+      expectNoPostSseCursor('auth/session isolation');
+    }
+
     await _smokeTypedProtocolVersionOverrides(
       client,
       label: label,
@@ -7419,6 +7445,54 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
   } finally {
     rawClient.close(force: true);
     client.close();
+  }
+}
+
+Future<void> _smokeJsonPostResponseMcpSessionIsolation(
+  Uri endpoint, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+  required ConnectanumHttpAuthGrant otherAuthGrant,
+}) async {
+  final otherPrincipalClient = McpStreamableHttpClient.withBearerToken(
+    endpoint,
+    otherAuthGrant.accessToken,
+  );
+  final bearerlessClient = McpStreamableHttpClient(endpoint);
+  final unknownBearerClient = McpStreamableHttpClient.withBearerToken(
+    endpoint,
+    _unknownAccessToken,
+  );
+
+  try {
+    await _assertStreamableSessionReuseRejectedAcrossMethods(
+      otherPrincipalClient,
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label-other-principal',
+    );
+
+    await _assertStreamableSessionReuseRequiresBearerAcrossMethods(
+      bearerlessClient,
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label-bearerless-reused-session',
+    );
+
+    unknownBearerClient.sessionId = sessionId;
+    unknownBearerClient.lastEventId = lastEventId;
+    await _assertActiveStreamableSessionRejectsBearer(
+      unknownBearerClient,
+      label: '$label-unknown-bearer',
+      acceptedMessage:
+          'JSON-response Streamable MCP session accepted an unknown access '
+          'token.',
+    );
+  } finally {
+    otherPrincipalClient.close();
+    bearerlessClient.close();
+    unknownBearerClient.close();
   }
 }
 

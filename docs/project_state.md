@@ -2,9 +2,29 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router integration secure JSON-response MCP principal-isolation coverage.
-Latest fully clean hosted checkpoint: Commit `8299cd9`.
-Current implementation checkpoint: The checked-in router native integration
+Last reviewed branch checkpoint: Generated consumer secure JSON-response MCP session-isolation coverage.
+Latest fully clean hosted checkpoint: Commit `c453949`.
+Current implementation checkpoint: The generated consumer-package
+router-hosted MCP smoke now extends the bearer-protected JSON-response route
+at `/mcp/secure-json-post` with the same active-session isolation matrix used
+by the standard secure Streamable route. The generated consumer application
+smoke now proves a different valid bearer principal cannot reuse the owner
+`MCP-Session-Id` on JSON-response Streamable POSTs (`404 Not Found` /
+`Unknown MCP HTTP session`), bearerless active-session reuse is rejected with
+`401 Unauthorized`, and an unknown bearer on an active session is rejected
+across direct JSON tools, direct WAMP meta/pubsub calls, Streamable batches,
+notifications, tools, resources, prompts, GET/SSE poll, and DELETE while the
+rejected client state is cleared on Streamable failures. The owner client keeps
+its active MCP session id, keeps the POST/SSE cursor empty, and continues
+through typed protocol override, pub/sub, GET/SSE poll, and DELETE cleanup
+coverage. Pre-change `bin/test-fast` passed on 2026-05-24. Focused local
+coverage passed on 2026-05-24:
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+`bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
+and `git diff --check`. Full local `bin/verify` passed on 2026-05-24 for this
+checkpoint. This checkpoint is not yet pushed or backed by hosted GitHub
+evidence.
+Prior implementation checkpoint: The checked-in router native integration
 MCP smoke now also pins auth/session isolation for the bearer-protected
 JSON-response route at `/mcp/secure-json-post`. Before any Streamable
 lifecycle session exists, the smoke proves an unknown bearer token is rejected
@@ -21,18 +41,18 @@ local coverage passed on 2026-05-24:
 `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`,
 `dart analyze packages/connectanum_router/test/router_integration_native_test.dart`,
 `python3 tool/check_public_artifact_references.py`, and `git diff --check`.
-Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Commit `8299cd9`
-(`test: cover rejected json-response mcp bearers`) was pushed to GitLab
+Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Commit
+`c453949` (`test: cover json-response mcp principal isolation`) was pushed to GitLab
 `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
-clean at `8299cd9`: `master` CI run `26352813257` passed with Fast Checks and
-Full Verify green plus clean logs, and `add-router` CI run `26352812811`
+clean at `c453949`: `master` CI run `26353736923` passed with Fast Checks and
+Full Verify green plus clean logs, and `add-router` CI run `26353735642`
 passed with Fast Checks and Full Verify green. Dart Package Publish Dry Run
-`26352813256` on `master` and `26352812807` on `add-router` passed cleanly at
-`8299cd9`; WAMP Profile Benchmarks `26352813275` on `master` and
-`26352812823` on `add-router` passed at `8299cd9`. Router Image dry-run
-`26353070574` passed for current head with preview metadata
-`sha-8299cd9de96b`, GHCR login skipped, and no image publish. The strict
-deployment-chain audit passed required gates on `master` at `8299cd9`,
+`26353736911` on `master` and `26353735630` on `add-router` passed cleanly at
+`c453949`; WAMP Profile Benchmarks `26353736914` on `master` and
+`26353735619` on `add-router` passed at `c453949`. Router Image dry-run
+`26353998120` passed for current head with preview metadata
+`sha-c453949d0b17`, GHCR login skipped, and no image publish. The strict
+deployment-chain audit passed required gates on `master` at `c453949`,
 including clean current-head CI/logs, current Dart package dry-run, current
 WAMP profile benchmark evidence, current Router Image dry-run, native release
 dry-run relevance, branch protection, workflow visibility, and router package
@@ -12820,11 +12840,10 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears. The latest fully hosted checkpoint extends
-  checked-in router integration secure JSON-response MCP smoke to rejected
-  bearer/session reuse cases at `8299cd9`; the current local checkpoint further
-  pins valid-other-principal Streamable reuse rejection on the JSON-response
-  route until pushed and observed.
+  consumer integration bug appears. The current local checkpoint extends the
+  generated consumer-package secure JSON-response MCP smoke with
+  cross-principal, bearerless, and unknown-bearer active-session isolation;
+  the latest fully hosted checkpoint remains `c453949`.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub
