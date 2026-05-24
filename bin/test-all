@@ -57,6 +57,7 @@ run_bench_vm_tests() {
 run_client_browser_websocket_test() {
   (
     cd packages/connectanum_client
+    local attempt_timeout_seconds
     local browser_compiler
     local max_attempts
     local status
@@ -73,6 +74,44 @@ run_client_browser_websocket_test() {
       return 2
     fi
 
+    attempt_timeout_seconds="${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-420}"
+    if ! [[ "$attempt_timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+      printf 'CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS must be a positive integer, got %s.\n' "$attempt_timeout_seconds" >&2
+      return 2
+    fi
+
+    run_browser_websocket_test_attempt() {
+      local timeout_seconds
+      timeout_seconds="$1"
+      shift
+
+      "$@" &
+      local command_pid=$!
+
+      (
+        sleep "$timeout_seconds"
+        if kill -0 "$command_pid" 2>/dev/null; then
+          printf 'Browser WebSocket smoke exceeded %ss; terminating stalled attempt.\n' "$timeout_seconds" >&2
+          kill "$command_pid" 2>/dev/null || true
+          sleep 2
+          kill -9 "$command_pid" 2>/dev/null || true
+        fi
+      ) &
+      local timeout_pid=$!
+
+      local command_status
+      if wait "$command_pid"; then
+        command_status=0
+      else
+        command_status=$?
+      fi
+
+      kill "$timeout_pid" 2>/dev/null || true
+      wait "$timeout_pid" 2>/dev/null || true
+
+      return "$command_status"
+    }
+
     for attempt in $(seq 1 "$max_attempts"); do
       local args=(
         test/transport/websocket/websocket_transport_web_test.dart
@@ -88,7 +127,7 @@ run_client_browser_websocket_test() {
         args+=(--reporter=expanded)
       fi
 
-      if dart test "${args[@]}"; then
+      if run_browser_websocket_test_attempt "$attempt_timeout_seconds" dart test "${args[@]}"; then
         return 0
       else
         status=$?

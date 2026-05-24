@@ -78,6 +78,21 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Hardened the hosted browser WebSocket smoke in `bin/test-all`
+  so retryable `package:test` browser-manager startup or load stalls cannot
+  consume an entire GitHub CI job. Each attempt is now bounded by
+  `CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS`, defaulting to 420
+  seconds, while preserving `CONNECTANUM_BROWSER_TEST_ATTEMPTS` and keeping
+  retry-attempt output out of GitHub annotations until the final attempt. This
+  addresses the same failure mode seen on the first `master` CI attempt at
+  `3f3f4c2`, where rerunning the failed hosted browser job passed cleanly.
+  `tool/test_verification_scripts.py` now guards the retry wrapper, attempt
+  timeout, and reporter behavior. Baseline `bin/test-fast` passed on
+  2026-05-24. Focused local coverage passed: `bash -n bin/test-all` and
+  `python3 tool/test_verification_scripts.py`. Full local `bin/verify` passed
+  on 2026-05-24, including the Chrome/Dart2Wasm browser WebSocket smoke
+  through the updated wrapper. Hosted GitHub evidence is pending until this
+  code/config checkpoint is pushed and the deployment chain completes.
 - 2026-05-24: Hardened the public Streamable HTTP MCP client's
   authorization ownership. `McpStreamableHttpClient` now captures a
   client-level `Authorization` header from constructor headers,
@@ -93,9 +108,26 @@ decision because `connectanum_client` still depends on private
   `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart` and
   `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`, plus
   `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
-  Full local `bin/verify` passed on 2026-05-24. This checkpoint has
-  not yet been pushed, and no hosted CI or package dry-run evidence exists for
-  it yet. No RC tag, GitHub Release, or router image was created or moved.
+  Full local `bin/verify` passed on 2026-05-24. Commit `3f3f4c2`
+  (`fix: keep mcp bearer auth stable`) was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `3f3f4c2`: `master` CI run `26371382128` passed after a failed-job rerun
+  cleared a hosted browser-runner load flake, and `add-router` CI run
+  `26371382102` passed with Fast Checks and Full Verify green; Dart Package
+  Publish Dry Run `26371382131` on `master` and `26371382110` on `add-router`
+  passed; WAMP Profile Benchmarks `26371382109` on `master` and `26371382129`
+  on `add-router` passed; Router Image dry-run `26372834591` passed on
+  `master` with preview metadata `sha-3f3f4c2e9e4a`, GHCR login skipped, and
+  preview metadata uploaded. Native Artifacts dry-run `26286794628` remains
+  relevant because no native-release-sensitive inputs changed. The strict
+  deployment-chain audit passed required gates on `master` at `3f3f4c2`,
+  including clean current-head CI/logs, Dart package dry-run, WAMP profile
+  benchmark evidence, current Router Image dry-run, relevant native release
+  dry-run, branch protection, workflow visibility, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag, GitHub prerelease, or matching RC router image tag has been selected;
+  pub.dev publishing remains deferred for release-order and operator decisions.
+  No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Extended the secure JSON-response MCP independent-principal
   coverage across the native router integration smoke, public router-hosted
   MCP example, and generated consumer-package smoke. A second valid bearer

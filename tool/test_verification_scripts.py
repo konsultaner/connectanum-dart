@@ -32,12 +32,25 @@ class VerificationScriptsTest(unittest.TestCase):
 
         self.assertIn("run_client_browser_websocket_test()", script)
         self.assertIn('CONNECTANUM_BROWSER_TEST_ATTEMPTS:-2', script)
+        self.assertIn(
+            "CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-420",
+            script,
+        )
+        self.assertIn("run_browser_websocket_test_attempt()", script)
+        self.assertIn(
+            "Browser WebSocket smoke exceeded %ss",
+            script,
+        )
         self.assertIn('args+=(--reporter=expanded)', script)
         self.assertIn(
             "the final attempt keeps the default reporter",
             script,
         )
-        self.assertIn('if dart test "${args[@]}"; then', script)
+        self.assertIn(
+            'if run_browser_websocket_test_attempt "$attempt_timeout_seconds" '
+            'dart test "${args[@]}"; then',
+            script,
+        )
         self.assertIn('return "$status"', script)
 
 
