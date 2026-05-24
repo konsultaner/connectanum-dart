@@ -78,6 +78,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-24: Extended the generated consumer-package smoke from the standard
+  Streamable MCP tool notification helper and a `connectanum.tool.call`
+  notification-only batch to the remaining sessionful tool-method aliases. A
+  downstream application smoke now sends notification-only tool calls through
+  standard `tools/call`, Connectanum `connectanum.tool.call`, direct dotted
+  procedure names, and plural `connectanum.tools.call` while an initialized
+  Streamable HTTP session is active. The smoke asserts each valid notification
+  invokes the registered WAMP procedure, `MCP-Session-Id` and the POST/SSE
+  resume cursor stay unchanged, and an invalid notification-only batch entry is
+  accepted and dropped without invoking the procedure. Pre-change
+  `bin/test-fast` passed on 2026-05-24. Focused local coverage passed:
+  `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
+  `git diff --check`, and
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
+  evidence is still clean at `3feb797`; no new hosted run has completed for
+  this local checkpoint yet. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-24: Extended checked-in native router MCP notification coverage from
   accepted HTTP responses to WAMP side effects. The router integration smoke
   now records `app.safe.lookup` invocations and proves notification-only direct
@@ -94,10 +112,26 @@ decision because `connectanum_client` still depends on private
   `dart analyze packages/connectanum_router/test/router_integration_native_test.dart`
   and
   `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "isolates MCP Streamable HTTP sessions by route and bearer principal|smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`.
-  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
-  evidence is still clean at `dbb52aa`; no new hosted run has completed for
-  this local checkpoint yet. No RC tag, GitHub Release, or router image was
-  created or moved.
+  Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Commit
+  `3feb797` (`test: cover direct mcp notification side effects`) was pushed to
+  GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+  evidence is clean at `3feb797`: `master` CI run `26366801355` and
+  `add-router` CI run `26366796353` passed with Fast Checks and Full Verify
+  green; Dart Package Publish Dry Run `26366801335` on `master` and
+  `26366796357` on `add-router` passed; WAMP Profile Benchmarks `26366801338`
+  on `master` and `26366796352` on `add-router` passed; manual non-mutating
+  Router Image dry-run `26366846880` passed on `master` at `3feb797` with
+  preview metadata `sha-3feb797f84b1`, GHCR login skipped, and preview
+  metadata uploaded. Native Artifacts dry-run `26286794628` remains relevant
+  because no native-release-sensitive inputs changed. The strict
+  deployment-chain audit passed required gates on `master` at `3feb797`,
+  including clean current-head CI/logs, Dart package dry-run, WAMP profile
+  benchmark evidence, current Router Image dry-run, relevant native release
+  dry-run, branch protection, workflow visibility, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag, GitHub prerelease, or matching RC router image tag has been selected;
+  pub.dev publishing remains deferred for release-order and operator decisions.
+  No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-24: Extended the public router-hosted MCP example direct JSON
   tool/meta smoke to notification-only tool-method paths. The example now
   records `example.task.lookup` invocations and proves standard `tools/call`,

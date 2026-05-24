@@ -20080,6 +20080,49 @@ Future<void> _smokeStreamableNotificationToolCall(
     label: '$label Streamable standard tool notification helper',
   );
 
+  final eventIdBeforeDottedNotification = client.lastEventId;
+  final dottedTaskId = 'T-$label-streamable-dotted-notification-tool';
+  await client.notifyConnectanumMethod(
+    _procedure,
+    params: {'taskId': dottedTaskId},
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-notification-tool-dotted',
+    },
+  );
+  if (client.sessionId != sessionId ||
+      client.lastEventId != eventIdBeforeDottedNotification) {
+    throw StateError(
+      'Streamable MCP dotted tool notification changed session state.',
+    );
+  }
+  await _expectConsumerProcedureInvocation(
+    dottedTaskId,
+    label: '$label Streamable dotted tool notification',
+  );
+
+  final eventIdBeforeAliasNotification = client.lastEventId;
+  final aliasTaskId = 'T-$label-streamable-alias-notification-tool';
+  await client.notifyConnectanumMethod(
+    'connectanum.tools.call',
+    params: {
+      'name': _procedure,
+      'arguments': {'taskId': aliasTaskId},
+    },
+    headers: <String, String>{
+      'x-consumer-trace': '$label-streamable-notification-tool-alias',
+    },
+  );
+  if (client.sessionId != sessionId ||
+      client.lastEventId != eventIdBeforeAliasNotification) {
+    throw StateError(
+      'Streamable MCP plural tool alias notification changed session state.',
+    );
+  }
+  await _expectConsumerProcedureInvocation(
+    aliasTaskId,
+    label: '$label Streamable plural tool alias notification',
+  );
+
   await _expectConsumerProcedureInvocation(
     taskId,
     label: '$label Streamable tool notification-only batch',

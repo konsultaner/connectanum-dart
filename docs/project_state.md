@@ -2,10 +2,29 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP direct notification native
-coverage.
-Latest fully clean hosted checkpoint: Commit `dbb52aa`.
-Current implementation checkpoint: The checked-in native router integration
+Last reviewed branch checkpoint: Streamable MCP tool notification alias
+consumer smoke.
+Latest fully clean hosted checkpoint: Commit `3feb797`.
+Current implementation checkpoint: The generated consumer-package smoke now
+proves a downstream application can use an initialized Streamable HTTP MCP
+session to send notification-only tool calls through the standard
+`tools/call` helper, Connectanum `connectanum.tool.call`, direct dotted
+procedure names, and plural `connectanum.tools.call` aliases. The smoke asserts
+each valid notification invokes the registered WAMP procedure and keeps
+`MCP-Session-Id` plus the POST/SSE resume cursor unchanged, while an invalid
+notification-only batch entry is accepted and dropped without invoking the
+procedure.
+Pre-change `bin/test-fast` passed on 2026-05-24. Focused local coverage passed
+on 2026-05-24:
+`bash -n bin/common.sh`,
+`python3 tool/check_public_artifact_references.py`,
+`git diff --check`, and
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
+evidence is still clean at `3feb797`; no new hosted run has completed for this
+local checkpoint yet. No RC tag, GitHub Release, or router image was created
+or moved.
+Prior implementation checkpoint: The checked-in native router integration
 smoke now proves router-hosted MCP direct JSON-RPC notifications invoke the
 same WAMP procedure as request/response tool calls without creating or
 mutating Streamable HTTP session state. The smoke records `app.safe.lookup`
@@ -22,10 +41,26 @@ on 2026-05-24:
 `dart analyze packages/connectanum_router/test/router_integration_native_test.dart`
 and
 `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "isolates MCP Streamable HTTP sessions by route and bearer principal|smoke tests MCP router RPC pubsub and route security" --chain-stack-traces`.
-Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Hosted
-evidence is still clean at `dbb52aa`; no new hosted run has completed for this
-local checkpoint yet. No RC tag, GitHub Release, or router image was created or
-moved.
+Full local `bin/verify` passed on 2026-05-24 for this checkpoint. Commit
+`3feb797` (`test: cover direct mcp notification side effects`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `3feb797`: `master` CI run `26366801355` and
+`add-router` CI run `26366796353` passed with Fast Checks and Full Verify
+green; Dart Package Publish Dry Run `26366801335` on `master` and
+`26366796357` on `add-router` passed; WAMP Profile Benchmarks `26366801338`
+on `master` and `26366796352` on `add-router` passed; manual non-mutating
+Router Image dry-run `26366846880` passed on `master` at `3feb797` with
+preview metadata `sha-3feb797f84b1`, GHCR login skipped, and preview metadata
+uploaded. Native Artifacts dry-run `26286794628` remains relevant because no
+native-release-sensitive inputs changed. The strict deployment-chain audit
+passed required gates on `master` at `3feb797`, including clean current-head
+CI/logs, Dart package dry-run, WAMP profile benchmark evidence, current Router
+Image dry-run, relevant native release dry-run, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected; pub.dev publishing remains deferred for
+release-order and operator decisions. No RC tag, GitHub Release, or router
+image was created or moved.
 Prior implementation checkpoint: The public router-hosted MCP example now
 proves direct JSON-RPC notification paths invoke the same WAMP procedure as
 request/response tool calls without creating or mutating Streamable HTTP
