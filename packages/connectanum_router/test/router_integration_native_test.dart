@@ -2169,13 +2169,14 @@ void main() {
           authId: 'user-2',
         );
 
+        final secureMcpEndpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/secure',
+        );
         final primaryMcpClient = McpStreamableHttpClient.withAuthGrant(
-          Uri(
-            scheme: 'http',
-            host: '127.0.0.1',
-            port: listener.port,
-            path: '/mcp/secure',
-          ),
+          secureMcpEndpoint,
           primaryGrant,
         );
         addTearDown(() => primaryMcpClient.close(force: true));
@@ -2264,6 +2265,46 @@ void main() {
           jsonEncode(reuseWithOtherPrincipal.json?['error']),
           contains('Unknown MCP HTTP session'),
         );
+
+        final otherPrincipalMcpClient = McpStreamableHttpClient.withBearerToken(
+          secureMcpEndpoint,
+          otherGrant.accessToken,
+        );
+        addTearDown(() => otherPrincipalMcpClient.close(force: true));
+        final otherDirectTools = await otherPrincipalMcpClient.listToolsDirect(
+          id: 'secure-other-direct-tools',
+        );
+        expect(
+          otherDirectTools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        expect(otherPrincipalMcpClient.sessionId, isNull);
+        expect(otherPrincipalMcpClient.lastEventId, isNull);
+
+        final otherInitialize = await otherPrincipalMcpClient.initialize(
+          id: 'secure-other-initialize',
+        );
+        expect(otherInitialize['id'], equals('secure-other-initialize'));
+        final otherSessionId = otherPrincipalMcpClient.sessionId;
+        expect(otherSessionId, isNotNull);
+        expect(otherSessionId, isNot(equals(primarySessionId)));
+        await otherPrincipalMcpClient.notifyInitialized();
+        final otherTools = await otherPrincipalMcpClient.listTools(
+          id: 'secure-other-tools',
+        );
+        expect(
+          otherTools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        expect(otherPrincipalMcpClient.sessionId, equals(otherSessionId));
+        expect(
+          otherPrincipalMcpClient.lastEventId,
+          startsWith('$otherSessionId:'),
+        );
+        await otherPrincipalMcpClient.deleteSession();
+        expect(otherPrincipalMcpClient.sessionId, isNull);
+        expect(otherPrincipalMcpClient.lastEventId, isNull);
+        expect(primaryMcpClient.sessionId, equals(primarySessionId));
 
         final publicRouteReuse =
             await _postJson(httpClient, listener.port, '/mcp/public', {

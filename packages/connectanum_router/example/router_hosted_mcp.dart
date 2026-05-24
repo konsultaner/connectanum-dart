@@ -119,6 +119,11 @@ Future<void> main(List<String> args) async {
       label: 'secure',
       serviceSession: serviceSession,
     );
+    await _smokeSecureMcpSessionIsolation(
+      binding,
+      grant,
+      otherGrant: otherGrant,
+    );
     await _smokeSecureMcpRefreshAndRevocation(binding, grant);
 
     final endpoint = _mcpEndpoint(binding);
@@ -1194,6 +1199,62 @@ Future<void> _smokeSecureJsonPostMcpSessionIsolation(
   }
 }
 
+Future<void> _smokeSecureMcpSessionIsolation(
+  RouterBinding binding,
+  ConnectanumHttpAuthGrant grant, {
+  required ConnectanumHttpAuthGrant otherGrant,
+}) async {
+  final ownerClient = await _openSecureMcpSession(
+    binding,
+    grant,
+    label: 'secure-owner',
+  );
+  final otherPrincipalClient = McpStreamableHttpClient.withBearerToken(
+    _mcpEndpoint(binding, secure: true),
+    otherGrant.accessToken,
+  );
+  try {
+    final sessionId = ownerClient.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError('Secure Streamable MCP owner session has no id.');
+    }
+    final lastEventId = ownerClient.lastEventId;
+
+    await _assertStreamableSessionReuseRejectedAcrossMethods(
+      otherPrincipalClient,
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: 'secure-other-principal',
+    );
+    await _assertStreamableIndependentPrincipalSession(
+      otherPrincipalClient,
+      ownerSessionId: sessionId,
+      label: 'secure-other-principal',
+    );
+
+    final ownerTools = await ownerClient.listTools(
+      id: 'secure-owner-after-other-principal',
+    );
+    if (!ownerTools.tools.any(
+      (tool) => tool['name'] == 'example.task.lookup',
+    )) {
+      throw StateError(
+        'Secure Streamable MCP owner session lost route catalog.',
+      );
+    }
+    if (ownerClient.sessionId != sessionId) {
+      throw StateError(
+        'Secure Streamable MCP other-principal smoke changed owner session id.',
+      );
+    }
+
+    await ownerClient.deleteSession();
+  } finally {
+    ownerClient.close();
+    otherPrincipalClient.close();
+  }
+}
+
 Future<void> _assertJsonPostIndependentPrincipalSession(
   McpStreamableHttpClient client, {
   required String ownerSessionId,
@@ -1248,6 +1309,68 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError(
       'JSON-response MCP $label independent DELETE left session state.',
+    );
+  }
+}
+
+Future<void> _assertStreamableIndependentPrincipalSession(
+  McpStreamableHttpClient client, {
+  required String ownerSessionId,
+  required String label,
+}) async {
+  final directTools = await client.listToolsDirect(id: '$label-direct-tools');
+  if (!directTools.tools.any((tool) => tool['name'] == 'example.task.lookup')) {
+    throw StateError(
+      'Secure Streamable MCP $label direct tools/list missed route catalog.',
+    );
+  }
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Secure Streamable MCP $label direct tools/list changed session state.',
+    );
+  }
+
+  await client.initialize(
+    id: '$label-independent-initialize',
+    clientInfo: const {
+      'name': 'router_hosted_mcp_independent_streamable_principal_example',
+      'version': '0.1.0',
+    },
+  );
+  await client.notifyInitialized();
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError('Secure Streamable MCP $label did not create a session.');
+  }
+  if (sessionId == ownerSessionId) {
+    throw StateError(
+      'Secure Streamable MCP $label reused another principal session id.',
+    );
+  }
+
+  final tools = await client.listTools(id: '$label-independent-tools');
+  if (!tools.tools.any((tool) => tool['name'] == 'example.task.lookup')) {
+    throw StateError(
+      'Secure Streamable MCP $label independent tools/list missed catalog.',
+    );
+  }
+  if (client.sessionId != sessionId) {
+    throw StateError(
+      'Secure Streamable MCP $label independent tools/list changed session id.',
+    );
+  }
+  final lastEventId = client.lastEventId;
+  if (lastEventId == null || !lastEventId.startsWith('$sessionId:')) {
+    throw StateError(
+      'Secure Streamable MCP $label independent tools/list did not capture '
+      'a session-scoped POST/SSE cursor.',
+    );
+  }
+
+  await client.deleteSession();
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Secure Streamable MCP $label independent DELETE left session state.',
     );
   }
 }
