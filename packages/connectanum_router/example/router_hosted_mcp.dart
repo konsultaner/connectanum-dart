@@ -11,6 +11,7 @@ const String _realm = 'example.realm';
 const String _authPath = '/auth';
 const String _publicMcpPath = '/mcp';
 const String _secureMcpPath = '/mcp/secure';
+const String _secureJsonPostMcpPath = '/mcp/secure-json-post';
 const String _ticketAuthId = 'mcp-user';
 const String _ticketSecret = 'mcp-demo-ticket';
 const List<String> _supportedOlderProtocolVersions = [
@@ -78,12 +79,30 @@ Future<void> main(List<String> args) async {
     );
 
     await _assertSecureMcpRequiresBearer(binding);
+    await _assertSecureMcpRequiresBearer(
+      binding,
+      endpoint: _secureJsonPostMcpEndpoint(binding),
+      routeLabel: 'Bearer-protected JSON-response MCP endpoint',
+    );
     final grant = await _issueTicketHttpGrant(binding);
     await _smokeMcpProtocolVersionCompatibility(
       binding,
       label: 'secure',
       secure: true,
       authGrant: grant,
+    );
+    await _assertSecureMcpRejectsBearer(
+      binding,
+      'example-unknown-access-token',
+      endpoint: _secureJsonPostMcpEndpoint(binding),
+      acceptedMessage:
+          'Bearer-protected JSON-response MCP endpoint accepted an unknown '
+          'access token.',
+    );
+    await _smokeSecureJsonPostMcpEndpoint(
+      binding,
+      grant,
+      serviceSession: serviceSession,
     );
     secureMcpClient = McpStreamableHttpClient.withAuthGrant(
       _mcpEndpoint(binding, secure: true),
@@ -98,8 +117,13 @@ Future<void> main(List<String> args) async {
 
     final endpoint = _mcpEndpoint(binding);
     final secureEndpoint = _mcpEndpoint(binding, secure: true);
+    final secureJsonPostEndpoint = _secureJsonPostMcpEndpoint(binding);
     print('Router-hosted MCP endpoint is running at $endpoint');
     print('Bearer-protected MCP endpoint is running at $secureEndpoint');
+    print(
+      'Bearer-protected JSON-response MCP endpoint is running at '
+      '$secureJsonPostEndpoint',
+    );
     print('The example registered WAMP procedure example.task.lookup.');
     print(
       'Direct JSON-RPC clients can POST tools/list, tools/call, '
@@ -143,6 +167,16 @@ Uri _authEndpoint(RouterBinding binding) {
     host: '127.0.0.1',
     port: listener.port,
     path: _authPath,
+  );
+}
+
+Uri _secureJsonPostMcpEndpoint(RouterBinding binding) {
+  final listener = binding.listeners.single;
+  return Uri(
+    scheme: 'http',
+    host: '127.0.0.1',
+    port: listener.port,
+    path: _secureJsonPostMcpPath,
   );
 }
 
@@ -300,6 +334,19 @@ RouterSettings _buildSettings() {
               options: {...mcpOptions, 'allow_insecure_transport': true},
             ),
           ),
+          HttpRouteSettings(
+            match: const HttpRouteMatch(path: _secureJsonPostMcpPath),
+            action: const HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: _realm,
+              sessionProfile: 'mcp-ticket',
+              options: {
+                ...mcpOptions,
+                'allow_insecure_transport': true,
+                'post_response_transport': 'json',
+              },
+            ),
+          ),
         ],
       ),
     )
@@ -406,16 +453,21 @@ Future<void> _closeMcpClient(McpStreamableHttpClient client) async {
   client.close(force: true);
 }
 
-Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
-  final client = McpStreamableHttpClient(_mcpEndpoint(binding, secure: true));
+Future<void> _assertSecureMcpRequiresBearer(
+  RouterBinding binding, {
+  Uri? endpoint,
+  String routeLabel = 'Bearer-protected MCP endpoint',
+}) async {
+  final client = McpStreamableHttpClient(
+    endpoint ?? _mcpEndpoint(binding, secure: true),
+  );
   try {
     await _expectSecureMcpUnauthorized(
       () async {
         await client.listToolsDirect(id: 'secure-unauthenticated-tools');
       },
       label: 'direct JSON tools/list',
-      acceptedMessage:
-          'Bearer-protected MCP endpoint accepted no credentials for tools/list.',
+      acceptedMessage: '$routeLabel accepted no credentials for tools/list.',
     );
     await _expectSecureMcpUnauthorized(
       () async {
@@ -428,8 +480,7 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
         );
       },
       label: 'direct JSON tools/call',
-      acceptedMessage:
-          'Bearer-protected MCP endpoint accepted no credentials for tools/call.',
+      acceptedMessage: '$routeLabel accepted no credentials for tools/call.',
     );
     await _expectSecureMcpUnauthorized(
       () async {
@@ -454,15 +505,14 @@ Future<void> _assertSecureMcpRequiresBearer(RouterBinding binding) async {
         ]);
       },
       label: 'direct JSON batch tools/list and tools/call',
-      acceptedMessage:
-          'Bearer-protected MCP endpoint accepted no credentials for batch tools.',
+      acceptedMessage: '$routeLabel accepted no credentials for batch tools.',
     );
     if (client.sessionId != null || client.lastEventId != null) {
       throw StateError(
         'Unauthenticated direct MCP requests changed session state.',
       );
     }
-    print('Secure MCP endpoint rejects unauthenticated requests.');
+    print('$routeLabel rejects unauthenticated requests.');
   } finally {
     client.close(force: true);
   }
@@ -505,9 +555,10 @@ Future<void> _assertSecureMcpRejectsBearer(
   RouterBinding binding,
   String bearerToken, {
   required String acceptedMessage,
+  Uri? endpoint,
 }) async {
   final client = McpStreamableHttpClient.withBearerToken(
-    _mcpEndpoint(binding, secure: true),
+    endpoint ?? _mcpEndpoint(binding, secure: true),
     bearerToken,
   );
   try {
@@ -757,6 +808,190 @@ Future<void> _smokeSecureMcpRefreshedGrant(
     await client.deleteSession();
     if (client.sessionId != null || client.lastEventId != null) {
       throw StateError('Refreshed bearer session cleanup left session state.');
+    }
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _smokeSecureJsonPostMcpEndpoint(
+  RouterBinding binding,
+  ConnectanumHttpAuthGrant grant, {
+  required RouterSession serviceSession,
+}) async {
+  const label = 'secure-json-post';
+  const routeLabel = 'secure JSON-response MCP endpoint';
+  final client = McpStreamableHttpClient.withAuthGrant(
+    _secureJsonPostMcpEndpoint(binding),
+    grant,
+  );
+
+  void expectJsonPostState(String operation, String sessionId) {
+    if (client.sessionId != sessionId) {
+      throw StateError('$routeLabel $operation changed session id.');
+    }
+    if (client.lastEventId != null) {
+      throw StateError('$routeLabel $operation captured a POST/SSE cursor.');
+    }
+  }
+
+  try {
+    final directTools = await client.listToolsDirect(id: '$label-direct-tools');
+    if (!directTools.tools.any(
+      (tool) => tool['name'] == 'example.task.lookup',
+    )) {
+      throw StateError('$routeLabel direct tools/list missed example tool.');
+    }
+
+    final directTaskId = 'T-$label-direct-tool-call';
+    final directResult = await client.callToolDirect(
+      'example.task.lookup',
+      id: '$label-direct-tool-call',
+      arguments: {'taskId': directTaskId},
+    );
+    if (!jsonEncode(directResult).contains(directTaskId)) {
+      throw StateError('$routeLabel direct tools/call missed payload.');
+    }
+    await _smokeDirectJsonToolMetaApi(client, label: label);
+    await _smokeDirectJsonTopicMetaApi(client, label: label);
+    await _smokeDirectJsonWampMetaHelpers(client, serviceSession, label: label);
+
+    final directResource = await client.readResourceDirect(
+      'app://example/context',
+      id: '$label-direct-resource-read',
+    );
+    if (!jsonEncode(directResource).contains('Router-hosted MCP example')) {
+      throw StateError('$routeLabel direct resources/read missed context.');
+    }
+
+    final directPrompt = await client.getPromptDirect(
+      'summarize-task',
+      id: '$label-direct-prompt',
+      arguments: {'taskId': directTaskId},
+    );
+    if (!jsonEncode(directPrompt).contains(directTaskId)) {
+      throw StateError('$routeLabel direct prompts/get missed task id.');
+    }
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError('$routeLabel direct JSON changed Streamable state.');
+    }
+
+    await client.initialize(
+      id: '$label-initialize',
+      clientInfo: const {
+        'name': 'router_hosted_mcp_json_response_example',
+        'version': '0.1.0',
+      },
+    );
+    await client.notifyInitialized();
+    final sessionId = client.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError('$routeLabel did not initialize a session.');
+    }
+    expectJsonPostState('initialized notification', sessionId);
+
+    final streamableTools = await client.listTools(id: '$label-tools');
+    if (!streamableTools.tools.any(
+      (tool) => tool['name'] == 'example.task.lookup',
+    )) {
+      throw StateError(
+        '$routeLabel Streamable tools/list missed example tool.',
+      );
+    }
+    expectJsonPostState('tools/list', sessionId);
+
+    final streamableTaskId = 'T-$label-streamable-tool-call';
+    final streamableResult = await client.callTool(
+      'example.task.lookup',
+      id: '$label-tool-call',
+      arguments: {'taskId': streamableTaskId},
+    );
+    if (!jsonEncode(streamableResult).contains(streamableTaskId)) {
+      throw StateError('$routeLabel Streamable tools/call missed payload.');
+    }
+    expectJsonPostState('tools/call', sessionId);
+
+    final streamableResource = await client.readResource(
+      'app://example/context',
+      id: '$label-resource-read',
+    );
+    if (!jsonEncode(streamableResource).contains('Router-hosted MCP example')) {
+      throw StateError('$routeLabel Streamable resources/read missed context.');
+    }
+    expectJsonPostState('resources/read', sessionId);
+
+    final streamablePrompt = await client.getPrompt(
+      'summarize-task',
+      id: '$label-prompt',
+      arguments: {'taskId': streamableTaskId},
+    );
+    if (!jsonEncode(streamablePrompt).contains(streamableTaskId)) {
+      throw StateError('$routeLabel Streamable prompts/get missed task id.');
+    }
+    expectJsonPostState('prompts/get', sessionId);
+
+    final subscription = await client.subscribeWampTopic(
+      'example.events.task',
+      id: '$label-subscribe',
+      queueLimit: 4,
+    );
+    try {
+      await serviceSession.publish(
+        'example.events.task',
+        argumentsKeywords: {'taskId': 'T-$label-service-event'},
+        options: PublishOptions(acknowledge: true),
+      );
+      final events = await _pollMcpEventsUntil(
+        client,
+        subscription.handle,
+        label: '$label Streamable',
+      );
+      if (!jsonEncode(events.events).contains('T-$label-service-event')) {
+        throw StateError('$routeLabel Streamable pub/sub missed event.');
+      }
+    } finally {
+      await client.unsubscribeWampTopic(
+        subscription.handle,
+        id: '$label-unsubscribe',
+      );
+    }
+    expectJsonPostState('pub/sub', sessionId);
+
+    final dynamicProcedure = 'example.task.dynamic.$label';
+    await serviceSession.register(
+      dynamicProcedure,
+      options: RegisterOptions(
+        custom: {
+          '_ai_meta_data': {
+            'short_description': 'Dynamic JSON-response task lookup',
+            'description':
+                'Procedure registered during secure JSON-response MCP smoke.',
+            'read_only_hint': true,
+            'destructive_hint': false,
+            'idempotent_hint': true,
+            'open_world_hint': false,
+          },
+        },
+      ),
+    );
+    final pollEvents = await _pollStreamableSessionEventsUntil(
+      client,
+      label: label,
+    );
+    if (!pollEvents.any(
+      (event) =>
+          event.jsonData?['method'] == 'notifications/tools/list_changed',
+    )) {
+      throw StateError('$routeLabel GET/SSE poll missed tools/list_changed.');
+    }
+    final eventId = client.lastEventId;
+    if (eventId == null || eventId.isEmpty) {
+      throw StateError('$routeLabel GET/SSE poll missed event id.');
+    }
+
+    await client.deleteSession();
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError('$routeLabel DELETE left session state.');
     }
   } finally {
     client.close(force: true);

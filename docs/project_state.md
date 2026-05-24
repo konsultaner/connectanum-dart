@@ -2,9 +2,32 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: Secure JSON-response MCP auth/session smoke coverage.
-Latest fully clean hosted checkpoint: Commit `cb6fdfc`.
-Current implementation checkpoint: The generated consumer-package
+Last reviewed branch checkpoint: Public router-hosted MCP example secure JSON-response endpoint.
+Latest fully clean hosted checkpoint: Commit `77015b9`.
+Current implementation checkpoint: The public router-hosted MCP example now
+exposes a bearer-protected JSON-response route at `/mcp/secure-json-post`,
+configured with `post_response_transport: json` on the same route-provided
+tool, WAMP meta API, pub/sub, resources, and prompts surface as the standard
+example MCP route. The example smoke proves the route rejects missing bearer
+credentials and an unknown bearer token, then uses the public IO client plus
+HTTP ticket auth grant to cover direct JSON tools/list and tools/call, WAMP
+tool/meta helpers, route-provided resources and prompts, Streamable initialize
+and initialized notifications, tools/list, tools/call, resources/read,
+prompts/get, pub/sub subscribe/publish/poll/unsubscribe, GET/SSE
+`notifications/tools/list_changed` polling, and DELETE cleanup. The smoke also
+asserts JSON POST responses on the active route keep the MCP session id stable
+and do not capture a POST/SSE cursor before GET/SSE polling. This brings the
+checked-in public example in line with the generated consumer-package secure
+JSON-response readiness smoke without depending on private downstream
+application assumptions. Pre-change `bin/test-fast` passed on 2026-05-24.
+Focused local coverage passed on 2026-05-24:
+`dart analyze packages/connectanum_router/example/router_hosted_mcp.dart`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,
+`python3 tool/check_public_artifact_references.py`, and `git diff --check`.
+Full local `bin/verify` passed on 2026-05-24. Hosted evidence for this local
+implementation is pending; the latest fully clean hosted checkpoint remains
+commit `77015b9`.
+Prior implementation checkpoint: The generated consumer-package
 router-hosted MCP smoke now adds a bearer-protected JSON-response route at
 `/mcp/secure-json-post`, configured with the snake-case
 `post_response_transport: json` option and the same route-provided tool, WAMP
@@ -24,8 +47,29 @@ Streamable route. Pre-change `bin/test-fast` passed on 2026-05-24. Focused
 local coverage passed on 2026-05-24:
 `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
 `bash -n bin/common.sh`, and `git diff --check`. Full local `bin/verify`
-passed on 2026-05-24.
-Prior implementation checkpoint: The generated consumer-package
+passed on 2026-05-24. Commit `77015b9`
+(`test: cover secure json-response mcp route`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`77015b9`: `master` CI run `26349158295` passed with Fast Checks and Full
+Verify green plus clean logs, and `add-router` CI run `26349158303` passed
+with Fast Checks and Full Verify green. The strict deployment-chain audit
+passed required gates on `master` at `77015b9`, including clean current-head
+CI/logs, relevant Dart package dry-run, relevant WAMP profile benchmark
+evidence, relevant Router Image dry-run, native release dry-run relevance,
+branch protection, workflow visibility, and router package visibility. Router
+Image dry-run `26345818520` at `f8497d6` remains relevant because no
+router-image-sensitive paths changed, with preview metadata
+`sha-f8497d6ea540`, GHCR login skipped, and no image publish. Dart Package
+Publish Dry Run `26344002614` at `9ac5e22`, WAMP Profile Benchmarks
+`26344002624` at `9ac5e22`, and Native Artifacts dry-run `26286794628` remain
+relevant because no publish-, WAMP-profile-, or native-release-sensitive
+inputs changed. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected; the audit suggests `v0.1.0-rc.2` as the next numeric tag if release
+approval is given. Pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
+Previous implementation checkpoint: The generated consumer-package
 router-hosted MCP smoke now reuses the raw direct JSON CORS error/recovery
 assertion after both JSON-response Streamable compatibility routes have opened
 an MCP session: `postResponseTransport: json` and
