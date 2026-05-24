@@ -7140,6 +7140,19 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
       throw StateError('$routeLabel raw ping returned data.');
     }
 
+    await _assertMcpDirectJsonErrorCorsResponse(
+      rawClient,
+      endpoint,
+      label: '$label-active-json-response',
+      sessionId: sessionId,
+    );
+    if (client.sessionId != sessionId) {
+      throw StateError(
+        '$routeLabel active direct JSON errors changed session id.',
+      );
+    }
+    expectNoPostSseCursor('active direct JSON errors');
+
     await _smokeTypedProtocolVersionOverrides(
       client,
       label: label,
@@ -9006,6 +9019,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
   HttpClient client,
   Uri endpoint, {
   required String label,
+  String? sessionId,
   String? bearerToken,
 }) async {
   final missingTool = 'missing.$label.direct-cors-error.tool';
@@ -9025,6 +9039,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
       'params': {'name': missingTool, 'arguments': <String, Object?>{}},
     },
     label: '$label direct JSON missing tool error',
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   _expectJsonRpcError(
@@ -9045,6 +9060,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
       'params': {'uri': missingResourceUri},
     },
     label: '$label direct JSON missing resource error',
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   _expectJsonRpcError(
@@ -9068,6 +9084,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
       },
     },
     label: '$label direct JSON missing prompt error',
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   _expectJsonRpcError(
@@ -9088,6 +9105,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
       'params': {'uri': missingApiUri, 'kind': 'procedure'},
     },
     label: '$label direct JSON missing API describe error',
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   _expectMcpDirectJsonToolResultError(
@@ -9108,6 +9126,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
       'params': {'handle': missingHandle, 'limit': 1},
     },
     label: '$label direct JSON missing pub/sub poll error',
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   _expectMcpDirectJsonToolResultError(
@@ -9128,6 +9147,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
       'params': {'handle': missingHandle},
     },
     label: '$label direct JSON missing pub/sub unsubscribe error',
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   _expectMcpDirectJsonToolResultError(
@@ -9147,6 +9167,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
       'method': 'connectanum.tools.list',
     },
     label: '$label direct JSON error recovery tools/list',
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   final tools = _jsonRpcResult(
@@ -9222,6 +9243,7 @@ Future<void> _assertMcpDirectJsonErrorCorsResponse(
       },
     ],
     label: '$label direct JSON error batch',
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   if (errorBatch.length != 7) {
@@ -9324,12 +9346,14 @@ Future<Map<String, Object?>> _mcpRawDirectJsonRpc(
   Uri endpoint,
   Map<String, Object?> message, {
   required String label,
+  String? sessionId,
   String? bearerToken,
 }) async {
   final response = await _mcpRawDirectJsonRpcResponse(
     client,
     endpoint,
     message,
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   if (response.statusCode != HttpStatus.ok) {
@@ -9363,12 +9387,14 @@ Future<List<Map<String, Object?>>> _mcpRawDirectJsonRpcBatch(
   Uri endpoint,
   List<Map<String, Object?>> messages, {
   required String label,
+  String? sessionId,
   String? bearerToken,
 }) async {
   final response = await _mcpRawDirectJsonRpcResponse(
     client,
     endpoint,
     messages,
+    sessionId: sessionId,
     bearerToken: bearerToken,
   );
   if (response.statusCode != HttpStatus.ok) {

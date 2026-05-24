@@ -2,40 +2,43 @@
 
 Last updated: 2026-05-24
 Current branch: `add-router`
-Last reviewed branch checkpoint: JSON-response MCP direct JSON error/recovery smoke coverage.
-Latest fully clean hosted checkpoint: Commit `d6b4c44`.
+Last reviewed branch checkpoint: JSON-response MCP active-session direct JSON error/recovery smoke coverage.
+Latest fully clean hosted checkpoint: Commit `d1888c0`.
 Current implementation checkpoint: The generated consumer-package
-router-hosted MCP smoke now applies the raw direct JSON CORS single, batch,
-notification-only, and error/recovery assertions to both JSON-response
-Streamable
-compatibility routes before opening a Streamable session:
-`postResponseTransport: json` and `streamPostResponses: false`. This proves
-sessionless direct JSON access for tools/list, ping, tool-call aliases, WAMP
-API list/describe metadata, resources/list/read/templates, prompts/list/get,
-and pub/sub subscribe/publish/poll/unsubscribe on those JSON response routes,
-including batch JSON-RPC catalog, detail, tool-call, and pub/sub flows. It
-also proves raw notification-only POSTs on those routes remain CORS-visible,
-bodyless `202 Accepted` responses that do not create or mutate Streamable MCP
-session state, including notification-only initialized/tools, tool-call, and
-pub/sub publish batches. The error/recovery smoke covers missing tools,
-resources, prompts, API descriptions, and pub/sub handles, plus mixed
-success/error batches with notification suppression and successful follow-up
-catalog reads. This closes a consumer-readiness gap where the compatibility
-routes had typed Streamable resource/prompt coverage and raw direct JSON
-request/response and notification-only coverage, but not the JSON-RPC
-error/recovery behavior expected by agents that keep to raw direct JSON APIs
-without using the typed Dart client. Pre-change `bin/test-fast` passed on
-2026-05-24.
+router-hosted MCP smoke now reuses the raw direct JSON CORS error/recovery
+assertion after both JSON-response Streamable compatibility routes have opened
+an MCP session: `postResponseTransport: json` and
+`streamPostResponses: false`. The active-session slice sends the current
+`MCP-Session-Id` on raw direct JSON requests, covers missing tools, resources,
+prompts, API descriptions, and pub/sub handles, keeps mixed success/error batches
+recoverable with notification suppression, and verifies the JSON-response
+route keeps the Streamable session id stable without capturing a POST/SSE
+cursor. This extends the previous sessionless JSON-response route coverage,
+which already proved direct JSON single, batch, notification-only, and
+error/recovery behavior before opening a Streamable session. Pre-change
+`bin/test-fast` passed on 2026-05-24.
 Focused local coverage passed on 2026-05-24:
 `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
 `bash -n bin/common.sh`, `python3 tool/check_public_artifact_references.py`,
 and `git diff --check`. Full local `bin/verify` passed on 2026-05-24.
-Prior hosted checkpoint: Commit `d6b4c44`
-(`test: cover json-response mcp notifications`) was pushed
+Prior implementation checkpoint: The generated consumer-package router-hosted
+MCP smoke applies the raw direct JSON CORS single, batch, notification-only,
+and error/recovery assertions to both JSON-response Streamable compatibility
+routes before opening a Streamable session. This proves sessionless direct
+JSON access for tools/list, ping, tool-call aliases, WAMP API list/describe
+metadata, resources/list/read/templates, prompts/list/get, and pub/sub
+subscribe/publish/poll/unsubscribe on those JSON response routes, including
+batch JSON-RPC catalog, detail, tool-call, and pub/sub flows. It also proves
+raw notification-only POSTs on those routes remain CORS-visible, bodyless
+`202 Accepted` responses that do not create or mutate Streamable MCP session state.
+The error/recovery smoke covers missing tools, resources, prompts, API
+descriptions, and pub/sub handles, plus mixed success/error batches with
+notification suppression and successful follow-up catalog reads.
+Commit `d1888c0` (`test: cover json-response mcp error recovery`) was pushed
 to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
-evidence is clean at `d6b4c44`: `master` CI run `26346638661` passed with
+evidence is clean at `d1888c0`: `master` CI run `26347442474` passed with
 Fast Checks and Full Verify green plus clean logs, and `add-router` CI run
-`26346636643` passed with Fast Checks and Full Verify green. Router Image
+`26347441207` passed with Fast Checks and Full Verify green. Router Image
 dry-run `26345818520` at `f8497d6` remains relevant because no
 router-image-sensitive paths changed, with preview metadata
 `sha-f8497d6ea540`, GHCR login skipped, and no image publish. Dart Package
@@ -43,14 +46,20 @@ Publish Dry Run `26344002614` at `9ac5e22`, WAMP Profile Benchmarks
 `26344002624` at `9ac5e22`, and Native Artifacts dry-run `26286794628` remain
 relevant because no publish-, WAMP-profile-, or native-release-sensitive
 inputs changed. The strict deployment-chain audit passed required gates on
-`master` at `d6b4c44`, including clean current-head CI/logs, relevant Dart
+`master` at `d1888c0`, including clean current-head CI/logs, relevant Dart
 package dry-run, relevant WAMP profile benchmark evidence, relevant Router
 Image dry-run, native release dry-run relevance, branch protection, workflow
 visibility, and router package visibility. RC readiness remains not-ready only
 because no approved numeric RC tag, GitHub prerelease, or matching RC router
-image tag has been selected, and pub.dev publishing remains deferred for
-release-order and operator decisions. No RC tag, GitHub Release, or router
+image tag has been selected; the audit suggests `v0.1.0-rc.2` as the next
+numeric tag if release approval is given. Pub.dev publishing remains deferred
+for release-order and operator decisions. No RC tag, GitHub Release, or router
 image was created or moved.
+Prior hosted checkpoint: Commit `d6b4c44`
+(`test: cover json-response mcp notifications`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence was
+clean at `d6b4c44`: `master` CI run `26346638661` and `add-router` CI run
+`26346636643` passed.
 Prior checkpoint details: Commit `f8497d6`
 (`test: cover direct json mcp response routes`) was pushed to GitLab
 `origin`, GitHub `add-router`, and GitHub `master`. It applied raw direct JSON
