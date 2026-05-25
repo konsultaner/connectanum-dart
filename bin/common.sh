@@ -1025,6 +1025,63 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     'auth-grant direct JSON WAMP API helper failed',
   );
 
+  final subscription = await client.subscribeWampTopicDirect(
+    _topic,
+    id: 'auth-grant-direct-pubsub-subscribe',
+    queueLimit: 2,
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-pubsub-subscribe',
+    },
+  );
+  try {
+    _expect(
+      subscription.topic == _topic &&
+          subscription.queueLimit == 2 &&
+          subscription.handle.isNotEmpty,
+      'auth-grant direct JSON pub/sub subscribe failed',
+    );
+    final publication = await client.publishWampEventDirect(
+      _topic,
+      id: 'auth-grant-direct-pubsub-publish',
+      argumentsKeywords: const <String, Object?>{
+        'taskId': 'T-auth-grant-direct-pubsub',
+      },
+      acknowledge: true,
+      headers: const <String, String>{
+        ...staleAuthHeaders,
+        'x-consumer-trace': 'auth-grant-direct-pubsub-publish',
+      },
+    );
+    _expect(
+      publication.topic == _topic && publication.acknowledged,
+      'auth-grant direct JSON pub/sub publish failed',
+    );
+    final events = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'auth-grant-direct-pubsub-poll',
+      headers: const <String, String>{
+        ...staleAuthHeaders,
+        'x-consumer-trace': 'auth-grant-direct-pubsub-poll',
+      },
+    );
+    _expect(
+      events.handle == subscription.handle &&
+          events.topic == _topic &&
+          jsonEncode(events.events).contains('T-auth-grant-direct-pubsub'),
+      'auth-grant direct JSON pub/sub poll missed the published event',
+    );
+  } finally {
+    await client.unsubscribeWampTopicDirect(
+      subscription.handle,
+      id: 'auth-grant-direct-pubsub-unsubscribe',
+      headers: const <String, String>{
+        ...staleAuthHeaders,
+        'x-consumer-trace': 'auth-grant-direct-pubsub-unsubscribe',
+      },
+    );
+  }
+
   final batch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
@@ -1082,6 +1139,10 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
         'auth-grant-direct-ping',
         'auth-grant-direct-tools',
         'auth-grant-direct-api',
+        'auth-grant-direct-pubsub-subscribe',
+        'auth-grant-direct-pubsub-publish',
+        'auth-grant-direct-pubsub-poll',
+        'auth-grant-direct-pubsub-unsubscribe',
         'auth-grant-direct-batch',
       },
     ),
@@ -1091,6 +1152,10 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     'auth-grant-direct-ping',
     'auth-grant-direct-tools',
     'auth-grant-direct-api',
+    'auth-grant-direct-pubsub-subscribe',
+    'auth-grant-direct-pubsub-publish',
+    'auth-grant-direct-pubsub-poll',
+    'auth-grant-direct-pubsub-unsubscribe',
     'auth-grant-direct-batch',
   };
   for (final trace in expectedTraces) {
@@ -1100,6 +1165,21 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
       'auth-grant direct JSON $trace did not keep the grant bearer token',
     );
   }
+  const expectedDirectToolNames = <String>{
+    'connectanum.api.list',
+    'connectanum.pubsub.subscribe',
+    'connectanum.pubsub.publish',
+    'connectanum.pubsub.poll',
+    'connectanum.pubsub.unsubscribe',
+  };
+  final missingDirectToolNames = expectedDirectToolNames.difference(
+    endpoint.directToolNamesWithoutSession,
+  );
+  _expect(
+    missingDirectToolNames.isEmpty,
+    'auth-grant direct JSON smoke missed lifecycle-free WAMP tools: '
+    '${missingDirectToolNames.join(', ')}',
+  );
 }
 
 Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
@@ -1131,6 +1211,21 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     refreshed.authProvider == _authProvider,
     'auth refresh provider mismatch',
   );
+
+  try {
+    await authClient.refreshToken(
+      grant.refreshToken!,
+      headers: const <String, String>{
+        'x-consumer-trace': 'auth-refresh-rotated',
+      },
+    );
+    throw StateError('auth refresh accepted a rotated refresh token');
+  } on ConnectanumHttpAuthException catch (error) {
+    _expect(
+      error.statusCode == HttpStatus.unauthorized,
+      'rotated refresh token returned ${error.statusCode}, expected 401',
+    );
+  }
 
   final refreshedClient = McpStreamableHttpClient.withAuthGrant(
     endpoint.uri,
@@ -1213,12 +1308,13 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
   }
 
   _expect(
-    endpoint.authRequestBodies.length == 6,
+    endpoint.authRequestBodies.length == 7,
     'auth refresh/revoke smoke did not add refresh and revoke requests',
   );
   _expect(
     const <String>{
       'auth-refresh',
+      'auth-refresh-rotated',
       'auth-revoke',
       'auth-revoke-refresh',
       'auth-refresh-revoked',
@@ -1232,6 +1328,17 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
           body['refresh_token'] == _refreshToken,
     ),
     'auth refresh request body was not sent as expected',
+  );
+  _expect(
+    endpoint.authRequestBodies
+            .where(
+              (body) =>
+                  body['grant_type'] == 'refresh_token' &&
+                  body['refresh_token'] == _refreshToken,
+            )
+            .length ==
+        2,
+    'rotated refresh-token request body was not sent as expected',
   );
   _expect(
     endpoint.authRequestBodies.any(
@@ -4179,6 +4286,7 @@ final class _AgentMcpEndpoint {
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   final _revokedAccessTokens = <String>{};
   final _revokedRefreshTokens = <String>{};
+  final _rotatedRefreshTokens = <String>{};
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
   var _sessionActive = false;
@@ -4534,19 +4642,29 @@ final class _AgentMcpEndpoint {
     switch (message['grant_type']) {
       case 'refresh_token':
         final refreshToken = message['refresh_token'];
-        if (refreshToken is String &&
-            _revokedRefreshTokens.contains(refreshToken)) {
-          request.response.statusCode = HttpStatus.unauthorized;
-          await _writeJson(request, const <String, Object?>{
-            'error': 'invalid_grant',
-            'reason': 'revoked_refresh_token',
-          });
-          return;
+        if (refreshToken is String) {
+          if (_revokedRefreshTokens.contains(refreshToken)) {
+            request.response.statusCode = HttpStatus.unauthorized;
+            await _writeJson(request, const <String, Object?>{
+              'error': 'invalid_grant',
+              'reason': 'revoked_refresh_token',
+            });
+            return;
+          }
+          if (_rotatedRefreshTokens.contains(refreshToken)) {
+            request.response.statusCode = HttpStatus.unauthorized;
+            await _writeJson(request, const <String, Object?>{
+              'error': 'invalid_grant',
+              'reason': 'rotated_refresh_token',
+            });
+            return;
+          }
         }
         _expect(
           refreshToken == _refreshToken,
           'auth refresh token mismatch',
         );
+        _rotatedRefreshTokens.add(_refreshToken);
         await _writeJson(request, const <String, Object?>{
           'status': 'ok',
           'token_type': 'Bearer',
