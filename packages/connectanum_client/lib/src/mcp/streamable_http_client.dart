@@ -1113,7 +1113,6 @@ final class McpStreamableHttpClient {
     final negotiatedSessionId = response.headers.value(_headerSessionId);
     if (negotiatedSessionId != null) {
       if (!_mcpSessionIdHeaderValueValid(negotiatedSessionId)) {
-        _clearSessionState();
         throw const McpStreamableProtocolException(
           'Invalid MCP-Session-Id response header',
         );

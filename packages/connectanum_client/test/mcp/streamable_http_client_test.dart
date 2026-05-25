@@ -796,6 +796,51 @@ void main() {
       },
     );
 
+    test(
+      'keeps active session state after malformed response session headers',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'active-malformed-init');
+        expect(initialize['id'], 'active-malformed-init');
+        expect(client.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-malformed-header';
+        await expectLater(
+          client.listTools(
+            id: 'active-malformed-response-session',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-response-session-id': 'malformed session',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.toString(),
+              'message',
+              contains('MCP-Session-Id'),
+            ),
+          ),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-malformed-header');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        final page = await client.listTools(
+          id: 'active-malformed-response-session-recovery',
+          streamable: false,
+        );
+        expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-malformed-header');
+      },
+    );
+
     test('clears stale session state when initialize is sessionless', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);

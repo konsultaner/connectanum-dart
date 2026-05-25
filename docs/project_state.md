@@ -2,9 +2,39 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable same-session initialize cursor cleanup.
-Latest fully clean hosted checkpoint: Commit `da68af3`.
-Current implementation checkpoint: `McpStreamableHttpClient.initialize(...)`
+Last reviewed branch checkpoint: MCP Streamable malformed response-session preservation.
+Latest fully clean hosted checkpoint: Commit `ff71566`.
+Current implementation checkpoint: `McpStreamableHttpClient` now preserves an
+active `sessionId` / `lastEventId` when a successful Streamable HTTP response
+echoes a malformed `MCP-Session-Id` response header. The client still throws
+`McpStreamableProtocolException` for the bad server/proxy response, but no
+longer discards a valid active session before the consumer application can
+retry or clean up. Baseline `bin/test-fast` passed on 2026-05-25 before the
+change. The focused regression failed before the fix, then passed after the
+response-header capture path stopped clearing state before throwing. Focused
+local coverage passed on 2026-05-25: targeted formatting and analyzer runs for
+the MCP client source/test files, the focused malformed response-session
+regression, the full `streamable_http_client_test.dart` suite, and the
+generated router-hosted MCP consumer package smoke. Full local `bin/verify`
+passed on 2026-05-25, including formatting, Rust/FFI, MCP package smokes,
+client/native transport suites, live WAMP transport integration, the
+router-hosted MCP example smoke, generated consumer-package smokes, the full
+router suite with MCP auth/session/security coverage, and the Chrome/
+Dart2Wasm browser WebSocket smoke.
+The previous same-session initialize checkpoint is fully hosted green at
+`ff71566`:
+GitHub CI run `26414549163` passed with Fast Checks job `77756058837` and Full
+Verify job `77756535955` green, Dart Package Publish Dry Run `26414549161`
+passed, and WAMP Profile Benchmarks `26414549162` passed on `add-router`.
+The strict deployment-chain audit also passed on `add-router` with clean
+latest CI, clean latest CI logs, clean Dart package publish dry-run, and clean
+WAMP profile benchmark requirements. The previous sessionless initialize
+checkpoint is fully hosted green at
+`da68af3`: GitHub CI run `26412902721` passed with Fast Checks job
+`77751055253` and Full Verify job `77751486613` green, Dart Package Publish Dry
+Run `26412902719` passed, and WAMP Profile Benchmarks `26412902744` passed on
+`add-router`.
+Prior implementation checkpoint: `McpStreamableHttpClient.initialize(...)`
 now clears any stale `Last-Event-ID` resume cursor after a successful
 Streamable HTTP initialize response that negotiates a session, even when the
 returned `MCP-Session-Id` matches the client's previous local session id. This
@@ -24,11 +54,6 @@ suites, live WAMP transport integration, the router-hosted MCP example smoke,
 generated consumer-package smokes, the full router suite with MCP
 auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
 smoke.
-The previous sessionless initialize checkpoint is fully hosted green at
-`da68af3`: GitHub CI run `26412902721` passed with Fast Checks job
-`77751055253` and Full Verify job `77751486613` green, Dart Package Publish Dry
-Run `26412902719` passed, and WAMP Profile Benchmarks `26412902744` passed on
-`add-router`.
 Prior implementation checkpoint: `McpStreamableHttpClient.initialize(...)`
 now treats a successful Streamable HTTP initialization response without
 `MCP-Session-Id` as an explicit sessionless server state. When a client still
@@ -13984,9 +14009,10 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears. The current local checkpoint fixes stale
-  Streamable HTTP client state after successful sessionless MCP initialization;
-  the latest fully clean hosted checkpoint is `478aa9a`.
+  consumer integration bug appears. The current local checkpoint preserves
+  active Streamable HTTP client session state after malformed response
+  `MCP-Session-Id` headers; the latest fully clean hosted checkpoint is
+  `ff71566`.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Tightened public MCP Streamable HTTP response-session
+  validation in `McpStreamableHttpClient`. Successful Streamable HTTP
+  responses that echo a malformed `MCP-Session-Id` response header still raise
+  `McpStreamableProtocolException`, but the client now preserves the active
+  `sessionId` / `lastEventId` so consumer applications can retry or explicitly
+  clean up after a bad server/proxy response. Baseline `bin/test-fast` passed
+  before the change. The focused regression failed before the fix and passed
+  afterward. Focused local coverage passed: formatting and analyzer for the
+  MCP client source/test files, the focused malformed response-session
+  regression, the full `streamable_http_client_test.dart` suite, and the
+  generated router-hosted MCP consumer package smoke. Full local `bin/verify`
+  passed, including Rust/FFI, MCP package smokes, client/native transport
+  suites, live WAMP transport integration, router-hosted MCP smokes, the full
+  router suite, and the Chrome/Dart2Wasm browser WebSocket smoke. The previous
+  same-session initialize checkpoint is hosted green at `ff71566`: GitHub CI
+  run `26414549163`, Dart Package Publish Dry Run `26414549161`, and WAMP
+  Profile Benchmarks `26414549162` all passed on `add-router`. The strict
+  `add-router` deployment-chain audit also passed with clean latest CI, clean
+  CI logs, clean Dart package publish dry-run, and clean WAMP profile
+  benchmark requirements.
 - 2026-05-25: Tightened public MCP Streamable HTTP initialize cursor
   semantics in `McpStreamableHttpClient.initialize(...)`. A successful
   initialization response that negotiates a session now clears any stale
@@ -94,11 +114,12 @@ decision because `connectanum_client` still depends on private
   MCP consumer package smoke. Full local `bin/verify` passed, including
   Rust/FFI, MCP package smokes, client/native transport suites, live WAMP
   transport integration, router-hosted MCP smokes, the full router suite, and
-  the Chrome/Dart2Wasm browser WebSocket smoke. The previous sessionless
-  initialize checkpoint is hosted green
-  at `da68af3`: GitHub CI run `26412902721`, Dart Package Publish Dry Run
-  `26412902719`, and WAMP Profile Benchmarks `26412902744` all passed on
-  `add-router`.
+  the Chrome/Dart2Wasm browser WebSocket smoke. The checkpoint is hosted green
+  at `ff71566`: GitHub CI run `26414549163`, Dart Package Publish Dry Run
+  `26414549161`, and WAMP Profile Benchmarks `26414549162` all passed on
+  `add-router`. The strict `add-router` deployment-chain audit also passed
+  with clean latest CI, clean CI logs, clean Dart package publish dry-run, and
+  clean WAMP profile benchmark requirements.
 - 2026-05-25: Tightened public MCP Streamable HTTP sessionless initialize
   semantics in `McpStreamableHttpClient.initialize(...)`. A successful
   initialization response that omits `MCP-Session-Id` now clears any stale
