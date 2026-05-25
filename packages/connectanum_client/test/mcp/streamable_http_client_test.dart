@@ -1109,6 +1109,52 @@ void main() {
           contains('app.events.audit'),
         );
 
+        final subscription = await client.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'grant-direct-subscribe',
+          queueLimit: 2,
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-subscribe',
+          },
+        );
+        expect(subscription.handle, 'wamp-sub-1');
+        expect(subscription.topic, 'app.events.audit');
+
+        final publication = await client.publishWampEventDirect(
+          'app.events.audit',
+          id: 'grant-direct-publish',
+          argumentsKeywords: const <String, Object?>{'message': 'hello'},
+          acknowledge: true,
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-publish',
+          },
+        );
+        expect(publication.acknowledged, isTrue);
+        expect(publication.publicationId, 42);
+
+        final events = await client.pollWampEventsDirect(
+          subscription.handle,
+          id: 'grant-direct-poll',
+          limit: 1,
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-poll',
+          },
+        );
+        expect(events.events.single['argumentsKeywords'], {'message': 'hello'});
+
+        final unsubscribe = await client.unsubscribeWampTopicDirect(
+          subscription.handle,
+          id: 'grant-direct-unsubscribe',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-unsubscribe',
+          },
+        );
+        expect(unsubscribe.unsubscribed, isTrue);
+
         final batch = await client.postBatchDirect(
           const <McpJsonMap>[
             {'jsonrpc': '2.0', 'id': 'grant-direct-batch', 'method': 'ping'},
@@ -1138,7 +1184,21 @@ void main() {
         expect(endpoint.requests[0].consumerTrace, 'grant-direct-ping');
         expect(endpoint.requests[1].consumerTrace, 'grant-direct-tools');
         expect(endpoint.requests[2].consumerTrace, 'grant-direct-api-list');
-        expect(endpoint.requests[3].consumerTrace, 'grant-direct-batch');
+        expect(endpoint.requests[3].consumerTrace, 'grant-direct-subscribe');
+        expect(endpoint.requests[4].consumerTrace, 'grant-direct-publish');
+        expect(endpoint.requests[5].consumerTrace, 'grant-direct-poll');
+        expect(endpoint.requests[6].consumerTrace, 'grant-direct-unsubscribe');
+        expect(endpoint.requests[7].consumerTrace, 'grant-direct-batch');
+        expect(
+          endpoint.requests.map((request) => request.mcpName).skip(2).take(5),
+          [
+            'connectanum.api.list',
+            'connectanum.pubsub.subscribe',
+            'connectanum.pubsub.publish',
+            'connectanum.pubsub.poll',
+            'connectanum.pubsub.unsubscribe',
+          ],
+        );
       },
     );
 
