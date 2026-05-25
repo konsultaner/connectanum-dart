@@ -78,6 +78,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Strengthened the public MCP client auth-grant direct JSON
+  package regression to cover the full standard WAMP session, registration,
+  and subscription meta helper surface before any Streamable HTTP lifecycle.
+  `McpStreamableHttpClient.withAuthGrant(...)` now has focused test evidence
+  for direct `wamp.session.list`, `wamp.session.get`,
+  `wamp.registration.lookup`, `wamp.registration.get`,
+  `wamp.registration.list_callees`, `wamp.registration.count_callees`,
+  `wamp.subscription.lookup`, `wamp.subscription.get`,
+  `wamp.subscription.list_subscribers`, and
+  `wamp.subscription.count_subscribers`, in addition to the already covered
+  auth-grant direct ping, tool catalog, WAMP API metadata, resources, prompts,
+  pub/sub, and direct batch path. The regression asserts the full
+  lifecycle-free direct helper set uses the grant-owned bearer token instead
+  of stale caller `Authorization` metadata, negotiates `application/json`,
+  sends no `MCP-Session-Id`, and leaves `sessionId` / `lastEventId` unset for
+  consumer application usage. Baseline `bin/test-fast` passed before the
+  change. Focused local coverage passed: formatting and analyzer for
+  `streamable_http_client_test.dart` plus the focused MCP client test. Full
+  local `bin/verify` passed, including Rust/FFI, MCP package smokes,
+  client/native transport suites, live WAMP transport integration, the
+  router-hosted MCP example smoke, generated consumer-package smokes, the full
+  router suite with MCP auth/session/security coverage, and the Chrome/
+  Dart2Wasm browser WebSocket smoke. The prior auth-grant direct WAMP meta
+  generated consumer checkpoint is hosted green at `cc6bf72`: GitHub CI run
+  `26402225830`, Dart Package Publish Dry Run `26402225835`, and WAMP Profile
+  Benchmarks `26402225895` all passed on `add-router`.
 - 2026-05-25: Strengthened public MCP client and generated consumer-package
   auth-grant direct JSON coverage for route-provided WAMP meta, resources, and
   prompts. The `McpStreamableHttpClient.withAuthGrant(...)` regression now

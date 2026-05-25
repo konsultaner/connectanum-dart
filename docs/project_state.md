@@ -2,40 +2,35 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP auth-grant direct WAMP meta generated
-consumer coverage.
-Latest fully clean hosted checkpoint: Commit `debd545`.
+Last reviewed branch checkpoint: MCP auth-grant direct WAMP meta package
+regression.
+Latest fully clean hosted checkpoint: Commit `cc6bf72`.
 Current implementation checkpoint: The public
-`McpStreamableHttpClient.withAuthGrant(...)` direct JSON regression and the
-generated MCP client-only consumer smoke now cover route-provided WAMP meta,
-MCP resources, and prompts before any Streamable HTTP lifecycle, in addition
-to direct ping, tool catalog, WAMP API metadata, WAMP pub/sub, and direct
-batches. The package regression exercises `wamp.session.count`,
-`wamp.registration.list`, `wamp.registration.match`,
-`wamp.subscription.list`, `wamp.subscription.match`, `resources/list`,
-`resources/read`, `resources/templates/list`, `prompts/list`, and
-`prompts/get`; the generated consumer smoke additionally exercises auth-grant
-direct WAMP registration/subscription lookup, detail, callee/subscriber
-list/count, and lifecycle-free tool-name/header coverage. Together they assert
-direct WAMP meta/resource/prompt/pubsub requests use the grant-owned bearer
-token instead of stale constructor or per-call `Authorization` metadata,
-negotiate `application/json`, send no `MCP-Session-Id`, and leave `sessionId`
-/ `lastEventId` unset for consumer application lifecycle-free usage. Baseline
-`bin/test-fast` passed on 2026-05-25 before the change. Focused local coverage
-passed on 2026-05-25:
+`McpStreamableHttpClient.withAuthGrant(...)` direct JSON regression now covers
+the full standard WAMP session, registration, and subscription meta helper
+surface before any Streamable HTTP lifecycle, including session list/get,
+registration lookup/get/callee list/count, and subscription lookup/get/
+subscriber list/count, in addition to the previously covered direct ping,
+tool catalog, WAMP API metadata, resources, prompts, pub/sub, and direct
+batches. The focused package test asserts these lifecycle-free requests use
+the grant-owned bearer token instead of stale constructor or per-call
+`Authorization` metadata, negotiate `application/json`, send no
+`MCP-Session-Id`, and leave `sessionId` / `lastEventId` unset for consumer
+application usage. Baseline `bin/test-fast` passed on 2026-05-25 before the
+change. Focused local coverage passed on 2026-05-25:
 `dart format packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
 `dart analyze packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
-`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
-`bash -n bin/common.sh`,
-`bash -lc 'source bin/common.sh; run_mcp_client_package_smoke'`,
-`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+and
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
 Full local `bin/verify` passed on 2026-05-25, including Rust/FFI, MCP package
 smokes, client/native transport suites, live WAMP transport integration, the
-router-hosted MCP example smoke, the expanded generated client-only consumer
-smoke, the generated router consumer-package smoke, the full router suite with
-MCP auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
-smoke. Hosted evidence remains clean at `debd545`; no hosted evidence for this
-checkpoint is recorded here yet.
+router-hosted MCP example smoke, the generated client-only consumer smoke, the
+generated router consumer-package smoke, the full router suite with MCP
+auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+smoke. The prior auth-grant direct WAMP meta generated consumer checkpoint is
+fully hosted green at `cc6bf72`: GitHub CI run `26402225830` passed with Fast
+Checks and Full Verify green, Dart Package Publish Dry Run `26402225835`
+passed, and WAMP Profile Benchmarks `26402225895` passed on `add-router`.
 Prior implementation checkpoint: Pathless Dart HTTP route matches now encode
 to native prefix `/` catch-all routes instead of exact root-only routes, so
 method/protocol-filtered consumer application HTTP routes can match non-root

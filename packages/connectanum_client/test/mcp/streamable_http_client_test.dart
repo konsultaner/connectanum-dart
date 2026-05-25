@@ -1118,6 +1118,28 @@ void main() {
         );
         expect(sessionCount.argumentsKeywords['count'], 2);
 
+        final sessions = await client.listWampSessionsDirect(
+          id: 'grant-direct-session-list',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-session-list',
+          },
+        );
+        expect(sessions.argumentsKeywords['session_ids'], [101, 102]);
+
+        final session = await client.getWampSessionDirect(
+          101,
+          id: 'grant-direct-session-get',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-session-get',
+          },
+        );
+        expect(
+          session.argumentsKeywords['details'],
+          containsPair('session', 101),
+        );
+
         final registrations = await client.listWampRegistrationsDirect(
           id: 'grant-direct-registration-list',
           headers: const <String, String>{
@@ -1126,6 +1148,17 @@ void main() {
           },
         );
         expect(registrations.argumentsKeywords['exact'], [11]);
+
+        final lookupRegistration = await client.lookupWampRegistrationDirect(
+          'app.echo',
+          match: 'exact',
+          id: 'grant-direct-registration-lookup',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-registration-lookup',
+          },
+        );
+        expect(lookupRegistration.arguments, [11]);
 
         final registration = await client.matchWampRegistrationDirect(
           'app.echo',
@@ -1137,6 +1170,36 @@ void main() {
         );
         expect(registration.arguments, [11]);
 
+        final registrationDetails = await client.getWampRegistrationDirect(
+          11,
+          id: 'grant-direct-registration-get',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-registration-get',
+          },
+        );
+        expect(registrationDetails.argumentsKeywords['uri'], 'app.echo');
+
+        final callees = await client.listWampRegistrationCalleesDirect(
+          11,
+          id: 'grant-direct-registration-callees',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-registration-callees',
+          },
+        );
+        expect(callees.arguments, [101]);
+
+        final calleeCount = await client.countWampRegistrationCalleesDirect(
+          11,
+          id: 'grant-direct-registration-callee-count',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-registration-callee-count',
+          },
+        );
+        expect(calleeCount.arguments, [1]);
+
         final subscriptions = await client.listWampSubscriptionsDirect(
           id: 'grant-direct-subscription-list',
           headers: const <String, String>{
@@ -1145,6 +1208,17 @@ void main() {
           },
         );
         expect(subscriptions.argumentsKeywords['exact'], [7]);
+
+        final lookupSubscription = await client.lookupWampSubscriptionDirect(
+          'app.events.audit',
+          match: 'exact',
+          id: 'grant-direct-subscription-lookup',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-subscription-lookup',
+          },
+        );
+        expect(lookupSubscription.arguments, [7]);
 
         final matchingSubscription = await client.matchWampSubscriptionDirect(
           'app.events.audit.created',
@@ -1155,6 +1229,41 @@ void main() {
           },
         );
         expect(matchingSubscription.arguments, [7]);
+
+        final subscriptionDetails = await client.getWampSubscriptionDirect(
+          7,
+          id: 'grant-direct-subscription-get',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-subscription-get',
+          },
+        );
+        expect(
+          subscriptionDetails.argumentsKeywords['uri'],
+          'app.events.audit',
+        );
+
+        final subscribers = await client.listWampSubscriptionSubscribersDirect(
+          7,
+          id: 'grant-direct-subscription-subscribers',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-subscription-subscribers',
+          },
+        );
+        expect(subscribers.arguments, [102]);
+
+        final subscriberCount = await client
+            .countWampSubscriptionSubscribersDirect(
+              7,
+              id: 'grant-direct-subscription-subscriber-count',
+              headers: const <String, String>{
+                HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+                'x-consumer-trace':
+                    'grant-direct-subscription-subscriber-count',
+              },
+            );
+        expect(subscriberCount.arguments, [1]);
 
         final resources = await client.listResourcesDirect(
           id: 'grant-direct-resources',
@@ -1286,13 +1395,23 @@ void main() {
           endpoint.requests
               .map((request) => request.consumerTrace)
               .skip(3)
-              .take(15),
+              .take(25),
           [
             'grant-direct-session-count',
+            'grant-direct-session-list',
+            'grant-direct-session-get',
             'grant-direct-registration-list',
+            'grant-direct-registration-lookup',
             'grant-direct-registration-match',
+            'grant-direct-registration-get',
+            'grant-direct-registration-callees',
+            'grant-direct-registration-callee-count',
             'grant-direct-subscription-list',
+            'grant-direct-subscription-lookup',
             'grant-direct-subscription-match',
+            'grant-direct-subscription-get',
+            'grant-direct-subscription-subscribers',
+            'grant-direct-subscription-subscriber-count',
             'grant-direct-resources',
             'grant-direct-resource-read',
             'grant-direct-resource-templates',
@@ -1312,10 +1431,20 @@ void main() {
           [
             'connectanum.api.list',
             'wamp.session.count',
+            'wamp.session.list',
+            'wamp.session.get',
             'wamp.registration.list',
+            'wamp.registration.lookup',
             'wamp.registration.match',
+            'wamp.registration.get',
+            'wamp.registration.list_callees',
+            'wamp.registration.count_callees',
             'wamp.subscription.list',
+            'wamp.subscription.lookup',
             'wamp.subscription.match',
+            'wamp.subscription.get',
+            'wamp.subscription.list_subscribers',
+            'wamp.subscription.count_subscribers',
             'wamp://app/readme',
             'summarize',
             'connectanum.pubsub.subscribe',
