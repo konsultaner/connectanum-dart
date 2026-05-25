@@ -1646,7 +1646,7 @@ void main() {
       );
       expect(malformedSessionIdPoll.headers, isNot(contains('mcp-session-id')));
 
-      final missingMethodHeader = await _postJson(
+      final headerlessInitialize = await _postJson(
         client,
         listener.port,
         '/mcp',
@@ -1656,15 +1656,21 @@ void main() {
           HttpHeaders.acceptHeader: 'application/json, text/event-stream',
         },
       );
-      expect(missingMethodHeader.statusCode, equals(HttpStatus.badRequest));
+      expect(headerlessInitialize.statusCode, equals(HttpStatus.ok));
+      final headerlessMcpSessionId =
+          headerlessInitialize.headers['mcp-session-id'];
+      expect(headerlessMcpSessionId, isNotNull);
       expect(
-        (missingMethodHeader.json?['error'] as Map<String, Object?>)['code'],
-        equals(-32001),
+        headerlessInitialize.headers['mcp-protocol-version'],
+        equals('2025-11-25'),
       );
-      expect(
-        jsonEncode(missingMethodHeader.json?['error']),
-        contains('Mcp-Method'),
+      final headerlessDelete = await _deleteHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {'MCP-Session-Id': headerlessMcpSessionId!},
       );
+      expect(headerlessDelete.statusCode, equals(HttpStatus.accepted));
 
       final initialize = await _postJson(
         client,
@@ -1770,7 +1776,7 @@ void main() {
         contains('Mcp-Name'),
       );
 
-      await serviceSession.register(
+      final dynamicRegistration = await serviceSession.register(
         'app.sse.dynamic',
         options: core.RegisterOptions(
           custom: const {
@@ -1788,6 +1794,11 @@ void main() {
           },
         ),
       );
+      dynamicRegistration.onInvoke((invocation) {
+        invocation.respondWith(
+          argumentsKeywords: {'received': invocation.argumentsKeywords},
+        );
+      });
 
       final missingParameterHeader = await _postJson(
         client,
@@ -1845,6 +1856,29 @@ void main() {
         jsonEncode(malformedParameterHeader.json?['error']),
         contains('Mcp-Param-Tenant'),
       );
+
+      final headerlessToolCall = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'headerless-tool-call',
+          'method': 'tools/call',
+          'params': {
+            'name': 'app.sse.dynamic',
+            'arguments': {'tenant': 'consumer-a', 'priority': 7},
+          },
+        },
+        headers: sessionHeaders,
+      );
+      expect(headerlessToolCall.statusCode, equals(HttpStatus.ok));
+      expect(
+        headerlessToolCall.headers['mcp-session-id'],
+        equals(mcpSessionId),
+      );
+      expect(headerlessToolCall.body, contains('"id":"headerless-tool-call"'));
+      expect(headerlessToolCall.body, contains('consumer-a'));
 
       final missingSession = await _postJson(
         client,

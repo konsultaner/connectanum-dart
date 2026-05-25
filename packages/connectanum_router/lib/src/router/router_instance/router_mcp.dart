@@ -481,7 +481,6 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
   RouterBinding binding, {
   required RouterHttpRequest request,
   required Object? rawMessage,
-  required bool requireHeaders,
   String? sessionId,
   String protocolVersion = mcp.mcpLatestProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
@@ -492,10 +491,12 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
   }
   final id = _recoverDirectJsonRequestId(rawMessage);
   final headerMethod = _mcpHeaderValueRaw(binding, request, _mcpMethodHeader);
+  final headerName = _mcpHeaderValueRaw(binding, request, _mcpNameHeader);
+  final metadataHeadersPresent = headerMethod != null || headerName != null;
+  if (!metadataHeadersPresent) {
+    return null;
+  }
   if (headerMethod == null) {
-    if (!requireHeaders) {
-      return null;
-    }
     return _mcpJsonRpcHttpError(
       status: HttpStatus.badRequest,
       code: mcp.McpErrorCodes.headerMismatch,
@@ -522,13 +523,21 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
 
   final bodyName = _mcpRequestName(rawMessage, bodyMethod);
   if (bodyName == null) {
-    return null;
-  }
-  final headerName = _mcpHeaderValueRaw(binding, request, _mcpNameHeader);
-  if (headerName == null) {
-    if (!requireHeaders) {
+    if (headerName == null) {
       return null;
     }
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.headerMismatch,
+      message:
+          'Header mismatch: Mcp-Name header is present but body value is missing',
+      id: id,
+      sessionId: sessionId,
+      protocolVersion: protocolVersion,
+      extraHeaders: extraHeaders,
+    );
+  }
+  if (headerName == null) {
     return _mcpJsonRpcHttpError(
       status: HttpStatus.badRequest,
       code: mcp.McpErrorCodes.headerMismatch,
@@ -565,10 +574,12 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
   String protocolVersion = mcp.mcpLatestProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) {
+  var parameterHeadersPresent = false;
   for (final header in request.headers.entries) {
     if (!_mcpIsParameterHeaderName(header.key)) {
       continue;
     }
+    parameterHeadersPresent = true;
     if (!_mcpParameterHeaderValueCharactersValid(header.value)) {
       return _mcpJsonRpcHttpError(
         status: HttpStatus.badRequest,
@@ -618,6 +629,11 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
   if (headerParameters.isEmpty) {
     return null;
   }
+  final standardHeadersPresent =
+      _mcpHeaderValueRaw(binding, request, _mcpMethodHeader) != null ||
+      _mcpHeaderValueRaw(binding, request, _mcpNameHeader) != null;
+  final parameterHeadersRequired =
+      requireHeaders && (standardHeadersPresent || parameterHeadersPresent);
   final id = _recoverDirectJsonRequestId(rawMessage);
   for (final parameter in headerParameters) {
     final headerName = '$_mcpParameterHeaderPrefix${parameter.headerName}';
@@ -657,7 +673,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
       );
     }
     if (headerValue == null) {
-      if (!requireHeaders) {
+      if (!parameterHeadersRequired) {
         continue;
       }
       return _mcpJsonRpcHttpError(
@@ -1410,7 +1426,6 @@ Future<void> _handleMcpHttpRequestForBinding(
     binding,
     request: request,
     rawMessage: rawMessage,
-    requireHeaders: streamableHttpRequest,
     sessionId: responseMcpSessionId,
     protocolVersion: effectiveResponseMcpProtocolVersion,
     extraHeaders: corsHeaders,

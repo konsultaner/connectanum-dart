@@ -11390,25 +11390,33 @@ Future<void> _assertMcpStreamableCorsHeaderErrors(
   required String label,
   String? bearerToken,
 }) async {
-  final missingMethodId = '$label-streamable-cors-missing-method';
-  final missingMethod = await _mcpRawJsonPost(
+  final headerlessToolsId = '$label-streamable-cors-headerless-tools';
+  final headerlessTools = await _mcpRawJsonPost(
     client,
     endpoint,
     <String, Object?>{
       'jsonrpc': '2.0',
-      'id': missingMethodId,
+      'id': headerlessToolsId,
       'method': 'tools/list',
     },
     sessionId: sessionId,
     bearerToken: bearerToken,
     includeMethodHeader: false,
   );
-  _assertMcpCorsErrorResponse(
-    missingMethod,
-    expectedStatus: HttpStatus.badRequest,
-    label: '$label Streamable missing Mcp-Method',
-    sessionId: sessionId,
-    bodyContains: 'Mcp-Method',
+  if (headerlessTools.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable headerless tools/list returned '
+      '${headerlessTools.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    headerlessTools,
+    label: '$label Streamable headerless tools/list',
+  );
+  _mcpSseJsonRpcPayload(
+    headerlessTools,
+    id: headerlessToolsId,
+    label: '$label Streamable headerless tools/list',
   );
 
   final nameMismatchTaskId = 'T-$label-streamable-cors-name-mismatch';

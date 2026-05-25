@@ -78,6 +78,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Made router-hosted Streamable HTTP MCP compatible with
+  standard clients that omit Connectanum/MCP request-metadata headers. The
+  stable Streamable HTTP transport surface at
+  `https://modelcontextprotocol.io/specification/2025-06-18/basic/transports`
+  does not require `Mcp-Method`, `Mcp-Name`, or `Mcp-Param-*`; the draft
+  transport metadata path at
+  `https://modelcontextprotocol.io/specification/draft/basic/transports`
+  remains authoritative when clients send it. Router validation now accepts
+  headerless streamable `initialize` and `tools/call` requests, while still
+  rejecting mismatched metadata headers and requiring all mapped parameter
+  headers when a streamable client opts into metadata headers. Baseline
+  `bin/test-fast` passed before the change. The focused router regression
+  failed before the fix and passed afterward. A post-change `bin/test-fast`
+  run exposed the stale generated consumer-smoke expectation for missing
+  `Mcp-Method`; after updating that smoke, focused local coverage passed:
+  the targeted router Streamable ingress/session test, `bash -n bin/common.sh`,
+  `git diff --check`, and the generated router-hosted MCP consumer package
+  smoke. Full local `bin/verify` passed, including Rust/FFI, MCP package
+  smokes, client/native transport suites, live WAMP transport integration,
+  router-hosted MCP smokes, the full router suite with the headerless
+  Streamable HTTP MCP regression, zero-copy router tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-05-25: Tightened public MCP Streamable HTTP response-session
   validation in `McpStreamableHttpClient`. Successful Streamable HTTP
   responses that echo a malformed `MCP-Session-Id` response header still raise
@@ -91,13 +113,13 @@ decision because `connectanum_client` still depends on private
   generated router-hosted MCP consumer package smoke. Full local `bin/verify`
   passed, including Rust/FFI, MCP package smokes, client/native transport
   suites, live WAMP transport integration, router-hosted MCP smokes, the full
-  router suite, and the Chrome/Dart2Wasm browser WebSocket smoke. The previous
-  same-session initialize checkpoint is hosted green at `ff71566`: GitHub CI
-  run `26414549163`, Dart Package Publish Dry Run `26414549161`, and WAMP
-  Profile Benchmarks `26414549162` all passed on `add-router`. The strict
-  `add-router` deployment-chain audit also passed with clean latest CI, clean
-  CI logs, clean Dart package publish dry-run, and clean WAMP profile
-  benchmark requirements.
+  router suite, and the Chrome/Dart2Wasm browser WebSocket smoke. The
+  checkpoint is hosted green at `e81e21a`: GitHub CI run `26416144700`, Dart
+  Package Publish Dry Run `26416144720`, and WAMP Profile Benchmarks
+  `26416144718` all passed on `add-router`, with WAMP artifact upload ready.
+  The strict `add-router` deployment-chain audit also passed with clean latest
+  CI, clean CI logs, clean Dart package publish dry-run, and clean WAMP
+  profile benchmark requirements.
 - 2026-05-25: Tightened public MCP Streamable HTTP initialize cursor
   semantics in `McpStreamableHttpClient.initialize(...)`. A successful
   initialization response that negotiates a session now clears any stale
