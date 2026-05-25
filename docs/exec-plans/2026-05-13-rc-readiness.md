@@ -78,6 +78,27 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Extended the generated MCP client-only consumer package smoke so
+  a consumer application path now proves auth-grant direct resources, prompts,
+  and WAMP session meta helpers before any Streamable HTTP lifecycle starts.
+  The pre-lifecycle direct JSON path now covers direct ping, `tools/list`,
+  `connectanum.api.list`, `resources/list`, `resources/read`,
+  `resources/templates/list`, `prompts/list`, `prompts/get`,
+  `wamp.session.count`, `wamp.session.list`, `wamp.session.get`, direct WAMP
+  pub/sub subscribe/publish/poll/unsubscribe, and direct batches while stale
+  per-call `Authorization` metadata is present. The smoke asserts every request
+  uses the grant-owned bearer token, sends no MCP session header, leaves
+  `sessionId` and `lastEventId` unset, and routes the pub/sub and session meta
+  helpers through the expected `connectanum.pubsub.*` and `wamp.session.*`
+  tools. Baseline `bin/test-fast` passed on 2026-05-25 before this change.
+  Focused local coverage passed: `bash -n bin/common.sh`, `git diff --check`,
+  `python3 tool/check_public_artifact_references.py`, and
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_client_package_smoke'`.
+  Full local `bin/verify` passed on 2026-05-25, including the updated MCP
+  client-only consumer package smoke, router-hosted MCP example smoke,
+  generated consumer-package smoke, router suite, and Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence for this local checkpoint has not been
+  requested yet; latest fully clean hosted evidence remains `3778692`.
 - 2026-05-25: Strengthened the public Streamable HTTP MCP client auth-grant
   regression so lifecycle-free typed direct WAMP pub/sub helpers are pinned in
   focused package tests, not only in the generated consumer-package smoke.
@@ -97,8 +118,25 @@ decision because `connectanum_client` still depends on private
   Full local `bin/verify` passed on 2026-05-25, including the updated client
   MCP test, MCP client/server package smokes, router-hosted MCP example smoke,
   generated consumer-package smoke, router suite, and Chrome/Dart2Wasm browser
-  WebSocket smoke. Latest hosted evidence remains clean at commit `e9b0440`;
-  no hosted run has been requested for this unpushed change.
+  WebSocket smoke. Commit `3778692`
+  (`test: cover auth grant direct wamp helpers`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence
+  is clean at `3778692`: `master` CI run `26383251625` and `add-router` CI run
+  `26383247054` passed with Fast Checks and Full Verify green; `master` WAMP
+  Profile Benchmarks run `26383251626` and `add-router` WAMP Profile
+  Benchmarks run `26383247053` passed; `master` Dart Package Publish Dry Run
+  `26383251624` and `add-router` Dart Package Publish Dry Run `26383247044`
+  passed. Manual `master` Router Image dry-run `26383629405` passed at
+  `3778692`, uploaded the preview metadata `sha-3778692b25e3`, skipped GHCR
+  login, and validated the multi-arch build without publishing. The strict
+  deployment-chain audit passed required gates on `master` at `3778692`,
+  including clean current-head CI/logs, Dart package dry-run, WAMP profile
+  benchmark, Router Image dry-run, still-relevant Native Artifacts dry-run
+  evidence, branch protection, workflow visibility, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag, GitHub prerelease, or matching RC router image tag has been selected;
+  pub.dev publishing remains deferred for release-order and operator decisions.
+  No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-25: Extended the generated MCP client-only consumer package smoke so
   a consumer application path now proves auth-grant direct WAMP pub/sub helper
   use before any Streamable HTTP lifecycle starts. The pre-lifecycle auth-grant

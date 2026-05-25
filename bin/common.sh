@@ -1025,6 +1025,117 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     'auth-grant direct JSON WAMP API helper failed',
   );
 
+  final resources = await client.listResourcesDirect(
+    id: 'auth-grant-direct-resources',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-resources',
+    },
+  );
+  _expect(
+    resources.resources.single['uri'] == _resourceUri,
+    'auth-grant direct JSON resources/list failed',
+  );
+
+  final readResource = await client.readResourceDirect(
+    _resourceUri,
+    id: 'auth-grant-direct-resource-read',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-resource-read',
+    },
+  );
+  _expect(
+    readResource.single['text'] == 'agent context is available',
+    'auth-grant direct JSON resources/read failed',
+  );
+
+  final templates = await client.listResourceTemplatesDirect(
+    id: 'auth-grant-direct-resource-templates',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-resource-templates',
+    },
+  );
+  _expect(
+    templates.resourceTemplates.single['uriTemplate'] == _resourceTemplateUri,
+    'auth-grant direct JSON resources/templates/list failed',
+  );
+
+  final prompts = await client.listPromptsDirect(
+    id: 'auth-grant-direct-prompts',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-prompts',
+    },
+  );
+  _expect(
+    prompts.prompts.single['name'] == _promptName,
+    'auth-grant direct JSON prompts/list failed',
+  );
+
+  final prompt = await client.getPromptDirect(
+    _promptName,
+    id: 'auth-grant-direct-prompt-get',
+    arguments: const <String, String>{
+      'taskId': 'T-auth-grant-direct-prompt',
+    },
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-prompt-get',
+    },
+  );
+  _expect(
+    jsonEncode(prompt).contains('T-auth-grant-direct-prompt'),
+    'auth-grant direct JSON prompts/get failed',
+  );
+
+  final sessionCount = await client.countWampSessionsDirect(
+    id: 'auth-grant-direct-wamp-session-count',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-session-count',
+    },
+  );
+  _expect(
+    sessionCount.procedure == 'wamp.session.count' &&
+        sessionCount.argumentsKeywords['count'] == _sessionCount,
+    'auth-grant direct JSON WAMP session count failed',
+  );
+
+  final sessionList = await client.listWampSessionsDirect(
+    id: 'auth-grant-direct-wamp-session-list',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-session-list',
+    },
+  );
+  final sessionIds = sessionList.argumentsKeywords['session_ids'];
+  _expect(
+    sessionList.procedure == 'wamp.session.list' &&
+        sessionIds is List &&
+        sessionIds.contains(_wampSessionId),
+    'auth-grant direct JSON WAMP session list failed',
+  );
+
+  final session = await client.getWampSessionDirect(
+    _wampSessionId,
+    id: 'auth-grant-direct-wamp-session-get',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-session-get',
+    },
+  );
+  final sessionDetails = session.argumentsKeywords['details'];
+  _expect(
+    session.procedure == 'wamp.session.get' &&
+        sessionDetails is Map &&
+        sessionDetails['session'] == _wampSessionId &&
+        sessionDetails['authid'] == _authId &&
+        sessionDetails['authrole'] == _authRole,
+    'auth-grant direct JSON WAMP session get failed',
+  );
+
   final subscription = await client.subscribeWampTopicDirect(
     _topic,
     id: 'auth-grant-direct-pubsub-subscribe',
@@ -1133,31 +1244,28 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     client.sessionId == null && client.lastEventId == null,
     'auth-grant direct JSON smoke created Streamable session state',
   );
-  _expect(
-    endpoint.directTraceHeadersWithoutSession.containsAll(
-      const <String>{
-        'auth-grant-direct-ping',
-        'auth-grant-direct-tools',
-        'auth-grant-direct-api',
-        'auth-grant-direct-pubsub-subscribe',
-        'auth-grant-direct-pubsub-publish',
-        'auth-grant-direct-pubsub-poll',
-        'auth-grant-direct-pubsub-unsubscribe',
-        'auth-grant-direct-batch',
-      },
-    ),
-    'auth-grant direct JSON smoke forwarded Streamable session state',
-  );
   const expectedTraces = <String>{
     'auth-grant-direct-ping',
     'auth-grant-direct-tools',
     'auth-grant-direct-api',
+    'auth-grant-direct-resources',
+    'auth-grant-direct-resource-read',
+    'auth-grant-direct-resource-templates',
+    'auth-grant-direct-prompts',
+    'auth-grant-direct-prompt-get',
+    'auth-grant-direct-wamp-session-count',
+    'auth-grant-direct-wamp-session-list',
+    'auth-grant-direct-wamp-session-get',
     'auth-grant-direct-pubsub-subscribe',
     'auth-grant-direct-pubsub-publish',
     'auth-grant-direct-pubsub-poll',
     'auth-grant-direct-pubsub-unsubscribe',
     'auth-grant-direct-batch',
   };
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.containsAll(expectedTraces),
+    'auth-grant direct JSON smoke forwarded Streamable session state',
+  );
   for (final trace in expectedTraces) {
     _expect(
       endpoint.directAuthorizationHeadersByTrace[trace] ==
@@ -1171,6 +1279,9 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     'connectanum.pubsub.publish',
     'connectanum.pubsub.poll',
     'connectanum.pubsub.unsubscribe',
+    'wamp.session.count',
+    'wamp.session.list',
+    'wamp.session.get',
   };
   final missingDirectToolNames = expectedDirectToolNames.difference(
     endpoint.directToolNamesWithoutSession,
