@@ -78,6 +78,29 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Extended the generated router-hosted MCP consumer package smoke
+  so JSON-response compatibility routes prove active-session direct JSON
+  helper access across the public package boundary. After Streamable
+  initialization, `/mcp/json-post`, `/mcp/secure-json-post`, and
+  `/mcp/non-streaming-post` now run the existing active-session direct helper
+  matrix for direct tool calls, generic JSON-RPC access, WAMP API metadata,
+  WAMP session/registration/subscription helpers, resources, prompts, direct
+  batches, and pub/sub, then assert the active `MCP-Session-Id` remains stable
+  and no POST/SSE cursor is captured. The public JSON-response route fixtures
+  now expose the same declared topic metadata and batch pub/sub topic as the
+  main MCP route, keeping route-provided tool/meta catalogs consistent for
+  consumer applications. Baseline `bin/test-fast` passed before the change.
+  Focused local coverage passed: `bash -n bin/common.sh`, the generated
+  router-hosted MCP consumer package smoke, `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed, including formatting, Rust/FFI, MCP package smokes, client/native
+  transport suites, live WAMP transport integration, the router-hosted MCP
+  example smoke, generated consumer-package smokes, the full router suite with
+  MCP auth/session/security coverage, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. The previous public auth-grant direct notification package
+  checkpoint is hosted green at `34db112`: GitHub CI run `26406021113`, Dart
+  Package Publish Dry Run `26406021123`, and WAMP Profile Benchmarks
+  `26406021172` all passed on `add-router`.
 - 2026-05-25: Extended the generated MCP client-only consumer package smoke
   so lifecycle-free auth-grant direct notification helpers are proven across
   the public package boundary before any Streamable HTTP session exists. The

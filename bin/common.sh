@@ -6881,6 +6881,20 @@ RouterSettings _consumerRouterSettings() {
                         'taskId': {'type': 'string'},
                       },
                     },
+                    'metadata': {
+                      'short_description':
+                          'Consumer task lifecycle event stream',
+                      'domain': 'consumer',
+                      'entity': 'task',
+                      'verbs': ['publish', 'subscribe'],
+                      'tags': ['safe', 'smoke', 'event'],
+                    },
+                  },
+                  {
+                    'topic': _batchTopic,
+                    'title': 'Consumer batch smoke events',
+                    'description':
+                        'Events used by consumer MCP batch smoke checks.',
                   },
                 ],
                 'resources': [
@@ -6992,6 +7006,20 @@ RouterSettings _consumerRouterSettings() {
                         'taskId': {'type': 'string'},
                       },
                     },
+                    'metadata': {
+                      'short_description':
+                          'Consumer task lifecycle event stream',
+                      'domain': 'consumer',
+                      'entity': 'task',
+                      'verbs': ['publish', 'subscribe'],
+                      'tags': ['safe', 'smoke', 'event'],
+                    },
+                  },
+                  {
+                    'topic': _batchTopic,
+                    'title': 'Consumer batch smoke events',
+                    'description':
+                        'Events used by consumer MCP batch smoke checks.',
                   },
                 ],
                 'resources': [
@@ -8134,6 +8162,18 @@ Future<void> _smokeJsonPostResponseMcpEndpoint(
       throw StateError('$routeLabel resources/prompts changed session id.');
     }
     expectNoPostSseCursor('resources/prompts');
+
+    await _smokeDirectJsonWhileStreamableInitialized(
+      client,
+      serviceSession,
+      label: '$label-json-response',
+    );
+    if (client.sessionId != sessionId) {
+      throw StateError(
+        '$routeLabel active direct JSON helpers changed session id.',
+      );
+    }
+    expectNoPostSseCursor('active direct JSON helpers');
 
     final rawToolsId = '$label-raw-tools';
     final rawTools = await _mcpRawJsonPost(

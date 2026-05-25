@@ -2,10 +2,34 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP auth-grant direct notification
+Last reviewed branch checkpoint: MCP JSON-response active direct helper
 consumer-package smoke.
 Latest fully clean hosted checkpoint: Commit `34db112`.
-Current implementation checkpoint: The generated MCP client-only consumer
+Current implementation checkpoint: The generated router-hosted MCP consumer
+package smoke now runs the full active-session direct JSON helper matrix on
+JSON-response compatibility routes after Streamable initialization. Public
+`/mcp/json-post`, bearer-protected `/mcp/secure-json-post`, and
+`/mcp/non-streaming-post` all exercise direct tool calls, generic JSON-RPC
+access, WAMP API metadata, WAMP session/registration/subscription helpers,
+resources, prompts, direct batches, and pub/sub while asserting the active
+`MCP-Session-Id` stays stable and no POST/SSE cursor is captured. The public
+JSON-response route fixtures now expose the same declared topic metadata and
+batch pub/sub topic as the main route so the route-provided API catalog is
+consistent across downstream-compatible MCP endpoints. Baseline
+`bin/test-fast` passed on 2026-05-25 before the change. Focused local coverage
+passed on 2026-05-25: `bash -n bin/common.sh`, the generated router-hosted MCP
+consumer package smoke, `git diff --check`, and
+`python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+passed on 2026-05-25, including formatting, Rust/FFI, MCP package smokes,
+client/native transport suites, live WAMP transport integration, the
+router-hosted MCP example smoke, generated consumer-package smokes, the full
+router suite with MCP auth/session/security coverage, and the Chrome/Dart2Wasm
+browser WebSocket smoke. The previous public auth-grant direct notification
+package checkpoint is fully hosted green at `34db112`: GitHub CI run
+`26406021113` passed with Fast Checks job `77729427918` and Full Verify job
+`77730072448` green, Dart Package Publish Dry Run `26406021123` passed, and
+WAMP Profile Benchmarks `26406021172` passed on `add-router`.
+Prior implementation checkpoint: The generated MCP client-only consumer
 package smoke now exercises lifecycle-free auth-grant direct notification
 helpers before any Streamable HTTP lifecycle. It calls public
 `connectanum_mcp_io.dart` exports for `notifyToolDirect(...)`,
