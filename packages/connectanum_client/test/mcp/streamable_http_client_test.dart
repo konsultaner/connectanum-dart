@@ -823,6 +823,35 @@ void main() {
     });
 
     test(
+      'clears stale resume cursor when initialize returns current session id',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        client.sessionId = 'session-1';
+        client.lastEventId = 'session-1:get:stale';
+
+        final initialize = await client.initialize(
+          id: 'same-session-initialize',
+        );
+
+        expect(initialize['id'], 'same-session-initialize');
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, isNull);
+        expect(endpoint.requests.single.method, 'POST');
+        expect(endpoint.requests.single.sessionId, isNull);
+
+        final events = await client.poll();
+        expect(events, hasLength(1));
+        expect(endpoint.requests.last.method, 'GET');
+        expect(endpoint.requests.last.lastEventId, isNull);
+      },
+    );
+
+    test(
       'validates DELETE response session headers before local cleanup',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

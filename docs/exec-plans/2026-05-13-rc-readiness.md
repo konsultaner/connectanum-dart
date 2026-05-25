@@ -78,6 +78,27 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Tightened public MCP Streamable HTTP initialize cursor
+  semantics in `McpStreamableHttpClient.initialize(...)`. A successful
+  initialization response that negotiates a session now clears any stale
+  local `Last-Event-ID` resume cursor even when the returned
+  `MCP-Session-Id` matches the client's previous local session id, preventing
+  consumer applications from replaying obsolete SSE cursors after a successful
+  re-initialize. Non-initialize Streamable responses keep the existing cursor
+  behavior and only reset it when the negotiated session id changes. Baseline
+  `bin/test-fast` passed before the change. The focused regression failed
+  before the fix and passed afterward. Focused local coverage passed:
+  formatting and analyzer for the MCP client source/test files, the focused
+  same-session initialize cursor regression, the full
+  `streamable_http_client_test.dart` suite, and the generated router-hosted
+  MCP consumer package smoke. Full local `bin/verify` passed, including
+  Rust/FFI, MCP package smokes, client/native transport suites, live WAMP
+  transport integration, router-hosted MCP smokes, the full router suite, and
+  the Chrome/Dart2Wasm browser WebSocket smoke. The previous sessionless
+  initialize checkpoint is hosted green
+  at `da68af3`: GitHub CI run `26412902721`, Dart Package Publish Dry Run
+  `26412902719`, and WAMP Profile Benchmarks `26412902744` all passed on
+  `add-router`.
 - 2026-05-25: Tightened public MCP Streamable HTTP sessionless initialize
   semantics in `McpStreamableHttpClient.initialize(...)`. A successful
   initialization response that omits `MCP-Session-Id` now clears any stale

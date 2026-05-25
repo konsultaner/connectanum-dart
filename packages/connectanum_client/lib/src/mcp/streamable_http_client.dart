@@ -881,6 +881,7 @@ final class McpStreamableHttpClient {
     final capturesProtocolVersion =
         protocolVersion == null || requestMethod == 'initialize';
     final clearsSessionOnMissing = requestMethod == 'initialize';
+    final resetsLastEventId = requestMethod == 'initialize';
     final response = await request.close();
     final body = await _readBody(response);
     if (capturesSessionHeaders) {
@@ -898,6 +899,7 @@ final class McpStreamableHttpClient {
           response,
           captureProtocolVersion: capturesProtocolVersion,
           clearSessionOnMissing: clearsSessionOnMissing,
+          resetLastEventId: resetsLastEventId,
         );
       }
       return null;
@@ -916,6 +918,7 @@ final class McpStreamableHttpClient {
           response,
           captureProtocolVersion: capturesProtocolVersion,
           clearSessionOnMissing: clearsSessionOnMissing,
+          resetLastEventId: resetsLastEventId,
         );
         _captureLastEventId(events);
       }
@@ -929,6 +932,7 @@ final class McpStreamableHttpClient {
         response,
         captureProtocolVersion: capturesProtocolVersion,
         clearSessionOnMissing: clearsSessionOnMissing,
+        resetLastEventId: resetsLastEventId,
       );
     }
     return value;
@@ -1104,6 +1108,7 @@ final class McpStreamableHttpClient {
     HttpClientResponse response, {
     bool captureProtocolVersion = true,
     bool clearSessionOnMissing = false,
+    bool resetLastEventId = false,
   }) {
     final negotiatedSessionId = response.headers.value(_headerSessionId);
     if (negotiatedSessionId != null) {
@@ -1113,7 +1118,7 @@ final class McpStreamableHttpClient {
           'Invalid MCP-Session-Id response header',
         );
       }
-      if (sessionId != negotiatedSessionId) {
+      if (resetLastEventId || sessionId != negotiatedSessionId) {
         lastEventId = null;
       }
       sessionId = negotiatedSessionId;

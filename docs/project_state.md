@@ -2,9 +2,34 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable sessionless initialize cleanup.
-Latest fully clean hosted checkpoint: Commit `478aa9a`.
+Last reviewed branch checkpoint: MCP Streamable same-session initialize cursor cleanup.
+Latest fully clean hosted checkpoint: Commit `da68af3`.
 Current implementation checkpoint: `McpStreamableHttpClient.initialize(...)`
+now clears any stale `Last-Event-ID` resume cursor after a successful
+Streamable HTTP initialize response that negotiates a session, even when the
+returned `MCP-Session-Id` matches the client's previous local session id. This
+prevents consumer applications from replaying a stale SSE cursor immediately
+after a successful re-initialize against a router or MCP server that reuses a
+session id. Non-initialize Streamable responses keep the existing behavior:
+the resume cursor is cleared only when the negotiated session id changes.
+Baseline `bin/test-fast` passed on 2026-05-25 before the change. The focused
+regression failed before the fix, then passed after initialize began resetting
+the cursor independently from session-id equality. Focused local coverage
+passed on 2026-05-25: targeted formatting and analyzer runs for the MCP client
+source/test files, the focused same-session initialize cursor regression, the
+full `streamable_http_client_test.dart` suite, and the generated router-hosted
+MCP consumer package smoke. Full local `bin/verify` passed on 2026-05-25,
+including formatting, Rust/FFI, MCP package smokes, client/native transport
+suites, live WAMP transport integration, the router-hosted MCP example smoke,
+generated consumer-package smokes, the full router suite with MCP
+auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+smoke.
+The previous sessionless initialize checkpoint is fully hosted green at
+`da68af3`: GitHub CI run `26412902721` passed with Fast Checks job
+`77751055253` and Full Verify job `77751486613` green, Dart Package Publish Dry
+Run `26412902719` passed, and WAMP Profile Benchmarks `26412902744` passed on
+`add-router`.
+Prior implementation checkpoint: `McpStreamableHttpClient.initialize(...)`
 now treats a successful Streamable HTTP initialization response without
 `MCP-Session-Id` as an explicit sessionless server state. When a client still
 has stale local `sessionId` / `lastEventId` state from a prior session, a
