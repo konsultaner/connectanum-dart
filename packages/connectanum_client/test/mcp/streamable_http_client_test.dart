@@ -1060,6 +1060,89 @@ void main() {
     });
 
     test(
+      'uses HTTP auth grants for direct JSON helpers without lifecycle',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: ' grant-direct-token ',
+            tokenType: 'bearer',
+          ),
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer stale-direct-token',
+            'x-consumer-trace': 'grant-direct-client',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final ping = await client.pingDirect(
+          id: 'grant-direct-ping',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-ping',
+          },
+        );
+        expect(ping, isEmpty);
+
+        final page = await client.listToolsDirect(
+          id: 'grant-direct-tools',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-tools',
+          },
+        );
+        expect(page.tools.map((tool) => tool['name']), contains('app.echo'));
+
+        final meta = await client.callConnectanumToolDirect(
+          'connectanum.api.list',
+          id: 'grant-direct-api-list',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-api-list',
+          },
+        );
+        expect(
+          jsonEncode(meta['structuredContent']),
+          contains('app.events.audit'),
+        );
+
+        final batch = await client.postBatchDirect(
+          const <McpJsonMap>[
+            {'jsonrpc': '2.0', 'id': 'grant-direct-batch', 'method': 'ping'},
+          ],
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-batch',
+          },
+        );
+        expect(batch, hasLength(1));
+        expect(batch?.single['id'], 'grant-direct-batch');
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(
+          endpoint.requests.map((request) => request.authorization),
+          everyElement('Bearer grant-direct-token'),
+        );
+        expect(
+          endpoint.requests.map((request) => request.accept),
+          everyElement('application/json'),
+        );
+        expect(
+          endpoint.requests.map((request) => request.sessionId),
+          everyElement(isNull),
+        );
+        expect(endpoint.requests[0].consumerTrace, 'grant-direct-ping');
+        expect(endpoint.requests[1].consumerTrace, 'grant-direct-tools');
+        expect(endpoint.requests[2].consumerTrace, 'grant-direct-api-list');
+        expect(endpoint.requests[3].consumerTrace, 'grant-direct-batch');
+      },
+    );
+
+    test(
       'allows plain clients to send per-call authorization headers',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
