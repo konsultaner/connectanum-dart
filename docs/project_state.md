@@ -2,9 +2,29 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP auth-grant direct consumer API smoke.
-Latest fully clean hosted checkpoint: Commit `3778692`.
-Current implementation checkpoint: The generated MCP client-only consumer
+Last reviewed branch checkpoint: MCP HTTP auth bridge header ownership.
+Latest fully clean hosted checkpoint: Commit `78e0eb0`.
+Current implementation checkpoint: The MCP HTTP auth client regression now
+proves `ConnectanumHttpAuthClient` keeps `Authorization` caller-controlled for
+downstream applications that protect the HTTP auth bridge itself while still
+owning JSON request framing headers. The focused test now covers a constructor
+default authorization header, per-call authorization overriding that default
+for ticket-grant challenge/authenticate requests, the default authorization
+header applying to refresh calls without a per-call replacement, and per-call
+authorization on revoke calls, alongside the existing `Accept` /
+`Content-Type` JSON ownership assertions. Baseline `bin/test-fast` passed on
+2026-05-25 before this change. Focused local coverage passed on 2026-05-25:
+`dart format packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+`dart analyze packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+`git diff --check`, and
+`python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+passed on 2026-05-25, including the updated MCP HTTP auth client test,
+MCP package smokes, generated consumer-package smoke, router-hosted MCP example
+smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+evidence for this local checkpoint has not been requested yet; the latest fully
+clean hosted checkpoint remains `78e0eb0`.
+Prior implementation checkpoint: The generated MCP client-only consumer
 package smoke now proves an HTTP auth grant can drive route-provided direct
 JSON resources, prompts, and WAMP session meta helpers before any Streamable
 HTTP lifecycle starts. The pre-lifecycle path now covers direct ping,
@@ -23,8 +43,20 @@ Focused local coverage passed on 2026-05-25: `bash -n bin/common.sh`,
 Full local `bin/verify` passed on 2026-05-25, including the updated MCP
 client-only consumer package smoke, router-hosted MCP example smoke, generated
 consumer-package smoke, router suite, and Chrome/Dart2Wasm browser WebSocket
-smoke. Hosted evidence for this local checkpoint has not been requested yet;
-the latest fully clean hosted checkpoint remains `3778692`.
+smoke. Commit `78e0eb0`
+(`test: cover auth grant direct mcp catalog`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`78e0eb0`: `add-router` CI run `26384979697` passed with Fast Checks and Full
+Verify green; `master` CI run `26384984837` passed with Fast Checks and Full
+Verify green. The strict deployment-chain audit passed required gates on
+`master` at `78e0eb0`, including clean current-head CI/logs, still-relevant
+Dart package dry-run, WAMP profile benchmark, Router Image dry-run, Native
+Artifacts dry-run evidence, branch protection, workflow visibility, and router
+package visibility. RC readiness remains not-ready only because no approved
+numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+selected; pub.dev publishing remains deferred for release-order and operator
+decisions. No RC tag, GitHub Release, or published router image was created or
+moved.
 Prior implementation checkpoint: The public Streamable HTTP MCP client
 auth-grant regression now covers lifecycle-free typed direct WAMP pub/sub
 helpers, not only direct ping/tool/meta/batch calls and the generated

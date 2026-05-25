@@ -52,6 +52,7 @@ void main() {
         final client = ConnectanumHttpAuthClient(
           endpoint.uri,
           headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer default-auth-bridge',
             HttpHeaders.acceptHeader: 'text/plain',
             HttpHeaders.contentTypeHeader: 'text/plain',
             HttpHeaders.contentLengthHeader: '999',
@@ -65,6 +66,7 @@ void main() {
           authId: 'user-1',
           ticket: 'ticket-secret',
           headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer issue-auth-bridge',
             HttpHeaders.acceptHeader: 'text/plain',
             HttpHeaders.contentTypeHeader: 'text/plain',
             'x-consumer-trace': 'issue-grant',
@@ -77,7 +79,10 @@ void main() {
         await client.revokeToken(
           refreshed.refreshToken!,
           tokenTypeHint: 'refresh_token',
-          headers: const <String, String>{'x-consumer-trace': 'revoke-grant'},
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer revoke-auth-bridge',
+            'x-consumer-trace': 'revoke-grant',
+          },
         );
 
         expect(endpoint.requests, hasLength(4));
@@ -89,6 +94,13 @@ void main() {
         expect(endpoint.requests[1].consumerTrace, 'issue-grant');
         expect(endpoint.requests[2].consumerTrace, 'refresh-grant');
         expect(endpoint.requests[3].consumerTrace, 'revoke-grant');
+        expect(endpoint.requests[0].authorization, 'Bearer issue-auth-bridge');
+        expect(endpoint.requests[1].authorization, 'Bearer issue-auth-bridge');
+        expect(
+          endpoint.requests[2].authorization,
+          'Bearer default-auth-bridge',
+        );
+        expect(endpoint.requests[3].authorization, 'Bearer revoke-auth-bridge');
         for (final request in endpoint.requests) {
           expect(request.accept, 'application/json');
           expect(request.contentType, 'application/json');
@@ -388,6 +400,7 @@ final class _FakeHttpAuthEndpoint {
 final class _SeenAuthRequest {
   _SeenAuthRequest({
     required this.method,
+    required this.authorization,
     required this.accept,
     required this.contentType,
     required this.consumerTrace,
@@ -396,6 +409,7 @@ final class _SeenAuthRequest {
   });
 
   final String method;
+  final String? authorization;
   final String? accept;
   final String? contentType;
   final String? consumerTrace;
@@ -408,6 +422,7 @@ final class _SeenAuthRequest {
   ) {
     return _SeenAuthRequest(
       method: request.method,
+      authorization: request.headers.value(HttpHeaders.authorizationHeader),
       accept: request.headers.value(HttpHeaders.acceptHeader),
       contentType: request.headers.contentType?.mimeType,
       consumerTrace: request.headers.value('x-consumer-trace'),
