@@ -1349,6 +1349,60 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     );
   }
 
+  await client.notifyToolDirect(
+    _toolName,
+    arguments: const <String, Object?>{
+      'text': 'auth grant direct tool notification',
+    },
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-tool-notification',
+      'Mcp-Param-Text': 'wrong',
+    },
+  );
+
+  await client.notifyConnectanumToolDirect(
+    'connectanum.pubsub.publish',
+    arguments: const <String, Object?>{
+      'topic': _topic,
+      'argumentsKeywords': <String, Object?>{
+        'taskId': 'T-auth-grant-direct-tool-pubsub-notification',
+      },
+    },
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-tool-pubsub-notification',
+      'Mcp-Param-Topic': 'wrong-topic',
+    },
+  );
+
+  await client.notifyConnectanumMethodDirect(
+    'connectanum.pubsub.publish',
+    params: const <String, Object?>{
+      'topic': _topic,
+      'argumentsKeywords': <String, Object?>{
+        'taskId': 'T-auth-grant-direct-method-pubsub-notification',
+      },
+    },
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-method-pubsub-notification',
+      'Mcp-Param-Topic': 'wrong-topic',
+    },
+  );
+
+  await client.notifyWampEventDirect(
+    _topic,
+    argumentsKeywords: const <String, Object?>{
+      'taskId': 'T-auth-grant-direct-wamp-pubsub-notification',
+    },
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-pubsub-notification',
+      'Mcp-Param-Topic': 'wrong-topic',
+    },
+  );
+
   final batch = await client.postBatchDirect(
     const <McpJsonMap>[
       <String, Object?>{
@@ -1428,6 +1482,10 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     'auth-grant-direct-pubsub-publish',
     'auth-grant-direct-pubsub-poll',
     'auth-grant-direct-pubsub-unsubscribe',
+    'auth-grant-direct-tool-notification',
+    'auth-grant-direct-tool-pubsub-notification',
+    'auth-grant-direct-method-pubsub-notification',
+    'auth-grant-direct-wamp-pubsub-notification',
     'auth-grant-direct-batch',
   };
   _expect(
@@ -1441,6 +1499,38 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
       'auth-grant direct JSON $trace did not keep the grant bearer token',
     );
   }
+  const expectedNotificationMethodsByTrace = <String, String>{
+    'auth-grant-direct-tool-notification': 'tools/call',
+    'auth-grant-direct-tool-pubsub-notification': 'connectanum.tool.call',
+    'auth-grant-direct-method-pubsub-notification':
+        'connectanum.pubsub.publish',
+    'auth-grant-direct-wamp-pubsub-notification': 'connectanum.pubsub.publish',
+  };
+  for (final entry in expectedNotificationMethodsByTrace.entries) {
+    final headers = endpoint.directMcpStandardHeadersByTrace[entry.key];
+    _expect(
+      headers?['mcp-method'] == entry.value,
+      'auth-grant direct JSON ${entry.key} missed its MCP method header',
+    );
+  }
+  final toolNotificationHeaders =
+      endpoint.directMcpStandardHeadersByTrace[
+        'auth-grant-direct-tool-notification'
+      ];
+  final toolPubSubNotificationHeaders =
+      endpoint.directMcpStandardHeadersByTrace[
+        'auth-grant-direct-tool-pubsub-notification'
+      ];
+  _expect(
+    toolNotificationHeaders?['mcp-name'] == _toolName,
+    'auth-grant direct JSON tool notification missed its MCP name header',
+  );
+  _expect(
+    toolPubSubNotificationHeaders?['mcp-name'] ==
+        'connectanum.pubsub.publish',
+    'auth-grant direct JSON pub/sub tool notification missed its MCP name '
+    'header',
+  );
   const expectedDirectToolNames = <String>{
     'connectanum.api.list',
     'connectanum.pubsub.subscribe',

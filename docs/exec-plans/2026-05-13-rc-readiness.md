@@ -78,6 +78,29 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Extended the generated MCP client-only consumer package smoke
+  so lifecycle-free auth-grant direct notification helpers are proven across
+  the public package boundary before any Streamable HTTP session exists. The
+  smoke now imports `connectanum_mcp_io.dart` and calls
+  `notifyToolDirect(...)`, `notifyConnectanumToolDirect(...)`,
+  `notifyConnectanumMethodDirect(...)`, and `notifyWampEventDirect(...)`
+  while stale per-call `Authorization` metadata is present, then asserts the
+  grant-owned bearer token wins, no `MCP-Session-Id` is sent, client
+  `sessionId` / `lastEventId` remain unset, and the expected MCP method/name
+  headers are visible for consumer application usage. Baseline
+  `bin/test-fast` passed before the change. Focused local coverage passed:
+  `bash -n bin/common.sh`, the generated MCP client-only consumer package
+  smoke, `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local
+  `bin/verify` passed, including Rust/FFI, MCP package smokes, client/native
+  transport suites, live WAMP transport integration, the router-hosted MCP
+  example smoke, the expanded generated client-only consumer smoke, generated
+  router consumer-package smoke, the full router suite with MCP
+  auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+  smoke. The previous public auth-grant direct notification package
+  checkpoint is hosted green at `34db112`: GitHub CI run `26406021113`, Dart
+  Package Publish Dry Run `26406021123`, and WAMP Profile Benchmarks
+  `26406021172` all passed on `add-router`.
 - 2026-05-25: Strengthened the public MCP client auth-grant direct JSON
   package regression to cover lifecycle-free notification-only helpers before
   any Streamable HTTP session exists. `McpStreamableHttpClient.withAuthGrant(...)`
