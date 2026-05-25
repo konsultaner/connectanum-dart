@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-25
+Last updated: 2026-05-26
 
 ## Problem
 
@@ -78,6 +78,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Treated a generated consumer-package smoke failure as a real
+  MCP Streamable compatibility bug after generic stateful JSON-RPC direct WAMP
+  procedure calls returned `400` with a missing `Mcp-Param-TaskId` error when
+  the request included only `Mcp-Method` metadata and body params. Router
+  parameter-header validation now requires mapped `Mcp-Param-*` headers only
+  for the named metadata path (`Mcp-Name`) or when a request supplies any
+  parameter header, preserving mismatch/malformed-header rejection while
+  allowing direct procedure and WAMP/meta methods to use JSON-RPC body params.
+  The generated consumer package smoke now covers stateful generic direct
+  method calls, `connectanum.tools.call` alias calls with public parameter
+  headers, and direct `connectanum.api.list`. Baseline `bin/test-fast` passed
+  before the change. Focused local coverage passed:
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n "guards MCP Streamable HTTP ingress and sessions"`,
+  `bash -n bin/common.sh`, `git diff --check`,
+  `python3 tool/check_public_artifact_references.py`, and
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full
+  local `bin/verify` passed on 2026-05-26 with the generated consumer-package
+  smoke and full router suite covering the new regression. This checkpoint is
+  local pending push/hosted CI evidence.
 - 2026-05-25: Extended the generated router-hosted MCP consumer package smoke
   again to prove raw headerless Streamable `resources/read` and `prompts/get`
   compatibility across the public package boundary. The smoke now posts single
@@ -91,6 +110,15 @@ decision because `connectanum_client` still depends on private
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full
   local `bin/verify` passed again with the router-hosted MCP consumer package
   smoke covering headerless `tools/call`, `resources/read`, and `prompts/get`.
+  The commit was pushed to GitHub `master` as `f03cf4d`; GitHub CI run
+  `26422149068` passed with Fast Checks and Full Verify green, GitHub
+  `add-router` CI run `26422149058` passed with Fast Checks and Full Verify
+  green, and the strict `master` deployment-chain audit passed with clean
+  latest CI, clean CI logs, clean Dart package publish dry-run, clean WAMP
+  profile benchmark, and clean Router Image dry-run requirements. The audit
+  kept the `4ff256d` package dry-run, WAMP benchmark, and Router Image dry-run
+  evidence relevant because this smoke-only commit did not touch their
+  sensitive inputs.
 - 2026-05-25: Extended the generated router-hosted MCP consumer package smoke
   to prove raw headerless Streamable `tools/call` compatibility across the
   public package boundary. The smoke now posts a JSON-RPC `tools/call` request

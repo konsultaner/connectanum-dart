@@ -1,10 +1,34 @@
 # Project State
 
-Last updated: 2026-05-25
+Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP Streamable headerless resource/prompt smoke.
-Latest fully clean hosted checkpoint: Commit `6d97391` on GitHub `master`.
+Last reviewed branch checkpoint: Router-hosted MCP Streamable direct method metadata compatibility.
+Latest fully clean hosted checkpoint: Commit `f03cf4d` on GitHub `master`.
 Current implementation checkpoint: Router-hosted Streamable HTTP MCP now
+accepts stateful generic JSON-RPC direct WAMP procedure calls when the client
+sends only the standard `Mcp-Method` metadata header and carries parameters in
+the JSON-RPC body. The fail-first generated consumer package smoke reproduced
+a `400` `Header mismatch: missing Mcp-Param-TaskId header` response for that
+shape. Router parameter-header validation now requires mapped `Mcp-Param-*`
+headers only when the request uses the named metadata path (`Mcp-Name`) or
+sends at least one parameter header, while still validating mismatched or
+malformed parameter headers when present. The generated consumer package smoke
+also proves the generic stateful Streamable `connectanum.tools.call` alias
+with public `Mcp-Param-*` headers and direct `connectanum.api.list` body
+parameters. Baseline `bin/test-fast` passed before this change. Focused local
+coverage passed on 2026-05-26 with
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "guards MCP Streamable HTTP ingress and sessions"`,
+`bash -n bin/common.sh`, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and
+`bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full local
+`bin/verify` passed on 2026-05-26, including formatting, Rust/FFI, MCP package
+smokes, client/native transport suites, live WAMP transport integration, the
+router-hosted MCP example smoke, generated consumer-package smokes, the full
+router suite with the new Streamable direct method regression, zero-copy
+router tests, and the Chrome/Dart2Wasm browser WebSocket smoke. This local
+checkpoint is not hosted yet; the latest fully clean hosted checkpoint remains
+`f03cf4d`.
+Previous implementation checkpoint: Router-hosted Streamable HTTP MCP now
 accepts stable client POSTs that omit Connectanum/MCP request-metadata
 headers such as `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*`, while continuing
 to reject those headers when a client sends mismatched metadata. Header-mapped
@@ -56,18 +80,27 @@ publish dry-run, clean WAMP profile benchmark, and clean Router Image dry-run
 requirements. The audit kept the `4ff256d` package dry-run, WAMP benchmark,
 and Router Image dry-run evidence relevant because this smoke-only commit did
 not change publish-sensitive, WAMP benchmark-sensitive, or router-image-
-sensitive inputs. The current local follow-up extends the same generated
-consumer package smoke to post raw single Streamable `resources/read` and
-`prompts/get` requests without `Mcp-Method` or `Mcp-Name` request-metadata
-headers, proving route-provided resources and prompts also resolve from
-JSON-RPC body fields alone for standard agents. Baseline `bin/test-fast`
-passed again before the smoke-only change; focused local coverage passed with
+sensitive inputs. The latest follow-up extends the same generated consumer
+package smoke to post raw single Streamable `resources/read` and `prompts/get`
+requests without `Mcp-Method` or `Mcp-Name` request-metadata headers, proving
+route-provided resources and prompts also resolve from JSON-RPC body fields
+alone for standard agents. Baseline `bin/test-fast` passed again before the
+smoke-only change; focused local coverage passed with
 `bash -n bin/common.sh`, `git diff --check`,
 `python3 tool/check_public_artifact_references.py`, and
 `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full local
 `bin/verify` passed again on 2026-05-25, including the router-hosted MCP
 consumer package smoke with headerless `tools/call`, `resources/read`, and
-`prompts/get` assertions. The previous response-session preservation
+`prompts/get` assertions. Hosted evidence is clean at `f03cf4d`: GitHub
+`master` CI run `26422149068` passed with Fast Checks and Full Verify green,
+GitHub `add-router` CI run `26422149058` passed with Fast Checks and Full
+Verify green, and the strict `master` deployment-chain audit passed with clean
+latest CI, clean latest CI logs, clean Dart package publish dry-run, clean WAMP
+profile benchmark, and clean Router Image dry-run requirements. The audit kept
+the `4ff256d` package dry-run, WAMP benchmark, and Router Image dry-run
+evidence relevant because this smoke-only commit did not change
+publish-sensitive, WAMP benchmark-sensitive, or router-image-sensitive inputs.
+The previous response-session preservation
 checkpoint is fully hosted green at
 `e81e21a`: GitHub CI run `26416144700` passed with Fast Checks and Full Verify
 green, Dart Package Publish Dry Run `26416144720` passed, and WAMP Profile
@@ -14085,7 +14118,7 @@ at the older `47bbf9c` commit.
   follow-up extends the generated consumer-package smoke to prove raw
   headerless Streamable `tools/call`, `resources/read`, and `prompts/get`
   across the public package boundary. The latest fully clean hosted checkpoint
-  is `6d97391` on GitHub `master`,
+  is `f03cf4d` on GitHub `master`,
   including CI, package dry-run, WAMP profile benchmark, Router Image dry-run,
   and strict deployment-chain audit evidence.
 - Historical paused plan:

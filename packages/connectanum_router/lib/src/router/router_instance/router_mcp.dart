@@ -629,11 +629,11 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
   if (headerParameters.isEmpty) {
     return null;
   }
-  final standardHeadersPresent =
-      _mcpHeaderValueRaw(binding, request, _mcpMethodHeader) != null ||
+  final namedMetadataHeadersPresent =
       _mcpHeaderValueRaw(binding, request, _mcpNameHeader) != null;
   final parameterHeadersRequired =
-      requireHeaders && (standardHeadersPresent || parameterHeadersPresent);
+      requireHeaders &&
+      (namedMetadataHeadersPresent || parameterHeadersPresent);
   final id = _recoverDirectJsonRequestId(rawMessage);
   for (final parameter in headerParameters) {
     final headerName = '$_mcpParameterHeaderPrefix${parameter.headerName}';

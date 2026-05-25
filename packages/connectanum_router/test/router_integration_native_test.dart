@@ -1880,6 +1880,29 @@ void main() {
       expect(headerlessToolCall.body, contains('"id":"headerless-tool-call"'));
       expect(headerlessToolCall.body, contains('consumer-a'));
 
+      final directMethodWithMethodHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-method-with-method-header',
+          'method': 'app.sse.dynamic',
+          'params': {'tenant': 'consumer-b', 'priority': 8},
+        },
+        headers: streamableHeaders('app.sse.dynamic'),
+      );
+      expect(directMethodWithMethodHeader.statusCode, equals(HttpStatus.ok));
+      expect(
+        directMethodWithMethodHeader.headers['mcp-session-id'],
+        equals(mcpSessionId),
+      );
+      expect(
+        directMethodWithMethodHeader.body,
+        contains('"id":"direct-method-with-method-header"'),
+      );
+      expect(directMethodWithMethodHeader.body, contains('consumer-b'));
+
       final missingSession = await _postJson(
         client,
         listener.port,

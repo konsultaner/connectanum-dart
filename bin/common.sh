@@ -16577,6 +16577,96 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
   }
   expectStreamableProgress('tools/call');
 
+  final directMethodTaskId = 'T-$label-generic-streamable-direct-method';
+  final directMethodId = '$label-generic-streamable-direct-method';
+  final directMethod = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': directMethodId,
+      'method': _procedure,
+      'params': {
+        'taskId': directMethodTaskId,
+        'note': _headerWrappedNote,
+      },
+    }),
+    label: 'Generic Streamable JSON-RPC direct method response',
+  );
+  final directMethodContent = _jsonRpcStructuredContent(
+    directMethod,
+    id: directMethodId,
+    label: 'Generic Streamable JSON-RPC direct method',
+  );
+  final directMethodJson = jsonEncode(directMethodContent);
+  if (!directMethodJson.contains(directMethodTaskId) ||
+      !directMethodJson.contains(_headerWrappedNote)) {
+    throw StateError('Generic Streamable JSON-RPC direct method failed.');
+  }
+  expectStreamableProgress('direct method');
+
+  final aliasTaskId = 'T-$label-generic-streamable-tools-alias';
+  final aliasId = '$label-generic-streamable-tools-alias';
+  final alias = _jsonObjectFrom(
+    await client.post(
+      {
+        'jsonrpc': '2.0',
+        'id': aliasId,
+        'method': 'connectanum.tools.call',
+        'params': {
+          'name': _procedure,
+          'arguments': {
+            'taskId': aliasTaskId,
+            'note': _headerWrappedNote,
+          },
+        },
+      },
+      headers: {
+        'Mcp-Param-TaskId': aliasTaskId,
+        'Mcp-Param-Note': _mcpBase64Header(_headerWrappedNote),
+      },
+    ),
+    label: 'Generic Streamable JSON-RPC connectanum.tools.call response',
+  );
+  final aliasContent = _jsonRpcStructuredContent(
+    alias,
+    id: aliasId,
+    label: 'Generic Streamable JSON-RPC connectanum.tools.call',
+  );
+  final aliasJson = jsonEncode(aliasContent);
+  if (!aliasJson.contains(aliasTaskId) ||
+      !aliasJson.contains(_headerWrappedNote)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC connectanum.tools.call failed.',
+    );
+  }
+  expectStreamableProgress('connectanum.tools.call');
+
+  final directApiListId = '$label-generic-streamable-direct-api-list';
+  final directApiList = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': directApiListId,
+      'method': 'connectanum.api.list',
+      'params': {'kind': 'procedure'},
+    }),
+    label: 'Generic Streamable JSON-RPC direct API list response',
+  );
+  final directApiContent = _jsonRpcStructuredContent(
+    directApiList,
+    id: directApiListId,
+    label: 'Generic Streamable JSON-RPC direct API list',
+  );
+  if (!jsonEncode(directApiContent).contains(_procedure)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC direct API list missed $_procedure.',
+    );
+  }
+  _expectSortedUniqueWampApiCatalog(
+    directApiContent,
+    label: 'Generic Streamable JSON-RPC direct API list',
+    includeTopics: false,
+  );
+  expectStreamableProgress('direct WAMP API list');
+
   final apiListId = '$label-generic-streamable-api-list';
   final apiList = _jsonObjectFrom(
     await client.post({
