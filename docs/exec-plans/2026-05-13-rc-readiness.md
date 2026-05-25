@@ -78,6 +78,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Extended the generated MCP client-only consumer package smoke so
+  a downstream application path now proves auth-grant direct JSON use before
+  any Streamable HTTP lifecycle starts. The smoke constructs
+  `McpStreamableHttpClient.withAuthGrant(...)`, sends stale per-call
+  `Authorization` metadata through direct JSON `ping`, `tools/list`, WAMP API
+  helper access, and direct JSON batch POST, then asserts the fake consumer
+  endpoint only observes the grant access token and no MCP session header. The
+  client also keeps `sessionId` / `lastEventId` unset for that pre-lifecycle
+  flow. This promotes the earlier auth-grant direct JSON unit regression into
+  consumer-package evidence for applications that need tool/meta API access
+  without private project assumptions. Baseline `bin/test-fast` passed on
+  2026-05-25. Focused local coverage passed: `bash -n bin/common.sh` and
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_client_package_smoke'`.
+  Full local `bin/verify` passed on 2026-05-25, including the updated MCP
+  client-only consumer package smoke, router-hosted MCP example smoke,
+  generated consumer-package smoke, router suite, and Chrome/Dart2Wasm browser
+  WebSocket smoke.
 - 2026-05-25: Strengthened the public Streamable HTTP MCP auth-grant
   regression so `McpStreamableHttpClient.withAuthGrant(...)` is covered across
   lifecycle-free direct JSON helper calls, not only initialized Streamable HTTP
@@ -98,9 +115,26 @@ decision because `connectanum_client` still depends on private
   `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
   Full local `bin/verify` passed on 2026-05-25, including the router-hosted
   MCP example smoke, generated consumer-package smoke, and Chrome/Dart2Wasm
-  browser WebSocket smoke. The latest fully clean hosted checkpoint remains
-  `a60d432` until this local test/readiness change has hosted evidence. No RC
-  tag, GitHub Release, or router image was created or moved.
+  browser WebSocket smoke. Commit `da1c41a`
+  (`test: cover mcp auth grant direct json`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+  `da1c41a`: `master` CI run `26376646690` and `add-router` CI run
+  `26376646678` passed with Fast Checks and Full Verify green. Dart Package
+  Publish Dry Run `26376646677` on `master` and `26376646691` on `add-router`,
+  plus WAMP Profile Benchmarks `26376646652` on `master` and `26376646707` on
+  `add-router`, passed for the same head. Manual non-mutating Router Image
+  dry-run `26377017450` passed on `master`, uploaded preview metadata for
+  `sha-da1c41a82f1f`, skipped GHCR login, and did not push an image. Native
+  Artifacts dry-run `26286794628` remains relevant because no
+  native-release-sensitive inputs changed. The strict deployment-chain audit
+  passed required gates on `master` at `da1c41a`, including clean current-head
+  CI/logs, Dart package dry-run, WAMP profile benchmark evidence, current
+  Router Image dry-run, relevant native release dry-run, branch protection,
+  workflow visibility, and router package visibility. RC readiness remains
+  not-ready only because no approved numeric RC tag, GitHub prerelease, or
+  matching RC router image tag has been selected; pub.dev publishing remains
+  deferred for release-order and operator decisions. No RC tag, GitHub
+  Release, or published router image was created or moved.
 - 2026-05-25: Strengthened the public Streamable HTTP MCP bearer-token
   regression so `McpStreamableHttpClient.withBearerToken(...)` is covered
   across both Streamable HTTP and lifecycle-free direct JSON calls while stale

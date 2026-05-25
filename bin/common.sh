@@ -794,6 +794,7 @@ Future<void> main() async {
     await _smokeMalformedResponseSessionHeader(endpoint);
 
     client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
+    await _smokeAuthGrantDirectJsonBeforeLifecycle(client, endpoint);
 
     final initialize = await client.initialize(
       clientInfo: const <String, Object?>{
@@ -969,6 +970,129 @@ Future<void> _smokeNonJsonAuthError(_AgentMcpEndpoint endpoint) async {
     endpoint.authTextErrorTraceHeaders.single == 'auth-text-error',
     'non-JSON auth error smoke did not forward per-call auth headers',
   );
+}
+
+Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  _expect(
+    client.sessionId == null && client.lastEventId == null,
+    'auth-grant direct JSON smoke started with Streamable session state',
+  );
+
+  const staleAuthHeaders = <String, String>{
+    'Authorization': 'Bearer stale-agent-token',
+  };
+
+  final ping = await client.pingDirect(
+    id: 'auth-grant-direct-ping',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-ping',
+    },
+  );
+  _expect(ping.isEmpty, 'auth-grant direct JSON ping failed');
+
+  final tools = await client.listToolsDirect(
+    id: 'auth-grant-direct-tools',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-tools',
+    },
+  );
+  _expect(
+    tools.tools.any((tool) => tool['name'] == _toolName),
+    'auth-grant direct JSON tools/list missed $_toolName',
+  );
+
+  final api = await client.listWampApiDirect(
+    id: 'auth-grant-direct-api',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-api',
+    },
+  );
+  _expect(
+    jsonEncode(api).contains(_procedureName),
+    'auth-grant direct JSON WAMP API helper failed',
+  );
+
+  final batch = await client.postBatchDirect(
+    const <McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'auth-grant-direct-batch-tools',
+        'method': 'tools/list',
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'auth-grant-direct-batch-api',
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': 'connectanum.api.list',
+          'arguments': <String, Object?>{},
+        },
+      },
+    ],
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-batch',
+    },
+  );
+  _expect(
+    batch != null && batch.length == 2,
+    'auth-grant direct JSON batch returned an unexpected response set',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        batch![0],
+        id: 'auth-grant-direct-batch-tools',
+        label: 'auth-grant direct batch tools/list',
+      )['tools'],
+    ).contains(_toolName),
+    'auth-grant direct JSON batch tools/list missed $_toolName',
+  );
+  _expect(
+    jsonEncode(
+      _jsonRpcResult(
+        batch[1],
+        id: 'auth-grant-direct-batch-api',
+        label: 'auth-grant direct batch API list',
+      ),
+    ).contains(_procedureName),
+    'auth-grant direct JSON batch API list failed',
+  );
+
+  _expect(
+    client.sessionId == null && client.lastEventId == null,
+    'auth-grant direct JSON smoke created Streamable session state',
+  );
+  _expect(
+    endpoint.directTraceHeadersWithoutSession.containsAll(
+      const <String>{
+        'auth-grant-direct-ping',
+        'auth-grant-direct-tools',
+        'auth-grant-direct-api',
+        'auth-grant-direct-batch',
+      },
+    ),
+    'auth-grant direct JSON smoke forwarded Streamable session state',
+  );
+  const expectedTraces = <String>{
+    'auth-grant-direct-ping',
+    'auth-grant-direct-tools',
+    'auth-grant-direct-api',
+    'auth-grant-direct-batch',
+  };
+  for (final trace in expectedTraces) {
+    _expect(
+      endpoint.directAuthorizationHeadersByTrace[trace] ==
+          'Bearer $_accessToken',
+      'auth-grant direct JSON $trace did not keep the grant bearer token',
+    );
+  }
 }
 
 Future<void> _smokeMalformedResponseSessionHeader(
@@ -3874,6 +3998,7 @@ final class _AgentMcpEndpoint {
   final directMethodsWithoutSession = <String>{};
   final directToolNamesWithoutSession = <String>{};
   final directTraceHeadersWithoutSession = <String>{};
+  final directAuthorizationHeadersByTrace = <String, String>{};
   final directMcpStandardHeadersByTrace = <String, Map<String, String>>{};
   final directMcpParameterHeadersByTrace = <String, Map<String, String>>{};
   final streamableMcpStandardHeadersByTrace = <String, Map<String, String>>{};
@@ -4439,6 +4564,12 @@ final class _AgentMcpEndpoint {
       final trace = request.headers.value('x-consumer-trace');
       if (trace != null) {
         directTraceHeadersWithoutSession.add(trace);
+        final authorization = request.headers.value(
+          HttpHeaders.authorizationHeader,
+        );
+        if (authorization != null) {
+          directAuthorizationHeadersByTrace[trace] = authorization;
+        }
         final standardHeaders = <String, String>{};
         final parameterHeaders = <String, String>{};
         request.headers.forEach((name, values) {
