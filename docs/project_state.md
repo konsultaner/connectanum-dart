@@ -2,10 +2,35 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP JSON-response active direct helper
-consumer-package smoke.
+Last reviewed branch checkpoint: MCP Streamable DELETE response-session
+validation.
 Latest fully clean hosted checkpoint: Commit `34db112`.
-Current implementation checkpoint: The generated router-hosted MCP consumer
+Current implementation checkpoint: `McpStreamableHttpClient.deleteSession(...)`
+now validates successful Streamable HTTP DELETE response `MCP-Session-Id`
+headers before clearing local session state. Missing response session headers
+remain accepted for compatibility, but empty, malformed, or mismatched session
+headers now raise `McpStreamableProtocolException` and preserve the active
+`sessionId` / `lastEventId` so consumer applications do not silently discard
+state after a bad router or proxy response. The focused regression failed
+before the fix, then passed after the client started requiring any echoed
+DELETE session header to match the active session exactly. Baseline
+`bin/test-fast` passed on 2026-05-25 before the change. Focused local coverage
+passed on 2026-05-25:
+`dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+the focused DELETE response-header regression, the full
+`streamable_http_client_test.dart` suite, and the generated router-hosted MCP
+consumer package smoke. Full local `bin/verify` passed on 2026-05-25,
+including formatting, Rust/FFI, MCP package smokes, client/native transport
+suites, live WAMP transport integration, the router-hosted MCP example smoke,
+generated consumer-package smokes, the full router suite with MCP
+auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+smoke. The previous public auth-grant direct notification package checkpoint
+is fully hosted green at `34db112`: GitHub CI run `26406021113` passed with
+Fast Checks job `77729427918` and Full Verify job `77730072448` green, Dart
+Package Publish Dry Run `26406021123` passed, and WAMP Profile Benchmarks
+`26406021172` passed on `add-router`.
+Prior implementation checkpoint: The generated router-hosted MCP consumer
 package smoke now runs the full active-session direct JSON helper matrix on
 JSON-response compatibility routes after Streamable initialization. Public
 `/mcp/json-post`, bearer-protected `/mcp/secure-json-post`, and

@@ -1011,7 +1011,8 @@ final class McpStreamableHttpClient {
   Future<void> deleteSession({
     Map<String, String> headers = const <String, String>{},
   }) async {
-    if (sessionId == null) {
+    final activeSessionId = sessionId;
+    if (activeSessionId == null) {
       _clearSessionState();
       return;
     }
@@ -1021,6 +1022,19 @@ final class McpStreamableHttpClient {
     final response = await request.close();
     final body = await _readBody(response);
     _throwIfHttpErrorForSession(response, body);
+    final responseSessionId = response.headers.value(_headerSessionId);
+    if (responseSessionId != null) {
+      if (!_mcpSessionIdHeaderValueValid(responseSessionId)) {
+        throw const McpStreamableProtocolException(
+          'Invalid MCP-Session-Id response header',
+        );
+      }
+      if (responseSessionId != activeSessionId) {
+        throw const McpStreamableProtocolException(
+          'MCP-Session-Id response header did not match the active session',
+        );
+      }
+    }
     _clearSessionState();
   }
 

@@ -78,6 +78,27 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Tightened public MCP Streamable HTTP session cleanup semantics
+  in `McpStreamableHttpClient.deleteSession(...)`. Successful DELETE responses
+  may still omit `MCP-Session-Id`, but any echoed session header must now be
+  syntactically valid and match the active client session before local
+  `sessionId` / `lastEventId` state is cleared. Empty, malformed, or mismatched
+  DELETE response session headers now raise `McpStreamableProtocolException`
+  and preserve client state, preventing consumer applications from silently
+  accepting bad router or proxy cleanup responses. The focused regression
+  failed before the fix and passed afterward. Baseline `bin/test-fast` passed
+  before the change. Focused local coverage passed: formatting and analyzer for
+  the MCP client source/test files, the focused DELETE response-header
+  regression, the full `streamable_http_client_test.dart` suite, and the
+  generated router-hosted MCP consumer package smoke. Full local `bin/verify`
+  passed, including Rust/FFI, MCP package smokes, client/native transport
+  suites, live WAMP transport integration, the router-hosted MCP example smoke,
+  generated consumer-package smokes, the full router suite with MCP
+  auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+  smoke. The previous public auth-grant direct notification package checkpoint
+  is hosted green at `34db112`: GitHub CI run `26406021113`, Dart Package
+  Publish Dry Run `26406021123`, and WAMP Profile Benchmarks `26406021172` all
+  passed on `add-router`.
 - 2026-05-25: Extended the generated router-hosted MCP consumer package smoke
   so JSON-response compatibility routes prove active-session direct JSON
   helper access across the public package boundary. After Streamable

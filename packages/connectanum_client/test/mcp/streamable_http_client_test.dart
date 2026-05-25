@@ -797,6 +797,83 @@ void main() {
     );
 
     test(
+      'validates DELETE response session headers before local cleanup',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'delete-header-init');
+        expect(initialize['id'], 'delete-header-init');
+        expect(client.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-delete';
+        await expectLater(
+          client.deleteSession(
+            headers: const <String, String>{
+              'x-test-response-session-id': 'malformed session',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.toString(),
+              'message',
+              contains('MCP-Session-Id'),
+            ),
+          ),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-delete');
+        expect(endpoint.requests.last.method, 'DELETE');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        await expectLater(
+          client.deleteSession(
+            headers: const <String, String>{
+              'x-test-empty-response-session-id': '1',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.toString(),
+              'message',
+              contains('MCP-Session-Id'),
+            ),
+          ),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-delete');
+
+        await expectLater(
+          client.deleteSession(
+            headers: const <String, String>{
+              'x-test-response-session-id': 'other-session',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.toString(),
+              'message',
+              contains('MCP-Session-Id'),
+            ),
+          ),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-delete');
+
+        await client.deleteSession(
+          headers: const <String, String>{
+            'x-test-response-session-id': 'session-1',
+          },
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
       'keeps Streamable HTTP session state after malformed POST responses',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -3699,6 +3776,7 @@ final class _FakeMcpEndpoint {
         return;
       case 'DELETE':
         request.response.statusCode = HttpStatus.accepted;
+        _applyTestResponseHeaders(request);
         await request.response.close();
         return;
       default:
