@@ -849,6 +849,56 @@ mod tests {
     }
 
     #[test]
+    fn http_route_root_prefix_is_catch_all_and_specific_routes_win() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "protocols": ["http"],
+            "http_routes": [
+                {
+                    "path": "/",
+                    "match_kind": "prefix",
+                    "methods": {
+                        "GET": {
+                            "type": "translation",
+                            "realm": "realm1",
+                            "procedure": "com.example.catch_all"
+                        }
+                    }
+                },
+                {
+                    "path": "/api",
+                    "match_kind": "prefix",
+                    "methods": {
+                        "GET": {
+                            "type": "translation",
+                            "realm": "realm1",
+                            "procedure": "com.example.api"
+                        }
+                    }
+                }
+            ]
+        }))
+        .unwrap();
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+
+        match runtime.match_http_route("/other/path", None, "GET", "http/1.1") {
+            HttpRouteMatch::Resolved(resolution) => {
+                assert_eq!(resolution.procedure, "com.example.catch_all");
+            }
+            other => panic!("expected catch-all resolution, got {other:?}"),
+        }
+
+        match runtime.match_http_route("/api/items", None, "GET", "http/1.1") {
+            HttpRouteMatch::Resolved(resolution) => {
+                assert_eq!(resolution.procedure, "com.example.api");
+            }
+            other => panic!("expected specific route resolution, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn http_settings_parse_alpn_and_options() {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",

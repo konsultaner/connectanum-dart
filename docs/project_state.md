@@ -2,9 +2,25 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: RC readiness native dry-run rejection.
-Latest fully clean hosted checkpoint: Commit `d63d10e`.
-Current implementation checkpoint: The deployment-chain audit now rejects a
+Last reviewed branch checkpoint: HTTP catch-all route native encoding.
+Latest fully clean hosted checkpoint: Commit `60da83a`.
+Current implementation checkpoint: Pathless Dart HTTP route matches now encode
+to native prefix `/` catch-all routes instead of exact root-only routes, so
+method/protocol-filtered consumer application HTTP routes can match non-root
+paths while still losing to more-specific prefixes in the native router table.
+`ROADMAP.md` now marks the HTTP bridge catch-all mapping item complete. Focused
+local coverage passed on 2026-05-25: the Dart `router_json_test.dart`
+native-config encoding regression and the `ct_core`
+`http_route_root_prefix_is_catch_all_and_specific_routes_win` resolver
+regression. Full local `bin/verify` passed on 2026-05-25, including Rust/FFI,
+the new native catch-all route resolver test, MCP package smokes,
+client/native transport suites, live WAMP transport integration, the
+router-hosted MCP example smoke, the generated consumer-package smoke, the
+full router suite with the new Dart native-config encoding regression, and the
+Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
+checkpoint remains `60da83a` until this implementation commit is pushed and
+hosted CI completes.
+Prior implementation checkpoint: The deployment-chain audit now rejects a
 selected numeric RC tag when the latest accepted Native Artifacts evidence is
 still a validation dry-run instead of an actual prerelease publish for that
 selected tag. `bin/audit-github-deployment-chain --require-rc-ready` now
@@ -22,18 +38,25 @@ local coverage passed on 2026-05-25: `bash -n bin/audit-github-deployment-chain`
 `python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_dry_run_for_selected_rc_tag tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_accepts_native_prerelease_evidence tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_prerelease_tag_mismatch`,
 `python3 -m unittest tool.test_audit_github_deployment_chain`,
 `git diff --check`, and `python3 tool/check_public_artifact_references.py`.
-The real non-mutating
-`bin/audit-github-deployment-chain --branch master --show-rc-readiness` passed
-locally on 2026-05-25 and still reports clean hosted gates at `d63d10e` while
-blocking RC readiness because no approved numeric RC tag, GitHub prerelease, or
-matching RC router image tag has been selected for `d63d10e`; the audit
-suggests follow-up `v0.1.0-rc.2`, which requires release approval before
-pushing. Full local `bin/verify` passed on 2026-05-25, including Rust/FFI,
-MCP package smokes, client/native transport suites, live WAMP transport
-integration, the router-hosted MCP example smoke, the generated
-consumer-package smoke, the full router suite with MCP auth/session/security
-coverage, and the Chrome/Dart2Wasm browser WebSocket smoke. No RC tag, GitHub
-Release, or published router image was created or moved.
+Full local `bin/verify` passed on 2026-05-25, including Rust/FFI, MCP package
+smokes, client/native transport suites, live WAMP transport integration, the
+router-hosted MCP example smoke, the generated consumer-package smoke, the
+full router suite with MCP auth/session/security coverage, and the
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `60da83a` was pushed to
+GitLab `origin/add-router`, GitHub `add-router`, and GitHub `master`. Hosted
+GitHub evidence is clean at `60da83a`: `add-router` CI run `26392750019`
+passed with Fast Checks and Full Verify green, and `master` CI run
+`26392750230` passed with Fast Checks and Full Verify green. The strict
+deployment-chain audit passed required gates on `master` at `60da83a`,
+including clean current-head CI/logs, still-relevant Dart package dry-run
+`26386446103`, still-relevant Native Artifacts dry-run `26286794628`,
+still-relevant Router Image dry-run `26386910657`, still-relevant WAMP Profile
+Benchmarks run `26386446115`, branch protection, workflow visibility, and
+router package visibility. RC readiness remains not-ready only because no
+approved numeric RC tag, GitHub prerelease, or matching RC router image tag has
+been selected for `60da83a`; the audit suggests follow-up `v0.1.0-rc.2`,
+which requires release approval before pushing. No RC tag, GitHub Release, or
+published router image was created or moved.
 Prior implementation checkpoint: The deployment-chain audit now records the
 accepted Native Artifacts release evidence tag/mode and, when RC readiness
 accepts native prerelease evidence, requires that prerelease tag to match the
@@ -13767,10 +13790,10 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears. The current local checkpoint tightens the
-  RC audit so a selected numeric RC tag requires matching Native Artifacts
-  prerelease evidence instead of accepting validation dry-run evidence; the
-  latest fully clean hosted checkpoint is `d63d10e`.
+  consumer integration bug appears. The current local checkpoint fixes
+  pathless HTTP route native encoding so method/protocol-filtered catch-all
+  routes match non-root paths; the latest fully clean hosted checkpoint is
+  `60da83a`.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

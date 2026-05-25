@@ -114,11 +114,13 @@ class Router {
   ) {
     final match = route.match;
     final path = (match.path ?? match.prefix)?.trim();
-    final matchKind = match.prefix != null && match.path == null
+    final hasPathMatch = path != null && path.isNotEmpty;
+    final matchKind =
+        (match.prefix != null && match.path == null) || !hasPathMatch
         ? 'prefix'
         : 'exact';
     final routeMap = <String, Object?>{
-      'path': (path != null && path.isNotEmpty) ? path : '/',
+      'path': hasPathMatch ? path : '/',
       'match_kind': matchKind,
     };
     if (match.headers.isNotEmpty) {
