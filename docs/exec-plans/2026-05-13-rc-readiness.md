@@ -78,6 +78,17 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Extended the generated router-hosted MCP consumer package smoke
+  to prove raw headerless Streamable `tools/call` compatibility across the
+  public package boundary. The smoke now posts a JSON-RPC `tools/call` request
+  with no `Mcp-Method`, `Mcp-Name`, or `Mcp-Param-*` request-metadata headers
+  and asserts the streamed tool result is derived from body fields alone. This
+  closes the consumer-agent readiness gap left after headerless `tools/list`
+  coverage. Baseline `bin/test-fast` passed before the smoke-only change.
+  Focused local coverage passed: `bash -n bin/common.sh`, `git diff --check`,
+  and `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full
+  local `bin/verify` passed again with the router-hosted MCP consumer package
+  smoke covering headerless `tools/call`.
 - 2026-05-25: Made router-hosted Streamable HTTP MCP compatible with
   standard clients that omit Connectanum/MCP request-metadata headers. The
   stable Streamable HTTP transport surface at
@@ -99,7 +110,23 @@ decision because `connectanum_client` still depends on private
   smokes, client/native transport suites, live WAMP transport integration,
   router-hosted MCP smokes, the full router suite with the headerless
   Streamable HTTP MCP regression, zero-copy router tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke.
+  Chrome/Dart2Wasm browser WebSocket smoke. The checkpoint is hosted green at
+  `4ff256d`: GitHub CI run `26418353089`, Dart Package Publish Dry Run
+  `26418353050`, and WAMP Profile Benchmarks `26418353051` all passed on
+  `add-router`, with WAMP artifact upload ready. The strict `add-router`
+  deployment-chain audit also passed with clean latest CI, clean CI logs,
+  clean Dart package publish dry-run, and clean WAMP profile benchmark
+  requirements. The same commit was then promoted to GitHub `master` for the
+  release branch. A fresh local `bin/verify` passed on Darwin arm64 after the
+  promotion. Hosted `master` evidence is clean at `4ff256d`: CI run
+  `26419213664` passed with Fast Checks and Full Verify green, Dart Package
+  Publish Dry Run `26419213726` passed, WAMP Profile Benchmarks `26419213725`
+  passed with artifact upload ready, and non-mutating Router Image dry-run
+  `26419643836` passed with preview metadata `sha-4ff256d6f108`, GHCR login
+  skipped, and no image publish. The strict `master` deployment-chain audit
+  passed with clean latest CI, clean CI logs, clean Dart package publish
+  dry-run, clean WAMP profile benchmark, and clean Router Image dry-run
+  requirements.
 - 2026-05-25: Tightened public MCP Streamable HTTP response-session
   validation in `McpStreamableHttpClient`. Successful Streamable HTTP
   responses that echo a malformed `MCP-Session-Id` response header still raise

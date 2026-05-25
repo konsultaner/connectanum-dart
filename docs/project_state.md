@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP Streamable headerless compatibility.
-Latest fully clean hosted checkpoint: Commit `e81e21a`.
+Last reviewed branch checkpoint: Router-hosted MCP Streamable headerless compatibility smoke.
+Latest fully clean hosted checkpoint: Commit `4ff256d` on GitHub `master`.
 Current implementation checkpoint: Router-hosted Streamable HTTP MCP now
 accepts stable client POSTs that omit Connectanum/MCP request-metadata
 headers such as `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*`, while continuing
@@ -24,14 +24,35 @@ including formatting, Rust/FFI, MCP package smokes, client/native transport
 suites, live WAMP transport integration, the router-hosted MCP example smoke,
 generated consumer-package smokes, the full router suite with the headerless
 Streamable HTTP MCP regression, zero-copy router tests, and the
-Chrome/Dart2Wasm browser WebSocket smoke. The previous response-session
-preservation checkpoint is
-fully hosted green at `e81e21a`: GitHub CI run `26416144700` passed with Fast
-Checks and Full Verify green, Dart Package Publish Dry Run `26416144720`
-passed, and WAMP Profile Benchmarks `26416144718` passed on `add-router` with
-artifact upload ready. The strict deployment-chain audit also passed on
-`add-router` with clean latest CI, clean latest CI logs, clean Dart package
-publish dry-run, and clean WAMP profile benchmark requirements.
+Chrome/Dart2Wasm browser WebSocket smoke. This checkpoint is fully hosted
+green at `4ff256d`: GitHub CI run `26418353089` passed with Fast Checks and
+Full Verify green, Dart Package Publish Dry Run `26418353050` passed, and
+WAMP Profile Benchmarks `26418353051` passed on `add-router` with artifact
+upload ready. The strict deployment-chain audit also passed on `add-router`
+with clean latest CI, clean latest CI logs, clean Dart package publish dry-run,
+and clean WAMP profile benchmark requirements. The same commit was promoted to
+GitHub `master` on 2026-05-25. A fresh local `bin/verify` then passed on
+Darwin arm64, and hosted `master` evidence is clean at `4ff256d`: CI run
+`26419213664` passed with Fast Checks and Full Verify green, Dart Package
+Publish Dry Run `26419213726` passed, WAMP Profile Benchmarks `26419213725`
+passed with artifact upload ready, and non-mutating Router Image dry-run
+`26419643836` passed with preview metadata `sha-4ff256d6f108`, GHCR login
+skipped, and no image publish. The strict `master` deployment-chain audit also
+passed with clean latest CI, clean latest CI logs, clean Dart package
+publish dry-run, clean WAMP profile benchmark, and clean Router Image dry-run
+requirements. A follow-up generated consumer-package smoke extension now
+posts a raw Streamable `tools/call` request with no `Mcp-Method`, `Mcp-Name`,
+or `Mcp-Param-*` request-metadata headers and asserts the streamed JSON-RPC
+tool result is derived from body fields alone. Baseline `bin/test-fast` passed
+again on 2026-05-25 before this smoke-only change; focused local coverage
+passed with `bash -n bin/common.sh`, `git diff --check`, and
+`bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full local
+`bin/verify` passed again on 2026-05-25, including the router-hosted MCP
+consumer package smoke with the headerless `tools/call` assertion. The previous
+response-session preservation checkpoint is fully hosted green at
+`e81e21a`: GitHub CI run `26416144700` passed with Fast Checks and Full Verify
+green, Dart Package Publish Dry Run `26416144720` passed, and WAMP Profile
+Benchmarks `26416144718` passed on `add-router` with artifact upload ready.
 Prior implementation checkpoint: `McpStreamableHttpClient` now preserves an
 active `sessionId` / `lastEventId` when a successful Streamable HTTP response
 echoes a malformed `MCP-Session-Id` response header. The client still throws
@@ -14041,8 +14062,12 @@ at the older `47bbf9c` commit.
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
   consumer integration bug appears. The current local checkpoint makes
   router-hosted Streamable HTTP MCP accept standard headerless clients while
-  still validating request metadata headers when present; the latest fully
-  clean hosted checkpoint is `e81e21a`.
+  still validating request metadata headers when present; the current local
+  follow-up extends the generated consumer-package smoke to prove raw
+  headerless Streamable `tools/call` across the public package boundary. The
+  latest fully clean hosted checkpoint is `4ff256d` on GitHub `master`,
+  including CI, package dry-run, WAMP profile benchmark, Router Image dry-run,
+  and strict deployment-chain audit evidence.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

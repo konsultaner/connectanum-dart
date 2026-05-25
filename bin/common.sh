@@ -11419,6 +11419,52 @@ Future<void> _assertMcpStreamableCorsHeaderErrors(
     label: '$label Streamable headerless tools/list',
   );
 
+  final headerlessToolTaskId =
+      'T-$label-streamable-cors-headerless-tool-call';
+  final headerlessToolCallId = '$label-streamable-cors-headerless-tool-call';
+  final headerlessToolCall = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': headerlessToolCallId,
+      'method': 'tools/call',
+      'params': {
+        'name': _procedure,
+        'arguments': {
+          'taskId': headerlessToolTaskId,
+          'note': _headerWrappedNote,
+        },
+      },
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    includeMethodHeader: false,
+    includeNameHeader: false,
+  );
+  if (headerlessToolCall.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable headerless tools/call returned '
+      '${headerlessToolCall.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    headerlessToolCall,
+    label: '$label Streamable headerless tools/call',
+  );
+  final headerlessToolPayload = _mcpSseJsonRpcPayload(
+    headerlessToolCall,
+    id: headerlessToolCallId,
+    label: '$label Streamable headerless tools/call',
+  );
+  final headerlessToolJson = jsonEncode(headerlessToolPayload['result']);
+  if (!headerlessToolJson.contains(headerlessToolTaskId) ||
+      !headerlessToolJson.contains(_headerWrappedNote)) {
+    throw StateError(
+      'MCP $label Streamable headerless tools/call missed procedure result.',
+    );
+  }
+
   final nameMismatchTaskId = 'T-$label-streamable-cors-name-mismatch';
   final nameMismatch = await _mcpRawJsonPost(
     client,
