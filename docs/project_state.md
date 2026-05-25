@@ -2,9 +2,32 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP HTTP auth bridge header ownership.
-Latest fully clean hosted checkpoint: Commit `78e0eb0`.
-Current implementation checkpoint: The MCP HTTP auth client regression now
+Last reviewed branch checkpoint: RC readiness audit tag selection.
+Latest fully clean hosted checkpoint: Commit `f33eb6a`.
+Current implementation checkpoint: The deployment-chain audit now prefers a
+GitHub numeric RC tag over local-only RC tags when multiple RC tags point at
+the checked-out head. This prevents a stale or lower local tag from masking an
+approved GitHub RC tag during `--show-rc-readiness` / `--require-rc-ready`,
+which would otherwise make the GitHub prerelease and router-image RC tag gates
+inspect the wrong candidate. The regression stubs a local `v0.1.0-rc.1` and a
+GitHub `v0.1.0-rc.2` at the same commit, then asserts the audit reports both
+tags while selecting the GitHub tag for the prerelease and
+`ghcr.io/konsultaner/connectanum-router:0.1.0-rc.2` checks. Baseline
+`bin/test-fast` passed on 2026-05-25 before this change, including the MCP
+package smokes, router-hosted MCP example smoke, generated consumer-package
+smoke, and router/client fast suites. Focused local coverage passed on
+2026-05-25: `bash -n bin/audit-github-deployment-chain`,
+`bin/audit-github-deployment-chain --help`,
+`python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_prefers_github_rc_tag_over_local_lower_tag`,
+`python3 -m unittest tool.test_audit_github_deployment_chain`,
+`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+Full local `bin/verify` passed on 2026-05-25, including the updated audit
+tooling regression, MCP package smokes, generated consumer-package smoke,
+router-hosted MCP example smoke, router suite, and Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this local checkpoint is pending; the
+latest fully clean hosted checkpoint remains `f33eb6a`. No RC tag, GitHub
+Release, or published router image was created or moved.
+Prior implementation checkpoint: The MCP HTTP auth client regression now
 proves `ConnectanumHttpAuthClient` keeps `Authorization` caller-controlled for
 downstream applications that protect the HTTP auth bridge itself while still
 owning JSON request framing headers. The focused test now covers a constructor
@@ -21,9 +44,24 @@ authorization on revoke calls, alongside the existing `Accept` /
 `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
 passed on 2026-05-25, including the updated MCP HTTP auth client test,
 MCP package smokes, generated consumer-package smoke, router-hosted MCP example
-smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-evidence for this local checkpoint has not been requested yet; the latest fully
-clean hosted checkpoint remains `78e0eb0`.
+smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Commit
+`f33eb6a` (`test: cover mcp auth bridge authorization headers`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `f33eb6a`: `add-router` CI run `26386442961`, Dart
+Package Publish Dry Run `26386442960`, and WAMP Profile Benchmarks
+`26386442962` passed; `master` CI run `26386446104`, Dart Package Publish Dry
+Run `26386446103`, and WAMP Profile Benchmarks `26386446115` passed. Manual
+`master` Router Image dry-run `26386910657` passed at `f33eb6a`, uploaded the
+preview metadata `sha-f33eb6a8b10e`, skipped GHCR login, and validated the
+multi-arch image without publishing. The strict deployment-chain audit passed
+required gates on `master` at `f33eb6a`, including clean current-head CI/logs,
+Dart package dry-run, WAMP profile benchmark, Router Image dry-run,
+still-relevant Native Artifacts dry-run evidence, branch protection, workflow
+visibility, and router package visibility. RC readiness remains not-ready only
+because no approved numeric RC tag, GitHub prerelease, or matching RC router
+image tag has been selected; pub.dev publishing remains deferred for
+release-order and operator decisions. No RC tag, GitHub Release, or published
+router image was created or moved.
 Prior implementation checkpoint: The generated MCP client-only consumer
 package smoke now proves an HTTP auth grant can drive route-provided direct
 JSON resources, prompts, and WAMP session meta helpers before any Streamable

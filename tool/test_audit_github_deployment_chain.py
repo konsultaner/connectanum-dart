@@ -264,6 +264,29 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
 
+    def test_rc_readiness_prefers_github_rc_tag_over_local_lower_tag(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_rc_readiness_with_native_prerelease(
+            current_head,
+            local_tag_head=current_head,
+            local_tag_name="v0.1.0-rc.1",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("RC tag on checked-out head: ready", result.stdout)
+        self.assertIn("- v0.1.0-rc.1 (local)", result.stdout)
+        self.assertIn("- v0.1.0-rc.2 (GitHub)", result.stdout)
+        self.assertIn("GitHub RC prerelease: ready (v0.1.0-rc.2)", result.stdout)
+        self.assertIn(
+            "Router image RC tag: ready (0.1.0-rc.2, sha256:abcdef)",
+            result.stdout,
+        )
+        self.assertNotIn(
+            "GitHub RC prerelease: not ready; v0.1.0-rc.1 is not a GitHub tag",
+            result.stdout,
+        )
+
     def test_rc_readiness_suggests_followup_rc_tag_for_stale_tags(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
         stale_head = self._different_sha(current_head)
@@ -891,6 +914,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         require_rc_ready: bool = False,
         extra_dart_publish_blocker: bool = False,
         omit_dart_release_plan: bool = False,
+        local_tag_name: str = "v0.1.0-rc.2",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1135,6 +1159,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     """\
                     #!/usr/bin/env bash
                     set -euo pipefail
+                    local_tag="${FAKE_LOCAL_TAG_NAME:-v0.1.0-rc.2}"
 
                     if [[ "${1:-}" == "ls-remote" && "${2:-}" == "--tags" ]]; then
                       if [[ -n "${FAKE_GITHUB_TAG_HEAD:-}" ]]; then
@@ -1145,19 +1170,19 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
                     if [[ "${1:-}" == "tag" && "${2:-}" == "--points-at" ]]; then
                       if [[ -n "${FAKE_LOCAL_TAG_HEAD:-}" && "$FAKE_LOCAL_TAG_HEAD" == "$FAKE_CI_HEAD" ]]; then
-                        printf 'v0.1.0-rc.2\\n'
+                        printf '%s\\n' "$local_tag"
                       fi
                       exit 0
                     fi
 
                     if [[ "${1:-}" == "tag" && "${2:-}" == "--list" ]]; then
                       if [[ -n "${FAKE_LOCAL_TAG_HEAD:-}" ]]; then
-                        printf 'v0.1.0-rc.2\\n'
+                        printf '%s\\n' "$local_tag"
                       fi
                       exit 0
                     fi
 
-                    if [[ "${1:-}" == "rev-list" && "${2:-}" == "-n" && "${3:-}" == "1" && "${4:-}" == "v0.1.0-rc.2" ]]; then
+                    if [[ "${1:-}" == "rev-list" && "${2:-}" == "-n" && "${3:-}" == "1" && "${4:-}" == "$local_tag" ]]; then
                       if [[ -n "${FAKE_LOCAL_TAG_HEAD:-}" ]]; then
                         printf '%s\\n' "$FAKE_LOCAL_TAG_HEAD"
                         exit 0
@@ -1215,6 +1240,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 ci_head if github_tag_head is None else github_tag_head
             )
             env["FAKE_LOCAL_TAG_HEAD"] = local_tag_head or ""
+            env["FAKE_LOCAL_TAG_NAME"] = local_tag_name
             env["FAKE_ROUTER_IMAGE_TAG"] = router_image_tag
             env["FAKE_ROUTER_PREVIEW_TAG"] = router_preview_tag
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths

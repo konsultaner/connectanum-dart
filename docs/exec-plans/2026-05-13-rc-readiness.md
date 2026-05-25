@@ -78,6 +78,30 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Fixed RC readiness tag selection so
+  `bin/audit-github-deployment-chain --show-rc-readiness` /
+  `--require-rc-ready` prefers a GitHub numeric RC tag when both local-only and
+  GitHub RC tags point at the checked-out head. This prevents a stale or lower
+  local tag from making the GitHub prerelease and router-image RC tag gates
+  inspect the wrong candidate after release approval. The focused regression
+  stubs a local `v0.1.0-rc.1` and a GitHub `v0.1.0-rc.2` at the same commit,
+  then asserts the audit reports both tags while selecting the GitHub tag for
+  the prerelease and `ghcr.io/konsultaner/connectanum-router:0.1.0-rc.2`
+  checks. Baseline `bin/test-fast` passed on 2026-05-25 before this change,
+  including the MCP package smokes, router-hosted MCP example smoke, generated
+  consumer-package smoke, and router/client fast suites. Focused local coverage
+  passed: `bash -n bin/audit-github-deployment-chain`,
+  `bin/audit-github-deployment-chain --help`,
+  `python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_prefers_github_rc_tag_over_local_lower_tag`,
+  `python3 -m unittest tool.test_audit_github_deployment_chain`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-25, including the updated audit tooling regression, MCP
+  package smokes, generated consumer-package smoke, router-hosted MCP example
+  smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this local checkpoint is pending; the latest fully clean hosted
+  checkpoint remains `f33eb6a`. No RC tag, GitHub Release, or router image was
+  created or moved.
 - 2026-05-25: Strengthened the MCP HTTP auth client regression so downstream
   applications can safely protect the HTTP auth bridge itself while still using
   `ConnectanumHttpAuthClient` to mint MCP bearer grants. The focused test now
@@ -95,9 +119,24 @@ decision because `connectanum_client` still depends on private
   `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
   passed on 2026-05-25, including the updated MCP HTTP auth client test, MCP
   package smokes, generated consumer-package smoke, router-hosted MCP example
-  smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence for this local checkpoint has not been requested yet; latest fully
-  clean hosted evidence remains `78e0eb0`.
+  smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Commit
+  `f33eb6a` (`test: cover mcp auth bridge authorization headers`) was pushed
+  to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+  evidence is clean at `f33eb6a`: `add-router` CI run `26386442961`, Dart
+  Package Publish Dry Run `26386442960`, and WAMP Profile Benchmarks
+  `26386442962` passed; `master` CI run `26386446104`, Dart Package Publish
+  Dry Run `26386446103`, and WAMP Profile Benchmarks `26386446115` passed.
+  Manual `master` Router Image dry-run `26386910657` passed at `f33eb6a`,
+  uploaded the preview metadata `sha-f33eb6a8b10e`, skipped GHCR login, and
+  validated the multi-arch image without publishing. The strict
+  deployment-chain audit passed required gates on `master` at `f33eb6a`,
+  including clean current-head CI/logs, Dart package dry-run, WAMP profile
+  benchmark, Router Image dry-run, still-relevant Native Artifacts dry-run
+  evidence, branch protection, workflow visibility, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag, GitHub prerelease, or matching RC router image tag has been selected;
+  pub.dev publishing remains deferred for release-order and operator decisions.
+  No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-25: Extended the generated MCP client-only consumer package smoke so
   a consumer application path now proves auth-grant direct resources, prompts,
   and WAMP session meta helpers before any Streamable HTTP lifecycle starts.
