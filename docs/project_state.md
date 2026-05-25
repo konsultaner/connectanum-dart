@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP Streamable headerless compatibility smoke.
-Latest fully clean hosted checkpoint: Commit `4ff256d` on GitHub `master`.
+Last reviewed branch checkpoint: Router-hosted MCP Streamable headerless resource/prompt smoke.
+Latest fully clean hosted checkpoint: Commit `6d97391` on GitHub `master`.
 Current implementation checkpoint: Router-hosted Streamable HTTP MCP now
 accepts stable client POSTs that omit Connectanum/MCP request-metadata
 headers such as `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*`, while continuing
@@ -40,16 +40,35 @@ passed with artifact upload ready, and non-mutating Router Image dry-run
 skipped, and no image publish. The strict `master` deployment-chain audit also
 passed with clean latest CI, clean latest CI logs, clean Dart package
 publish dry-run, clean WAMP profile benchmark, and clean Router Image dry-run
-requirements. A follow-up generated consumer-package smoke extension now
-posts a raw Streamable `tools/call` request with no `Mcp-Method`, `Mcp-Name`,
-or `Mcp-Param-*` request-metadata headers and asserts the streamed JSON-RPC
-tool result is derived from body fields alone. Baseline `bin/test-fast` passed
-again on 2026-05-25 before this smoke-only change; focused local coverage
-passed with `bash -n bin/common.sh`, `git diff --check`, and
+requirements. A follow-up generated consumer-package smoke extension posts raw
+Streamable `tools/call` requests with no `Mcp-Method`, `Mcp-Name`, or
+`Mcp-Param-*` request-metadata headers and asserts the streamed JSON-RPC tool
+result is derived from body fields alone. Baseline `bin/test-fast` passed again
+on 2026-05-25 before that smoke-only change; focused local coverage passed with
+`bash -n bin/common.sh`, `git diff --check`, and
 `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full local
 `bin/verify` passed again on 2026-05-25, including the router-hosted MCP
-consumer package smoke with the headerless `tools/call` assertion. The previous
-response-session preservation checkpoint is fully hosted green at
+consumer package smoke with the headerless `tools/call` assertion. Hosted
+evidence is clean at `6d97391`: GitHub CI run `26420809812` passed with Fast
+Checks and Full Verify green, and the strict `master` deployment-chain audit
+passed with clean latest CI, clean latest CI logs, clean Dart package
+publish dry-run, clean WAMP profile benchmark, and clean Router Image dry-run
+requirements. The audit kept the `4ff256d` package dry-run, WAMP benchmark,
+and Router Image dry-run evidence relevant because this smoke-only commit did
+not change publish-sensitive, WAMP benchmark-sensitive, or router-image-
+sensitive inputs. The current local follow-up extends the same generated
+consumer package smoke to post raw single Streamable `resources/read` and
+`prompts/get` requests without `Mcp-Method` or `Mcp-Name` request-metadata
+headers, proving route-provided resources and prompts also resolve from
+JSON-RPC body fields alone for standard agents. Baseline `bin/test-fast`
+passed again before the smoke-only change; focused local coverage passed with
+`bash -n bin/common.sh`, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and
+`bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full local
+`bin/verify` passed again on 2026-05-25, including the router-hosted MCP
+consumer package smoke with headerless `tools/call`, `resources/read`, and
+`prompts/get` assertions. The previous response-session preservation
+checkpoint is fully hosted green at
 `e81e21a`: GitHub CI run `26416144700` passed with Fast Checks and Full Verify
 green, Dart Package Publish Dry Run `26416144720` passed, and WAMP Profile
 Benchmarks `26416144718` passed on `add-router` with artifact upload ready.
@@ -14064,8 +14083,9 @@ at the older `47bbf9c` commit.
   router-hosted Streamable HTTP MCP accept standard headerless clients while
   still validating request metadata headers when present; the current local
   follow-up extends the generated consumer-package smoke to prove raw
-  headerless Streamable `tools/call` across the public package boundary. The
-  latest fully clean hosted checkpoint is `4ff256d` on GitHub `master`,
+  headerless Streamable `tools/call`, `resources/read`, and `prompts/get`
+  across the public package boundary. The latest fully clean hosted checkpoint
+  is `6d97391` on GitHub `master`,
   including CI, package dry-run, WAMP profile benchmark, Router Image dry-run,
   and strict deployment-chain audit evidence.
 - Historical paused plan:

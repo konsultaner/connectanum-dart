@@ -11465,6 +11465,88 @@ Future<void> _assertMcpStreamableCorsHeaderErrors(
     );
   }
 
+  final headerlessResourceId =
+      '$label-streamable-cors-headerless-resource-read';
+  final headerlessResource = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': headerlessResourceId,
+      'method': 'resources/read',
+      'params': {'uri': _resourceUri},
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    includeMethodHeader: false,
+    includeNameHeader: false,
+  );
+  if (headerlessResource.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable headerless resources/read returned '
+      '${headerlessResource.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    headerlessResource,
+    label: '$label Streamable headerless resources/read',
+  );
+  final headerlessResourcePayload = _mcpSseJsonRpcPayload(
+    headerlessResource,
+    id: headerlessResourceId,
+    label: '$label Streamable headerless resources/read',
+  );
+  if (!jsonEncode(headerlessResourcePayload['result']).contains(
+    'Consumer package router-hosted MCP context document.',
+  )) {
+    throw StateError(
+      'MCP $label Streamable headerless resources/read missed route context.',
+    );
+  }
+
+  final headerlessPromptTaskId =
+      'T-$label-streamable-cors-headerless-prompt';
+  final headerlessPromptId = '$label-streamable-cors-headerless-prompt';
+  final headerlessPrompt = await _mcpRawJsonPost(
+    client,
+    endpoint,
+    <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': headerlessPromptId,
+      'method': 'prompts/get',
+      'params': {
+        'name': _promptName,
+        'arguments': {'taskId': headerlessPromptTaskId},
+      },
+    },
+    sessionId: sessionId,
+    bearerToken: bearerToken,
+    includeMethodHeader: false,
+    includeNameHeader: false,
+  );
+  if (headerlessPrompt.statusCode != HttpStatus.ok) {
+    throw StateError(
+      'MCP $label Streamable headerless prompts/get returned '
+      '${headerlessPrompt.statusCode}.',
+    );
+  }
+  _assertMcpCorsStatefulResponse(
+    headerlessPrompt,
+    label: '$label Streamable headerless prompts/get',
+  );
+  final headerlessPromptPayload = _mcpSseJsonRpcPayload(
+    headerlessPrompt,
+    id: headerlessPromptId,
+    label: '$label Streamable headerless prompts/get',
+  );
+  if (!jsonEncode(headerlessPromptPayload['result']).contains(
+    headerlessPromptTaskId,
+  )) {
+    throw StateError(
+      'MCP $label Streamable headerless prompts/get did not substitute task id.',
+    );
+  }
+
   final nameMismatchTaskId = 'T-$label-streamable-cors-name-mismatch';
   final nameMismatch = await _mcpRawJsonPost(
     client,

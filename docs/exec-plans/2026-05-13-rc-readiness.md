@@ -79,6 +79,19 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-05-25: Extended the generated router-hosted MCP consumer package smoke
+  again to prove raw headerless Streamable `resources/read` and `prompts/get`
+  compatibility across the public package boundary. The smoke now posts single
+  JSON-RPC requests with no `Mcp-Method` or `Mcp-Name` request-metadata headers
+  and asserts route-provided resource content and prompt arguments are resolved
+  from body fields alone. This closes the remaining single-request
+  resource/prompt gap after headerless `tools/list` and `tools/call` coverage.
+  Baseline `bin/test-fast` passed before the smoke-only change. Focused local
+  coverage passed: `bash -n bin/common.sh`, `git diff --check`,
+  `python3 tool/check_public_artifact_references.py`, and
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full
+  local `bin/verify` passed again with the router-hosted MCP consumer package
+  smoke covering headerless `tools/call`, `resources/read`, and `prompts/get`.
+- 2026-05-25: Extended the generated router-hosted MCP consumer package smoke
   to prove raw headerless Streamable `tools/call` compatibility across the
   public package boundary. The smoke now posts a JSON-RPC `tools/call` request
   with no `Mcp-Method`, `Mcp-Name`, or `Mcp-Param-*` request-metadata headers
@@ -88,7 +101,14 @@ decision because `connectanum_client` still depends on private
   Focused local coverage passed: `bash -n bin/common.sh`, `git diff --check`,
   and `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full
   local `bin/verify` passed again with the router-hosted MCP consumer package
-  smoke covering headerless `tools/call`.
+  smoke covering headerless `tools/call`. The commit was pushed to GitHub
+  `master` as `6d97391`; GitHub CI run `26420809812` passed with Fast Checks
+  and Full Verify green, and the strict `master` deployment-chain audit passed
+  with clean latest CI, clean CI logs, clean Dart package publish dry-run,
+  clean WAMP profile benchmark, and clean Router Image dry-run requirements.
+  The audit kept the `4ff256d` package dry-run, WAMP benchmark, and Router
+  Image dry-run evidence relevant because this smoke-only commit did not touch
+  their sensitive inputs.
 - 2026-05-25: Made router-hosted Streamable HTTP MCP compatible with
   standard clients that omit Connectanum/MCP request-metadata headers. The
   stable Streamable HTTP transport surface at
