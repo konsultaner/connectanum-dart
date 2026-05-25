@@ -79,6 +79,29 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-05-25: Strengthened the public MCP client auth-grant direct JSON
+  package regression to cover lifecycle-free notification-only helpers before
+  any Streamable HTTP session exists. `McpStreamableHttpClient.withAuthGrant(...)`
+  now has focused test evidence for `notifyToolDirect(...)`,
+  `notifyConnectanumToolDirect(...)`, `notifyConnectanumMethodDirect(...)`, and
+  the typed WAMP pub/sub `notifyWampEventDirect(...)` helper while stale
+  constructor and per-call `Authorization` metadata is present. The regression
+  asserts notification requests omit JSON-RPC `id`, use the grant-owned bearer
+  token, negotiate `application/json`, send no `MCP-Session-Id` or
+  `Last-Event-ID`, leave `sessionId` / `lastEventId` unset, and expose the
+  expected MCP method/name request headers for consumer application usage.
+  Baseline `bin/test-fast` passed before the change. Focused local coverage
+  passed: formatting and analyzer for `streamable_http_client_test.dart`, the
+  focused MCP client test, `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed, including Rust/FFI, MCP package smokes, client/native transport
+  suites, live WAMP transport integration, the router-hosted MCP example smoke,
+  generated consumer-package smokes, the full router suite with MCP
+  auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+  smoke. The prior standard WAMP meta package checkpoint is hosted green at
+  `0b36433`: GitHub CI run `26404081734`, Dart Package Publish Dry Run
+  `26404081757`, and WAMP Profile Benchmarks `26404081754` all passed on
+  `add-router`.
+- 2026-05-25: Strengthened the public MCP client auth-grant direct JSON
   package regression to cover the full standard WAMP session, registration,
   and subscription meta helper surface before any Streamable HTTP lifecycle.
   `McpStreamableHttpClient.withAuthGrant(...)` now has focused test evidence

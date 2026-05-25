@@ -1362,6 +1362,54 @@ void main() {
         );
         expect(unsubscribe.unsubscribed, isTrue);
 
+        await client.notifyToolDirect(
+          'app.echo',
+          arguments: const <String, Object?>{'message': 'tool notification'},
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-tool-notification',
+          },
+        );
+
+        await client.notifyConnectanumToolDirect(
+          'connectanum.pubsub.publish',
+          arguments: const <String, Object?>{
+            'topic': 'app.events.audit',
+            'argumentsKeywords': <String, Object?>{
+              'message': 'tool pubsub notification',
+            },
+          },
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-tool-pubsub-notification',
+          },
+        );
+
+        await client.notifyConnectanumMethodDirect(
+          'connectanum.pubsub.publish',
+          params: const <String, Object?>{
+            'topic': 'app.events.audit',
+            'argumentsKeywords': <String, Object?>{
+              'message': 'method pubsub notification',
+            },
+          },
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-method-pubsub-notification',
+          },
+        );
+
+        await client.notifyWampEventDirect(
+          'app.events.audit',
+          argumentsKeywords: const <String, Object?>{
+            'message': 'typed pubsub notification',
+          },
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-wamp-pubsub-notification',
+          },
+        );
+
         final batch = await client.postBatchDirect(
           const <McpJsonMap>[
             {'jsonrpc': '2.0', 'id': 'grant-direct-batch', 'method': 'ping'},
@@ -1388,6 +1436,37 @@ void main() {
           endpoint.requests.map((request) => request.sessionId),
           everyElement(isNull),
         );
+        expect(
+          endpoint.requests.map((request) => request.lastEventId),
+          everyElement(isNull),
+        );
+        final notificationRequests = endpoint.requests
+            .where(
+              (request) => const <String>{
+                'grant-direct-tool-notification',
+                'grant-direct-tool-pubsub-notification',
+                'grant-direct-method-pubsub-notification',
+                'grant-direct-wamp-pubsub-notification',
+              }.contains(request.consumerTrace),
+            )
+            .toList();
+        expect(notificationRequests, hasLength(4));
+        expect(
+          notificationRequests.map((request) {
+            final body = _jsonMapFrom(
+              request.body,
+              label: 'notification request body',
+            );
+            return body.containsKey('id');
+          }),
+          everyElement(isFalse),
+        );
+        expect(notificationRequests.map((request) => request.mcpMethod), [
+          'tools/call',
+          'connectanum.tool.call',
+          'connectanum.pubsub.publish',
+          'connectanum.pubsub.publish',
+        ]);
         expect(endpoint.requests[0].consumerTrace, 'grant-direct-ping');
         expect(endpoint.requests[1].consumerTrace, 'grant-direct-tools');
         expect(endpoint.requests[2].consumerTrace, 'grant-direct-api-list');
@@ -1395,7 +1474,7 @@ void main() {
           endpoint.requests
               .map((request) => request.consumerTrace)
               .skip(3)
-              .take(25),
+              .take(29),
           [
             'grant-direct-session-count',
             'grant-direct-session-list',
@@ -1421,6 +1500,10 @@ void main() {
             'grant-direct-publish',
             'grant-direct-poll',
             'grant-direct-unsubscribe',
+            'grant-direct-tool-notification',
+            'grant-direct-tool-pubsub-notification',
+            'grant-direct-method-pubsub-notification',
+            'grant-direct-wamp-pubsub-notification',
             'grant-direct-batch',
           ],
         );
@@ -1451,6 +1534,8 @@ void main() {
             'connectanum.pubsub.publish',
             'connectanum.pubsub.poll',
             'connectanum.pubsub.unsubscribe',
+            'app.echo',
+            'connectanum.pubsub.publish',
           ],
         );
       },

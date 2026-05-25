@@ -2,10 +2,36 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP auth-grant direct WAMP meta package
+Last reviewed branch checkpoint: MCP auth-grant direct notification package
 regression.
-Latest fully clean hosted checkpoint: Commit `cc6bf72`.
+Latest fully clean hosted checkpoint: Commit `0b36433`.
 Current implementation checkpoint: The public
+`McpStreamableHttpClient.withAuthGrant(...)` direct JSON regression now covers
+lifecycle-free notification-only helpers before any Streamable HTTP lifecycle.
+It exercises `notifyToolDirect(...)`, `notifyConnectanumToolDirect(...)`,
+`notifyConnectanumMethodDirect(...)`, and `notifyWampEventDirect(...)` while
+stale constructor and per-call `Authorization` metadata is present. The focused
+test asserts these notifications omit JSON-RPC `id`, use the grant-owned
+bearer token, negotiate `application/json`, send no `MCP-Session-Id` or
+`Last-Event-ID`, leave `sessionId` / `lastEventId` unset, and expose the
+expected MCP method/name request headers for consumer application usage.
+Baseline `bin/test-fast` passed on 2026-05-25 before the change. Focused local
+coverage passed on 2026-05-25:
+`dart format packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart analyze packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`git diff --check`, and
+`python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+passed on 2026-05-25, including Rust/FFI, MCP package smokes, client/native
+transport suites, live WAMP transport integration, the router-hosted MCP
+example smoke, the generated client-only consumer smoke, the generated router
+consumer-package smoke, the full router suite with MCP auth/session/security
+coverage, and the Chrome/Dart2Wasm browser WebSocket smoke. The prior standard
+WAMP meta package checkpoint is fully hosted green at `0b36433`: GitHub CI run
+`26404081734` passed with Fast Checks job `77723125664` and Full Verify job
+`77723821440` green, Dart Package Publish Dry Run `26404081757` passed, and
+WAMP Profile Benchmarks `26404081754` passed on `add-router`.
+Prior implementation checkpoint: The public
 `McpStreamableHttpClient.withAuthGrant(...)` direct JSON regression now covers
 the full standard WAMP session, registration, and subscription meta helper
 surface before any Streamable HTTP lifecycle, including session list/get,
