@@ -2,26 +2,43 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP auth-grant direct JSON consumer smoke.
-Latest fully clean hosted checkpoint: Commit `da1c41a`.
+Last reviewed branch checkpoint: MCP auth-grant refresh/revoke consumer smoke.
+Latest fully clean hosted checkpoint: Commit `324ee24`.
 Current implementation checkpoint: The generated MCP client-only consumer
-package smoke now proves an application can use an HTTP auth grant for
-lifecycle-free direct JSON before opening any Streamable HTTP session. The
-smoke constructs `McpStreamableHttpClient.withAuthGrant(...)`, then sends
-stale per-call `Authorization` metadata through direct JSON `ping`,
-`tools/list`, WAMP API helper access, and direct JSON batch POST. The fake
-consumer endpoint records the observed bearer token per trace and asserts each
-request still uses the grant access token, carries no MCP session header, and
-leaves `sessionId` / `lastEventId` unset. This promotes the auth-grant direct
-JSON unit regression into generated consumer-package evidence for downstream
-applications that need tool/meta API access without private project
-assumptions. Baseline `bin/test-fast` passed on 2026-05-25. Focused local
-coverage passed on 2026-05-25: `bash -n bin/common.sh` and
+package smoke now proves the HTTP auth grant refresh/revoke path from a
+consumer application boundary. After the existing issued-grant direct JSON
+checks, the smoke refreshes the grant, constructs
+`McpStreamableHttpClient.withAuthGrant(...)` from the refreshed grant, sends a
+direct JSON `ping` with stale per-call `Authorization` metadata, and asserts the
+fake endpoint observes the refreshed bearer token without any MCP session
+header or `sessionId` / `lastEventId` mutation. It then revokes the refreshed
+access token with `token_type_hint: access_token` and proves a follow-up direct
+JSON request is rejected with `401` while still creating no Streamable HTTP
+session state. The fake consumer endpoint now accepts the original and
+refreshed access tokens and tracks revoked access tokens so the existing issued
+grant remains valid for later Streamable lifecycle checks. Baseline
+`bin/test-fast` passed on 2026-05-25 before this change. Focused local coverage
+passed on 2026-05-25: `bash -n bin/common.sh`, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and
 `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_client_package_smoke'`.
 Full local `bin/verify` passed on 2026-05-25, including the updated MCP
 client-only consumer package smoke, router-hosted MCP example smoke, generated
 consumer-package smoke, router suite, and Chrome/Dart2Wasm browser WebSocket
 smoke.
+Prior implementation checkpoint: The generated MCP client-only consumer package
+smoke proves an application can use an HTTP auth grant for lifecycle-free direct
+JSON before opening any Streamable HTTP session. Commit `324ee24`
+(`test: cover mcp auth grant consumer direct json`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `324ee24`: `master` CI run `26377930589` and `add-router` CI run
+`26377928223` passed with Fast Checks and Full Verify green. The strict audit
+passed required gates on `master` at `324ee24`, including clean current-head
+CI/logs, still-relevant Dart package, WAMP, Router Image, and Native Artifacts
+evidence, branch protection, workflow visibility, and router package
+visibility. RC readiness remains not-ready only because no approved numeric RC
+tag, GitHub prerelease, or matching RC router image tag has been selected;
+pub.dev publishing remains deferred for release-order and operator decisions.
+No RC tag, GitHub Release, or published router image was created or moved.
 Prior implementation checkpoint: The public Streamable HTTP MCP client
 auth-grant regression now covers lifecycle-free direct JSON helper calls, not
 only initialized Streamable HTTP sessions. A client constructed from

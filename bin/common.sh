@@ -719,6 +719,8 @@ const _authProvider = 'client-smoke';
 const _ticketSecret = 'agent-ticket';
 const _accessToken = 'agent-token';
 const _refreshToken = 'agent-refresh-token';
+const _refreshedAccessToken = 'agent-token-refreshed';
+const _refreshedRefreshToken = 'agent-refresh-token-refreshed';
 const _toolName = 'agent.echo';
 const _pagedToolName = 'agent.followup';
 const _toolCursor = 'agent-tools-page-2';
@@ -795,6 +797,11 @@ Future<void> main() async {
 
     client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
     await _smokeAuthGrantDirectJsonBeforeLifecycle(client, endpoint);
+    await _smokeAuthGrantRefreshAndRevokeLifecycle(
+      authClient,
+      grant,
+      endpoint,
+    );
 
     final initialize = await client.initialize(
       clientInfo: const <String, Object?>{
@@ -1093,6 +1100,122 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
       'auth-grant direct JSON $trace did not keep the grant bearer token',
     );
   }
+}
+
+Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
+  ConnectanumHttpAuthClient authClient,
+  ConnectanumHttpAuthGrant grant,
+  _AgentMcpEndpoint endpoint,
+) async {
+  _expect(
+    grant.refreshToken == _refreshToken,
+    'auth grant refresh lifecycle started with an unexpected refresh token',
+  );
+
+  final refreshed = await authClient.refreshToken(
+    grant.refreshToken!,
+    headers: const <String, String>{'x-consumer-trace': 'auth-refresh'},
+  );
+  _expect(
+    refreshed.accessToken == _refreshedAccessToken,
+    'auth refresh returned an unexpected access token',
+  );
+  _expect(
+    refreshed.refreshToken == _refreshedRefreshToken,
+    'auth refresh returned an unexpected refresh token',
+  );
+  _expect(refreshed.realm == _authRealm, 'auth refresh realm mismatch');
+  _expect(refreshed.authId == _authId, 'auth refresh authid mismatch');
+  _expect(refreshed.authRole == _authRole, 'auth refresh authrole mismatch');
+  _expect(
+    refreshed.authProvider == _authProvider,
+    'auth refresh provider mismatch',
+  );
+
+  final refreshedClient = McpStreamableHttpClient.withAuthGrant(
+    endpoint.uri,
+    refreshed,
+  );
+  try {
+    final ping = await refreshedClient.pingDirect(
+      id: 'auth-refresh-direct-ping',
+      headers: const <String, String>{
+        'Authorization': 'Bearer stale-refreshed-agent-token',
+        'x-consumer-trace': 'auth-refresh-direct-ping',
+      },
+    );
+    _expect(ping.isEmpty, 'auth refresh direct JSON ping failed');
+    _expect(
+      refreshedClient.sessionId == null && refreshedClient.lastEventId == null,
+      'auth refresh direct JSON ping created Streamable session state',
+    );
+    _expect(
+      endpoint.directTraceHeadersWithoutSession.contains(
+        'auth-refresh-direct-ping',
+      ),
+      'auth refresh direct JSON ping forwarded Streamable session state',
+    );
+    _expect(
+      endpoint.directAuthorizationHeadersByTrace['auth-refresh-direct-ping'] ==
+          'Bearer $_refreshedAccessToken',
+      'auth refresh direct JSON ping did not use the refreshed bearer token',
+    );
+
+    await authClient.revokeToken(
+      refreshed.accessToken,
+      tokenTypeHint: 'access_token',
+      headers: const <String, String>{'x-consumer-trace': 'auth-revoke'},
+    );
+
+    try {
+      await refreshedClient.pingDirect(
+        id: 'auth-revoked-direct-ping',
+        headers: const <String, String>{
+          'x-consumer-trace': 'auth-revoked-direct-ping',
+        },
+      );
+      throw StateError('auth revoke left a refreshed access token usable');
+    } on McpStreamableHttpException catch (error) {
+      _expect(
+        error.statusCode == HttpStatus.unauthorized,
+        'revoked access token returned ${error.statusCode}, expected 401',
+      );
+    }
+    _expect(
+      refreshedClient.sessionId == null && refreshedClient.lastEventId == null,
+      'revoked auth direct JSON ping created Streamable session state',
+    );
+  } finally {
+    refreshedClient.close(force: true);
+  }
+
+  _expect(
+    endpoint.authRequestBodies.length == 4,
+    'auth refresh/revoke smoke did not add refresh and revoke requests',
+  );
+  _expect(
+    const <String>{'auth-refresh', 'auth-revoke'}.every(
+      (trace) => endpoint.authTraceHeaders.contains(trace),
+    ),
+    'auth refresh/revoke smoke did not forward per-call auth headers',
+  );
+  _expect(
+    endpoint.authRequestBodies.any(
+      (body) =>
+          body['grant_type'] == 'refresh_token' &&
+          body['refresh_token'] == _refreshToken,
+    ),
+    'auth refresh request body was not sent as expected',
+  );
+  _expect(
+    endpoint.authRequestBodies.any(
+      (body) =>
+          body['grant_type'] == 'revoke' &&
+          body['token'] == _refreshedAccessToken &&
+          body['token_type_hint'] == 'access_token',
+    ),
+    'auth revoke request body was not sent as expected',
+  );
 }
 
 Future<void> _smokeMalformedResponseSessionHeader(
@@ -4011,6 +4134,7 @@ final class _AgentMcpEndpoint {
   final authTextErrorTraceHeaders = <String>[];
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
+  final _revokedAccessTokens = <String>{};
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
   var _sessionActive = false;
@@ -4062,8 +4186,10 @@ final class _AgentMcpEndpoint {
       return;
     }
 
-    if (request.headers.value(HttpHeaders.authorizationHeader) !=
-        'Bearer $_accessToken') {
+    final bearerToken = _bearerTokenFrom(request);
+    if (bearerToken == null ||
+        _revokedAccessTokens.contains(bearerToken) ||
+        (bearerToken != _accessToken && bearerToken != _refreshedAccessToken)) {
       await _writeError(request, HttpStatus.unauthorized, 'missing bearer');
       return;
     }
@@ -4361,6 +4487,39 @@ final class _AgentMcpEndpoint {
     final message = _jsonMapFrom(jsonDecode(body), label: 'auth request');
     authRequestBodies.add(message);
 
+    switch (message['grant_type']) {
+      case 'refresh_token':
+        _expect(
+          message['refresh_token'] == _refreshToken,
+          'auth refresh token mismatch',
+        );
+        await _writeJson(request, const <String, Object?>{
+          'status': 'ok',
+          'token_type': 'Bearer',
+          'access_token': _refreshedAccessToken,
+          'refresh_token': _refreshedRefreshToken,
+          'realm': _authRealm,
+          'authid': _authId,
+          'authrole': _authRole,
+          'authmethod': 'ticket',
+          'authprovider': _authProvider,
+          'expires_in': 60,
+          'refresh_token_expires_in': 600,
+          'details': <String, Object?>{'scope': 'mcp'},
+        });
+        return;
+      case 'revoke':
+        final token = message['token'];
+        _expect(token is String && token.isNotEmpty, 'auth revoke missing token');
+        final revokeToken = token as String;
+        if (revokeToken == _accessToken ||
+            revokeToken == _refreshedAccessToken) {
+          _revokedAccessTokens.add(revokeToken);
+        }
+        await _writeJson(request, const <String, Object?>{'status': 'revoked'});
+        return;
+    }
+
     if (!message.containsKey('state')) {
       _expect(message['realm'] == _authRealm, 'auth request realm mismatch');
       _expect(message['authmethod'] == 'ticket', 'auth request method mismatch');
@@ -4631,6 +4790,15 @@ final class _AgentMcpEndpoint {
   bool _hasSession(HttpRequest request) {
     return request.headers.value('MCP-Session-Id') == _sessionId &&
         _sessionActive;
+  }
+
+  String? _bearerTokenFrom(HttpRequest request) {
+    final authorization = request.headers.value(HttpHeaders.authorizationHeader);
+    if (authorization == null || !authorization.startsWith('Bearer ')) {
+      return null;
+    }
+    final token = authorization.substring('Bearer '.length).trim();
+    return token.isEmpty ? null : token;
   }
 
   bool _isStreamableRequest(HttpRequest request) {

@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Extended the generated MCP client-only consumer package smoke to
+  cover HTTP auth grant refresh and revoke from the consumer application
+  boundary. The smoke refreshes the issued grant, constructs
+  `McpStreamableHttpClient.withAuthGrant(...)` from the refreshed grant, sends a
+  lifecycle-free direct JSON `ping` with stale per-call `Authorization`
+  metadata, and asserts the fake endpoint observes the refreshed bearer token
+  without any MCP session header or client `sessionId` / `lastEventId`
+  mutation. It then revokes the refreshed access token with
+  `token_type_hint: access_token` and proves a follow-up direct JSON request is
+  rejected with `401` without creating Streamable HTTP session state. The fake
+  endpoint now accepts the original and refreshed access tokens and tracks
+  revoked access tokens so the issued grant remains available for the existing
+  Streamable lifecycle smoke. Baseline `bin/test-fast` passed on 2026-05-25
+  before this change. Focused local coverage passed: `bash -n bin/common.sh`,
+  `git diff --check`, `python3 tool/check_public_artifact_references.py`, and
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_client_package_smoke'`.
+  Full local `bin/verify` passed on 2026-05-25, including the updated MCP
+  client-only consumer package smoke, router-hosted MCP example smoke,
+  generated consumer-package smoke, router suite, and Chrome/Dart2Wasm browser
+  WebSocket smoke.
 - 2026-05-25: Extended the generated MCP client-only consumer package smoke so
   a downstream application path now proves auth-grant direct JSON use before
   any Streamable HTTP lifecycle starts. The smoke constructs
@@ -94,7 +114,21 @@ decision because `connectanum_client` still depends on private
   Full local `bin/verify` passed on 2026-05-25, including the updated MCP
   client-only consumer package smoke, router-hosted MCP example smoke,
   generated consumer-package smoke, router suite, and Chrome/Dart2Wasm browser
-  WebSocket smoke.
+  WebSocket smoke. Commit `324ee24`
+  (`test: cover mcp auth grant consumer direct json`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+  clean at `324ee24`: `master` CI run `26377930589` and `add-router` CI run
+  `26377928223` passed with Fast Checks and Full Verify green. The latest run
+  list confirmed no new Dart Package Publish Dry Run or WAMP Profile Benchmarks
+  started for this smoke-script/docs checkpoint; the strict deployment-chain
+  audit accepted still-relevant Dart package, WAMP, Router Image, and Native
+  Artifacts evidence because no corresponding sensitive inputs changed. The
+  strict audit passed required gates on `master` at `324ee24`, including clean
+  current-head CI/logs, branch protection, workflow visibility, and router
+  package visibility. RC readiness remains not-ready only because no approved
+  numeric RC tag, GitHub prerelease, or matching RC router image tag has been
+  selected; pub.dev publishing remains deferred for release-order and operator
+  decisions.
 - 2026-05-25: Strengthened the public Streamable HTTP MCP auth-grant
   regression so `McpStreamableHttpClient.withAuthGrant(...)` is covered across
   lifecycle-free direct JSON helper calls, not only initialized Streamable HTTP
