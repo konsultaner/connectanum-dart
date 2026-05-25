@@ -78,6 +78,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Tightened RC readiness so native prerelease evidence must belong
+  to the selected RC tag. `bin/audit-github-deployment-chain` now records the
+  accepted Native Artifacts release evidence tag/mode and, when RC readiness
+  accepts actual prerelease evidence, compares that tag with the selected
+  GitHub numeric RC tag used by the GitHub prerelease and router-image RC
+  gates. Validation dry-run evidence remains non-mutating and non-tag-bound.
+  The focused regression stubs native prerelease evidence for `v0.1.0-rc.1`
+  while the selected GitHub RC tag, GitHub prerelease, and router image tag are
+  `v0.1.0-rc.2`, then asserts `--require-rc-ready` fails with a specific
+  mismatch finding. Baseline `bin/test-fast` passed on 2026-05-25 before this
+  change, including the MCP package smokes, router-hosted MCP example smoke,
+  generated consumer-package smoke, and router/client fast suites. Focused
+  local coverage passed: `bash -n bin/audit-github-deployment-chain`,
+  `bin/audit-github-deployment-chain --help`,
+  `python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_prerelease_tag_mismatch`,
+  `python3 -m unittest tool.test_audit_github_deployment_chain`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-25, including the updated audit tooling regression, MCP
+  package smokes, generated consumer-package smoke, router-hosted MCP example
+  smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. No RC tag,
+  GitHub Release, or router image was created or moved.
 - 2026-05-25: Fixed RC readiness tag selection so
   `bin/audit-github-deployment-chain --show-rc-readiness` /
   `--require-rc-ready` prefers a GitHub numeric RC tag when both local-only and
@@ -98,10 +120,21 @@ decision because `connectanum_client` still depends on private
   `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
   passed on 2026-05-25, including the updated audit tooling regression, MCP
   package smokes, generated consumer-package smoke, router-hosted MCP example
-  smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence for this local checkpoint is pending; the latest fully clean hosted
-  checkpoint remains `f33eb6a`. No RC tag, GitHub Release, or router image was
-  created or moved.
+  smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Commit
+  `0e36538` (`tooling: prefer github rc tag in audit`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence
+  is clean at `0e36538`: `add-router` CI run `26388413559` passed with Fast
+  Checks and Full Verify green, and `master` CI run `26388418063` passed with
+  Fast Checks and Full Verify green. The strict deployment-chain audit passed
+  required gates on `master` at `0e36538`, including clean current-head CI/logs,
+  still-relevant Dart package dry-run `26386446103`, still-relevant WAMP
+  Profile Benchmarks run `26386446115`, still-relevant Router Image dry-run
+  `26386910657`, still-relevant Native Artifacts dry-run evidence, branch
+  protection, workflow visibility, and router package visibility. RC readiness
+  remains not-ready only because no approved numeric RC tag, GitHub prerelease,
+  or matching RC router image tag has been selected for `0e36538`; pub.dev
+  publishing remains deferred for release-order and operator decisions. No RC
+  tag, GitHub Release, or router image was created or moved.
 - 2026-05-25: Strengthened the MCP HTTP auth client regression so downstream
   applications can safely protect the HTTP auth bridge itself while still using
   `ConnectanumHttpAuthClient` to mint MCP bearer grants. The focused test now

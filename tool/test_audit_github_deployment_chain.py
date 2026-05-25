@@ -137,11 +137,41 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn("Native release hosted evidence gate: ready", result.stdout)
         self.assertIn("WAMP profile benchmark gate: ready", result.stdout)
         self.assertIn("RC tag on checked-out head: ready", result.stdout)
+        self.assertIn(
+            "Native release prerelease tag: ready (v0.1.0-rc.2)",
+            result.stdout,
+        )
         self.assertIn("GitHub RC prerelease: ready (v0.1.0-rc.2)", result.stdout)
         self.assertIn(
             "Router image RC tag: ready (0.1.0-rc.2, sha256:abcdef)",
             result.stdout,
         )
+
+    def test_rc_readiness_rejects_native_prerelease_tag_mismatch(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_rc_readiness_with_native_prerelease(
+            current_head,
+            native_release_tag="v0.1.0-rc.1",
+            require_rc_ready=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "Native release prerelease intent: accepted (v0.1.0-rc.1, project).",
+            result.stdout,
+        )
+        self.assertIn(
+            "Native release prerelease tag: not ready; latest accepted native "
+            "prerelease is v0.1.0-rc.1, selected RC tag is v0.1.0-rc.2.",
+            result.stdout,
+        )
+        self.assertIn("GitHub RC prerelease: ready (v0.1.0-rc.2)", result.stdout)
+        self.assertIn(
+            "Router image RC tag: ready (0.1.0-rc.2, sha256:abcdef)",
+            result.stdout,
+        )
+        self.assertIn("Release candidate readiness audit failed.", result.stdout)
 
     def test_rc_readiness_rejects_unexpected_strict_dart_blocker(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
@@ -915,6 +945,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         extra_dart_publish_blocker: bool = False,
         omit_dart_release_plan: bool = False,
         local_tag_name: str = "v0.1.0-rc.2",
+        native_release_tag: str = "v0.1.0-rc.2",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -944,6 +975,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     args = sys.argv[1:]
                     repository = "konsultaner/connectanum-dart"
                     ci_head = os.environ["FAKE_CI_HEAD"]
+                    native_release_tag = os.environ.get("FAKE_NATIVE_RELEASE_TAG", "v0.1.0-rc.2")
                     branch_head = os.environ.get("FAKE_BRANCH_HEAD", ci_head)
                     preview_tag = os.environ.get("FAKE_ROUTER_PREVIEW_TAG", "0.1.0-rc.2")
                     workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
@@ -1050,7 +1082,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
                         if "--log" in args:
                             if run_id == "125":
-                                print("Release intent accepted: v0.1.0-rc.2 (project, prerelease).")
+                                print(f"Release intent accepted: {native_release_tag} (project, prerelease).")
                             else:
                                 print("Fast Checks completed")
                                 print("Full Verify completed")
@@ -1120,15 +1152,18 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         tag = args[2] if len(args) > 2 else ""
                         json_fields = json_arg()
 
-                        if tag != "v0.1.0-rc.2":
-                            sys.exit(1)
-
                         if json_fields == "isPrerelease,isDraft,targetCommitish,assets":
+                            if tag != native_release_tag:
+                                sys.exit(1)
                             print(f"true\\tfalse\\t{ci_head}\\t30")
                         elif json_fields == "tagName,isPrerelease,isDraft":
+                            if tag != "v0.1.0-rc.2":
+                                sys.exit(1)
                             print("v0.1.0-rc.2\\ttrue\\tfalse")
                         else:
-                            print("v0.1.0-rc.2")
+                            if tag not in (native_release_tag, "v0.1.0-rc.2"):
+                                sys.exit(1)
+                            print(tag)
                     elif args[:2] == ["run", "download"]:
                         download_dir = value_after("--dir")
                         if not download_dir:
@@ -1241,6 +1276,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             )
             env["FAKE_LOCAL_TAG_HEAD"] = local_tag_head or ""
             env["FAKE_LOCAL_TAG_NAME"] = local_tag_name
+            env["FAKE_NATIVE_RELEASE_TAG"] = native_release_tag
             env["FAKE_ROUTER_IMAGE_TAG"] = router_image_tag
             env["FAKE_ROUTER_PREVIEW_TAG"] = router_preview_tag
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths

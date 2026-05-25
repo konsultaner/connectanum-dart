@@ -1128,6 +1128,10 @@ print_dart_package_publish_dry_run_gate() {
 }
 
 print_native_release_dry_run_gate() {
+  native_release_evidence_tag=""
+  native_release_evidence_mode=""
+  native_release_evidence_scope=""
+
   local run_id
   local run_summary
   local run_state
@@ -1236,6 +1240,9 @@ print_native_release_dry_run_gate() {
       failed=1
     else
       IFS=$'\t' read -r release_tag release_scope release_mode <<<"$release_intent"
+      native_release_evidence_tag="$release_tag"
+      native_release_evidence_mode="$release_mode"
+      native_release_evidence_scope="$release_scope"
 
       if [[ "$release_mode" == "dry-run" ]]; then
         printf 'Native release dry-run intent: accepted (%s, %s).\n' "$release_tag" "$release_scope"
@@ -2104,6 +2111,16 @@ print_rc_readiness() {
   fi
 
   if [[ -n "$selected_rc_tag" ]]; then
+    if [[ "$native_release_dry_run_failed" -eq 0 && "${native_release_evidence_mode:-}" == "prerelease" ]]; then
+      if [[ "${native_release_evidence_tag:-}" == "$selected_rc_tag" ]]; then
+        printf 'Native release prerelease tag: ready (%s)\n' "$selected_rc_tag"
+      else
+        printf 'Native release prerelease tag: not ready; latest accepted native prerelease is %s, selected RC tag is %s.\n' "${native_release_evidence_tag:-unknown}" "$selected_rc_tag"
+        printf '  Next action: publish native artifacts for the selected RC tag or approve a new RC tag that matches the existing native prerelease evidence.\n'
+        rc_ready_failed=1
+      fi
+    fi
+
     if ! printf '%s\n' "$github_rc_tags" | grep -Fxq "$selected_rc_tag"; then
       printf 'GitHub RC prerelease: not ready; %s is not a GitHub tag at checked-out head %s.\n' "$selected_rc_tag" "$short_head_sha"
       printf '  Next action: push the approved RC tag to GitHub after release approval, then create or refresh the non-draft GitHub prerelease for that tag.\n'
@@ -2216,6 +2233,9 @@ latest_ci_failed=0
 latest_ci_log_failed=0
 dart_package_publish_dry_run_failed=0
 native_release_dry_run_failed=0
+native_release_evidence_tag=""
+native_release_evidence_mode=""
+native_release_evidence_scope=""
 router_image_dry_run_failed=0
 wamp_profile_benchmarks_failed=0
 latest_ci_id=""
