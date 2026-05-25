@@ -2,12 +2,32 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP auth-grant refresh/revoke consumer smoke.
-Latest fully clean hosted checkpoint: Commit `324ee24`.
+Last reviewed branch checkpoint: MCP auth-grant refresh-token revoke consumer
+smoke.
+Latest fully clean hosted checkpoint: Commit `fcc6ef4`.
 Current implementation checkpoint: The generated MCP client-only consumer
-package smoke now proves the HTTP auth grant refresh/revoke path from a
-consumer application boundary. After the existing issued-grant direct JSON
-checks, the smoke refreshes the grant, constructs
+package smoke now also proves refresh-token revocation from a consumer
+application boundary. After refreshing the issued HTTP auth grant and proving
+the refreshed bearer is used for lifecycle-free direct JSON, the smoke revokes
+the refreshed access token and verifies a follow-up direct JSON request returns
+`401` without creating Streamable HTTP session state. It then revokes the
+refreshed refresh token with `token_type_hint: refresh_token`, attempts another
+refresh with that revoked token, and asserts the auth bridge returns `401`. The
+fake consumer endpoint tracks revoked access and refresh tokens and records the
+refresh, revoke, and rejected-refresh request bodies/traces, while keeping the
+original issued grant valid for later Streamable lifecycle checks. Baseline
+`bin/test-fast` passed on 2026-05-25 before this change. Focused local coverage
+passed on 2026-05-25: `bash -n bin/common.sh`, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_client_package_smoke'`.
+Full local `bin/verify` passed on 2026-05-25, including the updated MCP
+client-only consumer package smoke, router-hosted MCP example smoke, generated
+consumer-package smoke, router suite, and Chrome/Dart2Wasm browser WebSocket
+smoke. This is the local implementation checkpoint pending hosted evidence.
+Prior implementation checkpoint: The generated MCP client-only consumer package
+smoke proves the HTTP auth grant refresh/revoke path from a consumer
+application boundary. After the existing issued-grant direct JSON checks, the
+smoke refreshes the grant, constructs
 `McpStreamableHttpClient.withAuthGrant(...)` from the refreshed grant, sends a
 direct JSON `ping` with stale per-call `Authorization` metadata, and asserts the
 fake endpoint observes the refreshed bearer token without any MCP session
@@ -24,7 +44,19 @@ passed on 2026-05-25: `bash -n bin/common.sh`, `git diff --check`,
 Full local `bin/verify` passed on 2026-05-25, including the updated MCP
 client-only consumer package smoke, router-hosted MCP example smoke, generated
 consumer-package smoke, router suite, and Chrome/Dart2Wasm browser WebSocket
-smoke.
+smoke. Commit `fcc6ef4`
+(`test: cover mcp auth grant refresh smoke`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is clean at
+`fcc6ef4`: `master` CI run `26379386698` and `add-router` CI run
+`26379383928` passed with Fast Checks and Full Verify green. The strict
+deployment-chain audit passed required gates on `master` at `fcc6ef4`, including
+clean current-head CI/logs, still-relevant Dart package dry-run, WAMP profile
+benchmark, Router Image dry-run, and Native Artifacts dry-run evidence, branch
+protection, workflow visibility, and router package visibility. RC readiness
+remains not-ready only because no approved numeric RC tag, GitHub prerelease, or
+matching RC router image tag has been selected; pub.dev publishing remains
+deferred for release-order and operator decisions. No RC tag, GitHub Release, or
+published router image was created or moved.
 Prior implementation checkpoint: The generated MCP client-only consumer package
 smoke proves an application can use an HTTP auth grant for lifecycle-free direct
 JSON before opening any Streamable HTTP session. Commit `324ee24`

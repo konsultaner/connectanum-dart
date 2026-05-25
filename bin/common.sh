@@ -1185,18 +1185,44 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
       refreshedClient.sessionId == null && refreshedClient.lastEventId == null,
       'revoked auth direct JSON ping created Streamable session state',
     );
+
+    await authClient.revokeToken(
+      refreshed.refreshToken!,
+      tokenTypeHint: 'refresh_token',
+      headers: const <String, String>{
+        'x-consumer-trace': 'auth-revoke-refresh',
+      },
+    );
+
+    try {
+      await authClient.refreshToken(
+        refreshed.refreshToken!,
+        headers: const <String, String>{
+          'x-consumer-trace': 'auth-refresh-revoked',
+        },
+      );
+      throw StateError('auth refresh accepted a revoked refresh token');
+    } on ConnectanumHttpAuthException catch (error) {
+      _expect(
+        error.statusCode == HttpStatus.unauthorized,
+        'revoked refresh token returned ${error.statusCode}, expected 401',
+      );
+    }
   } finally {
     refreshedClient.close(force: true);
   }
 
   _expect(
-    endpoint.authRequestBodies.length == 4,
+    endpoint.authRequestBodies.length == 6,
     'auth refresh/revoke smoke did not add refresh and revoke requests',
   );
   _expect(
-    const <String>{'auth-refresh', 'auth-revoke'}.every(
-      (trace) => endpoint.authTraceHeaders.contains(trace),
-    ),
+    const <String>{
+      'auth-refresh',
+      'auth-revoke',
+      'auth-revoke-refresh',
+      'auth-refresh-revoked',
+    }.every((trace) => endpoint.authTraceHeaders.contains(trace)),
     'auth refresh/revoke smoke did not forward per-call auth headers',
   );
   _expect(
@@ -1215,6 +1241,23 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
           body['token_type_hint'] == 'access_token',
     ),
     'auth revoke request body was not sent as expected',
+  );
+  _expect(
+    endpoint.authRequestBodies.any(
+      (body) =>
+          body['grant_type'] == 'revoke' &&
+          body['token'] == _refreshedRefreshToken &&
+          body['token_type_hint'] == 'refresh_token',
+    ),
+    'auth refresh-token revoke request body was not sent as expected',
+  );
+  _expect(
+    endpoint.authRequestBodies.any(
+      (body) =>
+          body['grant_type'] == 'refresh_token' &&
+          body['refresh_token'] == _refreshedRefreshToken,
+    ),
+    'revoked refresh-token request body was not sent as expected',
   );
 }
 
@@ -4135,6 +4178,7 @@ final class _AgentMcpEndpoint {
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   final _revokedAccessTokens = <String>{};
+  final _revokedRefreshTokens = <String>{};
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
   var _sessionActive = false;
@@ -4489,8 +4533,18 @@ final class _AgentMcpEndpoint {
 
     switch (message['grant_type']) {
       case 'refresh_token':
+        final refreshToken = message['refresh_token'];
+        if (refreshToken is String &&
+            _revokedRefreshTokens.contains(refreshToken)) {
+          request.response.statusCode = HttpStatus.unauthorized;
+          await _writeJson(request, const <String, Object?>{
+            'error': 'invalid_grant',
+            'reason': 'revoked_refresh_token',
+          });
+          return;
+        }
         _expect(
-          message['refresh_token'] == _refreshToken,
+          refreshToken == _refreshToken,
           'auth refresh token mismatch',
         );
         await _writeJson(request, const <String, Object?>{
@@ -4515,6 +4569,10 @@ final class _AgentMcpEndpoint {
         if (revokeToken == _accessToken ||
             revokeToken == _refreshedAccessToken) {
           _revokedAccessTokens.add(revokeToken);
+        }
+        if (revokeToken == _refreshToken ||
+            revokeToken == _refreshedRefreshToken) {
+          _revokedRefreshTokens.add(revokeToken);
         }
         await _writeJson(request, const <String, Object?>{'status': 'revoked'});
         return;
