@@ -78,6 +78,35 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Tightened RC readiness so validation dry-run Native Artifacts
+  evidence cannot satisfy a selected numeric RC tag. `bin/audit-github-deployment-chain
+  --require-rc-ready` now fails with an explicit `Native release prerelease
+  tag: not ready` finding when the latest accepted native evidence is still a
+  dry-run, even if the selected GitHub RC tag, GitHub prerelease, and router
+  image tag are otherwise present. The focused regression stubs that exact
+  shape with a clean native validation dry-run plus selected
+  `v0.1.0-rc.2`, then asserts RC readiness fails and prints the prerelease
+  next action. Baseline `bin/test-fast` passed on 2026-05-25 before this
+  change, including the MCP package smokes, router-hosted MCP example smoke,
+  generated consumer-package smoke, and router/client fast suites. Focused
+  local coverage passed: `bash -n bin/audit-github-deployment-chain`,
+  `bin/audit-github-deployment-chain --help`,
+  `python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_dry_run_for_selected_rc_tag`,
+  `python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_dry_run_for_selected_rc_tag tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_accepts_native_prerelease_evidence tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_prerelease_tag_mismatch`,
+  `python3 -m unittest tool.test_audit_github_deployment_chain`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. The real non-mutating
+  `bin/audit-github-deployment-chain --branch master --show-rc-readiness`
+  passed locally on 2026-05-25 and still reports clean hosted gates at
+  `d63d10e` while blocking RC readiness because no approved numeric RC tag,
+  GitHub prerelease, or matching RC router image tag has been selected for
+  `d63d10e`; the audit suggests follow-up `v0.1.0-rc.2`, which requires
+  release approval before pushing. Full local `bin/verify` passed on
+  2026-05-25, including Rust/FFI, MCP package smokes, client/native transport
+  suites, live WAMP transport integration, the router-hosted MCP example
+  smoke, the generated consumer-package smoke, the full router suite with MCP
+  auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+  smoke. No RC tag, GitHub Release, or router image was created or moved.
 - 2026-05-25: Tightened RC readiness so native prerelease evidence must belong
   to the selected RC tag. `bin/audit-github-deployment-chain` now records the
   accepted Native Artifacts release evidence tag/mode and, when RC readiness
@@ -98,8 +127,23 @@ decision because `connectanum_client` still depends on private
   `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
   passed on 2026-05-25, including the updated audit tooling regression, MCP
   package smokes, generated consumer-package smoke, router-hosted MCP example
-  smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. No RC tag,
-  GitHub Release, or router image was created or moved.
+  smoke, router suite, and Chrome/Dart2Wasm browser WebSocket smoke. Commit
+  `d63d10e` (`tooling: align native prerelease rc evidence`) was pushed to
+  GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+  evidence is clean at `d63d10e`: `add-router` CI run `26390328494` passed
+  with Fast Checks and Full Verify green, and `master` CI run `26390328511`
+  passed with Fast Checks and Full Verify green. The strict deployment-chain
+  audit passed required gates on `master` at `d63d10e`, including clean
+  current-head CI/logs, still-relevant Dart package dry-run `26386446103`,
+  still-relevant Native Artifacts dry-run `26286794628`, still-relevant Router
+  Image dry-run `26386910657`, still-relevant WAMP Profile Benchmarks run
+  `26386446115`, branch protection, workflow visibility, and router package
+  visibility. RC readiness remains not-ready only because no approved numeric
+  RC tag, GitHub prerelease, or matching RC router image tag has been selected
+  for `d63d10e`; the audit suggests follow-up `v0.1.0-rc.2`, which requires
+  release approval before pushing. Pub.dev publishing remains deferred for
+  release-order and operator decisions. No RC tag, GitHub Release, or router
+  image was created or moved.
 - 2026-05-25: Fixed RC readiness tag selection so
   `bin/audit-github-deployment-chain --show-rc-readiness` /
   `--require-rc-ready` prefers a GitHub numeric RC tag when both local-only and

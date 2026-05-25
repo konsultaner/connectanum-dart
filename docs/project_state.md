@@ -2,9 +2,39 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: RC readiness native prerelease tag alignment.
-Latest fully clean hosted checkpoint: Commit `0e36538`.
-Current implementation checkpoint: The deployment-chain audit now records the
+Last reviewed branch checkpoint: RC readiness native dry-run rejection.
+Latest fully clean hosted checkpoint: Commit `d63d10e`.
+Current implementation checkpoint: The deployment-chain audit now rejects a
+selected numeric RC tag when the latest accepted Native Artifacts evidence is
+still a validation dry-run instead of an actual prerelease publish for that
+selected tag. `bin/audit-github-deployment-chain --require-rc-ready` now
+prints an explicit `Native release prerelease tag: not ready` finding with the
+latest native evidence tag/mode and a next action to run Native Artifacts in
+prerelease mode after release approval. The focused regression stubs a clean
+native validation dry-run, a selected GitHub RC tag/prerelease, and a matching
+router image tag, then asserts RC readiness fails instead of accepting dry-run
+evidence as release evidence. Baseline `bin/test-fast` passed on 2026-05-25
+before this change, including the MCP package smokes, router-hosted MCP example
+smoke, generated consumer-package smoke, and router/client fast suites. Focused
+local coverage passed on 2026-05-25: `bash -n bin/audit-github-deployment-chain`,
+`bin/audit-github-deployment-chain --help`,
+`python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_dry_run_for_selected_rc_tag`,
+`python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_dry_run_for_selected_rc_tag tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_accepts_native_prerelease_evidence tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_native_prerelease_tag_mismatch`,
+`python3 -m unittest tool.test_audit_github_deployment_chain`,
+`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+The real non-mutating
+`bin/audit-github-deployment-chain --branch master --show-rc-readiness` passed
+locally on 2026-05-25 and still reports clean hosted gates at `d63d10e` while
+blocking RC readiness because no approved numeric RC tag, GitHub prerelease, or
+matching RC router image tag has been selected for `d63d10e`; the audit
+suggests follow-up `v0.1.0-rc.2`, which requires release approval before
+pushing. Full local `bin/verify` passed on 2026-05-25, including Rust/FFI,
+MCP package smokes, client/native transport suites, live WAMP transport
+integration, the router-hosted MCP example smoke, the generated
+consumer-package smoke, the full router suite with MCP auth/session/security
+coverage, and the Chrome/Dart2Wasm browser WebSocket smoke. No RC tag, GitHub
+Release, or published router image was created or moved.
+Prior implementation checkpoint: The deployment-chain audit now records the
 accepted Native Artifacts release evidence tag/mode and, when RC readiness
 accepts native prerelease evidence, requires that prerelease tag to match the
 selected GitHub numeric RC tag used by the GitHub prerelease and router-image
@@ -25,7 +55,22 @@ router/client fast suites. Focused local coverage passed on 2026-05-25:
 Full local `bin/verify` passed on 2026-05-25, including the updated audit
 tooling regression, MCP package smokes, generated consumer-package smoke,
 router-hosted MCP example smoke, router suite, and Chrome/Dart2Wasm browser
-WebSocket smoke. No RC tag, GitHub Release, or published router image was
+WebSocket smoke. Commit `d63d10e`
+(`tooling: align native prerelease rc evidence`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted GitHub evidence is
+clean at `d63d10e`: `add-router` CI run `26390328494` passed with Fast Checks
+and Full Verify green, and `master` CI run `26390328511` passed with Fast
+Checks and Full Verify green. The strict deployment-chain audit passed required
+gates on `master` at `d63d10e`, including clean current-head CI/logs,
+still-relevant Dart package dry-run `26386446103`, still-relevant Native
+Artifacts dry-run `26286794628`, still-relevant Router Image dry-run
+`26386910657`, still-relevant WAMP Profile Benchmarks run `26386446115`,
+branch protection, workflow visibility, and router package visibility. RC
+readiness remains not-ready only because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected for `d63d10e`;
+the audit suggests follow-up `v0.1.0-rc.2`, which requires release approval
+before pushing. Pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or published router image was
 created or moved.
 Prior implementation checkpoint: The deployment-chain audit now prefers a
 GitHub numeric RC tag over local-only RC tags when multiple RC tags point at
@@ -13722,11 +13767,10 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears. The current local checkpoint extends the
-  checked-in router integration smoke so direct JSON notification-only tool
-  calls prove actual WAMP procedure invocation on public, secure, JSON-response,
-  and independent valid bearer-principal MCP paths; the latest fully hosted
-  checkpoint is `dbb52aa`.
+  consumer integration bug appears. The current local checkpoint tightens the
+  RC audit so a selected numeric RC tag requires matching Native Artifacts
+  prerelease evidence instead of accepting validation dry-run evidence; the
+  latest fully clean hosted checkpoint is `d63d10e`.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

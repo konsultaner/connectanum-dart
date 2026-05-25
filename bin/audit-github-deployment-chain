@@ -83,13 +83,13 @@ Options:
                              matches the audited default branch and has
                              release-candidate evidence: clean hosted CI and
                              logs, hosted Dart package publish dry-run evidence,
-                             hosted native release dry-run or prerelease
-                             publish evidence, hosted router image dry-run
-                             evidence, hosted WAMP profile benchmark evidence,
-                             baseline default-branch protection, visible
-                             workflows, visible router package, an RC GitHub
-                             prerelease, and either strict Dart package dry-run
-                             readiness or the
+                             hosted Native Artifacts evidence including a
+                             prerelease publish for the selected RC tag, hosted
+                             router image dry-run evidence, hosted WAMP profile
+                             benchmark evidence, baseline default-branch
+                             protection, visible workflows, visible router
+                             package, an RC GitHub prerelease, and either
+                             strict Dart package dry-run readiness or the
                              documented first-RC pub.dev deferral where
                              connectanum_client is blocked only by private
                              connectanum_core.
@@ -2119,6 +2119,11 @@ print_rc_readiness() {
         printf '  Next action: publish native artifacts for the selected RC tag or approve a new RC tag that matches the existing native prerelease evidence.\n'
         rc_ready_failed=1
       fi
+    elif [[ "$native_release_dry_run_failed" -eq 0 ]]; then
+      printf 'Native release prerelease tag: not ready; selected RC tag %s still needs Native Artifacts prerelease evidence.\n' "$selected_rc_tag"
+      printf '  Latest native evidence: %s (%s).\n' "${native_release_evidence_tag:-unknown}" "${native_release_evidence_mode:-unknown}"
+      printf '  Next action: run the Native Artifacts workflow in prerelease mode for %s after release approval, then rerun bin/audit-github-deployment-chain --branch %s --require-rc-ready.\n' "$selected_rc_tag" "$branch"
+      rc_ready_failed=1
     fi
 
     if ! printf '%s\n' "$github_rc_tags" | grep -Fxq "$selected_rc_tag"; then
