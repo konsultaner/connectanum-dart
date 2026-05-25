@@ -1136,6 +1136,162 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     'auth-grant direct JSON WAMP session get failed',
   );
 
+  final registrations = await client.listWampRegistrationsDirect(
+    id: 'auth-grant-direct-wamp-registration-list',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-registration-list',
+    },
+  );
+  _expect(
+    _jsonListContains(registrations.argumentsKeywords['exact'], _registrationId),
+    'auth-grant direct JSON WAMP registration list failed',
+  );
+
+  final lookupRegistration = await client.lookupWampRegistrationDirect(
+    _procedureName,
+    id: 'auth-grant-direct-wamp-registration-lookup',
+    match: 'exact',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-registration-lookup',
+    },
+  );
+  _expect(
+    lookupRegistration.arguments.single == _registrationId,
+    'auth-grant direct JSON WAMP registration lookup failed',
+  );
+
+  final matchingRegistration = await client.matchWampRegistrationDirect(
+    _procedureName,
+    id: 'auth-grant-direct-wamp-registration-match',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-registration-match',
+    },
+  );
+  _expect(
+    matchingRegistration.arguments.single == _registrationId,
+    'auth-grant direct JSON WAMP registration match failed',
+  );
+
+  final registration = await client.getWampRegistrationDirect(
+    _registrationId,
+    id: 'auth-grant-direct-wamp-registration-get',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-registration-get',
+    },
+  );
+  _expect(
+    registration.argumentsKeywords['uri'] == _procedureName,
+    'auth-grant direct JSON WAMP registration get failed',
+  );
+
+  final callees = await client.listWampRegistrationCalleesDirect(
+    _registrationId,
+    id: 'auth-grant-direct-wamp-registration-callees',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-registration-callees',
+    },
+  );
+  _expect(
+    callees.arguments.single == _wampSessionId,
+    'auth-grant direct JSON WAMP registration callee list failed',
+  );
+
+  final calleeCount = await client.countWampRegistrationCalleesDirect(
+    _registrationId,
+    id: 'auth-grant-direct-wamp-registration-callee-count',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-registration-callee-count',
+    },
+  );
+  _expect(
+    calleeCount.arguments.single == 1,
+    'auth-grant direct JSON WAMP registration callee count failed',
+  );
+
+  final subscriptions = await client.listWampSubscriptionsDirect(
+    id: 'auth-grant-direct-wamp-subscription-list',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-subscription-list',
+    },
+  );
+  _expect(
+    _jsonListContains(subscriptions.argumentsKeywords['exact'], _subscriptionId),
+    'auth-grant direct JSON WAMP subscription list failed',
+  );
+
+  final lookupSubscription = await client.lookupWampSubscriptionDirect(
+    _topic,
+    id: 'auth-grant-direct-wamp-subscription-lookup',
+    match: 'exact',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-subscription-lookup',
+    },
+  );
+  _expect(
+    lookupSubscription.arguments.single == _subscriptionId,
+    'auth-grant direct JSON WAMP subscription lookup failed',
+  );
+
+  final matchingSubscription = await client.matchWampSubscriptionDirect(
+    _topic,
+    id: 'auth-grant-direct-wamp-subscription-match',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-subscription-match',
+    },
+  );
+  _expect(
+    matchingSubscription.arguments.single == _subscriptionId,
+    'auth-grant direct JSON WAMP subscription match failed',
+  );
+
+  final subscriptionMeta = await client.getWampSubscriptionDirect(
+    _subscriptionId,
+    id: 'auth-grant-direct-wamp-subscription-get',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-subscription-get',
+    },
+  );
+  _expect(
+    subscriptionMeta.argumentsKeywords['uri'] == _topic,
+    'auth-grant direct JSON WAMP subscription get failed',
+  );
+
+  final subscribers = await client.listWampSubscriptionSubscribersDirect(
+    _subscriptionId,
+    id: 'auth-grant-direct-wamp-subscription-subscribers',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-subscription-subscribers',
+    },
+  );
+  _expect(
+    subscribers.arguments.single == _wampSessionId,
+    'auth-grant direct JSON WAMP subscription subscriber list failed',
+  );
+
+  final subscriberCount = await client.countWampSubscriptionSubscribersDirect(
+    _subscriptionId,
+    id: 'auth-grant-direct-wamp-subscription-subscriber-count',
+    headers: const <String, String>{
+      ...staleAuthHeaders,
+      'x-consumer-trace': 'auth-grant-direct-wamp-subscription-subscriber-count',
+    },
+  );
+  _expect(
+    subscriberCount.arguments.single == 1,
+    'auth-grant direct JSON WAMP subscription subscriber count failed',
+  );
+
   final subscription = await client.subscribeWampTopicDirect(
     _topic,
     id: 'auth-grant-direct-pubsub-subscribe',
@@ -1256,6 +1412,18 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     'auth-grant-direct-wamp-session-count',
     'auth-grant-direct-wamp-session-list',
     'auth-grant-direct-wamp-session-get',
+    'auth-grant-direct-wamp-registration-list',
+    'auth-grant-direct-wamp-registration-lookup',
+    'auth-grant-direct-wamp-registration-match',
+    'auth-grant-direct-wamp-registration-get',
+    'auth-grant-direct-wamp-registration-callees',
+    'auth-grant-direct-wamp-registration-callee-count',
+    'auth-grant-direct-wamp-subscription-list',
+    'auth-grant-direct-wamp-subscription-lookup',
+    'auth-grant-direct-wamp-subscription-match',
+    'auth-grant-direct-wamp-subscription-get',
+    'auth-grant-direct-wamp-subscription-subscribers',
+    'auth-grant-direct-wamp-subscription-subscriber-count',
     'auth-grant-direct-pubsub-subscribe',
     'auth-grant-direct-pubsub-publish',
     'auth-grant-direct-pubsub-poll',
@@ -1282,6 +1450,18 @@ Future<void> _smokeAuthGrantDirectJsonBeforeLifecycle(
     'wamp.session.count',
     'wamp.session.list',
     'wamp.session.get',
+    'wamp.registration.list',
+    'wamp.registration.lookup',
+    'wamp.registration.match',
+    'wamp.registration.get',
+    'wamp.registration.list_callees',
+    'wamp.registration.count_callees',
+    'wamp.subscription.list',
+    'wamp.subscription.lookup',
+    'wamp.subscription.match',
+    'wamp.subscription.get',
+    'wamp.subscription.list_subscribers',
+    'wamp.subscription.count_subscribers',
   };
   final missingDirectToolNames = expectedDirectToolNames.difference(
     endpoint.directToolNamesWithoutSession,

@@ -78,6 +78,33 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Strengthened public MCP client and generated consumer-package
+  auth-grant direct JSON coverage for route-provided WAMP meta, resources, and
+  prompts. The `McpStreamableHttpClient.withAuthGrant(...)` regression now
+  exercises direct `wamp.session.count`, `wamp.registration.list`,
+  `wamp.registration.match`, `wamp.subscription.list`,
+  `wamp.subscription.match`, `resources/list`, `resources/read`,
+  `resources/templates/list`, `prompts/list`, and `prompts/get` before any
+  Streamable HTTP lifecycle, in addition to the existing direct ping, tool
+  catalog, WAMP API metadata, WAMP pub/sub, and direct batch path. The
+  generated MCP client-only consumer smoke now adds auth-grant direct WAMP
+  registration/subscription lookup, match, list, detail, callee/subscriber
+  list/count, and lifecycle-free tool-name/header coverage under the same
+  grant-owned bearer-token path. Together they assert requests override stale
+  caller `Authorization` metadata, negotiate `application/json`, send no
+  `MCP-Session-Id`, and leave `sessionId` / `lastEventId` unset for
+  lifecycle-free consumer application usage. Baseline `bin/test-fast` passed
+  before the change. Focused local coverage passed: formatting and analyzer
+  for `streamable_http_client_test.dart`, the focused MCP client test,
+  `bash -n bin/common.sh`, the generated MCP client-only consumer smoke,
+  `git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+  Full local `bin/verify` passed, including Rust/FFI, MCP package smokes,
+  client/native transport suites, live WAMP transport integration, the
+  router-hosted MCP example smoke, the expanded generated client-only consumer
+  smoke, the generated router consumer-package smoke, the full router suite
+  with MCP auth/session/security coverage, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence remains clean at `debd545`; no hosted
+  evidence for this checkpoint is recorded here yet.
 - 2026-05-25: Closed the HTTP bridge catch-all route mapping gap for consumer
   application readiness. Pathless Dart `HttpRouteMatch` entries now encode to
   native `path: "/"` / `match_kind: "prefix"` routes, preserving method and
@@ -88,7 +115,23 @@ decision because `connectanum_client` still depends on private
   `http_route_root_prefix_is_catch_all_and_specific_routes_win` resolver
   regression. Full local `bin/verify` passed, including the MCP package
   smokes, router-hosted MCP example smoke, generated consumer-package smoke,
-  native route resolver regression, and full router suite.
+  native route resolver regression, and full router suite. Commit `debd545`
+  was pushed to GitLab `origin/add-router`, GitHub `add-router`, and GitHub
+  `master`. Hosted GitHub evidence is clean at `debd545`: `add-router` CI run
+  `26395007217` and `master` CI run `26395007168` passed with Fast Checks and
+  Full Verify green; Dart Package Publish Dry Run runs `26395007165` and
+  `26395007113` passed; WAMP Profile Benchmarks runs `26395007164` and
+  `26395007187` passed; kTLS Validation runs `26395007133` and `26395007111`
+  passed; manual `master` Router Image dry-run `26395055656` passed with
+  preview metadata `sha-debd545c148c`; manual `master` Native Artifacts
+  validation dry-run `26396437881` passed with release intent accepted for
+  `v0.1.0-rc.2-validation.debd545`, native release preview artifacts ready,
+  and no GitHub Release mutation. The strict deployment-chain audit passed
+  required gates on `master` at `debd545`. RC readiness remains not-ready
+  because no approved numeric RC tag, GitHub prerelease, or matching RC router
+  image tag has been selected for `debd545`; the audit suggests follow-up
+  `v0.1.0-rc.2`, which requires release approval before pushing. No RC tag,
+  GitHub Release, or router image was created or moved.
 - 2026-05-25: Tightened RC readiness so validation dry-run Native Artifacts
   evidence cannot satisfy a selected numeric RC tag. `bin/audit-github-deployment-chain
   --require-rc-ready` now fails with an explicit `Native release prerelease
@@ -4003,36 +4046,31 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The current local implementation checkpoint strengthens
-router-hosted MCP auth/session evidence for the bearer-protected standard
-Streamable route at `/mcp/secure`. The checked-in router integration smoke,
-public example, and generated consumer-package smoke now prove that a second
-valid bearer principal cannot reuse the owner `MCP-Session-Id`, and can then
-use public MCP HTTP helpers to access the direct JSON catalog without lifecycle
-side effects, initialize a distinct Streamable HTTP session, capture a
-session-scoped POST/SSE cursor on the standard Streamable tools/list path, list
-tools, and delete its own session without mutating the owner session.
+Active. The current local implementation checkpoint strengthens public MCP
+client auth-grant evidence for lifecycle-free direct JSON WAMP meta, resource,
+and prompt access. `McpStreamableHttpClient.withAuthGrant(...)` now has focused
+coverage for direct `wamp.session.count`, `wamp.registration.list`,
+`wamp.registration.match`, `wamp.subscription.list`,
+`wamp.subscription.match`, `resources/list`, `resources/read`,
+`resources/templates/list`, `prompts/list`, and `prompts/get` before any
+Streamable HTTP lifecycle, while asserting grant-owned bearer headers,
+`application/json`, no `MCP-Session-Id`, and no local `sessionId` /
+`lastEventId` state.
 
 Local evidence for this checkpoint: pre-change `bin/test-fast`, focused
-analyzer coverage for the example and router integration smoke, the focused
-native router MCP session-isolation test, the public router-hosted MCP example
-smoke, the generated consumer-package smoke, `bash -n bin/common.sh`,
-`python3 tool/check_public_artifact_references.py`, `git diff --check`,
-post-change `bin/test-fast`, and full local `bin/verify` passed on 2026-05-24.
+format/analyze/test coverage for
+`packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`git diff --check`, `python3 tool/check_public_artifact_references.py`, and
+full local `bin/verify` passed on 2026-05-25.
 
-The latest fully clean hosted checkpoint is `1e86c5a`: hosted `master` CI run
-`26358592094` and hosted `add-router` CI run `26358590215` passed with Fast
-Checks and Full Verify green. Dart Package Publish Dry Run `26358592098` on
-`master` and `26358590188` on `add-router` passed at `1e86c5a`; WAMP Profile
-Benchmarks `26358592107` on `master` and `26358590204` on `add-router` passed
-at `1e86c5a`; manual non-mutating Router Image dry-run `26358602876` passed on
-`master` at `1e86c5a` with preview metadata
-`0.1.0-rc.2-validation.1e86c5a977a3`, GHCR login skipped, and preview metadata
-uploaded; Native Artifacts dry-run `26286794628` remains relevant. The strict
-deployment-chain audit passed required gates on `master` at `1e86c5a`.
+The latest fully clean hosted checkpoint remains `debd545`: hosted `master`
+and `add-router` CI, Dart Package Publish Dry Run, WAMP Profile Benchmarks,
+kTLS Validation, manual Router Image dry-run, and manual Native Artifacts
+validation dry-run passed for that commit. The strict deployment-chain audit
+passed required gates on `master` at `debd545`.
 
 RC readiness remains not-ready only because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected; the audit
-suggests `v0.1.0-rc.2` as the next numeric tag if release approval is given.
-Pub.dev publishing remains deferred for release-order and operator decisions.
-No RC tag, GitHub Release, or router image was created or moved.
+prerelease, or matching RC router image tag has been selected for `debd545`;
+the audit suggests `v0.1.0-rc.2` as the next numeric tag if release approval is
+given. Pub.dev publishing remains deferred for release-order and operator
+decisions. No RC tag, GitHub Release, or router image was created or moved.

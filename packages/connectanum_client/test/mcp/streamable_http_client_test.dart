@@ -1109,6 +1109,104 @@ void main() {
           contains('app.events.audit'),
         );
 
+        final sessionCount = await client.countWampSessionsDirect(
+          id: 'grant-direct-session-count',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-session-count',
+          },
+        );
+        expect(sessionCount.argumentsKeywords['count'], 2);
+
+        final registrations = await client.listWampRegistrationsDirect(
+          id: 'grant-direct-registration-list',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-registration-list',
+          },
+        );
+        expect(registrations.argumentsKeywords['exact'], [11]);
+
+        final registration = await client.matchWampRegistrationDirect(
+          'app.echo',
+          id: 'grant-direct-registration-match',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-registration-match',
+          },
+        );
+        expect(registration.arguments, [11]);
+
+        final subscriptions = await client.listWampSubscriptionsDirect(
+          id: 'grant-direct-subscription-list',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-subscription-list',
+          },
+        );
+        expect(subscriptions.argumentsKeywords['exact'], [7]);
+
+        final matchingSubscription = await client.matchWampSubscriptionDirect(
+          'app.events.audit.created',
+          id: 'grant-direct-subscription-match',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-subscription-match',
+          },
+        );
+        expect(matchingSubscription.arguments, [7]);
+
+        final resources = await client.listResourcesDirect(
+          id: 'grant-direct-resources',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-resources',
+          },
+        );
+        expect(resources.resources.single['uri'], 'wamp://app/readme');
+
+        final resourceContents = await client.readResourceDirect(
+          'wamp://app/readme',
+          id: 'grant-direct-resource-read',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-resource-read',
+          },
+        );
+        expect(resourceContents.single['text'], 'hello resource');
+
+        final resourceTemplates = await client.listResourceTemplatesDirect(
+          id: 'grant-direct-resource-templates',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-resource-templates',
+          },
+        );
+        expect(
+          resourceTemplates.resourceTemplates.single['uriTemplate'],
+          'wamp://app/{name}',
+        );
+
+        final prompts = await client.listPromptsDirect(
+          id: 'grant-direct-prompts',
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-prompts',
+          },
+        );
+        expect(prompts.prompts.single['name'], 'summarize');
+
+        final prompt = await client.getPromptDirect(
+          'summarize',
+          id: 'grant-direct-prompt-get',
+          arguments: const <String, String>{'topic': 'audit'},
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer per-call-stale-token',
+            'x-consumer-trace': 'grant-direct-prompt-get',
+          },
+        );
+        expect(jsonEncode(prompt['messages']), contains('Summarize audit'));
+
         final subscription = await client.subscribeWampTopicDirect(
           'app.events.audit',
           id: 'grant-direct-subscribe',
@@ -1184,15 +1282,42 @@ void main() {
         expect(endpoint.requests[0].consumerTrace, 'grant-direct-ping');
         expect(endpoint.requests[1].consumerTrace, 'grant-direct-tools');
         expect(endpoint.requests[2].consumerTrace, 'grant-direct-api-list');
-        expect(endpoint.requests[3].consumerTrace, 'grant-direct-subscribe');
-        expect(endpoint.requests[4].consumerTrace, 'grant-direct-publish');
-        expect(endpoint.requests[5].consumerTrace, 'grant-direct-poll');
-        expect(endpoint.requests[6].consumerTrace, 'grant-direct-unsubscribe');
-        expect(endpoint.requests[7].consumerTrace, 'grant-direct-batch');
         expect(
-          endpoint.requests.map((request) => request.mcpName).skip(2).take(5),
+          endpoint.requests
+              .map((request) => request.consumerTrace)
+              .skip(3)
+              .take(15),
+          [
+            'grant-direct-session-count',
+            'grant-direct-registration-list',
+            'grant-direct-registration-match',
+            'grant-direct-subscription-list',
+            'grant-direct-subscription-match',
+            'grant-direct-resources',
+            'grant-direct-resource-read',
+            'grant-direct-resource-templates',
+            'grant-direct-prompts',
+            'grant-direct-prompt-get',
+            'grant-direct-subscribe',
+            'grant-direct-publish',
+            'grant-direct-poll',
+            'grant-direct-unsubscribe',
+            'grant-direct-batch',
+          ],
+        );
+        expect(
+          endpoint.requests
+              .map((request) => request.mcpName)
+              .whereType<String>(),
           [
             'connectanum.api.list',
+            'wamp.session.count',
+            'wamp.registration.list',
+            'wamp.registration.match',
+            'wamp.subscription.list',
+            'wamp.subscription.match',
+            'wamp://app/readme',
+            'summarize',
             'connectanum.pubsub.subscribe',
             'connectanum.pubsub.publish',
             'connectanum.pubsub.poll',

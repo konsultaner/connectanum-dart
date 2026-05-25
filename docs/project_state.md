@@ -2,9 +2,41 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: HTTP catch-all route native encoding.
-Latest fully clean hosted checkpoint: Commit `60da83a`.
-Current implementation checkpoint: Pathless Dart HTTP route matches now encode
+Last reviewed branch checkpoint: MCP auth-grant direct WAMP meta generated
+consumer coverage.
+Latest fully clean hosted checkpoint: Commit `debd545`.
+Current implementation checkpoint: The public
+`McpStreamableHttpClient.withAuthGrant(...)` direct JSON regression and the
+generated MCP client-only consumer smoke now cover route-provided WAMP meta,
+MCP resources, and prompts before any Streamable HTTP lifecycle, in addition
+to direct ping, tool catalog, WAMP API metadata, WAMP pub/sub, and direct
+batches. The package regression exercises `wamp.session.count`,
+`wamp.registration.list`, `wamp.registration.match`,
+`wamp.subscription.list`, `wamp.subscription.match`, `resources/list`,
+`resources/read`, `resources/templates/list`, `prompts/list`, and
+`prompts/get`; the generated consumer smoke additionally exercises auth-grant
+direct WAMP registration/subscription lookup, detail, callee/subscriber
+list/count, and lifecycle-free tool-name/header coverage. Together they assert
+direct WAMP meta/resource/prompt/pubsub requests use the grant-owned bearer
+token instead of stale constructor or per-call `Authorization` metadata,
+negotiate `application/json`, send no `MCP-Session-Id`, and leave `sessionId`
+/ `lastEventId` unset for consumer application lifecycle-free usage. Baseline
+`bin/test-fast` passed on 2026-05-25 before the change. Focused local coverage
+passed on 2026-05-25:
+`dart format packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart analyze packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`bash -n bin/common.sh`,
+`bash -lc 'source bin/common.sh; run_mcp_client_package_smoke'`,
+`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+Full local `bin/verify` passed on 2026-05-25, including Rust/FFI, MCP package
+smokes, client/native transport suites, live WAMP transport integration, the
+router-hosted MCP example smoke, the expanded generated client-only consumer
+smoke, the generated router consumer-package smoke, the full router suite with
+MCP auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+smoke. Hosted evidence remains clean at `debd545`; no hosted evidence for this
+checkpoint is recorded here yet.
+Prior implementation checkpoint: Pathless Dart HTTP route matches now encode
 to native prefix `/` catch-all routes instead of exact root-only routes, so
 method/protocol-filtered consumer application HTTP routes can match non-root
 paths while still losing to more-specific prefixes in the native router table.
@@ -17,9 +49,29 @@ the new native catch-all route resolver test, MCP package smokes,
 client/native transport suites, live WAMP transport integration, the
 router-hosted MCP example smoke, the generated consumer-package smoke, the
 full router suite with the new Dart native-config encoding regression, and the
-Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
-checkpoint remains `60da83a` until this implementation commit is pushed and
-hosted CI completes.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `debd545`
+(`fix: encode catch-all http routes for native router`) was pushed to GitLab
+`origin/add-router`, GitHub `add-router`, and GitHub `master`. Hosted GitHub
+evidence is clean at `debd545`: `add-router` CI run `26395007217` passed with
+Fast Checks and Full Verify green; `master` CI run `26395007168` passed with
+Fast Checks and Full Verify green; Dart Package Publish Dry Run runs
+`26395007165` and `26395007113` passed; WAMP Profile Benchmarks runs
+`26395007164` and `26395007187` passed; kTLS Validation runs `26395007133`
+and `26395007111` passed; manual `master` Router Image dry-run `26395055656`
+passed and uploaded preview metadata `sha-debd545c148c` without GHCR login;
+manual `master` Native Artifacts validation dry-run `26396437881` passed
+with release intent accepted for `v0.1.0-rc.2-validation.debd545`, generated
+native release preview artifacts, and avoided GitHub Release mutation. The
+strict deployment-chain audit passed required gates on `master` at `debd545`,
+including clean current-head CI/logs, Dart package dry-run, Native Artifacts
+validation dry-run, Router Image dry-run, WAMP Profile Benchmarks, branch
+protection, workflow visibility, and router package visibility. RC readiness
+remains not-ready only because no approved numeric RC tag, GitHub prerelease,
+or matching RC router image tag has been selected for `debd545`; the audit
+suggests follow-up `v0.1.0-rc.2`, which requires release approval before
+pushing. Pub.dev publishing remains deferred for release-order and operator
+decisions. No RC tag, GitHub Release, or published router image was created
+or moved.
 Prior implementation checkpoint: The deployment-chain audit now rejects a
 selected numeric RC tag when the latest accepted Native Artifacts evidence is
 still a validation dry-run instead of an actual prerelease publish for that
