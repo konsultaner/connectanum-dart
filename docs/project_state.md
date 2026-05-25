@@ -2,10 +2,34 @@
 
 Last updated: 2026-05-25
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable DELETE response-session
-validation.
-Latest fully clean hosted checkpoint: Commit `34db112`.
-Current implementation checkpoint: `McpStreamableHttpClient.deleteSession(...)`
+Last reviewed branch checkpoint: MCP Streamable sessionless initialize cleanup.
+Latest fully clean hosted checkpoint: Commit `478aa9a`.
+Current implementation checkpoint: `McpStreamableHttpClient.initialize(...)`
+now treats a successful Streamable HTTP initialization response without
+`MCP-Session-Id` as an explicit sessionless server state. When a client still
+has stale local `sessionId` / `lastEventId` state from a prior session, a
+successful sessionless initialize now clears that state before later
+operations, so consumer applications do not leak an obsolete session header to
+servers that opted out of Streamable HTTP session management. The regression
+failed before the fix, then passed after the session-header capture path began
+clearing state only for successful initialize responses that omit the session
+header; ordinary later Streamable responses may still omit `MCP-Session-Id`
+without ending the active session. Baseline `bin/test-fast` passed on
+2026-05-25 before the change. Focused local coverage passed on 2026-05-25:
+`dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+the focused sessionless-initialize regression, the full
+`streamable_http_client_test.dart` suite, and the generated router-hosted MCP
+consumer package smoke. Full local `bin/verify` passed on 2026-05-25,
+including formatting, Rust/FFI, MCP package smokes, client/native transport
+suites, live WAMP transport integration, the router-hosted MCP example smoke,
+generated consumer-package smokes, the full router suite with MCP
+auth/session/security coverage, and the Chrome/Dart2Wasm browser WebSocket
+smoke. The previous DELETE response-session checkpoint is fully hosted green
+at `478aa9a`: GitHub CI run `26411324800` passed with Fast Checks and Full
+Verify green, Dart Package Publish Dry Run `26411324802` passed, and WAMP
+Profile Benchmarks `26411324771` passed on `add-router`.
+Prior implementation checkpoint: `McpStreamableHttpClient.deleteSession(...)`
 now validates successful Streamable HTTP DELETE response `MCP-Session-Id`
 headers before clearing local session state. Missing response session headers
 remain accepted for compatibility, but empty, malformed, or mismatched session
@@ -13935,10 +13959,9 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears. The current local checkpoint fixes
-  pathless HTTP route native encoding so method/protocol-filtered catch-all
-  routes match non-root paths; the latest fully clean hosted checkpoint is
-  `60da83a`.
+  consumer integration bug appears. The current local checkpoint fixes stale
+  Streamable HTTP client state after successful sessionless MCP initialization;
+  the latest fully clean hosted checkpoint is `478aa9a`.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

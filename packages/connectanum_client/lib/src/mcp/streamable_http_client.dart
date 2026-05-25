@@ -880,6 +880,7 @@ final class McpStreamableHttpClient {
         includeSession || (streamable && requestMethod == 'initialize');
     final capturesProtocolVersion =
         protocolVersion == null || requestMethod == 'initialize';
+    final clearsSessionOnMissing = requestMethod == 'initialize';
     final response = await request.close();
     final body = await _readBody(response);
     if (capturesSessionHeaders) {
@@ -896,6 +897,7 @@ final class McpStreamableHttpClient {
         _captureSessionHeaders(
           response,
           captureProtocolVersion: capturesProtocolVersion,
+          clearSessionOnMissing: clearsSessionOnMissing,
         );
       }
       return null;
@@ -913,6 +915,7 @@ final class McpStreamableHttpClient {
         _captureSessionHeaders(
           response,
           captureProtocolVersion: capturesProtocolVersion,
+          clearSessionOnMissing: clearsSessionOnMissing,
         );
         _captureLastEventId(events);
       }
@@ -925,6 +928,7 @@ final class McpStreamableHttpClient {
       _captureSessionHeaders(
         response,
         captureProtocolVersion: capturesProtocolVersion,
+        clearSessionOnMissing: clearsSessionOnMissing,
       );
     }
     return value;
@@ -1099,6 +1103,7 @@ final class McpStreamableHttpClient {
   void _captureSessionHeaders(
     HttpClientResponse response, {
     bool captureProtocolVersion = true,
+    bool clearSessionOnMissing = false,
   }) {
     final negotiatedSessionId = response.headers.value(_headerSessionId);
     if (negotiatedSessionId != null) {
@@ -1112,6 +1117,8 @@ final class McpStreamableHttpClient {
         lastEventId = null;
       }
       sessionId = negotiatedSessionId;
+    } else if (clearSessionOnMissing) {
+      _clearSessionState();
     }
     if (captureProtocolVersion) {
       final negotiatedProtocolVersion = response.headers.value(

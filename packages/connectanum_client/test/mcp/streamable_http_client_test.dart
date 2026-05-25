@@ -796,6 +796,32 @@ void main() {
       },
     );
 
+    test('clears stale session state when initialize is sessionless', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      client.sessionId = 'stale-session-before-sessionless-init';
+      client.lastEventId = 'stale-session-before-sessionless-init:get:1';
+
+      final initialize = await client.initialize(
+        id: 'sessionless-initialize',
+        headers: const <String, String>{'x-test-no-response-session-id': '1'},
+      );
+
+      expect(initialize['id'], 'sessionless-initialize');
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+      expect(endpoint.requests.single.method, 'POST');
+      expect(endpoint.requests.single.sessionId, isNull);
+
+      await client.notifyInitialized();
+      expect(endpoint.requests.last.sessionId, isNull);
+      expect(endpoint.requests.last.lastEventId, isNull);
+    });
+
     test(
       'validates DELETE response session headers before local cleanup',
       () async {
@@ -3878,25 +3904,24 @@ final class _FakeMcpEndpoint {
         label: 'initialize params',
       );
       final requestedProtocolVersion = params['protocolVersion'];
-      _writeJson(
-        request,
-        <String, Object?>{
-          'jsonrpc': '2.0',
-          'id': requestBody['id'],
-          'result': <String, Object?>{
-            'protocolVersion': requestedProtocolVersion is String
-                ? requestedProtocolVersion
-                : McpStreamableHttpClient.latestProtocolVersion,
-            'capabilities': <String, Object?>{},
-            'serverInfo': <String, Object?>{
-              'name': 'fake-router',
-              'version': '1.0.0',
-            },
+      final responseSessionId =
+          request.headers.value('x-test-no-response-session-id') == '1'
+          ? null
+          : request.headers.value('x-test-response-session-id') ?? 'session-1';
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'protocolVersion': requestedProtocolVersion is String
+              ? requestedProtocolVersion
+              : McpStreamableHttpClient.latestProtocolVersion,
+          'capabilities': <String, Object?>{},
+          'serverInfo': <String, Object?>{
+            'name': 'fake-router',
+            'version': '1.0.0',
           },
         },
-        sessionId:
-            request.headers.value('x-test-response-session-id') ?? 'session-1',
-      );
+      }, sessionId: responseSessionId);
       return;
     }
 

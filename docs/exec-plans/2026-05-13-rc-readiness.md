@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-25: Tightened public MCP Streamable HTTP sessionless initialize
+  semantics in `McpStreamableHttpClient.initialize(...)`. A successful
+  initialization response that omits `MCP-Session-Id` now clears any stale
+  local `sessionId` / `lastEventId` state before later operations, preventing
+  consumer applications from leaking an obsolete session header to servers
+  that opt out of Streamable HTTP session management. Later Streamable
+  responses may still omit `MCP-Session-Id` without ending an active session.
+  The focused regression failed before the fix and passed afterward. Baseline
+  `bin/test-fast` passed before the change. Focused local coverage passed:
+  formatting and analyzer for the MCP client source/test files, the focused
+  sessionless-initialize regression, the full `streamable_http_client_test.dart`
+  suite, and the generated router-hosted MCP consumer package smoke. Full
+  local `bin/verify` passed, including Rust/FFI, MCP package smokes,
+  client/native transport suites, live WAMP transport integration, the
+  router-hosted MCP example smoke, generated consumer-package smokes, the full
+  router suite with MCP auth/session/security coverage, and the Chrome/
+  Dart2Wasm browser WebSocket smoke. The previous DELETE response-session
+  checkpoint is hosted green at `478aa9a`: GitHub CI run `26411324800`, Dart
+  Package Publish Dry Run `26411324802`, and WAMP Profile Benchmarks
+  `26411324771` all passed on `add-router`.
 - 2026-05-25: Tightened public MCP Streamable HTTP session cleanup semantics
   in `McpStreamableHttpClient.deleteSession(...)`. Successful DELETE responses
   may still omit `MCP-Session-Id`, but any echoed session header must now be
