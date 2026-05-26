@@ -17301,6 +17301,13 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
     expectStreamableProgress('direct pub/sub unsubscribe');
   }
 
+  await _smokeStreamableBatchDirectWampApiPubSub(
+    client,
+    serviceSession,
+    label: label,
+  );
+  previousEventId = client.lastEventId;
+
   final subscribeId = '$label-generic-streamable-pubsub-subscribe';
   final subscribe = _jsonObjectFrom(
     await client.post({
@@ -17686,6 +17693,249 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       );
     }
     expectStreamableProgress('pub/sub unsubscribe');
+  }
+}
+
+Future<void> _smokeStreamableBatchDirectWampApiPubSub(
+  McpStreamableHttpClient client,
+  RouterSession serviceSession, {
+  required String label,
+}) async {
+  final sessionId = client.sessionId;
+  if (sessionId == null || sessionId.isEmpty) {
+    throw StateError(
+      'Streamable MCP direct batch WAMP API/pubsub has no session id.',
+    );
+  }
+
+  var previousEventId = client.lastEventId;
+  void expectStreamableProgress(String operation) {
+    if (client.sessionId != sessionId) {
+      throw StateError(
+        'Streamable MCP direct batch WAMP API/pubsub $operation changed '
+        'session id.',
+      );
+    }
+    final eventId = client.lastEventId;
+    if (eventId == null ||
+        !eventId.startsWith('$sessionId:') ||
+        eventId == previousEventId) {
+      throw StateError(
+        'Streamable MCP direct batch WAMP API/pubsub $operation did not '
+        'update SSE state.',
+      );
+    }
+    previousEventId = eventId;
+  }
+
+  String? tempHandle;
+  try {
+    final subscribeId =
+        '$label-streamable-direct-batch-pubsub-subscribe';
+    final apiListId = '$label-streamable-direct-batch-api-list';
+    final subscribeBatch = await client.postBatch([
+      {
+        'jsonrpc': '2.0',
+        'id': subscribeId,
+        'method': 'connectanum.pubsub.subscribe',
+        'params': {'topic': _batchTopic, 'queueLimit': 4},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': apiListId,
+        'method': 'connectanum.api.list',
+        'params': {'kind': 'procedure'},
+      },
+    ]);
+    if (subscribeBatch == null || subscribeBatch.length != 2) {
+      throw StateError(
+        'Streamable MCP direct batch pub/sub subscribe did not return two '
+        'responses.',
+      );
+    }
+    final subscription = _jsonRpcStructuredContent(
+      subscribeBatch[0],
+      id: subscribeId,
+      label: 'Streamable MCP direct batch pub/sub subscribe',
+    );
+    final tempHandleValue = subscription['handle'];
+    if (tempHandleValue is! String ||
+        tempHandleValue.isEmpty ||
+        subscription['topic'] != _batchTopic ||
+        subscription['queueLimit'] != 4) {
+      throw StateError(
+        'Streamable MCP direct batch pub/sub subscribe returned invalid '
+        'content.',
+      );
+    }
+    tempHandle = tempHandleValue;
+    if (subscribeBatch[1]['id'] != apiListId ||
+        !jsonEncode(subscribeBatch[1]).contains(_procedure)) {
+      throw StateError(
+        'Streamable MCP direct batch WAMP API list was invalid.',
+      );
+    }
+    expectStreamableProgress('subscribe batch');
+
+    final publishId = '$label-streamable-direct-batch-pubsub-publish';
+    final topicDescribeId =
+        '$label-streamable-direct-batch-topic-describe';
+    final publishBatch = await client.postBatch([
+      {
+        'jsonrpc': '2.0',
+        'id': publishId,
+        'method': 'connectanum.pubsub.publish',
+        'params': {
+          'topic': _batchTopic,
+          'argumentsKeywords': {
+            'taskId': 'T-$label-streamable-direct-batch-pubsub-publish',
+          },
+          'acknowledge': true,
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': topicDescribeId,
+        'method': 'connectanum.api.describe',
+        'params': {'uri': _batchTopic, 'kind': 'topic'},
+      },
+    ]);
+    if (publishBatch == null || publishBatch.length != 2) {
+      throw StateError(
+        'Streamable MCP direct batch pub/sub publish did not return two '
+        'responses.',
+      );
+    }
+    final publication = _jsonRpcStructuredContent(
+      publishBatch[0],
+      id: publishId,
+      label: 'Streamable MCP direct batch pub/sub publish',
+    );
+    if (publication['topic'] != _batchTopic ||
+        publication['acknowledged'] != true) {
+      throw StateError(
+        'Streamable MCP direct batch pub/sub publish returned invalid content.',
+      );
+    }
+    if (publishBatch[1]['id'] != topicDescribeId ||
+        !jsonEncode(publishBatch[1]).contains(_batchTopic)) {
+      throw StateError(
+        'Streamable MCP direct batch WAMP topic describe was invalid.',
+      );
+    }
+    expectStreamableProgress('publish batch');
+
+    final serviceTaskId = 'T-$label-streamable-direct-batch-pubsub-event';
+    await serviceSession.publish(
+      _batchTopic,
+      argumentsKeywords: {'taskId': serviceTaskId},
+      options: PublishOptions(acknowledge: true),
+    );
+
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    var sawServiceEvent = false;
+    while (DateTime.now().isBefore(deadline)) {
+      final timestamp = DateTime.now().microsecondsSinceEpoch;
+      final pollId = '$label-streamable-direct-batch-pubsub-poll-$timestamp';
+      final topicListId =
+          '$label-streamable-direct-batch-topic-list-$timestamp';
+      final pollBatch = await client.postBatch([
+        {
+          'jsonrpc': '2.0',
+          'id': pollId,
+          'method': 'connectanum.pubsub.poll',
+          'params': {'handle': tempHandle, 'limit': 4},
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': topicListId,
+          'method': 'connectanum.api.list',
+          'params': {'kind': 'topic'},
+        },
+      ]);
+      if (pollBatch == null || pollBatch.length != 2) {
+        throw StateError(
+          'Streamable MCP direct batch pub/sub poll did not return two '
+          'responses.',
+        );
+      }
+      final eventBatch = _jsonRpcStructuredContent(
+        pollBatch[0],
+        id: pollId,
+        label: 'Streamable MCP direct batch pub/sub poll',
+      );
+      if (eventBatch['handle'] != tempHandle ||
+          eventBatch['topic'] != _batchTopic) {
+        throw StateError(
+          'Streamable MCP direct batch pub/sub poll returned invalid content.',
+        );
+      }
+      if (pollBatch[1]['id'] != topicListId ||
+          !jsonEncode(pollBatch[1]).contains(_batchTopic)) {
+        throw StateError(
+          'Streamable MCP direct batch WAMP topic list was invalid.',
+        );
+      }
+      expectStreamableProgress('poll batch');
+      if (jsonEncode(eventBatch['events']).contains(serviceTaskId)) {
+        sawServiceEvent = true;
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (!sawServiceEvent) {
+      throw StateError(
+        'Streamable MCP direct batch pub/sub poll missed service event.',
+      );
+    }
+  } finally {
+    if (tempHandle != null) {
+      final unsubscribeId =
+          '$label-streamable-direct-batch-pubsub-unsubscribe';
+      final apiListId =
+          '$label-streamable-direct-batch-unsubscribe-api-list';
+      final unsubscribeBatch = await client.postBatch([
+        {
+          'jsonrpc': '2.0',
+          'id': unsubscribeId,
+          'method': 'connectanum.pubsub.unsubscribe',
+          'params': {'handle': tempHandle},
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': apiListId,
+          'method': 'connectanum.api.list',
+          'params': {'kind': 'procedure'},
+        },
+      ]);
+      if (unsubscribeBatch == null || unsubscribeBatch.length != 2) {
+        throw StateError(
+          'Streamable MCP direct batch pub/sub unsubscribe did not return two '
+          'responses.',
+        );
+      }
+      final unsubscribe = _jsonRpcStructuredContent(
+        unsubscribeBatch[0],
+        id: unsubscribeId,
+        label: 'Streamable MCP direct batch pub/sub unsubscribe',
+      );
+      if (unsubscribe['handle'] != tempHandle ||
+          unsubscribe['topic'] != _batchTopic ||
+          unsubscribe['unsubscribed'] != true) {
+        throw StateError(
+          'Streamable MCP direct batch pub/sub unsubscribe returned invalid '
+          'content.',
+        );
+      }
+      if (unsubscribeBatch[1]['id'] != apiListId ||
+          !jsonEncode(unsubscribeBatch[1]).contains(_procedure)) {
+        throw StateError(
+          'Streamable MCP direct batch unsubscribe API list was invalid.',
+        );
+      }
+      expectStreamableProgress('unsubscribe batch');
+    }
   }
 }
 

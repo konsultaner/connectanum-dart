@@ -79,6 +79,26 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-05-26: Extended the generated router-hosted MCP consumer-package smoke
+  again to cover stateful Streamable direct WAMP API/pubsub batches through
+  dotted JSON-RPC methods, not only `tools/call` wrappers or lifecycle-free
+  direct JSON batches. The smoke now posts direct
+  `connectanum.pubsub.subscribe` plus `connectanum.api.list`, direct
+  `connectanum.pubsub.publish` plus `connectanum.api.describe`, repeated
+  direct `connectanum.pubsub.poll` plus `connectanum.api.list`, and direct
+  `connectanum.pubsub.unsubscribe` plus `connectanum.api.list` using the active
+  `McpStreamableHttpClient.postBatch(...)` session. Each batch checks that the
+  Streamable session id is preserved, the SSE cursor advances, direct WAMP API
+  metadata remains visible, and a service-published event reaches the
+  direct-pub/sub subscription. Baseline `bin/test-fast` passed before the
+  change. Focused local coverage passed with `bash -n bin/common.sh`,
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+  Full local `bin/verify` passed on 2026-05-26, including the generated
+  consumer-package smoke and full router suite. This checkpoint is local
+  pending push and hosted evidence; the latest fully clean hosted checkpoint
+  remains `b416479`. RC readiness remains not ready until a release-approved
+  numeric RC tag, GitHub prerelease, and router image RC tag are created.
+- 2026-05-26: Extended the generated router-hosted MCP consumer-package smoke
   to cover stateful Streamable direct WAMP/meta methods beyond the procedure
   call regression. The smoke now posts direct `connectanum.api.describe` body
   params and performs a direct `connectanum.pubsub.subscribe`,
@@ -90,8 +110,17 @@ decision because `connectanum_client` still depends on private
   `python3 tool/check_public_artifact_references.py`, and
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full
   local `bin/verify` passed on 2026-05-26, including the generated
-  consumer-package smoke and full router suite. This checkpoint is local
-  pending push and hosted evidence.
+  consumer-package smoke and full router suite. The commit was pushed to
+  GitHub `master` and `add-router` as `b416479`; GitHub `master` CI run
+  `26425147196` and GitHub `add-router` CI run `26425143224` passed with Fast
+  Checks and Full Verify green. The strict `master` deployment-chain audit
+  passed with clean latest CI/logs at `b416479`; hosted Dart Package Publish
+  Dry Run `26423773895`, hosted WAMP Profile Benchmarks `26423773849`, and
+  non-mutating Router Image dry-run `26424148305` remain clean and relevant
+  from `eb2ae2a` because this smoke-script/docs checkpoint changed no
+  publish-sensitive, WAMP profile benchmark-sensitive, or router-image-sensitive
+  inputs. RC readiness remains not ready until a release-approved numeric RC
+  tag, GitHub prerelease, and router image RC tag are created.
 - 2026-05-26: Treated a generated consumer-package smoke failure as a real
   MCP Streamable compatibility bug after generic stateful JSON-RPC direct WAMP
   procedure calls returned `400` with a missing `Mcp-Param-TaskId` error when
