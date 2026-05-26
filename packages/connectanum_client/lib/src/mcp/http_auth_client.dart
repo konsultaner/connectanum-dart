@@ -244,10 +244,19 @@ final class ConnectanumHttpAuthClient {
 
   static String _nonEmptyToken(String token, String name) {
     final value = token.trim();
-    if (value.isNotEmpty) {
+    final hasInvalidCharacter = value.codeUnits.any(
+      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
+    );
+    if (value.isNotEmpty && !hasInvalidCharacter) {
       return value;
     }
-    throw ArgumentError.value(token, name, '$name must not be empty.');
+    throw ArgumentError.value(
+      token,
+      name,
+      value.isEmpty
+          ? '$name must not be empty.'
+          : '$name must not contain whitespace or control characters.',
+    );
   }
 }
 

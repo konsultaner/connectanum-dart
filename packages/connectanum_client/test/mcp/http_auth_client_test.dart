@@ -189,21 +189,20 @@ void main() {
       });
     });
 
-    test(
-      'rejects empty refresh and revoke tokens before sending requests',
-      () async {
-        final endpoint = await _FakeHttpAuthEndpoint.bind();
-        addTearDown(endpoint.close);
+    test('rejects invalid refresh and revoke tokens before requests', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind();
+      addTearDown(endpoint.close);
 
-        final client = ConnectanumHttpAuthClient(endpoint.uri);
-        addTearDown(() => client.close(force: true));
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
 
-        await expectLater(client.refreshToken('  '), throwsArgumentError);
-        await expectLater(client.revokeToken('\t'), throwsArgumentError);
+      for (final token in ['  ', 'refresh token', 'refresh\token', 'tok\nen']) {
+        await expectLater(client.refreshToken(token), throwsArgumentError);
+        await expectLater(client.revokeToken(token), throwsArgumentError);
+      }
 
-        expect(endpoint.requests, isEmpty);
-      },
-    );
+      expect(endpoint.requests, isEmpty);
+    });
 
     test('throws typed exceptions for rejected auth requests', () async {
       final endpoint = await _FakeHttpAuthEndpoint.bind(failChallenge: true);
