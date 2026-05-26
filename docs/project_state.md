@@ -2,19 +2,19 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: Public MCP IO entrypoint auth direct tool/meta smoke coverage.
-Latest fully clean hosted checkpoint: Commit `9017319` on GitHub `master`.
+Last reviewed branch checkpoint: Public MCP IO entrypoint auth direct pub/sub smoke coverage.
+Latest fully clean hosted checkpoint: Commit `708c827` on GitHub `master`.
 Current implementation checkpoint: The public `connectanum_mcp_io.dart`
-package-boundary auth smoke now proves exported HTTP auth helpers and
-`McpStreamableHttpClient.withAuthGrant(...)` preserve the expected session
-boundaries across stateful Streamable HTTP, authenticated direct JSON calls,
-and refreshed bearer credentials. The smoke uses the exported
+package-boundary auth smoke now extends the exported HTTP auth/helper path
+through authenticated direct WAMP pub/sub helpers. The smoke uses the exported
 `ConnectanumHttpAuthClient` to obtain a ticket grant, initializes an
 authenticated Streamable MCP session, verifies a session-bound `ping(...)`, then
-sends authenticated `pingDirect(...)` and `connectanum.tools.list` direct JSON
-requests through the same client and asserts those direct requests have no
-`MCP-Session-Id` header while the client's active Streamable session remains
-intact. The same smoke refreshes the auth grant and creates a second exported
+sends authenticated `pingDirect(...)`, `connectanum.tools.list`, and
+`connectanum.pubsub.subscribe` / `publish` / `poll` / `unsubscribe` direct JSON
+requests through the same exported `McpStreamableHttpClient` and asserts those
+direct requests carry the original ticket bearer, have no `MCP-Session-Id`
+header, and preserve the client's active Streamable session. The same smoke
+still refreshes the auth grant and creates a second exported
 `McpStreamableHttpClient` from the refreshed bearer token, proving direct
 `pingDirect(...)` and `connectanum.api.describe` metadata access use the
 refreshed credential without creating local session state. Baseline
@@ -27,14 +27,40 @@ Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, live WAMP transport
 integration, the router-hosted MCP example smoke, generated consumer-package
 smokes, the full router suite, zero-copy router tests, and the
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not yet been
-refreshed for this local checkpoint. The latest fully clean hosted checkpoint
-remains `9017319`: GitHub `master` CI run `26429384037`, GitHub `add-router`
-CI run `26429380918`, Dart Package Publish Dry Run runs `26429383995`
-(`master`) and `26429380897` (`add-router`), non-mutating Router Image dry-run
-`26429791827`, and the strict `master` deployment-chain audit all passed at
-`9017319`. RC readiness remains not ready until a release-approved numeric RC
-tag, GitHub prerelease, and router image RC tag are created.
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not been
+refreshed for this local checkpoint yet; the latest fully clean hosted
+checkpoint remains `708c827`, where GitHub `master` CI run `26430863296`,
+GitHub `add-router` CI run `26430863499`, Dart Package Publish Dry Run runs
+`26430863297` (`master`) and `26430863505` (`add-router`), Router Image dry-run
+`26431248553`, and the strict `master` deployment-chain audit all passed. RC
+readiness remains not ready until a release-approved numeric RC tag, GitHub
+prerelease, and router image RC tag are created.
+Previous implementation checkpoint: The public `connectanum_mcp_io.dart`
+package-boundary auth smoke proved exported HTTP auth helpers and
+`McpStreamableHttpClient.withAuthGrant(...)` preserve the expected session
+boundaries across stateful Streamable HTTP, authenticated direct JSON calls,
+and refreshed bearer credentials. The smoke used the exported
+`ConnectanumHttpAuthClient` to obtain a ticket grant, initialized an
+authenticated Streamable MCP session, verified a session-bound `ping(...)`, then
+sent authenticated `pingDirect(...)` and `connectanum.tools.list` direct JSON
+requests through the same client and asserted those direct requests had no
+`MCP-Session-Id` header while the client's active Streamable session remained
+intact. The same smoke refreshed the auth grant and created a second exported
+`McpStreamableHttpClient` from the refreshed bearer token, proving direct
+`pingDirect(...)` and `connectanum.api.describe` metadata access used the
+refreshed credential without creating local session state. Full local
+`bin/verify` passed on 2026-05-26. The commit was pushed to GitHub `master`
+and `add-router` as `708c827`; GitHub `master` CI run `26430863296` and
+GitHub `add-router` CI run `26430863499` passed with Fast Checks and Full
+Verify green. GitHub Dart Package Publish Dry Run runs `26430863297`
+(`master`) and `26430863505` (`add-router`) passed. A non-mutating Router
+Image dry-run `26431248553` passed at `708c827` with metadata preview
+`sha-708c827e9243`, skipped GHCR login, and no image push. The strict
+`master` deployment-chain audit passed with clean latest CI/logs, package
+dry-run, native release dry-run relevance, Router Image dry-run, and WAMP
+profile benchmark relevance at `708c827`; RC readiness remains not ready until
+a release-approved numeric RC tag, GitHub prerelease, and router image RC tag
+are created.
 Previous implementation checkpoint: The public `connectanum_mcp_io.dart`
 package-boundary smoke now proves stateful Streamable HTTP `postBatch(...)`
 requests can mix direct dotted `connectanum.pubsub.*` and `connectanum.api.*`
@@ -14203,8 +14229,8 @@ at the older `47bbf9c` commit.
   pub/sub method calls, and now proves the public `connectanum_mcp_io.dart`
   entrypoint can use stateful direct dotted-method batches and authenticated
   direct JSON tool/meta helpers through exported APIs without leaking
-  Streamable session headers. The latest fully clean hosted checkpoint remains
-  `9017319` on GitHub `master`, including CI, package dry-run, WAMP profile
+  Streamable session headers. The latest fully clean hosted checkpoint is
+  `708c827` on GitHub `master`, including CI, package dry-run, WAMP profile
   benchmark, Router Image dry-run, and strict deployment-chain audit evidence.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not

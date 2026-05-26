@@ -79,6 +79,30 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
+  auth smoke again to cover authenticated direct WAMP pub/sub helper access
+  through the exported IO entrypoint. After obtaining a ticket grant and
+  initializing an authenticated Streamable MCP session, the smoke now calls
+  `subscribeWampTopicDirect(...)`, `publishWampEventDirect(...)`,
+  `pollWampEventsDirect(...)`, and `unsubscribeWampTopicDirect(...)` through
+  the same exported `McpStreamableHttpClient`. It asserts that each direct
+  pub/sub request uses the original ticket bearer, sends no `MCP-Session-Id`
+  header, preserves the active Streamable session, and round-trips a published
+  event before the refreshed-bearer direct `connectanum.api.describe` check.
+  Baseline `bin/test-fast` passed before the change. Focused local coverage
+  passed with
+  `dart analyze packages/connectanum_mcp/test/io_client_export_test.dart`,
+  `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-26, including MCP package smokes, generated
+  consumer-package smokes, the full router suite, and the Chrome/Dart2Wasm
+  browser WebSocket smoke. Hosted evidence has not been refreshed for this
+  checkpoint yet; the latest fully clean hosted checkpoint remains `708c827`
+  with clean GitHub `master` and `add-router` CI, Dart Package Publish Dry Run,
+  Router Image dry-run, and strict `master` deployment-chain audit evidence. RC
+  readiness remains not ready until a release-approved numeric RC tag, GitHub
+  prerelease, and router image RC tag are created.
+- 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
   auth smoke to prove exported HTTP auth helpers and
   `McpStreamableHttpClient.withAuthGrant(...)` preserve the expected session
   boundaries across stateful Streamable HTTP, authenticated direct JSON calls,
@@ -99,14 +123,18 @@ decision because `connectanum_client` still depends on private
   `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
   passed on 2026-05-26, including MCP package smokes, generated
   consumer-package smokes, the full router suite, and the Chrome/Dart2Wasm
-  browser WebSocket smoke. Hosted evidence has not yet been refreshed for this
-  local checkpoint. The latest fully clean hosted checkpoint remains `9017319`:
-  GitHub `master` CI run `26429384037`, GitHub `add-router` CI run
-  `26429380918`, Dart Package Publish Dry Run runs `26429383995` (`master`) and
-  `26429380897` (`add-router`), non-mutating Router Image dry-run
-  `26429791827`, and the strict `master` deployment-chain audit all passed at
-  `9017319`. RC readiness remains not ready until a release-approved numeric RC
-  tag, GitHub prerelease, and router image RC tag are created.
+  browser WebSocket smoke. The commit was pushed to GitHub `master` and
+  `add-router` as `708c827`; GitHub `master` CI run `26430863296` and GitHub
+  `add-router` CI run `26430863499` passed with Fast Checks and Full Verify
+  green. GitHub Dart Package Publish Dry Run runs `26430863297` (`master`) and
+  `26430863505` (`add-router`) passed. A non-mutating Router Image dry-run
+  `26431248553` passed at `708c827` with metadata preview
+  `sha-708c827e9243`, skipped GHCR login, and no image push. The strict
+  `master` deployment-chain audit passed with clean latest CI/logs, package
+  dry-run, native release dry-run relevance, Router Image dry-run, and WAMP
+  profile benchmark relevance at `708c827`. RC readiness remains not ready
+  until a release-approved numeric RC tag, GitHub prerelease, and router image
+  RC tag are created.
 - 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
   smoke to prove stateful Streamable HTTP `postBatch(...)` requests can mix
   direct dotted `connectanum.pubsub.*` and `connectanum.api.*` methods through

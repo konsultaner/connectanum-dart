@@ -765,6 +765,57 @@ void main() {
     );
     expect(mcpClient.sessionId, _ioAuthSessionId);
 
+    final directSubscription = await mcpClient.subscribeWampTopicDirect(
+      _ioTopic,
+      id: 'io-auth-direct-pubsub-subscribe',
+      queueLimit: 2,
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-direct-pubsub-subscribe',
+      },
+    );
+    expect(directSubscription.handle, _ioSubscriptionHandle);
+    expect(directSubscription.topic, _ioTopic);
+    expect(directSubscription.queueLimit, 2);
+    expect(directSubscription.subscriptionId, 33);
+
+    final directPublication = await mcpClient.publishWampEventDirect(
+      _ioTopic,
+      id: 'io-auth-direct-pubsub-publish',
+      argumentsKeywords: const <String, Object?>{'message': 'auth-direct'},
+      acknowledge: true,
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-direct-pubsub-publish',
+      },
+    );
+    expect(directPublication.topic, _ioTopic);
+    expect(directPublication.acknowledged, isTrue);
+    expect(directPublication.publicationId, 44);
+
+    final directEvents = await mcpClient.pollWampEventsDirect(
+      directSubscription.handle,
+      id: 'io-auth-direct-pubsub-poll',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-direct-pubsub-poll',
+      },
+    );
+    expect(directEvents.handle, directSubscription.handle);
+    expect(directEvents.topic, _ioTopic);
+    expect(directEvents.events.single['argumentsKeywords'], {
+      'message': 'auth-direct',
+    });
+
+    final directUnsubscribe = await mcpClient.unsubscribeWampTopicDirect(
+      directSubscription.handle,
+      id: 'io-auth-direct-pubsub-unsubscribe',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-direct-pubsub-unsubscribe',
+      },
+    );
+    expect(directUnsubscribe.handle, directSubscription.handle);
+    expect(directUnsubscribe.topic, _ioTopic);
+    expect(directUnsubscribe.unsubscribed, isTrue);
+    expect(mcpClient.sessionId, _ioAuthSessionId);
+
     final refreshed = await authClient.refreshToken(
       grant.refreshToken!,
       headers: const <String, String>{'x-consumer-trace': 'io-auth-refresh'},
@@ -834,7 +885,7 @@ void main() {
     expect(endpoint.authRequests[2].consumerTrace, 'io-auth-refresh');
     expect(endpoint.authRequests[3].consumerTrace, 'io-auth-revoke');
 
-    expect(endpoint.mcpRequests, hasLength(6));
+    expect(endpoint.mcpRequests, hasLength(10));
     expect(endpoint.mcpRequests[0].authorization, 'Bearer $_ioAccessToken');
     expect(endpoint.mcpRequests[0].sessionId, isNull);
     expect(endpoint.mcpRequests[0].body['method'], 'initialize');
@@ -850,29 +901,83 @@ void main() {
     expect(endpoint.mcpRequests[3].sessionId, isNull);
     expect(endpoint.mcpRequests[3].body['method'], 'connectanum.tools.list');
     expect(endpoint.mcpRequests[3].consumerTrace, 'io-auth-direct-tools');
-    expect(
-      endpoint.mcpRequests[4].authorization,
-      'Bearer $_ioRefreshedAccessToken',
-    );
-    expect(endpoint.mcpRequests[4].sessionId, isNull);
-    expect(endpoint.mcpRequests[4].body['method'], 'ping');
+    for (final index in [4, 5, 6, 7]) {
+      expect(
+        endpoint.mcpRequests[index].authorization,
+        'Bearer $_ioAccessToken',
+      );
+      expect(endpoint.mcpRequests[index].sessionId, isNull);
+      expect(
+        endpoint.mcpRequests[index].body['method'],
+        'connectanum.tool.call',
+      );
+    }
     expect(
       endpoint.mcpRequests[4].consumerTrace,
+      'io-auth-direct-pubsub-subscribe',
+    );
+    expect(
+      endpoint.mcpRequests[5].consumerTrace,
+      'io-auth-direct-pubsub-publish',
+    );
+    expect(endpoint.mcpRequests[6].consumerTrace, 'io-auth-direct-pubsub-poll');
+    expect(
+      endpoint.mcpRequests[7].consumerTrace,
+      'io-auth-direct-pubsub-unsubscribe',
+    );
+    expect(
+      endpoint.mcpRequests[8].authorization,
+      'Bearer $_ioRefreshedAccessToken',
+    );
+    expect(endpoint.mcpRequests[8].sessionId, isNull);
+    expect(endpoint.mcpRequests[8].body['method'], 'ping');
+    expect(
+      endpoint.mcpRequests[8].consumerTrace,
       'io-auth-refreshed-direct-ping',
     );
     expect(
-      endpoint.mcpRequests[5].authorization,
+      endpoint.mcpRequests[9].authorization,
       'Bearer $_ioRefreshedAccessToken',
     );
-    expect(endpoint.mcpRequests[5].sessionId, isNull);
-    expect(endpoint.mcpRequests[5].body['method'], 'connectanum.tool.call');
+    expect(endpoint.mcpRequests[9].sessionId, isNull);
+    expect(endpoint.mcpRequests[9].body['method'], 'connectanum.tool.call');
     expect(
-      endpoint.mcpRequests[5].consumerTrace,
+      endpoint.mcpRequests[9].consumerTrace,
       'io-auth-refreshed-direct-api-describe',
     );
 
-    final apiDescriptionParams = _jsonMapFrom(
+    final directSubscribeParams = _jsonMapFrom(
+      endpoint.mcpRequests[4].body['params'],
+      label: 'auth direct pubsub subscribe params',
+    );
+    expect(directSubscribeParams['name'], 'connectanum.pubsub.subscribe');
+    expect(
+      _jsonMapFrom(
+        directSubscribeParams['arguments'],
+        label: 'auth direct pubsub subscribe arguments',
+      ),
+      {'topic': _ioTopic, 'queueLimit': 2},
+    );
+
+    final directPublishParams = _jsonMapFrom(
       endpoint.mcpRequests[5].body['params'],
+      label: 'auth direct pubsub publish params',
+    );
+    expect(directPublishParams['name'], 'connectanum.pubsub.publish');
+    expect(
+      _jsonMapFrom(
+        directPublishParams['arguments'],
+        label: 'auth direct pubsub publish arguments',
+      ),
+      {
+        'topic': _ioTopic,
+        'argumentsKeywords': {'message': 'auth-direct'},
+        'acknowledge': true,
+      },
+    );
+
+    final apiDescriptionParams = _jsonMapFrom(
+      endpoint.mcpRequests[9].body['params'],
       label: 'auth direct api describe params',
     );
     expect(apiDescriptionParams['name'], 'connectanum.api.describe');
@@ -2215,6 +2320,7 @@ final class _AuthBackedMcpEndpoint {
   final HttpServer _server;
   final authRequests = <_SeenAuthRequest>[];
   final mcpRequests = <_SeenAuthorizedMcpRequest>[];
+  final _pubsubEvents = <Map<String, Object?>>[];
   late final StreamSubscription<HttpRequest> _subscription;
 
   Uri get authUri => Uri(
@@ -2386,6 +2492,45 @@ final class _AuthBackedMcpEndpoint {
             'procedure': arguments['uri'],
             'title': 'Echo',
             'kind': arguments['kind'],
+          });
+          return;
+        }
+        if (params['name'] == 'connectanum.pubsub.subscribe') {
+          await _writeToolResult(request, jsonBody['id'], <String, Object?>{
+            'handle': _ioSubscriptionHandle,
+            'topic': arguments['topic'],
+            'queueLimit': arguments['queueLimit'],
+            'subscriptionId': 33,
+          });
+          return;
+        }
+        if (params['name'] == 'connectanum.pubsub.publish') {
+          _pubsubEvents.add(<String, Object?>{
+            'argumentsKeywords': arguments['argumentsKeywords'],
+          });
+          await _writeToolResult(request, jsonBody['id'], <String, Object?>{
+            'topic': arguments['topic'],
+            'acknowledged': arguments['acknowledge'] == true,
+            'publicationId': 44,
+          });
+          return;
+        }
+        if (params['name'] == 'connectanum.pubsub.poll') {
+          await _writeToolResult(request, jsonBody['id'], <String, Object?>{
+            'handle': arguments['handle'],
+            'topic': _ioTopic,
+            'events': List<Object?>.from(_pubsubEvents),
+            'dropped': 0,
+            'remaining': 0,
+          });
+          _pubsubEvents.clear();
+          return;
+        }
+        if (params['name'] == 'connectanum.pubsub.unsubscribe') {
+          await _writeToolResult(request, jsonBody['id'], <String, Object?>{
+            'handle': arguments['handle'],
+            'topic': _ioTopic,
+            'unsubscribed': true,
           });
           return;
         }
