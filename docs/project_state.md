@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: Public MCP IO entrypoint auth direct pub/sub smoke coverage.
-Latest fully clean hosted checkpoint: Commit `708c827` on GitHub `master`.
+Last reviewed branch checkpoint: Public MCP IO entrypoint auth revoke/session smoke coverage.
+Latest fully clean hosted checkpoint: Commit `1776f3d` on GitHub `master`.
 Current implementation checkpoint: The public `connectanum_mcp_io.dart`
 package-boundary auth smoke now extends the exported HTTP auth/helper path
 through authenticated direct WAMP pub/sub helpers. The smoke uses the exported
@@ -17,22 +17,40 @@ header, and preserve the client's active Streamable session. The same smoke
 still refreshes the auth grant and creates a second exported
 `McpStreamableHttpClient` from the refreshed bearer token, proving direct
 `pingDirect(...)` and `connectanum.api.describe` metadata access use the
-refreshed credential without creating local session state. Baseline
-`bin/test-fast` passed before the change. Focused local coverage passed on
-2026-05-26 with
+refreshed credential without creating local session state. The smoke now also
+revokes the refreshed access token and proves direct JSON `pingDirect(...)`
+fails with HTTP 401 without capturing Streamable session state, then revokes
+the refreshed refresh token and proves a follow-up HTTP auth refresh fails with
+HTTP 401. Baseline `bin/test-fast` passed before the change. Focused local
+coverage passed on 2026-05-26 with
 `dart analyze packages/connectanum_mcp/test/io_client_export_test.dart`,
 `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
-`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
-Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
-MCP package smokes, client/native transport suites, live WAMP transport
-integration, the router-hosted MCP example smoke, generated consumer-package
-smokes, the full router suite, zero-copy router tests, and the
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not been
-refreshed for this local checkpoint yet; the latest fully clean hosted
-checkpoint remains `708c827`, where GitHub `master` CI run `26430863296`,
-GitHub `add-router` CI run `26430863499`, Dart Package Publish Dry Run runs
-`26430863297` (`master`) and `26430863505` (`add-router`), Router Image dry-run
-`26431248553`, and the strict `master` deployment-chain audit all passed. RC
+`git diff --check`, and
+`python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+client/native transport suites, auth server, live WAMP transport integration,
+router-hosted MCP example smoke, generated consumer-package smokes, full router
+suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence
+has not been refreshed for this local checkpoint yet; the latest fully clean
+hosted checkpoint remains `1776f3d`, where GitHub `master` CI run
+`26432353976`, GitHub `add-router` CI run `26432353963`, Dart Package Publish
+Dry Run runs `26432353975` (`master`) and `26432353962` (`add-router`), Router
+Image dry-run `26432759614`, and the strict `master` deployment-chain audit all
+passed. RC readiness remains not ready until a release-approved numeric RC tag,
+GitHub prerelease, and router image RC tag are created.
+Previous implementation checkpoint: The public `connectanum_mcp_io.dart`
+package-boundary auth smoke extended the exported HTTP auth/helper path through
+authenticated direct WAMP pub/sub helpers. Full local `bin/verify` passed on
+2026-05-26. The commit was pushed to GitHub `master` and `add-router` as
+`1776f3d`; GitHub `master` CI run `26432353976` and GitHub `add-router` CI run
+`26432353963` passed with Fast Checks and Full Verify green. GitHub Dart
+Package Publish Dry Run runs `26432353975` (`master`) and `26432353962`
+(`add-router`) passed. A non-mutating Router Image dry-run `26432759614`
+passed at `1776f3d` with metadata preview `sha-1776f3d67616`, skipped GHCR
+login, and no image push. The strict `master` deployment-chain audit passed
+with clean latest CI/logs, package dry-run, native release dry-run relevance,
+Router Image dry-run, and WAMP profile benchmark relevance at `1776f3d`; RC
 readiness remains not ready until a release-approved numeric RC tag, GitHub
 prerelease, and router image RC tag are created.
 Previous implementation checkpoint: The public `connectanum_mcp_io.dart`

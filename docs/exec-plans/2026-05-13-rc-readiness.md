@@ -79,6 +79,29 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
+  auth smoke to prove exported revoke helpers make revoked credentials fail
+  without creating or mutating Streamable MCP session state. After the refreshed
+  bearer direct `connectanum.api.describe` check, the smoke now revokes the
+  refreshed access token and asserts `pingDirect(...)` fails with HTTP 401
+  while `sessionId` remains unset. It then revokes the refreshed refresh token
+  and asserts a follow-up HTTP auth refresh fails with HTTP 401. Baseline
+  `bin/test-fast` passed before the change. Focused local coverage passed with
+  `dart analyze packages/connectanum_mcp/test/io_client_export_test.dart` and
+  `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+  client/native transport suites, auth server, live WAMP transport integration,
+  router-hosted MCP example smoke, generated consumer-package smokes, full
+  router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
+  smoke. Hosted evidence
+  has not been refreshed for this checkpoint yet; the latest fully clean hosted
+  checkpoint remains `1776f3d` with clean GitHub `master` and `add-router` CI,
+  Dart Package Publish Dry Run, Router Image dry-run, and strict `master`
+  deployment-chain audit evidence. RC readiness remains not ready until a
+  release-approved numeric RC tag, GitHub prerelease, and router image RC tag
+  are created.
+- 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
   auth smoke again to cover authenticated direct WAMP pub/sub helper access
   through the exported IO entrypoint. After obtaining a ticket grant and
   initializing an authenticated Streamable MCP session, the smoke now calls
@@ -96,12 +119,18 @@ decision because `connectanum_client` still depends on private
   `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
   passed on 2026-05-26, including MCP package smokes, generated
   consumer-package smokes, the full router suite, and the Chrome/Dart2Wasm
-  browser WebSocket smoke. Hosted evidence has not been refreshed for this
-  checkpoint yet; the latest fully clean hosted checkpoint remains `708c827`
-  with clean GitHub `master` and `add-router` CI, Dart Package Publish Dry Run,
-  Router Image dry-run, and strict `master` deployment-chain audit evidence. RC
-  readiness remains not ready until a release-approved numeric RC tag, GitHub
-  prerelease, and router image RC tag are created.
+  browser WebSocket smoke. The commit was pushed to GitHub `master` and
+  `add-router` as `1776f3d`; GitHub `master` CI run `26432353976` and GitHub
+  `add-router` CI run `26432353963` passed with Fast Checks and Full Verify
+  green. GitHub Dart Package Publish Dry Run runs `26432353975` (`master`) and
+  `26432353962` (`add-router`) passed. A non-mutating Router Image dry-run
+  `26432759614` passed at `1776f3d` with metadata preview
+  `sha-1776f3d67616`, skipped GHCR login, and no image push. The strict
+  `master` deployment-chain audit passed with clean latest CI/logs, package
+  dry-run, native release dry-run relevance, Router Image dry-run, and WAMP
+  profile benchmark relevance at `1776f3d`. RC readiness remains not ready
+  until a release-approved numeric RC tag, GitHub prerelease, and router image
+  RC tag are created.
 - 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
   auth smoke to prove exported HTTP auth helpers and
   `McpStreamableHttpClient.withAuthGrant(...)` preserve the expected session

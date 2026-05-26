@@ -852,12 +852,46 @@ void main() {
     expect(refreshedMcpClient.sessionId, isNull);
 
     await authClient.revokeToken(
+      refreshed.accessToken,
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-revoke-access',
+      },
+    );
+    try {
+      await refreshedMcpClient.pingDirect(
+        id: 'io-auth-revoked-direct-ping',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-auth-revoked-direct-ping',
+        },
+      );
+      fail('revoked IO auth direct JSON access token was accepted');
+    } on McpStreamableHttpException catch (error) {
+      expect(error.statusCode, HttpStatus.unauthorized);
+      expect(error.body, contains('unauthorized'));
+    }
+    expect(refreshedMcpClient.sessionId, isNull);
+
+    await authClient.revokeToken(
       refreshed.refreshToken!,
       tokenTypeHint: 'refresh_token',
-      headers: const <String, String>{'x-consumer-trace': 'io-auth-revoke'},
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-revoke-refresh',
+      },
     );
+    try {
+      await authClient.refreshToken(
+        refreshed.refreshToken!,
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-auth-refresh-revoked',
+        },
+      );
+      fail('revoked IO auth refresh token was accepted');
+    } on ConnectanumHttpAuthException catch (error) {
+      expect(error.statusCode, HttpStatus.unauthorized);
+      expect(error.body, contains('revoked_refresh_token'));
+    }
 
-    expect(endpoint.authRequests, hasLength(4));
+    expect(endpoint.authRequests, hasLength(6));
     expect(endpoint.authRequests[0].body, {
       'realm': _ioAuthRealm,
       'authmethod': 'ticket',
@@ -873,19 +907,31 @@ void main() {
     });
     expect(endpoint.authRequests[3].body, {
       'grant_type': 'revoke',
+      'token': _ioRefreshedAccessToken,
+    });
+    expect(endpoint.authRequests[4].body, {
+      'grant_type': 'revoke',
       'token': _ioRefreshedRefreshToken,
       'token_type_hint': 'refresh_token',
+    });
+    expect(endpoint.authRequests[5].body, {
+      'grant_type': 'refresh_token',
+      'refresh_token': _ioRefreshedRefreshToken,
     });
     expect(endpoint.authRequests[0].defaultTrace, 'io-auth-default');
     expect(endpoint.authRequests[1].defaultTrace, 'io-auth-default');
     expect(endpoint.authRequests[2].defaultTrace, 'io-auth-default');
     expect(endpoint.authRequests[3].defaultTrace, 'io-auth-default');
+    expect(endpoint.authRequests[4].defaultTrace, 'io-auth-default');
+    expect(endpoint.authRequests[5].defaultTrace, 'io-auth-default');
     expect(endpoint.authRequests[0].consumerTrace, 'io-auth-issue');
     expect(endpoint.authRequests[1].consumerTrace, 'io-auth-issue');
     expect(endpoint.authRequests[2].consumerTrace, 'io-auth-refresh');
-    expect(endpoint.authRequests[3].consumerTrace, 'io-auth-revoke');
+    expect(endpoint.authRequests[3].consumerTrace, 'io-auth-revoke-access');
+    expect(endpoint.authRequests[4].consumerTrace, 'io-auth-revoke-refresh');
+    expect(endpoint.authRequests[5].consumerTrace, 'io-auth-refresh-revoked');
 
-    expect(endpoint.mcpRequests, hasLength(10));
+    expect(endpoint.mcpRequests, hasLength(11));
     expect(endpoint.mcpRequests[0].authorization, 'Bearer $_ioAccessToken');
     expect(endpoint.mcpRequests[0].sessionId, isNull);
     expect(endpoint.mcpRequests[0].body['method'], 'initialize');
@@ -944,6 +990,16 @@ void main() {
     expect(
       endpoint.mcpRequests[9].consumerTrace,
       'io-auth-refreshed-direct-api-describe',
+    );
+    expect(
+      endpoint.mcpRequests[10].authorization,
+      'Bearer $_ioRefreshedAccessToken',
+    );
+    expect(endpoint.mcpRequests[10].sessionId, isNull);
+    expect(endpoint.mcpRequests[10].body['method'], 'ping');
+    expect(
+      endpoint.mcpRequests[10].consumerTrace,
+      'io-auth-revoked-direct-ping',
     );
 
     final directSubscribeParams = _jsonMapFrom(
@@ -2321,6 +2377,8 @@ final class _AuthBackedMcpEndpoint {
   final authRequests = <_SeenAuthRequest>[];
   final mcpRequests = <_SeenAuthorizedMcpRequest>[];
   final _pubsubEvents = <Map<String, Object?>>[];
+  final _revokedAccessTokens = <String>{};
+  final _revokedRefreshTokens = <String>{};
   late final StreamSubscription<HttpRequest> _subscription;
 
   Uri get authUri => Uri(
@@ -2368,7 +2426,17 @@ final class _AuthBackedMcpEndpoint {
 
     switch (jsonBody['grant_type']) {
       case 'refresh_token':
-        expect(jsonBody['refresh_token'], _ioRefreshToken);
+        final refreshToken = jsonBody['refresh_token'];
+        if (_revokedRefreshTokens.contains(refreshToken)) {
+          await _writeJson(request, const <String, Object?>{
+            'error': <String, Object?>{
+              'code': 401,
+              'message': 'revoked_refresh_token',
+            },
+          }, statusCode: HttpStatus.unauthorized);
+          return;
+        }
+        expect(refreshToken, _ioRefreshToken);
         await _writeJson(request, <String, Object?>{
           'status': 'ok',
           'token_type': 'Bearer',
@@ -2381,7 +2449,14 @@ final class _AuthBackedMcpEndpoint {
         });
         return;
       case 'revoke':
-        expect(jsonBody['token'], _ioRefreshedRefreshToken);
+        final token = jsonBody['token'];
+        expect(token, anyOf(_ioRefreshedAccessToken, _ioRefreshedRefreshToken));
+        if (token == _ioRefreshedAccessToken) {
+          _revokedAccessTokens.add(token as String);
+        }
+        if (token == _ioRefreshedRefreshToken) {
+          _revokedRefreshTokens.add(token as String);
+        }
         await _writeJson(request, const <String, Object?>{'status': 'revoked'});
         return;
       case null:
@@ -2426,8 +2501,17 @@ final class _AuthBackedMcpEndpoint {
     final authorization = request.headers.value(
       HttpHeaders.authorizationHeader,
     );
+    final bearerToken = authorization?.startsWith('Bearer ') == true
+        ? authorization!.substring('Bearer '.length)
+        : null;
     if (authorization != 'Bearer $_ioAccessToken' &&
         authorization != 'Bearer $_ioRefreshedAccessToken') {
+      await _writeJson(request, const <String, Object?>{
+        'error': <String, Object?>{'code': 401, 'message': 'unauthorized'},
+      }, statusCode: HttpStatus.unauthorized);
+      return;
+    }
+    if (bearerToken != null && _revokedAccessTokens.contains(bearerToken)) {
       await _writeJson(request, const <String, Object?>{
         'error': <String, Object?>{'code': 401, 'message': 'unauthorized'},
       }, statusCode: HttpStatus.unauthorized);
