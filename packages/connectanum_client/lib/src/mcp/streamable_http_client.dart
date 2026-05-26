@@ -50,6 +50,21 @@ void _validateJsonRpcVersion(McpJsonMap message, {required String label}) {
 
 Object? _validateJsonRpcRequestId(McpJsonMap message, {required String label}) {
   _validateJsonRpcVersion(message, label: label);
+  final method = message['method'];
+  if (method is! String) {
+    throw FormatException('JSON-RPC $label method must be a string');
+  }
+  if (message.containsKey('result') || message.containsKey('error')) {
+    throw FormatException('JSON-RPC $label must not contain result or error');
+  }
+  if (message.containsKey('params')) {
+    final params = message['params'];
+    if (params is! Map && params is! List) {
+      throw FormatException(
+        'JSON-RPC $label params must be an object or array',
+      );
+    }
+  }
   if (!message.containsKey('id')) {
     return null;
   }
