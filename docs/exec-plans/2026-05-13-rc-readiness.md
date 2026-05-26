@@ -79,6 +79,28 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
+  auth smoke to prove exported HTTP auth helpers and
+  `McpStreamableHttpClient.withAuthGrant(...)` preserve the expected session
+  boundaries across stateful Streamable HTTP and direct JSON helper use. The
+  smoke obtains a ticket grant through the exported `ConnectanumHttpAuthClient`,
+  initializes an authenticated Streamable MCP session, verifies a
+  session-bound `ping(...)`, then sends an authenticated `pingDirect(...)`
+  through the same client and asserts that the direct JSON request has no
+  `MCP-Session-Id` header while the client's active Streamable session remains
+  intact. The same smoke refreshes the auth grant and creates a second exported
+  `McpStreamableHttpClient` from the refreshed bearer token, proving direct
+  JSON helper access uses the refreshed credential without creating local
+  session state. Baseline `bin/test-fast` passed before the change. Focused
+  local coverage passed with
+  `dart analyze packages/connectanum_mcp/test/io_client_export_test.dart`,
+  `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-26, including MCP package smokes, generated
+  consumer-package smokes, the full router suite, and the Chrome/Dart2Wasm
+  browser WebSocket smoke. Hosted evidence has not yet been refreshed for this
+  checkpoint; the latest fully clean hosted checkpoint remains `594fa71`.
+- 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
   smoke to prove stateful Streamable HTTP `postBatch(...)` requests can mix
   direct dotted `connectanum.pubsub.*` and `connectanum.api.*` methods through
   the exported `McpStreamableHttpClient` surface. The test fixture now returns
@@ -91,10 +113,16 @@ decision because `connectanum_client` still depends on private
   `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`.
   Full local `bin/verify` passed on 2026-05-26, including MCP package smokes,
   generated consumer-package smokes, the full router suite, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. This checkpoint is local pending
-  push and hosted evidence; the latest fully clean hosted checkpoint remains
-  `a803d9e`. RC readiness remains not ready until a release-approved numeric
-  RC tag, GitHub prerelease, and router image RC tag are created.
+  Chrome/Dart2Wasm browser WebSocket smoke. The commit was pushed to GitHub
+  `master` and `add-router` as `594fa71`; GitHub `master` CI run
+  `26427902479` and GitHub `add-router` CI run `26427900037` passed with Fast
+  Checks and Full Verify green. GitHub Dart Package Publish Dry Run runs
+  `26427902478` (`master`) and `26427900040` (`add-router`) passed. A
+  non-mutating Router Image dry-run `26428304280` passed at `594fa71`, and the
+  strict `master` deployment-chain audit passed with clean latest CI/logs,
+  package dry-run, and Router Image dry-run evidence at `594fa71`. RC
+  readiness remains not ready until a release-approved numeric RC tag, GitHub
+  prerelease, and router image RC tag are created.
 - 2026-05-26: Extended the generated router-hosted MCP consumer-package smoke
   again to cover stateful Streamable direct WAMP API/pubsub batches through
   dotted JSON-RPC methods, not only `tools/call` wrappers or lifecycle-free

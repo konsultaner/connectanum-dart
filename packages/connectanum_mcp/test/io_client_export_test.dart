@@ -741,6 +741,16 @@ void main() {
       headers: const <String, String>{'x-consumer-trace': 'io-auth-ping'},
     );
     expect(ping, isEmpty);
+    expect(mcpClient.sessionId, _ioAuthSessionId);
+
+    final directPing = await mcpClient.pingDirect(
+      id: 'io-auth-direct-ping',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-direct-ping',
+      },
+    );
+    expect(directPing, isEmpty);
+    expect(mcpClient.sessionId, _ioAuthSessionId);
 
     final refreshed = await authClient.refreshToken(
       grant.refreshToken!,
@@ -748,6 +758,20 @@ void main() {
     );
     expect(refreshed.accessToken, _ioRefreshedAccessToken);
     expect(refreshed.refreshToken, _ioRefreshedRefreshToken);
+
+    final refreshedMcpClient = McpStreamableHttpClient.withAuthGrant(
+      endpoint.mcpUri,
+      refreshed,
+    );
+    addTearDown(() => refreshedMcpClient.close(force: true));
+    final refreshedDirectPing = await refreshedMcpClient.pingDirect(
+      id: 'io-auth-refreshed-direct-ping',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-refreshed-direct-ping',
+      },
+    );
+    expect(refreshedDirectPing, isEmpty);
+    expect(refreshedMcpClient.sessionId, isNull);
 
     await authClient.revokeToken(
       refreshed.refreshToken!,
@@ -783,7 +807,7 @@ void main() {
     expect(endpoint.authRequests[2].consumerTrace, 'io-auth-refresh');
     expect(endpoint.authRequests[3].consumerTrace, 'io-auth-revoke');
 
-    expect(endpoint.mcpRequests, hasLength(2));
+    expect(endpoint.mcpRequests, hasLength(4));
     expect(endpoint.mcpRequests[0].authorization, 'Bearer $_ioAccessToken');
     expect(endpoint.mcpRequests[0].sessionId, isNull);
     expect(endpoint.mcpRequests[0].body['method'], 'initialize');
@@ -791,6 +815,20 @@ void main() {
     expect(endpoint.mcpRequests[1].sessionId, _ioAuthSessionId);
     expect(endpoint.mcpRequests[1].body['method'], 'ping');
     expect(endpoint.mcpRequests[1].consumerTrace, 'io-auth-ping');
+    expect(endpoint.mcpRequests[2].authorization, 'Bearer $_ioAccessToken');
+    expect(endpoint.mcpRequests[2].sessionId, isNull);
+    expect(endpoint.mcpRequests[2].body['method'], 'ping');
+    expect(endpoint.mcpRequests[2].consumerTrace, 'io-auth-direct-ping');
+    expect(
+      endpoint.mcpRequests[3].authorization,
+      'Bearer $_ioRefreshedAccessToken',
+    );
+    expect(endpoint.mcpRequests[3].sessionId, isNull);
+    expect(endpoint.mcpRequests[3].body['method'], 'ping');
+    expect(
+      endpoint.mcpRequests[3].consumerTrace,
+      'io-auth-refreshed-direct-ping',
+    );
   });
 
   test(
@@ -2225,8 +2263,11 @@ final class _AuthBackedMcpEndpoint {
     final jsonBody = _jsonMapFrom(jsonDecode(body), label: 'mcp request');
     mcpRequests.add(_SeenAuthorizedMcpRequest.from(request, jsonBody));
 
-    if (request.headers.value(HttpHeaders.authorizationHeader) !=
-        'Bearer $_ioAccessToken') {
+    final authorization = request.headers.value(
+      HttpHeaders.authorizationHeader,
+    );
+    if (authorization != 'Bearer $_ioAccessToken' &&
+        authorization != 'Bearer $_ioRefreshedAccessToken') {
       await _writeJson(request, const <String, Object?>{
         'error': <String, Object?>{'code': 401, 'message': 'unauthorized'},
       }, statusCode: HttpStatus.unauthorized);
@@ -2250,7 +2291,10 @@ final class _AuthBackedMcpEndpoint {
         });
         return;
       case 'ping':
-        expect(request.headers.value('MCP-Session-Id'), _ioAuthSessionId);
+        final sessionId = request.headers.value('MCP-Session-Id');
+        if (sessionId != null) {
+          expect(sessionId, _ioAuthSessionId);
+        }
         await _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
           'id': jsonBody['id'],

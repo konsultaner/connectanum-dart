@@ -2,9 +2,32 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: Public MCP IO entrypoint Streamable direct dotted batch smoke coverage.
-Latest fully clean hosted checkpoint: Commit `a803d9e` on GitHub `master`.
+Last reviewed branch checkpoint: Public MCP IO entrypoint auth direct JSON session smoke coverage.
+Latest fully clean hosted checkpoint: Commit `594fa71` on GitHub `master`.
 Current implementation checkpoint: The public `connectanum_mcp_io.dart`
+package-boundary auth smoke now proves exported HTTP auth helpers and
+`McpStreamableHttpClient.withAuthGrant(...)` preserve the expected session
+boundaries across stateful Streamable HTTP and direct JSON use. The smoke uses
+the exported `ConnectanumHttpAuthClient` to obtain a ticket grant, initializes
+an authenticated Streamable MCP session, verifies a session-bound `ping(...)`,
+then sends an authenticated `pingDirect(...)` through the same client and
+asserts the direct JSON request has no `MCP-Session-Id` header while the
+client's active Streamable session remains intact. The same smoke refreshes
+the auth grant and creates a second exported `McpStreamableHttpClient` from the
+refreshed bearer token, proving direct JSON helper access uses the refreshed
+credential without creating local session state. Baseline `bin/test-fast`
+passed before the change. Focused local coverage passed on 2026-05-26 with
+`dart analyze packages/connectanum_mcp/test/io_client_export_test.dart`,
+`dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
+`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
+MCP package smokes, client/native transport suites, live WAMP transport
+integration, the router-hosted MCP example smoke, generated consumer-package
+smokes, the full router suite, zero-copy router tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not yet been
+refreshed for this local checkpoint; the latest fully clean hosted checkpoint
+remains `594fa71`.
+Previous implementation checkpoint: The public `connectanum_mcp_io.dart`
 package-boundary smoke now proves stateful Streamable HTTP `postBatch(...)`
 requests can mix direct dotted `connectanum.pubsub.*` and `connectanum.api.*`
 methods through the exported `McpStreamableHttpClient` surface. The fixture
@@ -19,9 +42,17 @@ Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, live WAMP transport
 integration, the router-hosted MCP example smoke, generated consumer-package
 smokes, the full router suite, zero-copy router tests, and the
-Chrome/Dart2Wasm browser WebSocket smoke. This checkpoint is local pending
-push and hosted evidence; the latest fully clean hosted checkpoint remains
-`a803d9e`.
+Chrome/Dart2Wasm browser WebSocket smoke. The commit was pushed to GitHub
+`master` and `add-router` as `594fa71`; GitHub `master` CI run `26427902479`
+and GitHub `add-router` CI run `26427900037` passed with Fast Checks and Full
+Verify green. GitHub Dart Package Publish Dry Run runs `26427902478`
+(`master`) and `26427900040` (`add-router`) passed. A non-mutating Router
+Image dry-run `26428304280` passed at `594fa71` with metadata preview upload,
+skipped GHCR login, and no image push. The strict `master` deployment-chain
+audit passed with clean latest CI/logs, package dry-run, and Router Image
+dry-run evidence at `594fa71`; hosted WAMP Profile Benchmarks `26423773849`
+remain clean and relevant from `eb2ae2a` because this checkpoint changed no
+WAMP profile benchmark-sensitive inputs.
 Previous implementation checkpoint: Router-hosted Streamable HTTP MCP proved
 stateful direct JSON-RPC batches with dotted WAMP API/pubsub methods over the
 active Streamable HTTP session. The generated consumer package smoke posts
@@ -14163,7 +14194,7 @@ at the older `47bbf9c` commit.
   consumer-package smoke to prove stateful direct Streamable WAMP API and
   pub/sub method calls, and now proves the public `connectanum_mcp_io.dart`
   entrypoint can use stateful direct dotted-method batches with exported APIs.
-  The latest fully clean hosted checkpoint is `a803d9e` on GitHub `master`,
+  The latest fully clean hosted checkpoint is `594fa71` on GitHub `master`,
   including CI, package dry-run, WAMP profile benchmark, Router Image dry-run,
   and strict deployment-chain audit evidence.
 - Historical paused plan:
