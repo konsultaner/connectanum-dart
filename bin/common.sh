@@ -13987,6 +13987,69 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
     method: 'direct JSON batch WAMP meta/pubsub',
     acceptedMessage: acceptedMessage,
   );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listResourcesDirect(
+        id: '$label-rejected-direct-resources',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON resources/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.readResourceDirect(
+        _resourceUri,
+        id: '$label-rejected-direct-resource-read',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON resources/read',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listResourceTemplatesDirect(
+        id: '$label-rejected-direct-resource-templates',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON resources/templates/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.listPromptsDirect(
+        id: '$label-rejected-direct-prompts',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON prompts/list',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.getPromptDirect(
+        _promptName,
+        id: '$label-rejected-direct-prompt-get',
+        arguments: {'taskId': 'T-$label-rejected-direct-prompt-get'},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON prompts/get',
+    acceptedMessage: acceptedMessage,
+  );
   await _assertActiveStreamableRequestRejectsBearer(
     client,
     () async {
