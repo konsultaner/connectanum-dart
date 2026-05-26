@@ -2,9 +2,26 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: HTTP auth refresh/revoke token validation.
+Last reviewed branch checkpoint: GitHub Actions status audit visibility.
 Latest fully clean hosted checkpoint: Commit `4ce9673` on GitHub `master`.
-Current implementation checkpoint: The public HTTP auth bridge client now trims
+Current implementation checkpoint: `bin/audit-github-deployment-chain` now
+prints a best-effort GitHub Actions service-status section from the public
+GitHub Status summary before evaluating checked-in workflow visibility and
+hosted runs. This makes deployment-chain stale-evidence failures easier to
+triage when GitHub Actions cannot start or list new workflow runs. Baseline
+`bin/test-fast` passed before the change. Focused local coverage passed on
+2026-05-26 with `bash -n bin/audit-github-deployment-chain` and
+`python3 -m unittest tool.test_audit_github_deployment_chain`. Full local
+`bin/verify` passed on 2026-05-26, including formatting, Rust/FFI, MCP package
+smokes, client/native transport suites, auth server, live WAMP transport
+integration, router-hosted MCP example smoke, generated consumer-package
+smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke. A live strict
+`master` deployment-chain audit after the change reported GitHub Status
+`major` / Actions `major_outage` for "Incident with Actions and Pages" and
+still failed because CI/log/package dry-run evidence was stale for the
+then-checked-out head `57cd452`.
+Previous implementation checkpoint: The public HTTP auth bridge client now trims
 refresh/revoke tokens at the boundary but rejects empty values and tokens that
 still contain whitespace, control characters, or DEL before sending JSON auth
 requests. This aligns refresh/revoke token validation with MCP bearer-token
@@ -19,9 +36,13 @@ Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not been
-refreshed for this local checkpoint yet; the latest fully clean hosted
-checkpoint remains `4ce9673`.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `57cd452` was pushed to
+GitHub `master` and `add-router`, but hosted evidence is currently blocked by
+GitHub Actions degraded service: no workflow runs appeared for `57cd452`, both
+manual `CI` and `Dart Package Publish Dry Run` workflow dispatch attempts
+failed with HTTP 500, and the strict `master` deployment-chain audit failed
+because CI/log/package dry-run evidence is still stale for the checked-out
+head. The latest fully clean hosted checkpoint remains `4ce9673`.
 Previous implementation checkpoint: The generated MCP consumer package smoke now
 proves consumer code can use a plain `McpStreamableHttpClient` with lowercase
 `authorization: bearer ...` headers issued by the HTTP auth bridge against

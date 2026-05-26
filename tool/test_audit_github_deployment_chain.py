@@ -60,6 +60,26 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn("Enforce admins: false", result.stdout)
         self.assertIn("Admin bypass allowed: true", result.stdout)
 
+    def test_github_actions_status_reports_degraded_component(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_audit(
+            current_head,
+            github_actions_status="degraded_performance",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("## GitHub Actions Service Status", result.stdout)
+        self.assertIn(
+            "GitHub Actions component: degraded_performance",
+            result.stdout,
+        )
+        self.assertIn(
+            "GitHub Actions incident: Incident with Actions and Pages "
+            "(investigating)",
+            result.stdout,
+        )
+
     def test_wamp_profile_benchmarks_accepts_stale_run_when_inputs_unchanged(
         self,
     ) -> None:
@@ -549,6 +569,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         ci_head: str,
         gate: str = "--require-clean-latest-ci",
         branch: str = "add-router",
+        github_actions_status: str = "operational",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -690,6 +711,13 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     set -euo pipefail
 
                     case "$*" in
+                      *githubstatus.com*)
+                        if [[ "${FAKE_GITHUB_ACTIONS_STATUS:-operational}" == "degraded_performance" ]]; then
+                          printf '{"status":{"indicator":"minor","description":"Partially Degraded Service"},"components":[{"name":"Actions","status":"degraded_performance"}],"incidents":[{"name":"Incident with Actions and Pages","status":"investigating","components":[{"name":"Actions","status":"degraded_performance"}]}]}'
+                        else
+                          printf '{"status":{"indicator":"none","description":"All Systems Operational"},"components":[{"name":"Actions","status":"operational"}],"incidents":[]}'
+                        fi
+                        ;;
                       *ghcr.io/token*)
                         printf '{"token":"fake-token"}'
                         ;;
@@ -713,6 +741,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env["FAKE_CI_HEAD"] = ci_head
             env["FAKE_BRANCH_HEAD"] = ci_head
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
+            env["FAKE_GITHUB_ACTIONS_STATUS"] = github_actions_status
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
 
             return subprocess.run(

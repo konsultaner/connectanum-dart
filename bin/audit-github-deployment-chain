@@ -102,6 +102,7 @@ USAGE
 repository="${GITHUB_REPOSITORY:-konsultaner/connectanum-dart}"
 branch=""
 dart_package_publish_dry_run_bin="${DART_PACKAGE_PUBLISH_DRY_RUN_BIN:-bin/dart-package-publish-dry-run}"
+github_status_api_url="${GITHUB_STATUS_API_URL:-https://www.githubstatus.com/api/v2/summary.json}"
 run_limit=6
 strict=0
 check_clean_latest_ci=0
@@ -330,6 +331,68 @@ api_jq_optional() {
 
 lowercase() {
   printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+github_actions_service_status() {
+  local status_json
+
+  if ! command -v curl >/dev/null 2>&1; then
+    printf 'GitHub Status: not checked (curl unavailable).\n'
+    return 0
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    printf 'GitHub Status: not checked (python3 unavailable).\n'
+    return 0
+  fi
+
+  if ! status_json="$(curl -fsSL "$github_status_api_url" 2>/dev/null)"; then
+    printf 'GitHub Status: unavailable (status API lookup failed).\n'
+    return 0
+  fi
+
+  if ! GITHUB_STATUS_JSON="$status_json" python3 - <<'PY'
+import json
+import os
+import sys
+
+try:
+    data = json.loads(os.environ["GITHUB_STATUS_JSON"])
+except Exception:
+    sys.exit(1)
+
+status = data.get("status") or {}
+indicator = status.get("indicator") or "unknown"
+description = status.get("description") or "unknown"
+print(f"GitHub Status: {indicator} ({description})")
+
+actions_component = None
+for component in data.get("components") or []:
+    if component.get("name") == "Actions":
+        actions_component = component
+        break
+
+if actions_component is None:
+    print("GitHub Actions component: unknown")
+else:
+    print(f"GitHub Actions component: {actions_component.get('status') or 'unknown'}")
+
+actions_incidents = []
+for incident in data.get("incidents") or []:
+    components = incident.get("components") or []
+    if any(component.get("name") == "Actions" for component in components):
+        name = incident.get("name") or "unnamed incident"
+        state = incident.get("status") or "unknown"
+        actions_incidents.append(f"{name} ({state})")
+
+if actions_incidents:
+    print(f"GitHub Actions incident: {actions_incidents[0]}")
+else:
+    print("GitHub Actions incident: none")
+PY
+  then
+    printf 'GitHub Status: unavailable (status API response could not be parsed).\n'
+  fi
 }
 
 ghcr_registry_pull_token() {
@@ -2345,6 +2408,9 @@ printf '\n## Active Workflows\n\n'
 api_jq_optional \
   "actions/workflows" \
   '.workflows[] | "- \(.name): \(.state) (\(.path))"'
+
+printf '\n## GitHub Actions Service Status\n\n'
+github_actions_service_status
 
 printf '\n## Checked-In Workflow Visibility\n\n'
 

@@ -78,6 +78,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Added a best-effort GitHub Actions service-status section to
+  `bin/audit-github-deployment-chain`. The audit now queries the public GitHub
+  Status summary and prints the overall status, Actions component status, and
+  any active Actions incident before evaluating checked-in workflow visibility
+  and hosted runs, so stale CI evidence caused by a GitHub Actions outage is
+  visible in the release audit output itself. Baseline `bin/test-fast` passed
+  before the change. Focused local coverage passed with
+  `bash -n bin/audit-github-deployment-chain` and
+  `python3 -m unittest tool.test_audit_github_deployment_chain`. Full local
+  `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI, MCP
+  package smokes, client/native transport suites, auth server, live WAMP
+  transport integration, router-hosted MCP example smoke, generated
+  consumer-package smokes, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. A live strict
+  `master` deployment-chain audit after the change reported GitHub Status
+  `major` / Actions `major_outage` for "Incident with Actions and Pages" and
+  still failed because CI/log/package dry-run evidence was stale for the
+  then-checked-out head `57cd452`.
 - 2026-05-26: Hardened the public HTTP auth bridge client's refresh/revoke
   token handling for downstream MCP/auth session flows. Refresh and revoke
   tokens are still trimmed at the boundary, but empty values and values that
@@ -93,9 +111,14 @@ decision because `connectanum_client` still depends on private
   MCP package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not been
-  refreshed for this local checkpoint yet; the latest fully clean hosted
-  checkpoint remains `4ce9673`.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `57cd452` was pushed to
+  GitHub `master` and `add-router`, but hosted evidence is currently blocked by
+  GitHub Actions degraded service: no workflow runs appeared for `57cd452`,
+  both manual `CI` and `Dart Package Publish Dry Run` workflow dispatch
+  attempts failed with HTTP 500, and the strict `master` deployment-chain audit
+  failed because CI/log/package dry-run evidence is still stale for the
+  checked-out head. The latest fully clean hosted checkpoint remains
+  `4ce9673`.
 - 2026-05-26: Extended the generated MCP consumer package smoke to prove
   consumer code can use a plain `McpStreamableHttpClient` with lowercase
   `authorization: bearer ...` headers issued by the HTTP auth bridge against
