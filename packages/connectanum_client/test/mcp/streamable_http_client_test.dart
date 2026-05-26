@@ -1179,6 +1179,36 @@ void main() {
       );
     });
 
+    test(
+      'rejects bearer tokens with whitespace or control characters',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        for (final token in <String>[
+          'bad token',
+          'bad\ttoken',
+          'bad\ntoken',
+          'bad\u0000token',
+        ]) {
+          expect(
+            () => McpStreamableHttpClient.withBearerToken(endpoint.uri, token),
+            throwsArgumentError,
+          );
+        }
+        expect(
+          () => McpStreamableHttpClient.withAuthGrant(
+            endpoint.uri,
+            const ConnectanumHttpAuthGrant(
+              accessToken: 'grant token',
+              tokenType: 'Bearer',
+            ),
+          ),
+          throwsArgumentError,
+        );
+      },
+    );
+
     test('creates bearer clients from HTTP auth grants', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);

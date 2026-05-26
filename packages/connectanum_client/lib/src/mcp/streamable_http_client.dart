@@ -96,11 +96,16 @@ final class McpStreamableHttpClient {
     String bearerToken,
   ) {
     final token = bearerToken.trim();
-    if (token.isEmpty) {
+    final hasInvalidTokenCharacter = token.codeUnits.any(
+      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
+    );
+    if (token.isEmpty || hasInvalidTokenCharacter) {
       throw ArgumentError.value(
         bearerToken,
         'bearerToken',
-        'Bearer token must not be empty.',
+        token.isEmpty
+            ? 'Bearer token must not be empty.'
+            : 'Bearer token must not contain whitespace or control characters.',
       );
     }
     return <String, String>{

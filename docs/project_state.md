@@ -2,9 +2,31 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP consumer auth/session smoke coverage.
-Latest fully clean hosted checkpoint: Commit `638a243` on GitHub `master`.
-Current implementation checkpoint: The generated MCP consumer package smoke now
+Last reviewed branch checkpoint: MCP Streamable HTTP bearer-token validation hardening.
+Latest fully clean hosted checkpoint: Commit `cd35952` on GitHub `master`.
+Current implementation checkpoint: The public `McpStreamableHttpClient`
+bearer-token constructors now reject tokens containing whitespace or control
+characters after the existing outer-whitespace trim. The guard applies to both
+`McpStreamableHttpClient.withBearerToken(...)` and
+`McpStreamableHttpClient.withAuthGrant(...)` before an `Authorization: Bearer`
+header is created, while preserving the existing behavior that accepts grants
+with harmless leading/trailing whitespace. The regression test covers space,
+tab, newline, and NUL-containing tokens for direct bearer construction and the
+auth-grant path. Baseline `bin/test-fast` passed before the change. Focused
+local coverage passed on 2026-05-26 with
+`dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+Full local `bin/verify` passed on 2026-05-26 after clearing a transient local
+native-runtime lock overlap from an earlier verification attempt; the clean run
+included formatting, Rust/FFI, MCP package smokes, client/native transport
+suites, auth server, live WAMP transport integration, router-hosted MCP example
+smoke, generated consumer-package smokes, full router suite, zero-copy router
+tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not
+been refreshed for this local checkpoint yet; the latest fully clean hosted
+checkpoint remains `cd35952`.
+Previous implementation checkpoint: The generated MCP consumer package smoke now
 proves router-hosted bearer-protected MCP endpoints reject rotated and revoked
 access tokens for direct JSON lifecycle/meta calls without destroying active
 Streamable HTTP session state. During both invalid-token phases, an initialized
@@ -23,8 +45,17 @@ passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
 client/native transport suites, auth server, live WAMP transport integration,
 router-hosted MCP example smoke, generated consumer-package smokes, full router
 suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence has not been refreshed for this local checkpoint yet; the latest
-fully clean hosted checkpoint remains `638a243`.
+Commit `cd35952` was pushed to GitHub `master` and `add-router`; GitHub
+`master` CI run `26437158066` and GitHub `add-router` CI run `26437158075`
+passed with Fast Checks and Full Verify green. The strict `master`
+deployment-chain audit passed against `cd35952`, with clean latest CI jobs,
+clean CI logs, and relevant clean hosted evidence for Dart Package Publish Dry
+Run `26433844437`, Router Image dry-run `26434291709`, Native Artifacts dry-run
+`26396437881`, and WAMP Profile Benchmarks run `26423773849`. The Dart package
+and router-image dry-runs remain relevant because this checkpoint did not
+change publish-sensitive or router-image-sensitive inputs. RC readiness remains
+not ready until a release-approved numeric RC tag, GitHub prerelease, and
+router image RC tag are created.
 Previous implementation checkpoint: The generated MCP consumer package smoke
 proves router-hosted bearer-protected MCP endpoints reject rotated and revoked
 access tokens across the direct JSON resource/prompt helper surface without
