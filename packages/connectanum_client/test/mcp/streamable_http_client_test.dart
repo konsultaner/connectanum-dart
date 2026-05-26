@@ -506,6 +506,92 @@ void main() {
       },
     );
 
+    test('rejects unexpected JSON-RPC single response ids from JSON', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.post(
+          {'jsonrpc': '2.0', 'id': 'tools-request', 'method': 'tools/list'},
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-json-response-id': 'other-response',
+          },
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('unexpected response id other-response'),
+          ),
+        ),
+      );
+
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
+    test(
+      'rejects unexpected JSON-RPC single response ids from Streamable HTTP SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        await expectLater(
+          client.request(
+            'tools/list',
+            id: 'tools-after-extra-response',
+            headers: const <String, String>{'x-test-sse-extra-response': '1'},
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('unexpected response id other-response'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'keeps Streamable HTTP SSE server requests before matching responses',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        final response = await client.request(
+          'tools/list',
+          id: 'tools-after-server-request',
+          headers: const <String, String>{
+            'x-test-sse-server-request-before-response': '1',
+          },
+        );
+
+        expect(response['id'], 'tools-after-server-request');
+        expect(response['result'], containsPair('tools', isEmpty));
+        expect(client.lastEventId, 'session-1:post:3');
+      },
+    );
+
     test('clears the resume cursor when SSE sends an empty id', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -4484,6 +4570,15 @@ final class _FakeMcpEndpoint {
       _writeJsonValue(request, const <Object?>[]);
       return;
     }
+    final testJsonResponseId = request.headers.value('x-test-json-response-id');
+    if (testJsonResponseId != null) {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': testJsonResponseId,
+        'result': <String, Object?>{'tools': <Object?>[]},
+      });
+      return;
+    }
 
     if (method == 'connectanum.tools.list') {
       _writeJson(request, <String, Object?>{
@@ -4874,6 +4969,31 @@ final class _FakeMcpEndpoint {
           'id: session-1:post:1\n'
           'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n'
           'id:\n'
+          'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
+        );
+        return;
+      }
+      if (request.headers.value('x-test-sse-extra-response') == '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:1\n'
+          'data: {"jsonrpc":"2.0","id":"other-response","result":{"tools":[]}}\n\n'
+          'id: session-1:post:2\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n'
+          'id: session-1:post:3\n'
+          'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
+        );
+        return;
+      }
+      if (request.headers.value('x-test-sse-server-request-before-response') ==
+          '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:1\n'
+          'data: {"jsonrpc":"2.0","id":"server-request","method":"sampling/createMessage","params":{"messages":[]}}\n\n'
+          'id: session-1:post:2\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n'
+          'id: session-1:post:3\n'
           'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
         );
         return;

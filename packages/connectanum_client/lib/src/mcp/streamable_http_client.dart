@@ -71,6 +71,11 @@ void _validateJsonRpcBatchRequestIds(List<McpJsonMap> messages) {
   }
 }
 
+bool _jsonRpcMessageIsResponse(Object? value) {
+  return value is Map &&
+      (value.containsKey('result') || value.containsKey('error'));
+}
+
 /// Minimal Dart IO client for MCP Streamable HTTP endpoints.
 ///
 /// The client keeps the negotiated MCP session headers and SSE cursor so
@@ -1027,7 +1032,17 @@ final class McpStreamableHttpClient {
       if (responseValue == null) {
         throw const FormatException('JSON-RPC response was not returned');
       }
-      _jsonMapFrom(responseValue, label: 'JSON-RPC response');
+      final response = _jsonMapFrom(responseValue, label: 'JSON-RPC response');
+      if (!response.containsKey('id')) {
+        throw const FormatException('JSON-RPC response must include an id');
+      }
+      final expectedResponseId = requestPayload['id'];
+      final responseId = response['id'];
+      if (responseId != expectedResponseId) {
+        throw FormatException(
+          'JSON-RPC response contained unexpected response id $responseId',
+        );
+      }
       return;
     }
 
@@ -1289,12 +1304,32 @@ final class McpStreamableHttpClient {
         return null;
       }
       final requestId = requestPayload['id'];
-      for (final response in _jsonRpcResponseValues(values)) {
-        if (_jsonRpcResponseIdMatches(response, requestId)) {
-          return response;
+      Object? matchingResponse;
+      for (final responseValue in _jsonRpcResponseValues(values)) {
+        if (!_jsonRpcMessageIsResponse(responseValue)) {
+          continue;
         }
+        final response = _jsonMapFrom(
+          responseValue,
+          label: 'JSON-RPC response',
+        );
+        if (!response.containsKey('id')) {
+          throw const FormatException('JSON-RPC response must include an id');
+        }
+        if (!_jsonRpcResponseIdMatches(response, requestId)) {
+          throw FormatException(
+            'JSON-RPC response contained unexpected response id '
+            '${response['id']}',
+          );
+        }
+        if (matchingResponse != null) {
+          throw FormatException(
+            'JSON-RPC response contained duplicate response for id $requestId',
+          );
+        }
+        matchingResponse = response;
       }
-      return null;
+      return matchingResponse;
     }
 
     if (requestPayload is List) {
