@@ -119,6 +119,26 @@ void main() {
       expect(error['code'], McpErrorCodes.invalidRequest);
     });
 
+    test('rejects null JSON-RPC request ids', () async {
+      final server = _server();
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': null,
+        'method': 'initialize',
+        'params': {
+          'protocolVersion': mcpLatestProtocolVersion,
+          'capabilities': {},
+          'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
+        },
+      });
+
+      final error = response?['error'] as Map<String, Object?>;
+      expect(response?['id'], isNull);
+      expect(error['code'], McpErrorCodes.invalidRequest);
+      expect(error['message'], contains('string or number'));
+    });
+
     test('handles JSON-RPC batches and omits notification responses', () async {
       final server = _server();
       await _initializeAndStart(server);

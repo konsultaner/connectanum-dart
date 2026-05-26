@@ -2712,10 +2712,10 @@ _DirectJsonRequest _directJsonRequestFrom(Object? rawMessage) {
   }
   final hasId = message.containsKey('id');
   final id = hasId ? message['id'] : null;
-  if (hasId && !mcp.isJsonRpcId(id)) {
+  if (hasId && !mcp.isJsonRpcRequestId(id)) {
     throw mcp.McpException(
       mcp.McpErrorCodes.invalidRequest,
-      'JSON-RPC id must be a string, number, or null',
+      'JSON-RPC id must be a string or number',
     );
   }
   return _DirectJsonRequest(

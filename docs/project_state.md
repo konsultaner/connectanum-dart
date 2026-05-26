@@ -2,9 +2,29 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: GitHub Actions status audit visibility.
+Last reviewed branch checkpoint: MCP null JSON-RPC request-id enforcement.
 Latest fully clean hosted checkpoint: Commit `4ce9673` on GitHub `master`.
-Current implementation checkpoint: `bin/audit-github-deployment-chain` now
+Current implementation checkpoint: MCP JSON-RPC request parsing now rejects
+present-but-null request IDs in both the standalone MCP server and
+router-hosted MCP direct JSON ingress, while preserving `null` error-response
+IDs for invalid or unknown incoming IDs. The shared protocol helper now exposes
+`isJsonRpcRequestId` for request parsing separately from `isJsonRpcId`, which
+remains usable for recovered error-response IDs. Regression coverage pins a
+standalone `initialize` request with `id: null` and a router-hosted `/mcp`
+direct JSON `tools/list` request with `id: null`; both return
+`invalid_request` with a null response ID, and the router path does not allocate
+an MCP session header. Baseline `bin/test-fast` passed before the change.
+Focused local coverage passed on 2026-05-26 with
+`dart analyze packages/connectanum_mcp/lib/src/protocol/json_rpc.dart packages/connectanum_mcp/lib/src/server/mcp_server.dart packages/connectanum_mcp/test/lifecycle_test.dart packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+`dart test packages/connectanum_mcp/test/lifecycle_test.dart -r expanded`, and
+`dart test packages/connectanum_router/test/router_integration_native_test.dart --name "guards MCP Streamable HTTP ingress and sessions" -r expanded`,
+`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
+MCP package smokes, client/native transport suites, auth server, live WAMP
+transport integration, router-hosted MCP example smoke, generated
+consumer-package smokes, full router suite, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke.
+Previous implementation checkpoint: `bin/audit-github-deployment-chain` now
 prints a best-effort GitHub Actions service-status section from the public
 GitHub Status summary before evaluating checked-in workflow visibility and
 hosted runs. This makes deployment-chain stale-evidence failures easier to
@@ -20,7 +40,13 @@ WebSocket smoke. A live strict
 `master` deployment-chain audit after the change reported GitHub Status
 `major` / Actions `major_outage` for "Incident with Actions and Pages" and
 still failed because CI/log/package dry-run evidence was stale for the
-then-checked-out head `57cd452`.
+then-checked-out head `57cd452`. Commit `5996ec5` was pushed to `origin`
+`add-router` and GitHub `add-router`/`master`; no GitHub Actions runs appeared
+for `5996ec5` while GitHub Status remained `major` / Actions `major_outage`.
+The post-push strict `master` deployment-chain audit still failed because the
+latest hosted CI/log/package dry-run/router-image/WAMP-profile evidence is
+stale for checked-out head `5996ec5`, while native release dry-run evidence
+remains relevant and clean.
 Previous implementation checkpoint: The public HTTP auth bridge client now trims
 refresh/revoke tokens at the boundary but rejects empty values and tokens that
 still contain whitespace, control characters, or DEL before sending JSON auth

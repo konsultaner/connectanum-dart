@@ -1474,6 +1474,21 @@ void main() {
       );
       expect(invalidVersion.statusCode, equals(HttpStatus.badRequest));
 
+      final nullJsonRpcId = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'id': null, 'method': 'tools/list'},
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(nullJsonRpcId.statusCode, equals(HttpStatus.ok));
+      expect(nullJsonRpcId.json?['id'], isNull);
+      final nullJsonRpcIdError = (nullJsonRpcId.json?['error'] as Map)
+          .cast<String, Object?>();
+      expect(nullJsonRpcIdError['code'], equals(McpErrorCodes.invalidRequest));
+      expect(nullJsonRpcIdError['message'], contains('string or number'));
+      expect(nullJsonRpcId.headers, isNot(contains('mcp-session-id')));
+
       final olderVersionInitialize = await _postJson(
         client,
         listener.port,

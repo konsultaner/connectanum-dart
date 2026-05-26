@@ -390,10 +390,10 @@ _ParsedJsonRpcRequest _requestFrom(Object? rawMessage) {
   }
   final hasId = message.containsKey('id');
   final id = hasId ? message['id'] : null;
-  if (hasId && !isJsonRpcId(id)) {
+  if (hasId && !isJsonRpcRequestId(id)) {
     throw McpException(
       McpErrorCodes.invalidRequest,
-      'JSON-RPC id must be a string, number, or null',
+      'JSON-RPC id must be a string or number',
     );
   }
   return _ParsedJsonRpcRequest(
