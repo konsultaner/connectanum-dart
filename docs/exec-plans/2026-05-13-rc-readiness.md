@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-26
+Last updated: 2026-05-27
 
 ## Problem
 
@@ -78,6 +78,34 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened MCP client-side empty JSON-RPC batch validation before
+  public Streamable HTTP client dispatch. The public
+  `McpStreamableHttpClient.postBatch(...)` and `postBatchDirect(...)` paths now
+  reject empty JSON-RPC batch arrays before opening HTTP, aligning the client
+  raw batch escape hatch with the standalone MCP server and router-hosted MCP
+  ingress behavior that already returns an invalid-request response for empty
+  batches. This prevents consumer applications from accidentally treating a
+  malformed empty batch as a successful notification-only batch. Fail-first
+  coverage reproduced the prior behavior where `postBatch([])` emitted `null`
+  after dispatching to the fake endpoint. Baseline `bin/test-fast` passed
+  before the change. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "empty JSON-RPC batches" -r expanded`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "empty JSON-RPC batches|invalid JSON-RPC request objects|duplicate JSON-RPC batch request ids|invalid JSON-RPC batch request ids" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  and
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+  Full local `bin/verify` passed on 2026-05-27, including formatting,
+  Rust/FFI, MCP package smokes, client/native transport suites, auth server,
+  live WAMP transport integration, router-hosted MCP example smoke, generated
+  consumer-package smokes, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending until
+  the new local checkpoint is pushed. RC release readiness remains not ready
+  because no RC tag points at the new local checkpoint, a GitHub prerelease
+  still requires release approval after selecting an RC tag, the router image
+  RC tag is not selected, and public pub.dev publishing remains deferred
+  pending package ownership/versioning and workspace package release order
+  decisions.
 - 2026-05-26: Hardened MCP client-side direct JSON request object validation
   before public Streamable HTTP client dispatch. The public
   `McpStreamableHttpClient.post(...)` and `postBatch(...)` paths now reject raw
@@ -100,13 +128,20 @@ decision because `connectanum_client` still depends on private
   Rust/FFI, MCP package smokes, client/native transport suites, auth server,
   live WAMP transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending until
-  the new local checkpoint is pushed. RC release readiness remains not ready
-  because no RC tag points at the new local checkpoint, a GitHub prerelease
-  still requires release approval after selecting an RC tag, the router image
-  RC tag is not selected, and public pub.dev publishing remains deferred
-  pending package ownership/versioning and workspace package release order
-  decisions.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `d6b6e91` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `d6b6e91` is clean: GitHub `CI` `26478752624`, `Dart Package Publish Dry
+  Run` `26478752623`, `WAMP Profile Benchmarks` `26478752655`, and
+  non-mutating `Router Image` dry-run `26478763017` all completed
+  successfully. The strict `master` deployment-chain audit passed on
+  2026-05-26 with clean latest CI jobs/logs, clean package dry-run, clean
+  router image dry-run, clean WAMP profile benchmark evidence, and relevant
+  native release dry-run evidence. GitHub Status reported all systems
+  operational and Actions operational. RC release readiness remains not ready
+  because no RC tag points at `d6b6e91`, a GitHub prerelease still requires
+  release approval after selecting an RC tag, the router image RC tag is not
+  selected, and public pub.dev publishing remains deferred pending package
+  ownership/versioning and workspace package release order decisions.
 - 2026-05-26: Hardened MCP client-side JSON-RPC object version validation
   before public Streamable HTTP client dispatch or response delivery. The
   public `McpStreamableHttpClient.post(...)` and `postBatch(...)` paths now

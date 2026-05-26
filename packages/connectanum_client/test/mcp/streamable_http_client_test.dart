@@ -939,6 +939,40 @@ void main() {
       expect(client.lastEventId, isNull);
     });
 
+    test('rejects empty JSON-RPC batches before sending', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.postBatch(const <McpJsonMap>[], streamable: false),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('batch must not be empty'),
+          ),
+        ),
+      );
+
+      await expectLater(
+        client.postBatchDirect(const <McpJsonMap>[]),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('batch must not be empty'),
+          ),
+        ),
+      );
+
+      expect(endpoint.requests, isEmpty);
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
     test(
       'rejects duplicate JSON-RPC batch request ids before sending',
       () async {

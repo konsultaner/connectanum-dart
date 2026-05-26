@@ -78,6 +78,9 @@ Object? _validateJsonRpcRequestId(McpJsonMap message, {required String label}) {
 }
 
 void _validateJsonRpcBatchRequestIds(List<McpJsonMap> messages) {
+  if (messages.isEmpty) {
+    throw const FormatException('JSON-RPC batch must not be empty');
+  }
   final seenIds = <Object?>[];
   for (final message in messages) {
     final id = _validateJsonRpcRequestId(message, label: 'batch request');
