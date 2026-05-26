@@ -16667,6 +16667,28 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
   );
   expectStreamableProgress('direct WAMP API list');
 
+  final directApiDescribeId = '$label-generic-streamable-direct-api-describe';
+  final directApiDescribe = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': directApiDescribeId,
+      'method': 'connectanum.api.describe',
+      'params': {'uri': _procedure, 'kind': 'procedure'},
+    }),
+    label: 'Generic Streamable JSON-RPC direct API describe response',
+  );
+  final directApiDescription = _jsonRpcStructuredContent(
+    directApiDescribe,
+    id: directApiDescribeId,
+    label: 'Generic Streamable JSON-RPC direct API describe',
+  );
+  if (!jsonEncode(directApiDescription).contains(_procedure)) {
+    throw StateError(
+      'Generic Streamable JSON-RPC direct API describe missed $_procedure.',
+    );
+  }
+  expectStreamableProgress('direct WAMP API describe');
+
   final apiListId = '$label-generic-streamable-api-list';
   final apiList = _jsonObjectFrom(
     await client.post({
@@ -17138,6 +17160,146 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
     );
   }
   expectStreamableProgress('prompts/get');
+
+  final directSubscribeId =
+      '$label-generic-streamable-direct-pubsub-subscribe';
+  final directSubscribe = _jsonObjectFrom(
+    await client.post({
+      'jsonrpc': '2.0',
+      'id': directSubscribeId,
+      'method': 'connectanum.pubsub.subscribe',
+      'params': {'topic': _topic, 'queueLimit': 4},
+    }),
+    label: 'Generic Streamable JSON-RPC direct pub/sub subscribe response',
+  );
+  final directSubscription = _jsonRpcStructuredContent(
+    directSubscribe,
+    id: directSubscribeId,
+    label: 'Generic Streamable JSON-RPC direct pub/sub subscribe',
+  );
+  final directHandle = directSubscription['handle'];
+  if (directHandle is! String ||
+      directHandle.isEmpty ||
+      directSubscription['topic'] != _topic ||
+      directSubscription['queueLimit'] != 4) {
+    throw StateError(
+      'Generic Streamable JSON-RPC direct pub/sub subscribe returned invalid '
+      'content.',
+    );
+  }
+  expectStreamableProgress('direct pub/sub subscribe');
+
+  try {
+    final directPublishId =
+        '$label-generic-streamable-direct-pubsub-publish';
+    final directPublish = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': directPublishId,
+        'method': 'connectanum.pubsub.publish',
+        'params': {
+          'topic': _topic,
+          'argumentsKeywords': {
+            'taskId': 'T-$label-generic-streamable-direct-pubsub-publish',
+          },
+          'acknowledge': true,
+        },
+      }),
+      label: 'Generic Streamable JSON-RPC direct pub/sub publish response',
+    );
+    final directPublication = _jsonRpcStructuredContent(
+      directPublish,
+      id: directPublishId,
+      label: 'Generic Streamable JSON-RPC direct pub/sub publish',
+    );
+    if (directPublication['topic'] != _topic ||
+        directPublication['acknowledged'] != true) {
+      throw StateError(
+        'Generic Streamable JSON-RPC direct pub/sub publish returned invalid '
+        'content.',
+      );
+    }
+    expectStreamableProgress('direct pub/sub publish');
+
+    final directServiceTaskId =
+        'T-$label-generic-streamable-direct-pubsub-event';
+    await serviceSession.publish(
+      _topic,
+      argumentsKeywords: {'taskId': directServiceTaskId},
+      options: PublishOptions(acknowledge: true),
+    );
+
+    final directDeadline = DateTime.now().add(const Duration(seconds: 5));
+    var sawDirectServiceEvent = false;
+    while (DateTime.now().isBefore(directDeadline)) {
+      final directPollId =
+          '$label-generic-streamable-direct-pubsub-poll-'
+          '${DateTime.now().microsecondsSinceEpoch}';
+      final directPoll = _jsonObjectFrom(
+        await client.post({
+          'jsonrpc': '2.0',
+          'id': directPollId,
+          'method': 'connectanum.pubsub.poll',
+          'params': {'handle': directHandle, 'limit': 4},
+        }),
+        label: 'Generic Streamable JSON-RPC direct pub/sub poll response',
+      );
+      final directEventBatch = _jsonRpcStructuredContent(
+        directPoll,
+        id: directPollId,
+        label: 'Generic Streamable JSON-RPC direct pub/sub poll',
+      );
+      if (directEventBatch['handle'] != directHandle ||
+          directEventBatch['topic'] != _topic) {
+        throw StateError(
+          'Generic Streamable JSON-RPC direct pub/sub poll returned invalid '
+          'content.',
+        );
+      }
+      expectStreamableProgress('direct pub/sub poll');
+      if (jsonEncode(directEventBatch['events']).contains(
+        directServiceTaskId,
+      )) {
+        sawDirectServiceEvent = true;
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (!sawDirectServiceEvent) {
+      throw StateError(
+        'Generic Streamable JSON-RPC direct pub/sub poll missed service '
+        'event.',
+      );
+    }
+  } finally {
+    final directUnsubscribeId =
+        '$label-generic-streamable-direct-pubsub-unsubscribe';
+    final directUnsubscribe = _jsonObjectFrom(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': directUnsubscribeId,
+        'method': 'connectanum.pubsub.unsubscribe',
+        'params': {'handle': directHandle},
+      }),
+      label:
+          'Generic Streamable JSON-RPC direct pub/sub unsubscribe response',
+    );
+    final directUnsubscribeContent = _jsonRpcStructuredContent(
+      directUnsubscribe,
+      id: directUnsubscribeId,
+      label: 'Generic Streamable JSON-RPC direct pub/sub unsubscribe',
+    );
+    if (directUnsubscribeContent['handle'] != directHandle ||
+        directUnsubscribeContent['topic'] != _topic ||
+        directUnsubscribeContent['unsubscribed'] != true) {
+      throw StateError(
+        'Generic Streamable JSON-RPC direct pub/sub unsubscribe returned '
+        'invalid content.',
+      );
+    }
+    expectStreamableProgress('direct pub/sub unsubscribe');
+  }
 
   final subscribeId = '$label-generic-streamable-pubsub-subscribe';
   final subscribe = _jsonObjectFrom(

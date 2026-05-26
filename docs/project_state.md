@@ -2,8 +2,8 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP Streamable direct method metadata compatibility.
-Latest fully clean hosted checkpoint: Commit `f03cf4d` on GitHub `master`.
+Last reviewed branch checkpoint: Router-hosted MCP Streamable direct WAMP API/pubsub smoke coverage.
+Latest fully clean hosted checkpoint: Commit `eb2ae2a` on GitHub `master`.
 Current implementation checkpoint: Router-hosted Streamable HTTP MCP now
 accepts stateful generic JSON-RPC direct WAMP procedure calls when the client
 sends only the standard `Mcp-Method` metadata header and carries parameters in
@@ -14,20 +14,33 @@ headers only when the request uses the named metadata path (`Mcp-Name`) or
 sends at least one parameter header, while still validating mismatched or
 malformed parameter headers when present. The generated consumer package smoke
 also proves the generic stateful Streamable `connectanum.tools.call` alias
-with public `Mcp-Param-*` headers and direct `connectanum.api.list` body
-parameters. Baseline `bin/test-fast` passed before this change. Focused local
-coverage passed on 2026-05-26 with
-`dart test packages/connectanum_router/test/router_integration_native_test.dart -n "guards MCP Streamable HTTP ingress and sessions"`,
-`bash -n bin/common.sh`, `git diff --check`,
+with public `Mcp-Param-*` headers, direct `connectanum.api.list` and
+`connectanum.api.describe` body parameters, and direct
+`connectanum.pubsub.subscribe`, `connectanum.pubsub.publish`,
+`connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe` methods with
+Streamable session/SSE cursor continuity. Baseline `bin/test-fast` passed
+before this smoke-extension change. Focused local coverage passed on
+2026-05-26 with `bash -n bin/common.sh`, `git diff --check`,
 `python3 tool/check_public_artifact_references.py`, and
 `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full local
 `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI, MCP package
 smokes, client/native transport suites, live WAMP transport integration, the
-router-hosted MCP example smoke, generated consumer-package smokes, the full
-router suite with the new Streamable direct method regression, zero-copy
-router tests, and the Chrome/Dart2Wasm browser WebSocket smoke. This local
-checkpoint is not hosted yet; the latest fully clean hosted checkpoint remains
-`f03cf4d`.
+router-hosted MCP example smoke, generated consumer-package smokes with the
+new direct Streamable WAMP API/pubsub method coverage, the full router suite,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke. This
+local checkpoint is pending hosted evidence; hosted evidence is clean at
+`eb2ae2a`: GitHub `master` CI run `26423773850` and
+GitHub `add-router` CI run `26423773740` both passed with Fast Checks and Full
+Verify green; hosted Dart Package Publish Dry Run runs `26423773895` (`master`)
+and `26423773738` (`add-router`) passed; hosted WAMP Profile Benchmarks runs
+`26423773849` (`master`) and `26423773736` (`add-router`) passed with artifact
+upload ready; and non-mutating Router Image dry-run `26424148305` passed on
+`master` with preview metadata `sha-eb2ae2a97e30`, GHCR login skipped, and no
+image publish. The strict `master` deployment-chain audit passed with clean
+latest CI, clean CI logs, clean Dart package publish dry-run, clean WAMP
+profile benchmark, and clean Router Image dry-run requirements. RC readiness
+still correctly reports not ready until a release-approved numeric RC tag,
+GitHub prerelease, and router image RC tag are created.
 Previous implementation checkpoint: Router-hosted Streamable HTTP MCP now
 accepts stable client POSTs that omit Connectanum/MCP request-metadata
 headers such as `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*`, while continuing
@@ -14113,12 +14126,11 @@ at the older `47bbf9c` commit.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
   consumer integration bug appears. The current local checkpoint makes
-  router-hosted Streamable HTTP MCP accept standard headerless clients while
-  still validating request metadata headers when present; the current local
-  follow-up extends the generated consumer-package smoke to prove raw
-  headerless Streamable `tools/call`, `resources/read`, and `prompts/get`
-  across the public package boundary. The latest fully clean hosted checkpoint
-  is `f03cf4d` on GitHub `master`,
+  router-hosted Streamable HTTP MCP accept standard clients while still
+  validating request metadata headers when present, and extends the generated
+  consumer-package smoke to prove stateful direct Streamable WAMP API describe
+  and pub/sub method calls across the public package boundary. The latest
+  fully clean hosted checkpoint is `eb2ae2a` on GitHub `master`,
   including CI, package dry-run, WAMP profile benchmark, Router Image dry-run,
   and strict deployment-chain audit evidence.
 - Historical paused plan:

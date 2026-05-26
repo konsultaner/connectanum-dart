@@ -78,6 +78,20 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Extended the generated router-hosted MCP consumer-package smoke
+  to cover stateful Streamable direct WAMP/meta methods beyond the procedure
+  call regression. The smoke now posts direct `connectanum.api.describe` body
+  params and performs a direct `connectanum.pubsub.subscribe`,
+  `connectanum.pubsub.publish`, `connectanum.pubsub.poll`, and
+  `connectanum.pubsub.unsubscribe` roundtrip on the active Streamable session,
+  checking that each operation preserves the session and advances the SSE
+  cursor. Baseline `bin/test-fast` passed before the change. Focused local
+  coverage passed with `bash -n bin/common.sh`, `git diff --check`,
+  `python3 tool/check_public_artifact_references.py`, and
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full
+  local `bin/verify` passed on 2026-05-26, including the generated
+  consumer-package smoke and full router suite. This checkpoint is local
+  pending push and hosted evidence.
 - 2026-05-26: Treated a generated consumer-package smoke failure as a real
   MCP Streamable compatibility bug after generic stateful JSON-RPC direct WAMP
   procedure calls returned `400` with a missing `Mcp-Param-TaskId` error when
@@ -95,8 +109,20 @@ decision because `connectanum_client` still depends on private
   `python3 tool/check_public_artifact_references.py`, and
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`. Full
   local `bin/verify` passed on 2026-05-26 with the generated consumer-package
-  smoke and full router suite covering the new regression. This checkpoint is
-  local pending push/hosted CI evidence.
+  smoke and full router suite covering the new regression. The commit was
+  pushed to GitHub `master` and `add-router` as `eb2ae2a`; GitHub `master` CI
+  run `26423773850` and GitHub `add-router` CI run `26423773740` passed with
+  Fast Checks and Full Verify green. Hosted Dart Package Publish Dry Run runs
+  `26423773895` (`master`) and `26423773738` (`add-router`) passed; hosted WAMP
+  Profile Benchmarks runs `26423773849` (`master`) and `26423773736`
+  (`add-router`) passed with artifact upload ready. Non-mutating Router Image
+  dry-run `26424148305` passed on `master` with preview metadata
+  `sha-eb2ae2a97e30`, GHCR login skipped, and no image publish. The strict
+  `master` deployment-chain audit passed with clean latest CI, clean CI logs,
+  clean Dart package publish dry-run, clean WAMP profile benchmark, and clean
+  Router Image dry-run requirements. RC readiness remains not ready until a
+  release-approved numeric RC tag, GitHub prerelease, and router image RC tag
+  are created.
 - 2026-05-25: Extended the generated router-hosted MCP consumer package smoke
   again to prove raw headerless Streamable `resources/read` and `prompts/get`
   compatibility across the public package boundary. The smoke now posts single
