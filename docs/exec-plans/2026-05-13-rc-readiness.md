@@ -78,6 +78,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
+  smoke to prove stateful Streamable HTTP `postBatch(...)` requests can mix
+  direct dotted `connectanum.pubsub.*` and `connectanum.api.*` methods through
+  the exported `McpStreamableHttpClient` surface. The test fixture now returns
+  SSE responses for accepted batch requests, and the smoke asserts active MCP
+  session headers, SSE cursor advancement, direct WAMP API metadata, pub/sub
+  publish/poll/unsubscribe behavior, and lifecycle-free direct JSON isolation
+  after the stateful batches. Baseline `bin/test-fast` passed before the
+  change. Focused local coverage passed with
+  `dart analyze packages/connectanum_mcp/test/io_client_export_test.dart` and
+  `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`.
+  Full local `bin/verify` passed on 2026-05-26, including MCP package smokes,
+  generated consumer-package smokes, the full router suite, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. This checkpoint is local pending
+  push and hosted evidence; the latest fully clean hosted checkpoint remains
+  `a803d9e`. RC readiness remains not ready until a release-approved numeric
+  RC tag, GitHub prerelease, and router image RC tag are created.
 - 2026-05-26: Extended the generated router-hosted MCP consumer-package smoke
   again to cover stateful Streamable direct WAMP API/pubsub batches through
   dotted JSON-RPC methods, not only `tools/call` wrappers or lifecycle-free
@@ -94,10 +111,17 @@ decision because `connectanum_client` still depends on private
   `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
   `git diff --check`, and `python3 tool/check_public_artifact_references.py`.
   Full local `bin/verify` passed on 2026-05-26, including the generated
-  consumer-package smoke and full router suite. This checkpoint is local
-  pending push and hosted evidence; the latest fully clean hosted checkpoint
-  remains `b416479`. RC readiness remains not ready until a release-approved
-  numeric RC tag, GitHub prerelease, and router image RC tag are created.
+  consumer-package smoke and full router suite. The commit was pushed to
+  GitHub `master` and `add-router` as `a803d9e`; GitHub `master` CI run
+  `26426514535` and GitHub `add-router` CI run `26426513681` passed with Fast
+  Checks and Full Verify green. The strict `master` deployment-chain audit
+  passed with clean latest CI/logs at `a803d9e`; hosted Dart Package Publish
+  Dry Run `26423773895`, hosted WAMP Profile Benchmarks `26423773849`, and
+  non-mutating Router Image dry-run `26424148305` remain clean and relevant
+  from `eb2ae2a` because this smoke-script/docs checkpoint changed no
+  publish-sensitive, WAMP profile benchmark-sensitive, or router-image-sensitive
+  inputs. RC readiness remains not ready until a release-approved numeric RC
+  tag, GitHub prerelease, and router image RC tag are created.
 - 2026-05-26: Extended the generated router-hosted MCP consumer-package smoke
   to cover stateful Streamable direct WAMP/meta methods beyond the procedure
   call regression. The smoke now posts direct `connectanum.api.describe` body

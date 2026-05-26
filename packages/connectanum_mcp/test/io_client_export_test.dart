@@ -1417,6 +1417,188 @@ void main() {
     expect(streamableUnsubscribe.unsubscribed, isTrue);
     expect(client.lastEventId, 'io-session-1:post:5');
 
+    final statefulSubscribeBatch = await client.postBatch(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-streamable-direct-batch-subscribe',
+          'method': 'connectanum.pubsub.subscribe',
+          'params': <String, Object?>{'topic': _ioTopic, 'queueLimit': 2},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-streamable-direct-batch-api-list',
+          'method': 'connectanum.api.list',
+          'params': <String, Object?>{'kind': 'procedure'},
+        },
+      ],
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-direct-batch-subscribe',
+      },
+    );
+    expect(statefulSubscribeBatch, hasLength(2));
+    expect(
+      _jsonMapFrom(
+        _jsonRpcResult(
+          statefulSubscribeBatch![0],
+          id: 'io-streamable-direct-batch-subscribe',
+        )['structuredContent'],
+        label: 'streamable direct batch subscribe content',
+      )['handle'],
+      _ioSubscriptionHandle,
+    );
+    expect(
+      jsonEncode(
+        _jsonMapFrom(
+          _jsonRpcResult(
+            statefulSubscribeBatch[1],
+            id: 'io-streamable-direct-batch-api-list',
+          )['structuredContent'],
+          label: 'streamable direct batch API list content',
+        )['procedures'],
+      ),
+      contains('app.echo'),
+    );
+    expect(client.sessionId, 'io-session-1');
+    expect(client.lastEventId, 'io-session-1:post:6');
+
+    final statefulPublishBatch = await client.postBatch(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-streamable-direct-batch-publish',
+          'method': 'connectanum.pubsub.publish',
+          'params': <String, Object?>{
+            'topic': _ioTopic,
+            'argumentsKeywords': <String, Object?>{'message': 'direct-batch'},
+            'acknowledge': true,
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-streamable-direct-batch-api-describe',
+          'method': 'connectanum.api.describe',
+          'params': <String, Object?>{'uri': _ioTopic, 'kind': 'topic'},
+        },
+      ],
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-direct-batch-publish',
+      },
+    );
+    expect(statefulPublishBatch, hasLength(2));
+    expect(
+      _jsonMapFrom(
+        _jsonRpcResult(
+          statefulPublishBatch![0],
+          id: 'io-streamable-direct-batch-publish',
+        )['structuredContent'],
+        label: 'streamable direct batch publish content',
+      )['acknowledged'],
+      isTrue,
+    );
+    final statefulDescribe = _jsonMapFrom(
+      _jsonRpcResult(
+        statefulPublishBatch[1],
+        id: 'io-streamable-direct-batch-api-describe',
+      )['structuredContent'],
+      label: 'streamable direct batch API describe content',
+    );
+    expect(statefulDescribe['uri'], _ioTopic);
+    expect(statefulDescribe['kind'], 'topic');
+    expect(client.sessionId, 'io-session-1');
+    expect(client.lastEventId, 'io-session-1:post:7');
+
+    final statefulPollBatch = await client.postBatch(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-streamable-direct-batch-poll',
+          'method': 'connectanum.pubsub.poll',
+          'params': <String, Object?>{
+            'handle': _ioSubscriptionHandle,
+            'limit': 1,
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-streamable-direct-batch-api-list-topics',
+          'method': 'connectanum.api.list',
+          'params': <String, Object?>{'kind': 'topic'},
+        },
+      ],
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-direct-batch-poll',
+      },
+    );
+    expect(statefulPollBatch, hasLength(2));
+    final statefulEvents = _jsonMapFrom(
+      _jsonRpcResult(
+        statefulPollBatch![0],
+        id: 'io-streamable-direct-batch-poll',
+      )['structuredContent'],
+      label: 'streamable direct batch poll content',
+    )['events'];
+    expect(jsonEncode(statefulEvents), contains('direct-batch'));
+    expect(
+      jsonEncode(
+        _jsonMapFrom(
+          _jsonRpcResult(
+            statefulPollBatch[1],
+            id: 'io-streamable-direct-batch-api-list-topics',
+          )['structuredContent'],
+          label: 'streamable direct batch API topic list content',
+        )['topics'],
+      ),
+      contains(_ioTopic),
+    );
+    expect(client.sessionId, 'io-session-1');
+    expect(client.lastEventId, 'io-session-1:post:8');
+
+    final statefulUnsubscribeBatch = await client.postBatch(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-streamable-direct-batch-unsubscribe',
+          'method': 'connectanum.pubsub.unsubscribe',
+          'params': <String, Object?>{'handle': _ioSubscriptionHandle},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'io-streamable-direct-batch-api-list-after-unsubscribe',
+          'method': 'connectanum.api.list',
+          'params': <String, Object?>{'kind': 'procedure'},
+        },
+      ],
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-streamable-direct-batch-unsubscribe',
+      },
+    );
+    expect(statefulUnsubscribeBatch, hasLength(2));
+    expect(
+      _jsonMapFrom(
+        _jsonRpcResult(
+          statefulUnsubscribeBatch![0],
+          id: 'io-streamable-direct-batch-unsubscribe',
+        )['structuredContent'],
+        label: 'streamable direct batch unsubscribe content',
+      )['unsubscribed'],
+      isTrue,
+    );
+    expect(
+      jsonEncode(
+        _jsonMapFrom(
+          _jsonRpcResult(
+            statefulUnsubscribeBatch[1],
+            id: 'io-streamable-direct-batch-api-list-after-unsubscribe',
+          )['structuredContent'],
+          label: 'streamable direct batch API list after unsubscribe content',
+        )['procedures'],
+      ),
+      contains('app.echo'),
+    );
+    expect(client.sessionId, 'io-session-1');
+    expect(client.lastEventId, 'io-session-1:post:9');
+
     final sessionId = client.sessionId;
     final lastEventId = client.lastEventId;
 
@@ -1529,20 +1711,20 @@ void main() {
 
     expect(client.sessionId, sessionId);
     expect(client.lastEventId, lastEventId);
-    expect(endpoint.requests, hasLength(13));
+    expect(endpoint.requests, hasLength(17));
     expect(endpoint.requests[0].sessionId, isNull);
-    for (final request in endpoint.requests.skip(1).take(7)) {
+    for (final request in endpoint.requests.skip(1).take(11)) {
       expect(request.sessionId, 'io-session-1');
       expect(request.accept, contains('text/event-stream'));
     }
-    for (final request in endpoint.requests.skip(8)) {
+    for (final request in endpoint.requests.skip(12)) {
       expect(request.sessionId, isNull);
       expect(request.accept, 'application/json');
     }
     expect(
       endpoint.requests
           .skip(1)
-          .take(11)
+          .take(15)
           .map((request) => request.consumerTrace),
       [
         'io-streamable-subscribe',
@@ -1552,6 +1734,10 @@ void main() {
         'io-streamable-notify',
         'io-streamable-poll',
         'io-streamable-unsubscribe',
+        'io-streamable-direct-batch-subscribe',
+        'io-streamable-direct-batch-publish',
+        'io-streamable-direct-batch-poll',
+        'io-streamable-direct-batch-unsubscribe',
         'io-direct-subscribe',
         'io-direct-publish',
         'io-direct-poll',
@@ -2251,7 +2437,7 @@ final class _StreamableMcpEndpoint {
     }
 
     if (_shouldWriteSse(request, message)) {
-      await _writeSse(request, _jsonMapFrom(response, label: 'SSE response'));
+      await _writeSse(request, response);
       return;
     }
     await _writeJsonValue(request, response);
@@ -2295,7 +2481,9 @@ final class _StreamableMcpEndpoint {
 
   void _handleNotification(Map<String, Object?> message) {
     final method = message['method'];
-    if (method is String && method.startsWith('connectanum.pubsub.')) {
+    if (method is String &&
+        (method.startsWith('connectanum.pubsub.') ||
+            method.startsWith('connectanum.api.'))) {
       final params = _jsonMapOrNull(message['params']);
       if (params != null) {
         _responseForToolCall(null, method, params);
@@ -2334,7 +2522,9 @@ final class _StreamableMcpEndpoint {
   ) {
     final id = message['id'];
     final method = message['method'];
-    if (method is String && method.startsWith('connectanum.pubsub.')) {
+    if (method is String &&
+        (method.startsWith('connectanum.pubsub.') ||
+            method.startsWith('connectanum.api.'))) {
       return _responseForToolCall(
         id,
         method,
@@ -2433,6 +2623,21 @@ final class _StreamableMcpEndpoint {
     Map<String, Object?> arguments,
   ) {
     switch (toolName) {
+      case 'connectanum.api.list':
+        return _toolResult(id, <String, Object?>{
+          'procedures': <Object?>[
+            <String, Object?>{'procedure': 'app.echo', 'title': 'Echo'},
+          ],
+          'topics': <Object?>[
+            <String, Object?>{'topic': _ioTopic, 'title': 'IO events'},
+          ],
+        });
+      case 'connectanum.api.describe':
+        return _toolResult(id, <String, Object?>{
+          'uri': arguments['uri'],
+          'kind': arguments['kind'],
+          'title': arguments['uri'] == _ioTopic ? 'IO events' : 'Echo',
+        });
       case 'connectanum.pubsub.subscribe':
         _subscriptionEvents[_ioSubscriptionHandle] = <Map<String, Object?>>[];
         return _toolResult(id, <String, Object?>{
@@ -2666,7 +2871,9 @@ final class _StreamableMcpEndpoint {
             .value(HttpHeaders.acceptHeader)
             ?.contains('text/event-stream') ??
         false;
-    return acceptsSse && message is Map && message['method'] != 'initialize';
+    return acceptsSse &&
+        (message is List ||
+            (message is Map && message['method'] != 'initialize'));
   }
 
   Future<void> _writeJsonValue(HttpRequest request, Object? body) async {
@@ -2675,7 +2882,7 @@ final class _StreamableMcpEndpoint {
     await request.response.close();
   }
 
-  Future<void> _writeSse(HttpRequest request, Map<String, Object?> body) async {
+  Future<void> _writeSse(HttpRequest request, Object? body) async {
     _eventCounter += 1;
     await _writeSseEvent(
       request,

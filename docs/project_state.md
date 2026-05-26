@@ -2,30 +2,44 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP Streamable direct WAMP API/pubsub batch smoke coverage.
-Latest fully clean hosted checkpoint: Commit `b416479` on GitHub `master`.
-Current implementation checkpoint: Router-hosted Streamable HTTP MCP now
-proves stateful direct JSON-RPC batches with dotted WAMP API/pubsub methods
-over the active Streamable HTTP session. The generated consumer package smoke
-posts direct `connectanum.pubsub.subscribe` plus `connectanum.api.list`,
-direct `connectanum.pubsub.publish` plus `connectanum.api.describe`, repeated
-direct `connectanum.pubsub.poll` plus `connectanum.api.list`, and direct
-`connectanum.pubsub.unsubscribe` plus `connectanum.api.list` using
-`McpStreamableHttpClient.postBatch(...)`. Each batch verifies session
-continuity, SSE cursor advancement, direct WAMP API visibility, pub/sub
-response content, and delivery of a service-published event. Baseline
-`bin/test-fast` passed before this smoke-extension change. Focused local
-coverage passed on 2026-05-26 with `bash -n bin/common.sh`,
-`bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
-`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+Last reviewed branch checkpoint: Public MCP IO entrypoint Streamable direct dotted batch smoke coverage.
+Latest fully clean hosted checkpoint: Commit `a803d9e` on GitHub `master`.
+Current implementation checkpoint: The public `connectanum_mcp_io.dart`
+package-boundary smoke now proves stateful Streamable HTTP `postBatch(...)`
+requests can mix direct dotted `connectanum.pubsub.*` and `connectanum.api.*`
+methods through the exported `McpStreamableHttpClient` surface. The fixture
+now returns Streamable HTTP SSE responses for accepted batch requests, and the
+test asserts active-session headers, SSE cursor advancement, direct WAMP API
+metadata, pub/sub publish/poll/unsubscribe behavior, and lifecycle-free direct
+JSON isolation after the stateful batches. Baseline `bin/test-fast` passed
+before the change. Focused local coverage passed on 2026-05-26 with
+`dart analyze packages/connectanum_mcp/test/io_client_export_test.dart` and
+`dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`.
 Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, live WAMP transport
 integration, the router-hosted MCP example smoke, generated consumer-package
-smokes with the new direct Streamable WAMP API/pubsub batch coverage, the full
-router suite, zero-copy router tests, and the Chrome/Dart2Wasm browser
-WebSocket smoke. This checkpoint is local pending push and hosted evidence;
-the latest fully clean hosted checkpoint remains `b416479`.
-Previous implementation checkpoint: Router-hosted Streamable HTTP MCP now
+smokes, the full router suite, zero-copy router tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke. This checkpoint is local pending
+push and hosted evidence; the latest fully clean hosted checkpoint remains
+`a803d9e`.
+Previous implementation checkpoint: Router-hosted Streamable HTTP MCP proved
+stateful direct JSON-RPC batches with dotted WAMP API/pubsub methods over the
+active Streamable HTTP session. The generated consumer package smoke posts
+direct `connectanum.pubsub.subscribe` plus `connectanum.api.list`, direct
+`connectanum.pubsub.publish` plus `connectanum.api.describe`, repeated direct
+`connectanum.pubsub.poll` plus `connectanum.api.list`, and direct
+`connectanum.pubsub.unsubscribe` plus `connectanum.api.list` using
+`McpStreamableHttpClient.postBatch(...)`. Each batch verifies session
+continuity, SSE cursor advancement, direct WAMP API visibility, pub/sub
+response content, and delivery of a service-published event. Full local
+`bin/verify` passed on 2026-05-26. The commit was pushed to GitHub `master`
+and `add-router` as `a803d9e`; GitHub `master` CI run `26426514535` and
+GitHub `add-router` CI run `26426513681` passed with Fast Checks and Full
+Verify green. The strict `master` deployment-chain audit passed with clean
+latest CI/logs at `a803d9e`; hosted Dart Package Publish Dry Run
+`26423773895`, hosted WAMP Profile Benchmarks `26423773849`, and non-mutating
+Router Image dry-run `26424148305` remain clean and relevant from `eb2ae2a`.
+Earlier implementation checkpoint: Router-hosted Streamable HTTP MCP now
 accepts stateful generic JSON-RPC direct WAMP procedure calls when the client
 sends only the standard `Mcp-Method` metadata header and carries parameters in
 the JSON-RPC body. The fail-first generated consumer package smoke reproduced
@@ -14145,11 +14159,11 @@ at the older `47bbf9c` commit.
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
   consumer integration bug appears. The current local checkpoint makes
   router-hosted Streamable HTTP MCP accept standard clients while still
-  validating request metadata headers when present, and extends the generated
+  validating request metadata headers when present, extends the generated
   consumer-package smoke to prove stateful direct Streamable WAMP API and
-  pub/sub method calls, including direct dotted-method batches, across the
-  public package boundary. The latest fully clean hosted checkpoint is
-  `b416479` on GitHub `master`,
+  pub/sub method calls, and now proves the public `connectanum_mcp_io.dart`
+  entrypoint can use stateful direct dotted-method batches with exported APIs.
+  The latest fully clean hosted checkpoint is `a803d9e` on GitHub `master`,
   including CI, package dry-run, WAMP profile benchmark, Router Image dry-run,
   and strict deployment-chain audit evidence.
 - Historical paused plan:
