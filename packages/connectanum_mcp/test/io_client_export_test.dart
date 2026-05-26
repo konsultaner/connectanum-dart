@@ -752,6 +752,19 @@ void main() {
     expect(directPing, isEmpty);
     expect(mcpClient.sessionId, _ioAuthSessionId);
 
+    final directTools = await mcpClient.listConnectanumToolsDirect(
+      id: 'io-auth-direct-tools',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-direct-tools',
+      },
+    );
+    expect(directTools.nextCursor, isNull);
+    expect(
+      directTools.tools.map((tool) => tool['name']),
+      containsAll(['app.echo', 'connectanum.api.describe']),
+    );
+    expect(mcpClient.sessionId, _ioAuthSessionId);
+
     final refreshed = await authClient.refreshToken(
       grant.refreshToken!,
       headers: const <String, String>{'x-consumer-trace': 'io-auth-refresh'},
@@ -771,6 +784,20 @@ void main() {
       },
     );
     expect(refreshedDirectPing, isEmpty);
+    expect(refreshedMcpClient.sessionId, isNull);
+
+    final refreshedApiDescription = await refreshedMcpClient
+        .describeWampApiDirect(
+          'app.echo',
+          id: 'io-auth-refreshed-direct-api-describe',
+          kind: 'procedure',
+          headers: const <String, String>{
+            'x-consumer-trace': 'io-auth-refreshed-direct-api-describe',
+          },
+        );
+    expect(refreshedApiDescription['procedure'], 'app.echo');
+    expect(refreshedApiDescription['title'], 'Echo');
+    expect(refreshedApiDescription['kind'], 'procedure');
     expect(refreshedMcpClient.sessionId, isNull);
 
     await authClient.revokeToken(
@@ -807,7 +834,7 @@ void main() {
     expect(endpoint.authRequests[2].consumerTrace, 'io-auth-refresh');
     expect(endpoint.authRequests[3].consumerTrace, 'io-auth-revoke');
 
-    expect(endpoint.mcpRequests, hasLength(4));
+    expect(endpoint.mcpRequests, hasLength(6));
     expect(endpoint.mcpRequests[0].authorization, 'Bearer $_ioAccessToken');
     expect(endpoint.mcpRequests[0].sessionId, isNull);
     expect(endpoint.mcpRequests[0].body['method'], 'initialize');
@@ -819,15 +846,42 @@ void main() {
     expect(endpoint.mcpRequests[2].sessionId, isNull);
     expect(endpoint.mcpRequests[2].body['method'], 'ping');
     expect(endpoint.mcpRequests[2].consumerTrace, 'io-auth-direct-ping');
+    expect(endpoint.mcpRequests[3].authorization, 'Bearer $_ioAccessToken');
+    expect(endpoint.mcpRequests[3].sessionId, isNull);
+    expect(endpoint.mcpRequests[3].body['method'], 'connectanum.tools.list');
+    expect(endpoint.mcpRequests[3].consumerTrace, 'io-auth-direct-tools');
     expect(
-      endpoint.mcpRequests[3].authorization,
+      endpoint.mcpRequests[4].authorization,
       'Bearer $_ioRefreshedAccessToken',
     );
-    expect(endpoint.mcpRequests[3].sessionId, isNull);
-    expect(endpoint.mcpRequests[3].body['method'], 'ping');
+    expect(endpoint.mcpRequests[4].sessionId, isNull);
+    expect(endpoint.mcpRequests[4].body['method'], 'ping');
     expect(
-      endpoint.mcpRequests[3].consumerTrace,
+      endpoint.mcpRequests[4].consumerTrace,
       'io-auth-refreshed-direct-ping',
+    );
+    expect(
+      endpoint.mcpRequests[5].authorization,
+      'Bearer $_ioRefreshedAccessToken',
+    );
+    expect(endpoint.mcpRequests[5].sessionId, isNull);
+    expect(endpoint.mcpRequests[5].body['method'], 'connectanum.tool.call');
+    expect(
+      endpoint.mcpRequests[5].consumerTrace,
+      'io-auth-refreshed-direct-api-describe',
+    );
+
+    final apiDescriptionParams = _jsonMapFrom(
+      endpoint.mcpRequests[5].body['params'],
+      label: 'auth direct api describe params',
+    );
+    expect(apiDescriptionParams['name'], 'connectanum.api.describe');
+    expect(
+      _jsonMapFrom(
+        apiDescriptionParams['arguments'],
+        label: 'auth direct api describe arguments',
+      ),
+      {'uri': 'app.echo', 'kind': 'procedure'},
     );
   });
 
@@ -2301,6 +2355,49 @@ final class _AuthBackedMcpEndpoint {
           'result': <String, Object?>{},
         });
         return;
+      case 'connectanum.tools.list':
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': jsonBody['id'],
+          'result': <String, Object?>{
+            'tools': <Object?>[
+              <String, Object?>{
+                'name': 'app.echo',
+                'description': 'Echoes arguments.',
+                'inputSchema': <String, Object?>{'type': 'object'},
+              },
+              <String, Object?>{
+                'name': 'connectanum.api.describe',
+                'description': 'Describes a visible WAMP procedure.',
+                'inputSchema': <String, Object?>{'type': 'object'},
+              },
+            ],
+          },
+        });
+        return;
+      case 'connectanum.tool.call':
+        final params = _jsonMapFrom(jsonBody['params'], label: 'auth params');
+        final arguments = _jsonMapFrom(
+          params['arguments'],
+          label: 'auth tool arguments',
+        );
+        if (params['name'] == 'connectanum.api.describe') {
+          await _writeToolResult(request, jsonBody['id'], <String, Object?>{
+            'procedure': arguments['uri'],
+            'title': 'Echo',
+            'kind': arguments['kind'],
+          });
+          return;
+        }
+        await _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': jsonBody['id'],
+          'error': <String, Object?>{
+            'code': -32601,
+            'message': 'unsupported tool',
+          },
+        });
+        return;
       default:
         await _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
@@ -2312,6 +2409,27 @@ final class _AuthBackedMcpEndpoint {
         });
         return;
     }
+  }
+
+  Future<void> _writeToolResult(
+    HttpRequest request,
+    Object? id,
+    Map<String, Object?> structuredContent,
+  ) async {
+    await _writeJson(request, <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'result': <String, Object?>{
+        'content': <Object?>[
+          <String, Object?>{
+            'type': 'text',
+            'text': jsonEncode(structuredContent),
+          },
+        ],
+        'structuredContent': structuredContent,
+        'isError': false,
+      },
+    });
   }
 
   Future<void> _writeJson(
