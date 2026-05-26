@@ -76,6 +76,20 @@ bool _jsonRpcMessageIsResponse(Object? value) {
       (value.containsKey('result') || value.containsKey('error'));
 }
 
+void _validateJsonRpcResponseObject(
+  McpJsonMap response, {
+  required String label,
+}) {
+  final hasResult = response.containsKey('result');
+  final hasError = response.containsKey('error');
+  if (hasResult == hasError) {
+    throw FormatException('$label must contain exactly one of result or error');
+  }
+  if (hasError) {
+    _jsonMapFrom(response['error'], label: '$label error');
+  }
+}
+
 /// Minimal Dart IO client for MCP Streamable HTTP endpoints.
 ///
 /// The client keeps the negotiated MCP session headers and SSE cursor so
@@ -1043,6 +1057,7 @@ final class McpStreamableHttpClient {
           'JSON-RPC response contained unexpected response id $responseId',
         );
       }
+      _validateJsonRpcResponseObject(response, label: 'JSON-RPC response');
       return;
     }
 
@@ -1100,6 +1115,10 @@ final class McpStreamableHttpClient {
             '$responseId',
           );
         }
+        _validateJsonRpcResponseObject(
+          response,
+          label: 'JSON-RPC batch response item',
+        );
         responseIds.add(responseId);
       }
       for (final id in expectedResponseIds) {
@@ -1327,6 +1346,7 @@ final class McpStreamableHttpClient {
             'JSON-RPC response contained duplicate response for id $requestId',
           );
         }
+        _validateJsonRpcResponseObject(response, label: 'JSON-RPC response');
         matchingResponse = response;
       }
       return matchingResponse;
@@ -1344,7 +1364,7 @@ final class McpStreamableHttpClient {
       }
       final responses = <Object?>[];
       for (final response in _jsonRpcResponseValues(values)) {
-        if (response is Map && response.containsKey('id')) {
+        if (_jsonRpcMessageIsResponse(response)) {
           responses.add(response);
         }
       }

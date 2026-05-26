@@ -78,6 +78,38 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Hardened MCP client-side JSON-RPC response object
+  discriminants before returning public Streamable HTTP client results. The
+  public `McpStreamableHttpClient.post(...)` and `postBatch(...)` paths now
+  require response objects to contain exactly one of `result` or `error`, and
+  error responses must carry a JSON object `error` member before raw direct
+  JSON callers can observe them. Streamable HTTP POST/SSE response streams now
+  apply the same validation to solicited response objects while continuing to
+  ignore MCP-compatible interim server requests and progress notifications,
+  including server requests interleaved before batch responses. Response-shape
+  validation still runs before successful MCP session/header/cursor capture, so
+  malformed discriminants cannot mutate `sessionId` or `lastEventId`.
+  Fail-first coverage reproduced the prior behavior where raw direct JSON and
+  POST/SSE responses with missing or conflicting response discriminants were
+  returned successfully, and where a batch POST/SSE server request was rejected
+  as an unexpected batch response ID. Baseline `bin/test-fast` passed before
+  the change. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "invalid JSON-RPC .*response discriminants|server requests before batch responses" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+  client/native transport suites, auth server, live WAMP transport integration,
+  router-hosted MCP example smoke, generated consumer-package smokes, full
+  router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
+  smoke. Hosted evidence is pending until the new local checkpoint is pushed.
+  RC release readiness remains not ready because no RC tag points at the new
+  local checkpoint, a GitHub prerelease still requires release approval after
+  selecting an RC tag, the router image RC tag is not selected, and public
+  pub.dev publishing remains deferred pending package ownership/versioning and
+  workspace package release order decisions.
 - 2026-05-26: Hardened MCP client-side single JSON-RPC response ID
   validation before returning public Streamable HTTP client results. Direct
   JSON `McpStreamableHttpClient.post(...)` responses must now include an `id`
@@ -104,12 +136,20 @@ decision because `connectanum_client` still depends on private
   client/native transport suites, auth server, live WAMP transport integration,
   router-hosted MCP example smoke, generated consumer-package smokes, full
   router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-  smoke. Hosted evidence is pending until the new local checkpoint is pushed.
-  RC release readiness remains not ready because no RC tag points at the new
-  local checkpoint, a GitHub prerelease still requires release approval after
-  selecting an RC tag, the router image RC tag is not selected, and public
-  pub.dev publishing remains deferred pending package ownership/versioning and
-  workspace package release order decisions.
+  smoke. Commit `8f2de31` was pushed to `origin` `add-router` and GitHub
+  `add-router`/`master`. Hosted evidence for `8f2de31` is clean: GitHub `CI`
+  `26472278175`, `Dart Package Publish Dry Run` `26472278178`, `WAMP Profile
+  Benchmarks` `26472278174`, and non-mutating `Router Image` dry-run
+  `26472312261` all completed successfully. The strict `master`
+  deployment-chain audit passed on 2026-05-26 with clean latest CI jobs/logs,
+  clean package dry-run, clean router image dry-run, clean WAMP profile
+  benchmark evidence, and relevant native release dry-run evidence. GitHub
+  Status reported all systems operational and Actions operational. RC release
+  readiness remains not ready because no RC tag points at `8f2de31`, a GitHub
+  prerelease still requires release approval after selecting an RC tag, the
+  router image RC tag is not selected, and public pub.dev publishing remains
+  deferred pending package ownership/versioning and workspace package release
+  order decisions.
 - 2026-05-26: Hardened MCP client-side single-request ID validation before
   dispatch. The public `McpStreamableHttpClient.post(...)` now rejects every
   present JSON-RPC request ID that is not a string or integer, including

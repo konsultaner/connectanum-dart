@@ -535,6 +535,47 @@ void main() {
     });
 
     test(
+      'rejects invalid JSON-RPC single response discriminants from JSON',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        for (final shape in const <String, String>{
+          'missing-discriminant': 'exactly one of result or error',
+          'both-result-error': 'exactly one of result or error',
+          'invalid-error': 'error must be a JSON object',
+        }.entries) {
+          await expectLater(
+            client.post(
+              {
+                'jsonrpc': '2.0',
+                'id': 'tools-${shape.key}',
+                'method': 'tools/list',
+              },
+              streamable: false,
+              headers: <String, String>{
+                'x-test-json-response-shape': shape.key,
+              },
+            ),
+            throwsA(
+              isA<FormatException>().having(
+                (error) => error.message,
+                'message',
+                contains(shape.value),
+              ),
+            ),
+          );
+        }
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
       'rejects unexpected JSON-RPC single response ids from Streamable HTTP SSE',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -563,6 +604,42 @@ void main() {
 
         expect(client.sessionId, 'session-1');
         expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'rejects invalid JSON-RPC single response discriminants from SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        client.lastEventId = 'session-1:get:kept-invalid-shape';
+        await expectLater(
+          client.request(
+            'tools/list',
+            id: 'tools-invalid-shape',
+            headers: const <String, String>{
+              'x-test-sse-response-shape': 'both-result-error',
+              'x-test-response-session-id': 'post-sse-shape-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('exactly one of result or error'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-shape');
       },
     );
 
@@ -644,6 +721,38 @@ void main() {
       ]);
       expect(client.lastEventId, 'session-1:post-batch:3');
     });
+
+    test(
+      'keeps Streamable HTTP SSE server requests before batch responses',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        final responses = await client.postBatch(
+          [
+            {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+            {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+          ],
+          headers: const <String, String>{
+            'x-test-sse-batch-server-request-before-response': '1',
+          },
+        );
+
+        expect(responses, hasLength(2));
+        expect(responses?.map((response) => response['id']), [
+          'batch-one',
+          'batch-two',
+        ]);
+        expect(client.lastEventId, 'session-1:post-batch:3');
+      },
+    );
 
     test('rejects invalid JSON-RPC request ids before sending', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
@@ -729,6 +838,41 @@ void main() {
       expect(client.sessionId, isNull);
       expect(client.lastEventId, isNull);
     });
+
+    test(
+      'rejects invalid JSON-RPC batch response discriminants from JSON',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-batch-response-shape': 'missing-discriminant',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('exactly one of result or error'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
 
     test(
       'rejects incomplete JSON-RPC batch responses from Streamable HTTP SSE',
@@ -4411,6 +4555,21 @@ final class _FakeMcpEndpoint {
       if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
         'text/event-stream',
       )) {
+        if (request.headers.value(
+              'x-test-sse-batch-server-request-before-response',
+            ) ==
+            '1') {
+          _writeSse(
+            request,
+            'id: session-1:post-batch:1\n'
+            'data: {"jsonrpc":"2.0","id":"server-request","method":"sampling/createMessage","params":{"messages":[]}}\n\n'
+            'id: session-1:post-batch:2\n'
+            'data: ${jsonEncode(responses[0])}\n\n'
+            'id: session-1:post-batch:3\n'
+            'data: ${jsonEncode(responses[1])}\n\n',
+          );
+          return;
+        }
         if (request.headers.value('x-test-batch-missing-response') == '1') {
           _writeSse(
             request,
@@ -4459,6 +4618,19 @@ final class _FakeMcpEndpoint {
         _writeJsonValue(request, [
           responses.first,
           responses.first,
+          ...responses.skip(1),
+        ]);
+        return;
+      }
+      final testBatchResponseShape = request.headers.value(
+        'x-test-batch-response-shape',
+      );
+      if (testBatchResponseShape != null) {
+        _writeJsonValue(request, [
+          _testJsonRpcResponseWithShape(
+            responses.first['id'],
+            testBatchResponseShape,
+          ),
           ...responses.skip(1),
         ]);
         return;
@@ -4577,6 +4749,16 @@ final class _FakeMcpEndpoint {
         'id': testJsonResponseId,
         'result': <String, Object?>{'tools': <Object?>[]},
       });
+      return;
+    }
+    final testJsonResponseShape = request.headers.value(
+      'x-test-json-response-shape',
+    );
+    if (testJsonResponseShape != null) {
+      _writeJson(
+        request,
+        _testJsonRpcResponseWithShape(requestBody['id'], testJsonResponseShape),
+      );
       return;
     }
 
@@ -4998,6 +5180,17 @@ final class _FakeMcpEndpoint {
         );
         return;
       }
+      final testSseResponseShape = request.headers.value(
+        'x-test-sse-response-shape',
+      );
+      if (testSseResponseShape != null) {
+        _writeSse(
+          request,
+          'id: session-1:post:1\n'
+          'data: ${jsonEncode(_testJsonRpcResponseWithShape(requestBody['id'], testSseResponseShape))}\n\n',
+        );
+        return;
+      }
       if (request.headers.value('x-test-sse-prefix-notification') == '1') {
         _writeSse(
           request,
@@ -5317,6 +5510,27 @@ final class _SeenRequest {
       body: body,
     );
   }
+}
+
+McpJsonMap _testJsonRpcResponseWithShape(Object? id, String shape) {
+  final response = <String, Object?>{'jsonrpc': '2.0', 'id': id};
+  switch (shape) {
+    case 'missing-discriminant':
+      break;
+    case 'both-result-error':
+      response['result'] = <String, Object?>{'tools': <Object?>[]};
+      response['error'] = <String, Object?>{
+        'code': -32000,
+        'message': 'unexpected error',
+      };
+      break;
+    case 'invalid-error':
+      response['error'] = 'not an error object';
+      break;
+    default:
+      throw StateError('unknown JSON-RPC response shape $shape');
+  }
+  return response;
 }
 
 Map<String, String> _mcpParameterHeadersFrom(HttpRequest request) {
