@@ -393,7 +393,7 @@ _ParsedJsonRpcRequest _requestFrom(Object? rawMessage) {
   if (hasId && !isJsonRpcRequestId(id)) {
     throw McpException(
       McpErrorCodes.invalidRequest,
-      'JSON-RPC id must be a string or number',
+      'JSON-RPC id must be a string or integer',
     );
   }
   return _ParsedJsonRpcRequest(

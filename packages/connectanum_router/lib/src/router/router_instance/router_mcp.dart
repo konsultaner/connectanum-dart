@@ -2715,7 +2715,7 @@ _DirectJsonRequest _directJsonRequestFrom(Object? rawMessage) {
   if (hasId && !mcp.isJsonRpcRequestId(id)) {
     throw mcp.McpException(
       mcp.McpErrorCodes.invalidRequest,
-      'JSON-RPC id must be a string or number',
+      'JSON-RPC id must be a string or integer',
     );
   }
   return _DirectJsonRequest(

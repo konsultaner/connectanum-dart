@@ -136,7 +136,27 @@ void main() {
       final error = response?['error'] as Map<String, Object?>;
       expect(response?['id'], isNull);
       expect(error['code'], McpErrorCodes.invalidRequest);
-      expect(error['message'], contains('string or number'));
+      expect(error['message'], contains('string or integer'));
+    });
+
+    test('rejects fractional JSON-RPC request ids', () async {
+      final server = _server();
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 1.5,
+        'method': 'initialize',
+        'params': {
+          'protocolVersion': mcpLatestProtocolVersion,
+          'capabilities': {},
+          'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
+        },
+      });
+
+      final error = response?['error'] as Map<String, Object?>;
+      expect(response?['id'], isNull);
+      expect(error['code'], McpErrorCodes.invalidRequest);
+      expect(error['message'], contains('string or integer'));
     });
 
     test('handles JSON-RPC batches and omits notification responses', () async {

@@ -1486,8 +1486,29 @@ void main() {
       final nullJsonRpcIdError = (nullJsonRpcId.json?['error'] as Map)
           .cast<String, Object?>();
       expect(nullJsonRpcIdError['code'], equals(McpErrorCodes.invalidRequest));
-      expect(nullJsonRpcIdError['message'], contains('string or number'));
+      expect(nullJsonRpcIdError['message'], contains('string or integer'));
       expect(nullJsonRpcId.headers, isNot(contains('mcp-session-id')));
+
+      final fractionalJsonRpcId = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'id': 1.5, 'method': 'tools/list'},
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(fractionalJsonRpcId.statusCode, equals(HttpStatus.ok));
+      expect(fractionalJsonRpcId.json?['id'], isNull);
+      final fractionalJsonRpcIdError =
+          (fractionalJsonRpcId.json?['error'] as Map).cast<String, Object?>();
+      expect(
+        fractionalJsonRpcIdError['code'],
+        equals(McpErrorCodes.invalidRequest),
+      );
+      expect(
+        fractionalJsonRpcIdError['message'],
+        contains('string or integer'),
+      );
+      expect(fractionalJsonRpcId.headers, isNot(contains('mcp-session-id')));
 
       final olderVersionInitialize = await _postJson(
         client,

@@ -27,8 +27,7 @@ class JsonRpcResponse {
 
 bool isJsonRpcId(Object? value) => value == null || isJsonRpcRequestId(value);
 
-bool isJsonRpcRequestId(Object? value) =>
-    value is String || value is int || value is double;
+bool isJsonRpcRequestId(Object? value) => value is String || value is int;
 
 JsonMap jsonMapFrom(Object? value, {String label = 'params'}) {
   if (value == null) {

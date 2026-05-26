@@ -2,18 +2,20 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP null JSON-RPC request-id enforcement.
+Last reviewed branch checkpoint: MCP strict JSON-RPC request-id enforcement.
 Latest fully clean hosted checkpoint: Commit `4ce9673` on GitHub `master`.
 Current implementation checkpoint: MCP JSON-RPC request parsing now rejects
-present-but-null request IDs in both the standalone MCP server and
-router-hosted MCP direct JSON ingress, while preserving `null` error-response
-IDs for invalid or unknown incoming IDs. The shared protocol helper now exposes
-`isJsonRpcRequestId` for request parsing separately from `isJsonRpcId`, which
-remains usable for recovered error-response IDs. Regression coverage pins a
-standalone `initialize` request with `id: null` and a router-hosted `/mcp`
-direct JSON `tools/list` request with `id: null`; both return
-`invalid_request` with a null response ID, and the router path does not allocate
-an MCP session header. Baseline `bin/test-fast` passed before the change.
+present-but-null and fractional numeric request IDs in both the standalone MCP
+server and router-hosted MCP direct JSON ingress, while preserving `null`
+error-response IDs for invalid or unknown incoming IDs. The shared protocol
+helper now exposes `isJsonRpcRequestId` for request parsing separately from
+`isJsonRpcId`: incoming requests accept only string or integer IDs, while
+recovered error-response IDs can still be null. Regression coverage pins
+standalone `initialize` requests with `id: null` and `id: 1.5`, plus
+router-hosted `/mcp` direct JSON `tools/list` requests with the same invalid
+IDs; each returns `invalid_request` with a null response ID, and the router path
+does not allocate an MCP session header. Baseline `bin/test-fast` passed before
+both request-ID changes.
 Focused local coverage passed on 2026-05-26 with
 `dart analyze packages/connectanum_mcp/lib/src/protocol/json_rpc.dart packages/connectanum_mcp/lib/src/server/mcp_server.dart packages/connectanum_mcp/test/lifecycle_test.dart packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
 `dart test packages/connectanum_mcp/test/lifecycle_test.dart -r expanded`, and
@@ -23,7 +25,20 @@ Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke.
+Chrome/Dart2Wasm browser WebSocket smoke. Before this follow-up, commit
+`4955ffd` was pushed to `origin` `add-router` and GitHub `add-router`/`master`;
+the post-push hosted evidence was blocked during a GitHub Actions outage.
+Push-created GitHub `CI` `26447502623`, `Dart Package Publish Dry Run`
+`26447502535`, and `WAMP Profile Benchmarks` `26447502621` all failed during
+job setup before repo code ran because GitHub Actions could not download action
+archives from `codeload.github.com`; one failed-job rerun attempt produced the
+same setup failure. A non-mutating `Router Image` dry-run dispatch
+`26447662789` on `master` for `4955ffd` also failed during job setup while
+downloading `docker/setup-qemu-action` from `codeload.github.com`. The
+post-push strict `master` deployment-chain audit for `4955ffd` failed because
+the latest hosted CI, package dry-run, WAMP profile, and router-image evidence
+were not green for that commit, while native release dry-run evidence remained
+relevant and clean.
 Previous implementation checkpoint: `bin/audit-github-deployment-chain` now
 prints a best-effort GitHub Actions service-status section from the public
 GitHub Status summary before evaluating checked-in workflow visibility and
