@@ -2404,7 +2404,7 @@ void main() {
             otherDirectSubscription.handle,
             headers: <String, String>{
               HttpHeaders.authorizationHeader:
-                  'Bearer ${otherGrant.accessToken}',
+                  'bearer ${otherGrant.accessToken}',
             },
           );
           expect(
@@ -3969,7 +3969,7 @@ void main() {
         listener.port,
         authId: 'user-2',
       );
-      final authHeaders = {'authorization': 'Bearer ${grant.accessToken}'};
+      final authHeaders = {'authorization': 'bearer ${grant.accessToken}'};
       final otherAuthHeaders = {
         'authorization': 'Bearer ${otherGrant.accessToken}',
       };

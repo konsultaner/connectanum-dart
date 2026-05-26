@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Hardened router-side HTTP bearer extraction for protected HTTP
+  routes and router-hosted MCP. The shared parser now accepts the
+  case-insensitive `bearer` auth scheme with a space or tab separator and
+  rejects empty bearer values or tokens containing whitespace, control
+  characters, or DEL before treating a request as bearer-authenticated. This
+  applies to configured HTTP auth providers, direct JSON calls, and Streamable
+  HTTP requests that flow through router-hosted MCP. Regression coverage pins
+  lowercase bearer headers for the JWT provider route and secure MCP
+  direct-JSON/Streamable route-security smoke. Baseline `bin/test-fast` passed
+  before the change. Focused local coverage passed with
+  `dart format packages/connectanum_router/lib/src/router/router_instance/router_binding.dart packages/connectanum_router/test/router_runtime_test.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+  `dart analyze packages/connectanum_router/lib/src/router/router_instance/router_binding.dart packages/connectanum_router/test/router_runtime_test.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+  `dart test packages/connectanum_router/test/router_runtime_test.dart --name "validates protected HTTP bearer routes through configured JWT provider" -r expanded`,
+  and
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart --name "smoke tests MCP router RPC pubsub and route security" -r expanded`.
+  Full local `bin/verify` passed on 2026-05-26 after clearing a stale local
+  native-runtime lock from an earlier verification attempt and confirming the
+  affected bench pair passed in isolation. Hosted evidence has not been
+  refreshed for this local checkpoint yet; the latest fully clean hosted
+  checkpoint remains `6020b00`.
 - 2026-05-26: Hardened the public `McpStreamableHttpClient` bearer-token
   constructors so tokens containing whitespace or control characters are
   rejected before an `Authorization: Bearer` header is created. The guard
@@ -97,8 +117,20 @@ decision because `connectanum_client` still depends on private
   transport suites, auth server, live WAMP transport integration,
   router-hosted MCP example smoke, generated consumer-package smokes, full
   router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-  smoke. Hosted evidence has not been refreshed for this local checkpoint yet;
-  the latest fully clean hosted checkpoint remains `cd35952`.
+  smoke. Commit `6020b00` was pushed to GitHub `master` and `add-router`;
+  GitHub `master` CI run `26439604365` and GitHub `add-router` CI run
+  `26439599417` passed with Fast Checks and Full Verify green. GitHub Dart
+  Package Publish Dry Run runs `26439604367` (`master`) and `26439599413`
+  (`add-router`) passed. GitHub WAMP Profile Benchmarks runs `26439604345`
+  (`master`) and `26439599415` (`add-router`) passed. A non-mutating Router
+  Image dry-run `26440235110` passed at `6020b00` with preview metadata
+  `sha-6020b00b1cc3`, skipped GHCR login, and no image push. The strict
+  `master` deployment-chain audit passed against `6020b00`, with clean latest
+  CI jobs/logs, package dry-run, router image dry-run, WAMP profile benchmark,
+  and Native Artifacts dry-run `26396437881` still relevant because no
+  native-release-sensitive paths changed. RC readiness remains not ready until
+  a release-approved numeric RC tag, GitHub prerelease, and router image RC tag
+  are created.
 - 2026-05-26: Extended the generated MCP consumer package smoke to prove
   router-hosted bearer-protected MCP endpoints reject rotated and revoked
   access tokens for direct JSON lifecycle/meta calls without destroying active

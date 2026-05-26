@@ -4351,7 +4351,7 @@ void main() {
           target: '/api/jwt',
           path: '/api/jwt',
           protocol: 'http/1.1',
-          headers: {'authorization': 'Bearer $jwt'},
+          headers: {'authorization': 'bearer $jwt'},
           body: Uint8List(0),
           realm: 'realm1',
           procedure: 'com.example.api.jwt',

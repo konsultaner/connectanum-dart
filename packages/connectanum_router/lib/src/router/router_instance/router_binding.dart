@@ -2870,11 +2870,24 @@ class RouterBinding {
     if (header == null) {
       return null;
     }
-    const prefix = 'Bearer ';
-    if (!header.startsWith(prefix) || header.length <= prefix.length) {
+    const scheme = 'bearer';
+    final value = header.trim();
+    if (value.length <= scheme.length ||
+        value.substring(0, scheme.length).toLowerCase() != scheme) {
       return null;
     }
-    return header.substring(prefix.length).trim();
+    final separator = value.codeUnitAt(scheme.length);
+    if (separator != 0x20 && separator != 0x09) {
+      return null;
+    }
+    final token = value.substring(scheme.length + 1).trim();
+    final hasInvalidTokenCharacter = token.codeUnits.any(
+      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
+    );
+    if (token.isEmpty || hasInvalidTokenCharacter) {
+      return null;
+    }
+    return token;
   }
 
   Map<String, String> _httpUnauthorizedHeaders({
