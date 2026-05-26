@@ -16,6 +16,15 @@ const _headerName = 'Mcp-Name';
 const _headerParameterPrefix = 'Mcp-Param-';
 const _base64HeaderPrefix = '=?base64?';
 const _base64HeaderSuffix = '?=';
+const _mcpLatestProtocolVersion = '2025-11-25';
+const _mcpSupportedProtocolVersions = <String>{
+  '2025-03-26',
+  '2025-06-18',
+  _mcpLatestProtocolVersion,
+};
+
+bool _mcpProtocolVersionSupported(String value) =>
+    _mcpSupportedProtocolVersions.contains(value);
 
 bool _mcpSessionIdHeaderValueValid(String value) {
   for (final codeUnit in value.codeUnits) {
@@ -32,7 +41,7 @@ bool _mcpSessionIdHeaderValueValid(String value) {
 /// consumer applications can use router-hosted MCP endpoints without
 /// reimplementing the transport/session details.
 final class McpStreamableHttpClient {
-  static const latestProtocolVersion = '2025-11-25';
+  static const latestProtocolVersion = _mcpLatestProtocolVersion;
 
   McpStreamableHttpClient(
     this.endpoint, {
@@ -175,6 +184,13 @@ final class McpStreamableHttpClient {
       final negotiatedProtocolVersion = result['protocolVersion'];
       if (negotiatedProtocolVersion is String &&
           negotiatedProtocolVersion.isNotEmpty) {
+        if (!_mcpProtocolVersionSupported(negotiatedProtocolVersion)) {
+          _clearSessionState();
+          throw McpStreamableProtocolException(
+            'Unsupported initialize protocolVersion: '
+            '$negotiatedProtocolVersion',
+          );
+        }
         this.protocolVersion = negotiatedProtocolVersion;
       }
     }
@@ -1116,12 +1132,26 @@ final class McpStreamableHttpClient {
     bool resetLastEventId = false,
   }) {
     final negotiatedSessionId = response.headers.value(_headerSessionId);
+    if (negotiatedSessionId != null &&
+        !_mcpSessionIdHeaderValueValid(negotiatedSessionId)) {
+      throw const McpStreamableProtocolException(
+        'Invalid MCP-Session-Id response header',
+      );
+    }
+
+    final negotiatedProtocolVersion = captureProtocolVersion
+        ? response.headers.value(_headerProtocolVersion)
+        : null;
+    if (negotiatedProtocolVersion != null &&
+        negotiatedProtocolVersion.isNotEmpty &&
+        !_mcpProtocolVersionSupported(negotiatedProtocolVersion)) {
+      throw McpStreamableProtocolException(
+        'Unsupported MCP-Protocol-Version response header: '
+        '$negotiatedProtocolVersion',
+      );
+    }
+
     if (negotiatedSessionId != null) {
-      if (!_mcpSessionIdHeaderValueValid(negotiatedSessionId)) {
-        throw const McpStreamableProtocolException(
-          'Invalid MCP-Session-Id response header',
-        );
-      }
       if (resetLastEventId || sessionId != negotiatedSessionId) {
         lastEventId = null;
       }
@@ -1129,14 +1159,9 @@ final class McpStreamableHttpClient {
     } else if (clearSessionOnMissing) {
       _clearSessionState();
     }
-    if (captureProtocolVersion) {
-      final negotiatedProtocolVersion = response.headers.value(
-        _headerProtocolVersion,
-      );
-      if (negotiatedProtocolVersion != null &&
-          negotiatedProtocolVersion.isNotEmpty) {
-        protocolVersion = negotiatedProtocolVersion;
-      }
+    if (negotiatedProtocolVersion != null &&
+        negotiatedProtocolVersion.isNotEmpty) {
+      protocolVersion = negotiatedProtocolVersion;
     }
   }
 

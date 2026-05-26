@@ -179,6 +179,69 @@ void main() {
     });
 
     test(
+      'rejects unsupported response protocol headers without poisoning state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.initialize(
+            id: 'unsupported-response-protocol-header',
+            headers: const <String, String>{
+              'x-test-response-protocol-version': '2099-01-01',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('Unsupported MCP-Protocol-Version response header'),
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
+      },
+    );
+
+    test('rejects unsupported initialize result protocol versions', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.initialize(
+          id: 'unsupported-result-protocol-version',
+          headers: const <String, String>{
+            'x-test-result-protocol-version': '2099-01-01',
+          },
+        ),
+        throwsA(
+          isA<McpStreamableProtocolException>().having(
+            (error) => error.message,
+            'message',
+            contains('Unsupported initialize protocolVersion'),
+          ),
+        ),
+      );
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+      expect(
+        client.protocolVersion,
+        McpStreamableHttpClient.latestProtocolVersion,
+      );
+    });
+
+    test(
       'uses explicit initialize protocol version in request headers',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -4016,9 +4079,11 @@ final class _FakeMcpEndpoint {
         'jsonrpc': '2.0',
         'id': requestBody['id'],
         'result': <String, Object?>{
-          'protocolVersion': requestedProtocolVersion is String
-              ? requestedProtocolVersion
-              : McpStreamableHttpClient.latestProtocolVersion,
+          'protocolVersion':
+              request.headers.value('x-test-result-protocol-version') ??
+              (requestedProtocolVersion is String
+                  ? requestedProtocolVersion
+                  : McpStreamableHttpClient.latestProtocolVersion),
           'capabilities': <String, Object?>{},
           'serverInfo': <String, Object?>{
             'name': 'fake-router',
@@ -4689,7 +4754,8 @@ final class _FakeMcpEndpoint {
   void _applyTestResponseHeaders(HttpRequest request, {String? sessionId}) {
     request.response.headers.set(
       _headerProtocolVersion,
-      request.headers.value(_headerProtocolVersion) ??
+      request.headers.value('x-test-response-protocol-version') ??
+          request.headers.value(_headerProtocolVersion) ??
           McpStreamableHttpClient.latestProtocolVersion,
     );
     final responseSessionId =

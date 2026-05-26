@@ -78,6 +78,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Hardened the public `McpStreamableHttpClient` Streamable HTTP
+  negotiation path so unsupported MCP protocol versions cannot poison
+  downstream session state. The client now mirrors the supported MCP protocol
+  versions `2025-03-26`, `2025-06-18`, and `2025-11-25`; it rejects
+  unsupported `MCP-Protocol-Version` response headers before mutating
+  session/protocol state, and rejects unsupported
+  `initialize.result.protocolVersion` values while clearing any session state
+  captured during the failed initialize attempt. Fail-first coverage reproduced
+  the prior acceptance of the unsupported `2099-01-01` version in both a
+  response header and initialize result body. Baseline `bin/test-fast` passed
+  before the change. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "unsupported.*protocol" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+  client/native transport suites, auth server, live WAMP transport integration,
+  router-hosted MCP example smoke, generated consumer-package smokes, full
+  router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
+  smoke. The latest fully clean hosted checkpoint remains `3cf5ad1` until this
+  client checkpoint is pushed and hosted evidence completes.
 - 2026-05-26: Hardened MCP JSON-RPC request parsing so explicit
   present-but-null and fractional numeric request IDs are rejected in both the
   standalone MCP server and router-hosted MCP direct JSON ingress. The shared
@@ -100,20 +122,20 @@ decision because `connectanum_client` still depends on private
   MCP package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Before this follow-up, commit
-  `4955ffd` was pushed to `origin` `add-router` and GitHub
-  `add-router`/`master`; the post-push hosted evidence was blocked during a
-  GitHub Actions outage. Push-created GitHub `CI` `26447502623`, `Dart Package
-  Publish Dry Run` `26447502535`, and `WAMP Profile Benchmarks` `26447502621`
-  all failed during job setup before repo code ran because GitHub Actions could
-  not download action archives from `codeload.github.com`; one failed-job rerun
-  attempt produced the same setup failure. A non-mutating `Router Image`
-  dry-run dispatch `26447662789` on `master` for `4955ffd` also failed during
-  job setup while downloading `docker/setup-qemu-action` from
-  `codeload.github.com`. The post-push strict `master` deployment-chain audit
-  for `4955ffd` failed because the latest hosted CI, package dry-run, WAMP
-  profile, and router-image evidence were not green for that commit, while
-  native release dry-run evidence remained relevant and clean.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `3cf5ad1` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `3cf5ad1` is clean: GitHub `CI` `26449193044`, `Dart Package Publish Dry
+  Run` `26449193063`, `WAMP Profile Benchmarks` `26449193100`, and
+  non-mutating `Router Image` dry-run `26449211784` all completed
+  successfully. The strict `master` deployment-chain audit passed on
+  2026-05-26 with clean latest CI jobs/logs, clean package dry-run, clean
+  router image dry-run, clean WAMP profile benchmark evidence, and relevant
+  native release dry-run evidence. GitHub Status reported all systems
+  operational with the earlier Actions/Pages incident in monitoring. RC release
+  readiness remains not ready because no RC tag points at `3cf5ad1`, a GitHub
+  prerelease still requires release approval, and public pub.dev publishing
+  remains blocked on package ownership/versioning and workspace package release
+  order decisions.
 - 2026-05-26: Added a best-effort GitHub Actions service-status section to
   `bin/audit-github-deployment-chain`. The audit now queries the public GitHub
   Status summary and prints the overall status, Actions component status, and
