@@ -559,6 +559,35 @@ void main() {
       expect(client.lastEventId, 'session-1:post-batch:3');
     });
 
+    test('rejects invalid JSON-RPC request ids before sending', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      for (final invalidId in <Object?>[null, 1.5]) {
+        await expectLater(
+          client.post({
+            'jsonrpc': '2.0',
+            'id': invalidId,
+            'method': 'tools/list',
+          }, streamable: false),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('invalid request id ${invalidId ?? 'null'}'),
+            ),
+          ),
+        );
+      }
+
+      expect(endpoint.requests, isEmpty);
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
     test(
       'rejects duplicate JSON-RPC batch request ids before sending',
       () async {

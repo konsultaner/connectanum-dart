@@ -2,9 +2,34 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP invalid batch request ID validation.
-Latest fully clean hosted checkpoint: Commit `a1ab1d9` on GitHub `master`.
-Current implementation checkpoint: MCP batch request IDs are now fully
+Last reviewed branch checkpoint: MCP invalid single request ID validation.
+Latest fully clean hosted checkpoint: Commit `89c6bd3` on GitHub `master`.
+Current implementation checkpoint: MCP single-request and batch request IDs are
+now validated before public Streamable HTTP client dispatch. The public
+`McpStreamableHttpClient.post(...)` rejects every present JSON-RPC request ID
+that is not a string or integer, including explicit `null` and fractional
+numeric IDs, before opening an HTTP request. Direct JSON access through
+`postDirect(...)` inherits the protection, while `postBatch(...)` now uses the
+same request-ID guard before duplicate-ID checks. This prevents consumer
+applications from accidentally sending malformed direct JSON or Streamable
+HTTP tool/meta/pubsub requests through the raw JSON escape hatch. Fail-first
+coverage reproduced the prior behavior where `id: null` was sent to the fake
+endpoint and returned as a successful single response. Baseline
+`bin/test-fast` passed before the change. Focused local coverage passed on
+2026-05-26 with
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "invalid JSON-RPC request ids" -r expanded`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "invalid JSON-RPC request ids|invalid JSON-RPC batch request ids|duplicate JSON-RPC batch request ids" -r expanded`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+and `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
+MCP package smokes, client/native transport suites, auth server, live WAMP
+transport integration, router-hosted MCP example smoke, generated
+consumer-package smokes, full router suite, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
+checkpoint remains commit `89c6bd3` until this implementation is pushed and
+audited.
+Previous implementation checkpoint: MCP batch request IDs are now fully
 validated before public Streamable HTTP client dispatch. The public
 `McpStreamableHttpClient.postBatch(...)` rejects every present JSON-RPC batch
 request ID that is not a string or integer, including explicit `null` and
@@ -25,9 +50,20 @@ Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
-checkpoint remains commit `a1ab1d9` until this implementation is pushed and
-audited.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `89c6bd3` was pushed to
+`origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+`89c6bd3` is clean: GitHub `CI` `26467267462`, `Dart Package Publish Dry Run`
+`26467267460`, `WAMP Profile Benchmarks` `26467267458`, and non-mutating
+`Router Image` dry-run `26467273784` all completed successfully. The strict
+`master` deployment-chain audit passed on 2026-05-26 with clean latest CI
+jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+profile benchmark evidence, and relevant native release dry-run evidence.
+GitHub Status reported all systems operational and Actions operational. RC
+release readiness remains not ready because no RC tag points at `89c6bd3`, a
+GitHub prerelease still requires release approval after selecting an RC tag,
+the router image RC tag is not selected, and public pub.dev publishing remains
+deferred pending package ownership/versioning and workspace package release
+order decisions.
 Previous implementation checkpoint: MCP batch request ID integrity is now
 validated before dispatch. The public `McpStreamableHttpClient.postBatch(...)`
 rejects duplicate string or integer JSON-RPC request IDs locally before opening

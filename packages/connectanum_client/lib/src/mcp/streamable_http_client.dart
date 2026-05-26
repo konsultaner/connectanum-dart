@@ -42,18 +42,25 @@ bool _mcpSessionIdHeaderValueValid(String value) {
   return value.isNotEmpty;
 }
 
+Object? _validateJsonRpcRequestId(McpJsonMap message, {required String label}) {
+  if (!message.containsKey('id')) {
+    return null;
+  }
+  final id = message['id'];
+  if (id is! String && id is! int) {
+    throw FormatException(
+      'JSON-RPC $label contained invalid request id ${id ?? 'null'}',
+    );
+  }
+  return id;
+}
+
 void _validateJsonRpcBatchRequestIds(List<McpJsonMap> messages) {
   final seenIds = <Object?>[];
   for (final message in messages) {
-    if (!message.containsKey('id')) {
+    final id = _validateJsonRpcRequestId(message, label: 'batch request');
+    if (id == null) {
       continue;
-    }
-    final id = message['id'];
-    if (id is! String && id is! int) {
-      throw FormatException(
-        'JSON-RPC batch request contained invalid request id '
-        '${id ?? 'null'}',
-      );
     }
     if (seenIds.any((seenId) => seenId == id)) {
       throw FormatException(
@@ -850,6 +857,7 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    _validateJsonRpcRequestId(message, label: 'request');
     final effectiveProtocolVersion = _validatedMcpProtocolVersion(
       protocolVersion ?? this.protocolVersion,
       'protocolVersion',
