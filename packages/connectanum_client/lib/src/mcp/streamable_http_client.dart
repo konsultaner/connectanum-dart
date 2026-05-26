@@ -1010,14 +1010,13 @@ final class McpStreamableHttpClient {
     }
 
     if (requestPayload is List) {
-      var expectsResponses = false;
+      final expectedResponseIds = <Object?>[];
       for (final item in requestPayload) {
         if (item is Map && item.containsKey('id')) {
-          expectsResponses = true;
-          break;
+          expectedResponseIds.add(item['id']);
         }
       }
-      if (!expectsResponses) {
+      if (expectedResponseIds.isEmpty) {
         if (responseBodyReturned) {
           throw const FormatException(
             'JSON-RPC notification-only batch response must not include a body',
@@ -1031,8 +1030,22 @@ final class McpStreamableHttpClient {
       if (responseValue is! List) {
         throw const FormatException('JSON-RPC batch response must be an array');
       }
+      final responseIds = <Object?>[];
       for (final item in responseValue) {
-        _jsonMapFrom(item, label: 'JSON-RPC batch response item');
+        final response = _jsonMapFrom(
+          item,
+          label: 'JSON-RPC batch response item',
+        );
+        if (response.containsKey('id')) {
+          responseIds.add(response['id']);
+        }
+      }
+      for (final id in expectedResponseIds) {
+        if (!responseIds.any((responseId) => responseId == id)) {
+          throw FormatException(
+            'JSON-RPC batch response missing response for id $id',
+          );
+        }
       }
     }
   }

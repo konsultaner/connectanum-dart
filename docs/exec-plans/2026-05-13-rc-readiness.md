@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Hardened `McpStreamableHttpClient.postBatch(...)` so partial
+  JSON-RPC batch responses are rejected before consumer applications treat
+  them as complete. The shared response-shape validator now requires every
+  batch request item with an `id` to have a matching response object with the
+  same `id` across both direct JSON and Streamable HTTP POST/SSE responses,
+  while preserving notification-only batch behavior. Fail-first coverage
+  reproduced the prior behavior where partial direct JSON and Streamable SSE
+  batch responses were returned as normal one-item lists. Baseline
+  `bin/test-fast` passed before the change. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "incomplete JSON-RPC batch" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+  client/native transport suites, auth server, live WAMP transport integration,
+  router-hosted MCP example smoke, generated consumer-package smokes, full
+  router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
+  smoke. Hosted evidence is pending for this checkpoint.
 - 2026-05-26: Hardened outgoing MCP protocol-version handling at the public
   `McpStreamableHttpClient` boundary. Unsupported constructor
   `defaultProtocolVersion` values, public `protocolVersion` assignments, and
@@ -103,8 +123,18 @@ decision because `connectanum_client` still depends on private
   client/native transport suites, auth server, live WAMP transport integration,
   router-hosted MCP example smoke, generated consumer-package smokes, full
   router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-  smoke. Hosted evidence is still pending for this checkpoint; the latest fully
-  clean hosted checkpoint remains `12a3589`.
+  smoke. Commit `a59cbfd` was pushed to `origin` `add-router` and GitHub
+  `add-router`/`master`. Hosted evidence for `a59cbfd` is clean: GitHub `CI`
+  `26456230989`, `Dart Package Publish Dry Run` `26456230984`, `WAMP Profile
+  Benchmarks` `26456230981`, and non-mutating `Router Image` dry-run
+  `26457275301` all completed successfully. The strict `master`
+  deployment-chain audit passed on 2026-05-26 with clean latest CI jobs/logs,
+  clean package dry-run, clean router image dry-run, clean WAMP profile
+  benchmark evidence, and relevant native release dry-run evidence. RC release
+  readiness remains not ready because no RC tag points at `a59cbfd`, a GitHub
+  prerelease still requires release approval, and public pub.dev publishing
+  remains blocked on package ownership/versioning and workspace package release
+  order decisions.
 - 2026-05-26: Hardened the public `McpStreamableHttpClient` Streamable HTTP
   negotiation path so unsupported MCP protocol versions cannot poison
   downstream session state. The client now mirrors the supported MCP protocol

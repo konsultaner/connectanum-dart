@@ -560,6 +560,73 @@ void main() {
     });
 
     test(
+      'rejects incomplete JSON-RPC batch responses from Streamable HTTP SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            headers: const <String, String>{
+              'x-test-batch-missing-response': '1',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('missing response for id batch-two'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test('rejects incomplete JSON-RPC batch responses from JSON', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.postBatch(
+          [
+            {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+            {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+          ],
+          streamable: false,
+          headers: const <String, String>{'x-test-batch-missing-response': '1'},
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('missing response for id batch-two'),
+          ),
+        ),
+      );
+
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
+    test(
       'owns MCP protocol and session headers despite caller headers',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -4104,6 +4171,14 @@ final class _FakeMcpEndpoint {
       if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
         'text/event-stream',
       )) {
+        if (request.headers.value('x-test-batch-missing-response') == '1') {
+          _writeSse(
+            request,
+            'id: session-1:post-batch:1\n'
+            'data: ${jsonEncode(responses.first)}\n\n',
+          );
+          return;
+        }
         if (request.headers.value('x-test-sse-split-batch-with-notification') ==
             '1') {
           _writeSse(
@@ -4122,6 +4197,10 @@ final class _FakeMcpEndpoint {
           'id: session-1:post-batch:1\n'
           'data: ${jsonEncode(responses)}\n\n',
         );
+        return;
+      }
+      if (request.headers.value('x-test-batch-missing-response') == '1') {
+        _writeJsonValue(request, responses.take(1).toList());
         return;
       }
       _writeJsonValue(request, responses);
