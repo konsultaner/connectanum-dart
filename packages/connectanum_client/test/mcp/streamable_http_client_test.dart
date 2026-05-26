@@ -627,6 +627,75 @@ void main() {
     });
 
     test(
+      'rejects unexpected JSON-RPC batch response ids from Streamable HTTP SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            headers: const <String, String>{
+              'x-test-batch-unexpected-response': '1',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('unexpected response id batch-extra'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test('rejects duplicate JSON-RPC batch response ids from JSON', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.postBatch(
+          [
+            {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+            {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+          ],
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-batch-duplicate-response': '1',
+          },
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('duplicate response for id batch-one'),
+          ),
+        ),
+      );
+
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
+    test(
       'owns MCP protocol and session headers despite caller headers',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -4179,6 +4248,18 @@ final class _FakeMcpEndpoint {
           );
           return;
         }
+        if (request.headers.value('x-test-batch-unexpected-response') == '1') {
+          _writeSse(
+            request,
+            'id: session-1:post-batch:1\n'
+            'data: ${jsonEncode(responses[0])}\n\n'
+            'id: session-1:post-batch:2\n'
+            'data: {"jsonrpc":"2.0","id":"batch-extra","result":{"tools":[]}}\n\n'
+            'id: session-1:post-batch:3\n'
+            'data: ${jsonEncode(responses[1])}\n\n',
+          );
+          return;
+        }
         if (request.headers.value('x-test-sse-split-batch-with-notification') ==
             '1') {
           _writeSse(
@@ -4201,6 +4282,14 @@ final class _FakeMcpEndpoint {
       }
       if (request.headers.value('x-test-batch-missing-response') == '1') {
         _writeJsonValue(request, responses.take(1).toList());
+        return;
+      }
+      if (request.headers.value('x-test-batch-duplicate-response') == '1') {
+        _writeJsonValue(request, [
+          responses.first,
+          responses.first,
+          ...responses.skip(1),
+        ]);
         return;
       }
       _writeJsonValue(request, responses);

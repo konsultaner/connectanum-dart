@@ -2,9 +2,37 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP batch response completeness validation.
-Latest fully clean hosted checkpoint: Commit `a59cbfd` on GitHub `master`.
+Last reviewed branch checkpoint: MCP batch response ID integrity validation.
+Latest fully clean hosted checkpoint: Commit `1fc0518` on GitHub `master`.
 Current implementation checkpoint: The public `McpStreamableHttpClient` now
+rejects duplicate and unexpected JSON-RPC batch response IDs before returning
+`postBatch(...)` results to consumer applications. Streamable HTTP SSE batch
+collection now preserves every response object with an `id` through the shared
+shape validator instead of pre-filtering to requested IDs, so malformed SSE
+responses cannot hide extra IDs behind progress notifications. The shared
+batch validator also requires each response item to carry an `id`, rejects IDs
+that were not present in the request batch, rejects duplicate response IDs,
+and still requires every request item with an `id` to receive exactly one
+matching response. Fail-first coverage reproduced the prior behavior where an
+unexpected SSE response ID was silently dropped and duplicate direct JSON batch
+responses were returned as normal results. Baseline `bin/test-fast` passed
+before the change. Focused local coverage passed on 2026-05-26 with
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "unexpected JSON-RPC batch response ids|duplicate JSON-RPC batch response ids|collects batch responses|incomplete JSON-RPC batch" -r expanded`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+`git diff --check`, and `python3 tool/check_public_artifact_references.py`.
+Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
+MCP package smokes, client/native transport suites, auth server, live WAMP
+transport integration, router-hosted MCP example smoke, generated
+consumer-package smokes, full router suite, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
+checkpoint; the latest fully clean hosted checkpoint remains `1fc0518` until a
+new push completes. RC release readiness remains not ready because no RC tag
+points at the current branch head, a GitHub prerelease still requires release
+approval, and public pub.dev publishing remains blocked on package
+ownership/versioning and workspace package release order decisions.
+Previous implementation checkpoint: The public `McpStreamableHttpClient` now
 rejects incomplete JSON-RPC batch responses before returning `postBatch(...)`
 results to consumer applications. For both direct JSON and Streamable HTTP
 POST/SSE responses, the shared response-shape validator collects every batch
@@ -25,11 +53,18 @@ Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
-checkpoint; the latest fully clean hosted checkpoint remains `a59cbfd` until a
-new push completes. RC release readiness remains not ready because no RC tag
-points at the current branch head, a GitHub prerelease still requires release
-approval, and public pub.dev publishing remains blocked on package
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `1fc0518` was pushed to
+`origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+`1fc0518` is clean: GitHub `CI` `26459717229`, `Dart Package Publish Dry Run`
+`26459717086`, `WAMP Profile Benchmarks` `26459717298`, and non-mutating
+`Router Image` dry-run `26459750248` all completed successfully. The strict
+`master` deployment-chain audit passed on 2026-05-26 with clean latest CI
+jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+profile benchmark evidence, and relevant native release dry-run evidence.
+GitHub Status reported overall minor service degradation, but Actions was
+operational with no Actions incident. RC release readiness remains not ready
+because no RC tag points at `1fc0518`, a GitHub prerelease still requires
+release approval, and public pub.dev publishing remains blocked on package
 ownership/versioning and workspace package release order decisions.
 Previous implementation checkpoint: The public `McpStreamableHttpClient` now
 validates every caller-provided MCP protocol version before mutating client

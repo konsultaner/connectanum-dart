@@ -1036,9 +1036,25 @@ final class McpStreamableHttpClient {
           item,
           label: 'JSON-RPC batch response item',
         );
-        if (response.containsKey('id')) {
-          responseIds.add(response['id']);
+        if (!response.containsKey('id')) {
+          throw const FormatException(
+            'JSON-RPC batch response item must include an id',
+          );
         }
+        final responseId = response['id'];
+        if (!expectedResponseIds.any((id) => id == responseId)) {
+          throw FormatException(
+            'JSON-RPC batch response contained unexpected response id '
+            '$responseId',
+          );
+        }
+        if (responseIds.any((id) => id == responseId)) {
+          throw FormatException(
+            'JSON-RPC batch response contained duplicate response for id '
+            '$responseId',
+          );
+        }
+        responseIds.add(responseId);
       }
       for (final id in expectedResponseIds) {
         if (!responseIds.any((responseId) => responseId == id)) {
@@ -1262,9 +1278,7 @@ final class McpStreamableHttpClient {
       }
       final responses = <Object?>[];
       for (final response in _jsonRpcResponseValues(values)) {
-        if (response is Map &&
-            response.containsKey('id') &&
-            requestIds.any((id) => id == response['id'])) {
+        if (response is Map && response.containsKey('id')) {
           responses.add(response);
         }
       }
