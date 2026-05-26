@@ -179,6 +179,48 @@ void main() {
       expect(error['code'], McpErrorCodes.methodNotFound);
     });
 
+    test(
+      'rejects duplicate JSON-RPC batch request ids before dispatch',
+      () async {
+        var calls = 0;
+        final server = McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          tools: [
+            McpTool(
+              name: 'mark',
+              description: 'Records a side effect.',
+              handler: (_) {
+                calls += 1;
+                return McpToolResult.text('marked');
+              },
+            ),
+          ],
+        );
+        await _initializeAndStart(server);
+
+        final response = await server.handleMessage([
+          {
+            'jsonrpc': '2.0',
+            'id': 'duplicate',
+            'method': 'tools/call',
+            'params': {'name': 'mark', 'arguments': <String, Object?>{}},
+          },
+          {'jsonrpc': '2.0', 'id': 'duplicate', 'method': 'tools/list'},
+        ]);
+
+        expect(response, isA<Map<String, Object?>>());
+        final error =
+            (response as Map<String, Object?>)['error'] as Map<String, Object?>;
+        expect(response['id'], isNull);
+        expect(error['code'], McpErrorCodes.invalidRequest);
+        expect(error['message'], contains('duplicate request id duplicate'));
+        expect(calls, isZero);
+      },
+    );
+
     test('empty JSON-RPC batches return invalid-request errors', () async {
       final server = _server();
 

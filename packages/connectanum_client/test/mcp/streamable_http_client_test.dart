@@ -560,6 +560,35 @@ void main() {
     });
 
     test(
+      'rejects duplicate JSON-RPC batch request ids before sending',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.postBatch([
+            {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+            {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'ping'},
+          ], streamable: false),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('duplicate request id batch-one'),
+            ),
+          ),
+        );
+
+        expect(endpoint.requests, isEmpty);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
       'rejects incomplete JSON-RPC batch responses from Streamable HTTP SSE',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

@@ -42,6 +42,24 @@ bool _mcpSessionIdHeaderValueValid(String value) {
   return value.isNotEmpty;
 }
 
+Object? _duplicateJsonRpcBatchRequestId(List<McpJsonMap> messages) {
+  final seenIds = <Object?>[];
+  for (final message in messages) {
+    if (!message.containsKey('id')) {
+      continue;
+    }
+    final id = message['id'];
+    if (id is! String && id is! int) {
+      continue;
+    }
+    if (seenIds.any((seenId) => seenId == id)) {
+      return id;
+    }
+    seenIds.add(id);
+  }
+  return null;
+}
+
 /// Minimal Dart IO client for MCP Streamable HTTP endpoints.
 ///
 /// The client keeps the negotiated MCP session headers and SSE cursor so
@@ -866,6 +884,13 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final duplicateRequestId = _duplicateJsonRpcBatchRequestId(messages);
+    if (duplicateRequestId != null) {
+      throw FormatException(
+        'JSON-RPC batch request contained duplicate request id '
+        '$duplicateRequestId',
+      );
+    }
     final effectiveProtocolVersion = _validatedMcpProtocolVersion(
       protocolVersion ?? this.protocolVersion,
       'protocolVersion',

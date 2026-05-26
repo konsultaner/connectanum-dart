@@ -3496,6 +3496,39 @@ void main() {
         contains('Unknown MCP method'),
       );
 
+      final directDuplicateBatchId = await _postJsonValue(
+        client,
+        listener.port,
+        '/mcp/public',
+        [
+          {
+            'jsonrpc': '2.0',
+            'id': 'duplicate-batch',
+            'method': 'app.safe.lookup',
+            'params': {'taskId': 'T-duplicate-batch'},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'duplicate-batch',
+            'method': 'connectanum.api.list',
+            'params': {'kind': 'procedure'},
+          },
+        ],
+      );
+      expect(directDuplicateBatchId.statusCode, equals(HttpStatus.ok));
+      expect(directDuplicateBatchId.json, isA<Map<String, Object?>>());
+      final directDuplicateBatchJson =
+          directDuplicateBatchId.json as Map<String, Object?>;
+      final directDuplicateBatchError =
+          directDuplicateBatchJson['error'] as Map<String, Object?>;
+      expect(directDuplicateBatchJson['id'], isNull);
+      expect(directDuplicateBatchError['code'], equals(-32600));
+      expect(
+        directDuplicateBatchError['message'],
+        contains('duplicate request id duplicate-batch'),
+      );
+      expect(observedSafeLookupTaskIds, isNot(contains('T-duplicate-batch')));
+
       final directInvalidNotification = await _postJson(
         client,
         listener.port,

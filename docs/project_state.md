@@ -2,9 +2,36 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP batch response ID integrity validation.
-Latest fully clean hosted checkpoint: Commit `1fc0518` on GitHub `master`.
-Current implementation checkpoint: The public `McpStreamableHttpClient` now
+Last reviewed branch checkpoint: MCP duplicate batch request ID validation.
+Latest fully clean hosted checkpoint: Commit `294f5fa` on GitHub `master`.
+Current implementation checkpoint: MCP batch request ID integrity is now
+validated before dispatch. The public `McpStreamableHttpClient.postBatch(...)`
+rejects duplicate string or integer JSON-RPC request IDs locally before opening
+an HTTP request, so consumer applications cannot accidentally send ambiguous
+tool/meta/pubsub batches. The standalone MCP server and router-hosted MCP
+direct JSON/Streamable HTTP ingress now reject duplicate valid batch request
+IDs before dispatching any tool, WAMP-backed API, or pub/sub operation, and
+return a JSON-RPC `invalid_request` error with a null response ID. Fail-first
+coverage reproduced the prior behavior where duplicate request IDs were
+accepted, side-effecting handlers ran, and clients only failed later on
+duplicate response IDs. Baseline `bin/test-fast` passed before the change.
+Focused local coverage passed on 2026-05-26 with
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "duplicate JSON-RPC batch request ids" -r expanded`,
+`dart test packages/connectanum_mcp/test/lifecycle_test.dart --name "duplicate JSON-RPC batch request ids" -r expanded`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart --name "smoke tests MCP router RPC pubsub and route security" -r expanded`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_mcp/lib/src/server/mcp_server.dart packages/connectanum_mcp/test/lifecycle_test.dart packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`dart test packages/connectanum_mcp/test/lifecycle_test.dart -r expanded`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart --name "smoke tests MCP router RPC pubsub and route security|serves Streamable HTTP batch responses on router MCP routes" -r expanded`,
+`dart test packages/connectanum_mcp -r expanded`,
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+and `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`.
+Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
+MCP package smokes, client/native transport suites, auth server, live WAMP
+transport integration, router-hosted MCP example smoke, generated
+consumer-package smokes, full router suite, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke.
+Previous implementation checkpoint: The public `McpStreamableHttpClient` now
 rejects duplicate and unexpected JSON-RPC batch response IDs before returning
 `postBatch(...)` results to consumer applications. Streamable HTTP SSE batch
 collection now preserves every response object with an `id` through the shared
@@ -26,12 +53,19 @@ Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
-checkpoint; the latest fully clean hosted checkpoint remains `1fc0518` until a
-new push completes. RC release readiness remains not ready because no RC tag
-points at the current branch head, a GitHub prerelease still requires release
-approval, and public pub.dev publishing remains blocked on package
-ownership/versioning and workspace package release order decisions.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `294f5fa` was pushed to
+`origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+`294f5fa` is clean: GitHub `CI` `26462114157`, `Dart Package Publish Dry Run`
+`26462114085`, `WAMP Profile Benchmarks` `26462114159`, and non-mutating
+`Router Image` dry-run `26462150409` all completed successfully. The strict
+`master` deployment-chain audit passed on 2026-05-26 with clean latest CI
+jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+profile benchmark evidence, and relevant native release dry-run evidence.
+GitHub Status reported all systems operational and Actions operational. RC
+release readiness remains not ready because no RC tag points at `294f5fa`, a
+GitHub prerelease still requires release approval, and public pub.dev
+publishing remains blocked on package ownership/versioning and workspace
+package release order decisions.
 Previous implementation checkpoint: The public `McpStreamableHttpClient` now
 rejects incomplete JSON-RPC batch responses before returning `postBatch(...)`
 results to consumer applications. For both direct JSON and Streamable HTTP

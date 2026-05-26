@@ -1754,6 +1754,16 @@ class _RouterMcpEndpoint {
         ),
       ).toJson();
     }
+    final duplicateRequestId = _mcpDuplicateJsonRpcBatchRequestId(rawMessages);
+    if (duplicateRequestId != null) {
+      return mcp.JsonRpcResponse.error(
+        null,
+        mcp.McpException(
+          mcp.McpErrorCodes.invalidRequest,
+          'JSON-RPC batch contained duplicate request id $duplicateRequestId',
+        ),
+      ).toJson();
+    }
     final responses = <Object?>[];
     for (final rawMessage in rawMessages) {
       final response = await _handleSingleMessage(rawMessage);
@@ -2724,6 +2734,24 @@ _DirectJsonRequest _directJsonRequestFrom(Object? rawMessage) {
     method: method,
     params: mcp.jsonMapFrom(message['params']),
   );
+}
+
+Object? _mcpDuplicateJsonRpcBatchRequestId(List<Object?> rawMessages) {
+  final seenIds = <Object?>[];
+  for (final rawMessage in rawMessages) {
+    if (rawMessage is! Map || !rawMessage.containsKey('id')) {
+      continue;
+    }
+    final id = rawMessage['id'];
+    if (!mcp.isJsonRpcRequestId(id)) {
+      continue;
+    }
+    if (seenIds.any((seenId) => seenId == id)) {
+      return id;
+    }
+    seenIds.add(id);
+  }
+  return null;
 }
 
 Object? _recoverDirectJsonRequestId(Object? rawMessage) {

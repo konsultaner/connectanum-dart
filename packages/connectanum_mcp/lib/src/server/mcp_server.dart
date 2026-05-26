@@ -68,6 +68,16 @@ class McpServer {
         ),
       ).toJson();
     }
+    final duplicateRequestId = _duplicateJsonRpcBatchRequestId(rawMessages);
+    if (duplicateRequestId != null) {
+      return JsonRpcResponse.error(
+        null,
+        McpException(
+          McpErrorCodes.invalidRequest,
+          'JSON-RPC batch contained duplicate request id $duplicateRequestId',
+        ),
+      ).toJson();
+    }
     final responses = <JsonMap>[];
     for (final rawMessage in rawMessages) {
       final response = await _handleSingleMessage(rawMessage);
@@ -410,6 +420,24 @@ Object? _recoverRequestId(Object? rawMessage) {
   }
   final id = rawMessage['id'];
   return isJsonRpcId(id) ? id : null;
+}
+
+Object? _duplicateJsonRpcBatchRequestId(List<Object?> rawMessages) {
+  final seenIds = <Object?>[];
+  for (final rawMessage in rawMessages) {
+    if (rawMessage is! Map || !rawMessage.containsKey('id')) {
+      continue;
+    }
+    final id = rawMessage['id'];
+    if (!isJsonRpcRequestId(id)) {
+      continue;
+    }
+    if (seenIds.any((seenId) => seenId == id)) {
+      return id;
+    }
+    seenIds.add(id);
+  }
+  return null;
 }
 
 class _ParsedJsonRpcRequest {
