@@ -78,6 +78,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Extended the generated MCP consumer package smoke to prove
+  consumer code can use a plain `McpStreamableHttpClient` with lowercase
+  `authorization: bearer ...` headers issued by the HTTP auth bridge against
+  router-hosted bearer-protected MCP routes. The smoke covers direct JSON tool
+  catalog and tool-call access without Streamable session state, direct
+  JSON-response route catalog access without Streamable session state, and a
+  stateful Streamable HTTP initialize/catalog/tool-call/delete flow using the
+  same lowercase bearer scheme. Baseline `bin/test-fast` passed before the
+  change. Focused local coverage passed with `bash -n bin/common.sh`,
+  `bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+  client/native transport suites, auth server, live WAMP transport
+  integration, router-hosted MCP example smoke, generated consumer-package
+  smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm
+  browser WebSocket smoke. Hosted evidence has not been refreshed for this
+  local checkpoint yet; the latest fully clean hosted checkpoint remains
+  `5233b5f`.
 - 2026-05-26: Hardened router-side HTTP bearer extraction for protected HTTP
   routes and router-hosted MCP. The shared parser now accepts the
   case-insensitive `bearer` auth scheme with a space or tab separator and
@@ -95,9 +114,20 @@ decision because `connectanum_client` still depends on private
   `dart test packages/connectanum_router/test/router_integration_native_test.dart --name "smoke tests MCP router RPC pubsub and route security" -r expanded`.
   Full local `bin/verify` passed on 2026-05-26 after clearing a stale local
   native-runtime lock from an earlier verification attempt and confirming the
-  affected bench pair passed in isolation. Hosted evidence has not been
-  refreshed for this local checkpoint yet; the latest fully clean hosted
-  checkpoint remains `6020b00`.
+  affected bench pair passed in isolation. Commit `5233b5f` was pushed to
+  GitHub `master` and `add-router`; GitHub `master` CI run `26442590013` and
+  GitHub `add-router` CI run `26442589119` passed with Fast Checks and Full
+  Verify green. GitHub Dart Package Publish Dry Run runs `26442590065`
+  (`master`) and `26442588941` (`add-router`) passed. GitHub WAMP Profile
+  Benchmarks runs `26442589992` (`master`) and `26442589049` (`add-router`)
+  passed. A non-mutating Router Image dry-run `26443240229` passed at
+  `5233b5f` with preview metadata `sha-5233b5ff6842`, skipped GHCR login, and
+  no image push. The strict `master` deployment-chain audit passed against
+  `5233b5f`, with clean latest CI jobs/logs, package dry-run, router image
+  dry-run, WAMP profile benchmark, and Native Artifacts dry-run `26396437881`
+  still relevant because no native-release-sensitive paths changed. RC
+  readiness remains not ready until a release-approved numeric RC tag, GitHub
+  prerelease, and router image RC tag are created.
 - 2026-05-26: Hardened the public `McpStreamableHttpClient` bearer-token
   constructors so tokens containing whitespace or control characters are
   rejected before an `Authorization: Bearer` header is created. The guard

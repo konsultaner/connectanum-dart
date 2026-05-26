@@ -2,9 +2,27 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router bearer scheme parsing hardening.
-Latest fully clean hosted checkpoint: Commit `6020b00` on GitHub `master`.
-Current implementation checkpoint: Router HTTP bearer extraction now accepts
+Last reviewed branch checkpoint: Consumer smoke lowercase bearer coverage.
+Latest fully clean hosted checkpoint: Commit `5233b5f` on GitHub `master`.
+Current implementation checkpoint: The generated MCP consumer package smoke now
+proves consumer code can use a plain `McpStreamableHttpClient` with lowercase
+`authorization: bearer ...` headers issued by the HTTP auth bridge against
+router-hosted bearer-protected MCP routes. The smoke covers direct JSON tool
+catalog and tool-call access without Streamable session state, direct
+JSON-response route catalog access without Streamable session state, and a
+stateful Streamable HTTP initialize/catalog/tool-call/delete flow using the
+same lowercase bearer scheme. Baseline `bin/test-fast` passed before the
+change. Focused local coverage passed on 2026-05-26 with `bash -n bin/common.sh`,
+`bash -lc 'source bin/common.sh; run_mcp_consumer_package_smoke'`,
+`git diff --check`, and
+`python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+client/native transport suites, auth server, live WAMP transport integration,
+router-hosted MCP example smoke, generated consumer-package smokes, full router
+suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence has not been refreshed for this local checkpoint yet; the
+latest fully clean hosted checkpoint remains `5233b5f`.
+Previous implementation checkpoint: Router HTTP bearer extraction now accepts
 the case-insensitive `bearer` auth scheme with a space or tab separator and
 rejects empty bearer values or tokens containing whitespace, control
 characters, or DEL before treating a request as bearer-authenticated. The
@@ -27,9 +45,20 @@ affected bench pair passed in isolation; the clean run included formatting,
 Rust/FFI, MCP package smokes, client/native transport suites, auth server, live
 WAMP transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not been
-refreshed for this local checkpoint yet; the latest fully clean hosted
-checkpoint remains `6020b00`.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `5233b5f` was pushed to
+GitHub `master` and `add-router`; GitHub `master` CI run `26442590013` and
+GitHub `add-router` CI run `26442589119` passed with Fast Checks and Full
+Verify green. GitHub Dart Package Publish Dry Run runs `26442590065`
+(`master`) and `26442588941` (`add-router`) passed. GitHub WAMP Profile
+Benchmarks runs `26442589992` (`master`) and `26442589049` (`add-router`)
+passed. A non-mutating Router Image dry-run `26443240229` passed at `5233b5f`
+with preview metadata `sha-5233b5ff6842`, skipped GHCR login, and no image
+push. The strict `master` deployment-chain audit passed against `5233b5f`, with
+clean latest CI jobs/logs, package dry-run, router image dry-run, WAMP profile
+benchmark, and Native Artifacts dry-run `26396437881` still relevant because no
+native-release-sensitive paths changed. RC readiness remains not ready until a
+release-approved numeric RC tag, GitHub prerelease, and router image RC tag are
+created.
 Previous implementation checkpoint: The public `McpStreamableHttpClient`
 bearer-token constructors now reject tokens containing whitespace or control
 characters after the existing outer-whitespace trim. The guard applies to both

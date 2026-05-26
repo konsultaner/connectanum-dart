@@ -6346,6 +6346,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       grant,
       otherGrant,
     );
+    await _smokeLowercaseBearerMcpClients(binding, grant);
     secureClient = McpStreamableHttpClient.withAuthGrant(
       _mcpEndpoint(binding, secure: true),
       grant,
@@ -13072,6 +13073,119 @@ Future<void> _smokeSecureMcpGrant(
   } finally {
     directClient.close();
     streamableClient?.close();
+  }
+}
+
+Future<void> _smokeLowercaseBearerMcpClients(
+  RouterBinding binding,
+  ConnectanumHttpAuthGrant grant,
+) async {
+  final headers = <String, String>{
+    HttpHeaders.authorizationHeader: 'bearer ${grant.accessToken}',
+  };
+  final directClient = McpStreamableHttpClient(
+    _mcpEndpoint(binding, secure: true),
+    headers: headers,
+  );
+  final jsonPostClient = McpStreamableHttpClient(
+    _secureJsonPostMcpEndpoint(binding),
+    headers: headers,
+  );
+  final streamableClient = McpStreamableHttpClient(
+    _mcpEndpoint(binding, secure: true),
+    headers: headers,
+  );
+
+  try {
+    await _expectPagedToolCatalog(
+      directClient,
+      label: 'secure-lowercase-bearer',
+      directJson: true,
+    );
+    final directResult = await directClient.callConnectanumToolDirect(
+      _procedure,
+      id: 'secure-lowercase-bearer-direct-call',
+      arguments: const <String, Object?>{
+        'taskId': 'T-secure-lowercase-bearer-direct',
+        'note': _headerWrappedNote,
+      },
+      headers: const <String, String>{
+        'x-consumer-trace': 'secure-lowercase-bearer-direct-call',
+      },
+    );
+    _expectDirectToolPayload(
+      directResult,
+      taskId: 'T-secure-lowercase-bearer-direct',
+      label: 'secure lowercase bearer direct JSON',
+    );
+    if (directClient.sessionId != null || directClient.lastEventId != null) {
+      throw StateError(
+        'Secure lowercase bearer direct JSON captured Streamable state.',
+      );
+    }
+
+    await _expectPagedToolCatalog(
+      jsonPostClient,
+      label: 'secure-json-post-lowercase-bearer',
+      directJson: true,
+    );
+    if (jsonPostClient.sessionId != null ||
+        jsonPostClient.lastEventId != null) {
+      throw StateError(
+        'Secure lowercase bearer JSON-response direct access captured '
+        'Streamable state.',
+      );
+    }
+
+    await streamableClient.initialize(
+      id: 'secure-lowercase-bearer-streamable-initialize',
+      clientInfo: const <String, Object?>{
+        'name': 'connectanum_consumer_lowercase_bearer_smoke',
+        'version': '0.1.0',
+      },
+      headers: const <String, String>{
+        'x-consumer-trace': 'secure-lowercase-bearer-streamable-initialize',
+      },
+    );
+    await streamableClient.notifyInitialized(
+      headers: const <String, String>{
+        'x-consumer-trace': 'secure-lowercase-bearer-streamable-initialized',
+      },
+    );
+    final sessionId = streamableClient.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      throw StateError(
+        'Secure lowercase bearer Streamable MCP session did not initialize.',
+      );
+    }
+    await _expectPagedToolCatalog(
+      streamableClient,
+      label: 'secure-lowercase-bearer',
+      directJson: false,
+    );
+    final streamableResult = await streamableClient.callTool(
+      _procedure,
+      id: 'secure-lowercase-bearer-streamable-call',
+      arguments: const <String, Object?>{
+        'taskId': 'T-secure-lowercase-bearer-streamable',
+        'note': _headerWrappedNote,
+      },
+      headers: const <String, String>{
+        'x-consumer-trace': 'secure-lowercase-bearer-streamable-call',
+      },
+    );
+    final streamableJson = jsonEncode(streamableResult);
+    if (!streamableJson.contains('T-secure-lowercase-bearer-streamable') ||
+        !streamableJson.contains(_headerWrappedNote)) {
+      throw StateError(
+        'Secure lowercase bearer Streamable MCP returned unexpected payload.',
+      );
+    }
+    await streamableClient.deleteSession();
+  } finally {
+    directClient.close();
+    jsonPostClient.close();
+    streamableClient.close();
   }
 }
 
