@@ -26,6 +26,13 @@ const _mcpSupportedProtocolVersions = <String>{
 bool _mcpProtocolVersionSupported(String value) =>
     _mcpSupportedProtocolVersions.contains(value);
 
+String _validatedMcpProtocolVersion(String value, String name) {
+  if (_mcpProtocolVersionSupported(value)) {
+    return value;
+  }
+  throw ArgumentError.value(value, name, 'Unsupported MCP protocol version.');
+}
+
 bool _mcpSessionIdHeaderValueValid(String value) {
   for (final codeUnit in value.codeUnits) {
     if (codeUnit < 0x21 || codeUnit > 0x7e) {
@@ -47,12 +54,19 @@ final class McpStreamableHttpClient {
     this.endpoint, {
     HttpClient? httpClient,
     this.headers = const <String, String>{},
-    this.defaultProtocolVersion = latestProtocolVersion,
+    String defaultProtocolVersion = latestProtocolVersion,
     bool closeHttpClient = false,
-  }) : _httpClient = httpClient ?? HttpClient(),
+  }) : defaultProtocolVersion = _validatedMcpProtocolVersion(
+         defaultProtocolVersion,
+         'defaultProtocolVersion',
+       ),
+       _httpClient = httpClient ?? HttpClient(),
        _ownsHttpClient = httpClient == null || closeHttpClient,
        _authorizationHeader = _authorizationHeaderFrom(headers),
-       protocolVersion = defaultProtocolVersion;
+       _protocolVersion = _validatedMcpProtocolVersion(
+         defaultProtocolVersion,
+         'defaultProtocolVersion',
+       );
 
   /// Creates a client for bearer-protected MCP HTTP endpoints.
   McpStreamableHttpClient.withBearerToken(
@@ -96,9 +110,15 @@ final class McpStreamableHttpClient {
 
   int _nextRequestId = 1;
 
-  String protocolVersion;
+  String _protocolVersion;
   String? sessionId;
   String? lastEventId;
+
+  String get protocolVersion => _protocolVersion;
+
+  set protocolVersion(String value) {
+    _protocolVersion = _validatedMcpProtocolVersion(value, 'protocolVersion');
+  }
 
   static Map<String, String> _headersWithBearerToken(
     Map<String, String> headers,
@@ -808,11 +828,15 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final effectiveProtocolVersion = _validatedMcpProtocolVersion(
+      protocolVersion ?? this.protocolVersion,
+      'protocolVersion',
+    );
     final response = await _postPayload(
       message,
       streamable: streamable,
       includeSession: includeSession,
-      protocolVersion: protocolVersion,
+      protocolVersion: effectiveProtocolVersion,
       extraHeaders: headers,
     );
     if (response == null) {
@@ -842,11 +866,15 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final effectiveProtocolVersion = _validatedMcpProtocolVersion(
+      protocolVersion ?? this.protocolVersion,
+      'protocolVersion',
+    );
     final response = await _postPayload(
       messages,
       streamable: streamable,
       includeSession: includeSession,
-      protocolVersion: protocolVersion,
+      protocolVersion: effectiveProtocolVersion,
       extraHeaders: headers,
     );
     if (response == null) {
@@ -1096,11 +1124,12 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> extraHeaders = const <String, String>{},
   }) {
-    request.headers.set(HttpHeaders.acceptHeader, accept);
-    request.headers.set(
-      _headerProtocolVersion,
+    final effectiveProtocolVersion = _validatedMcpProtocolVersion(
       protocolVersion ?? this.protocolVersion,
+      'protocolVersion',
     );
+    request.headers.set(HttpHeaders.acceptHeader, accept);
+    request.headers.set(_headerProtocolVersion, effectiveProtocolVersion);
     void applyConsumerHeaders(Map<String, String> source) {
       for (final entry in source.entries) {
         if (_isControlledMcpRequestHeader(entry.key)) {

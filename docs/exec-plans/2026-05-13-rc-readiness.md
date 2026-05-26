@@ -78,6 +78,33 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-26: Hardened outgoing MCP protocol-version handling at the public
+  `McpStreamableHttpClient` boundary. Unsupported constructor
+  `defaultProtocolVersion` values, public `protocolVersion` assignments, and
+  explicit per-request `protocolVersion` overrides now throw `ArgumentError`
+  locally before mutating state or sending HTTP, so consumer applications cannot
+  poison `client.protocolVersion` or send unsupported `MCP-Protocol-Version`
+  request headers through the typed client. The router-hosted MCP example and
+  generated consumer-package smoke now keep server-side unsupported protocol
+  coverage with a fixed-length raw HTTP initialize probe using `2099-01-01`.
+  Fail-first coverage reproduced the prior unsupported constructor acceptance,
+  the prior network request before explicit override rejection, and the prior
+  public assignment poisoning. Baseline `bin/test-fast` passed before the
+  change. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "unsupported.*protocol (versions locally|versions before requests|assignments locally)" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_router/example/router_hosted_mcp.dart`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  `dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`,
+  `bash -n bin/common.sh`,
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`,
+  `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+  passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+  client/native transport suites, auth server, live WAMP transport integration,
+  router-hosted MCP example smoke, generated consumer-package smokes, full
+  router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
+  smoke. Hosted evidence is still pending for this checkpoint; the latest fully
+  clean hosted checkpoint remains `12a3589`.
 - 2026-05-26: Hardened the public `McpStreamableHttpClient` Streamable HTTP
   negotiation path so unsupported MCP protocol versions cannot poison
   downstream session state. The client now mirrors the supported MCP protocol
@@ -98,8 +125,18 @@ decision because `connectanum_client` still depends on private
   client/native transport suites, auth server, live WAMP transport integration,
   router-hosted MCP example smoke, generated consumer-package smokes, full
   router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-  smoke. The latest fully clean hosted checkpoint remains `3cf5ad1` until this
-  client checkpoint is pushed and hosted evidence completes.
+  smoke. Commit `12a3589` was pushed to `origin` `add-router` and GitHub
+  `add-router`/`master`. Hosted evidence for `12a3589` is clean: GitHub `CI`
+  `26452004232`, `Dart Package Publish Dry Run` `26452014982`, `WAMP Profile
+  Benchmarks` `26452024592`, and non-mutating `Router Image` dry-run
+  `26452033333` all completed successfully. The strict `master`
+  deployment-chain audit passed on 2026-05-26 with clean latest CI jobs/logs,
+  clean package dry-run, clean router image dry-run, clean WAMP profile
+  benchmark evidence, and relevant native release dry-run evidence. RC release
+  readiness remains not ready because no RC tag points at `12a3589`, a GitHub
+  prerelease still requires release approval, and public pub.dev publishing
+  remains blocked on package ownership/versioning and workspace package release
+  order decisions.
 - 2026-05-26: Hardened MCP JSON-RPC request parsing so explicit
   present-but-null and fractional numeric request IDs are rejected in both the
   standalone MCP server and router-hosted MCP direct JSON ingress. The shared

@@ -7841,29 +7841,49 @@ Future<void> _assertUnsupportedMcpProtocolVersionRejected(
   required String label,
   ConnectanumHttpAuthGrant? authGrant,
 }) async {
-  final client = _protocolVersionClient(
-    endpoint,
-    defaultProtocolVersion: _unsupportedProtocolVersion,
-    authGrant: authGrant,
-  );
+  final httpClient = HttpClient();
   try {
-    await client.initialize(id: '$label-unsupported-protocol-initialize');
-    throw StateError('MCP $label accepted an unsupported protocol version.');
-  } on McpStreamableHttpException catch (error) {
-    if (error.statusCode != HttpStatus.badRequest) {
-      throw StateError(
-        'MCP $label unsupported protocol version returned ${error.statusCode} '
-        'instead of ${HttpStatus.badRequest}.',
+    final request = await httpClient.postUrl(endpoint);
+    request.headers.set(
+      HttpHeaders.acceptHeader,
+      'application/json, text/event-stream',
+    );
+    request.headers.contentType = ContentType.json;
+    request.headers.set('MCP-Protocol-Version', _unsupportedProtocolVersion);
+    final grant = authGrant;
+    if (grant != null) {
+      request.headers.set(
+        HttpHeaders.authorizationHeader,
+        '${grant.tokenType} ${grant.accessToken}',
       );
     }
-    if (client.sessionId != null || client.lastEventId != null) {
+    final requestBody = utf8.encode(
+      jsonEncode(<String, Object?>{
+        'jsonrpc': '2.0',
+        'id': '$label-unsupported-protocol-initialize',
+        'method': 'initialize',
+        'params': <String, Object?>{
+          'protocolVersion': _unsupportedProtocolVersion,
+          'capabilities': <String, Object?>{},
+          'clientInfo': <String, Object?>{
+            'name': 'connectanum_mcp_consumer_smoke',
+            'version': '0.0.0',
+          },
+        },
+      }),
+    );
+    request.contentLength = requestBody.length;
+    request.add(requestBody);
+    final response = await request.close();
+    final body = await utf8.decoder.bind(response).join();
+    if (response.statusCode != HttpStatus.badRequest) {
       throw StateError(
-        'MCP $label unsupported protocol rejection leaked Streamable '
-        'session state.',
+        'MCP $label accepted an unsupported protocol version '
+        'with status ${response.statusCode}: $body',
       );
     }
   } finally {
-    client.close();
+    httpClient.close(force: true);
   }
 }
 

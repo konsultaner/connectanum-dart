@@ -2,9 +2,39 @@
 
 Last updated: 2026-05-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable HTTP protocol-version hardening.
-Latest fully clean hosted checkpoint: Commit `3cf5ad1` on GitHub `master`.
+Last reviewed branch checkpoint: MCP outgoing protocol-version validation.
+Latest fully clean hosted checkpoint: Commit `12a3589` on GitHub `master`.
 Current implementation checkpoint: The public `McpStreamableHttpClient` now
+validates every caller-provided MCP protocol version before mutating client
+state or sending an HTTP request. Unsupported constructor
+`defaultProtocolVersion` values, public `protocolVersion` assignments, and
+explicit per-request `protocolVersion` overrides now throw `ArgumentError`
+locally with the relevant parameter name, preventing unsupported
+`MCP-Protocol-Version` request headers from reaching router-hosted MCP
+endpoints and preventing consumer code from poisoning `client.protocolVersion`.
+The router-hosted MCP example smoke and generated consumer-package smoke still
+prove router-side unsupported protocol rejection by issuing a fixed-length raw
+HTTP initialize probe with `2099-01-01`, so the server guard remains covered
+without requiring public clients to enter invalid state. Fail-first coverage
+reproduced the prior acceptance of unsupported constructor defaults, the prior
+network request before explicit override rejection, and the prior public
+assignment poisoning. Baseline `bin/test-fast` passed before the change.
+Focused local coverage passed on 2026-05-26 with
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "unsupported.*protocol (versions locally|versions before requests|assignments locally)" -r expanded`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_router/example/router_hosted_mcp.dart`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit`,
+`bash -n bin/common.sh`, and
+`bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+Final local hygiene passed with `git diff --check` and
+`python3 tool/check_public_artifact_references.py`. Full local `bin/verify`
+passed on 2026-05-26, including formatting, Rust/FFI, MCP package smokes,
+client/native transport suites, auth server, live WAMP transport integration,
+router-hosted MCP example smoke, generated consumer-package smokes, full router
+suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence has not yet been collected for this checkpoint; the latest
+fully clean hosted checkpoint remains `12a3589`.
+Previous implementation checkpoint: The public `McpStreamableHttpClient` now
 rejects unsupported MCP protocol versions before accepting negotiated
 Streamable HTTP state. The client mirrors the supported MCP protocol versions
 `2025-03-26`, `2025-06-18`, and `2025-11-25`, rejects unsupported
@@ -23,9 +53,18 @@ Full local `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
-checkpoint remains `3cf5ad1` until this client checkpoint is pushed and hosted
-evidence completes.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `12a3589` was pushed to
+`origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+`12a3589` is clean: GitHub `CI` `26452004232`, `Dart Package Publish Dry Run`
+`26452014982`, `WAMP Profile Benchmarks` `26452024592`, and non-mutating
+`Router Image` dry-run `26452033333` all completed successfully. The strict
+`master` deployment-chain audit passed on 2026-05-26 with clean latest CI
+jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+profile benchmark evidence, and relevant native release dry-run evidence. RC
+release readiness remains not ready because no RC tag points at `12a3589`, a
+GitHub prerelease still requires release approval, and public pub.dev
+publishing remains blocked on package ownership/versioning and workspace
+package release order decisions.
 Previous implementation checkpoint: MCP JSON-RPC request parsing now rejects
 present-but-null and fractional numeric request IDs in both the standalone MCP
 server and router-hosted MCP direct JSON ingress, while preserving `null`

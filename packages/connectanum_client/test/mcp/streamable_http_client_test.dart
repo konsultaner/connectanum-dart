@@ -178,6 +178,80 @@ void main() {
       expect(endpoint.requests.last.protocolVersion, '2025-06-18');
     });
 
+    test('rejects unsupported default protocol versions locally', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      expect(
+        () => McpStreamableHttpClient(
+          endpoint.uri,
+          defaultProtocolVersion: '2099-01-01',
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.name,
+            'name',
+            'defaultProtocolVersion',
+          ),
+        ),
+      );
+      expect(endpoint.requests, isEmpty);
+    });
+
+    test(
+      'rejects unsupported explicit protocol versions before requests',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.initialize(
+            id: 'unsupported-request-protocol',
+            protocolVersion: '2099-01-01',
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (error) => error.name,
+              'name',
+              'protocolVersion',
+            ),
+          ),
+        );
+        expect(endpoint.requests, isEmpty);
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
+      },
+    );
+
+    test('rejects unsupported protocol assignments locally', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      expect(
+        () => client.protocolVersion = '2099-01-01',
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.name,
+            'name',
+            'protocolVersion',
+          ),
+        ),
+      );
+      expect(endpoint.requests, isEmpty);
+      expect(
+        client.protocolVersion,
+        McpStreamableHttpClient.latestProtocolVersion,
+      );
+    });
+
     test(
       'rejects unsupported response protocol headers without poisoning state',
       () async {
