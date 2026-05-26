@@ -13859,6 +13859,31 @@ Future<void> _assertActiveStreamableSessionRejectsBearer(
   await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
     client,
     () async {
+      await client.pingDirect(
+        id: '$label-rejected-direct-ping',
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON ping',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
+      await client.notificationDirect(
+        'notifications/initialized',
+        params: const <String, Object?>{},
+      );
+    },
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    method: 'direct JSON notifications/initialized',
+    acceptedMessage: acceptedMessage,
+  );
+  await _assertActiveDirectJsonRequestRejectsBearerWithoutSessionLoss(
+    client,
+    () async {
       await client.listToolsDirect(
         id: '$label-rejected-direct-tools',
       );

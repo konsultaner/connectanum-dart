@@ -80,6 +80,29 @@ decision because `connectanum_client` still depends on private
 
 - 2026-05-26: Extended the generated MCP consumer package smoke to prove
   router-hosted bearer-protected MCP endpoints reject rotated and revoked
+  access tokens for direct JSON lifecycle/meta calls without destroying active
+  Streamable HTTP session state. During both invalid-token phases, an
+  initialized secure Streamable session now attempts `pingDirect(...)` and
+  `notificationDirect('notifications/initialized', ...)`; each request must fail
+  with HTTP 401 while the client's `sessionId` and `lastEventId` remain
+  unchanged. The smoke still covers direct tools, direct WAMP meta/pubsub
+  helpers, direct batches, direct resources/prompts, stateful Streamable
+  tools/resources/prompts, poll, delete, stale-session cleanup, refresh-token
+  rotation rejection, and refresh/access-token revocation. Baseline
+  `bin/test-fast` passed before the change. Focused local coverage passed with
+  `bash -n bin/common.sh`, `git diff --check`,
+  `python3 tool/check_public_artifact_references.py`, and
+  `source bin/common.sh; run_mcp_consumer_package_smoke`. Full local
+  `bin/verify` passed on 2026-05-26, including formatting, Rust/FFI, MCP package
+  smokes, client/native transport suites, auth server, live WAMP transport
+  integration, router-hosted MCP example smoke, generated consumer-package
+  smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm
+  browser WebSocket smoke. Hosted evidence has not been refreshed for this local
+  checkpoint yet; the latest fully clean hosted checkpoint remains `638a243`.
+  RC readiness remains not ready until a release-approved numeric RC tag, GitHub
+  prerelease, and router image RC tag are created.
+- 2026-05-26: Extended the generated MCP consumer package smoke to prove
+  router-hosted bearer-protected MCP endpoints reject rotated and revoked
   access tokens across the direct JSON resource/prompt helper surface without
   destroying active Streamable HTTP session state. During both invalid-token
   phases, an initialized secure Streamable session now attempts
@@ -98,11 +121,18 @@ decision because `connectanum_client` still depends on private
   package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not been
-  refreshed for this local checkpoint yet; the latest fully clean hosted
-  checkpoint remains `9dacf75`. RC readiness remains not ready until a
-  release-approved numeric RC tag, GitHub prerelease, and router image RC tag
-  are created.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `638a243` was pushed to
+  GitHub `master` and `add-router`. GitHub `master` CI run `26435513289` and
+  GitHub `add-router` CI run `26435510478` passed with Fast Checks and Full
+  Verify green. The strict `master` deployment-chain audit passed against
+  `638a243`, with clean latest CI jobs, clean CI logs, and relevant clean
+  hosted evidence for Dart Package Publish Dry Run `26433844437`, Router Image
+  dry-run `26434291709`, Native Artifacts dry-run `26396437881`, and WAMP
+  Profile Benchmarks run `26423773849`. The Dart package and router-image
+  dry-runs remain relevant because this checkpoint did not change
+  publish-sensitive or router-image-sensitive inputs. RC readiness remains not
+  ready until a release-approved numeric RC tag, GitHub prerelease, and router
+  image RC tag are created.
 - 2026-05-26: Extended the public `connectanum_mcp_io.dart` package-boundary
   auth smoke to prove exported revoke helpers make revoked credentials fail
   without creating or mutating Streamable MCP session state. After the refreshed
