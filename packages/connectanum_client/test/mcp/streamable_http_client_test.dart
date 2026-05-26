@@ -576,6 +576,41 @@ void main() {
     );
 
     test(
+      'rejects invalid JSON-RPC single response versions from JSON',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        for (final shape in const <String>[
+          'missing-jsonrpc',
+          'invalid-jsonrpc',
+          'non-string-jsonrpc',
+        ]) {
+          await expectLater(
+            client.post(
+              {'jsonrpc': '2.0', 'id': 'tools-$shape', 'method': 'tools/list'},
+              streamable: false,
+              headers: <String, String>{'x-test-json-response-shape': shape},
+            ),
+            throwsA(
+              isA<FormatException>().having(
+                (error) => error.message,
+                'message',
+                contains('jsonrpc must be 2.0'),
+              ),
+            ),
+          );
+        }
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
       'rejects unexpected JSON-RPC single response ids from Streamable HTTP SSE',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -640,6 +675,42 @@ void main() {
 
         expect(client.sessionId, 'session-1');
         expect(client.lastEventId, 'session-1:get:kept-invalid-shape');
+      },
+    );
+
+    test(
+      'rejects invalid JSON-RPC single response versions from SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        client.lastEventId = 'session-1:get:kept-invalid-jsonrpc';
+        await expectLater(
+          client.request(
+            'tools/list',
+            id: 'tools-invalid-jsonrpc',
+            headers: const <String, String>{
+              'x-test-sse-response-shape': 'missing-jsonrpc',
+              'x-test-response-session-id': 'post-sse-jsonrpc-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('jsonrpc must be 2.0'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-jsonrpc');
       },
     );
 
@@ -783,6 +854,49 @@ void main() {
       expect(client.lastEventId, isNull);
     });
 
+    test('rejects invalid JSON-RPC request versions before sending', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      for (final message in <McpJsonMap>[
+        {'id': 'missing-jsonrpc', 'method': 'tools/list'},
+        {'jsonrpc': '1.0', 'id': 'invalid-jsonrpc', 'method': 'tools/list'},
+        {'jsonrpc': 2.0, 'id': 'numeric-jsonrpc', 'method': 'tools/list'},
+      ]) {
+        await expectLater(
+          client.post(message, streamable: false),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('jsonrpc must be 2.0'),
+            ),
+          ),
+        );
+      }
+
+      await expectLater(
+        client.postBatch([
+          {'jsonrpc': '2.0', 'id': 'valid', 'method': 'ping'},
+          {'jsonrpc': '1.0', 'id': 'invalid-batch', 'method': 'tools/list'},
+        ], streamable: false),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('jsonrpc must be 2.0'),
+          ),
+        ),
+      );
+
+      expect(endpoint.requests, isEmpty);
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
     test(
       'rejects duplicate JSON-RPC batch request ids before sending',
       () async {
@@ -870,6 +984,78 @@ void main() {
         );
 
         expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'rejects invalid JSON-RPC batch response versions from JSON',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-batch-response-shape': 'invalid-jsonrpc',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('jsonrpc must be 2.0'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'rejects invalid JSON-RPC batch response versions from Streamable HTTP SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            headers: const <String, String>{
+              'x-test-batch-response-shape': 'missing-jsonrpc',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('jsonrpc must be 2.0'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
         expect(client.lastEventId, isNull);
       },
     );
@@ -4603,6 +4789,17 @@ final class _FakeMcpEndpoint {
           );
           return;
         }
+        final testBatchResponseShape = request.headers.value(
+          'x-test-batch-response-shape',
+        );
+        if (testBatchResponseShape != null) {
+          _writeSse(
+            request,
+            'id: session-1:post-batch:1\n'
+            'data: ${jsonEncode([_testJsonRpcResponseWithShape(responses.first['id'], testBatchResponseShape), ...responses.skip(1)])}\n\n',
+          );
+          return;
+        }
         _writeSse(
           request,
           'id: session-1:post-batch:1\n'
@@ -5515,6 +5712,18 @@ final class _SeenRequest {
 McpJsonMap _testJsonRpcResponseWithShape(Object? id, String shape) {
   final response = <String, Object?>{'jsonrpc': '2.0', 'id': id};
   switch (shape) {
+    case 'missing-jsonrpc':
+      response.remove('jsonrpc');
+      response['result'] = <String, Object?>{'tools': <Object?>[]};
+      break;
+    case 'invalid-jsonrpc':
+      response['jsonrpc'] = '1.0';
+      response['result'] = <String, Object?>{'tools': <Object?>[]};
+      break;
+    case 'non-string-jsonrpc':
+      response['jsonrpc'] = 2.0;
+      response['result'] = <String, Object?>{'tools': <Object?>[]};
+      break;
     case 'missing-discriminant':
       break;
     case 'both-result-error':

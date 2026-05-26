@@ -42,7 +42,14 @@ bool _mcpSessionIdHeaderValueValid(String value) {
   return value.isNotEmpty;
 }
 
+void _validateJsonRpcVersion(McpJsonMap message, {required String label}) {
+  if (message['jsonrpc'] != '2.0') {
+    throw FormatException('JSON-RPC $label jsonrpc must be 2.0');
+  }
+}
+
 Object? _validateJsonRpcRequestId(McpJsonMap message, {required String label}) {
+  _validateJsonRpcVersion(message, label: label);
   if (!message.containsKey('id')) {
     return null;
   }
@@ -80,6 +87,7 @@ void _validateJsonRpcResponseObject(
   McpJsonMap response, {
   required String label,
 }) {
+  _validateJsonRpcVersion(response, label: label);
   final hasResult = response.containsKey('result');
   final hasError = response.containsKey('error');
   if (hasResult == hasError) {
