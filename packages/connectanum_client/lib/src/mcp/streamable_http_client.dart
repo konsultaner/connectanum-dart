@@ -42,7 +42,7 @@ bool _mcpSessionIdHeaderValueValid(String value) {
   return value.isNotEmpty;
 }
 
-Object? _duplicateJsonRpcBatchRequestId(List<McpJsonMap> messages) {
+void _validateJsonRpcBatchRequestIds(List<McpJsonMap> messages) {
   final seenIds = <Object?>[];
   for (final message in messages) {
     if (!message.containsKey('id')) {
@@ -50,14 +50,18 @@ Object? _duplicateJsonRpcBatchRequestId(List<McpJsonMap> messages) {
     }
     final id = message['id'];
     if (id is! String && id is! int) {
-      continue;
+      throw FormatException(
+        'JSON-RPC batch request contained invalid request id '
+        '${id ?? 'null'}',
+      );
     }
     if (seenIds.any((seenId) => seenId == id)) {
-      return id;
+      throw FormatException(
+        'JSON-RPC batch request contained duplicate request id $id',
+      );
     }
     seenIds.add(id);
   }
-  return null;
 }
 
 /// Minimal Dart IO client for MCP Streamable HTTP endpoints.
@@ -884,13 +888,7 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
-    final duplicateRequestId = _duplicateJsonRpcBatchRequestId(messages);
-    if (duplicateRequestId != null) {
-      throw FormatException(
-        'JSON-RPC batch request contained duplicate request id '
-        '$duplicateRequestId',
-      );
-    }
+    _validateJsonRpcBatchRequestIds(messages);
     final effectiveProtocolVersion = _validatedMcpProtocolVersion(
       protocolVersion ?? this.protocolVersion,
       'protocolVersion',

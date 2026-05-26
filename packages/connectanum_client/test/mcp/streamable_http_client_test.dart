@@ -588,6 +588,33 @@ void main() {
       },
     );
 
+    test('rejects invalid JSON-RPC batch request ids before sending', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      for (final invalidId in <Object?>[null, 1.5]) {
+        await expectLater(
+          client.postBatch([
+            {'jsonrpc': '2.0', 'id': invalidId, 'method': 'tools/list'},
+          ], streamable: false),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('invalid request id ${invalidId ?? 'null'}'),
+            ),
+          ),
+        );
+      }
+
+      expect(endpoint.requests, isEmpty);
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
     test(
       'rejects incomplete JSON-RPC batch responses from Streamable HTTP SSE',
       () async {
