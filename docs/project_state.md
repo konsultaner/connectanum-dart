@@ -2,9 +2,27 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP HTTP auth revoke hint validation.
-Latest fully clean hosted checkpoint: Commit `a5bebad` on GitHub `master`.
+Last reviewed branch checkpoint: MCP HTTP auth grant expiry validation.
+Latest fully clean hosted checkpoint: Commit `fbcb982` on GitHub `master`.
 Current implementation checkpoint: Public
+`ConnectanumHttpAuthGrant.fromJson(...)` now validates present HTTP auth bridge
+expiry metadata before returning grants to consumer applications.
+`expires_in` and `refresh_token_expires_in` must be non-negative integer
+seconds when present; omitted or null values remain optional. Malformed string,
+negative, or fractional expiry values now fail with controlled
+`FormatException`s at the auth bridge boundary instead of being silently ignored
+or truncated into misleading grant lifetimes. Baseline `bin/test-fast` passed
+before the change on 2026-05-27. Fail-first coverage reproduced the prior
+behavior where string `expires_in` produced a grant instead of an error.
+Focused local coverage passed on 2026-05-27 with
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "malformed auth grant responses" -r expanded`,
+`dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+and `dart test packages/connectanum_client/test/mcp -r expanded`. Hosted
+evidence remains at the last fully clean `master` checkpoint `fbcb982` until
+this local implementation checkpoint is pushed and the GitHub deployment chain
+is observed.
+Previous implementation checkpoint: Public
 `ConnectanumHttpAuthClient.revokeToken(...)` now normalizes a valid optional
 `tokenTypeHint` and rejects blank or whitespace/control-character hint values
 before opening an HTTP auth bridge revoke request. This keeps consumer
@@ -16,10 +34,26 @@ Focused local coverage passed on 2026-05-27 with
 `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "revoke token type hints" -r expanded`,
 `dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
 `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
-and `dart test packages/connectanum_client/test/mcp -r expanded`. Hosted
-evidence remains at the last fully clean `master` checkpoint `a5bebad` until
-this local implementation checkpoint is pushed and the GitHub deployment chain
-is observed.
+and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+`bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP package
+smokes, client/native transport suites, auth server, live WAMP transport
+integration, router-hosted MCP example smoke, generated consumer-package
+smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke. Commit `fbcb982` was pushed to `origin` `add-router` and
+GitHub `add-router`/`master`. Hosted evidence for `fbcb982` is clean: GitHub
+`CI` `26509694500`, `Dart Package Publish Dry Run` `26509694287`, `WAMP
+Profile Benchmarks` `26509694293`, and non-mutating `Router Image` dry-run
+`26509713754` all completed successfully. The strict `master`
+deployment-chain audit passed on 2026-05-27 with clean latest CI jobs/logs,
+clean package dry-run, clean router image dry-run, clean WAMP profile
+benchmark evidence, relevant native release dry-run evidence, visible
+checked-in workflows, visible router package metadata, and baseline branch
+protection. GitHub Status reported a minor general service degradation while
+GitHub Actions was operational. RC release readiness remains not ready because
+no RC tag points at `fbcb982`, a GitHub prerelease still requires release
+approval after selecting an RC tag, the router image RC tag is not selected,
+and public pub.dev publishing remains deferred pending package
+ownership/versioning and workspace package release order decisions.
 Previous implementation checkpoint: Public
 `ConnectanumHttpAuthGrant.fromJson(...)`
 now validates HTTP auth bridge grant response shape before returning grants to

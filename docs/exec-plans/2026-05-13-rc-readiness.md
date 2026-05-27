@@ -78,6 +78,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened public HTTP auth grant expiry validation for protected
+  router-hosted MCP consumer flows.
+  `ConnectanumHttpAuthGrant.fromJson(...)` now requires present
+  `expires_in` and `refresh_token_expires_in` values to be non-negative integer
+  seconds while continuing to treat omitted or null values as optional. This
+  keeps consumer applications from accepting grants with silently ignored,
+  negative, or truncated expiry metadata from the HTTP auth bridge. Baseline
+  `bin/test-fast` passed before the change on 2026-05-27. Fail-first coverage
+  reproduced the prior behavior where string `expires_in` produced a grant
+  instead of an error. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "malformed auth grant responses" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+  and `dart test packages/connectanum_client/test/mcp -r expanded`. Hosted
+  evidence remains at the last fully clean `master` checkpoint `fbcb982` until
+  this implementation checkpoint is pushed and the GitHub deployment chain is
+  observed.
 - 2026-05-27: Hardened public HTTP auth revoke hint validation for protected
   router-hosted MCP consumer flows.
   `ConnectanumHttpAuthClient.revokeToken(...)` now trims valid optional
@@ -91,10 +108,26 @@ decision because `connectanum_client` still depends on private
   `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "revoke token type hints" -r expanded`,
   `dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
   `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
-  and `dart test packages/connectanum_client/test/mcp -r expanded`. Hosted
-  evidence remains at the last fully clean `master` checkpoint `a5bebad` until
-  this implementation checkpoint is pushed and the GitHub deployment chain is
-  observed.
+  and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+  `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP
+  package smokes, client/native transport suites, auth server, live WAMP
+  transport integration, router-hosted MCP example smoke, generated
+  consumer-package smokes, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `fbcb982` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `fbcb982` is clean: GitHub `CI` `26509694500`, `Dart Package Publish Dry Run`
+  `26509694287`, `WAMP Profile Benchmarks` `26509694293`, and non-mutating
+  `Router Image` dry-run `26509713754` all completed successfully. The strict
+  `master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+  jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+  profile benchmark evidence, relevant native release dry-run evidence,
+  visible checked-in workflows, visible router package metadata, and baseline
+  branch protection. GitHub Status reported a minor general service degradation
+  while GitHub Actions was operational. RC release readiness remains not ready
+  because no RC tag points at `fbcb982`, a GitHub prerelease still requires
+  release approval after selecting an RC tag, the router image RC tag is not
+  selected, and public pub.dev publishing remains deferred pending package
+  ownership/versioning and workspace package release order decisions.
 - 2026-05-27: Hardened public HTTP auth grant response validation for
   protected router-hosted MCP consumer flows.
   `ConnectanumHttpAuthGrant.fromJson(...)` now rejects malformed bridge token

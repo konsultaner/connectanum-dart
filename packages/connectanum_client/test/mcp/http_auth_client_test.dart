@@ -351,6 +351,20 @@ void main() {
             },
             contains('"details" must be a JSON object'),
           ),
+          (
+            const <String, Object?>{'expires_in': '60'},
+            contains('"expires_in" must be a non-negative integer'),
+          ),
+          (
+            const <String, Object?>{'expires_in': -1},
+            contains('"expires_in" must be a non-negative integer'),
+          ),
+          (
+            const <String, Object?>{'refresh_token_expires_in': 60.5},
+            contains(
+              '"refresh_token_expires_in" must be a non-negative integer',
+            ),
+          ),
         ];
 
         for (final (grantOverrides, messageMatcher) in cases) {

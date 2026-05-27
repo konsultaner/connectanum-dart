@@ -319,9 +319,10 @@ final class ConnectanumHttpAuthGrant {
       authRole: _optionalString(json, 'authrole'),
       authMethod: _optionalString(json, 'authmethod'),
       authProvider: _optionalString(json, 'authprovider'),
-      accessTokenExpiresIn: _durationFromSeconds(json['expires_in']),
+      accessTokenExpiresIn: _durationFromSeconds(json, 'expires_in'),
       refreshTokenExpiresIn: _durationFromSeconds(
-        json['refresh_token_expires_in'],
+        json,
+        'refresh_token_expires_in',
       ),
       details: _detailsFromJson(json),
     );
@@ -420,14 +421,23 @@ final class ConnectanumHttpAuthGrant {
     return result;
   }
 
-  static Duration? _durationFromSeconds(Object? value) {
-    if (value is int) {
-      return Duration(seconds: value);
+  static Duration? _durationFromSeconds(
+    Map<String, Object?> json,
+    String name,
+  ) {
+    final value = json[name];
+    if (value == null) {
+      return null;
     }
-    if (value is num) {
+    if (value is num &&
+        value.isFinite &&
+        !value.isNegative &&
+        value.truncateToDouble() == value) {
       return Duration(seconds: value.toInt());
     }
-    return null;
+    throw FormatException(
+      '"$name" must be a non-negative integer number of seconds.',
+    );
   }
 }
 
