@@ -1225,8 +1225,14 @@ final class McpStreamableHttpClient {
       );
     }
 
-    _captureSessionHeaders(response);
     final events = parseMcpSseEvents(body);
+    for (final event in events) {
+      final value = event.jsonValue;
+      if (value != null) {
+        _validateJsonRpcSseMessageValue(value);
+      }
+    }
+    _captureSessionHeaders(response);
     _captureLastEventId(events);
     return events;
   }

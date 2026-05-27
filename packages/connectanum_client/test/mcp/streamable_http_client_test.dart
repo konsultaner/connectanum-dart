@@ -1955,6 +1955,47 @@ void main() {
     );
 
     test(
+      'rejects malformed Streamable HTTP poll messages before state capture',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'poll-invalid-init');
+        expect(initialize['id'], 'poll-invalid-init');
+        expect(client.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-invalid-poll-message';
+        await expectLater(
+          client.poll(
+            headers: const <String, String>{
+              'x-test-poll-invalid-message': '1',
+              'x-test-response-session-id': 'poll-invalid-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('JSON-RPC SSE event data must be an object or array'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-poll-message');
+        expect(endpoint.requests.last.method, 'GET');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+        expect(
+          endpoint.requests.last.lastEventId,
+          'session-1:get:kept-invalid-poll-message',
+        );
+      },
+    );
+
+    test(
       'rejects malformed response session headers without poisoning state',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -5108,6 +5149,14 @@ final class _FakeMcpEndpoint {
             'id': 'poll-json',
             'result': <String, Object?>{},
           });
+          return;
+        }
+        if (request.headers.value('x-test-poll-invalid-message') == '1') {
+          _writeSse(
+            request,
+            'id: session-1:get:invalid-poll-message\n'
+            'data: 42\n\n',
+          );
           return;
         }
         _writeSse(
