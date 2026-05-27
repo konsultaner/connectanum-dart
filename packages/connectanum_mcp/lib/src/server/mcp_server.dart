@@ -93,6 +93,12 @@ class McpServer {
     try {
       request = _requestFrom(rawMessage);
     } on McpException catch (error) {
+      if (rawMessage is Map &&
+          !rawMessage.containsKey('id') &&
+          rawMessage['jsonrpc'] == '2.0' &&
+          rawMessage['method'] is String) {
+        return null;
+      }
       return JsonRpcResponse.error(
         _recoverRequestId(rawMessage),
         error,

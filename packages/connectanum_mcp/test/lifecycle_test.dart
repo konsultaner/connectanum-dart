@@ -197,6 +197,33 @@ void main() {
       expect(error['message'], contains('params must be an object'));
     });
 
+    test('suppresses parser errors for JSON-RPC notifications', () async {
+      final server = _server();
+      await _initializeAndStart(server);
+
+      final singleResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'method': 'tools/list',
+        'params': null,
+      });
+      expect(singleResponse, isNull);
+
+      final batchResponse = await server.handleMessage([
+        {'jsonrpc': '2.0', 'method': 'tools/list', 'params': null},
+        {
+          'jsonrpc': '2.0',
+          'id': 'after-invalid-notification',
+          'method': 'tools/list',
+        },
+      ]);
+
+      expect(batchResponse, isA<List<Object?>>());
+      final responses = (batchResponse as List).cast<Map<String, Object?>>();
+      expect(responses, hasLength(1));
+      expect(responses.single['id'], equals('after-invalid-notification'));
+      expect(responses.single['result'], isA<Map<String, Object?>>());
+    });
+
     test('handles JSON-RPC batches and omits notification responses', () async {
       final server = _server();
       await _initializeAndStart(server);

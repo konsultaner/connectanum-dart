@@ -78,6 +78,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened standalone MCP notification parser-error suppression.
+  `McpServer._handleSingleMessage(...)` now treats raw messages with no `id`,
+  `jsonrpc: "2.0"`, and a string `method` as notification-shaped when request
+  parsing fails, returning no response instead of emitting a JSON-RPC error
+  body. This aligns standalone MCP with the router-hosted direct JSON
+  notification suppression path and keeps invalid notification-only batch
+  members from producing response entries. Router regression coverage also
+  pins standard router-hosted MCP notifications with explicit `params: null`
+  as `202 Accepted`/empty body and mixed batches as one response for the
+  request-bearing member, without creating an `mcp-session-id`. Baseline
+  `bin/test-fast` passed before the change on 2026-05-27. Fail-first
+  standalone coverage reproduced the prior behavior where an invalid
+  notification returned a JSON-RPC error body. Focused local coverage passed
+  with
+  `dart test packages/connectanum_mcp/test/lifecycle_test.dart --name "suppresses parser errors" -r expanded`,
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart --name "guards MCP Streamable HTTP ingress and sessions" -r expanded`,
+  `dart analyze packages/connectanum_mcp/lib/src/server/mcp_server.dart packages/connectanum_mcp/test/lifecycle_test.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+  and `dart test packages/connectanum_mcp -r expanded`. Hosted evidence
+  remains on the latest fully clean checkpoint `785425a` until this
+  implementation commit is pushed and its deployment chain completes.
 - 2026-05-27: Hardened explicit null JSON-RPC params handling across
   standalone and router-hosted MCP ingress. Standalone `_requestFrom(...)` and
   router-hosted `_directJsonRequestFrom(...)` now reject explicit
@@ -97,9 +117,20 @@ decision because `connectanum_client` still depends on private
   package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains on the
-  latest fully clean checkpoint `cc03516` until this implementation commit is
-  pushed and its deployment chain completes.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `785425a` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `785425a` is clean: GitHub `CI` `26498314997`, `Dart Package Publish Dry
+  Run` `26498315001`, `WAMP Profile Benchmarks` `26498314998`, and
+  non-mutating `Router Image` dry-run `26498322189` all completed
+  successfully. The strict `master` deployment-chain audit passed on
+  2026-05-27 with clean latest CI jobs/logs, clean package dry-run, clean
+  router image dry-run, clean WAMP profile benchmark evidence, and relevant
+  native release dry-run evidence. GitHub Status reported all systems
+  operational and Actions operational. RC release readiness remains not ready
+  because no RC tag points at `785425a`, a GitHub prerelease still requires
+  release approval after selecting an RC tag, the router image RC tag is not
+  selected, and public pub.dev publishing remains deferred pending package
+  ownership/versioning and workspace package release order decisions.
 - 2026-05-27: Hardened public `McpStreamableHttpClient` raw JSON request
   params validation before transport dispatch. Raw request objects now require
   `params`, when present, to be an object with string keys; array params and

@@ -1562,6 +1562,60 @@ void main() {
       );
       expect(nullParamsJsonRpc.headers, isNot(contains('mcp-session-id')));
 
+      final nullParamsJsonRpcNotification = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'method': 'tools/list', 'params': null},
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(
+        nullParamsJsonRpcNotification.statusCode,
+        equals(HttpStatus.accepted),
+      );
+      expect(nullParamsJsonRpcNotification.body, isEmpty);
+      expect(nullParamsJsonRpcNotification.json, isNull);
+      expect(
+        nullParamsJsonRpcNotification.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
+      final nullParamsJsonRpcBatchNotification = await _postJsonValue(
+        client,
+        listener.port,
+        '/mcp',
+        [
+          {'jsonrpc': '2.0', 'method': 'tools/list', 'params': null},
+          {
+            'jsonrpc': '2.0',
+            'id': 'after-invalid-notification',
+            'method': 'tools/list',
+          },
+        ],
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(
+        nullParamsJsonRpcBatchNotification.statusCode,
+        equals(HttpStatus.ok),
+      );
+      expect(nullParamsJsonRpcBatchNotification.json, isA<List<Object?>>());
+      final nullParamsJsonRpcBatchResponses =
+          (nullParamsJsonRpcBatchNotification.json as List)
+              .cast<Map<String, Object?>>();
+      expect(nullParamsJsonRpcBatchResponses, hasLength(1));
+      expect(
+        nullParamsJsonRpcBatchResponses.single['id'],
+        equals('after-invalid-notification'),
+      );
+      expect(
+        nullParamsJsonRpcBatchResponses.single['result'],
+        isA<Map<String, Object?>>(),
+      );
+      expect(
+        nullParamsJsonRpcBatchNotification.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
       final olderVersionInitialize = await _postJson(
         client,
         listener.port,

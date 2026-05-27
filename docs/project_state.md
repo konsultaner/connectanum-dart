@@ -2,9 +2,29 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP explicit null params validation.
-Latest fully clean hosted checkpoint: Commit `cc03516` on GitHub `master`.
-Current implementation checkpoint: Standalone MCP and router-hosted direct JSON
+Last reviewed branch checkpoint: MCP notification parser-error suppression.
+Latest fully clean hosted checkpoint: Commit `785425a` on GitHub `master`.
+Current implementation checkpoint: Standalone MCP now suppresses parser errors
+for notification-shaped JSON-RPC messages before emitting response bodies. A
+message with no `id`, `jsonrpc: "2.0"`, and a string `method` now follows
+notification semantics even when request parsing rejects the params shape, so
+single notifications return `null` and mixed batches omit the invalid
+notification response while preserving later request responses. This aligns the
+standalone server with the router-hosted direct JSON notification error
+suppression path; router regression coverage also pins standard router-hosted
+MCP notifications with explicit `params: null` as `202 Accepted`/empty body and
+mixed batches as a single response for the request-bearing member, without
+capturing an `mcp-session-id`. Baseline `bin/test-fast` passed before the
+change on 2026-05-27. Fail-first standalone coverage reproduced the prior
+behavior where an invalid notification returned a JSON-RPC error body. Focused
+local coverage passed on 2026-05-27 with
+`dart test packages/connectanum_mcp/test/lifecycle_test.dart --name "suppresses parser errors" -r expanded`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart --name "guards MCP Streamable HTTP ingress and sessions" -r expanded`,
+`dart analyze packages/connectanum_mcp/lib/src/server/mcp_server.dart packages/connectanum_mcp/test/lifecycle_test.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+and `dart test packages/connectanum_mcp -r expanded`. Hosted evidence remains
+on the latest fully clean checkpoint `785425a` until this new implementation
+commit is pushed and its deployment chain completes.
+Previous implementation checkpoint: Standalone MCP and router-hosted direct JSON
 MCP request parsers now reject explicit `params: null` before dispatch while
 continuing to treat omitted params as an empty object. This closes the
 remaining params-shape parity gap after the public `McpStreamableHttpClient`
@@ -23,8 +43,20 @@ passed on 2026-05-27, including formatting, Rust/FFI, MCP package smokes,
 client/native transport suites, auth server, live WAMP transport integration,
 router-hosted MCP example smoke, generated consumer-package smokes, full router
 suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence remains on the latest fully clean checkpoint `cc03516` until
-this new implementation commit is pushed and its deployment chain completes.
+Commit `785425a` was pushed to `origin` `add-router` and GitHub
+`add-router`/`master`. Hosted evidence for `785425a` is clean: GitHub `CI`
+`26498314997`, `Dart Package Publish Dry Run` `26498315001`, `WAMP Profile
+Benchmarks` `26498314998`, and non-mutating `Router Image` dry-run
+`26498322189` all completed successfully. The strict `master`
+deployment-chain audit passed on 2026-05-27 with clean latest CI jobs/logs,
+clean package dry-run, clean router image dry-run, clean WAMP profile
+benchmark evidence, and relevant native release dry-run evidence. GitHub
+Status reported all systems operational and Actions operational. RC release
+readiness remains not ready because no RC tag points at `785425a`, a GitHub
+prerelease still requires release approval after selecting an RC tag, the
+router image RC tag is not selected, and public pub.dev publishing remains
+deferred pending package ownership/versioning and workspace package release
+order decisions.
 Previous implementation checkpoint: Public `McpStreamableHttpClient` raw JSON
 request validation now requires `params`, when present, to be an object with
 string keys before dispatch. The public client no longer accepts array params
