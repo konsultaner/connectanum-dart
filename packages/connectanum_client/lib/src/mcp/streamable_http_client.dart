@@ -77,6 +77,20 @@ Object? _validateJsonRpcRequestId(McpJsonMap message, {required String label}) {
   return id;
 }
 
+Object? _validateJsonRpcResponseId(
+  McpJsonMap response, {
+  required String label,
+}) {
+  if (!response.containsKey('id')) {
+    throw FormatException('$label must include an id');
+  }
+  final id = response['id'];
+  if (id is! String && id is! int) {
+    throw FormatException('$label id must be a string or integer');
+  }
+  return id;
+}
+
 void _validateJsonRpcBatchRequestIds(List<McpJsonMap> messages) {
   if (messages.isEmpty) {
     throw const FormatException('JSON-RPC batch must not be empty');
@@ -1079,11 +1093,11 @@ final class McpStreamableHttpClient {
         throw const FormatException('JSON-RPC response was not returned');
       }
       final response = _jsonMapFrom(responseValue, label: 'JSON-RPC response');
-      if (!response.containsKey('id')) {
-        throw const FormatException('JSON-RPC response must include an id');
-      }
       final expectedResponseId = requestPayload['id'];
-      final responseId = response['id'];
+      final responseId = _validateJsonRpcResponseId(
+        response,
+        label: 'JSON-RPC response',
+      );
       if (responseId != expectedResponseId) {
         throw FormatException(
           'JSON-RPC response contained unexpected response id $responseId',
@@ -1129,19 +1143,17 @@ final class McpStreamableHttpClient {
           item,
           label: 'JSON-RPC batch response item',
         );
-        if (!response.containsKey('id')) {
-          throw const FormatException(
-            'JSON-RPC batch response item must include an id',
-          );
-        }
-        final responseId = response['id'];
-        if (!expectedResponseIds.any((id) => id == responseId)) {
+        final responseId = _validateJsonRpcResponseId(
+          response,
+          label: 'JSON-RPC batch response item',
+        );
+        if (!expectedResponseIds.contains(responseId)) {
           throw FormatException(
             'JSON-RPC batch response contained unexpected response id '
             '$responseId',
           );
         }
-        if (responseIds.any((id) => id == responseId)) {
+        if (responseIds.contains(responseId)) {
           throw FormatException(
             'JSON-RPC batch response contained duplicate response for id '
             '$responseId',
@@ -1154,7 +1166,7 @@ final class McpStreamableHttpClient {
         responseIds.add(responseId);
       }
       for (final id in expectedResponseIds) {
-        if (!responseIds.any((responseId) => responseId == id)) {
+        if (!responseIds.contains(id)) {
           throw FormatException(
             'JSON-RPC batch response missing response for id $id',
           );
@@ -1419,10 +1431,12 @@ final class McpStreamableHttpClient {
     }
   }
 
-  bool _jsonRpcResponseIdMatches(Object? response, Object? requestId) {
-    return response is Map &&
-        response.containsKey('id') &&
-        response['id'] == requestId;
+  bool _jsonRpcResponseIdMatches(McpJsonMap response, Object? requestId) {
+    final responseId = _validateJsonRpcResponseId(
+      response,
+      label: 'JSON-RPC response',
+    );
+    return responseId == requestId;
   }
 
   void _captureLastEventId(List<McpSseEvent> events) {

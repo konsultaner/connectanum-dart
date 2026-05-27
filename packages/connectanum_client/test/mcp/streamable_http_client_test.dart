@@ -534,6 +534,34 @@ void main() {
       expect(client.lastEventId, isNull);
     });
 
+    test('rejects invalid JSON-RPC single response ids from JSON', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.post(
+          {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'},
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-json-response-id-shape': 'fractional',
+          },
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('id must be a string or integer'),
+          ),
+        ),
+      );
+
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
     test(
       'rejects invalid JSON-RPC single response discriminants from JSON',
       () async {
@@ -681,6 +709,42 @@ void main() {
 
         expect(client.sessionId, 'session-1');
         expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'rejects invalid JSON-RPC single response ids from Streamable HTTP SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        client.lastEventId = 'session-1:get:kept-invalid-response-id';
+        await expectLater(
+          client.request(
+            'tools/list',
+            id: 1,
+            headers: const <String, String>{
+              'x-test-sse-response-id-shape': 'fractional',
+              'x-test-response-session-id': 'post-sse-id-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('id must be a string or integer'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-response-id');
       },
     );
 
@@ -1353,6 +1417,38 @@ void main() {
       expect(client.lastEventId, isNull);
     });
 
+    test('rejects invalid JSON-RPC batch response ids from JSON', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.postBatch(
+          [
+            {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'},
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+            {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+          ],
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-batch-response-id-shape': 'fractional',
+          },
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('id must be a string or integer'),
+          ),
+        ),
+      );
+
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
     test(
       'rejects unexpected JSON-RPC batch response ids from Streamable HTTP SSE',
       () async {
@@ -1387,6 +1483,44 @@ void main() {
 
         expect(client.sessionId, 'session-1');
         expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'rejects invalid JSON-RPC batch response ids from Streamable HTTP SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        client.lastEventId = 'session-1:get:kept-invalid-batch-id';
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            headers: const <String, String>{
+              'x-test-batch-response-id-shape': 'fractional',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('id must be a string or integer'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-batch-id');
       },
     );
 
@@ -5002,6 +5136,17 @@ final class _FakeMcpEndpoint {
           );
           return;
         }
+        final testBatchResponseIdShape = request.headers.value(
+          'x-test-batch-response-id-shape',
+        );
+        if (testBatchResponseIdShape != null) {
+          _writeSse(
+            request,
+            'id: session-1:post-batch:1\n'
+            'data: ${jsonEncode(_testJsonRpcBatchResponsesWithIdShape(responses, testBatchResponseIdShape))}\n\n',
+          );
+          return;
+        }
         if (request.headers.value('x-test-sse-split-batch-with-notification') ==
             '1') {
           _writeSse(
@@ -5043,6 +5188,19 @@ final class _FakeMcpEndpoint {
           responses.first,
           ...responses.skip(1),
         ]);
+        return;
+      }
+      final testBatchResponseIdShape = request.headers.value(
+        'x-test-batch-response-id-shape',
+      );
+      if (testBatchResponseIdShape != null) {
+        _writeJsonValue(
+          request,
+          _testJsonRpcBatchResponsesWithIdShape(
+            responses,
+            testBatchResponseIdShape,
+          ),
+        );
         return;
       }
       final testBatchResponseShape = request.headers.value(
@@ -5170,6 +5328,20 @@ final class _FakeMcpEndpoint {
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
         'id': testJsonResponseId,
+        'result': <String, Object?>{'tools': <Object?>[]},
+      });
+      return;
+    }
+    final testJsonResponseIdShape = request.headers.value(
+      'x-test-json-response-id-shape',
+    );
+    if (testJsonResponseIdShape != null) {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': _testJsonRpcResponseIdWithShape(
+          requestBody['id'],
+          testJsonResponseIdShape,
+        ),
         'result': <String, Object?>{'tools': <Object?>[]},
       });
       return;
@@ -5603,6 +5775,21 @@ final class _FakeMcpEndpoint {
         );
         return;
       }
+      final testSseResponseIdShape = request.headers.value(
+        'x-test-sse-response-id-shape',
+      );
+      if (testSseResponseIdShape != null) {
+        _writeSse(
+          request,
+          'id: session-1:post:1\n'
+          'data: ${jsonEncode(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': _testJsonRpcResponseIdWithShape(requestBody['id'], testSseResponseIdShape),
+            'result': <String, Object?>{'tools': <Object?>[]},
+          })}\n\n',
+        );
+        return;
+      }
       final testSseResponseShape = request.headers.value(
         'x-test-sse-response-shape',
       );
@@ -5984,6 +6171,28 @@ McpJsonMap _testJsonRpcResponseWithShape(Object? id, String shape) {
       throw StateError('unknown JSON-RPC response shape $shape');
   }
   return response;
+}
+
+Object? _testJsonRpcResponseIdWithShape(Object? id, String shape) {
+  switch (shape) {
+    case 'fractional':
+      return id is int ? id.toDouble() : 1.0;
+    default:
+      throw StateError('unknown JSON-RPC response id shape $shape');
+  }
+}
+
+List<McpJsonMap> _testJsonRpcBatchResponsesWithIdShape(
+  List<McpJsonMap> responses,
+  String shape,
+) {
+  return <McpJsonMap>[
+    <String, Object?>{
+      ...responses.first,
+      'id': _testJsonRpcResponseIdWithShape(responses.first['id'], shape),
+    },
+    ...responses.skip(1),
+  ];
 }
 
 Map<String, String> _mcpParameterHeadersFrom(HttpRequest request) {
