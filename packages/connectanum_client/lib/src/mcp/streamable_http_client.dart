@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'http_auth_client.dart';
+import 'text_validation.dart';
 
 typedef McpJsonMap = Map<String, Object?>;
 
@@ -63,10 +64,7 @@ Object? _validateJsonRpcRequestId(McpJsonMap message, {required String label}) {
   if (method is! String || method.isEmpty) {
     throw FormatException('JSON-RPC $label method must be a non-empty string');
   }
-  final methodHasInvalidCharacter = method.codeUnits.any(
-    (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
-  );
-  if (methodHasInvalidCharacter) {
+  if (containsMcpWhitespaceOrControl(method)) {
     throw FormatException(
       'JSON-RPC $label method must not contain whitespace or control '
       'characters',
@@ -268,10 +266,7 @@ final class McpStreamableHttpClient {
     String bearerToken,
   ) {
     final token = bearerToken.trim();
-    final hasInvalidTokenCharacter = token.codeUnits.any(
-      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
-    );
-    if (token.isEmpty || hasInvalidTokenCharacter) {
+    if (token.isEmpty || containsMcpWhitespaceOrControl(token)) {
       throw ArgumentError.value(
         bearerToken,
         'bearerToken',

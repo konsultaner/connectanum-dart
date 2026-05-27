@@ -1132,6 +1132,11 @@ void main() {
         {'jsonrpc': '2.0', 'id': 'control-method', 'method': 'tools\nlist'},
         {
           'jsonrpc': '2.0',
+          'id': 'unicode-space-method',
+          'method': 'tools\u00a0list',
+        },
+        {
+          'jsonrpc': '2.0',
           'id': 'response-shaped-request',
           'method': 'tools/list',
           'result': <String, Object?>{},
@@ -2578,6 +2583,8 @@ void main() {
           'bad\ttoken',
           'bad\ntoken',
           'bad\u0000token',
+          'bad\u0085token',
+          'bad\u00a0token',
         ]) {
           expect(
             () => McpStreamableHttpClient.withBearerToken(endpoint.uri, token),

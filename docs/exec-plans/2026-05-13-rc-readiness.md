@@ -78,6 +78,33 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened MCP client-side Unicode whitespace/control validation
+  for router-hosted auth/session readiness.
+  Public MCP HTTP auth and Streamable HTTP client validation now rejects
+  non-ASCII whitespace and C1 control characters in outbound JSON-RPC method
+  names, bearer credentials, HTTP auth method names, refresh/revoke token
+  hints, and parsed HTTP auth bridge token fields. A shared
+  `packages/connectanum_client/lib/src/mcp/text_validation.dart` helper keeps
+  the token/request checks aligned so consumer applications fail locally
+  instead of sending malformed router-hosted MCP auth/session metadata.
+  Baseline `bin/test-fast` passed before the change on 2026-05-27.
+  Fail-first focused coverage reproduced the prior behavior where bearer
+  tokens containing `U+00A0`, HTTP auth method names containing `U+00A0`, and
+  auth bridge token fields containing `U+00A0` or `U+0085` were accepted or
+  reached the fake HTTP auth endpoint instead of failing locally. Focused local
+  checks passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects invalid JSON-RPC request objects" -r expanded`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects bearer tokens with whitespace or control characters" -r expanded`,
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "rejects invalid refresh and revoke tokens|rejects blank auth request parameters|malformed auth grant responses" -r expanded`,
+  `dart format packages/connectanum_client/lib/src/mcp/text_validation.dart packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/text_validation.dart packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+  `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP
+  package smokes, generated consumer-package smokes, client/native transport
+  suites, auth server, live WAMP transport integration, router-hosted MCP
+  example smoke, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending; the
+  latest fully clean hosted checkpoint remains `598d8ff`.
 - 2026-05-27: Hardened Router Image dry-run warning hygiene after strict
   deployment-chain audit evidence found a nondeterministic Docker QEMU/binfmt
   cache annotation. The latest strict audit for commit `9faefcd` showed clean
@@ -96,10 +123,26 @@ decision because `connectanum_client` still depends on private
   including formatting, Rust/FFI, MCP package smokes, client/native transport
   suites, auth server, live WAMP transport integration, router-hosted MCP
   example smoke, generated consumer-package smokes, full router suite,
-  zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence is pending for this workflow-hardening checkpoint; the latest fully
-  clean hosted checkpoint remains `80ba9ce` until a warning-free Router Image
-  dry-run covers the new workflow.
+  zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Commit
+  `598d8ff` was pushed to `origin` `add-router` and GitHub
+  `add-router`/`master`. Hosted evidence for `598d8ff` is clean: GitHub `CI`
+  `26526340647` passed with `Fast Checks` and `Full Verify`, non-mutating
+  `Router Image` dry-run `26526364040` completed successfully with clean check
+  annotations and preview metadata `validation-598d8ff`, and the strict
+  `master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+  jobs/logs, clean relevant Dart package dry-run evidence, clean relevant
+  native release dry-run evidence, clean router image dry-run evidence, clean
+  relevant WAMP profile benchmark evidence, visible checked-in workflows,
+  visible router package metadata, and baseline branch protection. The Dart
+  package publish dry-run `26523735670`, WAMP Profile Benchmarks run
+  `26523735513`, and Native Artifacts dry-run `26396437881` remain relevant
+  because this workflow-hardening checkpoint did not change publish-sensitive,
+  WAMP-profile-sensitive, or native-release-sensitive inputs. RC release
+  readiness remains not ready because no RC tag points at `598d8ff`, a GitHub
+  prerelease still requires release approval after selecting an RC tag, the
+  router image RC tag is not selected, and public pub.dev publishing remains
+  deferred pending package ownership/versioning and workspace package release
+  order decisions.
 - 2026-05-27: Hardened public JSON-RPC method validation for router-hosted MCP
   consumer flows.
   `McpStreamableHttpClient` now rejects outgoing JSON-RPC method names that
@@ -5840,27 +5883,30 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The current local implementation checkpoint hardens the Router Image
-dry-run workflow after strict audit evidence found successful dry-runs at
-`9faefcd` still failed the warning-free Router Image gate due to a Docker
-QEMU/binfmt cache reservation annotation. `.github/workflows/router-image.yml`
-now sets `cache-image: false` on `docker/setup-qemu-action@v4` so future
-multi-architecture dry-runs do not rely on that warning-prone shared cache.
+Active. The current local implementation checkpoint hardens public MCP HTTP
+auth and Streamable HTTP client validation so non-ASCII whitespace and C1
+control characters are rejected in JSON-RPC method names, bearer credentials,
+HTTP auth method names, refresh/revoke token hints, and parsed HTTP auth bridge
+token fields before consumer applications send malformed router-hosted MCP
+auth/session metadata.
 
-Local evidence for this checkpoint: baseline `bin/test-fast`, YAML parse for
-`.github/workflows/router-image.yml`, focused router-image metadata/audit unit
-tests, `git diff --check`, and full local `bin/verify` passed on 2026-05-27.
+Local evidence for this checkpoint: baseline `bin/test-fast`, focused
+Streamable HTTP/auth client validation regressions, `dart format`, targeted
+`dart analyze`, `dart test packages/connectanum_client/test/mcp -r expanded`,
+and full local `bin/verify` passed on 2026-05-27.
 
-The latest fully clean hosted checkpoint remains `80ba9ce`. Commit `9faefcd`
-has clean hosted CI, Dart Package Publish Dry Run, WAMP Profile Benchmarks,
-and successful Router Image dry-runs, but strict deployment-chain audit did not
-mark it fully clean because the successful Router Image dry-runs carried the
-QEMU/binfmt cache warning annotation. Hosted evidence is pending for the
-workflow-hardening commit.
+The latest fully clean hosted checkpoint remains `598d8ff`: GitHub CI
+`26526340647` passed with Fast Checks and Full Verify, non-mutating Router
+Image dry-run `26526364040` passed with clean check annotations and preview
+metadata `validation-598d8ff`, and the strict `master` deployment-chain audit
+passed required gates using current CI/router-image evidence plus still
+relevant Dart package publish dry-run, WAMP profile benchmark, and native
+release dry-run evidence. Hosted evidence for the current MCP client
+validation checkpoint is pending.
 
 RC readiness remains not-ready because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for the current
-head. The audit suggests `v0.1.0-rc.2` as the next numeric tag if release
+prerelease, or matching RC router image tag has been selected for `598d8ff`.
+The audit suggests `v0.1.0-rc.2` as the next numeric tag if release
 approval is given. Pub.dev publishing remains deferred for release-order and
 operator decisions. No RC tag, GitHub Release, or router image was created or
 moved.

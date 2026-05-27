@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:connectanum_core/connectanum_core.dart';
 
+import 'text_validation.dart';
+
 /// Dart IO client for Connectanum router HTTP auth bridge endpoints.
 ///
 /// The router auth bridge exposes WAMP challenge/response authenticators over a
@@ -251,10 +253,7 @@ final class ConnectanumHttpAuthClient {
     if (value is! String || value.isEmpty) {
       throw FormatException('HTTP auth response is missing "$key".');
     }
-    final hasInvalidCharacter = value.codeUnits.any(
-      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
-    );
-    if (!hasInvalidCharacter) {
+    if (!containsMcpWhitespaceOrControl(value)) {
       return value;
     }
     throw FormatException(
@@ -264,10 +263,7 @@ final class ConnectanumHttpAuthClient {
 
   static String _nonEmptyToken(String token, String name) {
     final value = token.trim();
-    final hasInvalidCharacter = value.codeUnits.any(
-      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
-    );
-    if (value.isNotEmpty && !hasInvalidCharacter) {
+    if (value.isNotEmpty && !containsMcpWhitespaceOrControl(value)) {
       return value;
     }
     throw ArgumentError.value(
@@ -349,13 +345,10 @@ final class ConnectanumHttpAuthGrant {
       throw FormatException('HTTP auth response "$key" must be a string.');
     }
     final token = value.trim();
-    final hasInvalidCharacter = token.codeUnits.any(
-      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
-    );
     if (token.isEmpty) {
       throw FormatException('HTTP auth response is missing "$key".');
     }
-    if (hasInvalidCharacter) {
+    if (containsMcpWhitespaceOrControl(token)) {
       throw FormatException(
         'HTTP auth response "$key" must not contain whitespace or control '
         'characters.',
@@ -376,10 +369,7 @@ final class ConnectanumHttpAuthGrant {
     if (token.isEmpty) {
       return null;
     }
-    final hasInvalidCharacter = token.codeUnits.any(
-      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
-    );
-    if (hasInvalidCharacter) {
+    if (containsMcpWhitespaceOrControl(token)) {
       throw FormatException(
         'HTTP auth response "$key" must not contain whitespace or control '
         'characters.',

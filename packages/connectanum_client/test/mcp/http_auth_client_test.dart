@@ -214,6 +214,8 @@ void main() {
           'access token',
           'refresh\ttoken',
           'access\ntoken',
+          'access\u0085token',
+          'refresh\u00a0token',
         ]) {
           await expectLater(
             client.revokeToken('access-token-1', tokenTypeHint: tokenTypeHint),
@@ -232,7 +234,14 @@ void main() {
       final client = ConnectanumHttpAuthClient(endpoint.uri);
       addTearDown(() => client.close(force: true));
 
-      for (final token in ['  ', 'refresh token', 'refresh\token', 'tok\nen']) {
+      for (final token in [
+        '  ',
+        'refresh token',
+        'refresh\token',
+        'tok\nen',
+        'tok\u0085en',
+        'refresh\u00a0token',
+      ]) {
         await expectLater(client.refreshToken(token), throwsArgumentError);
         await expectLater(client.revokeToken(token), throwsArgumentError);
       }
@@ -287,6 +296,15 @@ void main() {
           authId: 'user-1',
           authentication: TicketAuthentication('ticket-secret'),
           authMethod: 'ticket\nraw',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.authenticate(
+          realm: 'realm1',
+          authId: 'user-1',
+          authentication: TicketAuthentication('ticket-secret'),
+          authMethod: 'ticket\u00a0raw',
         ),
         throwsArgumentError,
       );
@@ -364,7 +382,19 @@ void main() {
             contains('"access_token" must not contain whitespace'),
           ),
           (
+            const <String, Object?>{'access_token': 'bad\u00a0token'},
+            contains('"access_token" must not contain whitespace'),
+          ),
+          (
+            const <String, Object?>{'refresh_token': 'bad\u0085token'},
+            contains('"refresh_token" must not contain whitespace'),
+          ),
+          (
             const <String, Object?>{'token_type': 'Bearer raw'},
+            contains('"token_type" must not contain whitespace'),
+          ),
+          (
+            const <String, Object?>{'token_type': 'Bearer\u0085raw'},
             contains('"token_type" must not contain whitespace'),
           ),
           (

@@ -2,9 +2,34 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router Image dry-run cache hardening.
-Latest fully clean hosted checkpoint: Commit `80ba9ce` on GitHub `master`.
-Current implementation checkpoint: The Router Image workflow now disables the
+Last reviewed branch checkpoint: MCP Unicode whitespace/control validation.
+Latest fully clean hosted checkpoint: Commit `598d8ff` on GitHub `master`.
+Current implementation checkpoint: Public MCP HTTP auth and Streamable HTTP
+client validation now rejects non-ASCII whitespace and C1 control characters
+in outbound JSON-RPC method names, bearer credentials, HTTP auth method names,
+refresh/revoke token hints, and parsed HTTP auth bridge token fields. A shared
+`packages/connectanum_client/lib/src/mcp/text_validation.dart` helper keeps the
+client-side token/request checks aligned so consumer applications fail locally
+instead of sending malformed router-hosted MCP auth/session metadata. Baseline
+`bin/test-fast` passed before the change on 2026-05-27. Fail-first focused
+coverage reproduced the prior behavior where bearer tokens containing
+`U+00A0`, HTTP auth method names containing `U+00A0`, and auth bridge token
+fields containing `U+00A0` or `U+0085` were accepted or reached the fake HTTP
+auth endpoint instead of failing locally. Focused local checks passed on
+2026-05-27 with
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects invalid JSON-RPC request objects" -r expanded`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects bearer tokens with whitespace or control characters" -r expanded`,
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "rejects invalid refresh and revoke tokens|rejects blank auth request parameters|malformed auth grant responses" -r expanded`,
+`dart format packages/connectanum_client/lib/src/mcp/text_validation.dart packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+`dart analyze packages/connectanum_client/lib/src/mcp/text_validation.dart packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+`bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP package
+smokes, generated consumer-package smokes, client/native transport suites,
+auth server, live WAMP transport integration, router-hosted MCP example smoke,
+full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this checkpoint is pending; the latest
+fully clean hosted checkpoint remains `598d8ff`.
+Previous implementation checkpoint: The Router Image workflow now disables the
 `docker/setup-qemu-action@v4` binfmt image cache with `cache-image: false`.
 The latest strict deployment-chain audit on 2026-05-27 showed that commit
 `9faefcd` had clean hosted CI, Dart package dry-run, WAMP profile benchmark,
@@ -22,9 +47,25 @@ and `git diff --check`. Full local `bin/verify` passed on 2026-05-27,
 including formatting, Rust/FFI, MCP package smokes, client/native transport
 suites, auth server, live WAMP transport integration, router-hosted MCP
 example smoke, generated consumer-package smokes, full router suite, zero-copy
-router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is
-pending for this workflow-hardening checkpoint; the latest fully clean hosted
-checkpoint remains `80ba9ce`.
+router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Commit `598d8ff`
+was pushed to `origin` `add-router` and GitHub `add-router`/`master`. Hosted
+evidence for `598d8ff` is clean: GitHub `CI` `26526340647` passed with `Fast
+Checks` and `Full Verify`, non-mutating `Router Image` dry-run `26526364040`
+completed successfully with clean check annotations and preview metadata
+`validation-598d8ff`, and the strict `master` deployment-chain audit passed on
+2026-05-27 with clean latest CI jobs/logs, clean relevant Dart package dry-run
+evidence, clean relevant native release dry-run evidence, clean router image
+dry-run evidence, clean relevant WAMP profile benchmark evidence, visible
+checked-in workflows, visible router package metadata, and baseline branch
+protection. The Dart package publish dry-run `26523735670`, WAMP Profile
+Benchmarks run `26523735513`, and Native Artifacts dry-run `26396437881`
+remain relevant because this workflow-hardening checkpoint did not change
+publish-sensitive, WAMP-profile-sensitive, or native-release-sensitive inputs.
+RC release readiness remains not ready because no RC tag points at `598d8ff`,
+a GitHub prerelease still requires release approval after selecting an RC tag,
+the router image RC tag is not selected, and public pub.dev publishing remains
+deferred pending package ownership/versioning and workspace package release
+order decisions.
 Previous implementation checkpoint: Public
 `McpStreamableHttpClient` now rejects outgoing JSON-RPC method names that
 contain whitespace or control characters before direct JSON, Streamable HTTP,
