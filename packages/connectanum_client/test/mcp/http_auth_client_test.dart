@@ -204,6 +204,42 @@ void main() {
       expect(endpoint.requests, isEmpty);
     });
 
+    test('rejects blank auth request parameters before requests', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.issueTicketToken(
+          realm: '  ',
+          authId: 'user-1',
+          ticket: 'ticket-secret',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.issueTicketToken(
+          realm: 'realm1',
+          authId: '  ',
+          ticket: 'ticket-secret',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.authenticate(
+          realm: 'realm1',
+          authId: 'user-1',
+          authentication: TicketAuthentication('ticket-secret'),
+          authMethod: '  ',
+        ),
+        throwsArgumentError,
+      );
+
+      expect(endpoint.requests, isEmpty);
+    });
+
     test('throws typed exceptions for rejected auth requests', () async {
       final endpoint = await _FakeHttpAuthEndpoint.bind(failChallenge: true);
       addTearDown(endpoint.close);

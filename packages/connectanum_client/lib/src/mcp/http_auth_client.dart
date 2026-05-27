@@ -76,19 +76,21 @@ final class ConnectanumHttpAuthClient {
     Map<String, Object?> authextra = const <String, Object?>{},
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final requestRealm = _nonEmptyArgument(realm, 'realm');
+    final requestAuthId = _nonEmptyArgument(authId, 'authId');
     final method = _httpAuthMethodName(authMethod ?? authentication.getName());
     final details = Details.forHello()
-      ..authid = authId
+      ..authid = requestAuthId
       ..authmethods = <String>[method];
     if (authextra.isNotEmpty) {
       details.authextra = Map<String, dynamic>.from(authextra);
     }
-    await authentication.hello(realm, details);
+    await authentication.hello(requestRealm, details);
 
     final startBody = <String, Object?>{
-      'realm': realm,
+      'realm': requestRealm,
       'authmethod': method,
-      'authid': authId,
+      'authid': requestAuthId,
       if (details.authextra != null && details.authextra!.isNotEmpty)
         'authextra': Map<String, Object?>.from(details.authextra!),
     };
@@ -205,7 +207,21 @@ final class ConnectanumHttpAuthClient {
 
   static String _httpAuthMethodName(String authMethod) {
     final trimmed = authMethod.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError.value(
+        authMethod,
+        'authMethod',
+        'authMethod must not be empty.',
+      );
+    }
     return trimmed == 'wamp-scram' ? 'scram' : trimmed;
+  }
+
+  static String _nonEmptyArgument(String value, String name) {
+    if (value.trim().isNotEmpty) {
+      return value;
+    }
+    throw ArgumentError.value(value, name, '$name must not be empty.');
   }
 
   static Extra _challengeExtraFrom(Object? value) {
