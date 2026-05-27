@@ -1128,6 +1128,8 @@ void main() {
         {'jsonrpc': '2.0', 'id': 'missing-method'},
         {'jsonrpc': '2.0', 'id': 'numeric-method', 'method': 7},
         {'jsonrpc': '2.0', 'id': 'empty-method', 'method': ''},
+        {'jsonrpc': '2.0', 'id': 'blank-method', 'method': '  '},
+        {'jsonrpc': '2.0', 'id': 'control-method', 'method': 'tools\nlist'},
         {
           'jsonrpc': '2.0',
           'id': 'response-shaped-request',

@@ -78,6 +78,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened public JSON-RPC method validation for router-hosted MCP
+  consumer flows.
+  `McpStreamableHttpClient` now rejects outgoing JSON-RPC method names that
+  contain whitespace or control characters before direct JSON, Streamable HTTP,
+  notification, or batch requests open an HTTP request. This keeps consumer
+  applications from sending malformed direct tool/meta/WAMP method calls to
+  router-hosted MCP endpoints while preserving valid MCP method names such as
+  `tools/list`, `tools/call`, and dotted Connectanum/WAMP helper methods.
+  Baseline `bin/test-fast` passed before the change on 2026-05-27. Fail-first
+  coverage reproduced the prior behavior where `method: '  '` reached the
+  fake MCP endpoint and returned a successful JSON-RPC response instead of
+  failing locally. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects invalid JSON-RPC request objects" -r expanded`,
+  `dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+  `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP
+  package smokes, client/native transport suites, auth server, live WAMP
+  transport integration, router-hosted MCP example smoke, generated
+  consumer-package smokes, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
+  checkpoint; the latest fully clean hosted checkpoint remains `80ba9ce`.
 - 2026-05-27: Hardened public HTTP auth grant `token_type` validation for
   protected router-hosted MCP consumer flows.
   `ConnectanumHttpAuthGrant.fromJson(...)` now parses present bridge
@@ -104,9 +126,22 @@ decision because `connectanum_client` still depends on private
   client/native transport suites, auth server, live WAMP transport
   integration, router-hosted MCP example smoke, generated consumer-package
   smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm
-  browser WebSocket smoke. Hosted evidence for this checkpoint is pending
-  after push; the latest clean hosted deployment-chain checkpoint remains
-  `0ea944d`.
+  browser WebSocket smoke. Commit `80ba9ce` was pushed to `origin`
+  `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `80ba9ce` is clean: GitHub `CI` `26520834512`, `Dart Package Publish Dry
+  Run` `26520833718`, `WAMP Profile Benchmarks` `26520833522`, and
+  non-mutating `Router Image` dry-run `26520849184` all completed
+  successfully. The strict `master` deployment-chain audit passed on
+  2026-05-27 with clean latest CI jobs/logs, clean package dry-run, clean
+  router image dry-run, clean WAMP profile benchmark evidence, relevant native
+  release dry-run evidence, visible checked-in workflows, visible router
+  package metadata, and baseline branch protection. GitHub Status reported all
+  systems operational and GitHub Actions operational. RC release readiness
+  remains not ready because no RC tag points at `80ba9ce`, a GitHub prerelease
+  still requires release approval after selecting an RC tag, the router image
+  RC tag is not selected, and public pub.dev publishing remains deferred
+  pending package ownership/versioning and workspace package release order
+  decisions.
 - 2026-05-27: Hardened public HTTP auth method-name validation for protected
   router-hosted MCP consumer flows.
   `ConnectanumHttpAuthClient.authenticate(...)` now validates override or

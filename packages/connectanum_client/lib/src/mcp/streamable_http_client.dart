@@ -63,6 +63,15 @@ Object? _validateJsonRpcRequestId(McpJsonMap message, {required String label}) {
   if (method is! String || method.isEmpty) {
     throw FormatException('JSON-RPC $label method must be a non-empty string');
   }
+  final methodHasInvalidCharacter = method.codeUnits.any(
+    (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
+  );
+  if (methodHasInvalidCharacter) {
+    throw FormatException(
+      'JSON-RPC $label method must not contain whitespace or control '
+      'characters',
+    );
+  }
   if (message.containsKey('result') || message.containsKey('error')) {
     throw FormatException('JSON-RPC $label must not contain result or error');
   }
