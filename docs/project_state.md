@@ -2,9 +2,37 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable HTTP poll event validation.
-Latest fully clean hosted checkpoint: Commit `f1c2895` on GitHub `master`.
-Current implementation checkpoint: MCP Streamable HTTP poll event payloads are
+Last reviewed branch checkpoint: MCP Streamable HTTP SSE event-id validation.
+Latest fully clean hosted checkpoint: Commit `7292c3b` on GitHub `master`.
+Current implementation checkpoint: MCP Streamable HTTP SSE event IDs and
+outgoing `Last-Event-ID` poll overrides are now validated before client cursor
+state can be poisoned. Public `McpStreamableHttpClient` rejects parsed SSE
+`id` values containing HTTP-header-invalid control characters before POST/SSE
+or polling responses capture MCP session headers or update `lastEventId`, and
+it rejects caller-provided invalid `Last-Event-ID` poll overrides before the
+poll request is sent. Empty SSE `id` values remain valid and continue to clear
+the resume cursor. Fail-first coverage reproduced the prior behavior where a
+server-supplied invalid SSE `id` could be parsed from a successful Streamable
+HTTP response and then become the next resume header, and where a caller could
+attempt to send an invalid poll cursor directly. Baseline `bin/test-fast`
+passed before the change on 2026-05-27. Focused local coverage passed on
+2026-05-27 with
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "invalid.*(event ids|Last-Event-ID|SSE event id)" -r expanded`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+and `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+Full local `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI,
+MCP package smokes, client/native transport suites, auth server, live WAMP
+transport integration, router-hosted MCP example smoke, generated
+consumer-package smokes, full router suite, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke. The implementation has not yet been
+pushed, so hosted CI/package/benchmark/router-image evidence is pending for
+the new checkpoint. RC release readiness remains not ready because no RC tag
+points at the new checkpoint, a GitHub prerelease still requires release
+approval after selecting an RC tag, the router image RC tag is not selected,
+and public pub.dev publishing remains deferred pending package
+ownership/versioning and workspace package release order decisions.
+Previous implementation checkpoint: MCP Streamable HTTP poll event payloads are
 now validated before public `McpStreamableHttpClient.poll()` captures MCP
 session headers or the resume cursor. Every non-empty GET/SSE `data:` payload
 returned by Streamable HTTP polling must now be a JSON-RPC object or non-empty
@@ -23,9 +51,20 @@ Full local `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence has not yet been
-refreshed for this local checkpoint; the latest fully clean hosted checkpoint
-remains commit `f1c2895` on GitHub `master`.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `7292c3b` was pushed to
+`origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+`7292c3b` is clean: GitHub `CI` `26488177832`, `Dart Package Publish Dry Run`
+`26488177835`, `WAMP Profile Benchmarks` `26488177777`, and non-mutating
+`Router Image` dry-run `26488596360` all completed successfully. The strict
+`master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+profile benchmark evidence, and relevant native release dry-run evidence.
+GitHub Status reported all systems operational and Actions operational. RC
+release readiness remains not ready because no RC tag points at `7292c3b`, a
+GitHub prerelease still requires release approval after selecting an RC tag,
+the router image RC tag is not selected, and public pub.dev publishing remains
+deferred pending package ownership/versioning and workspace package release
+order decisions.
 Previous implementation checkpoint: MCP Streamable HTTP SSE event payloads are
 now validated before public `McpStreamableHttpClient` POST/SSE results are
 matched or returned. Every non-empty SSE `data:` payload in a solicited POST

@@ -1996,6 +1996,76 @@ void main() {
     );
 
     test(
+      'rejects invalid Streamable HTTP poll event ids before state capture',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'poll-invalid-id-init');
+        expect(initialize['id'], 'poll-invalid-id-init');
+        expect(client.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-invalid-poll-id';
+        await expectLater(
+          client.poll(
+            headers: const <String, String>{
+              'x-test-poll-invalid-event-id': '1',
+              'x-test-response-session-id': 'poll-invalid-id-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('SSE event id cannot be used as Last-Event-ID'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-poll-id');
+        expect(endpoint.requests.last.method, 'GET');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+        expect(
+          endpoint.requests.last.lastEventId,
+          'session-1:get:kept-invalid-poll-id',
+        );
+      },
+    );
+
+    test('rejects invalid outgoing Last-Event-ID poll values', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      final initialize = await client.initialize(id: 'poll-invalid-outgoing');
+      expect(initialize['id'], 'poll-invalid-outgoing');
+      expect(client.sessionId, 'session-1');
+
+      client.lastEventId = 'session-1:get:kept-outgoing-invalid-id';
+      await expectLater(
+        client.poll(lastEventId: 'bad\u0000id'),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('Last-Event-ID header value contains invalid characters'),
+          ),
+        ),
+      );
+
+      expect(client.sessionId, 'session-1');
+      expect(client.lastEventId, 'session-1:get:kept-outgoing-invalid-id');
+      expect(endpoint.requests, hasLength(1));
+      expect(endpoint.requests.last.method, 'POST');
+    });
+
+    test(
       'rejects malformed response session headers without poisoning state',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -2286,6 +2356,28 @@ void main() {
         );
         expect(client.sessionId, 'session-1');
         expect(client.lastEventId, 'session-1:get:kept-sse');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-invalid-sse-id';
+        await expectLater(
+          client.listTools(
+            id: 'invalid-sse-id-tools',
+            headers: const <String, String>{
+              'x-test-sse-invalid-event-id': '1',
+              'x-test-response-session-id': 'post-sse-invalid-id-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('SSE event id cannot be used as Last-Event-ID'),
+            ),
+          ),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-sse-id');
         expect(endpoint.requests.last.method, 'POST');
         expect(endpoint.requests.last.sessionId, 'session-1');
 
@@ -5159,6 +5251,14 @@ final class _FakeMcpEndpoint {
           );
           return;
         }
+        if (request.headers.value('x-test-poll-invalid-event-id') == '1') {
+          _writeSse(
+            request,
+            'id: session-1:get:invalid\u0000id\n'
+            'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n',
+          );
+          return;
+        }
         _writeSse(
           request,
           'id: session-1:get:1\n'
@@ -5877,6 +5977,14 @@ final class _FakeMcpEndpoint {
           request,
           'id: session-1:post:malformed\n'
           'data: {\n\n',
+        );
+        return;
+      }
+      if (request.headers.value('x-test-sse-invalid-event-id') == '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:invalid\u0000id\n'
+          'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
         );
         return;
       }

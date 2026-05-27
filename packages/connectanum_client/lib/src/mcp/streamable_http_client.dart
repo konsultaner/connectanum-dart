@@ -42,6 +42,15 @@ bool _mcpSessionIdHeaderValueValid(String value) {
   return value.isNotEmpty;
 }
 
+bool _mcpLastEventIdHeaderValueValid(String value) {
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit < 0x20 || codeUnit == 0x7f) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void _validateJsonRpcVersion(McpJsonMap message, {required String label}) {
   if (message['jsonrpc'] != '2.0') {
     throw FormatException('JSON-RPC $label jsonrpc must be 2.0');
@@ -1086,6 +1095,7 @@ final class McpStreamableHttpClient {
         value,
         responseBodyReturned: body.isNotEmpty,
       );
+      _validateMcpSseEventIds(events);
       if (capturesSessionHeaders) {
         _captureSessionHeaders(
           response,
@@ -1232,6 +1242,7 @@ final class McpStreamableHttpClient {
         _validateJsonRpcSseMessageValue(value);
       }
     }
+    _validateMcpSseEventIds(events);
     _captureSessionHeaders(response);
     _captureLastEventId(events);
     return events;
@@ -1322,6 +1333,11 @@ final class McpStreamableHttpClient {
       request.headers.set(_headerSessionId, session);
     }
     if (lastEventId != null) {
+      if (!_mcpLastEventIdHeaderValueValid(lastEventId)) {
+        throw const FormatException(
+          'Last-Event-ID header value contains invalid characters',
+        );
+      }
       request.headers.set(_headerLastEventId, lastEventId);
     }
   }
@@ -1472,6 +1488,17 @@ final class McpStreamableHttpClient {
       label: 'JSON-RPC response',
     );
     return responseId == requestId;
+  }
+
+  void _validateMcpSseEventIds(List<McpSseEvent> events) {
+    for (final event in events) {
+      final id = event.id;
+      if (id != null && !_mcpLastEventIdHeaderValueValid(id)) {
+        throw const FormatException(
+          'SSE event id cannot be used as Last-Event-ID',
+        );
+      }
+    }
   }
 
   void _captureLastEventId(List<McpSseEvent> events) {
