@@ -68,9 +68,12 @@ Object? _validateJsonRpcRequestId(McpJsonMap message, {required String label}) {
   }
   if (message.containsKey('params')) {
     final params = message['params'];
-    if (params is! Map && params is! List) {
+    if (params is! Map) {
+      throw FormatException('JSON-RPC $label params must be an object');
+    }
+    if (params.keys.any((key) => key is! String)) {
       throw FormatException(
-        'JSON-RPC $label params must be an object or array',
+        'JSON-RPC $label params must contain only string keys',
       );
     }
   }

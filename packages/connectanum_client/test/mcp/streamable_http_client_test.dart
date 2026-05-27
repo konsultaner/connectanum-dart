@@ -1140,6 +1140,18 @@ void main() {
           'method': 'tools/list',
           'params': 'not-structured',
         },
+        {
+          'jsonrpc': '2.0',
+          'id': 'array-params',
+          'method': 'tools/list',
+          'params': <Object?>[],
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': 'non-string-param-key',
+          'method': 'tools/list',
+          'params': <Object?, Object?>{1: 'invalid'},
+        },
       ]) {
         await expectLater(
           client.post(message, streamable: false),
