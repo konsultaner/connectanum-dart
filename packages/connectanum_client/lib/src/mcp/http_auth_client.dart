@@ -255,10 +255,18 @@ final class ConnectanumHttpAuthClient {
   }
 
   static String _nonEmptyString(Object? value, String key) {
-    if (value is String && value.isNotEmpty) {
+    if (value is! String || value.isEmpty) {
+      throw FormatException('HTTP auth response is missing "$key".');
+    }
+    final hasInvalidCharacter = value.codeUnits.any(
+      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
+    );
+    if (!hasInvalidCharacter) {
       return value;
     }
-    throw FormatException('HTTP auth response is missing "$key".');
+    throw FormatException(
+      'HTTP auth response "$key" must not contain whitespace or control characters.',
+    );
   }
 
   static String _nonEmptyToken(String token, String name) {
