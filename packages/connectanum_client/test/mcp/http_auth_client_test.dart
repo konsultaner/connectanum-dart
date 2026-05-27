@@ -296,6 +296,53 @@ void main() {
         ),
       );
     });
+
+    test(
+      'throws format exceptions for malformed auth grant responses',
+      () async {
+        final cases = <(Map<String, Object?>, Matcher)>[
+          (
+            const <String, Object?>{'realm': 123},
+            contains('"realm" must be a string'),
+          ),
+          (
+            const <String, Object?>{'access_token': 'bad token'},
+            contains('"access_token" must not contain whitespace'),
+          ),
+          (
+            const <String, Object?>{
+              'details': <Object?>['not-object'],
+            },
+            contains('"details" must be a JSON object'),
+          ),
+        ];
+
+        for (final (grantOverrides, messageMatcher) in cases) {
+          final endpoint = await _FakeHttpAuthEndpoint.bind(
+            grantOverrides: grantOverrides,
+          );
+          addTearDown(endpoint.close);
+
+          final client = ConnectanumHttpAuthClient(endpoint.uri);
+          addTearDown(() => client.close(force: true));
+
+          await expectLater(
+            client.issueTicketToken(
+              realm: 'realm1',
+              authId: 'user-1',
+              ticket: 'ticket-secret',
+            ),
+            throwsA(
+              isA<FormatException>().having(
+                (error) => error.message,
+                'message',
+                messageMatcher,
+              ),
+            ),
+          );
+        }
+      },
+    );
   });
 }
 
@@ -304,6 +351,7 @@ final class _FakeHttpAuthEndpoint {
     this._server, {
     required this.authMethod,
     required this.challenge,
+    required this.grantOverrides,
     required this.failChallenge,
     required this.failChallengeWithText,
   }) {
@@ -313,6 +361,7 @@ final class _FakeHttpAuthEndpoint {
   final HttpServer _server;
   final String authMethod;
   final Map<String, Object?> challenge;
+  final Map<String, Object?> grantOverrides;
   final bool failChallenge;
   final bool failChallengeWithText;
   final requests = <_SeenAuthRequest>[];
@@ -328,6 +377,7 @@ final class _FakeHttpAuthEndpoint {
   static Future<_FakeHttpAuthEndpoint> bind({
     String authMethod = 'ticket',
     Map<String, Object?> challenge = const <String, Object?>{},
+    Map<String, Object?> grantOverrides = const <String, Object?>{},
     bool failChallenge = false,
     bool failChallengeWithText = false,
   }) async {
@@ -336,6 +386,7 @@ final class _FakeHttpAuthEndpoint {
       server,
       authMethod: authMethod,
       challenge: challenge,
+      grantOverrides: grantOverrides,
       failChallenge: failChallenge,
       failChallengeWithText: failChallengeWithText,
     );
@@ -406,6 +457,7 @@ final class _FakeHttpAuthEndpoint {
       'authprovider': 'consumer-local',
       'expires_in': 60,
       'refresh_token_expires_in': 600,
+      ...grantOverrides,
     });
   }
 

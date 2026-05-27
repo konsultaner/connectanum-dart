@@ -78,6 +78,29 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened public HTTP auth grant response validation for
+  protected router-hosted MCP consumer flows.
+  `ConnectanumHttpAuthGrant.fromJson(...)` now rejects malformed bridge token
+  responses with controlled `FormatException`s when optional identity fields
+  are not strings, access/refresh tokens contain whitespace or control
+  characters, or `details` is present but not a JSON object. This keeps
+  consumer applications from receiving grants that later fail during MCP bearer
+  client construction and avoids leaking Dart type errors from the auth bridge
+  boundary. Baseline `bin/test-fast` passed before the change on 2026-05-27.
+  Fail-first coverage reproduced the prior behavior where a numeric `realm` in
+  the bridge token response leaked a `_TypeError`. Focused local coverage
+  passed with
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "malformed auth grant responses" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+  and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+  `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP
+  package smokes, client/native transport suites, auth server, live WAMP
+  transport integration, router-hosted MCP example smoke, generated
+  consumer-package smokes, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains at the last
+  fully clean `master` checkpoint `624bf55` until this implementation checkpoint
+  is pushed and the GitHub deployment chain is observed.
 - 2026-05-27: Hardened public HTTP auth client request validation for
   protected router-hosted MCP routes. `ConnectanumHttpAuthClient.authenticate(...)`
   now rejects blank `realm`, blank `authId`, and blank override `authMethod`
@@ -93,9 +116,20 @@ decision because `connectanum_client` still depends on private
   MCP package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains on the
-  latest fully clean checkpoint `e1610cd` until this implementation commit is
-  pushed and its deployment chain completes.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `624bf55` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `624bf55` is clean: GitHub `CI` `26504481671`, `Dart Package Publish Dry
+  Run` `26504481834`, `WAMP Profile Benchmarks` `26504481675`, and
+  non-mutating `Router Image` dry-run `26504532375` all completed
+  successfully. The strict `master` deployment-chain audit passed on
+  2026-05-27 with clean latest CI jobs/logs, clean package dry-run, clean
+  router image dry-run, clean WAMP profile benchmark evidence, and relevant
+  native release dry-run evidence. GitHub Status reported all systems
+  operational and Actions operational. RC release readiness remains not ready
+  because no RC tag points at `624bf55`, a GitHub prerelease still requires
+  release approval after selecting an RC tag, the router image RC tag is not
+  selected, and public pub.dev publishing remains deferred pending package
+  ownership/versioning and workspace package release order decisions.
 - 2026-05-27: Hardened standalone MCP notification parser-error suppression.
   `McpServer._handleSingleMessage(...)` now treats raw messages with no `id`,
   `jsonrpc: "2.0"`, and a string `method` as notification-shaped when request

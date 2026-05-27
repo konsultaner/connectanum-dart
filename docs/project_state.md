@@ -2,9 +2,30 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP HTTP auth client request argument validation.
-Latest fully clean hosted checkpoint: Commit `e1610cd` on GitHub `master`.
-Current implementation checkpoint: Public `ConnectanumHttpAuthClient`
+Last reviewed branch checkpoint: MCP HTTP auth grant response validation.
+Latest fully clean hosted checkpoint: Commit `624bf55` on GitHub `master`.
+Current implementation checkpoint: Public `ConnectanumHttpAuthGrant.fromJson(...)`
+now validates HTTP auth bridge grant response shape before returning grants to
+consumer applications. Malformed grant payloads with non-string identity fields,
+access/refresh tokens containing whitespace or control characters, or non-object
+`details` values now fail with controlled `FormatException`s at the auth bridge
+boundary instead of leaking Dart type errors or returning bearer grants that
+would fail later during MCP session client construction. Baseline
+`bin/test-fast` passed before the change on 2026-05-27. Fail-first coverage
+reproduced the prior behavior where a numeric `realm` in the bridge token
+response leaked a `_TypeError`. Focused local coverage passed on 2026-05-27 with
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "malformed auth grant responses" -r expanded`,
+`dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+`bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP package
+smokes, client/native transport suites, auth server, live WAMP transport
+integration, router-hosted MCP example smoke, generated consumer-package
+smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence remains at the last fully clean `master`
+checkpoint `624bf55` until this local implementation checkpoint is pushed and
+the GitHub deployment chain is observed.
+Previous implementation checkpoint: Public `ConnectanumHttpAuthClient`
 request validation now rejects blank `realm`, blank `authId`, and blank
 override `authMethod` values before invoking WAMP authentication hooks or
 opening an HTTP auth bridge request. This keeps protected router-hosted MCP
@@ -20,9 +41,20 @@ and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
 smokes, client/native transport suites, auth server, live WAMP transport
 integration, router-hosted MCP example smoke, generated consumer-package
 smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm
-browser WebSocket smoke. Hosted evidence remains on the latest fully clean
-checkpoint `e1610cd` until this implementation commit is pushed and its
-deployment chain completes.
+browser WebSocket smoke. Commit `624bf55` was pushed to `origin`
+`add-router` and GitHub `add-router`/`master`. Hosted evidence for `624bf55`
+is clean: GitHub `CI` `26504481671`, `Dart Package Publish Dry Run`
+`26504481834`, `WAMP Profile Benchmarks` `26504481675`, and non-mutating
+`Router Image` dry-run `26504532375` all completed successfully. The strict
+`master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+profile benchmark evidence, and relevant native release dry-run evidence.
+GitHub Status reported all systems operational and Actions operational. RC
+release readiness remains not ready because no RC tag points at `624bf55`, a
+GitHub prerelease still requires release approval after selecting an RC tag,
+the router image RC tag is not selected, and public pub.dev publishing remains
+deferred pending package ownership/versioning and workspace package release
+order decisions.
 Previous implementation checkpoint: Standalone MCP now suppresses parser errors
 for notification-shaped JSON-RPC messages before emitting response bodies. A
 message with no `id`, `jsonrpc: "2.0"`, and a string `method` now follows

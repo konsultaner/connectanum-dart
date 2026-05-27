@@ -299,32 +299,21 @@ final class ConnectanumHttpAuthGrant {
   });
 
   factory ConnectanumHttpAuthGrant.fromJson(Map<String, Object?> json) {
+    final tokenType = _optionalString(json, 'token_type');
     return ConnectanumHttpAuthGrant(
-      accessToken: ConnectanumHttpAuthClient._nonEmptyString(
-        json['access_token'],
-        'access_token',
-      ),
-      tokenType: switch (json['token_type']) {
-        final String value when value.isNotEmpty => value,
-        _ => 'Bearer',
-      },
-      refreshToken: switch (json['refresh_token']) {
-        final String value when value.isNotEmpty => value,
-        _ => null,
-      },
-      realm: json['realm'] as String?,
-      authId: json['authid'] as String?,
-      authRole: json['authrole'] as String?,
-      authMethod: json['authmethod'] as String?,
-      authProvider: json['authprovider'] as String?,
+      accessToken: _requiredToken(json['access_token'], 'access_token'),
+      tokenType: tokenType == null || tokenType.isEmpty ? 'Bearer' : tokenType,
+      refreshToken: _optionalToken(json, 'refresh_token'),
+      realm: _optionalString(json, 'realm'),
+      authId: _optionalString(json, 'authid'),
+      authRole: _optionalString(json, 'authrole'),
+      authMethod: _optionalString(json, 'authmethod'),
+      authProvider: _optionalString(json, 'authprovider'),
       accessTokenExpiresIn: _durationFromSeconds(json['expires_in']),
       refreshTokenExpiresIn: _durationFromSeconds(
         json['refresh_token_expires_in'],
       ),
-      details: switch (json['details']) {
-        final Map value => Map<String, Object?>.from(value),
-        _ => const <String, Object?>{},
-      },
+      details: _detailsFromJson(json),
     );
   }
 
@@ -339,6 +328,87 @@ final class ConnectanumHttpAuthGrant {
   final Duration? accessTokenExpiresIn;
   final Duration? refreshTokenExpiresIn;
   final Map<String, Object?> details;
+
+  static String _requiredToken(Object? value, String key) {
+    if (value == null) {
+      throw FormatException('HTTP auth response is missing "$key".');
+    }
+    if (value is! String) {
+      throw FormatException('HTTP auth response "$key" must be a string.');
+    }
+    final token = value.trim();
+    final hasInvalidCharacter = token.codeUnits.any(
+      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
+    );
+    if (token.isEmpty) {
+      throw FormatException('HTTP auth response is missing "$key".');
+    }
+    if (hasInvalidCharacter) {
+      throw FormatException(
+        'HTTP auth response "$key" must not contain whitespace or control '
+        'characters.',
+      );
+    }
+    return token;
+  }
+
+  static String? _optionalToken(Map<String, Object?> json, String key) {
+    if (!json.containsKey(key) || json[key] == null) {
+      return null;
+    }
+    final value = json[key];
+    if (value is! String) {
+      throw FormatException('HTTP auth response "$key" must be a string.');
+    }
+    final token = value.trim();
+    if (token.isEmpty) {
+      return null;
+    }
+    final hasInvalidCharacter = token.codeUnits.any(
+      (codeUnit) => codeUnit <= 0x20 || codeUnit == 0x7f,
+    );
+    if (hasInvalidCharacter) {
+      throw FormatException(
+        'HTTP auth response "$key" must not contain whitespace or control '
+        'characters.',
+      );
+    }
+    return token;
+  }
+
+  static String? _optionalString(Map<String, Object?> json, String key) {
+    if (!json.containsKey(key) || json[key] == null) {
+      return null;
+    }
+    final value = json[key];
+    if (value is String) {
+      return value;
+    }
+    throw FormatException('HTTP auth response "$key" must be a string.');
+  }
+
+  static Map<String, Object?> _detailsFromJson(Map<String, Object?> json) {
+    if (!json.containsKey('details') || json['details'] == null) {
+      return const <String, Object?>{};
+    }
+    final value = json['details'];
+    if (value is! Map) {
+      throw const FormatException(
+        'HTTP auth response "details" must be a JSON object.',
+      );
+    }
+    final result = <String, Object?>{};
+    for (final entry in value.entries) {
+      final key = entry.key;
+      if (key is! String) {
+        throw const FormatException(
+          'HTTP auth response "details" must contain only string keys.',
+        );
+      }
+      result[key] = entry.value;
+    }
+    return result;
+  }
 
   static Duration? _durationFromSeconds(Object? value) {
     if (value is int) {
