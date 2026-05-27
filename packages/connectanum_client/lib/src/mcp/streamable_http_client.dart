@@ -112,7 +112,13 @@ void _validateJsonRpcResponseObject(
     throw FormatException('$label must contain exactly one of result or error');
   }
   if (hasError) {
-    _jsonMapFrom(response['error'], label: '$label error');
+    final error = _jsonMapFrom(response['error'], label: '$label error');
+    if (error['code'] is! int) {
+      throw FormatException('$label error code must be an integer');
+    }
+    if (error['message'] is! String) {
+      throw FormatException('$label error message must be a string');
+    }
   }
 }
 

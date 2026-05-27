@@ -576,6 +576,48 @@ void main() {
     );
 
     test(
+      'rejects invalid JSON-RPC single response error objects from JSON',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        for (final shape in const <String, String>{
+          'missing-error-code': 'error code must be an integer',
+          'invalid-error-code': 'error code must be an integer',
+          'missing-error-message': 'error message must be a string',
+          'invalid-error-message': 'error message must be a string',
+        }.entries) {
+          await expectLater(
+            client.post(
+              {
+                'jsonrpc': '2.0',
+                'id': 'tools-${shape.key}',
+                'method': 'tools/list',
+              },
+              streamable: false,
+              headers: <String, String>{
+                'x-test-json-response-shape': shape.key,
+              },
+            ),
+            throwsA(
+              isA<FormatException>().having(
+                (error) => error.message,
+                'message',
+                contains(shape.value),
+              ),
+            ),
+          );
+        }
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
       'rejects invalid JSON-RPC single response versions from JSON',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -675,6 +717,42 @@ void main() {
 
         expect(client.sessionId, 'session-1');
         expect(client.lastEventId, 'session-1:get:kept-invalid-shape');
+      },
+    );
+
+    test(
+      'rejects invalid JSON-RPC single response error objects from SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        client.lastEventId = 'session-1:get:kept-invalid-error';
+        await expectLater(
+          client.request(
+            'tools/list',
+            id: 'tools-invalid-error',
+            headers: const <String, String>{
+              'x-test-sse-response-shape': 'missing-error-code',
+              'x-test-response-session-id': 'post-sse-error-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('error code must be an integer'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-error');
       },
     );
 
@@ -1065,6 +1143,41 @@ void main() {
     );
 
     test(
+      'rejects invalid JSON-RPC batch response error objects from JSON',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-batch-response-shape': 'invalid-error-message',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('error message must be a string'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
       'rejects invalid JSON-RPC batch response versions from JSON',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -1127,6 +1240,43 @@ void main() {
               (error) => error.message,
               'message',
               contains('jsonrpc must be 2.0'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'rejects invalid JSON-RPC batch response errors from Streamable HTTP SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            headers: const <String, String>{
+              'x-test-batch-response-shape': 'invalid-error-code',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('error code must be an integer'),
             ),
           ),
         );
@@ -5811,6 +5961,24 @@ McpJsonMap _testJsonRpcResponseWithShape(Object? id, String shape) {
       break;
     case 'invalid-error':
       response['error'] = 'not an error object';
+      break;
+    case 'missing-error-code':
+      response['error'] = <String, Object?>{'message': 'unexpected error'};
+      break;
+    case 'invalid-error-code':
+      response['error'] = <String, Object?>{
+        'code': -32000.5,
+        'message': 'unexpected error',
+      };
+      break;
+    case 'missing-error-message':
+      response['error'] = <String, Object?>{'code': -32000};
+      break;
+    case 'invalid-error-message':
+      response['error'] = <String, Object?>{
+        'code': -32000,
+        'message': <String, Object?>{'text': 'unexpected error'},
+      };
       break;
     default:
       throw StateError('unknown JSON-RPC response shape $shape');

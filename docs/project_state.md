@@ -2,9 +2,32 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP empty JSON-RPC batch validation.
-Latest fully clean hosted checkpoint: Commit `d6b6e91` on GitHub `master`.
-Current implementation checkpoint: MCP direct JSON empty batches are now
+Last reviewed branch checkpoint: MCP JSON-RPC response error object validation.
+Latest fully clean hosted checkpoint: Commit `1ec2c58` on GitHub `master`.
+Current implementation checkpoint: MCP JSON-RPC error response objects are now
+validated before public Streamable HTTP client results are returned. Public
+direct JSON and solicited Streamable HTTP POST/SSE responses now reject
+JSON-RPC error responses whose `error.code` is not an integer or whose
+`error.message` is not a string, across single requests and batches, before
+callers can observe the response. The validation still runs before successful
+MCP session/header/cursor capture, so malformed error envelopes cannot mutate
+`sessionId` or `lastEventId`. Fail-first coverage reproduced the prior
+behavior where malformed error responses were emitted successfully to callers.
+Baseline `bin/test-fast` passed before the change on 2026-05-27. Focused local
+coverage passed on 2026-05-27 with
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "response error" -r expanded`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "response error|response discriminants|response versions|unexpected JSON-RPC .*response ids|incomplete JSON-RPC batch responses|duplicate JSON-RPC batch response ids" -r expanded`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+and `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+Full local `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI,
+MCP package smokes, client/native transport suites, auth server, live WAMP
+transport integration, router-hosted MCP example smoke, generated
+consumer-package smokes, full router suite, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
+checkpoint remains `1ec2c58`; hosted evidence and RC-readiness blockers will
+be refreshed after the implementation is committed and pushed.
+Previous implementation checkpoint: MCP direct JSON empty batches are now
 validated before public Streamable HTTP client dispatch. The public
 `McpStreamableHttpClient.postBatch(...)` and `postBatchDirect(...)` paths now
 reject empty JSON-RPC batch arrays before opening HTTP, aligning the client raw
@@ -24,12 +47,20 @@ Full local `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending until the
-new local checkpoint is pushed. RC release readiness remains not ready because
-no RC tag points at the new local checkpoint, a GitHub prerelease still
-requires release approval after selecting an RC tag, the router image RC tag is
-not selected, and public pub.dev publishing remains deferred pending package
-ownership/versioning and workspace package release order decisions.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `1ec2c58` was pushed to
+`origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+`1ec2c58` is clean: GitHub `CI` `26480510364`, `Dart Package Publish Dry Run`
+`26480510361`, `WAMP Profile Benchmarks` `26480510321`, and non-mutating
+`Router Image` dry-run `26480524504` all completed successfully. The strict
+`master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+profile benchmark evidence, and relevant native release dry-run evidence.
+GitHub Status reported all systems operational and Actions operational. RC
+release readiness remains not ready because no RC tag points at `1ec2c58`, a
+GitHub prerelease still requires release approval after selecting an RC tag,
+the router image RC tag is not selected, and public pub.dev publishing remains
+deferred pending package ownership/versioning and workspace package release
+order decisions.
 Previous implementation checkpoint: MCP direct JSON request objects are now
 validated before public Streamable HTTP client dispatch. The public
 `McpStreamableHttpClient.post(...)` and `postBatch(...)` paths now reject raw
