@@ -209,15 +209,8 @@ final class ConnectanumHttpAuthClient {
   }
 
   static String _httpAuthMethodName(String authMethod) {
-    final trimmed = authMethod.trim();
-    if (trimmed.isEmpty) {
-      throw ArgumentError.value(
-        authMethod,
-        'authMethod',
-        'authMethod must not be empty.',
-      );
-    }
-    return trimmed == 'wamp-scram' ? 'scram' : trimmed;
+    final method = _nonEmptyToken(authMethod, 'authMethod');
+    return method == 'wamp-scram' ? 'scram' : method;
   }
 
   static String _nonEmptyArgument(String value, String name) {

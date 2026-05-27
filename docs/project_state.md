@@ -2,9 +2,33 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP HTTP auth challenge state validation.
-Latest fully clean hosted checkpoint: Commit `3252a8e` on GitHub `master`.
+Last reviewed branch checkpoint: MCP HTTP auth method validation.
+Latest fully clean hosted checkpoint: Commit `8995199` on GitHub `master`.
 Current implementation checkpoint: Public
+`ConnectanumHttpAuthClient.authenticate(...)` now validates auth method names
+with the same non-empty token rules used for HTTP auth bridge bearer/state
+metadata. Override or authenticator-provided method names must trim to a
+non-empty value without whitespace or control characters, while the existing
+`wamp-scram` bridge alias still maps to `scram`. Malformed method names now
+fail locally with `ArgumentError` before consumer applications can send a bad
+`authmethod` value to router-hosted HTTP auth endpoints. Baseline
+`bin/test-fast` passed before the change on 2026-05-27. Fail-first coverage
+reproduced the prior behavior where `authMethod: 'ticket raw'` reached the
+fake HTTP auth endpoint instead of being rejected locally. Focused local
+coverage passed on 2026-05-27 with
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "rejects blank auth request parameters" -r expanded`,
+`dart format packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+`dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+`bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP package
+smokes, client/native transport suites, auth server, live WAMP transport
+integration, router-hosted MCP example smoke, generated consumer-package
+smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence remains pending for the local auth-method
+validation checkpoint; the latest fully clean hosted checkpoint is still
+`8995199`.
+Previous implementation checkpoint: Public
 `ConnectanumHttpAuthClient` now validates the HTTP auth bridge challenge
 `state` before echoing it into the token request. Challenge state values must
 be non-empty strings without whitespace or control characters, and present
@@ -24,9 +48,21 @@ and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
 smokes, client/native transport suites, auth server, live WAMP transport
 integration, router-hosted MCP example smoke, generated consumer-package
 smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence remains at the last fully clean `master`
-checkpoint `3252a8e` until this local implementation checkpoint is pushed and
-the GitHub deployment chain is observed.
+WebSocket smoke. Commit `8995199` was pushed to `origin` `add-router` and
+GitHub `add-router`/`master`. Hosted evidence for `8995199` is clean: GitHub
+`CI` `26514995701`, `Dart Package Publish Dry Run` `26514995773`, `WAMP
+Profile Benchmarks` `26514995904`, and non-mutating `Router Image` dry-run
+`26514995592` all completed successfully. The strict `master`
+deployment-chain audit passed on 2026-05-27 with clean latest CI jobs/logs,
+clean package dry-run, clean router image dry-run, clean WAMP profile
+benchmark evidence, relevant native release dry-run evidence, visible
+checked-in workflows, visible router package metadata, and baseline branch
+protection. GitHub Status reported all systems operational and GitHub Actions
+operational. RC release readiness remains not ready because no RC tag points at
+`8995199`, a GitHub prerelease still requires release approval after selecting
+an RC tag, the router image RC tag is not selected, and public pub.dev
+publishing remains deferred pending package ownership/versioning and workspace
+package release order decisions.
 Previous implementation checkpoint: Public
 `ConnectanumHttpAuthGrant.fromJson(...)` now validates present HTTP auth bridge
 expiry metadata before returning grants to consumer applications.

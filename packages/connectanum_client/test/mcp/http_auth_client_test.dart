@@ -272,6 +272,24 @@ void main() {
         ),
         throwsArgumentError,
       );
+      await expectLater(
+        client.authenticate(
+          realm: 'realm1',
+          authId: 'user-1',
+          authentication: TicketAuthentication('ticket-secret'),
+          authMethod: 'ticket raw',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.authenticate(
+          realm: 'realm1',
+          authId: 'user-1',
+          authentication: TicketAuthentication('ticket-secret'),
+          authMethod: 'ticket\nraw',
+        ),
+        throwsArgumentError,
+      );
 
       expect(endpoint.requests, isEmpty);
     });

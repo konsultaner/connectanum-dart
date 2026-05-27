@@ -78,6 +78,31 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened public HTTP auth method-name validation for protected
+  router-hosted MCP consumer flows.
+  `ConnectanumHttpAuthClient.authenticate(...)` now validates override or
+  authenticator-provided auth method names with the same non-empty token rules
+  used for bridge bearer/state metadata. Method names must trim to a non-empty
+  value without whitespace or control characters, while the existing
+  `wamp-scram` bridge alias still maps to `scram`. Malformed method names now
+  fail locally with `ArgumentError` before consumer applications can send a bad
+  `authmethod` value to router-hosted HTTP auth endpoints. Baseline
+  `bin/test-fast` passed before the change on 2026-05-27. Fail-first coverage
+  reproduced the prior behavior where `authMethod: 'ticket raw'` reached the
+  fake HTTP auth endpoint instead of being rejected locally. Focused local
+  coverage passed with
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "rejects blank auth request parameters" -r expanded`,
+  `dart format packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+  and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
+  `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI, MCP
+  package smokes, client/native transport suites, auth server, live WAMP
+  transport integration, router-hosted MCP example smoke, generated
+  consumer-package smokes, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains pending for
+  this local auth-method validation checkpoint; the latest fully clean hosted
+  checkpoint is still `8995199`.
 - 2026-05-27: Hardened public HTTP auth challenge state validation for
   protected router-hosted MCP consumer flows.
   `ConnectanumHttpAuthClient` now validates the HTTP auth bridge challenge
@@ -99,9 +124,21 @@ decision because `connectanum_client` still depends on private
   package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains at the
-  last fully clean `master` checkpoint `3252a8e` until this implementation
-  checkpoint is pushed and the GitHub deployment chain is observed.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `8995199` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `8995199` is clean: GitHub `CI` `26514995701`, `Dart Package Publish Dry Run`
+  `26514995773`, `WAMP Profile Benchmarks` `26514995904`, and non-mutating
+  `Router Image` dry-run `26514995592` all completed successfully. The strict
+  `master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+  jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+  profile benchmark evidence, relevant native release dry-run evidence,
+  visible checked-in workflows, visible router package metadata, and baseline
+  branch protection. GitHub Status reported all systems operational and GitHub
+  Actions operational. RC release readiness remains not ready because no RC tag
+  points at `8995199`, a GitHub prerelease still requires release approval
+  after selecting an RC tag, the router image RC tag is not selected, and
+  public pub.dev publishing remains deferred pending package ownership/
+  versioning and workspace package release order decisions.
 - 2026-05-27: Hardened public HTTP auth grant expiry validation for protected
   router-hosted MCP consumer flows.
   `ConnectanumHttpAuthGrant.fromJson(...)` now requires present
