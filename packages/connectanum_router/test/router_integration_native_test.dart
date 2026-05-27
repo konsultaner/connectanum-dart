@@ -1536,6 +1536,32 @@ void main() {
       );
       expect(responseMemberJsonRpc.headers, isNot(contains('mcp-session-id')));
 
+      final nullParamsJsonRpc = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'null-params',
+          'method': 'tools/list',
+          'params': null,
+        },
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(nullParamsJsonRpc.statusCode, equals(HttpStatus.ok));
+      expect(nullParamsJsonRpc.json?['id'], equals('null-params'));
+      final nullParamsJsonRpcError = (nullParamsJsonRpc.json?['error'] as Map)
+          .cast<String, Object?>();
+      expect(
+        nullParamsJsonRpcError['code'],
+        equals(McpErrorCodes.invalidParams),
+      );
+      expect(
+        nullParamsJsonRpcError['message'],
+        contains('params must be an object'),
+      );
+      expect(nullParamsJsonRpc.headers, isNot(contains('mcp-session-id')));
+
       final olderVersionInitialize = await _postJson(
         client,
         listener.port,

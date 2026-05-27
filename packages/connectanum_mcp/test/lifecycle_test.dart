@@ -180,6 +180,23 @@ void main() {
       expect(error['message'], contains('result or error'));
     });
 
+    test('rejects explicit null JSON-RPC params before dispatch', () async {
+      final server = _server();
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'null-params',
+        'method': 'tools/list',
+        'params': null,
+      });
+
+      final error = response?['error'] as Map<String, Object?>;
+      expect(response?['id'], 'null-params');
+      expect(error['code'], McpErrorCodes.invalidParams);
+      expect(error['message'], contains('params must be an object'));
+    });
+
     test('handles JSON-RPC batches and omits notification responses', () async {
       final server = _server();
       await _initializeAndStart(server);

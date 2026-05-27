@@ -2734,11 +2734,20 @@ _DirectJsonRequest _directJsonRequestFrom(Object? rawMessage) {
       'JSON-RPC id must be a string or integer',
     );
   }
+  final hasParams = message.containsKey('params');
+  if (hasParams && message['params'] == null) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidParams,
+      'params must be an object',
+    );
+  }
   return _DirectJsonRequest(
     id: id,
     isNotification: !hasId,
     method: method,
-    params: mcp.jsonMapFrom(message['params']),
+    params: hasParams
+        ? mcp.jsonMapFrom(message['params'])
+        : const <String, Object?>{},
   );
 }
 

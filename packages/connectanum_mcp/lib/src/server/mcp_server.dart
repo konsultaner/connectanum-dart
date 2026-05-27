@@ -412,11 +412,17 @@ _ParsedJsonRpcRequest _requestFrom(Object? rawMessage) {
       'JSON-RPC id must be a string or integer',
     );
   }
+  final hasParams = message.containsKey('params');
+  if (hasParams && message['params'] == null) {
+    throw McpException(McpErrorCodes.invalidParams, 'params must be an object');
+  }
   return _ParsedJsonRpcRequest(
     id: id,
     isNotification: !hasId,
     method: method,
-    params: jsonMapFrom(message['params']),
+    params: hasParams
+        ? jsonMapFrom(message['params'])
+        : const <String, Object?>{},
   );
 }
 
