@@ -139,13 +139,16 @@ final class ConnectanumHttpAuthClient {
     Map<String, String> headers = const <String, String>{},
   }) async {
     final revokeToken = _nonEmptyToken(token, 'token');
+    final revokeTokenTypeHint = _optionalTokenTypeHint(tokenTypeHint);
+    final request = <String, Object?>{
+      'grant_type': 'revoke',
+      'token': revokeToken,
+    };
+    if (revokeTokenTypeHint != null) {
+      request['token_type_hint'] = revokeTokenTypeHint;
+    }
     await _postJsonObject(
-      <String, Object?>{
-        'grant_type': 'revoke',
-        'token': revokeToken,
-        if (tokenTypeHint != null && tokenTypeHint.isNotEmpty)
-          'token_type_hint': tokenTypeHint,
-      },
+      request,
       expectedStatus: HttpStatus.ok,
       label: 'HTTP auth revoke request',
       extraHeaders: headers,
@@ -273,6 +276,13 @@ final class ConnectanumHttpAuthClient {
           ? '$name must not be empty.'
           : '$name must not contain whitespace or control characters.',
     );
+  }
+
+  static String? _optionalTokenTypeHint(String? tokenTypeHint) {
+    if (tokenTypeHint == null) {
+      return null;
+    }
+    return _nonEmptyToken(tokenTypeHint, 'tokenTypeHint');
   }
 }
 

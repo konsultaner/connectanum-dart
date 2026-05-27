@@ -78,6 +78,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened public HTTP auth revoke hint validation for protected
+  router-hosted MCP consumer flows.
+  `ConnectanumHttpAuthClient.revokeToken(...)` now trims valid optional
+  `tokenTypeHint` values and rejects blank or whitespace/control-character
+  hints before opening the HTTP auth bridge revoke request. This keeps
+  consumer applications from sending malformed revoke metadata while preserving
+  existing trimmed token behavior. Baseline `bin/test-fast` passed before the
+  change on 2026-05-27. Fail-first coverage reproduced the prior behavior where
+  `token_type_hint` was sent as `' access_token '` instead of `access_token`.
+  Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "revoke token type hints" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+  and `dart test packages/connectanum_client/test/mcp -r expanded`. Hosted
+  evidence remains at the last fully clean `master` checkpoint `a5bebad` until
+  this implementation checkpoint is pushed and the GitHub deployment chain is
+  observed.
 - 2026-05-27: Hardened public HTTP auth grant response validation for
   protected router-hosted MCP consumer flows.
   `ConnectanumHttpAuthGrant.fromJson(...)` now rejects malformed bridge token
@@ -98,9 +115,21 @@ decision because `connectanum_client` still depends on private
   package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains at the last
-  fully clean `master` checkpoint `624bf55` until this implementation checkpoint
-  is pushed and the GitHub deployment chain is observed.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `a5bebad` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `a5bebad` is clean: GitHub `CI` `26506858699`, `Dart Package Publish Dry Run`
+  `26506858830`, `WAMP Profile Benchmarks` `26506858716`, and non-mutating
+  `Router Image` dry-run `26506899625` all completed successfully. The strict
+  `master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+  jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+  profile benchmark evidence, relevant native release dry-run evidence,
+  visible checked-in workflows, visible router package metadata, and baseline
+  branch protection. GitHub Status reported all systems operational and
+  Actions operational. RC release readiness remains not ready because no RC tag
+  points at `a5bebad`, a GitHub prerelease still requires release approval
+  after selecting an RC tag, the router image RC tag is not selected, and
+  public pub.dev publishing remains deferred pending package
+  ownership/versioning and workspace package release order decisions.
 - 2026-05-27: Hardened public HTTP auth client request validation for
   protected router-hosted MCP routes. `ConnectanumHttpAuthClient.authenticate(...)`
   now rejects blank `realm`, blank `authId`, and blank override `authMethod`

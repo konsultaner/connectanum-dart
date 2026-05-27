@@ -189,6 +189,42 @@ void main() {
       });
     });
 
+    test(
+      'normalizes and rejects revoke token type hints before requests',
+      () async {
+        final endpoint = await _FakeHttpAuthEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = ConnectanumHttpAuthClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.revokeToken(
+          ' access-token-1 ',
+          tokenTypeHint: ' access_token ',
+        );
+
+        expect(endpoint.requests.single.body, {
+          'grant_type': 'revoke',
+          'token': 'access-token-1',
+          'token_type_hint': 'access_token',
+        });
+
+        for (final tokenTypeHint in [
+          '  ',
+          'access token',
+          'refresh\ttoken',
+          'access\ntoken',
+        ]) {
+          await expectLater(
+            client.revokeToken('access-token-1', tokenTypeHint: tokenTypeHint),
+            throwsArgumentError,
+          );
+        }
+
+        expect(endpoint.requests, hasLength(1));
+      },
+    );
+
     test('rejects invalid refresh and revoke tokens before requests', () async {
       final endpoint = await _FakeHttpAuthEndpoint.bind();
       addTearDown(endpoint.close);
