@@ -364,6 +364,10 @@ void main() {
             contains('"access_token" must not contain whitespace'),
           ),
           (
+            const <String, Object?>{'token_type': 'Bearer raw'},
+            contains('"token_type" must not contain whitespace'),
+          ),
+          (
             const <String, Object?>{
               'details': <Object?>['not-object'],
             },

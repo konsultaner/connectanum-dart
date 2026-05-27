@@ -310,7 +310,7 @@ final class ConnectanumHttpAuthGrant {
   });
 
   factory ConnectanumHttpAuthGrant.fromJson(Map<String, Object?> json) {
-    final tokenType = _optionalString(json, 'token_type');
+    final tokenType = _optionalToken(json, 'token_type');
     return ConnectanumHttpAuthGrant(
       accessToken: _requiredToken(json['access_token'], 'access_token'),
       tokenType: tokenType == null || tokenType.isEmpty ? 'Bearer' : tokenType,

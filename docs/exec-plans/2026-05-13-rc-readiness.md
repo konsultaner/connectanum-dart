@@ -78,6 +78,35 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened public HTTP auth grant `token_type` validation for
+  protected router-hosted MCP consumer flows.
+  `ConnectanumHttpAuthGrant.fromJson(...)` now parses present bridge
+  `token_type` metadata with the same token-shape rules used for access and
+  refresh credentials. Missing, null, or blank token types continue to default
+  to `Bearer`, while present values are trimmed and rejected when they contain
+  whitespace or control characters. This keeps consumer applications that use
+  grants directly from propagating malformed authorization schemes from
+  router-hosted HTTP auth endpoints. Baseline `bin/test-fast` passed before
+  the change on 2026-05-27. Fail-first coverage reproduced the prior behavior
+  where `token_type: 'Bearer raw'` returned a bearer grant instead of a
+  controlled format error. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "malformed auth grant responses" -r expanded`,
+  `dart format packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+  and `dart test packages/connectanum_client/test/mcp -r expanded`. An initial
+  full local `bin/verify` run hit a transient
+  `ct_ffi::listen_flow::http3_response_streaming_round_trip` handshake
+  timeout; the focused rerun
+  `cargo test -p ct_ffi tests::listen_flow::http3_response_streaming_round_trip -- --exact --nocapture`
+  passed immediately, and the subsequent full local `bin/verify` passed on
+  2026-05-27, including formatting, Rust/FFI, MCP package smokes,
+  client/native transport suites, auth server, live WAMP transport
+  integration, router-hosted MCP example smoke, generated consumer-package
+  smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm
+  browser WebSocket smoke. Hosted evidence for this checkpoint is pending
+  after push; the latest clean hosted deployment-chain checkpoint remains
+  `0ea944d`.
 - 2026-05-27: Hardened public HTTP auth method-name validation for protected
   router-hosted MCP consumer flows.
   `ConnectanumHttpAuthClient.authenticate(...)` now validates override or
@@ -100,9 +129,21 @@ decision because `connectanum_client` still depends on private
   package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains pending for
-  this local auth-method validation checkpoint; the latest fully clean hosted
-  checkpoint is still `8995199`.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `0ea944d` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `0ea944d` is clean: GitHub `CI` `26517849730`, `Dart Package Publish Dry Run`
+  `26517849083`, `WAMP Profile Benchmarks` `26517849618`, and non-mutating
+  `Router Image` dry-run `26517855294` all completed successfully. The strict
+  `master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+  jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+  profile benchmark evidence, relevant native release dry-run evidence, visible
+  checked-in workflows, visible router package metadata, and baseline branch
+  protection. GitHub Status reported all systems operational and GitHub Actions
+  operational. RC release readiness remains not ready because no RC tag points
+  at `0ea944d`, a GitHub prerelease still requires release approval after
+  selecting an RC tag, the router image RC tag is not selected, and public
+  pub.dev publishing remains deferred pending package ownership/versioning and
+  workspace package release order decisions.
 - 2026-05-27: Hardened public HTTP auth challenge state validation for
   protected router-hosted MCP consumer flows.
   `ConnectanumHttpAuthClient` now validates the HTTP auth bridge challenge
