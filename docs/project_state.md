@@ -2,10 +2,30 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable HTTP outgoing session header
+Last reviewed branch checkpoint: MCP JSON-RPC request response-member
 validation.
-Latest fully clean hosted checkpoint: Commit `7eef8e0` on GitHub `master`.
-Current implementation checkpoint: MCP Streamable HTTP outgoing
+Latest fully clean hosted checkpoint: Commit `2b9df3b` on GitHub `master`.
+Current implementation checkpoint: MCP JSON-RPC request objects are now
+validated consistently across the standalone MCP server and router-hosted
+direct JSON MCP endpoint. Standalone `_requestFrom(...)` and router-hosted
+`_directJsonRequestFrom(...)` now reject request-shaped objects that also
+include response-only `result` or `error` members, matching the public
+Streamable HTTP client raw-request guard and returning invalid-request
+responses instead of dispatching malformed tool/meta/pubsub calls. Fail-first
+coverage reproduced the prior server and router behavior where response-shaped
+requests could reach handler dispatch. Baseline `bin/test-fast` passed before
+the change on 2026-05-27. Focused local coverage passed on 2026-05-27 with
+`dart test packages/connectanum_mcp/test/lifecycle_test.dart --name "response-only members" -r expanded`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart --name "guards MCP Streamable HTTP ingress and sessions" -r expanded`,
+`dart analyze packages/connectanum_mcp/lib/src/server/mcp_server.dart packages/connectanum_mcp/test/lifecycle_test.dart packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+and `dart test packages/connectanum_mcp -r expanded`. Full local `bin/verify`
+passed on 2026-05-27, including formatting, Rust/FFI, MCP package smokes,
+client/native transport suites, auth server, live WAMP transport integration,
+router-hosted MCP example smoke, generated consumer-package smokes, full router
+suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence remains on the latest fully clean checkpoint `2b9df3b` until
+this implementation checkpoint is pushed and the deployment chain completes.
+Previous implementation checkpoint: MCP Streamable HTTP outgoing
 `MCP-Session-Id` values are now validated before public
 `McpStreamableHttpClient` sends session-bound requests. The public client keeps
 its mutable `sessionId` escape hatch, but `_applyHeaders` now rejects locally
@@ -26,9 +46,20 @@ Full local `bin/verify` passed on 2026-05-27, including formatting, Rust/FFI,
 MCP package smokes, client/native transport suites, auth server, live WAMP
 transport integration, router-hosted MCP example smoke, generated
 consumer-package smokes, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence still points at the
-previous clean checkpoint `7eef8e0` until this checkpoint is pushed and the
-deployment chain completes.
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `2b9df3b` was pushed to
+`origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+`2b9df3b` is clean: GitHub `CI` `26491250776`, `Dart Package Publish Dry Run`
+`26491250805`, `WAMP Profile Benchmarks` `26491250777`, and non-mutating
+`Router Image` dry-run `26491257061` all completed successfully. The strict
+`master` deployment-chain audit passed on 2026-05-27 with clean latest CI
+jobs/logs, clean package dry-run, clean router image dry-run, clean WAMP
+profile benchmark evidence, and relevant native release dry-run evidence.
+GitHub Status reported all systems operational and Actions operational. RC
+release readiness remains not ready because no RC tag points at `2b9df3b`, a
+GitHub prerelease still requires release approval after selecting an RC tag,
+the router image RC tag is not selected, and public pub.dev publishing remains
+deferred pending package ownership/versioning and workspace package release
+order decisions.
 Previous implementation checkpoint: MCP Streamable HTTP SSE event IDs and
 outgoing `Last-Event-ID` poll overrides are now validated before client cursor
 state can be poisoned. Public `McpStreamableHttpClient` rejects parsed SSE

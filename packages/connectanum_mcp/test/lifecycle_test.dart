@@ -159,6 +159,27 @@ void main() {
       expect(error['message'], contains('string or integer'));
     });
 
+    test('rejects request objects with response-only members', () async {
+      final server = _server();
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'response-member',
+        'method': 'initialize',
+        'result': <String, Object?>{},
+        'params': {
+          'protocolVersion': mcpLatestProtocolVersion,
+          'capabilities': {},
+          'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
+        },
+      });
+
+      final error = response?['error'] as Map<String, Object?>;
+      expect(response?['id'], 'response-member');
+      expect(error['code'], McpErrorCodes.invalidRequest);
+      expect(error['message'], contains('result or error'));
+    });
+
     test('handles JSON-RPC batches and omits notification responses', () async {
       final server = _server();
       await _initializeAndStart(server);

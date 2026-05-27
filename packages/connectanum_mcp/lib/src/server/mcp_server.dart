@@ -398,6 +398,12 @@ _ParsedJsonRpcRequest _requestFrom(Object? rawMessage) {
       'JSON-RPC method must be a non-empty string',
     );
   }
+  if (message.containsKey('result') || message.containsKey('error')) {
+    throw McpException(
+      McpErrorCodes.invalidRequest,
+      'JSON-RPC request must not contain result or error',
+    );
+  }
   final hasId = message.containsKey('id');
   final id = hasId ? message['id'] : null;
   if (hasId && !isJsonRpcRequestId(id)) {

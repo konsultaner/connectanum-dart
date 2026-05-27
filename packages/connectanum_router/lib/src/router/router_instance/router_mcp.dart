@@ -2720,6 +2720,12 @@ _DirectJsonRequest _directJsonRequestFrom(Object? rawMessage) {
       'JSON-RPC method must be a non-empty string',
     );
   }
+  if (message.containsKey('result') || message.containsKey('error')) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidRequest,
+      'JSON-RPC request must not contain result or error',
+    );
+  }
   final hasId = message.containsKey('id');
   final id = hasId ? message['id'] : null;
   if (hasId && !mcp.isJsonRpcRequestId(id)) {

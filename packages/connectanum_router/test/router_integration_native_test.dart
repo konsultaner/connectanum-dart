@@ -1510,6 +1510,32 @@ void main() {
       );
       expect(fractionalJsonRpcId.headers, isNot(contains('mcp-session-id')));
 
+      final responseMemberJsonRpc = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'response-member',
+          'method': 'tools/list',
+          'result': <String, Object?>{},
+        },
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(responseMemberJsonRpc.statusCode, equals(HttpStatus.ok));
+      expect(responseMemberJsonRpc.json?['id'], equals('response-member'));
+      final responseMemberJsonRpcError =
+          (responseMemberJsonRpc.json?['error'] as Map).cast<String, Object?>();
+      expect(
+        responseMemberJsonRpcError['code'],
+        equals(McpErrorCodes.invalidRequest),
+      );
+      expect(
+        responseMemberJsonRpcError['message'],
+        contains('result or error'),
+      );
+      expect(responseMemberJsonRpc.headers, isNot(contains('mcp-session-id')));
+
       final olderVersionInitialize = await _postJson(
         client,
         listener.port,
