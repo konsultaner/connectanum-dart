@@ -78,6 +78,29 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened public `McpStreamableHttpClient` raw JSON request
+  validation so empty method names are rejected before dispatch. The raw
+  request guard already rejected missing or non-string methods,
+  response-shaped requests, invalid params shapes, invalid request IDs, empty
+  batches, and duplicate batch IDs; it now also requires the method string to
+  be non-empty, matching standalone MCP server and router-hosted MCP ingress
+  parser behavior. This keeps raw direct JSON, tool, meta, and pub/sub calls
+  from opening HTTP for request objects that the package server paths would
+  reject as invalid requests. Fail-first coverage reproduced the prior
+  behavior where an empty method request reached the fake endpoint and returned
+  a normal response. Baseline `bin/test-fast` passed before the change on
+  2026-05-27. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "invalid JSON-RPC request objects" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  and
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`.
+  Full local `bin/verify` passed on 2026-05-27, including formatting,
+  Rust/FFI, MCP package smokes, client/native transport suites, auth server,
+  live WAMP transport integration, router-hosted MCP example smoke, generated
+  consumer-package smokes, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains on the
+  latest fully clean checkpoint `8309afe` until this implementation checkpoint
+  is pushed and the deployment chain completes.
 - 2026-05-27: Hardened MCP JSON-RPC request validation consistently across
   standalone and router-hosted MCP ingress. Standalone `_requestFrom(...)` and
   router-hosted `_directJsonRequestFrom(...)` now reject request-shaped objects
@@ -96,9 +119,20 @@ decision because `connectanum_client` still depends on private
   package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains on the
-  latest fully clean checkpoint `2b9df3b` until this implementation checkpoint
-  is pushed and the deployment chain completes.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `8309afe` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `8309afe` is clean: GitHub `CI` `26492798306`, `Dart Package Publish Dry
+  Run` `26492798308`, `WAMP Profile Benchmarks` `26492798305`, and
+  non-mutating `Router Image` dry-run `26492807464` all completed
+  successfully. The strict `master` deployment-chain audit passed on
+  2026-05-27 with clean latest CI jobs/logs, clean package dry-run, clean
+  router image dry-run, clean WAMP profile benchmark evidence, and relevant
+  native release dry-run evidence. GitHub Status reported all systems
+  operational and Actions operational. RC release readiness remains not ready
+  because no RC tag points at `8309afe`, a GitHub prerelease still requires
+  release approval after selecting an RC tag, the router image RC tag is not
+  selected, and public pub.dev publishing remains deferred pending package
+  ownership/versioning and workspace package release order decisions.
 - 2026-05-27: Hardened outgoing MCP Streamable HTTP session headers before
   public `McpStreamableHttpClient` sends session-bound requests. The client
   still exposes mutable `sessionId` state for consumers that need manual
