@@ -2065,6 +2065,34 @@ void main() {
       expect(endpoint.requests.last.method, 'POST');
     });
 
+    test('rejects invalid outgoing MCP-Session-Id values', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      final initialize = await client.initialize(id: 'invalid-session-init');
+      expect(initialize['id'], 'invalid-session-init');
+      expect(client.sessionId, 'session-1');
+
+      client.sessionId = 'bad session';
+      await expectLater(
+        client.listTools(id: 'invalid-session-tools'),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('MCP-Session-Id header value contains invalid characters'),
+          ),
+        ),
+      );
+
+      expect(client.sessionId, 'bad session');
+      expect(endpoint.requests, hasLength(1));
+      expect(endpoint.requests.last.method, 'POST');
+    });
+
     test(
       'rejects malformed response session headers without poisoning state',
       () async {

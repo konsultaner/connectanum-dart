@@ -78,6 +78,30 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened outgoing MCP Streamable HTTP session headers before
+  public `McpStreamableHttpClient` sends session-bound requests. The client
+  still exposes mutable `sessionId` state for consumers that need manual
+  session control, but `_applyHeaders` now rejects locally injected
+  `MCP-Session-Id` values containing HTTP-header-invalid characters before a
+  request is opened. This closes the remaining client-side session header path
+  after response-header and SSE resume-cursor validation: malformed local state
+  can no longer become an outbound session header while session-free requests
+  remain unaffected. Fail-first coverage reproduced the prior behavior where a
+  caller could assign an invalid `sessionId` after initialize and then attempt
+  a `tools/list` request with that invalid header. Baseline `bin/test-fast`
+  passed before the change on 2026-05-27. Focused local coverage passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "invalid outgoing MCP-Session-Id" -r expanded`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  and
+  `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_mcp_consumer_package_smoke'`.
+  Full local `bin/verify` passed on 2026-05-27, including formatting,
+  Rust/FFI, MCP package smokes, client/native transport suites, auth server,
+  live WAMP transport integration, router-hosted MCP example smoke, generated
+  consumer-package smokes, full router suite, zero-copy router tests, and
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence still points at
+  the previous clean checkpoint `7eef8e0` until this checkpoint is pushed and
+  the deployment chain completes.
 - 2026-05-27: Hardened MCP Streamable HTTP SSE event-id handling before public
   `McpStreamableHttpClient` mutates session or resume cursor state. Parsed SSE
   `id` values containing HTTP-header-invalid control characters are now
@@ -98,13 +122,20 @@ decision because `connectanum_client` still depends on private
   Rust/FFI, MCP package smokes, client/native transport suites, auth server,
   live WAMP transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted CI/package/benchmark/router
-  image evidence is pending until this implementation checkpoint is pushed.
-  RC release readiness remains not ready because no RC tag points at the new
-  checkpoint, a GitHub prerelease still requires release approval after
-  selecting an RC tag, the router image RC tag is not selected, and public
-  pub.dev publishing remains deferred pending package ownership/versioning and
-  workspace package release order decisions.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `7eef8e0` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `7eef8e0` is clean: GitHub `CI` `26489810145`, `Dart Package Publish Dry
+  Run` `26489810140`, `WAMP Profile Benchmarks` `26489810147`, and
+  non-mutating `Router Image` dry-run `26489832587` all completed
+  successfully. The strict `master` deployment-chain audit passed on
+  2026-05-27 with clean latest CI jobs/logs, clean package dry-run, clean
+  router image dry-run, clean WAMP profile benchmark evidence, and relevant
+  native release dry-run evidence. GitHub Status reported all systems
+  operational and Actions operational. RC release readiness remains not ready
+  because no RC tag points at `7eef8e0`, a GitHub prerelease still requires
+  release approval after selecting an RC tag, the router image RC tag is not
+  selected, and public pub.dev publishing remains deferred pending package
+  ownership/versioning and workspace package release order decisions.
 - 2026-05-27: Hardened MCP Streamable HTTP poll event payload validation
   before public `McpStreamableHttpClient.poll()` captures MCP session headers
   or the resume cursor. Every non-empty GET/SSE `data:` payload returned by

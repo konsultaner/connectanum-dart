@@ -1330,6 +1330,11 @@ final class McpStreamableHttpClient {
     }
     final session = includeSession ? sessionId : null;
     if (session != null) {
+      if (!_mcpSessionIdHeaderValueValid(session)) {
+        throw const FormatException(
+          'MCP-Session-Id header value contains invalid characters',
+        );
+      }
       request.headers.set(_headerSessionId, session);
     }
     if (lastEventId != null) {
