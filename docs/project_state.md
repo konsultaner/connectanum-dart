@@ -2,9 +2,30 @@
 
 Last updated: 2026-05-27
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP JSON-RPC method validation.
+Last reviewed branch checkpoint: Router Image dry-run cache hardening.
 Latest fully clean hosted checkpoint: Commit `80ba9ce` on GitHub `master`.
-Current implementation checkpoint: Public
+Current implementation checkpoint: The Router Image workflow now disables the
+`docker/setup-qemu-action@v4` binfmt image cache with `cache-image: false`.
+The latest strict deployment-chain audit on 2026-05-27 showed that commit
+`9faefcd` had clean hosted CI, Dart package dry-run, WAMP profile benchmark,
+and successful non-mutating Router Image dry-runs, but the Router Image gate
+remained not ready because the QEMU setup step emitted a nondeterministic
+Docker cache reservation warning annotation while saving the shared
+`tonistiigi/binfmt` cache. Disabling that action-level cache keeps the
+multi-architecture dry-run behavior while removing the cache race that blocks
+strict warning-free deployment-chain evidence. Baseline `bin/test-fast` was
+started before the workflow edit and passed on 2026-05-27. Focused local
+workflow checks passed with
+`ruby -e "require 'yaml'; YAML.load_file('.github/workflows/router-image.yml'); puts 'yaml_ok'"`,
+`python3 -m unittest tool/test_render_router_image_metadata.py tool/test_audit_github_deployment_chain.py`,
+and `git diff --check`. Full local `bin/verify` passed on 2026-05-27,
+including formatting, Rust/FFI, MCP package smokes, client/native transport
+suites, auth server, live WAMP transport integration, router-hosted MCP
+example smoke, generated consumer-package smokes, full router suite, zero-copy
+router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is
+pending for this workflow-hardening checkpoint; the latest fully clean hosted
+checkpoint remains `80ba9ce`.
+Previous implementation checkpoint: Public
 `McpStreamableHttpClient` now rejects outgoing JSON-RPC method names that
 contain whitespace or control characters before direct JSON, Streamable HTTP,
 notification, or batch requests open an HTTP request. This keeps consumer
@@ -23,8 +44,16 @@ and `dart test packages/connectanum_client/test/mcp -r expanded`. Full local
 smokes, client/native transport suites, auth server, live WAMP transport
 integration, router-hosted MCP example smoke, generated consumer-package
 smokes, full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence is pending for this checkpoint; the latest
-fully clean hosted checkpoint remains `80ba9ce`.
+WebSocket smoke. Commit `9faefcd` was pushed to `origin` `add-router` and
+GitHub `add-router`/`master`. Hosted evidence for `9faefcd` is partially
+clean: GitHub `CI` `26523738525`, `Dart Package Publish Dry Run`
+`26523735670`, `WAMP Profile Benchmarks` `26523735513`, and non-mutating
+`Router Image` dry-runs `26523766591` and `26524618176` completed
+successfully. The strict `master` deployment-chain audit still failed the
+Router Image gate because the successful dry-runs carried a Docker QEMU/binfmt
+cache reservation warning annotation, so `80ba9ce` remains the latest fully
+clean hosted checkpoint until a warning-free Router Image dry-run covers the
+workflow-hardening commit.
 Previous implementation checkpoint: Public
 `ConnectanumHttpAuthGrant.fromJson(...)` now validates present HTTP auth
 bridge `token_type` metadata with the same token-shape rules used for access

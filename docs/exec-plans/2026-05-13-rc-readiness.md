@@ -78,6 +78,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-27: Hardened Router Image dry-run warning hygiene after strict
+  deployment-chain audit evidence found a nondeterministic Docker QEMU/binfmt
+  cache annotation. The latest strict audit for commit `9faefcd` showed clean
+  hosted CI, Dart package dry-run, WAMP profile benchmark, and successful
+  non-mutating Router Image dry-runs, but the Router Image gate remained not
+  ready because `docker/setup-qemu-action@v4` emitted a shared binfmt cache
+  reservation warning annotation while saving the `tonistiigi/binfmt` image.
+  `.github/workflows/router-image.yml` now sets `cache-image: false` on the
+  QEMU setup step so future dry-runs still validate the multi-architecture
+  image path without relying on that warning-prone cache. Baseline
+  `bin/test-fast` was started before the workflow edit and passed on
+  2026-05-27. Focused local workflow checks passed with
+  `ruby -e "require 'yaml'; YAML.load_file('.github/workflows/router-image.yml'); puts 'yaml_ok'"`,
+  `python3 -m unittest tool/test_render_router_image_metadata.py tool/test_audit_github_deployment_chain.py`,
+  and `git diff --check`. Full local `bin/verify` passed on 2026-05-27,
+  including formatting, Rust/FFI, MCP package smokes, client/native transport
+  suites, auth server, live WAMP transport integration, router-hosted MCP
+  example smoke, generated consumer-package smokes, full router suite,
+  zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence is pending for this workflow-hardening checkpoint; the latest fully
+  clean hosted checkpoint remains `80ba9ce` until a warning-free Router Image
+  dry-run covers the new workflow.
 - 2026-05-27: Hardened public JSON-RPC method validation for router-hosted MCP
   consumer flows.
   `McpStreamableHttpClient` now rejects outgoing JSON-RPC method names that
@@ -98,8 +120,16 @@ decision because `connectanum_client` still depends on private
   package smokes, client/native transport suites, auth server, live WAMP
   transport integration, router-hosted MCP example smoke, generated
   consumer-package smokes, full router suite, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
-  checkpoint; the latest fully clean hosted checkpoint remains `80ba9ce`.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `9faefcd` was pushed to
+  `origin` `add-router` and GitHub `add-router`/`master`. Hosted evidence for
+  `9faefcd` is partially clean: GitHub `CI` `26523738525`, `Dart Package
+  Publish Dry Run` `26523735670`, `WAMP Profile Benchmarks` `26523735513`,
+  and non-mutating `Router Image` dry-runs `26523766591` and `26524618176`
+  completed successfully. The strict `master` deployment-chain audit still
+  failed the Router Image gate because the successful dry-runs carried a
+  Docker QEMU/binfmt cache reservation warning annotation, so `80ba9ce`
+  remains the latest fully clean hosted checkpoint until a warning-free Router
+  Image dry-run covers the workflow-hardening commit.
 - 2026-05-27: Hardened public HTTP auth grant `token_type` validation for
   protected router-hosted MCP consumer flows.
   `ConnectanumHttpAuthGrant.fromJson(...)` now parses present bridge
@@ -5810,31 +5840,27 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The current local implementation checkpoint strengthens public MCP
-client auth-grant evidence for lifecycle-free direct JSON WAMP meta, resource,
-and prompt access. `McpStreamableHttpClient.withAuthGrant(...)` now has focused
-coverage for direct `wamp.session.count`, `wamp.registration.list`,
-`wamp.registration.match`, `wamp.subscription.list`,
-`wamp.subscription.match`, `resources/list`, `resources/read`,
-`resources/templates/list`, `prompts/list`, and `prompts/get` before any
-Streamable HTTP lifecycle, while asserting grant-owned bearer headers,
-`application/json`, no `MCP-Session-Id`, and no local `sessionId` /
-`lastEventId` state.
+Active. The current local implementation checkpoint hardens the Router Image
+dry-run workflow after strict audit evidence found successful dry-runs at
+`9faefcd` still failed the warning-free Router Image gate due to a Docker
+QEMU/binfmt cache reservation annotation. `.github/workflows/router-image.yml`
+now sets `cache-image: false` on `docker/setup-qemu-action@v4` so future
+multi-architecture dry-runs do not rely on that warning-prone shared cache.
 
-Local evidence for this checkpoint: pre-change `bin/test-fast`, focused
-format/analyze/test coverage for
-`packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
-`git diff --check`, `python3 tool/check_public_artifact_references.py`, and
-full local `bin/verify` passed on 2026-05-25.
+Local evidence for this checkpoint: baseline `bin/test-fast`, YAML parse for
+`.github/workflows/router-image.yml`, focused router-image metadata/audit unit
+tests, `git diff --check`, and full local `bin/verify` passed on 2026-05-27.
 
-The latest fully clean hosted checkpoint remains `debd545`: hosted `master`
-and `add-router` CI, Dart Package Publish Dry Run, WAMP Profile Benchmarks,
-kTLS Validation, manual Router Image dry-run, and manual Native Artifacts
-validation dry-run passed for that commit. The strict deployment-chain audit
-passed required gates on `master` at `debd545`.
+The latest fully clean hosted checkpoint remains `80ba9ce`. Commit `9faefcd`
+has clean hosted CI, Dart Package Publish Dry Run, WAMP Profile Benchmarks,
+and successful Router Image dry-runs, but strict deployment-chain audit did not
+mark it fully clean because the successful Router Image dry-runs carried the
+QEMU/binfmt cache warning annotation. Hosted evidence is pending for the
+workflow-hardening commit.
 
-RC readiness remains not-ready only because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for `debd545`;
-the audit suggests `v0.1.0-rc.2` as the next numeric tag if release approval is
-given. Pub.dev publishing remains deferred for release-order and operator
-decisions. No RC tag, GitHub Release, or router image was created or moved.
+RC readiness remains not-ready because no approved numeric RC tag, GitHub
+prerelease, or matching RC router image tag has been selected for the current
+head. The audit suggests `v0.1.0-rc.2` as the next numeric tag if release
+approval is given. Pub.dev publishing remains deferred for release-order and
+operator decisions. No RC tag, GitHub Release, or router image was created or
+moved.
