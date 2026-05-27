@@ -882,6 +882,42 @@ void main() {
       },
     );
 
+    test(
+      'rejects malformed Streamable HTTP SSE messages before matching responses',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        client.lastEventId = 'session-1:get:kept-invalid-sse-message';
+        await expectLater(
+          client.request(
+            'tools/list',
+            id: 'tools-after-invalid-sse-message',
+            headers: const <String, String>{
+              'x-test-sse-invalid-interim-message': '1',
+              'x-test-response-session-id': 'post-sse-interim-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('JSON-RPC SSE event data must be an object or array'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-invalid-sse-message');
+      },
+    );
+
     test('clears the resume cursor when SSE sends an empty id', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -964,6 +1000,48 @@ void main() {
           'batch-two',
         ]);
         expect(client.lastEventId, 'session-1:post-batch:3');
+      },
+    );
+
+    test(
+      'rejects malformed Streamable HTTP SSE messages before batch responses',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize();
+        await client.notifyInitialized();
+
+        client.lastEventId = 'session-1:get:kept-invalid-batch-sse-message';
+        await expectLater(
+          client.postBatch(
+            [
+              {'jsonrpc': '2.0', 'id': 'batch-one', 'method': 'tools/list'},
+              {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+              {'jsonrpc': '2.0', 'id': 'batch-two', 'method': 'ping'},
+            ],
+            headers: const <String, String>{
+              'x-test-sse-batch-invalid-interim-message': '1',
+              'x-test-response-session-id': 'post-sse-batch-interim-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('JSON-RPC SSE event data must be an object or array'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(
+          client.lastEventId,
+          'session-1:get:kept-invalid-batch-sse-message',
+        );
       },
     );
 
@@ -5116,6 +5194,19 @@ final class _FakeMcpEndpoint {
           );
           return;
         }
+        if (request.headers.value('x-test-sse-batch-invalid-interim-message') ==
+            '1') {
+          _writeSse(
+            request,
+            'id: session-1:post-batch:1\n'
+            'data: 42\n\n'
+            'id: session-1:post-batch:2\n'
+            'data: ${jsonEncode(responses[0])}\n\n'
+            'id: session-1:post-batch:3\n'
+            'data: ${jsonEncode(responses[1])}\n\n',
+          );
+          return;
+        }
         if (request.headers.value('x-test-batch-missing-response') == '1') {
           _writeSse(
             request,
@@ -5771,6 +5862,16 @@ final class _FakeMcpEndpoint {
           'id: session-1:post:2\n'
           'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\n'
           'id: session-1:post:3\n'
+          'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
+        );
+        return;
+      }
+      if (request.headers.value('x-test-sse-invalid-interim-message') == '1') {
+        _writeSse(
+          request,
+          'id: session-1:post:1\n'
+          'data: 42\n\n'
+          'id: session-1:post:2\n'
           'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
         );
         return;

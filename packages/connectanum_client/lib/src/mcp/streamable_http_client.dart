@@ -115,6 +115,34 @@ bool _jsonRpcMessageIsResponse(Object? value) {
       (value.containsKey('result') || value.containsKey('error'));
 }
 
+void _validateJsonRpcSseMessageValue(Object? value) {
+  if (value is List) {
+    if (value.isEmpty) {
+      throw const FormatException('JSON-RPC SSE event batch must not be empty');
+    }
+    for (final item in value) {
+      _validateJsonRpcSseMessage(item, label: 'JSON-RPC SSE event batch item');
+    }
+    return;
+  }
+  if (value is! Map) {
+    throw const FormatException(
+      'JSON-RPC SSE event data must be an object or array',
+    );
+  }
+  _validateJsonRpcSseMessage(value, label: 'JSON-RPC SSE event data');
+}
+
+void _validateJsonRpcSseMessage(Object? value, {required String label}) {
+  final message = _jsonMapFrom(value, label: label);
+  if (_jsonRpcMessageIsResponse(message)) {
+    _validateJsonRpcResponseId(message, label: '$label response');
+    _validateJsonRpcResponseObject(message, label: '$label response');
+    return;
+  }
+  _validateJsonRpcRequestId(message, label: '$label request');
+}
+
 void _validateJsonRpcResponseObject(
   McpJsonMap response, {
   required String label,
@@ -1358,6 +1386,7 @@ final class McpStreamableHttpClient {
     for (final event in events) {
       final value = event.jsonValue;
       if (value != null) {
+        _validateJsonRpcSseMessageValue(value);
         values.add(value);
       }
     }
