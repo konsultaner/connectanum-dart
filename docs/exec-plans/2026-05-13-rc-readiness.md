@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-05-27
+Last updated: 2026-06-08
 
 ## Problem
 
@@ -78,6 +78,39 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-05-29: Hardened public MCP tool helper name validation for
+  router-hosted MCP consumer flows.
+  Public `McpStreamableHttpClient` tool helpers now reject malformed MCP tool
+  names before opening HTTP requests, building `tools/call` params, or
+  synthesizing `Mcp-Name`/`Mcp-Param-*` metadata for Streamable HTTP, direct
+  JSON, Connectanum direct tool calls, and tool notifications. Tool names must
+  be 1-128 ASCII letters, digits, underscores, hyphens, or dots, matching the
+  server-side MCP tool registration contract so consumer applications fail
+  locally before sending malformed router-hosted MCP tool metadata. Baseline
+  `bin/test-fast` was started before the change on 2026-05-29 and reached the
+  router-hosted MCP example smoke; the run failed only because an unrelated
+  local bridge held the native runtime lock. The failed example smoke passed
+  immediately when rerun with an isolated temp directory outside the repo.
+  Fail-first focused coverage reproduced the prior behavior where malformed
+  tool names reached the fake MCP endpoint instead of failing locally. Focused
+  local checks passed with
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects invalid MCP tool names before sending" -r expanded`,
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  `dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  `dart test packages/connectanum_client/test/mcp -r expanded`, and
+  `git diff --check`. On 2026-06-08, a stale local automation runlock from a
+  dead process was cleared and fresh `bin/test-fast` passed, including
+  analyzer, MCP package tests, generated consumer-package smokes,
+  client/native transport suites, auth server, live WAMP transport
+  integration, router-hosted MCP example smoke, generated consumer package
+  smoke, and focused router suites. Full local `bin/verify` passed on
+  2026-06-08, including formatting, Rust/FFI, MCP package smokes, generated
+  consumer-package smokes, client/native transport suites, auth server, live
+  WAMP transport integration, router-hosted MCP example smoke, full router
+  suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence for this local checkpoint is pending; the latest fully clean
+  hosted checkpoint remains `598d8ff`.
 - 2026-05-27: Hardened MCP client-side Unicode whitespace/control validation
   for router-hosted auth/session readiness.
   Public MCP HTTP auth and Streamable HTTP client validation now rejects
@@ -5883,17 +5916,21 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The current local implementation checkpoint hardens public MCP HTTP
-auth and Streamable HTTP client validation so non-ASCII whitespace and C1
-control characters are rejected in JSON-RPC method names, bearer credentials,
-HTTP auth method names, refresh/revoke token hints, and parsed HTTP auth bridge
-token fields before consumer applications send malformed router-hosted MCP
-auth/session metadata.
+Active. The current local implementation checkpoint hardens public MCP
+Streamable HTTP/direct JSON tool helpers so malformed tool names are rejected
+before consumer applications send malformed router-hosted MCP tool params or
+`Mcp-Name`/`Mcp-Param-*` metadata.
 
-Local evidence for this checkpoint: baseline `bin/test-fast`, focused
-Streamable HTTP/auth client validation regressions, `dart format`, targeted
-`dart analyze`, `dart test packages/connectanum_client/test/mcp -r expanded`,
-and full local `bin/verify` passed on 2026-05-27.
+Local evidence for this checkpoint: original baseline `bin/test-fast` reached
+the router-hosted MCP example smoke and failed only because an unrelated local
+bridge held the native runtime lock; the failed example smoke passed when rerun
+with an isolated temp directory outside the repo. Focused
+`McpStreamableHttpClient` tool-name validation regressions, `dart format`,
+targeted `dart analyze`,
+`dart test packages/connectanum_client/test/mcp -r expanded`, and
+`git diff --check` passed on 2026-05-29. After clearing a stale local
+automation runlock from a dead process, fresh `bin/test-fast` and full local
+`bin/verify` passed on 2026-06-08.
 
 The latest fully clean hosted checkpoint remains `598d8ff`: GitHub CI
 `26526340647` passed with Fast Checks and Full Verify, non-mutating Router
@@ -5901,7 +5938,7 @@ Image dry-run `26526364040` passed with clean check annotations and preview
 metadata `validation-598d8ff`, and the strict `master` deployment-chain audit
 passed required gates using current CI/router-image evidence plus still
 relevant Dart package publish dry-run, WAMP profile benchmark, and native
-release dry-run evidence. Hosted evidence for the current MCP client
+release dry-run evidence. Hosted evidence for the current local MCP tool-name
 validation checkpoint is pending.
 
 RC readiness remains not-ready because no approved numeric RC tag, GitHub

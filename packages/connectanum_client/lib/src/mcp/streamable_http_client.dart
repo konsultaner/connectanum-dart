@@ -17,12 +17,25 @@ const _headerName = 'Mcp-Name';
 const _headerParameterPrefix = 'Mcp-Param-';
 const _base64HeaderPrefix = '=?base64?';
 const _base64HeaderSuffix = '?=';
+final _mcpToolNamePattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
 const _mcpLatestProtocolVersion = '2025-11-25';
 const _mcpSupportedProtocolVersions = <String>{
   '2025-03-26',
   '2025-06-18',
   _mcpLatestProtocolVersion,
 };
+
+String _validatedMcpToolName(String value, String name) {
+  if (_mcpToolNamePattern.hasMatch(value)) {
+    return value;
+  }
+  throw ArgumentError.value(
+    value,
+    name,
+    'MCP tool names must be 1-128 ASCII letters, digits, underscores, '
+    'hyphens, or dots.',
+  );
+}
 
 bool _mcpProtocolVersionSupported(String value) =>
     _mcpSupportedProtocolVersions.contains(value);
@@ -505,13 +518,14 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final toolName = _validatedMcpToolName(name, 'name');
     final response = await request(
       'tools/call',
       id: id,
-      params: <String, Object?>{'name': name, 'arguments': arguments},
+      params: <String, Object?>{'name': toolName, 'arguments': arguments},
       streamable: streamable,
       protocolVersion: protocolVersion,
-      headers: _headersWithToolParameterHeaders(name, arguments, headers),
+      headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
   }
@@ -523,12 +537,13 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final toolName = _validatedMcpToolName(name, 'name');
     return notification(
       'tools/call',
-      params: <String, Object?>{'name': name, 'arguments': arguments},
+      params: <String, Object?>{'name': toolName, 'arguments': arguments},
       streamable: streamable,
       protocolVersion: protocolVersion,
-      headers: _headersWithToolParameterHeaders(name, arguments, headers),
+      headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
   }
 
@@ -539,12 +554,13 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final toolName = _validatedMcpToolName(name, 'name');
     final response = await requestDirect(
       'tools/call',
       id: id,
-      params: <String, Object?>{'name': name, 'arguments': arguments},
+      params: <String, Object?>{'name': toolName, 'arguments': arguments},
       protocolVersion: protocolVersion,
-      headers: _headersWithToolParameterHeaders(name, arguments, headers),
+      headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: 'tools/call');
   }
@@ -555,11 +571,12 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final toolName = _validatedMcpToolName(name, 'name');
     return notificationDirect(
       'tools/call',
-      params: <String, Object?>{'name': name, 'arguments': arguments},
+      params: <String, Object?>{'name': toolName, 'arguments': arguments},
       protocolVersion: protocolVersion,
-      headers: _headersWithToolParameterHeaders(name, arguments, headers),
+      headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
   }
 
@@ -602,14 +619,15 @@ final class McpStreamableHttpClient {
     Map<String, String> headers = const <String, String>{},
   }) async {
     const method = 'connectanum.tool.call';
+    final toolName = _validatedMcpToolName(name, 'name');
     final response = await request(
       method,
       id: id,
-      params: <String, Object?>{'name': name, 'arguments': arguments},
+      params: <String, Object?>{'name': toolName, 'arguments': arguments},
       streamable: false,
       includeSession: false,
       protocolVersion: protocolVersion,
-      headers: _headersWithToolParameterHeaders(name, arguments, headers),
+      headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
     return _jsonRpcResultFrom(response, method: method);
   }
@@ -666,11 +684,12 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final toolName = _validatedMcpToolName(name, 'name');
     return notificationDirect(
       'connectanum.tool.call',
-      params: <String, Object?>{'name': name, 'arguments': arguments},
+      params: <String, Object?>{'name': toolName, 'arguments': arguments},
       protocolVersion: protocolVersion,
-      headers: _headersWithToolParameterHeaders(name, arguments, headers),
+      headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
   }
 

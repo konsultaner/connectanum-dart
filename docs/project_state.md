@@ -1,22 +1,53 @@
 # Project State
 
-Last updated: 2026-05-27
+Last updated: 2026-06-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Unicode whitespace/control validation.
+Last reviewed branch checkpoint: MCP tool helper name validation.
 Latest fully clean hosted checkpoint: Commit `598d8ff` on GitHub `master`.
-Current implementation checkpoint: Public MCP HTTP auth and Streamable HTTP
-client validation now rejects non-ASCII whitespace and C1 control characters
-in outbound JSON-RPC method names, bearer credentials, HTTP auth method names,
+Current implementation checkpoint: Public `McpStreamableHttpClient` tool
+helpers now reject malformed MCP tool names before opening HTTP requests,
+building `tools/call` params, or synthesizing `Mcp-Name`/`Mcp-Param-*`
+metadata for Streamable HTTP, direct JSON, Connectanum direct tool calls, and
+tool notifications. Tool names must be 1-128 ASCII letters, digits,
+underscores, hyphens, or dots, matching the server-side MCP tool registration
+contract so consumer applications fail locally before sending malformed
+router-hosted MCP tool metadata. Original baseline `bin/test-fast` was started
+before the change on 2026-05-29 and reached the router-hosted MCP example
+smoke; the run failed only because an unrelated local bridge held the native
+runtime lock. The failed example smoke passed immediately when rerun with an
+isolated temp directory outside the repo. Fail-first focused coverage
+reproduced the prior behavior where malformed tool names reached the fake MCP
+endpoint instead of failing locally. Focused local checks passed on 2026-05-29
+with
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects invalid MCP tool names before sending" -r expanded`,
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+`dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart analyze packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+`dart test packages/connectanum_client/test/mcp -r expanded`, and
+`git diff --check`. On 2026-06-08, a stale local automation runlock from a
+dead process was cleared and fresh `bin/test-fast` passed, including analyzer,
+MCP package tests, generated consumer-package smokes, client/native transport
+suites, auth server, live WAMP transport integration, router-hosted MCP example
+smoke, generated consumer package smoke, and focused router suites. Full local
+`bin/verify` passed on 2026-06-08, including formatting, Rust/FFI, MCP package
+smokes, generated consumer-package smokes, client/native transport suites, auth
+server, live WAMP transport integration, router-hosted MCP example smoke, full
+router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
+smoke. Hosted evidence for this local checkpoint is pending; the latest fully
+clean hosted checkpoint remains `598d8ff`.
+Previous implementation checkpoint: Public MCP HTTP auth and Streamable HTTP
+client validation now rejects non-ASCII whitespace and C1 control characters in
+outbound JSON-RPC method names, bearer credentials, HTTP auth method names,
 refresh/revoke token hints, and parsed HTTP auth bridge token fields. A shared
 `packages/connectanum_client/lib/src/mcp/text_validation.dart` helper keeps the
 client-side token/request checks aligned so consumer applications fail locally
 instead of sending malformed router-hosted MCP auth/session metadata. Baseline
 `bin/test-fast` passed before the change on 2026-05-27. Fail-first focused
-coverage reproduced the prior behavior where bearer tokens containing
-`U+00A0`, HTTP auth method names containing `U+00A0`, and auth bridge token
-fields containing `U+00A0` or `U+0085` were accepted or reached the fake HTTP
-auth endpoint instead of failing locally. Focused local checks passed on
-2026-05-27 with
+coverage reproduced the prior behavior where bearer tokens containing `U+00A0`,
+HTTP auth method names containing `U+00A0`, and auth bridge token fields
+containing `U+00A0` or `U+0085` were accepted or reached the fake HTTP auth
+endpoint instead of failing locally. Focused local checks passed on 2026-05-27
+with
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects invalid JSON-RPC request objects" -r expanded`,
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart --name "rejects bearer tokens with whitespace or control characters" -r expanded`,
 `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart --name "rejects invalid refresh and revoke tokens|rejects blank auth request parameters|malformed auth grant responses" -r expanded`,

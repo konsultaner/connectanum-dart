@@ -3179,6 +3179,46 @@ void main() {
       );
     });
 
+    test('rejects invalid MCP tool names before sending', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      for (final name in const [
+        '',
+        'bad tool',
+        'bad/tool',
+        'bad:tool',
+        'bad\u00a0tool',
+      ]) {
+        await expectLater(
+          client.callTool(name, id: 'invalid-tool-name'),
+          throwsArgumentError,
+        );
+        expect(() => client.notifyTool(name), throwsArgumentError);
+        await expectLater(
+          client.callToolDirect(name, id: 'invalid-tool-name-direct'),
+          throwsArgumentError,
+        );
+        expect(() => client.notifyToolDirect(name), throwsArgumentError);
+        await expectLater(
+          client.callConnectanumToolDirect(
+            name,
+            id: 'invalid-connectanum-tool-name-direct',
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          () => client.notifyConnectanumToolDirect(name),
+          throwsArgumentError,
+        );
+      }
+
+      expect(endpoint.requests, isEmpty);
+    });
+
     test('lists and calls tools through typed helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
