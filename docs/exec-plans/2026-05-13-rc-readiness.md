@@ -84,7 +84,8 @@ decision because `connectanum_client` still depends on private
   `run_router_cli_consumer_package_smoke` validates the downstream shell
   command path by using a temporary `PUB_CACHE`, running
   `dart pub global activate --source path packages/connectanum_router`, adding
-  the temp pub-cache executable directory to `PATH`, and asserting
+  the temp pub-cache executable directory to `PATH`, invoking the installed
+  command with the same temp `PUB_CACHE`, and asserting
   `connectanum_router --help` prints the documented usage. The smoke also
   restores workspace package metadata and clears generated hook-runner cache
   after path activation so later verification steps do not reference the
@@ -100,8 +101,10 @@ decision because `connectanum_client` still depends on private
   passed on 2026-06-10, including formatting, Rust/FFI, MCP package smokes,
   generated consumer-package smokes, the router-hosted MCP example, the new
   router CLI consumer package smoke, full router suite, zero-copy router tests,
-  and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for
-  this checkpoint.
+  and Chrome/Dart2Wasm browser WebSocket smoke. Hosted CI for commit `06a56bb`
+  failed because the first version of the smoke invoked the generated package
+  executable without exporting the temp `PUB_CACHE`; the fix is in this
+  checkpoint and hosted evidence is pending.
 - 2026-05-29: Hardened public MCP tool helper name validation for
   router-hosted MCP consumer flows.
   Public `McpStreamableHttpClient` tool helpers now reject malformed MCP tool

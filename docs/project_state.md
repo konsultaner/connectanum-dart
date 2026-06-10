@@ -9,11 +9,12 @@ Current implementation checkpoint: `connectanum_router` now declares its
 package executable and the root verification scripts prove it through a
 consumer-style global activation smoke. `run_router_cli_consumer_package_smoke`
 uses a temporary `PUB_CACHE`, activates `packages/connectanum_router` from the
-source package, prepends the temp executable directory to `PATH`, and asserts
-that `connectanum_router --help` prints the documented CLI usage. The smoke
-also restores workspace package metadata and clears generated hook-runner cache
-after the path activation so subsequent router/client tests do not reference
-the temporary pub-cache. This closes the downstream-readiness gap where
+source package, prepends the temp executable directory to `PATH`, invokes the
+installed command with the same temp `PUB_CACHE`, and asserts that
+`connectanum_router --help` prints the documented CLI usage. The smoke also
+restores workspace package metadata and clears generated hook-runner cache after
+the path activation so subsequent router/client tests do not reference the
+temporary pub-cache. This closes the downstream-readiness gap where
 `dart run connectanum_router` worked from a dependency but shell-based consumer
 smokes and local benchmark harnesses could still report the router executable
 as unavailable after package activation. Fail-first evidence on 2026-06-10
@@ -27,8 +28,10 @@ including the new router CLI consumer package smoke. Full local `bin/verify`
 passed on 2026-06-10, including formatting, Rust/FFI, MCP package smokes,
 generated consumer-package smokes, the router-hosted MCP example, the new
 router CLI consumer package smoke, full router suite, zero-copy router tests,
-and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for
-this checkpoint.
+and Chrome/Dart2Wasm browser WebSocket smoke. Hosted CI for commit `06a56bb`
+failed because the first version of the smoke invoked the generated package
+executable without exporting the temp `PUB_CACHE`; the fix is in this
+checkpoint and hosted evidence is pending.
 Previous implementation checkpoint: Public `McpStreamableHttpClient` tool
 helpers now reject malformed MCP tool names before opening HTTP requests,
 building `tools/call` params, or synthesizing `Mcp-Name`/`Mcp-Param-*`

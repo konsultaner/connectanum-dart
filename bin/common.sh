@@ -22255,7 +22255,7 @@ run_router_cli_consumer_package_smoke() (
     cd "$smoke_dir"
     PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
       dart pub global activate --source path "$ROOT_DIR/packages/connectanum_router"
-    PATH="$pub_cache/bin:$PATH" connectanum_router --help \
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help \
       | grep -F 'Usage: dart run connectanum_router --config <path>'
   )
 )
