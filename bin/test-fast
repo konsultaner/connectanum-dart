@@ -65,6 +65,7 @@ run_bench_vm_tests
 dart test packages/connectanum_router/test/native/native_library_loader_test.dart
 run_router_hosted_mcp_example_smoke
 run_mcp_consumer_package_smoke
+run_router_cli_consumer_package_smoke
 
 if ensure_rust_env; then
   if native_runtime_supported; then

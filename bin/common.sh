@@ -22237,3 +22237,25 @@ DART
     fi
   )
 )
+
+run_router_cli_consumer_package_smoke() (
+  local smoke_dir
+  local pub_cache
+
+  require_command dart
+
+  smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-cli-smoke.XXXXXX")"
+  pub_cache="$smoke_dir/pub-cache"
+  # Path activation resolves the source package through the workspace and can
+  # rewrite repo-local package metadata to point at the temp pub cache.
+  trap 'status=$?; rm -rf "$ROOT_DIR/.dart_tool/hooks_runner"; (cd "$ROOT_DIR" && dart pub get >/dev/null 2>&1 || true); rm -rf "$smoke_dir"; exit "$status"' EXIT
+
+  printf 'Running router CLI consumer package smoke from %s.\n' "$smoke_dir"
+  (
+    cd "$smoke_dir"
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
+      dart pub global activate --source path "$ROOT_DIR/packages/connectanum_router"
+    PATH="$pub_cache/bin:$PATH" connectanum_router --help \
+      | grep -F 'Usage: dart run connectanum_router --config <path>'
+  )
+)

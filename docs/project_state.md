@@ -1,10 +1,35 @@
 # Project State
 
-Last updated: 2026-06-08
+Last updated: 2026-06-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP tool helper name validation.
-Latest fully clean hosted checkpoint: Commit `598d8ff` on GitHub `master`.
-Current implementation checkpoint: Public `McpStreamableHttpClient` tool
+Last reviewed branch checkpoint: Router CLI executable availability for
+consumer package smokes.
+Latest fully clean hosted checkpoint: Commit `6e502e4` on GitHub `master`.
+Current implementation checkpoint: `connectanum_router` now declares its
+package executable and the root verification scripts prove it through a
+consumer-style global activation smoke. `run_router_cli_consumer_package_smoke`
+uses a temporary `PUB_CACHE`, activates `packages/connectanum_router` from the
+source package, prepends the temp executable directory to `PATH`, and asserts
+that `connectanum_router --help` prints the documented CLI usage. The smoke
+also restores workspace package metadata and clears generated hook-runner cache
+after the path activation so subsequent router/client tests do not reference
+the temporary pub-cache. This closes the downstream-readiness gap where
+`dart run connectanum_router` worked from a dependency but shell-based consumer
+smokes and local benchmark harnesses could still report the router executable
+as unavailable after package activation. Fail-first evidence on 2026-06-10
+reproduced that
+`dart pub global activate --source path packages/connectanum_router` installed
+no `connectanum_router` command before the executable declaration. Focused
+checks passed with `bash -n bin/common.sh bin/test-fast bin/test-all`,
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke; (cd packages/connectanum_router && dart test test --exclude-tags zero_copy_publish)'`,
+and `git diff --check`. Updated `bin/test-fast` passed on 2026-06-10,
+including the new router CLI consumer package smoke. Full local `bin/verify`
+passed on 2026-06-10, including formatting, Rust/FFI, MCP package smokes,
+generated consumer-package smokes, the router-hosted MCP example, the new
+router CLI consumer package smoke, full router suite, zero-copy router tests,
+and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for
+this checkpoint.
+Previous implementation checkpoint: Public `McpStreamableHttpClient` tool
 helpers now reject malformed MCP tool names before opening HTTP requests,
 building `tools/call` params, or synthesizing `Mcp-Name`/`Mcp-Param-*`
 metadata for Streamable HTTP, direct JSON, Connectanum direct tool calls, and
@@ -33,8 +58,15 @@ smoke, generated consumer package smoke, and focused router suites. Full local
 smokes, generated consumer-package smokes, client/native transport suites, auth
 server, live WAMP transport integration, router-hosted MCP example smoke, full
 router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-smoke. Hosted evidence for this local checkpoint is pending; the latest fully
-clean hosted checkpoint remains `598d8ff`.
+smoke. Commit `6e502e4` was pushed to `origin` `add-router` and GitHub
+`add-router`/`master`. Hosted evidence for `6e502e4` is clean: GitHub `CI`
+`27129849400`, Dart Package Publish Dry Run `27129849368`, WAMP Profile
+Benchmarks `27129849357`, non-mutating Router Image dry-run `27130558639`, and
+the strict `master` deployment-chain audit all passed. RC release readiness
+remains not ready because no RC tag points at `6e502e4`, a GitHub prerelease
+still requires release approval after selecting an RC tag, the router image RC
+tag is not selected, and public pub.dev publishing remains deferred pending
+package ownership/versioning and workspace package release order decisions.
 Previous implementation checkpoint: Public MCP HTTP auth and Streamable HTTP
 client validation now rejects non-ASCII whitespace and C1 control characters in
 outbound JSON-RPC method names, bearer credentials, HTTP auth method names,
