@@ -79,6 +79,30 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-12: Extended the installed router CLI consumer smoke to prove a
+  bearer-protected router-hosted MCP route and ticket HTTP auth bridge.
+  `run_router_cli_consumer_package_smoke` now adds `/auth`, a
+  ticket-authenticated `mcp-ticket` session profile, and `/mcp/secure` to the
+  temporary installed-router config. The protected route exposes the standard
+  MCP meta API, pub/sub tools, and a configured secure resource. The smoke
+  proves that missing and unknown bearer credentials are rejected, obtains a
+  bearer token through ticket challenge/response, then uses the grant for
+  direct JSON `tools/list` and `resources/list` calls plus Streamable HTTP
+  `initialize`, `notifications/initialized`, session `tools/list`, and
+  `DELETE` cleanup. This closes the remaining installed-CLI evidence gap for
+  consumer applications that need router-hosted MCP auth/session correctness
+  without source-checkout assumptions. Baseline `bin/test-fast` passed before
+  the change on 2026-06-12. Focused checks passed with
+  `bash -n bin/common.sh bin/test-fast bin/test-all`,
+  `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`,
+  and `git diff --check`. Updated `bin/test-fast` passed on 2026-06-12,
+  including the protected installed router CLI MCP route smoke. Full local
+  `bin/verify` passed on 2026-06-12, including formatting, Rust/FFI, MCP
+  package smokes, generated consumer-package smokes, the router-hosted MCP
+  example, the protected installed router CLI MCP smoke, full router suite,
+  zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this local checkpoint is pending; the latest fully clean hosted
+  checkpoint remains `1f30072`.
+- 2026-06-12: Extended the installed router CLI consumer smoke to prove a
   YAML-configured router-hosted MCP route.
   `run_router_cli_consumer_package_smoke` now activates
   `packages/connectanum_router` into a temporary `PUB_CACHE`, starts the
@@ -107,7 +131,18 @@ decision because `connectanum_client` still depends on private
   package smokes, generated consumer-package smokes, the router-hosted MCP
   example, the enhanced router CLI consumer package smoke, full router suite,
   zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence is pending.
+  evidence passed on 2026-06-12: GitHub `master` CI `27418908555` at
+  `1f30072` passed with `Fast Checks` and `Full Verify` clean, GitHub
+  `add-router` CI `27418903186` also passed, and the strict deployment-chain
+  audit exited successfully with clean CI logs, relevant Dart package publish
+  dry-run `27281214877` at `06a56bb`, relevant Native Artifacts dry-run
+  `26396437881` at `debd545`, relevant Router Image dry-run `27282955159` at
+  `715b258`, relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`,
+  branch protection, workflow visibility, and router image package visibility
+  gates ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `1f30072`, no GitHub prerelease or router image RC tag is selected,
+  and pub.dev package ownership/version/release-order decisions remain
+  deferred.
 - 2026-06-12: Extended the router CLI consumer package smoke to prove the
   installed command can boot the native router.
   `run_router_cli_consumer_package_smoke` now keeps the existing temporary

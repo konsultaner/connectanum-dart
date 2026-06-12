@@ -2,9 +2,32 @@
 
 Last updated: 2026-06-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI installed command MCP route smoke.
-Latest fully clean hosted checkpoint: Commit `d01f6b4` on GitHub `master`.
+Last reviewed branch checkpoint: Router CLI installed command protected MCP route smoke.
+Latest fully clean hosted checkpoint: Commit `1f30072` on GitHub `master`.
 Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
+extends the installed router CLI smoke through a bearer-protected router-hosted
+MCP route and ticket HTTP auth bridge. The temporary installed-router config
+adds `/auth`, a ticket-authenticated `mcp-ticket` session profile, and
+`/mcp/secure` with the standard meta API, pub/sub tools, and a secure resource.
+The smoke proves that missing and unknown bearer credentials are rejected,
+obtains a bearer token with a ticket challenge/response flow, then uses the
+grant against `/mcp/secure` for direct JSON `tools/list` and `resources/list`
+requests plus Streamable HTTP `initialize`, `notifications/initialized`,
+session `tools/list`, and `DELETE` cleanup. This closes the remaining
+installed-CLI evidence gap for consumer applications that need router-hosted
+MCP auth/session correctness without source-checkout assumptions. Baseline
+`bin/test-fast` passed before the change on 2026-06-12. Focused checks passed
+with `bash -n bin/common.sh bin/test-fast bin/test-all`,
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`, and
+`git diff --check`. Updated `bin/test-fast` passed on 2026-06-12, including
+the protected installed router CLI MCP route smoke. Full local `bin/verify`
+passed on 2026-06-12, including formatting, Rust/FFI, MCP package smokes,
+generated consumer-package smokes, the router-hosted MCP example, the protected
+installed router CLI MCP smoke, full router suite, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this local
+checkpoint is pending; the latest fully clean hosted checkpoint remains
+`1f30072`.
+Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI smoke through a YAML-configured
 router-hosted MCP endpoint. After activating `packages/connectanum_router` into
 a temporary `PUB_CACHE`, it starts the installed `connectanum_router` command
@@ -31,9 +54,18 @@ enhanced router CLI consumer package smoke. Full local `bin/verify` passed on
 2026-06-12, including formatting, Rust/FFI, MCP package smokes, generated
 consumer-package smokes, the router-hosted MCP example, the enhanced router CLI
 consumer package smoke, full router suite, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this local
-checkpoint is pending; the latest fully clean hosted checkpoint remains
-`d01f6b4`.
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence passed on
+2026-06-12: GitHub `master` CI `27418908555` at `1f30072` passed with `Fast
+Checks` and `Full Verify` clean, GitHub `add-router` CI `27418903186` also
+passed, and the strict deployment-chain audit exited successfully with clean CI
+logs, relevant Dart package publish dry-run `27281214877` at `06a56bb`,
+relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
+Image dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
+`27281215258` at `06a56bb`, branch protection, workflow visibility, and router
+image package visibility gates ready. RC readiness remains gated on release
+policy: no numeric RC tag points at `1f30072`, no GitHub prerelease or router
+image RC tag is selected, and pub.dev package ownership/version/release-order
+decisions remain deferred.
 Previous implementation checkpoint: `run_router_cli_consumer_package_smoke`
 proved more than global activation and help output: after activating
 `packages/connectanum_router` into a temporary `PUB_CACHE`, it started the

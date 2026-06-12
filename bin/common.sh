@@ -22380,13 +22380,27 @@ router:
     - name: public-wamp
       auth:
         methods: [anonymous]
+    - name: public-http
+      auth:
+        methods: []
+    - name: mcp-ticket
+      realm: cli.smoke
+      auth:
+        methods: [ticket]
 
   realms:
     - name: cli.smoke
       auth:
-        authmethods: [anonymous]
+        authmethods: [anonymous, ticket]
+        ticket:
+          authenticator: ticket-basic
       roles:
         - name: anonymous
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [subscribe, publish, call, register, unregister]
+        - name: member
           permissions:
             - uri: ""
               match: prefix
@@ -22416,8 +22430,17 @@ router:
       tls:
         mode: disabled
       http:
-        session_profile: public-wamp
+        session_profile: public-http
         routes:
+          - match:
+              path: /auth
+              methods: [POST]
+            action:
+              type: auth
+              session_profile: mcp-ticket
+              token_ttl_ms: 60000
+              refresh_token_ttl_ms: 300000
+              allow_insecure_transport: true
           - match:
               path: /mcp
             action:
@@ -22450,6 +22473,27 @@ router:
                   - topic: cli.smoke.events
                     title: CLI Smoke Events
                     description: Events exposed by the router CLI MCP smoke.
+          - match:
+              path: /mcp/secure
+            action:
+              type: mcp
+              realm: cli.smoke
+              session_profile: mcp-ticket
+              options:
+                name: cli-router-mcp-secure
+                instructions: Router CLI bearer-protected MCP smoke endpoint.
+                include_standard_meta_api: true
+                include_pubsub_tools: true
+                allow_insecure_transport: true
+                resources:
+                  - uri: cli://mcp/secure/context
+                    name: cli-secure-context
+                    mime_type: text/plain
+                    text: Router CLI secure MCP context.
+                topics:
+                  - topic: cli.smoke.secure.events
+                    title: CLI Secure Smoke Events
+                    description: Protected events exposed by the router CLI MCP smoke.
 
   internal_realms:
     - name: connectanum.metrics
@@ -22467,6 +22511,14 @@ router:
   authenticators:
     anonymous:
       type: anonymous
+    ticket-basic:
+      type: ticket
+      options:
+        secrets:
+          cli-user:
+            ticket: cli-ticket
+            role: member
+            provider: cli-ticket-db
 YAML
 
   PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
@@ -22516,11 +22568,24 @@ import os
 import urllib.error
 import urllib.request
 
-endpoint = f"http://127.0.0.1:{os.environ['MCP_PORT']}/mcp"
+base_url = f"http://127.0.0.1:{os.environ['MCP_PORT']}"
+endpoint = f"{base_url}/mcp"
+secure_endpoint = f"{base_url}/mcp/secure"
+auth_endpoint = f"{base_url}/auth"
 protocol_version = "2025-11-25"
+auth_id = "cli-user"
+ticket = "cli-ticket"
 
 
-def request(method, payload=None, *, headers=None, accept="application/json"):
+def request(
+    method,
+    payload=None,
+    *,
+    endpoint=endpoint,
+    headers=None,
+    accept="application/json",
+    allow_error=False,
+):
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(endpoint, data=data, method=method)
     req.add_header("Accept", accept)
@@ -22537,6 +22602,12 @@ def request(method, payload=None, *, headers=None, accept="application/json"):
             )
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", errors="replace")
+        if allow_error:
+            return (
+                error.code,
+                {key.lower(): value for key, value in error.headers.items()},
+                body,
+            )
         raise AssertionError(
             f"{method} {endpoint} returned {error.code}: {body}"
         ) from error
@@ -22559,9 +22630,9 @@ def json_payload(body):
     return json.loads(text)
 
 
-def post_json(payload, *, headers=None, accept="application/json"):
+def post_json(payload, *, endpoint=endpoint, headers=None, accept="application/json"):
     status, response_headers, body = request(
-        "POST", payload, headers=headers, accept=accept
+        "POST", payload, endpoint=endpoint, headers=headers, accept=accept
     )
     if status < 200 or status >= 300:
         raise AssertionError(f"Unexpected MCP HTTP status {status}: {body}")
@@ -22569,6 +22640,35 @@ def post_json(payload, *, headers=None, accept="application/json"):
     if isinstance(parsed, dict) and "error" in parsed:
         raise AssertionError(f"MCP JSON-RPC error: {parsed['error']}")
     return status, response_headers, parsed
+
+
+def post_auth(payload, *, allow_error=False):
+    status, response_headers, body = request(
+        "POST",
+        payload,
+        endpoint=auth_endpoint,
+        accept="application/json",
+        allow_error=allow_error,
+    )
+    parsed = json_payload(body)
+    if not allow_error and (status < 200 or status >= 300):
+        raise AssertionError(f"Unexpected auth HTTP status {status}: {body}")
+    return status, response_headers, parsed
+
+
+def expect_secure_rejection(payload, *, headers=None, label):
+    status, _, body = request(
+        "POST",
+        payload,
+        endpoint=secure_endpoint,
+        headers=headers,
+        accept="application/json",
+        allow_error=True,
+    )
+    if status not in (401, 403):
+        raise AssertionError(
+            f"Installed CLI protected MCP route accepted {label}: {status} {body}"
+        )
 
 
 _, _, tools = post_json({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
@@ -22688,7 +22788,152 @@ if delete_status < 200 or delete_status >= 300:
     raise AssertionError(f"Installed CLI MCP DELETE returned {delete_status}")
 if delete_headers.get("mcp-session-id") != session_id:
     raise AssertionError("Installed CLI MCP DELETE missed session id")
+
+expect_secure_rejection(
+    {"jsonrpc": "2.0", "id": "secure-missing", "method": "tools/list"},
+    label="missing bearer credentials",
+)
+expect_secure_rejection(
+    {"jsonrpc": "2.0", "id": "secure-unknown", "method": "tools/list"},
+    headers={"Authorization": "Bearer not-a-valid-token"},
+    label="unknown bearer credentials",
+)
+
+auth_status, _, challenge = post_auth(
+    {
+        "realm": "cli.smoke",
+        "authmethod": "ticket",
+        "authid": auth_id,
+    },
+    allow_error=True,
+)
+if auth_status != 401:
+    raise AssertionError(f"Installed CLI auth start returned {auth_status}")
+state = challenge.get("state") if isinstance(challenge, dict) else None
+if not state:
+    raise AssertionError("Installed CLI auth challenge missed state")
+_, _, grant = post_auth(
+    {
+        "state": state,
+        "signature": ticket,
+        "extra": {},
+    }
+)
+access_token = grant.get("access_token") if isinstance(grant, dict) else None
+token_type = grant.get("token_type") if isinstance(grant, dict) else None
+if not access_token or str(token_type).lower() != "bearer":
+    raise AssertionError(f"Installed CLI auth grant was invalid: {grant}")
+if grant.get("authid") != auth_id or grant.get("authrole") != "member":
+    raise AssertionError(f"Installed CLI auth grant identity mismatch: {grant}")
+
+bearer_headers = {"Authorization": f"Bearer {access_token}"}
+_, _, secure_tools = post_json(
+    {"jsonrpc": "2.0", "id": "secure-tools", "method": "tools/list"},
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+secure_tool_names = {tool.get("name") for tool in secure_tools["result"]["tools"]}
+if "connectanum.api.list" not in secure_tool_names:
+    raise AssertionError("Installed CLI protected MCP tools/list missed meta tool")
+_, _, secure_resources = post_json(
+    {"jsonrpc": "2.0", "id": "secure-resources", "method": "resources/list"},
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+secure_resource_uris = {
+    resource.get("uri") for resource in secure_resources["result"]["resources"]
+}
+if "cli://mcp/secure/context" not in secure_resource_uris:
+    raise AssertionError("Installed CLI protected MCP missed secure resource")
+
+secure_streamable_headers = {
+    **streamable_headers,
+    **bearer_headers,
+}
+_, secure_initialize_headers, secure_initialize = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-initialize",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": protocol_version,
+            "capabilities": {},
+            "clientInfo": {
+                "name": "router-cli-consumer-smoke-secure",
+                "version": "0.0.0",
+            },
+        },
+    },
+    endpoint=secure_endpoint,
+    headers=secure_streamable_headers,
+    accept="application/json, text/event-stream",
+)
+secure_session_id = secure_initialize_headers.get("mcp-session-id")
+if not secure_session_id:
+    raise AssertionError("Installed CLI protected MCP initialize missed session id")
+if secure_initialize["result"]["protocolVersion"] != protocol_version:
+    raise AssertionError("Installed CLI protected MCP initialize changed protocol")
+
+secure_session_headers = {
+    **secure_streamable_headers,
+    "MCP-Session-Id": secure_session_id,
+}
+secure_notification_status, _, secure_notification_body = request(
+    "POST",
+    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+    endpoint=secure_endpoint,
+    headers=secure_session_headers,
+    accept="application/json, text/event-stream",
+)
+if secure_notification_status < 200 or secure_notification_status >= 300:
+    raise AssertionError(
+        "Installed CLI protected MCP initialized notification returned "
+        f"{secure_notification_status}"
+    )
+if secure_notification_body.strip():
+    secure_notification_payload = json_payload(secure_notification_body)
+    if (
+        isinstance(secure_notification_payload, dict)
+        and "error" in secure_notification_payload
+    ):
+        raise AssertionError(
+            "Installed CLI protected MCP initialized notification returned "
+            f"{secure_notification_payload['error']}"
+        )
+_, secure_list_headers, secure_streamable_tools = post_json(
+    {"jsonrpc": "2.0", "id": "secure-streamable-tools", "method": "tools/list"},
+    endpoint=secure_endpoint,
+    headers=secure_session_headers,
+    accept="application/json",
+)
+secure_response_session_id = secure_list_headers.get("mcp-session-id")
+if (
+    secure_response_session_id is not None
+    and secure_response_session_id != secure_session_id
+):
+    raise AssertionError(
+        "Installed CLI protected MCP tools/list changed session id"
+    )
+secure_streamable_tool_names = {
+    tool.get("name") for tool in secure_streamable_tools["result"]["tools"]
+}
+if "connectanum.pubsub.publish" not in secure_streamable_tool_names:
+    raise AssertionError(
+        "Installed CLI protected MCP Streamable tools/list missed pubsub tool"
+    )
+secure_delete_status, secure_delete_headers, _ = request(
+    "DELETE",
+    endpoint=secure_endpoint,
+    headers=secure_session_headers,
+    accept="application/json, text/event-stream",
+)
+if secure_delete_status < 200 or secure_delete_status >= 300:
+    raise AssertionError(
+        f"Installed CLI protected MCP DELETE returned {secure_delete_status}"
+    )
+if secure_delete_headers.get("mcp-session-id") != secure_session_id:
+    raise AssertionError("Installed CLI protected MCP DELETE missed session id")
 PY
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, and /mcp from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, and /mcp/secure from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
