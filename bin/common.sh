@@ -23189,15 +23189,24 @@ Future<void> main() async {
         },
         <String, Object?>{
           'jsonrpc': '2.0',
+          'id': 'dart-consumer-public-direct-batch-bad-method',
+          'method': 'tools/unknown',
+          'params': <String, Object?>{},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
           'id': 'dart-consumer-public-direct-batch-resource-templates',
           'method': 'resources/templates/list',
           'params': <String, Object?>{},
         },
       ],
     );
+    _expect(
+      publicDirectBatch?.length == 4,
+      'Dart consumer public direct JSON batch response count changed.',
+    );
     final publicDirectBatchResource = _batchResult(
       publicDirectBatch,
-      0,
       'dart-consumer-public-direct-batch-resource-read',
       'Dart consumer public direct JSON batch resource read',
     );
@@ -23209,7 +23218,6 @@ Future<void> main() async {
     );
     final publicDirectBatchPrompt = _batchResult(
       publicDirectBatch,
-      1,
       'dart-consumer-public-direct-batch-prompt-get',
       'Dart consumer public direct JSON batch prompt get',
     );
@@ -23219,9 +23227,17 @@ Future<void> main() async {
       ).contains('Dart direct batch consumer readiness'),
       'Dart consumer public direct JSON batch prompt missed substitution.',
     );
+    final publicDirectBatchError = _batchError(
+      publicDirectBatch,
+      'dart-consumer-public-direct-batch-bad-method',
+      'Dart consumer public direct JSON batch bad method',
+    );
+    _expect(
+      publicDirectBatchError['code'] == McpErrorCodes.methodNotFound,
+      'Dart consumer public direct JSON batch missed method error isolation.',
+    );
     final publicDirectBatchTemplates = _batchResult(
       publicDirectBatch,
-      2,
       'dart-consumer-public-direct-batch-resource-templates',
       'Dart consumer public direct JSON batch resource templates',
     );
@@ -23297,14 +23313,23 @@ Future<void> main() async {
         },
         <String, Object?>{
           'jsonrpc': '2.0',
+          'id': 'dart-consumer-public-streamable-batch-bad-method',
+          'method': 'tools/unknown',
+          'params': <String, Object?>{},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
           'method': 'notifications/initialized',
           'params': <String, Object?>{},
         },
       ],
     );
+    _expect(
+      publicStreamableBatch?.length == 3,
+      'Dart consumer public Streamable batch response count changed.',
+    );
     final publicStreamableBatchResource = _batchResult(
       publicStreamableBatch,
-      0,
       'dart-consumer-public-streamable-batch-resource-read',
       'Dart consumer public Streamable batch resource read',
     );
@@ -23316,7 +23341,6 @@ Future<void> main() async {
     );
     final publicStreamableBatchPrompt = _batchResult(
       publicStreamableBatch,
-      1,
       'dart-consumer-public-streamable-batch-prompt-get',
       'Dart consumer public Streamable batch prompt get',
     );
@@ -23325,6 +23349,15 @@ Future<void> main() async {
         publicStreamableBatchPrompt,
       ).contains('Dart Streamable batch consumer readiness'),
       'Dart consumer public Streamable batch prompt missed substitution.',
+    );
+    final publicStreamableBatchError = _batchError(
+      publicStreamableBatch,
+      'dart-consumer-public-streamable-batch-bad-method',
+      'Dart consumer public Streamable batch bad method',
+    );
+    _expect(
+      publicStreamableBatchError['code'] == McpErrorCodes.methodNotFound,
+      'Dart consumer public Streamable batch missed method error isolation.',
     );
     _expect(
       publicClient.sessionId == publicBatchSessionId,
@@ -23424,15 +23457,24 @@ Future<void> main() async {
         },
         <String, Object?>{
           'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-direct-batch-bad-method',
+          'method': 'tools/unknown',
+          'params': <String, Object?>{},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
           'id': 'dart-consumer-secure-direct-batch-tools',
           'method': 'tools/list',
           'params': <String, Object?>{},
         },
       ],
     );
+    _expect(
+      secureDirectBatch?.length == 3,
+      'Dart consumer protected direct JSON batch response count changed.',
+    );
     final secureDirectBatchResource = _batchResult(
       secureDirectBatch,
-      0,
       'dart-consumer-secure-direct-batch-resource-read',
       'Dart consumer protected direct JSON batch resource read',
     );
@@ -23442,9 +23484,17 @@ Future<void> main() async {
       ).contains('Router CLI secure MCP context.'),
       'Dart consumer protected direct JSON batch resource missed content.',
     );
+    final secureDirectBatchError = _batchError(
+      secureDirectBatch,
+      'dart-consumer-secure-direct-batch-bad-method',
+      'Dart consumer protected direct JSON batch bad method',
+    );
+    _expect(
+      secureDirectBatchError['code'] == McpErrorCodes.methodNotFound,
+      'Dart consumer protected direct JSON batch missed method error isolation.',
+    );
     final secureDirectBatchTools = _batchResult(
       secureDirectBatch,
-      1,
       'dart-consumer-secure-direct-batch-tools',
       'Dart consumer protected direct JSON batch tools list',
     );
@@ -23516,6 +23566,12 @@ Future<void> main() async {
         },
         <String, Object?>{
           'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-streamable-batch-bad-method',
+          'method': 'tools/unknown',
+          'params': <String, Object?>{},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
           'id': 'dart-consumer-secure-streamable-batch-tools',
           'method': 'tools/list',
           'params': <String, Object?>{},
@@ -23527,9 +23583,12 @@ Future<void> main() async {
         },
       ],
     );
+    _expect(
+      secureStreamableBatch?.length == 3,
+      'Dart consumer protected Streamable batch response count changed.',
+    );
     final secureStreamableBatchResource = _batchResult(
       secureStreamableBatch,
-      0,
       'dart-consumer-secure-streamable-batch-resource-read',
       'Dart consumer protected Streamable batch resource read',
     );
@@ -23539,9 +23598,17 @@ Future<void> main() async {
       ).contains('Router CLI secure MCP context.'),
       'Dart consumer protected Streamable batch resource missed content.',
     );
+    final secureStreamableBatchError = _batchError(
+      secureStreamableBatch,
+      'dart-consumer-secure-streamable-batch-bad-method',
+      'Dart consumer protected Streamable batch bad method',
+    );
+    _expect(
+      secureStreamableBatchError['code'] == McpErrorCodes.methodNotFound,
+      'Dart consumer protected Streamable batch missed method error isolation.',
+    );
     final secureStreamableBatchTools = _batchResult(
       secureStreamableBatch,
-      1,
       'dart-consumer-secure-streamable-batch-tools',
       'Dart consumer protected Streamable batch tools list',
     );
@@ -23786,22 +23853,43 @@ McpJsonMap _resultFrom(McpJsonMap response, String label) {
   throw StateError('$label missed a JSON-RPC result object.');
 }
 
-McpJsonMap _batchResult(
+McpJsonMap _batchResponse(
   List<McpJsonMap>? responses,
-  int index,
   String id,
   String label,
 ) {
-  if (responses == null || responses.length <= index) {
+  if (responses == null) {
     throw StateError('$label missed batch response $id.');
   }
-  final response = responses[index];
-  if (response['id'] != id) {
-    throw StateError(
-      '$label returned response id ${response['id']}, expected $id.',
-    );
+  for (final response in responses) {
+    if (response['id'] == id) {
+      return response;
+    }
   }
-  return _resultFrom(response, label);
+  throw StateError('$label missed batch response $id.');
+}
+
+McpJsonMap _batchResult(
+  List<McpJsonMap>? responses,
+  String id,
+  String label,
+) {
+  return _resultFrom(_batchResponse(responses, id, label), label);
+}
+
+McpJsonMap _batchError(
+  List<McpJsonMap>? responses,
+  String id,
+  String label,
+) {
+  final error = _batchResponse(responses, id, label)['error'];
+  if (error is Map<String, Object?>) {
+    return error;
+  }
+  if (error is Map) {
+    return Map<String, Object?>.from(error);
+  }
+  throw StateError('$label missed a JSON-RPC error object.');
 }
 
 void _expect(bool condition, String message) {
