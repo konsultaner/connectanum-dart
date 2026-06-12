@@ -2,9 +2,53 @@
 
 Last updated: 2026-06-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI installed command Dart batch error-isolation smoke.
-Latest fully clean hosted checkpoint: Commit `fafa418` on GitHub `master`.
+Last reviewed branch checkpoint: Router CLI installed command JSON-response MCP smoke.
+Latest fully clean hosted checkpoint: Commit `aa80067` on GitHub `master`.
 Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
+adds a bearer-protected `/mcp/secure-json-post` router-hosted MCP route to the
+installed command smoke with `post_response_transport: json`. The raw HTTP
+smoke proves missing and unknown bearer credentials are rejected on that route.
+The generated neutral Dart consumer package still imports only
+`package:connectanum_mcp/connectanum_mcp_io.dart`; it now obtains an HTTP auth
+ticket grant, proves the protected JSON-response route rejects unauthenticated
+direct helpers without capturing session or SSE state, then uses the grant to
+exercise direct JSON tool listing, secure resource reads, and a mixed direct
+batch with `resources/read`, invalid `tools/unknown`, and
+`connectanum.api.list` while asserting id-based success/error isolation and no
+Streamable state. It then initializes a stateful JSON-response Streamable HTTP
+session on the same route, sends `notifications/initialized`, runs a mixed
+batch with resource read, invalid tool method, `tools/list`, and a
+notification item, proves the session id remains stable, proves no SSE cursor
+is captured for JSON responses, and deletes the session cleanly. This keeps
+the prior installed-command coverage for `/healthz`, `/metrics`, `/auth`,
+public `/mcp`, bearer-protected `/mcp/secure`, public/protected resources,
+prompts, tools, direct JSON tool/meta APIs, protected pub/sub, batch
+error-isolation, Streamable lifecycle, and HTTP auth refresh/revoke. This
+closes the installed-command evidence gap for consumer applications and agents
+that need bearer-protected router-provided MCP endpoints with direct JSON
+response transport as well as Streamable HTTP compatibility, without
+source-checkout or private-project assumptions. Baseline `bin/test-fast`
+passed before the change on 2026-06-12. Focused checks passed with
+`bash -n bin/common.sh`, `git diff --check`, and
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`.
+Updated `bin/test-fast` passed on 2026-06-12, including the installed router
+CLI generated Dart JSON-response MCP smoke. Full local `bin/verify` passed on
+2026-06-12, including formatting, Rust/FFI, MCP package smokes, generated
+consumer-package smokes, router-hosted MCP examples, the installed CLI
+JSON-response MCP smoke, full router tests, zero-copy router tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
+checkpoint; the latest fully clean hosted checkpoint remains `aa80067` with
+GitHub `master` CI `27443756070`, GitHub `add-router` CI `27443750031`, and a
+strict deployment-chain audit that exited successfully with clean latest CI
+logs, relevant Dart package publish dry-run `27281214877` at `06a56bb`,
+relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
+Image dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
+`27281215258` at `06a56bb`, branch protection, workflow visibility, and router
+image package visibility gates ready. RC readiness remains gated on release
+policy: no numeric RC tag points at `aa80067`, no GitHub prerelease or router
+image RC tag is selected, and pub.dev package ownership/version/release-order
+decisions remain deferred.
+Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI generated Dart consumer package smoke with
 public and bearer-protected JSON-RPC batch error-isolation coverage against
 the live installed command. The generated neutral consumer package still
@@ -29,8 +73,17 @@ CLI generated Dart direct/Streamable batch error-isolation smoke. Full local
 smokes, generated consumer-package smokes, router-hosted MCP examples, the
 installed CLI direct/Streamable batch error-isolation smoke, full router
 tests, zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket
-smoke. Hosted evidence is pending; the latest fully clean hosted checkpoint
-remains `fafa418`.
+smoke. Hosted evidence is clean for `aa80067`: GitHub `master` CI
+`27443756070` passed, GitHub `add-router` CI `27443750031` also passed, and
+the strict deployment-chain audit exited successfully with clean latest CI
+logs, relevant Dart package publish dry-run `27281214877` at `06a56bb`,
+relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
+Image dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
+`27281215258` at `06a56bb`, branch protection, workflow visibility, and router
+image package visibility gates ready. RC readiness remains gated on release
+policy: no numeric RC tag points at `aa80067`, no GitHub prerelease or router
+image RC tag is selected, and pub.dev package ownership/version/release-order
+decisions remain deferred.
 Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI generated Dart consumer package smoke with
 public and bearer-protected JSON-RPC batch coverage against the live installed

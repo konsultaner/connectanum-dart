@@ -22494,6 +22494,28 @@ router:
                   - topic: cli.smoke.secure.events
                     title: CLI Secure Smoke Events
                     description: Protected events exposed by the router CLI MCP smoke.
+          - match:
+              path: /mcp/secure-json-post
+            action:
+              type: mcp
+              realm: cli.smoke
+              session_profile: mcp-ticket
+              options:
+                name: cli-router-mcp-secure-json-post
+                instructions: Router CLI bearer-protected JSON-response MCP smoke endpoint.
+                include_standard_meta_api: true
+                include_pubsub_tools: true
+                allow_insecure_transport: true
+                post_response_transport: json
+                resources:
+                  - uri: cli://mcp/secure/context
+                    name: cli-secure-context
+                    mime_type: text/plain
+                    text: Router CLI secure MCP context.
+                topics:
+                  - topic: cli.smoke.secure.events
+                    title: CLI Secure Smoke Events
+                    description: Protected events exposed by the router CLI MCP smoke.
 
   internal_realms:
     - name: connectanum.metrics
@@ -22572,6 +22594,7 @@ import urllib.request
 base_url = f"http://127.0.0.1:{os.environ['MCP_PORT']}"
 endpoint = f"{base_url}/mcp"
 secure_endpoint = f"{base_url}/mcp/secure"
+secure_json_endpoint = f"{base_url}/mcp/secure-json-post"
 auth_endpoint = f"{base_url}/auth"
 protocol_version = "2025-11-25"
 auth_id = "cli-user"
@@ -22657,11 +22680,11 @@ def post_auth(payload, *, allow_error=False):
     return status, response_headers, parsed
 
 
-def expect_secure_rejection(payload, *, headers=None, label):
+def expect_secure_rejection(payload, *, endpoint=secure_endpoint, headers=None, label):
     status, _, body = request(
         "POST",
         payload,
-        endpoint=secure_endpoint,
+        endpoint=endpoint,
         headers=headers,
         accept="application/json",
         allow_error=True,
@@ -22832,9 +22855,20 @@ expect_secure_rejection(
     label="missing bearer credentials",
 )
 expect_secure_rejection(
+    {"jsonrpc": "2.0", "id": "secure-json-missing", "method": "tools/list"},
+    endpoint=secure_json_endpoint,
+    label="missing bearer credentials on JSON-response route",
+)
+expect_secure_rejection(
     {"jsonrpc": "2.0", "id": "secure-unknown", "method": "tools/list"},
     headers={"Authorization": "Bearer not-a-valid-token"},
     label="unknown bearer credentials",
+)
+expect_secure_rejection(
+    {"jsonrpc": "2.0", "id": "secure-json-unknown", "method": "tools/list"},
+    endpoint=secure_json_endpoint,
+    headers={"Authorization": "Bearer not-a-valid-token"},
+    label="unknown bearer credentials on JSON-response route",
 )
 
 auth_status, _, challenge = post_auth(
@@ -23099,10 +23133,12 @@ Future<void> main() async {
   final baseUri = Uri.parse('http://127.0.0.1:$port');
   final publicEndpoint = baseUri.resolve('/mcp');
   final secureEndpoint = baseUri.resolve('/mcp/secure');
+  final secureJsonEndpoint = baseUri.resolve('/mcp/secure-json-post');
   final authEndpoint = baseUri.resolve('/auth');
   final publicClient = McpStreamableHttpClient(publicEndpoint);
   final authClient = ConnectanumHttpAuthClient(authEndpoint);
   McpStreamableHttpClient? secureClient;
+  McpStreamableHttpClient? secureJsonClient;
 
   try {
     final publicTools = await publicClient.listToolsDirect(
@@ -23409,6 +23445,216 @@ Future<void> main() async {
     if (originalRefreshToken == null || originalRefreshToken.isEmpty) {
       throw StateError('Dart consumer auth grant missed a refresh token.');
     }
+
+    final unauthenticatedSecureJsonClient =
+        McpStreamableHttpClient(secureJsonEndpoint);
+    try {
+      await _expectMcpHttpRejected(
+        () => unauthenticatedSecureJsonClient.listToolsDirect(
+          id: 'dart-consumer-secure-json-missing-tools',
+        ),
+        HttpStatus.unauthorized,
+        'Dart consumer protected JSON-response route without bearer',
+      );
+      _expect(
+        unauthenticatedSecureJsonClient.sessionId == null &&
+            unauthenticatedSecureJsonClient.lastEventId == null,
+        'Dart consumer protected JSON-response rejection captured state.',
+      );
+    } finally {
+      unauthenticatedSecureJsonClient.close(force: true);
+    }
+
+    secureJsonClient = McpStreamableHttpClient.withAuthGrant(
+      secureJsonEndpoint,
+      grant,
+    );
+    final secureJsonTools = await secureJsonClient.listToolsDirect(
+      id: 'dart-consumer-secure-json-tools',
+    );
+    _expect(
+      _stringFields(
+        secureJsonTools.tools,
+        'name',
+      ).contains('connectanum.pubsub.publish'),
+      'Dart consumer missed protected JSON-response direct tools.',
+    );
+
+    final secureJsonResourceContents =
+        await secureJsonClient.readResourceDirect(
+      'cli://mcp/secure/context',
+      id: 'dart-consumer-secure-json-resource-read',
+    );
+    _expect(
+      jsonEncode(
+        secureJsonResourceContents,
+      ).contains('Router CLI secure MCP context.'),
+      'Dart consumer protected JSON-response resource read missed content.',
+    );
+
+    final secureJsonDirectBatch = await secureJsonClient.postBatchDirect(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-json-direct-batch-resource-read',
+          'method': 'resources/read',
+          'params': <String, Object?>{'uri': 'cli://mcp/secure/context'},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-json-direct-batch-bad-method',
+          'method': 'tools/unknown',
+          'params': <String, Object?>{},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-json-direct-batch-api-list',
+          'method': 'connectanum.api.list',
+          'params': <String, Object?>{'kind': 'topic'},
+        },
+      ],
+    );
+    _expect(
+      secureJsonDirectBatch?.length == 3,
+      'Dart consumer protected JSON-response direct batch count changed.',
+    );
+    final secureJsonDirectBatchResource = _batchResult(
+      secureJsonDirectBatch,
+      'dart-consumer-secure-json-direct-batch-resource-read',
+      'Dart consumer protected JSON-response direct batch resource read',
+    );
+    _expect(
+      jsonEncode(
+        secureJsonDirectBatchResource,
+      ).contains('Router CLI secure MCP context.'),
+      'Dart consumer protected JSON-response direct batch missed content.',
+    );
+    final secureJsonDirectBatchError = _batchError(
+      secureJsonDirectBatch,
+      'dart-consumer-secure-json-direct-batch-bad-method',
+      'Dart consumer protected JSON-response direct batch bad method',
+    );
+    _expect(
+      secureJsonDirectBatchError['code'] == McpErrorCodes.methodNotFound,
+      'Dart consumer protected JSON-response direct batch missed error isolation.',
+    );
+    final secureJsonDirectBatchApi = _batchResult(
+      secureJsonDirectBatch,
+      'dart-consumer-secure-json-direct-batch-api-list',
+      'Dart consumer protected JSON-response direct batch API list',
+    );
+    _expect(
+      jsonEncode(secureJsonDirectBatchApi).contains(_secureTopic),
+      'Dart consumer protected JSON-response direct batch missed topic API.',
+    );
+    _expect(
+      secureJsonClient.sessionId == null && secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response direct access captured state.',
+    );
+
+    final secureJsonInitialize = await secureJsonClient.initialize(
+      id: 'dart-consumer-secure-json-initialize',
+      protocolVersion: _protocolVersion,
+      clientInfo: const <String, Object?>{
+        'name': 'router-cli-dart-consumer-smoke-secure-json',
+        'version': '0.0.0',
+      },
+    );
+    _expect(
+      _resultFrom(
+        secureJsonInitialize,
+        'secure JSON-response initialize',
+      )['protocolVersion'] == _protocolVersion,
+      'Dart consumer protected JSON-response initialize changed protocol.',
+    );
+    final secureJsonSessionId = secureJsonClient.sessionId;
+    _expect(
+      secureJsonSessionId != null && secureJsonSessionId.isNotEmpty,
+      'Dart consumer protected JSON-response route missed session id.',
+    );
+    _expect(
+      secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response initialize captured SSE cursor.',
+    );
+    await secureJsonClient.notifyInitialized();
+    _expect(
+      secureJsonClient.sessionId == secureJsonSessionId &&
+          secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response initialized state changed.',
+    );
+
+    final secureJsonStreamableBatch = await secureJsonClient.postBatch(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-json-streamable-batch-resource-read',
+          'method': 'resources/read',
+          'params': <String, Object?>{'uri': 'cli://mcp/secure/context'},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-json-streamable-batch-bad-method',
+          'method': 'tools/unknown',
+          'params': <String, Object?>{},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-json-streamable-batch-tools',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+          'params': <String, Object?>{},
+        },
+      ],
+    );
+    _expect(
+      secureJsonStreamableBatch?.length == 3,
+      'Dart consumer protected JSON-response Streamable batch count changed.',
+    );
+    final secureJsonStreamableBatchResource = _batchResult(
+      secureJsonStreamableBatch,
+      'dart-consumer-secure-json-streamable-batch-resource-read',
+      'Dart consumer protected JSON-response Streamable batch resource read',
+    );
+    _expect(
+      jsonEncode(
+        secureJsonStreamableBatchResource,
+      ).contains('Router CLI secure MCP context.'),
+      'Dart consumer protected JSON-response Streamable batch missed content.',
+    );
+    final secureJsonStreamableBatchError = _batchError(
+      secureJsonStreamableBatch,
+      'dart-consumer-secure-json-streamable-batch-bad-method',
+      'Dart consumer protected JSON-response Streamable batch bad method',
+    );
+    _expect(
+      secureJsonStreamableBatchError['code'] == McpErrorCodes.methodNotFound,
+      'Dart consumer protected JSON-response Streamable batch missed error isolation.',
+    );
+    final secureJsonStreamableBatchTools = _batchResult(
+      secureJsonStreamableBatch,
+      'dart-consumer-secure-json-streamable-batch-tools',
+      'Dart consumer protected JSON-response Streamable batch tools',
+    );
+    _expect(
+      jsonEncode(secureJsonStreamableBatchTools).contains(
+        'connectanum.pubsub.publish',
+      ),
+      'Dart consumer protected JSON-response Streamable batch missed tools.',
+    );
+    _expect(
+      secureJsonClient.sessionId == secureJsonSessionId &&
+          secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response batch captured SSE state.',
+    );
+    await secureJsonClient.deleteSession();
+    _expect(
+      secureJsonClient.sessionId == null && secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response delete leaked state.',
+    );
 
     secureClient = McpStreamableHttpClient.withAuthGrant(
       secureEndpoint,
@@ -23769,6 +24015,7 @@ Future<void> main() async {
       refreshedClient.close(force: true);
     }
   } finally {
+    secureJsonClient?.close(force: true);
     secureClient?.close(force: true);
     authClient.close(force: true);
     publicClient.close(force: true);
@@ -23908,6 +24155,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
