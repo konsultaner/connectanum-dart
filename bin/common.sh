@@ -22565,6 +22565,7 @@ YAML
   MCP_PORT="$mcp_port" python3 - <<'PY'
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 
@@ -22669,6 +22670,43 @@ def expect_secure_rejection(payload, *, headers=None, label):
         raise AssertionError(
             f"Installed CLI protected MCP route accepted {label}: {status} {body}"
         )
+
+
+def structured_content(message, *, label):
+    result = message.get("result") if isinstance(message, dict) else None
+    if not isinstance(result, dict):
+        raise AssertionError(f"{label} missed JSON-RPC result: {message}")
+    if result.get("isError") is True:
+        raise AssertionError(f"{label} returned MCP tool error: {result}")
+    content = result.get("structuredContent")
+    if not isinstance(content, dict):
+        raise AssertionError(f"{label} missed structuredContent: {result}")
+    return content
+
+
+def poll_direct_pubsub_events(handle):
+    for _ in range(30):
+        _, _, poll_result = post_json(
+            {
+                "jsonrpc": "2.0",
+                "id": "secure-direct-pubsub-poll",
+                "method": "connectanum.pubsub.poll",
+                "params": {"handle": handle, "limit": 10},
+            },
+            endpoint=secure_endpoint,
+            headers=bearer_headers,
+        )
+        content = structured_content(
+            poll_result,
+            label="Installed CLI protected MCP direct pubsub poll",
+        )
+        events = content.get("events")
+        if isinstance(events, list) and events:
+            return events
+        time.sleep(0.05)
+    raise AssertionError(
+        "Timed out waiting for installed CLI protected MCP pubsub events"
+    )
 
 
 _, _, tools = post_json({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
@@ -22845,6 +22883,42 @@ secure_resource_uris = {
 }
 if "cli://mcp/secure/context" not in secure_resource_uris:
     raise AssertionError("Installed CLI protected MCP missed secure resource")
+_, _, secure_topics = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-topics",
+        "method": "connectanum.api.list",
+        "params": {"kind": "topic"},
+    },
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+if "cli.smoke.secure.events" not in json.dumps(secure_topics["result"]):
+    raise AssertionError("Installed CLI protected MCP missed secure topic")
+_, _, secure_direct_subscribe = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-direct-pubsub-subscribe",
+        "method": "connectanum.pubsub.subscribe",
+        "params": {"topic": "cli.smoke.secure.events", "queueLimit": 5},
+    },
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+secure_direct_subscription = structured_content(
+    secure_direct_subscribe,
+    label="Installed CLI protected MCP direct pubsub subscribe",
+)
+secure_direct_handle = secure_direct_subscription.get("handle")
+if (
+    not isinstance(secure_direct_handle, str)
+    or not secure_direct_handle
+    or secure_direct_subscription.get("topic") != "cli.smoke.secure.events"
+):
+    raise AssertionError(
+        "Installed CLI protected MCP direct pubsub subscribe was invalid: "
+        f"{secure_direct_subscription}"
+    )
 
 secure_streamable_headers = {
     **streamable_headers,
@@ -22921,6 +22995,60 @@ if "connectanum.pubsub.publish" not in secure_streamable_tool_names:
     raise AssertionError(
         "Installed CLI protected MCP Streamable tools/list missed pubsub tool"
     )
+_, _, secure_streamable_publish = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-streamable-pubsub-publish",
+        "method": "tools/call",
+        "params": {
+            "name": "connectanum.pubsub.publish",
+            "arguments": {
+                "topic": "cli.smoke.secure.events",
+                "argumentsKeywords": {"via": "secure-streamable-publish"},
+                "acknowledge": True,
+            },
+        },
+    },
+    endpoint=secure_endpoint,
+    headers=secure_session_headers,
+    accept="application/json",
+)
+secure_publish_content = structured_content(
+    secure_streamable_publish,
+    label="Installed CLI protected MCP Streamable pubsub publish",
+)
+if (
+    secure_publish_content.get("topic") != "cli.smoke.secure.events"
+    or secure_publish_content.get("acknowledged") is not True
+):
+    raise AssertionError(
+        "Installed CLI protected MCP Streamable pubsub publish was invalid: "
+        f"{secure_publish_content}"
+    )
+secure_direct_events = poll_direct_pubsub_events(secure_direct_handle)
+if "secure-streamable-publish" not in json.dumps(secure_direct_events):
+    raise AssertionError(
+        "Installed CLI protected MCP direct pubsub poll missed streamable event"
+    )
+_, _, secure_direct_unsubscribe = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-direct-pubsub-unsubscribe",
+        "method": "connectanum.pubsub.unsubscribe",
+        "params": {"handle": secure_direct_handle},
+    },
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+secure_unsubscribe_content = structured_content(
+    secure_direct_unsubscribe,
+    label="Installed CLI protected MCP direct pubsub unsubscribe",
+)
+if secure_unsubscribe_content.get("unsubscribed") is not True:
+    raise AssertionError(
+        "Installed CLI protected MCP direct pubsub unsubscribe was invalid: "
+        f"{secure_unsubscribe_content}"
+    )
 secure_delete_status, secure_delete_headers, _ = request(
     "DELETE",
     endpoint=secure_endpoint,
@@ -22934,6 +23062,6 @@ if secure_delete_status < 200 or secure_delete_status >= 300:
 if secure_delete_headers.get("mcp-session-id") != secure_session_id:
     raise AssertionError("Installed CLI protected MCP DELETE missed session id")
 PY
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, and /mcp/secure from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, and protected pub/sub from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
