@@ -23547,6 +23547,53 @@ Future<void> main() async {
       jsonEncode(secureJsonDirectBatchApi).contains(_secureTopic),
       'Dart consumer protected JSON-response direct batch missed topic API.',
     );
+
+    final secureJsonDirectSubscription =
+        await secureJsonClient.subscribeWampTopicDirect(
+      _secureTopic,
+      id: 'dart-consumer-secure-json-direct-subscribe',
+      queueLimit: 5,
+    );
+    _expect(
+      secureJsonDirectSubscription.topic == _secureTopic &&
+          secureJsonDirectSubscription.handle.isNotEmpty,
+      'Dart consumer protected JSON-response direct subscription was invalid.',
+    );
+    final secureJsonDirectPublication =
+        await secureJsonClient.publishWampEventDirect(
+      _secureTopic,
+      id: 'dart-consumer-secure-json-direct-publish',
+      argumentsKeywords: const <String, Object?>{
+        'via': 'dart-consumer-secure-json-direct',
+      },
+      acknowledge: true,
+    );
+    _expect(
+      secureJsonDirectPublication.topic == _secureTopic &&
+          secureJsonDirectPublication.acknowledged,
+      'Dart consumer protected JSON-response direct publish was invalid.',
+    );
+    final secureJsonDirectEvents = await _pollUntilEvent(
+      secureJsonClient,
+      secureJsonDirectSubscription.handle,
+      marker: 'dart-consumer-secure-json-direct',
+      idPrefix: 'dart-consumer-secure-json-direct-poll',
+    );
+    _expect(
+      jsonEncode(
+        secureJsonDirectEvents.events,
+      ).contains('dart-consumer-secure-json-direct'),
+      'Dart consumer protected JSON-response direct poll missed event.',
+    );
+    final secureJsonDirectUnsubscribe =
+        await secureJsonClient.unsubscribeWampTopicDirect(
+      secureJsonDirectSubscription.handle,
+      id: 'dart-consumer-secure-json-direct-unsubscribe',
+    );
+    _expect(
+      secureJsonDirectUnsubscribe.unsubscribed,
+      'Dart consumer protected JSON-response direct unsubscribe was invalid.',
+    );
     _expect(
       secureJsonClient.sessionId == null && secureJsonClient.lastEventId == null,
       'Dart consumer protected JSON-response direct access captured state.',
@@ -23581,6 +23628,59 @@ Future<void> main() async {
       secureJsonClient.sessionId == secureJsonSessionId &&
           secureJsonClient.lastEventId == null,
       'Dart consumer protected JSON-response initialized state changed.',
+    );
+
+    final secureJsonStreamableSubscription =
+        await secureJsonClient.subscribeWampTopic(
+      _secureTopic,
+      id: 'dart-consumer-secure-json-streamable-subscribe',
+      queueLimit: 5,
+    );
+    _expect(
+      secureJsonStreamableSubscription.topic == _secureTopic &&
+          secureJsonStreamableSubscription.handle.isNotEmpty,
+      'Dart consumer protected JSON-response Streamable subscription was invalid.',
+    );
+    final secureJsonStreamablePublication =
+        await secureJsonClient.publishWampEvent(
+      _secureTopic,
+      id: 'dart-consumer-secure-json-streamable-publish',
+      argumentsKeywords: const <String, Object?>{
+        'via': 'dart-consumer-secure-json-streamable',
+      },
+      acknowledge: true,
+    );
+    _expect(
+      secureJsonStreamablePublication.topic == _secureTopic &&
+          secureJsonStreamablePublication.acknowledged,
+      'Dart consumer protected JSON-response Streamable publish was invalid.',
+    );
+    final secureJsonStreamableEvents = await _pollUntilEvent(
+      secureJsonClient,
+      secureJsonStreamableSubscription.handle,
+      marker: 'dart-consumer-secure-json-streamable',
+      idPrefix: 'dart-consumer-secure-json-streamable-poll',
+      directJson: false,
+    );
+    _expect(
+      jsonEncode(
+        secureJsonStreamableEvents.events,
+      ).contains('dart-consumer-secure-json-streamable'),
+      'Dart consumer protected JSON-response Streamable poll missed event.',
+    );
+    final secureJsonStreamableUnsubscribe =
+        await secureJsonClient.unsubscribeWampTopic(
+      secureJsonStreamableSubscription.handle,
+      id: 'dart-consumer-secure-json-streamable-unsubscribe',
+    );
+    _expect(
+      secureJsonStreamableUnsubscribe.unsubscribed,
+      'Dart consumer protected JSON-response Streamable unsubscribe was invalid.',
+    );
+    _expect(
+      secureJsonClient.sessionId == secureJsonSessionId &&
+          secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response pubsub captured SSE state.',
     );
 
     final secureJsonStreamableBatch = await secureJsonClient.postBatch(
@@ -24024,15 +24124,24 @@ Future<void> main() async {
 
 Future<McpStreamableWampEventBatch> _pollUntilEvent(
   McpStreamableHttpClient client,
-  String handle,
-) async {
+  String handle, {
+  String marker = 'dart-consumer-streamable',
+  String idPrefix = 'dart-consumer-secure-poll',
+  bool directJson = true,
+}) async {
   for (var attempt = 0; attempt < 30; attempt += 1) {
-    final events = await client.pollWampEventsDirect(
-      handle,
-      id: 'dart-consumer-secure-poll-$attempt',
-      limit: 10,
-    );
-    if (jsonEncode(events.events).contains('dart-consumer-streamable')) {
+    final events = directJson
+        ? await client.pollWampEventsDirect(
+            handle,
+            id: '$idPrefix-$attempt',
+            limit: 10,
+          )
+        : await client.pollWampEvents(
+            handle,
+            id: '$idPrefix-$attempt',
+            limit: 10,
+          );
+    if (jsonEncode(events.events).contains(marker)) {
       return events;
     }
     await Future<void>.delayed(const Duration(milliseconds: 50));

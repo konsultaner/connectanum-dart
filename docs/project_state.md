@@ -1,10 +1,55 @@
 # Project State
 
-Last updated: 2026-06-12
+Last updated: 2026-06-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI installed command JSON-response MCP smoke.
-Latest fully clean hosted checkpoint: Commit `aa80067` on GitHub `master`.
+Last reviewed branch checkpoint: Router CLI installed command JSON-response MCP pub/sub helper smoke.
+Latest fully clean hosted checkpoint: Commit `6ba63d3` on GitHub `master`.
 Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
+extends the installed router CLI generated Dart consumer smoke with
+bearer-protected pub/sub round-trips on `/mcp/secure-json-post`, the
+JSON-response route configured with `post_response_transport: json`. The
+generated neutral package still imports only
+`package:connectanum_mcp/connectanum_mcp_io.dart`. After obtaining an HTTP auth
+ticket grant, it now uses the public typed WAMP helper exports to
+`subscribeWampTopicDirect`, `publishWampEventDirect`, `pollWampEventsDirect`,
+and `unsubscribeWampTopicDirect` against the protected JSON-response route,
+asserts the event payload is delivered, and proves direct JSON helper usage
+still captures no Streamable session id or SSE cursor. After initializing a
+stateful JSON-response Streamable HTTP session on the same route, it repeats
+the typed `subscribeWampTopic`, `publishWampEvent`, `pollWampEvents`, and
+`unsubscribeWampTopic` round-trip, proves the session id remains stable, and
+again proves JSON responses do not capture an SSE cursor. This keeps the prior
+installed-command coverage for `/healthz`, `/metrics`, `/auth`, public
+`/mcp`, bearer-protected `/mcp/secure`, missing/unknown bearer rejection,
+secure resources, direct JSON tool/meta APIs, mixed direct/Streamable batch
+error-isolation, protected pub/sub on `/mcp/secure`, Streamable lifecycle, and
+HTTP auth refresh/revoke. This closes the installed-command evidence gap for
+consumer applications and agents that need bearer-protected router-provided
+MCP endpoints with direct JSON response transport, typed public Dart WAMP
+pub/sub helpers, and Streamable HTTP compatibility without source-checkout or
+private-project assumptions. Baseline `bin/test-fast` passed before the change
+on 2026-06-13. Focused checks passed with `bash -n bin/common.sh`,
+`git diff --check`, and
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`.
+Updated `bin/test-fast` passed on 2026-06-13, including the installed router
+CLI generated Dart JSON-response pub/sub helper smoke. Full local `bin/verify`
+passed on 2026-06-13, including formatting, Rust/FFI, MCP package smokes,
+generated consumer-package smokes, router-hosted MCP examples, the installed
+CLI JSON-response pub/sub helper smoke, full router tests, zero-copy router
+tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is
+pending for this checkpoint; the latest fully clean hosted checkpoint remains
+`6ba63d3` with GitHub `master` CI `27446560330`, GitHub `add-router` CI
+`27446559811`, and a
+strict deployment-chain audit that exited successfully with clean latest CI
+logs, relevant Dart package publish dry-run `27281214877` at `06a56bb`,
+relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
+Image dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
+`27281215258` at `06a56bb`, branch protection, workflow visibility, and router
+image package visibility gates ready. RC readiness remains gated on release
+policy: no numeric RC tag points at `6ba63d3`, no GitHub prerelease or router
+image RC tag is selected, and pub.dev package ownership/version/release-order
+decisions remain deferred.
+Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 adds a bearer-protected `/mcp/secure-json-post` router-hosted MCP route to the
 installed command smoke with `post_response_transport: json`. The raw HTTP
 smoke proves missing and unknown bearer credentials are rejected on that route.
@@ -36,16 +81,16 @@ CLI generated Dart JSON-response MCP smoke. Full local `bin/verify` passed on
 2026-06-12, including formatting, Rust/FFI, MCP package smokes, generated
 consumer-package smokes, router-hosted MCP examples, the installed CLI
 JSON-response MCP smoke, full router tests, zero-copy router tests, and the
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
-checkpoint; the latest fully clean hosted checkpoint remains `aa80067` with
-GitHub `master` CI `27443756070`, GitHub `add-router` CI `27443750031`, and a
-strict deployment-chain audit that exited successfully with clean latest CI
-logs, relevant Dart package publish dry-run `27281214877` at `06a56bb`,
-relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
-Image dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is clean for
+`6ba63d3`: GitHub `master` CI `27446560330` passed with `Fast Checks` and
+`Full Verify` clean, GitHub `add-router` CI `27446559811` also passed, and the
+strict deployment-chain audit exited successfully with clean latest CI logs,
+relevant Dart package publish dry-run `27281214877` at `06a56bb`, relevant
+Native Artifacts dry-run `26396437881` at `debd545`, relevant Router Image
+dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
 `27281215258` at `06a56bb`, branch protection, workflow visibility, and router
 image package visibility gates ready. RC readiness remains gated on release
-policy: no numeric RC tag points at `aa80067`, no GitHub prerelease or router
+policy: no numeric RC tag points at `6ba63d3`, no GitHub prerelease or router
 image RC tag is selected, and pub.dev package ownership/version/release-order
 decisions remain deferred.
 Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
