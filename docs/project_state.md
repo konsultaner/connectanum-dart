@@ -2,32 +2,68 @@
 
 Last updated: 2026-06-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI installed command health/metrics
-smoke.
-Latest fully clean hosted checkpoint: Commit `715b258` on GitHub `master`.
+Last reviewed branch checkpoint: Router CLI installed command MCP route smoke.
+Latest fully clean hosted checkpoint: Commit `d01f6b4` on GitHub `master`.
 Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
-proves more than global activation and help output: after activating
-`packages/connectanum_router` into a temporary `PUB_CACHE`, it starts the
+extends the installed router CLI smoke through a YAML-configured
+router-hosted MCP endpoint. After activating `packages/connectanum_router` into
+a temporary `PUB_CACHE`, it starts the installed `connectanum_router` command
+with a temporary router config and the source-built native runtime, keeps the
+existing `/healthz` and `/metrics` checks, and exposes `/mcp` on a separate
+local HTTP listener. The MCP route includes the standard meta API, pub/sub
+tools, a configured resource, resource template, prompt, and topic so the smoke
+can prove direct JSON `tools/list`, `resources/list`, `resources/read`,
+`prompts/list`, and `prompts/get` access, then drive Streamable HTTP
+`initialize`, `notifications/initialized`, session `tools/list`, and `DELETE`
+cleanup through the installed command. This closes the consumer-readiness gap
+where an application or agent could install and boot the router CLI but still
+lack package-level evidence that router-provided MCP endpoints are usable
+without source-checkout assumptions. Baseline `bin/test-fast` passed before the
+change on 2026-06-12. Focused fail-first evidence found that
+`notifications/initialized` can legitimately complete with status only, that a
+text/event-stream `tools/list` request may be accepted without an immediate JSON
+body, and that active-session direct JSON responses do not have to echo
+`MCP-Session-Id` unless they send a conflicting value. Focused checks passed
+with `bash -n bin/common.sh bin/test-fast bin/test-all`,
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`, and
+`git diff --check`. Updated `bin/test-fast` passed on 2026-06-12, including the
+enhanced router CLI consumer package smoke. Full local `bin/verify` passed on
+2026-06-12, including formatting, Rust/FFI, MCP package smokes, generated
+consumer-package smokes, the router-hosted MCP example, the enhanced router CLI
+consumer package smoke, full router suite, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this local
+checkpoint is pending; the latest fully clean hosted checkpoint remains
+`d01f6b4`.
+Previous implementation checkpoint: `run_router_cli_consumer_package_smoke`
+proved more than global activation and help output: after activating
+`packages/connectanum_router` into a temporary `PUB_CACHE`, it started the
 installed `connectanum_router` command with a temporary router config and the
-source-built native runtime, waits for the runner to announce OpenMetrics and a
-running state, asserts `/healthz` returns `ok`, and asserts `/metrics` includes
-`connectanum_router_drain_in_progress`. The smoke records the router process,
-terminates and reaps it without matching its own shell helper, waits for native
-runtime lock release, restores generated hook-runner/package metadata, and
-removes the temp pub-cache. This closes the consumer-readiness gap where a
-downstream shell could install the router executable but still lack proof that
-the installed command can boot the native router and expose operational HTTP
-endpoints. The initial `bin/test-fast` attempt on 2026-06-12 reproduced the
-cleanup bug after the new health/metrics assertions: the process scan matched
-the smoke helper itself and exited the suite with status 143. Focused checks
-passed with `bash -n bin/common.sh bin/test-fast bin/test-all`,
+source-built native runtime, waited for the runner to announce OpenMetrics and
+a running state, asserted `/healthz` returned `ok`, and asserted `/metrics`
+included `connectanum_router_drain_in_progress`. The smoke recorded the router
+process, terminated and reaped it without matching its own shell helper, waited
+for native runtime lock release, restored generated hook-runner/package
+metadata, and removed the temp pub-cache. This closed the consumer-readiness
+gap where a downstream shell could install the router executable but still lack
+proof that the installed command can boot the native router and expose
+operational HTTP endpoints. The initial `bin/test-fast` attempt on 2026-06-12
+reproduced the cleanup bug after the new health/metrics assertions: the process
+scan matched the smoke helper itself and exited the suite with status 143.
+Focused checks passed with `bash -n bin/common.sh bin/test-fast bin/test-all`,
 `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`, and
 `bin/test-fast`. Full local `bin/verify` passed on 2026-06-12, including
 formatting, Rust/FFI, MCP package smokes, generated consumer-package smokes,
 the router-hosted MCP example, the enhanced router CLI consumer package smoke,
 full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this local checkpoint is pending; the
-latest fully clean hosted checkpoint remains `715b258`.
+WebSocket smoke. Hosted evidence passed on 2026-06-12: GitHub `master` CI
+`27415634055` at `d01f6b4` passed with `Fast Checks` and `Full Verify` clean,
+GitHub `add-router` CI `27415629654` also passed, and the strict deployment
+chain audit exited successfully with clean CI logs, relevant Dart package
+publish dry-run `27281214877` at `06a56bb`, relevant Native Artifacts dry-run
+`26396437881` at `debd545`, relevant Router Image dry-run `27282955159` at
+`715b258`, relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`,
+branch protection, workflow visibility, and router image package visibility
+gates ready.
 Previous implementation checkpoint: `connectanum_router` now declares its
 package executable and the root verification scripts prove it through a
 consumer-style global activation smoke. `run_router_cli_consumer_package_smoke`

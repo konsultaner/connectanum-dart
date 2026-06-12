@@ -22240,6 +22240,7 @@ DART
 
 run_router_cli_consumer_package_smoke() (
   local health_body
+  local mcp_port
   local metrics_body
   local metrics_line
   local metrics_port
@@ -22333,7 +22334,9 @@ run_router_cli_consumer_package_smoke() (
     fi
     rm -rf "$ROOT_DIR/.dart_tool/hooks_runner"
     (cd "$ROOT_DIR" && dart pub get >/dev/null 2>&1 || true)
-    rm -rf "$smoke_dir"
+    if [[ -n "${smoke_dir:-}" ]]; then
+      rm -rf "$smoke_dir"
+    fi
     exit "$status"
   }
   trap _cleanup_router_cli_smoke EXIT
@@ -22359,8 +22362,19 @@ run_router_cli_consumer_package_smoke() (
     return 0
   fi
   require_command curl
+  require_command python3
 
-  cat >"$smoke_dir/router.yaml" <<'YAML'
+  mcp_port="$(
+    python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+  )"
+
+  cat >"$smoke_dir/router.yaml" <<YAML
 router:
   session_profiles:
     - name: public-wamp
@@ -22396,6 +22410,46 @@ router:
         mode: disabled
       rawsocket:
         max_rawsocket_size_exponent: 16
+    - endpoint: 127.0.0.1:$mcp_port
+      session_profile: public-wamp
+      protocols: [http]
+      tls:
+        mode: disabled
+      http:
+        session_profile: public-wamp
+        routes:
+          - match:
+              path: /mcp
+            action:
+              type: mcp
+              realm: cli.smoke
+              session_profile: public-wamp
+              options:
+                name: cli-router-mcp
+                instructions: Router CLI MCP smoke endpoint.
+                include_standard_meta_api: true
+                include_pubsub_tools: true
+                resources:
+                  - uri: cli://mcp/context
+                    name: cli-context
+                    mime_type: text/plain
+                    text: Router CLI MCP context.
+                resource_templates:
+                  - uri_template: cli://mcp/task/{taskId}
+                    name: cli-task
+                    description: Router CLI task resource template.
+                prompts:
+                  - name: summarize-cli-context
+                    arguments:
+                      - name: topic
+                        required: true
+                    messages:
+                      - role: user
+                        text: Summarize {{topic}} from the router CLI MCP smoke.
+                topics:
+                  - topic: cli.smoke.events
+                    title: CLI Smoke Events
+                    description: Events exposed by the router CLI MCP smoke.
 
   internal_realms:
     - name: connectanum.metrics
@@ -22456,6 +22510,185 @@ YAML
 
   metrics_body="$(curl -fsS "http://127.0.0.1:$metrics_port/metrics")"
   grep -F 'connectanum_router_drain_in_progress' <<<"$metrics_body" >/dev/null
-  printf 'Router CLI consumer package smoke served /healthz and /metrics from the installed command.\n'
+  MCP_PORT="$mcp_port" python3 - <<'PY'
+import json
+import os
+import urllib.error
+import urllib.request
+
+endpoint = f"http://127.0.0.1:{os.environ['MCP_PORT']}/mcp"
+protocol_version = "2025-11-25"
+
+
+def request(method, payload=None, *, headers=None, accept="application/json"):
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(endpoint, data=data, method=method)
+    req.add_header("Accept", accept)
+    if payload is not None:
+        req.add_header("Content-Type", "application/json")
+    for name, value in (headers or {}).items():
+        req.add_header(name, value)
+    try:
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return (
+                response.status,
+                {key.lower(): value for key, value in response.headers.items()},
+                response.read().decode("utf-8"),
+            )
+    except urllib.error.HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        raise AssertionError(
+            f"{method} {endpoint} returned {error.code}: {body}"
+        ) from error
+
+
+def json_payload(body):
+    text = body.strip()
+    if not text:
+        return None
+    if text.startswith("event:") or text.startswith("data:"):
+        for block in text.split("\n\n"):
+            data_lines = [
+                line[len("data:") :].lstrip()
+                for line in block.splitlines()
+                if line.startswith("data:")
+            ]
+            if data_lines:
+                return json.loads("\n".join(data_lines))
+        raise AssertionError(f"SSE response did not contain data: {body}")
+    return json.loads(text)
+
+
+def post_json(payload, *, headers=None, accept="application/json"):
+    status, response_headers, body = request(
+        "POST", payload, headers=headers, accept=accept
+    )
+    if status < 200 or status >= 300:
+        raise AssertionError(f"Unexpected MCP HTTP status {status}: {body}")
+    parsed = json_payload(body)
+    if isinstance(parsed, dict) and "error" in parsed:
+        raise AssertionError(f"MCP JSON-RPC error: {parsed['error']}")
+    return status, response_headers, parsed
+
+
+_, _, tools = post_json({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+tool_names = {tool.get("name") for tool in tools["result"]["tools"]}
+for expected in {
+    "connectanum.api.list",
+    "connectanum.pubsub.subscribe",
+    "connectanum.pubsub.publish",
+}:
+    if expected not in tool_names:
+        raise AssertionError(f"Installed CLI MCP route missed tool {expected}")
+
+_, _, resources = post_json(
+    {"jsonrpc": "2.0", "id": 2, "method": "resources/list"}
+)
+resource_uris = {
+    resource.get("uri") for resource in resources["result"]["resources"]
+}
+if "cli://mcp/context" not in resource_uris:
+    raise AssertionError("Installed CLI MCP route missed configured resource")
+
+_, _, resource = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "resources/read",
+        "params": {"uri": "cli://mcp/context"},
+    }
+)
+if "Router CLI MCP context." not in json.dumps(resource["result"]["contents"]):
+    raise AssertionError("Installed CLI MCP resources/read missed context")
+
+_, _, prompts = post_json({"jsonrpc": "2.0", "id": 4, "method": "prompts/list"})
+prompt_names = {prompt.get("name") for prompt in prompts["result"]["prompts"]}
+if "summarize-cli-context" not in prompt_names:
+    raise AssertionError("Installed CLI MCP route missed configured prompt")
+
+_, _, prompt = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "prompts/get",
+        "params": {
+            "name": "summarize-cli-context",
+            "arguments": {"topic": "consumer readiness"},
+        },
+    }
+)
+if "consumer readiness" not in json.dumps(prompt["result"]["messages"]):
+    raise AssertionError("Installed CLI MCP prompts/get missed substitution")
+
+streamable_headers = {
+    "MCP-Protocol-Version": protocol_version,
+}
+_, initialize_headers, initialize = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "initialize",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": protocol_version,
+            "capabilities": {},
+            "clientInfo": {
+                "name": "router-cli-consumer-smoke",
+                "version": "0.0.0",
+            },
+        },
+    },
+    headers=streamable_headers,
+    accept="application/json, text/event-stream",
+)
+session_id = initialize_headers.get("mcp-session-id")
+if not session_id:
+    raise AssertionError("Installed CLI MCP Streamable initialize missed session id")
+if initialize["result"]["protocolVersion"] != protocol_version:
+    raise AssertionError("Installed CLI MCP Streamable initialize changed protocol")
+
+session_headers = {
+    **streamable_headers,
+    "MCP-Session-Id": session_id,
+}
+notification_status, _, notification_body = request(
+    "POST",
+    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+    headers=session_headers,
+    accept="application/json, text/event-stream",
+)
+if notification_status < 200 or notification_status >= 300:
+    raise AssertionError(
+        f"Installed CLI MCP initialized notification returned {notification_status}"
+    )
+if notification_body.strip():
+    notification_payload = json_payload(notification_body)
+    if isinstance(notification_payload, dict) and "error" in notification_payload:
+        raise AssertionError(
+            "Installed CLI MCP initialized notification returned "
+            f"{notification_payload['error']}"
+        )
+_, list_headers, streamable_tools = post_json(
+    {"jsonrpc": "2.0", "id": "tools", "method": "tools/list"},
+    headers=session_headers,
+    accept="application/json",
+)
+response_session_id = list_headers.get("mcp-session-id")
+if response_session_id is not None and response_session_id != session_id:
+    raise AssertionError("Installed CLI MCP Streamable tools/list changed session id")
+streamable_tool_names = {
+    tool.get("name") for tool in streamable_tools["result"]["tools"]
+}
+if "connectanum.api.list" not in streamable_tool_names:
+    raise AssertionError("Installed CLI MCP Streamable tools/list missed meta tool")
+
+delete_status, delete_headers, _ = request(
+    "DELETE", headers=session_headers, accept="application/json, text/event-stream"
+)
+if delete_status < 200 or delete_status >= 300:
+    raise AssertionError(f"Installed CLI MCP DELETE returned {delete_status}")
+if delete_headers.get("mcp-session-id") != session_id:
+    raise AssertionError("Installed CLI MCP DELETE missed session id")
+PY
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, and /mcp from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
