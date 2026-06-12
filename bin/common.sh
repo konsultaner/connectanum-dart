@@ -23168,6 +23168,74 @@ Future<void> main() async {
       'Dart consumer public direct JSON prompt get missed substitution.',
     );
 
+    final publicDirectBatch = await publicClient.postBatchDirect(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-public-direct-batch-resource-read',
+          'method': 'resources/read',
+          'params': <String, Object?>{'uri': 'cli://mcp/context'},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-public-direct-batch-prompt-get',
+          'method': 'prompts/get',
+          'params': <String, Object?>{
+            'name': 'summarize-cli-context',
+            'arguments': <String, Object?>{
+              'topic': 'Dart direct batch consumer readiness',
+            },
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-public-direct-batch-resource-templates',
+          'method': 'resources/templates/list',
+          'params': <String, Object?>{},
+        },
+      ],
+    );
+    final publicDirectBatchResource = _batchResult(
+      publicDirectBatch,
+      0,
+      'dart-consumer-public-direct-batch-resource-read',
+      'Dart consumer public direct JSON batch resource read',
+    );
+    _expect(
+      jsonEncode(
+        publicDirectBatchResource,
+      ).contains('Router CLI MCP context.'),
+      'Dart consumer public direct JSON batch resource missed content.',
+    );
+    final publicDirectBatchPrompt = _batchResult(
+      publicDirectBatch,
+      1,
+      'dart-consumer-public-direct-batch-prompt-get',
+      'Dart consumer public direct JSON batch prompt get',
+    );
+    _expect(
+      jsonEncode(
+        publicDirectBatchPrompt,
+      ).contains('Dart direct batch consumer readiness'),
+      'Dart consumer public direct JSON batch prompt missed substitution.',
+    );
+    final publicDirectBatchTemplates = _batchResult(
+      publicDirectBatch,
+      2,
+      'dart-consumer-public-direct-batch-resource-templates',
+      'Dart consumer public direct JSON batch resource templates',
+    );
+    _expect(
+      jsonEncode(
+        publicDirectBatchTemplates,
+      ).contains('cli://mcp/task/{taskId}'),
+      'Dart consumer public direct JSON batch templates missed template.',
+    );
+    _expect(
+      publicClient.sessionId == null && publicClient.lastEventId == null,
+      'Dart consumer public direct JSON batch changed Streamable state.',
+    );
+
     final publicInitialize = await publicClient.initialize(
       id: 'dart-consumer-public-initialize',
       protocolVersion: _protocolVersion,
@@ -23204,6 +23272,71 @@ Future<void> main() async {
         'Dart Streamable consumer readiness',
       ),
       'Dart consumer public Streamable prompt get missed substitution.',
+    );
+
+    final publicBatchSessionId = publicClient.sessionId;
+    final publicBatchLastEventId = publicClient.lastEventId;
+    final publicStreamableBatch = await publicClient.postBatch(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-public-streamable-batch-resource-read',
+          'method': 'resources/read',
+          'params': <String, Object?>{'uri': 'cli://mcp/context'},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-public-streamable-batch-prompt-get',
+          'method': 'prompts/get',
+          'params': <String, Object?>{
+            'name': 'summarize-cli-context',
+            'arguments': <String, Object?>{
+              'topic': 'Dart Streamable batch consumer readiness',
+            },
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+          'params': <String, Object?>{},
+        },
+      ],
+    );
+    final publicStreamableBatchResource = _batchResult(
+      publicStreamableBatch,
+      0,
+      'dart-consumer-public-streamable-batch-resource-read',
+      'Dart consumer public Streamable batch resource read',
+    );
+    _expect(
+      jsonEncode(
+        publicStreamableBatchResource,
+      ).contains('Router CLI MCP context.'),
+      'Dart consumer public Streamable batch resource missed content.',
+    );
+    final publicStreamableBatchPrompt = _batchResult(
+      publicStreamableBatch,
+      1,
+      'dart-consumer-public-streamable-batch-prompt-get',
+      'Dart consumer public Streamable batch prompt get',
+    );
+    _expect(
+      jsonEncode(
+        publicStreamableBatchPrompt,
+      ).contains('Dart Streamable batch consumer readiness'),
+      'Dart consumer public Streamable batch prompt missed substitution.',
+    );
+    _expect(
+      publicClient.sessionId == publicBatchSessionId,
+      'Dart consumer public Streamable batch changed session id.',
+    );
+    final publicBatchNextEventId = publicClient.lastEventId;
+    _expect(
+      publicBatchSessionId != null &&
+          publicBatchNextEventId != null &&
+          publicBatchNextEventId != publicBatchLastEventId &&
+          publicBatchNextEventId.startsWith('$publicBatchSessionId:'),
+      'Dart consumer public Streamable batch did not advance SSE state.',
     );
 
     final publicStreamableTools = await publicClient.listTools(
@@ -23281,6 +23414,51 @@ Future<void> main() async {
       'Dart consumer protected direct JSON resource read missed content.',
     );
 
+    final secureDirectBatch = await secureClient.postBatchDirect(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-direct-batch-resource-read',
+          'method': 'resources/read',
+          'params': <String, Object?>{'uri': 'cli://mcp/secure/context'},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-direct-batch-tools',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+      ],
+    );
+    final secureDirectBatchResource = _batchResult(
+      secureDirectBatch,
+      0,
+      'dart-consumer-secure-direct-batch-resource-read',
+      'Dart consumer protected direct JSON batch resource read',
+    );
+    _expect(
+      jsonEncode(
+        secureDirectBatchResource,
+      ).contains('Router CLI secure MCP context.'),
+      'Dart consumer protected direct JSON batch resource missed content.',
+    );
+    final secureDirectBatchTools = _batchResult(
+      secureDirectBatch,
+      1,
+      'dart-consumer-secure-direct-batch-tools',
+      'Dart consumer protected direct JSON batch tools list',
+    );
+    _expect(
+      jsonEncode(
+        secureDirectBatchTools,
+      ).contains('connectanum.pubsub.publish'),
+      'Dart consumer protected direct JSON batch missed pubsub tool.',
+    );
+    _expect(
+      secureClient.sessionId == null && secureClient.lastEventId == null,
+      'Dart consumer protected direct JSON batch changed Streamable state.',
+    );
+
     final secureCatalog = await secureClient.listWampApiDirect(
       id: 'dart-consumer-secure-topics',
       kind: 'topic',
@@ -23324,6 +23502,66 @@ Future<void> main() async {
         secureStreamableContents,
       ).contains('Router CLI secure MCP context.'),
       'Dart consumer protected Streamable resource read missed content.',
+    );
+
+    final secureBatchSessionId = secureClient.sessionId;
+    final secureBatchLastEventId = secureClient.lastEventId;
+    final secureStreamableBatch = await secureClient.postBatch(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-streamable-batch-resource-read',
+          'method': 'resources/read',
+          'params': <String, Object?>{'uri': 'cli://mcp/secure/context'},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'dart-consumer-secure-streamable-batch-tools',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+          'params': <String, Object?>{},
+        },
+      ],
+    );
+    final secureStreamableBatchResource = _batchResult(
+      secureStreamableBatch,
+      0,
+      'dart-consumer-secure-streamable-batch-resource-read',
+      'Dart consumer protected Streamable batch resource read',
+    );
+    _expect(
+      jsonEncode(
+        secureStreamableBatchResource,
+      ).contains('Router CLI secure MCP context.'),
+      'Dart consumer protected Streamable batch resource missed content.',
+    );
+    final secureStreamableBatchTools = _batchResult(
+      secureStreamableBatch,
+      1,
+      'dart-consumer-secure-streamable-batch-tools',
+      'Dart consumer protected Streamable batch tools list',
+    );
+    _expect(
+      jsonEncode(
+        secureStreamableBatchTools,
+      ).contains('connectanum.pubsub.publish'),
+      'Dart consumer protected Streamable batch missed pubsub tool.',
+    );
+    _expect(
+      secureClient.sessionId == secureBatchSessionId,
+      'Dart consumer protected Streamable batch changed session id.',
+    );
+    final secureBatchNextEventId = secureClient.lastEventId;
+    _expect(
+      secureBatchSessionId != null &&
+          secureBatchNextEventId != null &&
+          secureBatchNextEventId != secureBatchLastEventId &&
+          secureBatchNextEventId.startsWith('$secureBatchSessionId:'),
+      'Dart consumer protected Streamable batch did not advance SSE state.',
     );
 
     final secureStreamableTools = await secureClient.listTools(
@@ -23546,6 +23784,24 @@ McpJsonMap _resultFrom(McpJsonMap response, String label) {
     return Map<String, Object?>.from(result);
   }
   throw StateError('$label missed a JSON-RPC result object.');
+}
+
+McpJsonMap _batchResult(
+  List<McpJsonMap>? responses,
+  int index,
+  String id,
+  String label,
+) {
+  if (responses == null || responses.length <= index) {
+    throw StateError('$label missed batch response $id.');
+  }
+  final response = responses[index];
+  if (response['id'] != id) {
+    throw StateError(
+      '$label returned response id ${response['id']}, expected $id.',
+    );
+  }
+  return _resultFrom(response, label);
 }
 
 void _expect(bool condition, String message) {
