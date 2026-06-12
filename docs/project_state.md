@@ -2,9 +2,36 @@
 
 Last updated: 2026-06-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI installed command Dart MCP helper/auth lifecycle smoke.
-Latest fully clean hosted checkpoint: Commit `98454a2` on GitHub `master`.
+Last reviewed branch checkpoint: Router CLI installed command Dart Streamable resource/prompt helper smoke.
+Latest fully clean hosted checkpoint: Commit `7c5e0d8` on GitHub `master`.
 Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
+extends the installed router CLI generated Dart consumer package smoke with
+public Streamable resource/prompt helper coverage and protected resource
+helper coverage against the live installed command. The generated neutral
+consumer package still imports only
+`package:connectanum_mcp/connectanum_mcp_io.dart`. After initializing the
+public `/mcp` Streamable session, it now calls `readResource` and `getPrompt`
+over the session and asserts the configured resource text and prompt argument
+substitution. Against bearer-protected `/mcp/secure`, it now lists and reads
+the configured secure resource through direct JSON helpers, then reads the same
+resource through an authenticated Streamable session. This keeps the prior
+public direct resource/template/prompt helper coverage, protected direct JSON
+tool/topic catalog checks, protected pub/sub round-trip, Streamable lifecycle
+checks, and HTTP auth refresh/revoke lifecycle checks. This closes the
+installed-command evidence gap for consumer applications and agents that rely
+on exported Dart MCP resource/prompt helpers over Streamable HTTP and on
+bearer-protected router-provided resources, without source-checkout or
+private-project assumptions. Baseline `bin/test-fast` passed before the change
+on 2026-06-12. Focused checks passed with `bash -n bin/common.sh`,
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`, and
+`git diff --check`. Updated `bin/test-fast` passed on 2026-06-12, including
+the installed router CLI generated Dart Streamable resource/prompt helper
+smoke. Full local `bin/verify` passed on 2026-06-12, including formatting,
+Rust/FFI, MCP package smokes, generated consumer-package smokes, router-hosted
+MCP example and installed CLI consumer smokes, full router tests, zero-copy
+router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is
+pending; the latest fully clean hosted checkpoint remains `7c5e0d8`.
+Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI generated Dart consumer package smoke with
 public resource/prompt helper coverage and HTTP auth refresh/revoke lifecycle
 coverage against the live installed command. The generated neutral consumer
@@ -30,8 +57,18 @@ local `bin/verify` passed on 2026-06-12, including formatting, Rust/FFI, MCP
 package smokes, generated consumer-package smokes, the router-hosted MCP
 example, the installed router CLI generated Dart MCP helper/auth lifecycle
 smoke, full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence is pending; the latest fully clean hosted
-checkpoint remains `98454a2`.
+WebSocket smoke. Hosted evidence passed on 2026-06-12: GitHub `master` CI
+`27433331577` at `7c5e0d8` passed with `Fast Checks` and `Full Verify` clean,
+GitHub `add-router` CI `27433331523` also passed, and the strict
+deployment-chain audit exited successfully with clean CI logs, relevant Dart
+package publish dry-run `27281214877` at `06a56bb`, relevant Native Artifacts
+dry-run `26396437881` at `debd545`, relevant Router Image dry-run
+`27282955159` at `715b258`, relevant WAMP Profile Benchmarks `27281215258` at
+`06a56bb`, branch protection, workflow visibility, and router image package
+visibility gates ready. RC readiness remains gated on release policy: no
+numeric RC tag points at `7c5e0d8`, no GitHub prerelease or router image RC tag
+is selected, and pub.dev package ownership/version/release-order decisions
+remain deferred.
 Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI smoke with a generated neutral Dart consumer
 package that uses only public MCP exports against the live installed command.

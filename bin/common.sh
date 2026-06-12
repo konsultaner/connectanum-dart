@@ -23183,6 +23183,29 @@ Future<void> main() async {
     );
     await publicClient.notifyInitialized();
 
+    final publicStreamableContents = await publicClient.readResource(
+      'cli://mcp/context',
+      id: 'dart-consumer-public-streamable-resource-read',
+    );
+    _expect(
+      jsonEncode(publicStreamableContents).contains('Router CLI MCP context.'),
+      'Dart consumer public Streamable resource read missed content.',
+    );
+
+    final publicStreamablePrompt = await publicClient.getPrompt(
+      'summarize-cli-context',
+      id: 'dart-consumer-public-streamable-prompt-get',
+      arguments: const <String, String>{
+        'topic': 'Dart Streamable consumer readiness',
+      },
+    );
+    _expect(
+      jsonEncode(publicStreamablePrompt).contains(
+        'Dart Streamable consumer readiness',
+      ),
+      'Dart consumer public Streamable prompt get missed substitution.',
+    );
+
     final publicStreamableTools = await publicClient.listTools(
       id: 'dart-consumer-public-streamable-tools',
     );
@@ -23236,6 +23259,28 @@ Future<void> main() async {
       'Dart consumer missed protected direct JSON pubsub tool.',
     );
 
+    final secureResources = await secureClient.listResourcesDirect(
+      id: 'dart-consumer-secure-resources',
+    );
+    _expect(
+      _stringFields(
+        secureResources.resources,
+        'uri',
+      ).contains('cli://mcp/secure/context'),
+      'Dart consumer missed protected direct JSON resource.',
+    );
+
+    final secureResourceContents = await secureClient.readResourceDirect(
+      'cli://mcp/secure/context',
+      id: 'dart-consumer-secure-resource-read',
+    );
+    _expect(
+      jsonEncode(
+        secureResourceContents,
+      ).contains('Router CLI secure MCP context.'),
+      'Dart consumer protected direct JSON resource read missed content.',
+    );
+
     final secureCatalog = await secureClient.listWampApiDirect(
       id: 'dart-consumer-secure-topics',
       kind: 'topic',
@@ -23269,6 +23314,17 @@ Future<void> main() async {
       'Dart consumer protected Streamable initialize changed protocol.',
     );
     await secureClient.notifyInitialized();
+
+    final secureStreamableContents = await secureClient.readResource(
+      'cli://mcp/secure/context',
+      id: 'dart-consumer-secure-streamable-resource-read',
+    );
+    _expect(
+      jsonEncode(
+        secureStreamableContents,
+      ).contains('Router CLI secure MCP context.'),
+      'Dart consumer protected Streamable resource read missed content.',
+    );
 
     final secureStreamableTools = await secureClient.listTools(
       id: 'dart-consumer-secure-streamable-tools',
