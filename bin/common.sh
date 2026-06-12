@@ -23062,6 +23062,273 @@ if secure_delete_status < 200 or secure_delete_status >= 300:
 if secure_delete_headers.get("mcp-session-id") != secure_session_id:
     raise AssertionError("Installed CLI protected MCP DELETE missed session id")
 PY
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, and protected pub/sub from the installed command.\n'
+  mkdir -p "$smoke_dir/dart-consumer/bin"
+  cat >"$smoke_dir/dart-consumer/pubspec.yaml" <<EOF
+name: connectanum_router_cli_mcp_client_smoke
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+dependencies:
+  connectanum_mcp: any
+dependency_overrides:
+  connectanum_core:
+    path: "$ROOT_DIR/packages/connectanum_core"
+  connectanum_client:
+    path: "$ROOT_DIR/packages/connectanum_client"
+  connectanum_mcp:
+    path: "$ROOT_DIR/packages/connectanum_mcp"
+EOF
+
+  cat >"$smoke_dir/dart-consumer/bin/main.dart" <<'DART'
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:connectanum_mcp/connectanum_mcp_io.dart';
+
+const _protocolVersion = McpStreamableHttpClient.latestProtocolVersion;
+const _secureTopic = 'cli.smoke.secure.events';
+
+Future<void> main() async {
+  final port = Platform.environment['MCP_PORT'];
+  _expect(port != null && port.isNotEmpty, 'MCP_PORT must be set.');
+
+  final baseUri = Uri.parse('http://127.0.0.1:$port');
+  final publicEndpoint = baseUri.resolve('/mcp');
+  final secureEndpoint = baseUri.resolve('/mcp/secure');
+  final authEndpoint = baseUri.resolve('/auth');
+  final publicClient = McpStreamableHttpClient(publicEndpoint);
+  final authClient = ConnectanumHttpAuthClient(authEndpoint);
+  McpStreamableHttpClient? secureClient;
+
+  try {
+    final publicTools = await publicClient.listToolsDirect(
+      id: 'dart-consumer-public-tools',
+    );
+    _expect(
+      _stringFields(publicTools.tools, 'name').contains('connectanum.api.list'),
+      'Dart consumer missed public direct JSON meta tool.',
+    );
+
+    final publicResources = await publicClient.listResourcesDirect(
+      id: 'dart-consumer-public-resources',
+    );
+    _expect(
+      _stringFields(
+        publicResources.resources,
+        'uri',
+      ).contains('cli://mcp/context'),
+      'Dart consumer missed public direct JSON resource.',
+    );
+
+    final publicInitialize = await publicClient.initialize(
+      id: 'dart-consumer-public-initialize',
+      protocolVersion: _protocolVersion,
+      clientInfo: const <String, Object?>{
+        'name': 'router-cli-dart-consumer-smoke',
+        'version': '0.0.0',
+      },
+    );
+    _expect(
+      _resultFrom(publicInitialize, 'public initialize')['protocolVersion'] ==
+          _protocolVersion,
+      'Dart consumer public Streamable initialize changed protocol.',
+    );
+    await publicClient.notifyInitialized();
+
+    final publicStreamableTools = await publicClient.listTools(
+      id: 'dart-consumer-public-streamable-tools',
+    );
+    _expect(
+      _stringFields(
+        publicStreamableTools.tools,
+        'name',
+      ).contains('connectanum.api.list'),
+      'Dart consumer missed public Streamable meta tool.',
+    );
+    await publicClient.deleteSession();
+
+    final grant = await authClient.issueTicketToken(
+      realm: 'cli.smoke',
+      authId: 'cli-user',
+      ticket: 'cli-ticket',
+    );
+    _expect(grant.accessToken.isNotEmpty, 'Dart consumer auth grant was empty.');
+    _expect(grant.tokenType == 'Bearer', 'Dart consumer auth grant was not Bearer.');
+    _expect(grant.realm == 'cli.smoke', 'Dart consumer auth grant realm changed.');
+    _expect(grant.authId == 'cli-user', 'Dart consumer auth grant authid changed.');
+    _expect(
+      grant.authRole == 'member',
+      'Dart consumer auth grant authrole changed.',
+    );
+    _expect(
+      grant.authMethod == 'ticket',
+      'Dart consumer auth grant authmethod changed.',
+    );
+    _expect(
+      grant.authProvider == 'cli-ticket-db',
+      'Dart consumer auth grant authprovider changed.',
+    );
+
+    secureClient = McpStreamableHttpClient.withAuthGrant(
+      secureEndpoint,
+      grant,
+    );
+    final secureTools = await secureClient.listToolsDirect(
+      id: 'dart-consumer-secure-tools',
+    );
+    _expect(
+      _stringFields(
+        secureTools.tools,
+        'name',
+      ).contains('connectanum.pubsub.publish'),
+      'Dart consumer missed protected direct JSON pubsub tool.',
+    );
+
+    final secureCatalog = await secureClient.listWampApiDirect(
+      id: 'dart-consumer-secure-topics',
+      kind: 'topic',
+    );
+    _expect(
+      jsonEncode(secureCatalog).contains(_secureTopic),
+      'Dart consumer missed protected direct JSON topic catalog.',
+    );
+
+    final subscription = await secureClient.subscribeWampTopicDirect(
+      _secureTopic,
+      id: 'dart-consumer-secure-subscribe',
+      queueLimit: 5,
+    );
+    _expect(
+      subscription.topic == _secureTopic && subscription.handle.isNotEmpty,
+      'Dart consumer protected direct JSON subscription was invalid.',
+    );
+
+    final secureInitialize = await secureClient.initialize(
+      id: 'dart-consumer-secure-initialize',
+      protocolVersion: _protocolVersion,
+      clientInfo: const <String, Object?>{
+        'name': 'router-cli-dart-consumer-smoke-secure',
+        'version': '0.0.0',
+      },
+    );
+    _expect(
+      _resultFrom(secureInitialize, 'secure initialize')['protocolVersion'] ==
+          _protocolVersion,
+      'Dart consumer protected Streamable initialize changed protocol.',
+    );
+    await secureClient.notifyInitialized();
+
+    final secureStreamableTools = await secureClient.listTools(
+      id: 'dart-consumer-secure-streamable-tools',
+    );
+    _expect(
+      _stringFields(
+        secureStreamableTools.tools,
+        'name',
+      ).contains('connectanum.pubsub.publish'),
+      'Dart consumer missed protected Streamable pubsub tool.',
+    );
+
+    final publication = await secureClient.publishWampEvent(
+      _secureTopic,
+      id: 'dart-consumer-secure-streamable-publish',
+      argumentsKeywords: const <String, Object?>{
+        'via': 'dart-consumer-streamable',
+      },
+      acknowledge: true,
+    );
+    _expect(
+      publication.topic == _secureTopic && publication.acknowledged,
+      'Dart consumer protected Streamable pubsub publish was invalid.',
+    );
+
+    final events = await _pollUntilEvent(
+      secureClient,
+      subscription.handle,
+    );
+    _expect(
+      jsonEncode(events.events).contains('dart-consumer-streamable'),
+      'Dart consumer protected direct JSON poll missed Streamable event.',
+    );
+
+    final unsubscribe = await secureClient.unsubscribeWampTopicDirect(
+      subscription.handle,
+      id: 'dart-consumer-secure-unsubscribe',
+    );
+    _expect(
+      unsubscribe.unsubscribed,
+      'Dart consumer protected direct JSON unsubscribe was invalid.',
+    );
+    await secureClient.deleteSession();
+  } finally {
+    secureClient?.close(force: true);
+    authClient.close(force: true);
+    publicClient.close(force: true);
+  }
+}
+
+Future<McpStreamableWampEventBatch> _pollUntilEvent(
+  McpStreamableHttpClient client,
+  String handle,
+) async {
+  for (var attempt = 0; attempt < 30; attempt += 1) {
+    final events = await client.pollWampEventsDirect(
+      handle,
+      id: 'dart-consumer-secure-poll-$attempt',
+      limit: 10,
+    );
+    if (jsonEncode(events.events).contains('dart-consumer-streamable')) {
+      return events;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError(
+    'Timed out waiting for Dart consumer protected Streamable pubsub event.',
+  );
+}
+
+Set<String> _stringFields(Iterable<McpJsonMap> values, String field) {
+  final result = <String>{};
+  for (final value in values) {
+    final fieldValue = value[field];
+    if (fieldValue is String) {
+      result.add(fieldValue);
+    }
+  }
+  return result;
+}
+
+McpJsonMap _resultFrom(McpJsonMap response, String label) {
+  final result = response['result'];
+  if (result is Map<String, Object?>) {
+    return result;
+  }
+  if (result is Map) {
+    return Map<String, Object?>.from(result);
+  }
+  throw StateError('$label missed a JSON-RPC result object.');
+}
+
+void _expect(bool condition, String message) {
+  if (!condition) {
+    throw StateError(message);
+  }
+}
+DART
+
+  printf 'Running router CLI Dart MCP consumer package smoke from %s.\n' "$smoke_dir/dart-consumer"
+  (
+    cd "$smoke_dir/dart-consumer"
+    PUB_CACHE="$pub_cache" dart pub get
+    PUB_CACHE="$pub_cache" dart analyze
+    CONNECTANUM_NATIVE_LIB="$native_lib" MCP_PORT="$mcp_port" PUB_CACHE="$pub_cache" \
+      dart run bin/main.dart
+  )
+
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

@@ -2,9 +2,40 @@
 
 Last updated: 2026-06-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI installed command protected MCP pub/sub smoke.
-Latest fully clean hosted checkpoint: Commit `925be7c` on GitHub `master`.
+Last reviewed branch checkpoint: Router CLI installed command public Dart MCP client smoke.
+Latest fully clean hosted checkpoint: Commit `5cace5c` on GitHub `master`.
 Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
+extends the installed router CLI smoke with a generated neutral Dart consumer
+package that uses only public MCP exports against the live installed command.
+After the existing raw HTTP checks prove `/healthz`, `/metrics`, `/auth`,
+public `/mcp`, protected `/mcp/secure`, Streamable HTTP sessions, direct JSON
+tool/meta calls, and protected pub/sub, the smoke creates a temporary package
+that imports `package:connectanum_mcp/connectanum_mcp_io.dart`. The generated
+app uses `McpStreamableHttpClient` against `/mcp` for direct JSON
+`tools/list` and `resources/list`, then Streamable HTTP `initialize`,
+`notifications/initialized`, session `tools/list`, and `DELETE`. It then uses
+`ConnectanumHttpAuthClient` to obtain a ticket bearer grant from `/auth`,
+constructs `McpStreamableHttpClient.withAuthGrant` for `/mcp/secure`, proves
+protected direct JSON tool and topic catalog access, subscribes through direct
+JSON pub/sub, publishes through a Streamable HTTP pub/sub helper, polls the
+event back through direct JSON, unsubscribes, and deletes the Streamable HTTP
+session. This closes the installed-command evidence gap for consumer
+applications and agents that need package-level proof of router-hosted MCP
+auth/session correctness, direct JSON tool/meta API access, Streamable HTTP
+compatibility, protected pub/sub, and public Dart client usability without
+source-checkout or private-project assumptions. Baseline `bin/test-fast`
+passed before the change on 2026-06-12. Focused checks passed with
+`bash -n bin/common.sh bin/test-fast bin/test-all bin/verify`,
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`, and
+`git diff --check`. Updated `bin/test-fast` passed on 2026-06-12, including
+the installed router CLI generated Dart MCP client smoke. Full local
+`bin/verify` passed on 2026-06-12, including formatting, Rust/FFI, MCP package
+smokes, generated consumer-package smokes, the router-hosted MCP example, the
+installed router CLI generated Dart MCP client smoke, full router suite,
+zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+evidence is pending for this checkpoint; the latest fully clean hosted
+checkpoint remains `5cace5c`.
+Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI protected MCP smoke through a bearer-protected
 pub/sub round-trip. After obtaining a ticket-authenticated bearer token for
 `/mcp/secure`, the smoke proves direct JSON topic catalog access, creates a
@@ -23,8 +54,18 @@ the installed router CLI protected pub/sub smoke. Full local `bin/verify`
 passed on 2026-06-12, including formatting, Rust/FFI, MCP package smokes,
 generated consumer-package smokes, the router-hosted MCP example, the installed
 router CLI protected pub/sub smoke, full router suite, zero-copy router tests,
-and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for
-this checkpoint; the latest fully clean hosted checkpoint remains `925be7c`.
+and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence passed on
+2026-06-12: GitHub `master` CI `27426258384` at `5cace5c` passed with `Fast
+Checks` and `Full Verify` clean, GitHub `add-router` CI `27426252777` also
+passed, and the strict deployment-chain audit exited successfully with clean CI
+logs, relevant Dart package publish dry-run `27281214877` at `06a56bb`,
+relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
+Image dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
+`27281215258` at `06a56bb`, branch protection, workflow visibility, and router
+image package visibility gates ready. RC readiness remains gated on release
+policy: no numeric RC tag points at `5cace5c`, no GitHub prerelease or router
+image RC tag is selected, and pub.dev package ownership/version/release-order
+decisions remain deferred.
 Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI smoke through a bearer-protected router-hosted
 MCP route and ticket HTTP auth bridge. The temporary installed-router config
