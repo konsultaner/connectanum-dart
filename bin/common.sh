@@ -22239,16 +22239,107 @@ DART
 )
 
 run_router_cli_consumer_package_smoke() (
+  local health_body
+  local metrics_body
+  local metrics_line
+  local metrics_port
+  local native_lib
   local smoke_dir
   local pub_cache
+  local router_log
+  local router_pid
 
   require_command dart
 
   smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-cli-smoke.XXXXXX")"
   pub_cache="$smoke_dir/pub-cache"
+  router_log="$smoke_dir/router.log"
+  router_pid=""
   # Path activation resolves the source package through the workspace and can
   # rewrite repo-local package metadata to point at the temp pub cache.
-  trap 'status=$?; rm -rf "$ROOT_DIR/.dart_tool/hooks_runner"; (cd "$ROOT_DIR" && dart pub get >/dev/null 2>&1 || true); rm -rf "$smoke_dir"; exit "$status"' EXIT
+  _router_cli_smoke_process_ids() {
+    ROUTER_SMOKE_CONFIG="$smoke_dir/router.yaml" ps -ww -axo pid=,comm=,command= \
+      | awk '
+          BEGIN {
+            needle = ENVIRON["ROUTER_SMOKE_CONFIG"]
+          }
+          $2 !~ /(^|\/)(bash|zsh|sh)$/ &&
+          index($0, needle) &&
+          index($0, "connectanum_router") &&
+          index($0, "--config") {
+            print $1
+          }
+        '
+  }
+
+  _wait_for_router_cli_smoke_processes() {
+    local pids
+
+    for _ in {1..50}; do
+      pids="$(_router_cli_smoke_process_ids)"
+      if [[ -z "$pids" ]]; then
+        return 0
+      fi
+      sleep 0.1
+    done
+
+    pids="$(_router_cli_smoke_process_ids)"
+    if [[ -n "$pids" ]]; then
+      kill -KILL $pids >/dev/null 2>&1 || true
+    fi
+
+    for _ in {1..50}; do
+      pids="$(_router_cli_smoke_process_ids)"
+      if [[ -z "$pids" ]]; then
+        return 0
+      fi
+      sleep 0.1
+    done
+  }
+
+  _wait_for_router_cli_smoke_lock_release() {
+    local lock_path
+
+    if ! command -v lsof >/dev/null 2>&1; then
+      return 0
+    fi
+
+    lock_path="${TMPDIR:-/tmp}/connectanum_native_runtime.lock"
+    for _ in {1..50}; do
+      if ! lsof "$lock_path" >/dev/null 2>&1; then
+        return 0
+      fi
+      sleep 0.1
+    done
+  }
+
+  _cleanup_router_cli_smoke() {
+    local router_pids
+    local status
+
+    status="${1:-$?}"
+    trap - EXIT HUP INT TERM
+    if [[ -n "${router_pid:-}" ]]; then
+      if kill -0 "$router_pid" >/dev/null 2>&1; then
+        kill "$router_pid" >/dev/null 2>&1 || true
+      fi
+      wait "$router_pid" >/dev/null 2>&1 || true
+      router_pids="$(_router_cli_smoke_process_ids)"
+      if [[ -n "$router_pids" ]]; then
+        kill $router_pids >/dev/null 2>&1 || true
+      fi
+      _wait_for_router_cli_smoke_processes
+      _wait_for_router_cli_smoke_lock_release
+    fi
+    rm -rf "$ROOT_DIR/.dart_tool/hooks_runner"
+    (cd "$ROOT_DIR" && dart pub get >/dev/null 2>&1 || true)
+    rm -rf "$smoke_dir"
+    exit "$status"
+  }
+  trap _cleanup_router_cli_smoke EXIT
+  trap '_cleanup_router_cli_smoke 129' HUP
+  trap '_cleanup_router_cli_smoke 130' INT
+  trap '_cleanup_router_cli_smoke 143' TERM
 
   printf 'Running router CLI consumer package smoke from %s.\n' "$smoke_dir"
   (
@@ -22258,4 +22349,113 @@ run_router_cli_consumer_package_smoke() (
     PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help \
       | grep -F 'Usage: dart run connectanum_router --config <path>'
   )
+
+  native_lib=""
+  if native_runtime_supported && ensure_native_client_test_runtime; then
+    native_lib="${CONNECTANUM_NATIVE_LIB:-}"
+  fi
+  if [[ -z "$native_lib" ]]; then
+    printf 'Native runtime unavailable; completed router CLI help smoke only.\n'
+    return 0
+  fi
+  require_command curl
+
+  cat >"$smoke_dir/router.yaml" <<'YAML'
+router:
+  session_profiles:
+    - name: public-wamp
+      auth:
+        methods: [anonymous]
+
+  realms:
+    - name: cli.smoke
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: anonymous
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [subscribe, publish, call, register, unregister]
+
+    - name: connectanum.metrics
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: metrics
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [register, unregister, call, subscribe, publish]
+
+  listeners:
+    - endpoint: 127.0.0.1:0
+      session_profile: public-wamp
+      protocols: [rawsocket]
+      tls:
+        mode: disabled
+      rawsocket:
+        max_rawsocket_size_exponent: 16
+
+  internal_realms:
+    - name: connectanum.metrics
+      auth_id: metrics-daemon
+      auth_role: metrics
+      services: [metrics]
+
+  metrics:
+    open_metrics:
+      enabled: true
+      listen: 127.0.0.1:0
+      path: /metrics
+      realm: connectanum.metrics
+
+  authenticators:
+    anonymous:
+      type: anonymous
+YAML
+
+  PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
+    connectanum_router --config "$smoke_dir/router.yaml" --native-lib "$native_lib" \
+    >"$router_log" 2>&1 &
+  router_pid=$!
+
+  for _ in {1..100}; do
+    if grep -F 'OpenMetrics exporter listening on ' "$router_log" >/dev/null 2>&1 && \
+       grep -F 'Router running. Press Ctrl+C to stop.' "$router_log" >/dev/null 2>&1; then
+      break
+    fi
+    if ! kill -0 "$router_pid" >/dev/null 2>&1; then
+      printf 'Router CLI exited before the health endpoint was ready.\n' >&2
+      cat "$router_log" >&2
+      _cleanup_router_cli_smoke 1
+    fi
+    sleep 0.1
+  done
+
+  if ! grep -F 'Router running. Press Ctrl+C to stop.' "$router_log" >/dev/null 2>&1; then
+    printf 'Router CLI did not report a running state.\n' >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+
+  metrics_line="$(grep -F 'OpenMetrics exporter listening on ' "$router_log" | head -n 1)"
+  metrics_port="$(sed -E 's/.*listening on 127\.0\.0\.1:([0-9]+)\/metrics.*/\1/' <<<"$metrics_line")"
+  if [[ ! "$metrics_port" =~ ^[0-9]+$ ]]; then
+    printf 'Could not parse router CLI OpenMetrics port from: %s\n' "$metrics_line" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+
+  health_body="$(curl -fsS "http://127.0.0.1:$metrics_port/healthz")"
+  if [[ "$health_body" != "ok" ]]; then
+    printf 'Router CLI healthz returned unexpected body: %s\n' "$health_body" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+
+  metrics_body="$(curl -fsS "http://127.0.0.1:$metrics_port/metrics")"
+  grep -F 'connectanum_router_drain_in_progress' <<<"$metrics_body" >/dev/null
+  printf 'Router CLI consumer package smoke served /healthz and /metrics from the installed command.\n'
+  _cleanup_router_cli_smoke 0
 )

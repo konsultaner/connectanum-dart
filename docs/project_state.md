@@ -1,11 +1,34 @@
 # Project State
 
-Last updated: 2026-06-10
+Last updated: 2026-06-12
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI executable availability for
-consumer package smokes.
-Latest fully clean hosted checkpoint: Commit `6e502e4` on GitHub `master`.
-Current implementation checkpoint: `connectanum_router` now declares its
+Last reviewed branch checkpoint: Router CLI installed command health/metrics
+smoke.
+Latest fully clean hosted checkpoint: Commit `715b258` on GitHub `master`.
+Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
+proves more than global activation and help output: after activating
+`packages/connectanum_router` into a temporary `PUB_CACHE`, it starts the
+installed `connectanum_router` command with a temporary router config and the
+source-built native runtime, waits for the runner to announce OpenMetrics and a
+running state, asserts `/healthz` returns `ok`, and asserts `/metrics` includes
+`connectanum_router_drain_in_progress`. The smoke records the router process,
+terminates and reaps it without matching its own shell helper, waits for native
+runtime lock release, restores generated hook-runner/package metadata, and
+removes the temp pub-cache. This closes the consumer-readiness gap where a
+downstream shell could install the router executable but still lack proof that
+the installed command can boot the native router and expose operational HTTP
+endpoints. The initial `bin/test-fast` attempt on 2026-06-12 reproduced the
+cleanup bug after the new health/metrics assertions: the process scan matched
+the smoke helper itself and exited the suite with status 143. Focused checks
+passed with `bash -n bin/common.sh bin/test-fast bin/test-all`,
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`, and
+`bin/test-fast`. Full local `bin/verify` passed on 2026-06-12, including
+formatting, Rust/FFI, MCP package smokes, generated consumer-package smokes,
+the router-hosted MCP example, the enhanced router CLI consumer package smoke,
+full router suite, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this local checkpoint is pending; the
+latest fully clean hosted checkpoint remains `715b258`.
+Previous implementation checkpoint: `connectanum_router` now declares its
 package executable and the root verification scripts prove it through a
 consumer-style global activation smoke. `run_router_cli_consumer_package_smoke`
 uses a temporary `PUB_CACHE`, activates `packages/connectanum_router` from the
@@ -31,7 +54,17 @@ router CLI consumer package smoke, full router suite, zero-copy router tests,
 and Chrome/Dart2Wasm browser WebSocket smoke. Hosted CI for commit `06a56bb`
 failed because the first version of the smoke invoked the generated package
 executable without exporting the temp `PUB_CACHE`; the fix is in this
-checkpoint and hosted evidence is pending.
+checkpoint. Hosted evidence passed on 2026-06-10: CI `27282112499` at
+`715b258`, Dart Package Publish Dry Run `27281214877` at `06a56bb` accepted as
+still relevant because no publish-sensitive paths changed afterward, WAMP
+Profile Benchmarks `27281215258` at `06a56bb` accepted as still relevant, and
+Router Image dry-run `27282955159` at `715b258`. The strict deployment-chain
+audit exited successfully with CI, CI logs, Dart package dry-run, native
+release evidence, router image dry-run, WAMP benchmark, branch protection,
+workflow visibility, and router image package visibility gates ready. RC
+readiness remains gated only on release-policy decisions: choose/push the next
+numeric RC tag and resolve the deferred pub.dev ownership, versioning, and
+workspace package release-order decisions before real publishing.
 Previous implementation checkpoint: Public `McpStreamableHttpClient` tool
 helpers now reject malformed MCP tool names before opening HTTP requests,
 building `tools/call` params, or synthesizing `Mcp-Name`/`Mcp-Param-*`
