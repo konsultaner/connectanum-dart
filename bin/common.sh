@@ -23124,6 +23124,50 @@ Future<void> main() async {
       'Dart consumer missed public direct JSON resource.',
     );
 
+    final publicResourceContents = await publicClient.readResourceDirect(
+      'cli://mcp/context',
+      id: 'dart-consumer-public-resource-read',
+    );
+    _expect(
+      jsonEncode(publicResourceContents).contains('Router CLI MCP context.'),
+      'Dart consumer public direct JSON resource read missed content.',
+    );
+
+    final publicResourceTemplates =
+        await publicClient.listResourceTemplatesDirect(
+      id: 'dart-consumer-public-resource-templates',
+    );
+    _expect(
+      _stringFields(
+        publicResourceTemplates.resourceTemplates,
+        'uriTemplate',
+      ).contains('cli://mcp/task/{taskId}'),
+      'Dart consumer missed public direct JSON resource template.',
+    );
+
+    final publicPrompts = await publicClient.listPromptsDirect(
+      id: 'dart-consumer-public-prompts',
+    );
+    _expect(
+      _stringFields(
+        publicPrompts.prompts,
+        'name',
+      ).contains('summarize-cli-context'),
+      'Dart consumer missed public direct JSON prompt.',
+    );
+
+    final publicPrompt = await publicClient.getPromptDirect(
+      'summarize-cli-context',
+      id: 'dart-consumer-public-prompt-get',
+      arguments: const <String, String>{
+        'topic': 'Dart consumer readiness',
+      },
+    );
+    _expect(
+      jsonEncode(publicPrompt).contains('Dart consumer readiness'),
+      'Dart consumer public direct JSON prompt get missed substitution.',
+    );
+
     final publicInitialize = await publicClient.initialize(
       id: 'dart-consumer-public-initialize',
       protocolVersion: _protocolVersion,
@@ -23172,6 +23216,10 @@ Future<void> main() async {
       grant.authProvider == 'cli-ticket-db',
       'Dart consumer auth grant authprovider changed.',
     );
+    final originalRefreshToken = grant.refreshToken;
+    if (originalRefreshToken == null || originalRefreshToken.isEmpty) {
+      throw StateError('Dart consumer auth grant missed a refresh token.');
+    }
 
     secureClient = McpStreamableHttpClient.withAuthGrant(
       secureEndpoint,
@@ -23264,6 +23312,101 @@ Future<void> main() async {
       'Dart consumer protected direct JSON unsubscribe was invalid.',
     );
     await secureClient.deleteSession();
+
+    final refreshedGrant = await authClient.refreshToken(originalRefreshToken);
+    _expect(
+      refreshedGrant.accessToken.isNotEmpty,
+      'Dart consumer refresh returned an empty access token.',
+    );
+    _expect(
+      refreshedGrant.accessToken != grant.accessToken,
+      'Dart consumer refresh reused the original access token.',
+    );
+    _expect(
+      refreshedGrant.tokenType == 'Bearer',
+      'Dart consumer refresh did not return a Bearer grant.',
+    );
+    _expect(
+      refreshedGrant.realm == grant.realm &&
+          refreshedGrant.authId == grant.authId &&
+          refreshedGrant.authRole == grant.authRole &&
+          refreshedGrant.authMethod == grant.authMethod &&
+          refreshedGrant.authProvider == grant.authProvider,
+      'Dart consumer refresh changed the authenticated principal.',
+    );
+    final refreshedRefreshToken = refreshedGrant.refreshToken;
+    if (refreshedRefreshToken == null || refreshedRefreshToken.isEmpty) {
+      throw StateError('Dart consumer refresh missed a refresh token.');
+    }
+
+    final refreshedClient = McpStreamableHttpClient.withAuthGrant(
+      secureEndpoint,
+      refreshedGrant,
+    );
+    try {
+      final refreshedTools = await refreshedClient.listToolsDirect(
+        id: 'dart-consumer-refreshed-secure-tools',
+      );
+      _expect(
+        _stringFields(
+          refreshedTools.tools,
+          'name',
+        ).contains('connectanum.pubsub.publish'),
+        'Dart consumer refreshed grant missed protected direct JSON tools.',
+      );
+
+      final refreshedInitialize = await refreshedClient.initialize(
+        id: 'dart-consumer-refreshed-secure-initialize',
+        protocolVersion: _protocolVersion,
+        clientInfo: const <String, Object?>{
+          'name': 'router-cli-dart-consumer-smoke-refreshed',
+          'version': '0.0.0',
+        },
+      );
+      _expect(
+        _resultFrom(
+          refreshedInitialize,
+          'refreshed secure initialize',
+        )['protocolVersion'] == _protocolVersion,
+        'Dart consumer refreshed Streamable initialize changed protocol.',
+      );
+      await refreshedClient.notifyInitialized();
+      final refreshedStreamableTools = await refreshedClient.listTools(
+        id: 'dart-consumer-refreshed-streamable-tools',
+      );
+      _expect(
+        _stringFields(
+          refreshedStreamableTools.tools,
+          'name',
+        ).contains('connectanum.pubsub.publish'),
+        'Dart consumer refreshed grant missed protected Streamable tools.',
+      );
+      await refreshedClient.deleteSession();
+
+      await authClient.revokeToken(
+        refreshedGrant.accessToken,
+        tokenTypeHint: 'access_token',
+      );
+      await _expectMcpHttpRejected(
+        () => refreshedClient.listToolsDirect(
+          id: 'dart-consumer-revoked-access-tools',
+        ),
+        HttpStatus.unauthorized,
+        'Dart consumer revoked access token direct JSON request',
+      );
+
+      await authClient.revokeToken(
+        refreshedRefreshToken,
+        tokenTypeHint: 'refresh_token',
+      );
+      await _expectAuthRejected(
+        () => authClient.refreshToken(refreshedRefreshToken),
+        HttpStatus.unauthorized,
+        'Dart consumer revoked refresh token request',
+      );
+    } finally {
+      refreshedClient.close(force: true);
+    }
   } finally {
     secureClient?.close(force: true);
     authClient.close(force: true);
@@ -23289,6 +23432,42 @@ Future<McpStreamableWampEventBatch> _pollUntilEvent(
   throw StateError(
     'Timed out waiting for Dart consumer protected Streamable pubsub event.',
   );
+}
+
+Future<void> _expectMcpHttpRejected(
+  Future<Object?> Function() operation,
+  int statusCode,
+  String label,
+) async {
+  try {
+    await operation();
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode == statusCode) {
+      return;
+    }
+    throw StateError(
+      '$label returned ${error.statusCode}, expected $statusCode.',
+    );
+  }
+  throw StateError('$label was accepted.');
+}
+
+Future<void> _expectAuthRejected(
+  Future<Object?> Function() operation,
+  int statusCode,
+  String label,
+) async {
+  try {
+    await operation();
+  } on ConnectanumHttpAuthException catch (error) {
+    if (error.statusCode == statusCode) {
+      return;
+    }
+    throw StateError(
+      '$label returned ${error.statusCode}, expected $statusCode.',
+    );
+  }
+  throw StateError('$label was accepted.');
 }
 
 Set<String> _stringFields(Iterable<McpJsonMap> values, String field) {

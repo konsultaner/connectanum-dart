@@ -78,6 +78,35 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-12: Extended the installed router CLI generated Dart consumer smoke
+  with public resource/prompt helper coverage and HTTP auth refresh/revoke
+  lifecycle coverage against the live installed command.
+  `run_router_cli_consumer_package_smoke` still creates a generated neutral
+  package that imports only `package:connectanum_mcp/connectanum_mcp_io.dart`
+  and keeps the prior public/protected tool, Streamable HTTP, direct JSON WAMP
+  meta, and protected pub/sub checks. The generated app now also uses
+  `readResourceDirect`, `listResourceTemplatesDirect`, `listPromptsDirect`, and
+  `getPromptDirect` against public `/mcp` before opening a Streamable HTTP
+  session. After the protected `/mcp/secure` pub/sub round-trip, it refreshes
+  the ticket bearer grant through `ConnectanumHttpAuthClient.refreshToken`,
+  proves the refreshed grant works for protected direct JSON and Streamable
+  HTTP helpers, revokes the refreshed access token and asserts the protected
+  MCP route rejects it, then revokes the refreshed refresh token and asserts
+  further refresh attempts are rejected. This closes the installed-command
+  evidence gap for consumer applications and agents that rely on exported Dart
+  MCP resource/prompt helpers and auth refresh/revoke semantics, without
+  source-checkout or private-project assumptions. Baseline `bin/test-fast`
+  passed before the change on 2026-06-12. Focused checks passed with
+  `bash -n bin/common.sh bin/test-fast bin/test-all bin/verify`,
+  `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`, and
+  `git diff --check`. Updated `bin/test-fast` passed on 2026-06-12, including
+  the installed router CLI generated Dart MCP helper/auth lifecycle smoke. Full
+  local `bin/verify` passed on 2026-06-12, including formatting, Rust/FFI, MCP
+  package smokes, generated consumer-package smokes, the router-hosted MCP
+  example, the installed router CLI generated Dart MCP helper/auth lifecycle
+  smoke, full router suite, zero-copy router tests, and Chrome/Dart2Wasm
+  browser WebSocket smoke. Hosted evidence is pending; the latest fully clean
+  hosted checkpoint remains `98454a2`.
 - 2026-06-12: Extended the installed router CLI consumer smoke to prove a
   generated neutral Dart consumer package can use public MCP exports against
   the live installed command. After the existing raw HTTP checks prove
@@ -107,8 +136,18 @@ decision because `connectanum_client` still depends on private
   package smokes, generated consumer-package smokes, the router-hosted MCP
   example, the installed router CLI generated Dart MCP client smoke, full
   router suite, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-  smoke. Hosted evidence is pending for this checkpoint; the latest fully clean
-  hosted checkpoint remains `5cace5c`.
+  smoke. Hosted evidence passed on 2026-06-12: GitHub `master` CI
+  `27429855022` at `98454a2` passed with `Fast Checks` and `Full Verify`
+  clean, GitHub `add-router` CI `27429843952` also passed, and the strict
+  deployment-chain audit exited successfully with clean CI logs, relevant Dart
+  package publish dry-run `27281214877` at `06a56bb`, relevant Native Artifacts
+  dry-run `26396437881` at `debd545`, relevant Router Image dry-run
+  `27282955159` at `715b258`, relevant WAMP Profile Benchmarks `27281215258`
+  at `06a56bb`, branch protection, workflow visibility, and router image
+  package visibility gates ready. RC readiness remains gated on release policy:
+  no numeric RC tag points at `98454a2`, no GitHub prerelease or router image
+  RC tag is selected, and pub.dev package ownership/version/release-order
+  decisions remain deferred.
 - 2026-06-12: Extended the installed router CLI protected MCP smoke to prove a
   bearer-protected pub/sub round-trip.
   `run_router_cli_consumer_package_smoke` now obtains a
