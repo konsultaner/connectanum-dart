@@ -30,7 +30,7 @@ Future<void> main(List<String> args) async {
     if (options.pubsubTopic != null) {
       await _runDirectPubSubExample(client, options);
     }
-    await _runStreamableSessionExample(client);
+    await _runStreamableSessionExample(client, options);
   } finally {
     try {
       await client.deleteSession();
@@ -99,6 +99,12 @@ void _printDryRunSummary(IOSink sink, _Options options) {
       if (options.authId != null) 'authId': options.authId,
       if (options.toolName != null)
         'tool': {'name': options.toolName, 'arguments': options.toolArguments},
+      if (options.resourceUri != null) 'resourceUri': options.resourceUri,
+      if (options.promptName != null)
+        'prompt': {
+          'name': options.promptName,
+          'arguments': options.promptArguments,
+        },
       if (options.pubsubTopic != null)
         'pubsub': {'topic': options.pubsubTopic, 'event': options.pubsubEvent},
     }),
@@ -129,6 +135,39 @@ Future<void> _runDirectJsonExample(
       arguments: options.toolArguments,
     );
     stdout.writeln(jsonEncode({'directToolResult': result}));
+  }
+
+  final resourceUri = options.resourceUri;
+  if (resourceUri != null) {
+    final resources = await client.listResourcesDirect(id: 'direct-resources');
+    final content = await client.readResourceDirect(
+      resourceUri,
+      id: 'direct-resource-read',
+    );
+    stdout.writeln(
+      jsonEncode({
+        'directResources': [
+          for (final resource in resources.resources) resource['uri'],
+        ],
+        'directResourceContent': content,
+      }),
+    );
+  }
+
+  final promptName = options.promptName;
+  if (promptName != null) {
+    final prompts = await client.listPromptsDirect(id: 'direct-prompts');
+    final prompt = await client.getPromptDirect(
+      promptName,
+      id: 'direct-prompt-get',
+      arguments: options.promptArguments,
+    );
+    stdout.writeln(
+      jsonEncode({
+        'directPrompts': [for (final prompt in prompts.prompts) prompt['name']],
+        'directPrompt': prompt,
+      }),
+    );
   }
 }
 
@@ -182,6 +221,7 @@ Future<void> _runDirectPubSubExample(
 
 Future<void> _runStreamableSessionExample(
   McpStreamableHttpClient client,
+  _Options options,
 ) async {
   final initialize = await client.initialize(
     id: 'streamable-initialize',
@@ -193,22 +233,38 @@ Future<void> _runStreamableSessionExample(
   await client.notifyInitialized();
 
   final tools = await client.listTools(id: 'streamable-tools');
-  stdout.writeln(
-    jsonEncode({
-      'streamable': {
-        'protocolVersion': client.protocolVersion,
-        'sessionId': client.sessionId,
-        'initialize': initialize['result'],
-        'tools': [for (final tool in tools.tools) tool['name']],
-      },
-    }),
-  );
+  final streamable = <String, Object?>{
+    'protocolVersion': client.protocolVersion,
+    'sessionId': client.sessionId,
+    'initialize': initialize['result'],
+    'tools': [for (final tool in tools.tools) tool['name']],
+  };
+
+  final resourceUri = options.resourceUri;
+  if (resourceUri != null) {
+    streamable['resourceContent'] = await client.readResource(
+      resourceUri,
+      id: 'streamable-resource-read',
+    );
+  }
+
+  final promptName = options.promptName;
+  if (promptName != null) {
+    streamable['prompt'] = await client.getPrompt(
+      promptName,
+      id: 'streamable-prompt-get',
+      arguments: options.promptArguments,
+    );
+  }
+
+  stdout.writeln(jsonEncode({'streamable': streamable}));
 }
 
 final class _Options {
   const _Options({
     required this.endpoint,
     required this.toolArguments,
+    required this.promptArguments,
     required this.pubsubEvent,
     required this.dryRun,
     this.bearerToken,
@@ -217,6 +273,8 @@ final class _Options {
     this.authId,
     this.ticket,
     this.toolName,
+    this.resourceUri,
+    this.promptName,
     this.pubsubTopic,
   });
 
@@ -228,6 +286,9 @@ final class _Options {
   final String? ticket;
   final String? toolName;
   final McpJsonMap toolArguments;
+  final String? resourceUri;
+  final String? promptName;
+  final Map<String, String> promptArguments;
   final String? pubsubTopic;
   final McpJsonMap pubsubEvent;
   final bool dryRun;
@@ -259,6 +320,12 @@ final class _Options {
         !values.containsKey('--tool')) {
       throw const FormatException('Use --tool-arguments together with --tool.');
     }
+    if (values.containsKey('--prompt-arguments') &&
+        !values.containsKey('--prompt')) {
+      throw const FormatException(
+        'Use --prompt-arguments together with --prompt.',
+      );
+    }
     if (values.containsKey('--pubsub-event') &&
         !values.containsKey('--pubsub-topic')) {
       throw const FormatException(
@@ -278,6 +345,13 @@ final class _Options {
         values,
         '--tool-arguments',
         const <String, Object?>{},
+      ),
+      resourceUri: values['--resource-uri'],
+      promptName: values['--prompt'],
+      promptArguments: _jsonStringMapOption(
+        values,
+        '--prompt-arguments',
+        const <String, String>{},
       ),
       pubsubTopic: values['--pubsub-topic'],
       pubsubEvent: _jsonObjectOption(
@@ -300,6 +374,9 @@ Map<String, String> _parseOptions(List<String> args) {
     '--ticket',
     '--tool',
     '--tool-arguments',
+    '--resource-uri',
+    '--prompt',
+    '--prompt-arguments',
     '--pubsub-topic',
     '--pubsub-event',
   };
@@ -394,6 +471,20 @@ McpJsonMap _jsonObjectOption(
   return Map<String, Object?>.from(decoded);
 }
 
+Map<String, String> _jsonStringMapOption(
+  Map<String, String> values,
+  String option,
+  Map<String, String> defaultValue,
+) {
+  final decoded = _jsonObjectOption(values, option, defaultValue);
+  return decoded.map((key, value) {
+    if (value is! String) {
+      throw FormatException('$option values must be strings.');
+    }
+    return MapEntry(key, value);
+  });
+}
+
 void _printUsage(IOSink sink) {
   sink.writeln('''
 Usage:
@@ -408,6 +499,9 @@ Options:
   --ticket TICKET                   Ticket secret for --auth-url grants.
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.
+  --resource-uri URI                Read this resource through direct JSON and Streamable HTTP.
+  --prompt NAME                     Get this prompt through direct JSON and Streamable HTTP.
+  --prompt-arguments JSON_OBJECT    String arguments for --prompt.
   --pubsub-topic TOPIC              Exercise direct JSON pub/sub helpers.
   --pubsub-event JSON_OBJECT        Event kwargs for --pubsub-topic.
   --dry-run                         Validate options without HTTP requests.

@@ -383,6 +383,9 @@ run_router_hosted_mcp_example_smoke() {
     --endpoint http://127.0.0.1:8080/mcp \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-public-example-dry-run"}' \
+    --resource-uri app://example/context \
+    --prompt summarize-task \
+    --prompt-arguments '{"taskId":"T-public-example-dry-run"}' \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-public-example-dry-run","status":"open"}' \
     --dry-run >/dev/null

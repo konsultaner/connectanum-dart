@@ -120,6 +120,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "McpStreamableHttpClient.withAuthGrant",
             "listConnectanumToolsDirect",
             "callConnectanumToolDirect",
+            "listResourcesDirect",
+            "readResourceDirect",
+            "listPromptsDirect",
+            "getPromptDirect",
             "subscribeWampTopicDirect",
             "publishWampEventDirect",
             "pollWampEventsDirect",
@@ -147,6 +151,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--endpoint http://127.0.0.1:8080/mcp", body)
         self.assertIn("--tool example.task.lookup", body)
         self.assertIn("--tool-arguments", body)
+        self.assertIn("--resource-uri app://example/context", body)
+        self.assertIn("--prompt summarize-task", body)
+        self.assertIn("--prompt-arguments", body)
         self.assertIn("--pubsub-topic example.events.task", body)
         self.assertIn("--pubsub-event", body)
         self.assertIn("--dry-run", body)
