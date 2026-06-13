@@ -23823,6 +23823,92 @@ Future<void> main() async {
       tokenOnlyJsonClient.close(force: true);
     }
 
+    final tokenOnlySecureClient = McpStreamableHttpClient.withBearerToken(
+      secureEndpoint,
+      grant.accessToken,
+    );
+    try {
+      final tokenOnlySecureDirectTools = await tokenOnlySecureClient
+          .listToolsDirect(id: 'dart-consumer-secure-token-only-direct-tools');
+      _expect(
+        _stringFields(
+          tokenOnlySecureDirectTools.tools,
+          'name',
+        ).contains('connectanum.pubsub.publish'),
+        'Dart consumer token-only secure direct tools missed pub/sub.',
+      );
+      final tokenOnlySecureDirectTopics = await tokenOnlySecureClient
+          .listWampApiDirect(
+            id: 'dart-consumer-secure-token-only-direct-topics',
+            kind: 'topic',
+          );
+      _expect(
+        jsonEncode(tokenOnlySecureDirectTopics).contains(_secureTopic),
+        'Dart consumer token-only secure direct WAMP catalog missed topic.',
+      );
+      _expect(
+        tokenOnlySecureClient.sessionId == null &&
+            tokenOnlySecureClient.lastEventId == null,
+        'Dart consumer token-only secure direct access captured state.',
+      );
+
+      final tokenOnlySecureInitialize = await tokenOnlySecureClient.initialize(
+        id: 'dart-consumer-secure-token-only-initialize',
+        protocolVersion: _protocolVersion,
+        clientInfo: const <String, Object?>{
+          'name': 'router-cli-dart-consumer-smoke-secure-token-only',
+          'version': '0.0.0',
+        },
+      );
+      _expect(
+        _resultFrom(
+          tokenOnlySecureInitialize,
+          'token-only secure initialize',
+        )['protocolVersion'] == _protocolVersion,
+        'Dart consumer token-only secure initialize changed protocol.',
+      );
+      final tokenOnlySecureSessionId = tokenOnlySecureClient.sessionId;
+      _expect(
+        tokenOnlySecureSessionId != null,
+        'Dart consumer token-only secure initialize missed session state.',
+      );
+      await tokenOnlySecureClient.notifyInitialized();
+      final tokenOnlySecureStreamableTools = await tokenOnlySecureClient
+          .listTools(id: 'dart-consumer-secure-token-only-streamable-tools');
+      _expect(
+        _stringFields(
+          tokenOnlySecureStreamableTools.tools,
+          'name',
+        ).contains('connectanum.pubsub.publish'),
+        'Dart consumer token-only secure Streamable tools missed pub/sub.',
+      );
+      final tokenOnlySecureStreamableTopics = await tokenOnlySecureClient
+          .listWampApi(
+            id: 'dart-consumer-secure-token-only-streamable-topics',
+            kind: 'topic',
+          );
+      _expect(
+        jsonEncode(tokenOnlySecureStreamableTopics).contains(_secureTopic),
+        'Dart consumer token-only secure Streamable WAMP catalog missed topic.',
+      );
+      final tokenOnlySecureLastEventId = tokenOnlySecureClient.lastEventId;
+      _expect(
+        tokenOnlySecureLastEventId != null &&
+            tokenOnlySecureLastEventId.startsWith(
+              '$tokenOnlySecureSessionId:',
+            ),
+        'Dart consumer token-only secure Streamable missed SSE state.',
+      );
+      await tokenOnlySecureClient.deleteSession();
+      _expect(
+        tokenOnlySecureClient.sessionId == null &&
+            tokenOnlySecureClient.lastEventId == null,
+        'Dart consumer token-only secure delete leaked state.',
+      );
+    } finally {
+      tokenOnlySecureClient.close(force: true);
+    }
+
     secureClient = McpStreamableHttpClient.withAuthGrant(
       secureEndpoint,
       grant,
@@ -24331,6 +24417,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
