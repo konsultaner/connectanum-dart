@@ -23941,6 +23941,15 @@ Future<void> main() async {
             tokenOnlyJsonClient.lastEventId == null,
         'Dart consumer token-only JSON-response direct batch captured state.',
       );
+      await _expectWampSessionMeta(
+        tokenOnlyJsonClient,
+        idPrefix: 'dart-consumer-secure-json-token-only-direct',
+        label: 'Dart consumer token-only JSON-response direct WAMP session meta',
+        expectedAuthId: 'cli-user',
+        expectedAuthRole: 'member',
+        directJson: true,
+        expectSseCursor: false,
+      );
       final tokenOnlyDirectSubscription =
           await tokenOnlyJsonClient.subscribeWampTopicDirect(
         _secureTopic,
@@ -23951,6 +23960,18 @@ Future<void> main() async {
         tokenOnlyDirectSubscription.topic == _secureTopic &&
             tokenOnlyDirectSubscription.handle.isNotEmpty,
         'Dart consumer token-only JSON-response direct subscription was invalid.',
+      );
+      await _expectWampSubscriptionMeta(
+        tokenOnlyJsonClient,
+        idPrefix: 'dart-consumer-secure-json-token-only-direct',
+        label:
+            'Dart consumer token-only JSON-response direct WAMP subscription meta',
+        topic: _secureTopic,
+        subscription: tokenOnlyDirectSubscription,
+        expectedAuthId: 'cli-user',
+        expectedAuthRole: 'member',
+        directJson: true,
+        expectSseCursor: false,
       );
       final tokenOnlyDirectPublication =
           await tokenOnlyJsonClient.publishWampEventDirect(
@@ -24014,6 +24035,16 @@ Future<void> main() async {
         'Dart consumer token-only JSON-response initialize missed state.',
       );
       await tokenOnlyJsonClient.notifyInitialized();
+      await _expectWampSessionMeta(
+        tokenOnlyJsonClient,
+        idPrefix: 'dart-consumer-secure-json-token-only-streamable',
+        label:
+            'Dart consumer token-only JSON-response Streamable WAMP session meta',
+        expectedAuthId: 'cli-user',
+        expectedAuthRole: 'member',
+        directJson: false,
+        expectSseCursor: false,
+      );
       final tokenOnlyStreamableTools = await tokenOnlyJsonClient.listTools(
         id: 'dart-consumer-secure-json-token-only-streamable-tools',
       );
@@ -24180,6 +24211,18 @@ Future<void> main() async {
         tokenOnlyStreamableSubscription.topic == _secureTopic &&
             tokenOnlyStreamableSubscription.handle.isNotEmpty,
         'Dart consumer token-only JSON-response Streamable subscription was invalid.',
+      );
+      await _expectWampSubscriptionMeta(
+        tokenOnlyJsonClient,
+        idPrefix: 'dart-consumer-secure-json-token-only-streamable',
+        label:
+            'Dart consumer token-only JSON-response Streamable WAMP subscription meta',
+        topic: _secureTopic,
+        subscription: tokenOnlyStreamableSubscription,
+        expectedAuthId: 'cli-user',
+        expectedAuthRole: 'member',
+        directJson: false,
+        expectSseCursor: false,
       );
       final tokenOnlyStreamablePublication =
           await tokenOnlyJsonClient.publishWampEvent(
@@ -24404,6 +24447,15 @@ Future<void> main() async {
         ),
         'Dart consumer token-only secure direct topic describe missed metadata.',
       );
+      await _expectWampSessionMeta(
+        tokenOnlySecureClient,
+        idPrefix: 'dart-consumer-secure-token-only-direct',
+        label: 'Dart consumer token-only secure direct WAMP session meta',
+        expectedAuthId: 'cli-user',
+        expectedAuthRole: 'member',
+        directJson: true,
+        expectSseCursor: false,
+      );
       final tokenOnlySecureDirectSubscription = await tokenOnlySecureClient
           .subscribeWampTopicDirect(
             _secureTopic,
@@ -24414,6 +24466,17 @@ Future<void> main() async {
         tokenOnlySecureDirectSubscription.topic == _secureTopic &&
             tokenOnlySecureDirectSubscription.handle.isNotEmpty,
         'Dart consumer token-only secure direct subscription was invalid.',
+      );
+      await _expectWampSubscriptionMeta(
+        tokenOnlySecureClient,
+        idPrefix: 'dart-consumer-secure-token-only-direct',
+        label: 'Dart consumer token-only secure direct WAMP subscription meta',
+        topic: _secureTopic,
+        subscription: tokenOnlySecureDirectSubscription,
+        expectedAuthId: 'cli-user',
+        expectedAuthRole: 'member',
+        directJson: true,
+        expectSseCursor: false,
       );
       final tokenOnlySecureDirectPublication = await tokenOnlySecureClient
           .publishWampEventDirect(
@@ -24477,6 +24540,15 @@ Future<void> main() async {
         'Dart consumer token-only secure initialize missed session state.',
       );
       await tokenOnlySecureClient.notifyInitialized();
+      await _expectWampSessionMeta(
+        tokenOnlySecureClient,
+        idPrefix: 'dart-consumer-secure-token-only-streamable',
+        label: 'Dart consumer token-only secure Streamable WAMP session meta',
+        expectedAuthId: 'cli-user',
+        expectedAuthRole: 'member',
+        directJson: false,
+        expectSseCursor: true,
+      );
       final tokenOnlySecureStreamableTools = await tokenOnlySecureClient
           .listTools(id: 'dart-consumer-secure-token-only-streamable-tools');
       _expect(
@@ -24670,6 +24742,18 @@ Future<void> main() async {
         tokenOnlySecureStreamableSubscription.topic == _secureTopic &&
             tokenOnlySecureStreamableSubscription.handle.isNotEmpty,
         'Dart consumer token-only secure Streamable subscription was invalid.',
+      );
+      await _expectWampSubscriptionMeta(
+        tokenOnlySecureClient,
+        idPrefix: 'dart-consumer-secure-token-only-streamable',
+        label:
+            'Dart consumer token-only secure Streamable WAMP subscription meta',
+        topic: _secureTopic,
+        subscription: tokenOnlySecureStreamableSubscription,
+        expectedAuthId: 'cli-user',
+        expectedAuthRole: 'member',
+        directJson: false,
+        expectSseCursor: true,
       );
       final tokenOnlySecureStreamablePublication = await tokenOnlySecureClient
           .publishWampEvent(
@@ -25092,6 +25176,196 @@ Future<void> main() async {
   }
 }
 
+Future<int> _expectWampSessionMeta(
+  McpStreamableHttpClient client, {
+  required String idPrefix,
+  required String label,
+  required String expectedAuthId,
+  required String expectedAuthRole,
+  required bool directJson,
+  required bool expectSseCursor,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final sessionCount = await client.countWampSessions(
+    id: '$idPrefix-wamp-session-count',
+    directJson: directJson,
+  );
+  _expect(
+    sessionCount.procedure == 'wamp.session.count',
+    '$label returned ${sessionCount.procedure} for session count.',
+  );
+  final count = _metaCount(sessionCount, '$label session count');
+  _expect(count >= 1, '$label returned an empty session count.');
+
+  final sessions = await client.listWampSessions(
+    id: '$idPrefix-wamp-session-list',
+    directJson: directJson,
+  );
+  _expect(
+    sessions.procedure == 'wamp.session.list',
+    '$label returned ${sessions.procedure} for session list.',
+  );
+  final sessionIds = _integerMetaIds(
+    sessions.argumentsKeywords['session_ids'],
+    '$label session list',
+  );
+  _expect(sessionIds.isNotEmpty, '$label returned an empty session list.');
+  final visibleSessionId = sessionIds.first;
+
+  final session = await client.getWampSession(
+    visibleSessionId,
+    id: '$idPrefix-wamp-session-get',
+    directJson: directJson,
+  );
+  _expect(
+    session.procedure == 'wamp.session.get',
+    '$label returned ${session.procedure} for session get.',
+  );
+  final details = _jsonObjectFrom(
+    session.argumentsKeywords['details'],
+    '$label session details',
+  );
+  _expect(
+    details['authid'] == expectedAuthId &&
+        details['authrole'] == expectedAuthRole,
+    '$label returned unexpected auth details: ${jsonEncode(details)}.',
+  );
+  final detailSessionId = details['session'] ?? details['id'];
+  if (detailSessionId != null) {
+    _expect(
+      detailSessionId == visibleSessionId,
+      '$label returned mismatched session details: ${jsonEncode(details)}.',
+    );
+  }
+
+  _expectWampMetaState(
+    client,
+    previousSessionId: previousSessionId,
+    previousEventId: previousEventId,
+    label: label,
+    directJson: directJson,
+    expectSseCursor: expectSseCursor,
+  );
+  return visibleSessionId;
+}
+
+Future<void> _expectWampSubscriptionMeta(
+  McpStreamableHttpClient client, {
+  required String idPrefix,
+  required String label,
+  required String topic,
+  required McpStreamableWampSubscriptionResult subscription,
+  required String expectedAuthId,
+  required String expectedAuthRole,
+  required bool directJson,
+  required bool expectSseCursor,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final rawSubscriptionId = subscription.subscriptionId;
+  _expect(
+    rawSubscriptionId != null && rawSubscriptionId > 0,
+    '$label missed a subscription id.',
+  );
+  final subscriptionId = rawSubscriptionId!;
+  final lookup = await client.lookupWampSubscription(
+    topic,
+    id: '$idPrefix-wamp-subscription-lookup',
+    directJson: directJson,
+  );
+  _expect(
+    _integerMetaIds(lookup.arguments, '$label subscription lookup')
+        .contains(subscriptionId),
+    '$label subscription lookup missed $topic.',
+  );
+
+  final match = await client.matchWampSubscription(
+    topic,
+    id: '$idPrefix-wamp-subscription-match',
+    directJson: directJson,
+  );
+  _expect(
+    _integerMetaIds(match.arguments, '$label subscription match')
+        .contains(subscriptionId),
+    '$label subscription match missed $topic.',
+  );
+
+  final subscriptions = await client.listWampSubscriptions(
+    id: '$idPrefix-wamp-subscription-list',
+    directJson: directJson,
+  );
+  _expect(
+    _integerMetaIds(
+      subscriptions.argumentsKeywords['exact'],
+      '$label subscription list exact',
+    ).contains(subscriptionId),
+    '$label subscription list missed $topic.',
+  );
+
+  final details = await client.getWampSubscription(
+    subscriptionId,
+    id: '$idPrefix-wamp-subscription-get',
+    directJson: directJson,
+  );
+  _expect(
+    jsonEncode(details.argumentsKeywords).contains(topic),
+    '$label subscription details missed $topic.',
+  );
+
+  final subscribers = await client.listWampSubscriptionSubscribers(
+    subscriptionId,
+    id: '$idPrefix-wamp-subscription-subscribers',
+    directJson: directJson,
+  );
+  final subscriberIds = _integerMetaIds(
+    subscribers.arguments,
+    '$label subscription subscribers',
+  );
+  _expect(
+    subscriberIds.isNotEmpty,
+    '$label returned an empty subscription subscriber list.',
+  );
+
+  final subscriberCount = await client.countWampSubscriptionSubscribers(
+    subscriptionId,
+    id: '$idPrefix-wamp-subscription-subscriber-count',
+    directJson: directJson,
+  );
+  _expect(
+    _metaCount(subscriberCount, '$label subscription subscriber count') ==
+        subscriberIds.length,
+    '$label subscription subscriber count did not match visible sessions.',
+  );
+
+  for (final subscriberId in subscriberIds) {
+    final subscriber = await client.getWampSession(
+      subscriberId,
+      id: '$idPrefix-wamp-subscription-subscriber-$subscriberId-get',
+      directJson: directJson,
+    );
+    final subscriberDetails = _jsonObjectFrom(
+      subscriber.argumentsKeywords['details'],
+      '$label subscriber session details',
+    );
+    _expect(
+      subscriberDetails['authid'] == expectedAuthId &&
+          subscriberDetails['authrole'] == expectedAuthRole,
+      '$label subscriber returned unexpected auth details: '
+      '${jsonEncode(subscriberDetails)}.',
+    );
+  }
+
+  _expectWampMetaState(
+    client,
+    previousSessionId: previousSessionId,
+    previousEventId: previousEventId,
+    label: label,
+    directJson: directJson,
+    expectSseCursor: expectSseCursor,
+  );
+}
+
 Future<McpStreamableWampEventBatch> _pollUntilEvent(
   McpStreamableHttpClient client,
   String handle, {
@@ -25155,6 +25429,84 @@ Future<void> _expectAuthRejected(
     );
   }
   throw StateError('$label was accepted.');
+}
+
+void _expectWampMetaState(
+  McpStreamableHttpClient client, {
+  required String? previousSessionId,
+  required String? previousEventId,
+  required String label,
+  required bool directJson,
+  required bool expectSseCursor,
+}) {
+  if (directJson) {
+    _expect(
+      client.sessionId == previousSessionId &&
+          client.lastEventId == previousEventId,
+      '$label changed Streamable state during direct JSON helper calls.',
+    );
+    return;
+  }
+
+  _expect(
+    previousSessionId != null && client.sessionId == previousSessionId,
+    '$label changed Streamable session id.',
+  );
+  if (expectSseCursor) {
+    _expect(
+      client.lastEventId != null &&
+          client.lastEventId != previousEventId &&
+          client.lastEventId!.startsWith('$previousSessionId:'),
+      '$label did not advance the Streamable SSE cursor.',
+    );
+  } else {
+    _expect(
+      client.lastEventId == previousEventId,
+      '$label unexpectedly captured a Streamable SSE cursor.',
+    );
+  }
+}
+
+int _metaCount(McpStreamableWampMetaCallResult result, String label) {
+  final keywordCount = result.argumentsKeywords['count'];
+  if (keywordCount != null) {
+    return _integerFrom(keywordCount, label);
+  }
+  if (result.arguments.length == 1) {
+    return _integerFrom(result.arguments.single, label);
+  }
+  throw StateError('$label returned ${jsonEncode(result.structuredContent)}.');
+}
+
+int _integerFrom(Object? value, String label) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num && value == value.roundToDouble()) {
+    return value.toInt();
+  }
+  throw StateError('$label returned non-integer value ${jsonEncode(value)}.');
+}
+
+List<int> _integerMetaIds(Object? value, String label) {
+  if (value is! Iterable) {
+    throw StateError('$label returned ${jsonEncode(value)}.');
+  }
+  final ids = <int>[];
+  for (final item in value) {
+    ids.add(_integerFrom(item, label));
+  }
+  return ids;
+}
+
+McpJsonMap _jsonObjectFrom(Object? value, String label) {
+  if (value is Map<String, Object?>) {
+    return value;
+  }
+  if (value is Map) {
+    return Map<String, Object?>.from(value);
+  }
+  throw StateError('$label returned ${jsonEncode(value)}.');
 }
 
 Set<String> _stringFields(Iterable<McpJsonMap> values, String field) {
@@ -25234,6 +25586,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/prompts/pubsub/batches, token-only protected tool calls/resources/prompts/batches, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
