@@ -23846,10 +23846,56 @@ Future<void> main() async {
         jsonEncode(tokenOnlySecureDirectTopics).contains(_secureTopic),
         'Dart consumer token-only secure direct WAMP catalog missed topic.',
       );
+      final tokenOnlySecureDirectSubscription = await tokenOnlySecureClient
+          .subscribeWampTopicDirect(
+            _secureTopic,
+            id: 'dart-consumer-secure-token-only-direct-subscribe',
+            queueLimit: 5,
+          );
+      _expect(
+        tokenOnlySecureDirectSubscription.topic == _secureTopic &&
+            tokenOnlySecureDirectSubscription.handle.isNotEmpty,
+        'Dart consumer token-only secure direct subscription was invalid.',
+      );
+      final tokenOnlySecureDirectPublication = await tokenOnlySecureClient
+          .publishWampEventDirect(
+            _secureTopic,
+            id: 'dart-consumer-secure-token-only-direct-publish',
+            argumentsKeywords: const <String, Object?>{
+              'via': 'dart-consumer-token-only-direct',
+            },
+            acknowledge: true,
+          );
+      _expect(
+        tokenOnlySecureDirectPublication.topic == _secureTopic &&
+            tokenOnlySecureDirectPublication.acknowledged,
+        'Dart consumer token-only secure direct publish was invalid.',
+      );
+      final tokenOnlySecureDirectEvents = await _pollUntilEvent(
+        tokenOnlySecureClient,
+        tokenOnlySecureDirectSubscription.handle,
+        marker: 'dart-consumer-token-only-direct',
+        idPrefix: 'dart-consumer-secure-token-only-direct-poll',
+      );
+      _expect(
+        jsonEncode(
+          tokenOnlySecureDirectEvents.events,
+        ).contains('dart-consumer-token-only-direct'),
+        'Dart consumer token-only secure direct poll missed event.',
+      );
+      final tokenOnlySecureDirectUnsubscribe = await tokenOnlySecureClient
+          .unsubscribeWampTopicDirect(
+            tokenOnlySecureDirectSubscription.handle,
+            id: 'dart-consumer-secure-token-only-direct-unsubscribe',
+          );
+      _expect(
+        tokenOnlySecureDirectUnsubscribe.unsubscribed,
+        'Dart consumer token-only secure direct unsubscribe was invalid.',
+      );
       _expect(
         tokenOnlySecureClient.sessionId == null &&
             tokenOnlySecureClient.lastEventId == null,
-        'Dart consumer token-only secure direct access captured state.',
+        'Dart consumer token-only secure direct pubsub captured state.',
       );
 
       final tokenOnlySecureInitialize = await tokenOnlySecureClient.initialize(
@@ -23891,13 +23937,63 @@ Future<void> main() async {
         jsonEncode(tokenOnlySecureStreamableTopics).contains(_secureTopic),
         'Dart consumer token-only secure Streamable WAMP catalog missed topic.',
       );
+      final tokenOnlySecureCatalogLastEventId =
+          tokenOnlySecureClient.lastEventId;
+      final tokenOnlySecureStreamableSubscription = await tokenOnlySecureClient
+          .subscribeWampTopic(
+            _secureTopic,
+            id: 'dart-consumer-secure-token-only-streamable-subscribe',
+            queueLimit: 5,
+          );
+      _expect(
+        tokenOnlySecureStreamableSubscription.topic == _secureTopic &&
+            tokenOnlySecureStreamableSubscription.handle.isNotEmpty,
+        'Dart consumer token-only secure Streamable subscription was invalid.',
+      );
+      final tokenOnlySecureStreamablePublication = await tokenOnlySecureClient
+          .publishWampEvent(
+            _secureTopic,
+            id: 'dart-consumer-secure-token-only-streamable-publish',
+            argumentsKeywords: const <String, Object?>{
+              'via': 'dart-consumer-token-only-streamable',
+            },
+            acknowledge: true,
+          );
+      _expect(
+        tokenOnlySecureStreamablePublication.topic == _secureTopic &&
+            tokenOnlySecureStreamablePublication.acknowledged,
+        'Dart consumer token-only secure Streamable publish was invalid.',
+      );
+      final tokenOnlySecureStreamableEvents = await _pollUntilEvent(
+        tokenOnlySecureClient,
+        tokenOnlySecureStreamableSubscription.handle,
+        marker: 'dart-consumer-token-only-streamable',
+        idPrefix: 'dart-consumer-secure-token-only-streamable-poll',
+        directJson: false,
+      );
+      _expect(
+        jsonEncode(
+          tokenOnlySecureStreamableEvents.events,
+        ).contains('dart-consumer-token-only-streamable'),
+        'Dart consumer token-only secure Streamable poll missed event.',
+      );
+      final tokenOnlySecureStreamableUnsubscribe = await tokenOnlySecureClient
+          .unsubscribeWampTopic(
+            tokenOnlySecureStreamableSubscription.handle,
+            id: 'dart-consumer-secure-token-only-streamable-unsubscribe',
+          );
+      _expect(
+        tokenOnlySecureStreamableUnsubscribe.unsubscribed,
+        'Dart consumer token-only secure Streamable unsubscribe was invalid.',
+      );
       final tokenOnlySecureLastEventId = tokenOnlySecureClient.lastEventId;
       _expect(
         tokenOnlySecureLastEventId != null &&
+            tokenOnlySecureLastEventId != tokenOnlySecureCatalogLastEventId &&
             tokenOnlySecureLastEventId.startsWith(
               '$tokenOnlySecureSessionId:',
             ),
-        'Dart consumer token-only secure Streamable missed SSE state.',
+        'Dart consumer token-only secure Streamable pubsub missed SSE state.',
       );
       await tokenOnlySecureClient.deleteSession();
       _expect(
@@ -24417,6 +24513,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
