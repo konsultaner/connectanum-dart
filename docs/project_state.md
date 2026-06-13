@@ -2,9 +2,38 @@
 
 Last updated: 2026-06-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router Image audit sensitivity for package test-only changes.
-Latest fully clean hosted checkpoint: Commit `9a74569` on GitHub `master`.
+Last reviewed branch checkpoint: MCP generated consumer package-boundary guard.
+Latest fully clean hosted checkpoint: Commit `f506276` on GitHub `master`.
 Current implementation checkpoint:
+`tool/test_mcp_consumer_package_boundary.py` now guards the generated MCP
+consumer smoke package boundary in `bin/common.sh`. The server-only,
+client-only, and installed CLI consumer smokes must depend directly only on
+`connectanum_mcp`; the full in-process router smoke may depend directly on
+`connectanum_mcp` and `connectanum_router`; and `connectanum_client` plus
+`connectanum_core` must stay in local `dependency_overrides` instead of app
+`dependencies`. The test also asserts generated MCP client snippets import
+`package:connectanum_mcp/connectanum_mcp_io.dart` and do not import
+`package:connectanum_client/...`, preserving the public package boundary that
+consumer applications and agents use for router-hosted MCP direct JSON,
+Streamable HTTP, and WAMP metadata access. Baseline `bin/test-fast` passed
+before the change on 2026-06-13.
+`bin/dart-package-publish-dry-run --show-release-plan` passed on 2026-06-13.
+Focused
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v` passed on
+2026-06-13. Updated `bin/test-fast` passed on 2026-06-13, including the new
+package-boundary guard. Full local `bin/verify` passed on 2026-06-13,
+including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+generated consumer-package smokes, router-hosted MCP examples, the installed
+CLI token-only protected WAMP session/subscription meta smoke, full router
+tests, zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket
+smoke. Hosted evidence from `f506276` remains the latest clean hosted
+checkpoint until this guard commit is pushed and GitHub checks finish. RC
+readiness remains gated on release policy: no numeric RC tag points at
+`f506276`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+`f506276`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+pub.dev package ownership/version/release-order decisions remain deferred.
+Previous implementation checkpoint:
 `bin/audit-github-deployment-chain` now treats Router Image dry-run freshness
 as runtime/build-input sensitivity instead of all package files. Router image
 freshness still includes the Router Image workflow, Docker deployment inputs,
@@ -24,24 +53,23 @@ local `bin/verify` passed on 2026-06-13, including formatting, Rust/FFI, MCP
 package smokes, generated consumer-package smokes, router-hosted MCP examples,
 the installed CLI token-only protected WAMP session/subscription meta smoke,
 full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence from the previous implementation checkpoint
-remains clean until this tooling commit is pushed and GitHub checks finish:
-GitHub `master` CI `27466022456` passed at `9a74569` with `Fast Checks` and
-`Full Verify` clean, GitHub `add-router` CI `27466022077` also passed at
-`9a74569`, GitHub `master` Dart Package Publish Dry Run `27466022460` passed
-at `9a74569`, and the non-mutating Router Image dry-run `27466352428` passed
-at `9a74569` with preview artifact `sha-9a74569e4b27`, GHCR login skipped,
-and no push. The strict deployment-chain audit exited successfully on
-2026-06-13 with clean latest CI logs, relevant Dart package publish dry-run,
+WebSocket smoke. Hosted evidence is clean: GitHub `master` CI `27467931819`
+passed at `f506276` with `Fast Checks` and `Full Verify` clean, and GitHub
+`add-router` CI `27467931783` also passed at `f506276`. The strict
+deployment-chain audit exited successfully on 2026-06-13 with clean latest CI
+logs, relevant Dart package publish dry-run `27466022460` at `9a74569`,
 relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
-Image dry-run `27466352428` at `9a74569`, relevant WAMP Profile Benchmarks
-`27281215258` at `06a56bb`, branch protection, workflow visibility, and
-router image package visibility gates ready. RC readiness remains gated on
-release policy: no numeric RC tag points at `9a74569`, the existing
-`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
-prerelease or router image RC tag is selected for `9a74569`, the audit
-suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
-ownership/version/release-order decisions remain deferred.
+Image dry-run `27466352428` at `9a74569` with preview artifact
+`sha-9a74569e4b27`, relevant WAMP Profile Benchmarks `27281215258` at
+`06a56bb`, branch protection, workflow visibility, and router image package
+visibility gates ready. The audit accepted the older publish and Router Image
+dry-run evidence because no publish-sensitive or router-image-sensitive paths
+changed after `9a74569`. RC readiness remains gated on release policy: no
+numeric RC tag points at `f506276`, the existing `v0.1.0-rc.1` tag still
+points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
+is selected for `f506276`, the audit suggests `v0.1.0-rc.2` only after
+release approval, and pub.dev package ownership/version/release-order
+decisions remain deferred.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/test/io_client_export_test.dart` now exercises the
 public `McpStreamableHttpClient.postBatchDirect` helper through the IO
