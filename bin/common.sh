@@ -23795,6 +23795,15 @@ Future<void> main() async {
         ).contains('connectanum.pubsub.publish'),
         'Dart consumer token-only JSON-response direct tools missed pub/sub.',
       );
+      final tokenOnlyDirectApiTool = await tokenOnlyJsonClient.callToolDirect(
+        'connectanum.api.list',
+        id: 'dart-consumer-secure-json-token-only-direct-api-tool-call',
+        arguments: const <String, Object?>{'kind': 'topic'},
+      );
+      _expect(
+        jsonEncode(tokenOnlyDirectApiTool).contains(_secureTopic),
+        'Dart consumer token-only JSON-response direct tool call missed topic API.',
+      );
       final tokenOnlyDirectResources = await tokenOnlyJsonClient
           .listResourcesDirect(
             id: 'dart-consumer-secure-json-token-only-direct-resources',
@@ -23889,6 +23898,15 @@ Future<void> main() async {
         ).contains('connectanum.pubsub.publish'),
         'Dart consumer token-only JSON-response Streamable tools missed pub/sub.',
       );
+      final tokenOnlyStreamableApiTool = await tokenOnlyJsonClient.callTool(
+        'connectanum.api.list',
+        id: 'dart-consumer-secure-json-token-only-streamable-api-tool-call',
+        arguments: const <String, Object?>{'kind': 'topic'},
+      );
+      _expect(
+        jsonEncode(tokenOnlyStreamableApiTool).contains(_secureTopic),
+        'Dart consumer token-only JSON-response Streamable tool call missed topic API.',
+      );
       final tokenOnlyStreamableResources = await tokenOnlyJsonClient
           .listResources(
             id: 'dart-consumer-secure-json-token-only-streamable-resources',
@@ -23973,6 +23991,16 @@ Future<void> main() async {
           'name',
         ).contains('connectanum.pubsub.publish'),
         'Dart consumer token-only secure direct tools missed pub/sub.',
+      );
+      final tokenOnlySecureDirectApiTool = await tokenOnlySecureClient
+          .callToolDirect(
+            'connectanum.api.list',
+            id: 'dart-consumer-secure-token-only-direct-api-tool-call',
+            arguments: const <String, Object?>{'kind': 'topic'},
+          );
+      _expect(
+        jsonEncode(tokenOnlySecureDirectApiTool).contains(_secureTopic),
+        'Dart consumer token-only secure direct tool call missed topic API.',
       );
       final tokenOnlySecureDirectResources = await tokenOnlySecureClient
           .listResourcesDirect(
@@ -24122,6 +24150,16 @@ Future<void> main() async {
           'name',
         ).contains('connectanum.pubsub.publish'),
         'Dart consumer token-only secure Streamable tools missed pub/sub.',
+      );
+      final tokenOnlySecureStreamableApiTool = await tokenOnlySecureClient
+          .callTool(
+            'connectanum.api.list',
+            id: 'dart-consumer-secure-token-only-streamable-api-tool-call',
+            arguments: const <String, Object?>{'kind': 'topic'},
+          );
+      _expect(
+        jsonEncode(tokenOnlySecureStreamableApiTool).contains(_secureTopic),
+        'Dart consumer token-only secure Streamable tool call missed topic API.',
       );
       final tokenOnlySecureStreamableResources = await tokenOnlySecureClient
           .listResources(
@@ -24766,6 +24804,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response resources/prompts, token-only protected resources/prompts, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/prompts, token-only protected tool calls/resources/prompts, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
