@@ -23873,6 +23873,74 @@ Future<void> main() async {
         ),
         'Dart consumer token-only JSON-response direct prompt missed substitution.',
       );
+      final tokenOnlyDirectBatch = await tokenOnlyJsonClient.postBatchDirect(
+        <McpJsonMap>[
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-json-token-only-direct-batch-resource',
+            'method': 'resources/read',
+            'params': <String, Object?>{'uri': 'cli://mcp/secure/context'},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-json-token-only-direct-batch-bad-method',
+            'method': 'tools/unknown',
+            'params': <String, Object?>{},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-json-token-only-direct-batch-api',
+            'method': 'tools/call',
+            'params': <String, Object?>{
+              'name': 'connectanum.api.list',
+              'arguments': <String, Object?>{'kind': 'topic'},
+            },
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+            'params': <String, Object?>{},
+          },
+        ],
+      );
+      _expect(
+        tokenOnlyDirectBatch?.length == 3,
+        'Dart consumer token-only JSON-response direct batch count changed.',
+      );
+      final tokenOnlyDirectBatchResource = _batchResult(
+        tokenOnlyDirectBatch,
+        'dart-consumer-secure-json-token-only-direct-batch-resource',
+        'Dart consumer token-only JSON-response direct batch resource read',
+      );
+      _expect(
+        jsonEncode(tokenOnlyDirectBatchResource).contains(
+          'Router CLI secure MCP context.',
+        ),
+        'Dart consumer token-only JSON-response direct batch missed content.',
+      );
+      final tokenOnlyDirectBatchError = _batchError(
+        tokenOnlyDirectBatch,
+        'dart-consumer-secure-json-token-only-direct-batch-bad-method',
+        'Dart consumer token-only JSON-response direct batch bad method',
+      );
+      _expect(
+        tokenOnlyDirectBatchError['code'] == McpErrorCodes.methodNotFound,
+        'Dart consumer token-only JSON-response direct batch missed error isolation.',
+      );
+      final tokenOnlyDirectBatchApi = _batchResult(
+        tokenOnlyDirectBatch,
+        'dart-consumer-secure-json-token-only-direct-batch-api',
+        'Dart consumer token-only JSON-response direct batch API call',
+      );
+      _expect(
+        jsonEncode(tokenOnlyDirectBatchApi).contains(_secureTopic),
+        'Dart consumer token-only JSON-response direct batch missed topic API.',
+      );
+      _expect(
+        tokenOnlyJsonClient.sessionId == null &&
+            tokenOnlyJsonClient.lastEventId == null,
+        'Dart consumer token-only JSON-response direct batch captured state.',
+      );
       final tokenOnlyDirectSubscription =
           await tokenOnlyJsonClient.subscribeWampTopicDirect(
         _secureTopic,
@@ -24033,6 +24101,75 @@ Future<void> main() async {
         ),
         'Dart consumer token-only JSON-response Streamable prompt missed substitution.',
       );
+      final tokenOnlyStreamableBatch = await tokenOnlyJsonClient.postBatch(
+        <McpJsonMap>[
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id':
+                'dart-consumer-secure-json-token-only-streamable-batch-resource',
+            'method': 'resources/read',
+            'params': <String, Object?>{'uri': 'cli://mcp/secure/context'},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id':
+                'dart-consumer-secure-json-token-only-streamable-batch-bad-method',
+            'method': 'tools/unknown',
+            'params': <String, Object?>{},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-json-token-only-streamable-batch-tools',
+            'method': 'tools/list',
+            'params': <String, Object?>{},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+            'params': <String, Object?>{},
+          },
+        ],
+      );
+      _expect(
+        tokenOnlyStreamableBatch?.length == 3,
+        'Dart consumer token-only JSON-response Streamable batch count changed.',
+      );
+      final tokenOnlyStreamableBatchResource = _batchResult(
+        tokenOnlyStreamableBatch,
+        'dart-consumer-secure-json-token-only-streamable-batch-resource',
+        'Dart consumer token-only JSON-response Streamable batch resource read',
+      );
+      _expect(
+        jsonEncode(tokenOnlyStreamableBatchResource).contains(
+          'Router CLI secure MCP context.',
+        ),
+        'Dart consumer token-only JSON-response Streamable batch missed content.',
+      );
+      final tokenOnlyStreamableBatchError = _batchError(
+        tokenOnlyStreamableBatch,
+        'dart-consumer-secure-json-token-only-streamable-batch-bad-method',
+        'Dart consumer token-only JSON-response Streamable batch bad method',
+      );
+      _expect(
+        tokenOnlyStreamableBatchError['code'] == McpErrorCodes.methodNotFound,
+        'Dart consumer token-only JSON-response Streamable batch missed error isolation.',
+      );
+      final tokenOnlyStreamableBatchTools = _batchResult(
+        tokenOnlyStreamableBatch,
+        'dart-consumer-secure-json-token-only-streamable-batch-tools',
+        'Dart consumer token-only JSON-response Streamable batch tools',
+      );
+      _expect(
+        jsonEncode(tokenOnlyStreamableBatchTools).contains(
+          'connectanum.pubsub.publish',
+        ),
+        'Dart consumer token-only JSON-response Streamable batch missed tools.',
+      );
+      _expect(
+        tokenOnlyJsonClient.sessionId == tokenOnlySessionId &&
+            tokenOnlyJsonClient.lastEventId == null,
+        'Dart consumer token-only JSON-response Streamable batch captured SSE state.',
+      );
       final tokenOnlyStreamableSubscription =
           await tokenOnlyJsonClient.subscribeWampTopic(
         _secureTopic,
@@ -24176,6 +24313,75 @@ Future<void> main() async {
           'Dart token-only secure direct readiness',
         ),
         'Dart consumer token-only secure direct prompt missed substitution.',
+      );
+      final tokenOnlySecureDirectBatch =
+          await tokenOnlySecureClient.postBatchDirect(
+        <McpJsonMap>[
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-token-only-direct-batch-resource',
+            'method': 'resources/read',
+            'params': <String, Object?>{'uri': 'cli://mcp/secure/context'},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-token-only-direct-batch-bad-method',
+            'method': 'tools/unknown',
+            'params': <String, Object?>{},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-token-only-direct-batch-api',
+            'method': 'tools/call',
+            'params': <String, Object?>{
+              'name': 'connectanum.api.list',
+              'arguments': <String, Object?>{'kind': 'topic'},
+            },
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+            'params': <String, Object?>{},
+          },
+        ],
+      );
+      _expect(
+        tokenOnlySecureDirectBatch?.length == 3,
+        'Dart consumer token-only secure direct batch count changed.',
+      );
+      final tokenOnlySecureDirectBatchResource = _batchResult(
+        tokenOnlySecureDirectBatch,
+        'dart-consumer-secure-token-only-direct-batch-resource',
+        'Dart consumer token-only secure direct batch resource read',
+      );
+      _expect(
+        jsonEncode(tokenOnlySecureDirectBatchResource).contains(
+          'Router CLI secure MCP context.',
+        ),
+        'Dart consumer token-only secure direct batch missed content.',
+      );
+      final tokenOnlySecureDirectBatchError = _batchError(
+        tokenOnlySecureDirectBatch,
+        'dart-consumer-secure-token-only-direct-batch-bad-method',
+        'Dart consumer token-only secure direct batch bad method',
+      );
+      _expect(
+        tokenOnlySecureDirectBatchError['code'] == McpErrorCodes.methodNotFound,
+        'Dart consumer token-only secure direct batch missed error isolation.',
+      );
+      final tokenOnlySecureDirectBatchApi = _batchResult(
+        tokenOnlySecureDirectBatch,
+        'dart-consumer-secure-token-only-direct-batch-api',
+        'Dart consumer token-only secure direct batch API call',
+      );
+      _expect(
+        jsonEncode(tokenOnlySecureDirectBatchApi).contains(_secureTopic),
+        'Dart consumer token-only secure direct batch missed topic API.',
+      );
+      _expect(
+        tokenOnlySecureClient.sessionId == null &&
+            tokenOnlySecureClient.lastEventId == null,
+        'Dart consumer token-only secure direct batch captured state.',
       );
       final tokenOnlySecureDirectTopics = await tokenOnlySecureClient
           .listWampApiDirect(
@@ -24347,6 +24553,89 @@ Future<void> main() async {
           'Dart token-only secure Streamable readiness',
         ),
         'Dart consumer token-only secure Streamable prompt missed substitution.',
+      );
+      final tokenOnlySecureBatchSessionId = tokenOnlySecureClient.sessionId;
+      final tokenOnlySecureBatchLastEventId = tokenOnlySecureClient.lastEventId;
+      final tokenOnlySecureStreamableBatch =
+          await tokenOnlySecureClient.postBatch(
+        <McpJsonMap>[
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-token-only-streamable-batch-resource',
+            'method': 'resources/read',
+            'params': <String, Object?>{'uri': 'cli://mcp/secure/context'},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id':
+                'dart-consumer-secure-token-only-streamable-batch-bad-method',
+            'method': 'tools/unknown',
+            'params': <String, Object?>{},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'dart-consumer-secure-token-only-streamable-batch-tools',
+            'method': 'tools/list',
+            'params': <String, Object?>{},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+            'params': <String, Object?>{},
+          },
+        ],
+      );
+      _expect(
+        tokenOnlySecureStreamableBatch?.length == 3,
+        'Dart consumer token-only secure Streamable batch count changed.',
+      );
+      final tokenOnlySecureStreamableBatchResource = _batchResult(
+        tokenOnlySecureStreamableBatch,
+        'dart-consumer-secure-token-only-streamable-batch-resource',
+        'Dart consumer token-only secure Streamable batch resource read',
+      );
+      _expect(
+        jsonEncode(tokenOnlySecureStreamableBatchResource).contains(
+          'Router CLI secure MCP context.',
+        ),
+        'Dart consumer token-only secure Streamable batch missed content.',
+      );
+      final tokenOnlySecureStreamableBatchError = _batchError(
+        tokenOnlySecureStreamableBatch,
+        'dart-consumer-secure-token-only-streamable-batch-bad-method',
+        'Dart consumer token-only secure Streamable batch bad method',
+      );
+      _expect(
+        tokenOnlySecureStreamableBatchError['code'] ==
+            McpErrorCodes.methodNotFound,
+        'Dart consumer token-only secure Streamable batch missed error isolation.',
+      );
+      final tokenOnlySecureStreamableBatchTools = _batchResult(
+        tokenOnlySecureStreamableBatch,
+        'dart-consumer-secure-token-only-streamable-batch-tools',
+        'Dart consumer token-only secure Streamable batch tools',
+      );
+      _expect(
+        jsonEncode(tokenOnlySecureStreamableBatchTools).contains(
+          'connectanum.pubsub.publish',
+        ),
+        'Dart consumer token-only secure Streamable batch missed tools.',
+      );
+      final tokenOnlySecureBatchNextEventId =
+          tokenOnlySecureClient.lastEventId;
+      _expect(
+        tokenOnlySecureClient.sessionId == tokenOnlySecureBatchSessionId,
+        'Dart consumer token-only secure Streamable batch changed session id.',
+      );
+      _expect(
+        tokenOnlySecureBatchSessionId != null &&
+            tokenOnlySecureBatchNextEventId != null &&
+            tokenOnlySecureBatchNextEventId !=
+                tokenOnlySecureBatchLastEventId &&
+            tokenOnlySecureBatchNextEventId.startsWith(
+              '$tokenOnlySecureBatchSessionId:',
+            ),
+        'Dart consumer token-only secure Streamable batch missed SSE state.',
       );
       final tokenOnlySecureStreamableTopics = await tokenOnlySecureClient
           .listWampApi(
@@ -24945,6 +25234,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/prompts/pubsub, token-only protected tool calls/resources/prompts, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/prompts/pubsub/batches, token-only protected tool calls/resources/prompts/batches, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
