@@ -23756,6 +23756,73 @@ Future<void> main() async {
       'Dart consumer protected JSON-response delete leaked state.',
     );
 
+    final tokenOnlyJsonClient = McpStreamableHttpClient.withBearerToken(
+      secureJsonEndpoint,
+      grant.accessToken,
+    );
+    try {
+      final tokenOnlyDirectTools = await tokenOnlyJsonClient.listToolsDirect(
+        id: 'dart-consumer-secure-json-token-only-direct-tools',
+      );
+      _expect(
+        _stringFields(
+          tokenOnlyDirectTools.tools,
+          'name',
+        ).contains('connectanum.pubsub.publish'),
+        'Dart consumer token-only JSON-response direct tools missed pub/sub.',
+      );
+      _expect(
+        tokenOnlyJsonClient.sessionId == null &&
+            tokenOnlyJsonClient.lastEventId == null,
+        'Dart consumer token-only JSON-response direct access captured state.',
+      );
+
+      final tokenOnlyInitialize = await tokenOnlyJsonClient.initialize(
+        id: 'dart-consumer-secure-json-token-only-initialize',
+        protocolVersion: _protocolVersion,
+        clientInfo: const <String, Object?>{
+          'name': 'router-cli-dart-consumer-smoke-token-only',
+          'version': '0.0.0',
+        },
+      );
+      _expect(
+        _resultFrom(
+          tokenOnlyInitialize,
+          'token-only secure JSON-response initialize',
+        )['protocolVersion'] == _protocolVersion,
+        'Dart consumer token-only JSON-response initialize changed protocol.',
+      );
+      final tokenOnlySessionId = tokenOnlyJsonClient.sessionId;
+      _expect(
+        tokenOnlySessionId != null && tokenOnlyJsonClient.lastEventId == null,
+        'Dart consumer token-only JSON-response initialize missed state.',
+      );
+      await tokenOnlyJsonClient.notifyInitialized();
+      final tokenOnlyStreamableTools = await tokenOnlyJsonClient.listTools(
+        id: 'dart-consumer-secure-json-token-only-streamable-tools',
+      );
+      _expect(
+        _stringFields(
+          tokenOnlyStreamableTools.tools,
+          'name',
+        ).contains('connectanum.pubsub.publish'),
+        'Dart consumer token-only JSON-response Streamable tools missed pub/sub.',
+      );
+      _expect(
+        tokenOnlyJsonClient.sessionId == tokenOnlySessionId &&
+            tokenOnlyJsonClient.lastEventId == null,
+        'Dart consumer token-only JSON-response Streamable captured SSE state.',
+      );
+      await tokenOnlyJsonClient.deleteSession();
+      _expect(
+        tokenOnlyJsonClient.sessionId == null &&
+            tokenOnlyJsonClient.lastEventId == null,
+        'Dart consumer token-only JSON-response delete leaked state.',
+      );
+    } finally {
+      tokenOnlyJsonClient.close(force: true);
+    }
+
     secureClient = McpStreamableHttpClient.withAuthGrant(
       secureEndpoint,
       grant,
