@@ -22490,6 +22490,18 @@ router:
                     name: cli-secure-context
                     mime_type: text/plain
                     text: Router CLI secure MCP context.
+                resource_templates:
+                  - uri_template: cli://mcp/secure/task/{taskId}
+                    name: cli-secure-task
+                    description: Router CLI secure task resource template.
+                prompts:
+                  - name: summarize-secure-cli-context
+                    arguments:
+                      - name: topic
+                        required: true
+                    messages:
+                      - role: user
+                        text: Summarize secure {{topic}} from the router CLI MCP smoke.
                 topics:
                   - topic: cli.smoke.secure.events
                     title: CLI Secure Smoke Events
@@ -22512,6 +22524,18 @@ router:
                     name: cli-secure-context
                     mime_type: text/plain
                     text: Router CLI secure MCP context.
+                resource_templates:
+                  - uri_template: cli://mcp/secure/task/{taskId}
+                    name: cli-secure-task
+                    description: Router CLI secure task resource template.
+                prompts:
+                  - name: summarize-secure-cli-context
+                    arguments:
+                      - name: topic
+                        required: true
+                    messages:
+                      - role: user
+                        text: Summarize secure {{topic}} from the router CLI MCP smoke.
                 topics:
                   - topic: cli.smoke.secure.events
                     title: CLI Secure Smoke Events
@@ -23793,6 +23817,41 @@ Future<void> main() async {
         ),
         'Dart consumer token-only JSON-response direct resource read missed content.',
       );
+      final tokenOnlyDirectTemplates = await tokenOnlyJsonClient
+          .listResourceTemplatesDirect(
+            id: 'dart-consumer-secure-json-token-only-direct-templates',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlyDirectTemplates.resourceTemplates,
+          'uriTemplate',
+        ).contains('cli://mcp/secure/task/{taskId}'),
+        'Dart consumer token-only JSON-response direct templates missed secure task.',
+      );
+      final tokenOnlyDirectPrompts = await tokenOnlyJsonClient
+          .listPromptsDirect(
+            id: 'dart-consumer-secure-json-token-only-direct-prompts',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlyDirectPrompts.prompts,
+          'name',
+        ).contains('summarize-secure-cli-context'),
+        'Dart consumer token-only JSON-response direct prompts missed secure prompt.',
+      );
+      final tokenOnlyDirectPrompt = await tokenOnlyJsonClient.getPromptDirect(
+        'summarize-secure-cli-context',
+        id: 'dart-consumer-secure-json-token-only-direct-prompt-get',
+        arguments: const <String, String>{
+          'topic': 'Dart token-only direct JSON-response readiness',
+        },
+      );
+      _expect(
+        jsonEncode(tokenOnlyDirectPrompt).contains(
+          'Dart token-only direct JSON-response readiness',
+        ),
+        'Dart consumer token-only JSON-response direct prompt missed substitution.',
+      );
       _expect(
         tokenOnlyJsonClient.sessionId == null &&
             tokenOnlyJsonClient.lastEventId == null,
@@ -23852,6 +23911,40 @@ Future<void> main() async {
         ),
         'Dart consumer token-only JSON-response Streamable resource read missed content.',
       );
+      final tokenOnlyStreamableTemplates = await tokenOnlyJsonClient
+          .listResourceTemplates(
+            id: 'dart-consumer-secure-json-token-only-streamable-templates',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlyStreamableTemplates.resourceTemplates,
+          'uriTemplate',
+        ).contains('cli://mcp/secure/task/{taskId}'),
+        'Dart consumer token-only JSON-response Streamable templates missed secure task.',
+      );
+      final tokenOnlyStreamablePrompts = await tokenOnlyJsonClient.listPrompts(
+        id: 'dart-consumer-secure-json-token-only-streamable-prompts',
+      );
+      _expect(
+        _stringFields(
+          tokenOnlyStreamablePrompts.prompts,
+          'name',
+        ).contains('summarize-secure-cli-context'),
+        'Dart consumer token-only JSON-response Streamable prompts missed secure prompt.',
+      );
+      final tokenOnlyStreamablePrompt = await tokenOnlyJsonClient.getPrompt(
+        'summarize-secure-cli-context',
+        id: 'dart-consumer-secure-json-token-only-streamable-prompt-get',
+        arguments: const <String, String>{
+          'topic': 'Dart token-only Streamable JSON-response readiness',
+        },
+      );
+      _expect(
+        jsonEncode(tokenOnlyStreamablePrompt).contains(
+          'Dart token-only Streamable JSON-response readiness',
+        ),
+        'Dart consumer token-only JSON-response Streamable prompt missed substitution.',
+      );
       _expect(
         tokenOnlyJsonClient.sessionId == tokenOnlySessionId &&
             tokenOnlyJsonClient.lastEventId == null,
@@ -23902,6 +23995,42 @@ Future<void> main() async {
           tokenOnlySecureDirectContents,
         ).contains('Router CLI secure MCP context.'),
         'Dart consumer token-only secure direct resource read missed content.',
+      );
+      final tokenOnlySecureDirectTemplates = await tokenOnlySecureClient
+          .listResourceTemplatesDirect(
+            id: 'dart-consumer-secure-token-only-direct-templates',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlySecureDirectTemplates.resourceTemplates,
+          'uriTemplate',
+        ).contains('cli://mcp/secure/task/{taskId}'),
+        'Dart consumer token-only secure direct templates missed secure task.',
+      );
+      final tokenOnlySecureDirectPrompts = await tokenOnlySecureClient
+          .listPromptsDirect(
+            id: 'dart-consumer-secure-token-only-direct-prompts',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlySecureDirectPrompts.prompts,
+          'name',
+        ).contains('summarize-secure-cli-context'),
+        'Dart consumer token-only secure direct prompts missed secure prompt.',
+      );
+      final tokenOnlySecureDirectPrompt = await tokenOnlySecureClient
+          .getPromptDirect(
+            'summarize-secure-cli-context',
+            id: 'dart-consumer-secure-token-only-direct-prompt-get',
+            arguments: const <String, String>{
+              'topic': 'Dart token-only secure direct readiness',
+            },
+          );
+      _expect(
+        jsonEncode(tokenOnlySecureDirectPrompt).contains(
+          'Dart token-only secure direct readiness',
+        ),
+        'Dart consumer token-only secure direct prompt missed substitution.',
       );
       final tokenOnlySecureDirectTopics = await tokenOnlySecureClient
           .listWampApiDirect(
@@ -24015,6 +24144,42 @@ Future<void> main() async {
           tokenOnlySecureStreamableContents,
         ).contains('Router CLI secure MCP context.'),
         'Dart consumer token-only secure Streamable resource read missed content.',
+      );
+      final tokenOnlySecureStreamableTemplates = await tokenOnlySecureClient
+          .listResourceTemplates(
+            id: 'dart-consumer-secure-token-only-streamable-templates',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlySecureStreamableTemplates.resourceTemplates,
+          'uriTemplate',
+        ).contains('cli://mcp/secure/task/{taskId}'),
+        'Dart consumer token-only secure Streamable templates missed secure task.',
+      );
+      final tokenOnlySecureStreamablePrompts = await tokenOnlySecureClient
+          .listPrompts(
+            id: 'dart-consumer-secure-token-only-streamable-prompts',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlySecureStreamablePrompts.prompts,
+          'name',
+        ).contains('summarize-secure-cli-context'),
+        'Dart consumer token-only secure Streamable prompts missed secure prompt.',
+      );
+      final tokenOnlySecureStreamablePrompt = await tokenOnlySecureClient
+          .getPrompt(
+            'summarize-secure-cli-context',
+            id: 'dart-consumer-secure-token-only-streamable-prompt-get',
+            arguments: const <String, String>{
+              'topic': 'Dart token-only secure Streamable readiness',
+            },
+          );
+      _expect(
+        jsonEncode(tokenOnlySecureStreamablePrompt).contains(
+          'Dart token-only secure Streamable readiness',
+        ),
+        'Dart consumer token-only secure Streamable prompt missed substitution.',
       );
       final tokenOnlySecureStreamableTopics = await tokenOnlySecureClient
           .listWampApi(
@@ -24601,6 +24766,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response resources, token-only protected resources, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response resources/prompts, token-only protected resources/prompts, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

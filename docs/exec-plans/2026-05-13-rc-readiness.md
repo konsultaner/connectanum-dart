@@ -79,6 +79,52 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-13: Extended the installed router CLI generated Dart consumer smoke
+  with secure resource templates and prompts on both protected MCP endpoints,
+  then proved raw bearer-token clients can consume the protected
+  resource/prompt helper surface without a private checkout. On
+  `/mcp/secure-json-post`, the protected JSON-response route, the token-only
+  client now uses `listResourceTemplatesDirect`, `listPromptsDirect`, and
+  `getPromptDirect` before any Streamable session exists, then asserts no
+  Streamable session id or SSE cursor is captured. After initializing the same
+  token-only JSON-response client, it uses the Streamable
+  `listResourceTemplates`, `listPrompts`, and `getPrompt` helpers and proves
+  the session id remains stable while the JSON-response transport still
+  captures no SSE cursor. On the standard protected `/mcp/secure` route, the
+  token-only client performs the same direct JSON template/prompt checks before
+  direct WAMP catalog/pubsub, then repeats template/prompt access on the
+  Streamable session before the existing protected resource/pubsub and SSE
+  cursor checks. This closes the installed-command evidence gap for consumer
+  applications and agents that need bearer-protected router-provided MCP
+  endpoints with raw bearer-token client construction, protected resource
+  templates/prompts, direct JSON response transport, and Streamable HTTP
+  compatibility without source-checkout or private-project assumptions.
+  Baseline `bin/test-fast` passed before the change on 2026-06-13. Focused
+  checks passed with `bash -n bin/common.sh`, `git diff --check`,
+  `python3 tool/check_public_artifact_references.py`, and
+  `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`.
+  Updated `bin/test-fast` passed on 2026-06-13, including the installed router
+  CLI generated Dart token-only protected resources/prompts MCP smoke. Full
+  local `bin/verify` passed on 2026-06-13, including formatting, Rust/FFI, MCP
+  package smokes, generated consumer-package smokes, router-hosted MCP
+  examples, the installed CLI token-only protected resources/prompts smoke,
+  full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence for this new local checkpoint is pending
+  until push; latest clean hosted evidence remains `7660346`: GitHub `master`
+  CI `27457169198` passed at `7660346` with `Fast Checks` and `Full Verify`
+  clean, GitHub `add-router` CI `27457167353` also passed at `7660346`, and
+  the strict deployment-chain audit exited
+  successfully on 2026-06-13 with clean latest CI logs, relevant Dart package
+  publish dry-run `27281214877` at `06a56bb`, relevant Native Artifacts dry-run
+  `26396437881` at `debd545`, relevant Router Image dry-run `27282955159` at
+  `715b258`, relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`,
+  branch protection, workflow visibility, and router image package visibility
+  gates ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `7660346`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
+  for `7660346`, the audit suggests `v0.1.0-rc.2` only after release approval,
+  and pub.dev package ownership/version/release-order decisions remain
+  deferred.
+- 2026-06-13: Extended the installed router CLI generated Dart consumer smoke
   with token-only bearer protected-resource access on `/mcp/secure-json-post`,
   the protected JSON-response MCP route, complementing the existing token-only
   protected resource/pubsub coverage on the standard `/mcp/secure` route and
@@ -112,21 +158,21 @@ decision because `connectanum_client` still depends on private
   Rust/FFI, MCP package smokes, generated consumer-package smokes,
   router-hosted MCP examples, the installed CLI token-only JSON-response
   protected resources smoke, full router tests, zero-copy router tests, and
-  the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this new
-  local checkpoint is pending until push; latest clean hosted evidence remains
-  `f341814`: GitHub `master` CI `27455762914` passed with `Fast Checks` and
-  `Full Verify` clean, GitHub `add-router` CI `27455762922` also passed, and
-  the strict deployment-chain audit exited successfully with
-  clean latest CI logs, relevant Dart package publish dry-run `27281214877` at
-  `06a56bb`, relevant Native Artifacts dry-run `26396437881` at `debd545`,
-  relevant Router Image dry-run `27282955159` at `715b258`, relevant WAMP
-  Profile Benchmarks `27281215258` at `06a56bb`, branch protection, workflow
-  visibility, and router image package visibility gates ready. RC readiness
-  remains gated on release policy: no numeric RC tag points at `f341814`, the
-  existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
-  prerelease or router image RC tag is selected for `f341814`, the audit
-  suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
-  ownership/version/release-order decisions remain deferred.
+  the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is clean:
+  GitHub `master` CI `27457169198` passed at `7660346` with `Fast Checks` and
+  `Full Verify` clean, GitHub `add-router` CI `27457167353` also passed at
+  `7660346`, and the strict deployment-chain audit exited successfully on
+  2026-06-13 with clean latest CI logs, relevant Dart package publish dry-run
+  `27281214877` at `06a56bb`, relevant Native Artifacts dry-run `26396437881`
+  at `debd545`, relevant Router Image dry-run `27282955159` at `715b258`,
+  relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch
+  protection, workflow visibility, and router image package visibility gates
+  ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `7660346`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
+  for `7660346`, the audit suggests `v0.1.0-rc.2` only after release approval,
+  and pub.dev package ownership/version/release-order decisions remain
+  deferred.
 - 2026-06-13: Extended the installed router CLI generated Dart consumer smoke
   with token-only bearer protected-resource access on the standard protected
   `/mcp/secure` route, complementing the existing token-only protected pub/sub
