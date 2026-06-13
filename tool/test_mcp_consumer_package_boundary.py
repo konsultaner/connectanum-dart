@@ -179,10 +179,20 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             live_body,
         )
         self.assertIn("--endpoint \"$endpoint\"", live_body)
+        self.assertIn("--endpoint \"$secure_endpoint\"", live_body)
+        self.assertIn("auth_url=\"${endpoint%/mcp}/auth\"", live_body)
+        self.assertIn("--auth-url \"$auth_url\"", live_body)
+        self.assertIn("--realm example.realm", live_body)
+        self.assertIn("--auth-id mcp-user", live_body)
+        self.assertIn("--ticket mcp-demo-ticket", live_body)
         self.assertIn("--tool example.task.lookup", live_body)
         self.assertIn("--resource-uri app://example/context", live_body)
         self.assertIn("--prompt summarize-task", live_body)
         self.assertIn("--pubsub-topic example.events.task", live_body)
+        self.assertIn(
+            "Authenticated router-hosted MCP client live smoke completed.",
+            live_body,
+        )
         self.assertNotRegex(live_body, r"package:connectanum_client/")
         self.assertNotRegex(live_body, r"package:connectanum_router/")
 

@@ -393,7 +393,9 @@ run_router_hosted_mcp_example_smoke() {
 }
 
 run_public_router_hosted_mcp_client_live_smoke() (
+  local auth_url
   local endpoint
+  local secure_endpoint
   local server_log
   local server_pid
   local status
@@ -440,17 +442,22 @@ run_public_router_hosted_mcp_client_live_smoke() (
       sed -n 's/^Router-hosted MCP endpoint is running at //p' "$server_log" |
         tail -n 1
     )"
-    if [[ -n "$endpoint" ]]; then
+    secure_endpoint="$(
+      sed -n 's/^Bearer-protected MCP endpoint is running at //p' "$server_log" |
+        tail -n 1
+    )"
+    if [[ -n "$endpoint" && -n "$secure_endpoint" ]]; then
       break
     fi
     sleep 1
   done
 
-  if [[ -z "$endpoint" ]]; then
-    printf 'Timed out waiting for the router-hosted MCP example endpoint.\n'
+  if [[ -z "$endpoint" || -z "$secure_endpoint" ]]; then
+    printf 'Timed out waiting for the router-hosted MCP example endpoints.\n'
     cat "$server_log"
     return 1
   fi
+  auth_url="${endpoint%/mcp}/auth"
 
   dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$endpoint" \
@@ -464,6 +471,23 @@ run_public_router_hosted_mcp_client_live_smoke() (
     >/dev/null
 
   printf 'Public router-hosted MCP client live smoke completed.\n'
+
+  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint "$secure_endpoint" \
+    --auth-url "$auth_url" \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --ticket mcp-demo-ticket \
+    --tool example.task.lookup \
+    --tool-arguments '{"taskId":"T-authenticated-example-live"}' \
+    --resource-uri app://example/context \
+    --prompt summarize-task \
+    --prompt-arguments '{"taskId":"T-authenticated-example-live"}' \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-authenticated-example-live","status":"open"}' \
+    >/dev/null
+
+  printf 'Authenticated router-hosted MCP client live smoke completed.\n'
 )
 
 run_mcp_server_package_smoke() (
