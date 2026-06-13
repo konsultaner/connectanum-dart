@@ -1110,7 +1110,7 @@ void main() {
       );
       expect(jsonEncode(directPrompt['messages']), contains('T-direct'));
 
-      final directBatch = await client.postBatch(
+      final directBatch = await client.postBatchDirect(
         <McpJsonMap>[
           <String, Object?>{
             'jsonrpc': '2.0',
@@ -1134,8 +1134,7 @@ void main() {
             'params': <String, Object?>{'uri': 'app://io/missing'},
           },
         ],
-        streamable: false,
-        includeSession: false,
+        headers: const <String, String>{'x-consumer-trace': 'io-direct-batch'},
       );
 
       expect(directBatch, hasLength(3));
@@ -1173,6 +1172,7 @@ void main() {
       expect(endpoint.requests[4].accept, 'application/json');
       expect(endpoint.requests[5].accept, 'application/json');
       expect(endpoint.requests[1].consumerTrace, 'io-streamable-resource-read');
+      expect(endpoint.requests[5].consumerTrace, 'io-direct-batch');
       expect(endpoint.requests[2].consumerTrace, 'io-streamable-prompt-get');
       expect(endpoint.requests[3].consumerTrace, 'io-direct-resources-list');
       expect(endpoint.requests[4].consumerTrace, 'io-direct-prompt-get');
@@ -1893,7 +1893,7 @@ void main() {
     );
     expect(directUnsubscribe.unsubscribed, isTrue);
 
-    final rawBatch = await client.postBatch(
+    final rawBatch = await client.postBatchDirect(
       <McpJsonMap>[
         <String, Object?>{
           'jsonrpc': '2.0',
@@ -1927,8 +1927,7 @@ void main() {
           },
         },
       ],
-      streamable: false,
-      includeSession: false,
+      headers: const <String, String>{'x-consumer-trace': 'io-direct-batch'},
     );
 
     expect(rawBatch, hasLength(3));
@@ -1997,6 +1996,7 @@ void main() {
         'io-direct-unsubscribe',
       ],
     );
+    expect(endpoint.requests[16].consumerTrace, 'io-direct-batch');
     expect(endpoint.requests[4].body, {
       'jsonrpc': '2.0',
       'method': 'connectanum.pubsub.publish',

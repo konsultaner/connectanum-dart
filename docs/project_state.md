@@ -2,9 +2,38 @@
 
 Last updated: 2026-06-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI installed command token-only protected WAMP session/subscription meta smoke.
-Latest fully clean hosted checkpoint: Commit `498e1c5` on GitHub `master`.
-Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
+Last reviewed branch checkpoint: Public MCP IO direct JSON batch helper coverage.
+Latest fully clean hosted checkpoint: Commit `aab0797` on GitHub `master`.
+Current implementation checkpoint:
+`packages/connectanum_mcp/test/io_client_export_test.dart` now exercises the
+public `McpStreamableHttpClient.postBatchDirect` helper through the IO
+entrypoint for direct JSON batch requests, rather than proving the same direct
+transport behavior only through lower-level `postBatch` flags
+(`streamable: false`, `includeSession: false`). The resource/prompt and pub/sub
+IO export tests
+now send direct JSON batches through `postBatchDirect`, assert caller headers
+still reach the router-hosted MCP request, and keep the existing checks that
+direct batches remain lifecycle-free with no MCP session id or SSE cursor
+changes. This locks the public direct JSON batch API that consumer
+applications and agents are expected to call from
+`package:connectanum_mcp/connectanum_mcp_io.dart`. Baseline `bin/test-fast`
+passed before the change on 2026-06-13. Focused
+`dart test packages/connectanum_mcp/test/io_client_export_test.dart` passed on
+2026-06-13. Full local `bin/verify` passed on 2026-06-13, including
+formatting, Rust/FFI, MCP package smokes, generated consumer-package smokes,
+router-hosted MCP examples, the installed CLI token-only protected WAMP
+session/subscription meta smoke, full router tests, zero-copy router tests,
+and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence from the
+previous implementation checkpoint remains clean: GitHub `master` CI
+`27464870017` passed at `aab0797` with `Fast Checks` and `Full Verify` clean,
+GitHub `add-router` CI `27464866398` also passed at `aab0797`, and the strict
+deployment-chain audit exited successfully on 2026-06-13. RC readiness remains
+gated on release policy: no numeric RC tag points at `aab0797`, the existing
+`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+prerelease or router image RC tag is selected for `aab0797`, the audit
+suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
+ownership/version/release-order decisions remain deferred.
+Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI generated Dart consumer smoke so raw
 bearer-token clients prove protected WAMP session and subscription metadata on
 both protected MCP routes, across direct JSON and Streamable HTTP flows. On
@@ -41,20 +70,20 @@ Full local `bin/verify` passed on 2026-06-13, including formatting, Rust/FFI,
 MCP package smokes, generated consumer-package smokes, router-hosted MCP
 examples, the installed CLI token-only protected WAMP session/subscription
 meta smoke, full router tests, zero-copy router tests, and the
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this checkpoint
-is pending push; the latest fully clean hosted checkpoint remains GitHub
-`master`/`add-router` at `498e1c5`. The strict deployment-chain audit last
-exited successfully on 2026-06-13 for `498e1c5` with clean latest CI logs,
-relevant Dart package publish dry-run `27281214877` at `06a56bb`, relevant
-Native Artifacts dry-run `26396437881` at `debd545`, relevant Router Image
-dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
-`27281215258` at `06a56bb`, branch protection, workflow visibility, and router
-image package visibility gates ready. RC readiness remains gated on release
-policy: no numeric RC tag points at this WAMP-meta checkpoint or `498e1c5`,
-the existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no
-GitHub prerelease or router image RC tag is selected for this checkpoint, the
-audit suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
-ownership/version/release-order decisions remain deferred.
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is clean: GitHub
+`master` CI `27464870017` passed at `aab0797` with `Fast Checks` and
+`Full Verify` clean, GitHub `add-router` CI `27464866398` also passed at
+`aab0797`, and the strict deployment-chain audit exited successfully on
+2026-06-13 with clean latest CI logs, relevant Dart package publish dry-run
+`27281214877` at `06a56bb`, relevant Native Artifacts dry-run `26396437881` at
+`debd545`, relevant Router Image dry-run `27282955159` at `715b258`, relevant
+WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch protection,
+workflow visibility, and router image package visibility gates ready. RC
+readiness remains gated on release policy: no numeric RC tag points at
+`aab0797`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+`aab0797`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+pub.dev package ownership/version/release-order decisions remain deferred.
 Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI generated Dart consumer smoke so raw
 bearer-token clients prove protected direct JSON and Streamable HTTP batch
