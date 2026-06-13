@@ -79,6 +79,38 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-13: Added
+  `packages/connectanum_mcp/example/router_hosted_client.dart` as a checked-in
+  router-hosted MCP consumer example that imports only
+  `package:connectanum_mcp/connectanum_mcp_io.dart`. It accepts a
+  router-provided MCP endpoint, optional raw bearer-token credentials or a
+  ticket HTTP auth-grant flow, performs lifecycle-free direct JSON
+  catalog/tool calls, can exercise direct JSON WAMP pub/sub
+  subscribe/publish/poll/unsubscribe helpers, then initializes a Streamable
+  HTTP session, sends `notifications/initialized`, lists tools through the
+  session, and deletes the session during cleanup.
+  `packages/connectanum_mcp/README.md` now links this example from the package
+  docs, and `tool/test_mcp_consumer_package_boundary.py` now asserts the
+  example keeps the public IO entrypoint boundary, avoids direct
+  `connectanum_client` and `connectanum_router` imports, and continues
+  demonstrating the bearer-token, auth-grant, direct JSON, pub/sub,
+  initialize, and delete-session helper set. Baseline `bin/test-fast` passed
+  before the change on 2026-06-13. Focused
+  `python3 -m unittest tool/test_mcp_consumer_package_boundary.py` passed on
+  2026-06-13. Focused `dart analyze` passed on 2026-06-13. Focused
+  `dart run packages/connectanum_mcp/example/router_hosted_client.dart --help`
+  passed on 2026-06-13. Full local `bin/verify` passed on 2026-06-13,
+  including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+  generated consumer-package smokes, router-hosted MCP examples, the installed
+  CLI token-only protected WAMP session/subscription meta smoke, full router
+  tests, zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket
+  smoke. Latest hosted evidence remains clean at `bf5e973` until this local
+  example checkpoint is pushed and GitHub checks finish. RC readiness remains
+  gated on release policy: no numeric RC tag points at `bf5e973`, the existing
+  `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+  prerelease or router image RC tag is selected for `bf5e973`, the audit
+  suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
+  ownership/version/release-order decisions remain deferred.
 - 2026-06-13: Added public MCP IO entrypoint coverage for raw bearer-token
   client construction by exercising
   `McpStreamableHttpClient.withBearerToken` through
@@ -100,14 +132,26 @@ decision because `connectanum_client` still depends on private
   smokes, generated consumer-package smokes, router-hosted MCP examples, the
   installed CLI token-only protected WAMP session/subscription meta smoke,
   full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. Hosted evidence from `83d67ba` remains the latest clean
-  hosted checkpoint until this smoke commit is pushed and GitHub checks
-  finish. RC readiness remains gated on release policy: no numeric RC tag
-  points at `83d67ba`, the existing `v0.1.0-rc.1` tag still points at stale
-  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
-  for `83d67ba`, the audit suggests `v0.1.0-rc.2` only after release
-  approval, and pub.dev package ownership/version/release-order decisions
-  remain deferred.
+  WebSocket smoke. Hosted evidence is clean: GitHub `master` CI `27471401627`
+  passed at `bf5e973` with `Fast Checks` and `Full Verify` clean, GitHub
+  `add-router` CI `27471398072` also passed at `bf5e973`, GitHub `master`
+  Dart Package Publish Dry Run `27471401640` passed at `bf5e973`, and GitHub
+  `add-router` Dart Package Publish Dry Run `27471398068` also passed at
+  `bf5e973`. The strict deployment-chain audit exited successfully on
+  2026-06-13 with clean latest CI logs, relevant Dart package publish dry-run
+  `27471401640` at `bf5e973`, relevant Native Artifacts dry-run `26396437881`
+  at `debd545`, relevant Router Image dry-run `27466352428` at `9a74569` with
+  preview artifact `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks
+  `27281215258` at `06a56bb`, branch protection, workflow visibility, and
+  router image package visibility gates ready. The audit accepted the older
+  native, router image, and WAMP benchmark evidence because no
+  native-release-sensitive, router-image-sensitive, or WAMP-profile-sensitive
+  paths changed after their respective evidence commits. RC readiness remains
+  gated on release policy: no numeric RC tag points at `bf5e973`, the existing
+  `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+  prerelease or router image RC tag is selected for `bf5e973`, the audit
+  suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
+  ownership/version/release-order decisions remain deferred.
 - 2026-06-13: Added `tool/test_mcp_consumer_package_boundary.py` to guard the
   generated MCP consumer smoke package boundary in `bin/common.sh`. The
   server-only, client-only, and installed CLI consumer smokes must depend

@@ -10,6 +10,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 COMMON_SH = REPO_ROOT / "bin" / "common.sh"
+ROUTER_HOSTED_CLIENT_EXAMPLE = (
+    REPO_ROOT / "packages" / "connectanum_mcp" / "example" / "router_hosted_client.dart"
+)
 
 
 def _function_body(script: str, name: str) -> str:
@@ -99,6 +102,33 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
                     body,
                 )
                 self.assertNotRegex(body, r"import 'package:connectanum_client/")
+
+    def test_public_router_hosted_client_example_uses_public_io_entrypoint(
+        self,
+    ) -> None:
+        example = ROUTER_HOSTED_CLIENT_EXAMPLE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "import 'package:connectanum_mcp/connectanum_mcp_io.dart';",
+            example,
+        )
+        self.assertNotRegex(example, r"import 'package:connectanum_client/")
+        self.assertNotRegex(example, r"import 'package:connectanum_router/")
+
+        for public_helper in (
+            "McpStreamableHttpClient.withBearerToken",
+            "McpStreamableHttpClient.withAuthGrant",
+            "listConnectanumToolsDirect",
+            "callConnectanumToolDirect",
+            "subscribeWampTopicDirect",
+            "publishWampEventDirect",
+            "pollWampEventsDirect",
+            "unsubscribeWampTopicDirect",
+            "initialize",
+            "deleteSession",
+        ):
+            with self.subTest(helper=public_helper):
+                self.assertIn(public_helper, example)
 
 
 if __name__ == "__main__":

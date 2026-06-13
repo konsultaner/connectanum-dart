@@ -248,6 +248,20 @@ Minimal manual request sequence:
 {"jsonrpc":"2.0","id":7,"method":"prompts/get","params":{"name":"echo.summary","arguments":{"text":"hello"}}}
 ```
 
+## Router-Hosted Client Example
+
+Run the router-hosted client example against a `connectanum_router` MCP route:
+
+```bash
+dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  --endpoint http://127.0.0.1:8080/mcp
+```
+
+The example imports only `package:connectanum_mcp/connectanum_mcp_io.dart` and
+shows direct JSON tool/catalog calls, optional bearer or ticket auth-grant
+client construction, direct JSON pub/sub helpers, Streamable HTTP
+`initialize`, and session deletion.
+
 ## WAMP Tool Delegation
 
 Use `McpWampToolDelegate.session(...)` when an MCP tool should call an existing
