@@ -23771,6 +23771,28 @@ Future<void> main() async {
         ).contains('connectanum.pubsub.publish'),
         'Dart consumer token-only JSON-response direct tools missed pub/sub.',
       );
+      final tokenOnlyDirectResources = await tokenOnlyJsonClient
+          .listResourcesDirect(
+            id: 'dart-consumer-secure-json-token-only-direct-resources',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlyDirectResources.resources,
+          'uri',
+        ).contains('cli://mcp/secure/context'),
+        'Dart consumer token-only JSON-response direct resources missed context.',
+      );
+      final tokenOnlyDirectContents = await tokenOnlyJsonClient
+          .readResourceDirect(
+            'cli://mcp/secure/context',
+            id: 'dart-consumer-secure-json-token-only-direct-resource-read',
+          );
+      _expect(
+        jsonEncode(tokenOnlyDirectContents).contains(
+          'Router CLI secure MCP context.',
+        ),
+        'Dart consumer token-only JSON-response direct resource read missed content.',
+      );
       _expect(
         tokenOnlyJsonClient.sessionId == null &&
             tokenOnlyJsonClient.lastEventId == null,
@@ -23807,6 +23829,28 @@ Future<void> main() async {
           'name',
         ).contains('connectanum.pubsub.publish'),
         'Dart consumer token-only JSON-response Streamable tools missed pub/sub.',
+      );
+      final tokenOnlyStreamableResources = await tokenOnlyJsonClient
+          .listResources(
+            id: 'dart-consumer-secure-json-token-only-streamable-resources',
+          );
+      _expect(
+        _stringFields(
+          tokenOnlyStreamableResources.resources,
+          'uri',
+        ).contains('cli://mcp/secure/context'),
+        'Dart consumer token-only JSON-response Streamable resources missed context.',
+      );
+      final tokenOnlyStreamableContents = await tokenOnlyJsonClient
+          .readResource(
+            'cli://mcp/secure/context',
+            id: 'dart-consumer-secure-json-token-only-streamable-resource-read',
+          );
+      _expect(
+        jsonEncode(tokenOnlyStreamableContents).contains(
+          'Router CLI secure MCP context.',
+        ),
+        'Dart consumer token-only JSON-response Streamable resource read missed content.',
       );
       _expect(
         tokenOnlyJsonClient.sessionId == tokenOnlySessionId &&
@@ -24557,6 +24601,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected resources, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response resources, token-only protected resources, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
