@@ -19,6 +19,11 @@ Future<void> main(List<String> args) async {
     return;
   }
 
+  if (options.dryRun) {
+    _printDryRunSummary(stdout, options);
+    return;
+  }
+
   final client = await _createClient(options);
   try {
     await _runDirectJsonExample(client, options);
@@ -76,6 +81,30 @@ Future<McpStreamableHttpClient> _createClient(_Options options) async {
   );
 }
 
+void _printDryRunSummary(IOSink sink, _Options options) {
+  final authMode = switch ((options.bearerToken, options.authEndpoint)) {
+    (String(), _) => 'bearer',
+    (_, Uri()) => 'ticket',
+    _ => 'none',
+  };
+
+  sink.writeln(
+    jsonEncode({
+      'dryRun': true,
+      'endpoint': options.endpoint.toString(),
+      'authMode': authMode,
+      if (options.authEndpoint != null)
+        'authEndpoint': options.authEndpoint.toString(),
+      if (options.authRealm != null) 'realm': options.authRealm,
+      if (options.authId != null) 'authId': options.authId,
+      if (options.toolName != null)
+        'tool': {'name': options.toolName, 'arguments': options.toolArguments},
+      if (options.pubsubTopic != null)
+        'pubsub': {'topic': options.pubsubTopic, 'event': options.pubsubEvent},
+    }),
+  );
+}
+
 // This example is a short-lived CLI, so avoid keeping HTTP sockets alive
 // after its final request completes.
 HttpClient _shortLivedHttpClient() => HttpClient()..idleTimeout = Duration.zero;
@@ -126,6 +155,15 @@ Future<void> _runDirectPubSubExample(
       id: 'direct-pubsub-poll',
       limit: 10,
     );
+    final observed = events.events.any(
+      (event) =>
+          _jsonValueEquals(event['argumentsKeywords'], options.pubsubEvent),
+    );
+    if (!observed) {
+      throw StateError(
+        'Published event was not observed on direct JSON pub/sub topic $topic.',
+      );
+    }
     stdout.writeln(
       jsonEncode({
         'pubsubTopic': topic,
@@ -172,6 +210,7 @@ final class _Options {
     required this.endpoint,
     required this.toolArguments,
     required this.pubsubEvent,
+    required this.dryRun,
     this.bearerToken,
     this.authEndpoint,
     this.authRealm,
@@ -191,6 +230,7 @@ final class _Options {
   final McpJsonMap toolArguments;
   final String? pubsubTopic;
   final McpJsonMap pubsubEvent;
+  final bool dryRun;
 
   static _Options parse(List<String> args) {
     final values = _parseOptions(args);
@@ -215,6 +255,17 @@ final class _Options {
       );
     }
 
+    if (values.containsKey('--tool-arguments') &&
+        !values.containsKey('--tool')) {
+      throw const FormatException('Use --tool-arguments together with --tool.');
+    }
+    if (values.containsKey('--pubsub-event') &&
+        !values.containsKey('--pubsub-topic')) {
+      throw const FormatException(
+        'Use --pubsub-event together with --pubsub-topic.',
+      );
+    }
+
     return _Options(
       endpoint: endpoint,
       bearerToken: bearerToken,
@@ -234,12 +285,13 @@ final class _Options {
         '--pubsub-event',
         const <String, Object?>{'source': 'router-hosted-client-example'},
       ),
+      dryRun: values.containsKey('--dry-run'),
     );
   }
 }
 
 Map<String, String> _parseOptions(List<String> args) {
-  const allowedOptions = {
+  const valueOptions = {
     '--endpoint',
     '--bearer-token',
     '--auth-url',
@@ -251,11 +303,19 @@ Map<String, String> _parseOptions(List<String> args) {
     '--pubsub-topic',
     '--pubsub-event',
   };
+  const flagOptions = {'--dry-run'};
 
   final values = <String, String>{};
   for (var index = 0; index < args.length; index += 1) {
     final option = args[index];
-    if (!allowedOptions.contains(option)) {
+    if (flagOptions.contains(option)) {
+      if (values.containsKey(option)) {
+        throw FormatException('Duplicate option: $option.');
+      }
+      values[option] = 'true';
+      continue;
+    }
+    if (!valueOptions.contains(option)) {
       throw FormatException('Unknown option: $option');
     }
     if (index + 1 >= args.length || args[index + 1].startsWith('--')) {
@@ -291,6 +351,33 @@ Uri _httpUri(String value, String option) {
   return uri;
 }
 
+bool _jsonValueEquals(Object? left, Object? right) {
+  if (left is Map && right is Map) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (final entry in left.entries) {
+      if (!right.containsKey(entry.key) ||
+          !_jsonValueEquals(entry.value, right[entry.key])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  if (left is List && right is List) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index += 1) {
+      if (!_jsonValueEquals(left[index], right[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return left == right;
+}
+
 McpJsonMap _jsonObjectOption(
   Map<String, String> values,
   String option,
@@ -323,5 +410,6 @@ Options:
   --tool-arguments JSON_OBJECT      Arguments for --tool.
   --pubsub-topic TOPIC              Exercise direct JSON pub/sub helpers.
   --pubsub-event JSON_OBJECT        Event kwargs for --pubsub-topic.
+  --dry-run                         Validate options without HTTP requests.
 ''');
 }

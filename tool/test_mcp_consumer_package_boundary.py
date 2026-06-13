@@ -126,11 +126,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "unsubscribeWampTopicDirect",
             "initialize",
             "deleteSession",
+            "_printDryRunSummary",
+            "--dry-run",
         ):
             with self.subTest(helper=public_helper):
                 self.assertIn(public_helper, example)
 
-    def test_fast_smoke_runs_public_router_hosted_client_example_help(self) -> None:
+    def test_fast_smoke_runs_public_router_hosted_client_example_dry_run(
+        self,
+    ) -> None:
         body = _function_body(
             COMMON_SH.read_text(encoding="utf-8"),
             "run_router_hosted_mcp_example_smoke",
@@ -140,7 +144,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "packages/connectanum_mcp/example/router_hosted_client.dart",
             body,
         )
-        self.assertIn("--help", body)
+        self.assertIn("--endpoint http://127.0.0.1:8080/mcp", body)
+        self.assertIn("--tool example.task.lookup", body)
+        self.assertIn("--tool-arguments", body)
+        self.assertIn("--pubsub-topic example.events.task", body)
+        self.assertIn("--pubsub-event", body)
+        self.assertIn("--dry-run", body)
 
 
 if __name__ == "__main__":
