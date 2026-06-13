@@ -2,26 +2,30 @@
 
 Last updated: 2026-06-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router CLI installed command token-only protected pub/sub MCP smoke.
-Latest fully clean hosted checkpoint: Commit `e02ea08` on GitHub `master`.
+Last reviewed branch checkpoint: Router CLI installed command token-only protected resource/pubsub MCP smoke.
+Latest fully clean hosted checkpoint: Commit `832d5a1` on GitHub `master`.
 Current implementation checkpoint: `run_router_cli_consumer_package_smoke` now
 extends the installed router CLI generated Dart consumer smoke with token-only
-bearer pub/sub round-trips on the standard protected `/mcp/secure` route,
-complementing the existing grant-backed protected pub/sub and protected
-JSON-response `/mcp/secure-json-post` coverage. The generated neutral package
-still imports only `package:connectanum_mcp/connectanum_mcp_io.dart`. After
-obtaining an HTTP auth ticket grant, it creates
+bearer protected-resource access plus pub/sub round-trips on the standard
+protected `/mcp/secure` route, complementing the existing grant-backed
+protected resource/pubsub and protected JSON-response `/mcp/secure-json-post`
+coverage. The generated neutral package still imports only
+`package:connectanum_mcp/connectanum_mcp_io.dart`. After obtaining an HTTP
+auth ticket grant, it creates
 `McpStreamableHttpClient.withBearerToken(secureEndpoint, grant.accessToken)`
 so a consumer application or agent can use a persisted access token without
 retaining the auth grant object. Before opening a Streamable session, the smoke
-now uses `subscribeWampTopicDirect`, `publishWampEventDirect`,
-`pollWampEventsDirect`, and `unsubscribeWampTopicDirect` to prove direct JSON
-pub/sub delivery and cleanup while still capturing no Streamable session id or
-SSE cursor. After initializing the same token-only client on the protected
-Streamable route, it uses `subscribeWampTopic`, `publishWampEvent`,
-`pollWampEvents`, and `unsubscribeWampTopic` to prove stateful pub/sub
-delivery, then verifies the SSE cursor advanced on the same session and
-`deleteSession` clears the state. This keeps the prior installed-command
+now uses `listResourcesDirect` and `readResourceDirect` to prove the protected
+resource catalog/content are reachable through direct JSON, then uses
+`subscribeWampTopicDirect`, `publishWampEventDirect`, `pollWampEventsDirect`,
+and `unsubscribeWampTopicDirect` to prove direct JSON pub/sub delivery and
+cleanup while still capturing no Streamable session id or SSE cursor. After
+initializing the same token-only client on the protected Streamable route, it
+uses `listResources` and `readResource` before `subscribeWampTopic`,
+`publishWampEvent`, `pollWampEvents`, and `unsubscribeWampTopic` to prove
+stateful protected resources and pub/sub delivery, then verifies the SSE cursor
+advanced on the same session and `deleteSession` clears the state. This keeps
+the prior installed-command
 coverage for `/healthz`, `/metrics`, `/auth`, public `/mcp`,
 bearer-protected `/mcp/secure`, `/mcp/secure-json-post`, missing/unknown
 bearer rejection, secure resources, direct JSON tool/meta APIs, mixed
@@ -31,31 +35,32 @@ JSON-response pub/sub helpers, raw token JSON-response helper use, and raw
 token Streamable catalog/session/SSE checks. This closes the installed-command
 evidence gap for consumer applications and agents that need bearer-protected
 router-provided MCP endpoints with raw bearer-token client construction,
-direct JSON pub/sub, and stateful Streamable HTTP/SSE pub/sub compatibility
-without source-checkout or private-project assumptions. Baseline
+direct JSON resource/pubsub access, and stateful Streamable HTTP/SSE
+resource/pubsub compatibility without source-checkout or private-project
+assumptions. Baseline
 `bin/test-fast` passed before the change on 2026-06-13. Focused checks passed
 with `bash -n bin/common.sh`, `git diff --check`,
 `python3 tool/check_public_artifact_references.py`, and
 `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`.
 Updated `bin/test-fast` passed on 2026-06-13, including the installed router
-CLI generated Dart token-only protected pub/sub MCP smoke. Full local
-`bin/verify` passed on 2026-06-13, including formatting, Rust/FFI, MCP package
-smokes, generated consumer-package smokes, router-hosted MCP examples, the
-installed CLI token-only protected pub/sub smoke, full router tests, zero-copy
-router tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-evidence for this new local checkpoint is pending until push; latest clean
-hosted evidence remains
-`e02ea08`: GitHub `master` CI `27452766339` passed with `Fast Checks` and
-`Full Verify` clean, GitHub `add-router` CI `27452763997` also passed, and the
+CLI generated Dart token-only protected resource/pubsub MCP smoke. Full local
+`bin/verify` passed on 2026-06-13, including formatting, Rust/FFI,
+MCP package smokes, generated consumer-package smokes, router-hosted MCP
+examples, the installed CLI token-only protected resource/pubsub smoke, full
+router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this new local checkpoint is pending
+until push; latest clean hosted evidence remains
+`832d5a1`: GitHub `master` CI `27454283637` passed with `Fast Checks` and
+`Full Verify` clean, GitHub `add-router` CI `27454281467` also passed, and the
 strict deployment-chain audit exited successfully with clean latest CI logs,
 relevant Dart package publish dry-run `27281214877` at `06a56bb`, relevant
 Native Artifacts dry-run `26396437881` at `debd545`, relevant Router Image
 dry-run `27282955159` at `715b258`, relevant WAMP Profile Benchmarks
 `27281215258` at `06a56bb`, branch protection, workflow visibility, and router
 image package visibility gates ready. RC readiness remains gated on release
-policy: no numeric RC tag points at `e02ea08`, the existing `v0.1.0-rc.1` tag
+policy: no numeric RC tag points at `832d5a1`, the existing `v0.1.0-rc.1` tag
 still points at stale commit `47bbf9c`, no GitHub prerelease or router image
-RC tag is selected for `e02ea08`, the audit suggests `v0.1.0-rc.2` only after
+RC tag is selected for `832d5a1`, the audit suggests `v0.1.0-rc.2` only after
 release approval, and pub.dev package ownership/version/release-order
 decisions remain deferred.
 Previous implementation checkpoint: `run_router_cli_consumer_package_smoke` now
