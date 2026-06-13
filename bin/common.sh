@@ -23804,6 +23804,18 @@ Future<void> main() async {
         jsonEncode(tokenOnlyDirectApiTool).contains(_secureTopic),
         'Dart consumer token-only JSON-response direct tool call missed topic API.',
       );
+      final tokenOnlyDirectTopicDescription = await tokenOnlyJsonClient
+          .describeWampApiDirect(
+            _secureTopic,
+            id: 'dart-consumer-secure-json-token-only-direct-topic-describe',
+            kind: 'topic',
+          );
+      _expect(
+        jsonEncode(tokenOnlyDirectTopicDescription).contains(
+          'CLI Secure Smoke Events',
+        ),
+        'Dart consumer token-only JSON-response direct topic describe missed metadata.',
+      );
       final tokenOnlyDirectResources = await tokenOnlyJsonClient
           .listResourcesDirect(
             id: 'dart-consumer-secure-json-token-only-direct-resources',
@@ -23861,6 +23873,52 @@ Future<void> main() async {
         ),
         'Dart consumer token-only JSON-response direct prompt missed substitution.',
       );
+      final tokenOnlyDirectSubscription =
+          await tokenOnlyJsonClient.subscribeWampTopicDirect(
+        _secureTopic,
+        id: 'dart-consumer-secure-json-token-only-direct-subscribe',
+        queueLimit: 5,
+      );
+      _expect(
+        tokenOnlyDirectSubscription.topic == _secureTopic &&
+            tokenOnlyDirectSubscription.handle.isNotEmpty,
+        'Dart consumer token-only JSON-response direct subscription was invalid.',
+      );
+      final tokenOnlyDirectPublication =
+          await tokenOnlyJsonClient.publishWampEventDirect(
+        _secureTopic,
+        id: 'dart-consumer-secure-json-token-only-direct-publish',
+        argumentsKeywords: const <String, Object?>{
+          'via': 'dart-consumer-token-only-json-direct',
+        },
+        acknowledge: true,
+      );
+      _expect(
+        tokenOnlyDirectPublication.topic == _secureTopic &&
+            tokenOnlyDirectPublication.acknowledged,
+        'Dart consumer token-only JSON-response direct publish was invalid.',
+      );
+      final tokenOnlyDirectEvents = await _pollUntilEvent(
+        tokenOnlyJsonClient,
+        tokenOnlyDirectSubscription.handle,
+        marker: 'dart-consumer-token-only-json-direct',
+        idPrefix: 'dart-consumer-secure-json-token-only-direct-poll',
+      );
+      _expect(
+        jsonEncode(
+          tokenOnlyDirectEvents.events,
+        ).contains('dart-consumer-token-only-json-direct'),
+        'Dart consumer token-only JSON-response direct poll missed event.',
+      );
+      final tokenOnlyDirectUnsubscribe =
+          await tokenOnlyJsonClient.unsubscribeWampTopicDirect(
+        tokenOnlyDirectSubscription.handle,
+        id: 'dart-consumer-secure-json-token-only-direct-unsubscribe',
+      );
+      _expect(
+        tokenOnlyDirectUnsubscribe.unsubscribed,
+        'Dart consumer token-only JSON-response direct unsubscribe was invalid.',
+      );
       _expect(
         tokenOnlyJsonClient.sessionId == null &&
             tokenOnlyJsonClient.lastEventId == null,
@@ -23906,6 +23964,18 @@ Future<void> main() async {
       _expect(
         jsonEncode(tokenOnlyStreamableApiTool).contains(_secureTopic),
         'Dart consumer token-only JSON-response Streamable tool call missed topic API.',
+      );
+      final tokenOnlyStreamableTopicDescription = await tokenOnlyJsonClient
+          .describeWampApi(
+            _secureTopic,
+            id: 'dart-consumer-secure-json-token-only-streamable-topic-describe',
+            kind: 'topic',
+          );
+      _expect(
+        jsonEncode(tokenOnlyStreamableTopicDescription).contains(
+          'CLI Secure Smoke Events',
+        ),
+        'Dart consumer token-only JSON-response Streamable topic describe missed metadata.',
       );
       final tokenOnlyStreamableResources = await tokenOnlyJsonClient
           .listResources(
@@ -23962,6 +24032,53 @@ Future<void> main() async {
           'Dart token-only Streamable JSON-response readiness',
         ),
         'Dart consumer token-only JSON-response Streamable prompt missed substitution.',
+      );
+      final tokenOnlyStreamableSubscription =
+          await tokenOnlyJsonClient.subscribeWampTopic(
+        _secureTopic,
+        id: 'dart-consumer-secure-json-token-only-streamable-subscribe',
+        queueLimit: 5,
+      );
+      _expect(
+        tokenOnlyStreamableSubscription.topic == _secureTopic &&
+            tokenOnlyStreamableSubscription.handle.isNotEmpty,
+        'Dart consumer token-only JSON-response Streamable subscription was invalid.',
+      );
+      final tokenOnlyStreamablePublication =
+          await tokenOnlyJsonClient.publishWampEvent(
+        _secureTopic,
+        id: 'dart-consumer-secure-json-token-only-streamable-publish',
+        argumentsKeywords: const <String, Object?>{
+          'via': 'dart-consumer-token-only-json-streamable',
+        },
+        acknowledge: true,
+      );
+      _expect(
+        tokenOnlyStreamablePublication.topic == _secureTopic &&
+            tokenOnlyStreamablePublication.acknowledged,
+        'Dart consumer token-only JSON-response Streamable publish was invalid.',
+      );
+      final tokenOnlyStreamableEvents = await _pollUntilEvent(
+        tokenOnlyJsonClient,
+        tokenOnlyStreamableSubscription.handle,
+        marker: 'dart-consumer-token-only-json-streamable',
+        idPrefix: 'dart-consumer-secure-json-token-only-streamable-poll',
+        directJson: false,
+      );
+      _expect(
+        jsonEncode(
+          tokenOnlyStreamableEvents.events,
+        ).contains('dart-consumer-token-only-json-streamable'),
+        'Dart consumer token-only JSON-response Streamable poll missed event.',
+      );
+      final tokenOnlyStreamableUnsubscribe =
+          await tokenOnlyJsonClient.unsubscribeWampTopic(
+        tokenOnlyStreamableSubscription.handle,
+        id: 'dart-consumer-secure-json-token-only-streamable-unsubscribe',
+      );
+      _expect(
+        tokenOnlyStreamableUnsubscribe.unsubscribed,
+        'Dart consumer token-only JSON-response Streamable unsubscribe was invalid.',
       );
       _expect(
         tokenOnlyJsonClient.sessionId == tokenOnlySessionId &&
@@ -24068,6 +24185,18 @@ Future<void> main() async {
       _expect(
         jsonEncode(tokenOnlySecureDirectTopics).contains(_secureTopic),
         'Dart consumer token-only secure direct WAMP catalog missed topic.',
+      );
+      final tokenOnlySecureDirectTopicDescription =
+          await tokenOnlySecureClient.describeWampApiDirect(
+        _secureTopic,
+        id: 'dart-consumer-secure-token-only-direct-topic-describe',
+        kind: 'topic',
+      );
+      _expect(
+        jsonEncode(tokenOnlySecureDirectTopicDescription).contains(
+          'CLI Secure Smoke Events',
+        ),
+        'Dart consumer token-only secure direct topic describe missed metadata.',
       );
       final tokenOnlySecureDirectSubscription = await tokenOnlySecureClient
           .subscribeWampTopicDirect(
@@ -24227,6 +24356,18 @@ Future<void> main() async {
       _expect(
         jsonEncode(tokenOnlySecureStreamableTopics).contains(_secureTopic),
         'Dart consumer token-only secure Streamable WAMP catalog missed topic.',
+      );
+      final tokenOnlySecureStreamableTopicDescription =
+          await tokenOnlySecureClient.describeWampApi(
+        _secureTopic,
+        id: 'dart-consumer-secure-token-only-streamable-topic-describe',
+        kind: 'topic',
+      );
+      _expect(
+        jsonEncode(tokenOnlySecureStreamableTopicDescription).contains(
+          'CLI Secure Smoke Events',
+        ),
+        'Dart consumer token-only secure Streamable topic describe missed metadata.',
       );
       final tokenOnlySecureCatalogLastEventId =
           tokenOnlySecureClient.lastEventId;
@@ -24804,6 +24945,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/prompts, token-only protected tool calls/resources/prompts, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/prompts/pubsub, token-only protected tool calls/resources/prompts, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
