@@ -79,6 +79,35 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-13: Added public MCP IO entrypoint coverage for raw bearer-token
+  client construction by exercising
+  `McpStreamableHttpClient.withBearerToken` through
+  `package:connectanum_mcp/connectanum_mcp_io.dart`. The smoke proves
+  constructor-owned bearer tokens are trimmed, override stale default and
+  per-call `Authorization` headers, avoid the auth-grant flow, and reach
+  direct JSON WAMP metadata requests without an `MCP-Session-Id` header. It
+  then initializes the same client over Streamable HTTP, verifies
+  session-aware calls carry the active MCP session id, and proves later direct
+  JSON calls stay lifecycle-free without clearing or mutating that active
+  session. This protects the raw bearer-token client path that consumer
+  applications and agents need for router-provided MCP endpoints, direct JSON
+  tool/meta access, and Streamable HTTP session correctness. Baseline
+  `bin/test-fast` passed before the change on 2026-06-13. Focused
+  `dart test packages/connectanum_mcp/test/io_client_export_test.dart` passed
+  on 2026-06-13. Updated `bin/test-fast` passed on 2026-06-13, including the
+  new public IO bearer-token smoke. Full local `bin/verify` passed on
+  2026-06-13, including formatting, Rust/FFI, Python/tool tests, MCP package
+  smokes, generated consumer-package smokes, router-hosted MCP examples, the
+  installed CLI token-only protected WAMP session/subscription meta smoke,
+  full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence from `83d67ba` remains the latest clean
+  hosted checkpoint until this smoke commit is pushed and GitHub checks
+  finish. RC readiness remains gated on release policy: no numeric RC tag
+  points at `83d67ba`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
+  for `83d67ba`, the audit suggests `v0.1.0-rc.2` only after release
+  approval, and pub.dev package ownership/version/release-order decisions
+  remain deferred.
 - 2026-06-13: Added `tool/test_mcp_consumer_package_boundary.py` to guard the
   generated MCP consumer smoke package boundary in `bin/common.sh`. The
   server-only, client-only, and installed CLI consumer smokes must depend
@@ -101,13 +130,23 @@ decision because `connectanum_client` still depends on private
   generated consumer-package smokes, router-hosted MCP examples, the installed
   CLI token-only protected WAMP session/subscription meta smoke, full router
   tests, zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket
-  smoke. Hosted evidence from `f506276` remains the latest clean hosted
-  checkpoint until this guard commit is pushed and GitHub checks finish. RC
-  readiness remains gated on release policy: no numeric RC tag points at
-  `f506276`, the existing `v0.1.0-rc.1` tag still points at stale commit
-  `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
-  `f506276`, the audit suggests `v0.1.0-rc.2` only after release approval, and
-  pub.dev package ownership/version/release-order decisions remain deferred.
+  smoke. Hosted evidence is clean: GitHub `master` CI `27469805948` passed at
+  `83d67ba` with `Fast Checks` and `Full Verify` clean, and GitHub
+  `add-router` CI `27469805367` also passed at `83d67ba`. The strict
+  deployment-chain audit exited successfully on 2026-06-13 with clean latest
+  CI logs, relevant Dart package publish dry-run `27466022460` at `9a74569`,
+  relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant
+  Router Image dry-run `27466352428` at `9a74569` with preview artifact
+  `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks `27281215258` at
+  `06a56bb`, branch protection, workflow visibility, and router image package
+  visibility gates ready. The audit accepted the older publish and Router
+  Image dry-run evidence because no publish-sensitive or router-image-sensitive
+  paths changed after `9a74569`. RC readiness remains gated on release policy:
+  no numeric RC tag points at `83d67ba`, the existing `v0.1.0-rc.1` tag still
+  points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
+  is selected for `83d67ba`, the audit suggests `v0.1.0-rc.2` only after
+  release approval, and pub.dev package ownership/version/release-order
+  decisions remain deferred.
 - 2026-06-13: Narrowed Router Image dry-run freshness checks in
   `bin/audit-github-deployment-chain` from all package files to router image
   runtime/build inputs: Router Image workflow, Docker deployment inputs, native

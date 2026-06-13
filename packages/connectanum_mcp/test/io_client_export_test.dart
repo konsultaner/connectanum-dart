@@ -1047,6 +1047,115 @@ void main() {
   });
 
   test(
+    'IO entrypoint re-exports bearer-token MCP client construction',
+    () async {
+      final endpoint = await _AuthBackedMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient.withBearerToken(
+        endpoint.mcpUri,
+        '  $_ioAccessToken  ',
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer stale-default-token',
+          'x-consumer-default': 'io-bearer-default',
+        },
+      );
+      addTearDown(() => client.close(force: true));
+
+      final apiDescription = await client.describeWampApiDirect(
+        'app.echo',
+        id: 'io-bearer-direct-api-describe',
+        kind: 'procedure',
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer stale-direct-token',
+          'x-consumer-trace': 'io-bearer-direct-api-describe',
+        },
+      );
+      expect(apiDescription['procedure'], 'app.echo');
+      expect(apiDescription['title'], 'Echo');
+      expect(apiDescription['kind'], 'procedure');
+      expect(client.sessionId, isNull);
+
+      final initialize = await client.initialize(
+        id: 'io-bearer-init',
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer stale-init-token',
+          'x-consumer-trace': 'io-bearer-init',
+        },
+      );
+      expect(
+        _jsonMapFrom(
+          initialize['result'],
+          label: 'bearer initialize result',
+        )['protocolVersion'],
+        mcpLatestProtocolVersion,
+      );
+      expect(client.sessionId, _ioAuthSessionId);
+
+      final streamablePing = await client.ping(
+        id: 'io-bearer-streamable-ping',
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer stale-streamable-token',
+          'x-consumer-trace': 'io-bearer-streamable-ping',
+        },
+      );
+      expect(streamablePing, isEmpty);
+      expect(client.sessionId, _ioAuthSessionId);
+
+      final directPing = await client.pingDirect(
+        id: 'io-bearer-direct-ping',
+        headers: const <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer stale-direct-ping-token',
+          'x-consumer-trace': 'io-bearer-direct-ping',
+        },
+      );
+      expect(directPing, isEmpty);
+      expect(client.sessionId, _ioAuthSessionId);
+
+      expect(endpoint.authRequests, isEmpty);
+      expect(endpoint.mcpRequests, hasLength(4));
+      for (final request in endpoint.mcpRequests) {
+        expect(request.authorization, 'Bearer $_ioAccessToken');
+      }
+
+      expect(endpoint.mcpRequests[0].sessionId, isNull);
+      expect(endpoint.mcpRequests[0].body['method'], 'connectanum.tool.call');
+      expect(
+        endpoint.mcpRequests[0].consumerTrace,
+        'io-bearer-direct-api-describe',
+      );
+
+      final directApiParams = _jsonMapFrom(
+        endpoint.mcpRequests[0].body['params'],
+        label: 'bearer direct api describe params',
+      );
+      expect(directApiParams['name'], 'connectanum.api.describe');
+      expect(
+        _jsonMapFrom(
+          directApiParams['arguments'],
+          label: 'bearer direct api describe arguments',
+        ),
+        {'uri': 'app.echo', 'kind': 'procedure'},
+      );
+
+      expect(endpoint.mcpRequests[1].sessionId, isNull);
+      expect(endpoint.mcpRequests[1].body['method'], 'initialize');
+      expect(endpoint.mcpRequests[1].consumerTrace, 'io-bearer-init');
+
+      expect(endpoint.mcpRequests[2].sessionId, _ioAuthSessionId);
+      expect(endpoint.mcpRequests[2].body['method'], 'ping');
+      expect(
+        endpoint.mcpRequests[2].consumerTrace,
+        'io-bearer-streamable-ping',
+      );
+
+      expect(endpoint.mcpRequests[3].sessionId, isNull);
+      expect(endpoint.mcpRequests[3].body['method'], 'ping');
+      expect(endpoint.mcpRequests[3].consumerTrace, 'io-bearer-direct-ping');
+    },
+  );
+
+  test(
     'IO entrypoint re-exports Streamable resource and prompt helpers',
     () async {
       final endpoint = await _StreamableMcpEndpoint.bind();
