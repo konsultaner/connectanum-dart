@@ -126,6 +126,52 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         )
         self.assertIn("WAMP Profile Benchmarks audit failed.", result.stdout)
 
+    def test_router_image_accepts_stale_run_when_mcp_tests_changed(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        router_image_head = self._different_sha(current_head)
+
+        result = self._run_router_image_audit(
+            current_head,
+            router_image_head,
+            changed_paths="packages/connectanum_mcp/test/io_client_export_test.dart\n",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "Router Image dry-run covers checked-out router image inputs: yes",
+            result.stdout,
+        )
+        self.assertIn(
+            "Latest Router Image dry-run is clean and relevant.",
+            result.stdout,
+        )
+        self.assertNotIn(
+            "router-image-sensitive changes after dry-run head",
+            result.stdout,
+        )
+
+    def test_router_image_rejects_stale_run_when_mcp_runtime_changed(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        router_image_head = self._different_sha(current_head)
+
+        result = self._run_router_image_audit(
+            current_head,
+            router_image_head,
+            changed_paths="packages/connectanum_mcp/lib/connectanum_mcp_io.dart\n",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "Finding: checked-out head has router-image-sensitive changes "
+            "after dry-run head",
+            result.stdout,
+        )
+        self.assertIn(
+            "- packages/connectanum_mcp/lib/connectanum_mcp_io.dart",
+            result.stdout,
+        )
+        self.assertIn("Router image dry-run audit failed.", result.stdout)
+
     def test_rc_readiness_accepts_native_prerelease_evidence(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
 
@@ -983,6 +1029,249 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     "--branch",
                     "add-router",
                     "--require-clean-wamp-profile-benchmarks",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
+    def _run_router_image_audit(
+        self,
+        ci_head: str,
+        router_image_head: str,
+        changed_paths: str = "",
+    ) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            fake_gh = temp_path / "gh"
+            fake_git = temp_path / "git"
+            fake_curl = temp_path / "curl"
+            real_git = shutil.which("git")
+            self.assertIsNotNone(real_git)
+
+            workflow_paths = "\n".join(
+                sorted(
+                    str(path.relative_to(REPO_ROOT))
+                    for pattern in ("*.yml", "*.yaml")
+                    for path in (REPO_ROOT / ".github" / "workflows").glob(pattern)
+                )
+            )
+
+            fake_gh.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import os
+                    import sys
+                    from pathlib import Path
+
+                    args = sys.argv[1:]
+                    repository = "konsultaner/connectanum-dart"
+                    router_image_head = os.environ["FAKE_ROUTER_IMAGE_HEAD"]
+                    preview_tag = os.environ.get("FAKE_ROUTER_PREVIEW_TAG", "sha-preview")
+                    workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
+
+
+                    def value_after(name):
+                        return args[args.index(name) + 1] if name in args else ""
+
+
+                    def jq_arg():
+                        return value_after("--jq")
+
+
+                    def json_arg():
+                        return value_after("--json")
+
+
+                    if args[:1] == ["api"]:
+                        path = args[1] if len(args) > 1 else ""
+                        if path == "--paginate" and len(args) > 2:
+                            path = args[2]
+                        jq = jq_arg()
+
+                        if path == f"repos/{repository}":
+                            values = {
+                                ".default_branch": "master",
+                                ".visibility": "public",
+                                ".private": "false",
+                                ".allow_auto_merge": "false",
+                                ".delete_branch_on_merge": "false",
+                            }
+                            if jq in values:
+                                print(values[jq])
+                            else:
+                                sys.exit(1)
+                        elif path == f"repos/{repository}/branches/add-router":
+                            if jq == ".protected":
+                                print("false")
+                            elif jq == ".commit.sha // empty":
+                                print(router_image_head)
+                            else:
+                                sys.exit(1)
+                        elif path == f"repos/{repository}/branches/master":
+                            if jq == ".protected":
+                                print("true")
+                            elif jq == ".commit.sha // empty":
+                                print(router_image_head)
+                            else:
+                                sys.exit(1)
+                        elif path == f"repos/{repository}/rulesets":
+                            print("0")
+                        elif path == f"repos/{repository}/actions/workflows":
+                            if jq == ".workflows[].path":
+                                print("\\n".join(workflow_paths))
+                            elif jq.startswith(".workflows[] |"):
+                                for path in workflow_paths:
+                                    name = path.rsplit("/", 1)[-1]
+                                    print(f"- {name}: active ({path})")
+                            else:
+                                sys.exit(1)
+                        elif path.startswith(f"repos/{repository}/check-runs/"):
+                            print("")
+                        else:
+                            sys.exit(1)
+                    elif args[:2] == ["run", "list"]:
+                        if "--workflow" in args:
+                            workflow = value_after("--workflow")
+                            if workflow == "Router Image":
+                                print("126")
+                            else:
+                                print("")
+                        else:
+                            print(
+                                f"- Router Image #126: completed/success "
+                                f"@ {router_image_head[:7]} "
+                                "(2026-05-19T00:00:00Z)"
+                            )
+                    elif args[:2] == ["run", "view"]:
+                        run_id = args[2] if len(args) > 2 else ""
+                        if run_id != "126":
+                            sys.exit(1)
+
+                        json_fields = json_arg()
+                        jq = jq_arg()
+                        if json_fields == "status,conclusion,headSha,url,displayTitle,event":
+                            print(
+                                "Run: Router Image #126 "
+                                f"completed/success @ {router_image_head[:7]}"
+                            )
+                            print("Title: Router Image")
+                            print("Event: workflow_dispatch")
+                            print("URL: https://github.example.invalid/runs/126")
+                        elif json_fields == "status,conclusion,headSha,event":
+                            print(f"completed\\tsuccess\\t{router_image_head}\\tworkflow_dispatch")
+                        elif json_fields == "event,jobs":
+                            print("workflow_dispatch\\tskipped")
+                        elif json_fields == "jobs" and ".databaseId" in jq:
+                            print("1261\\tPublish Router Image")
+                        elif json_fields == "jobs" and ".steps[]" in jq:
+                            print("Resolve image metadata\\tcompleted\\tsuccess")
+                            print("Upload router image preview\\tcompleted\\tsuccess")
+                            print("Log in to GHCR\\tcompleted\\tskipped")
+                            print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
+                        elif json_fields == "jobs":
+                            print("Publish Router Image\\tcompleted\\tsuccess")
+                        else:
+                            sys.exit(1)
+                    elif args[:2] == ["run", "download"]:
+                        download_dir = value_after("--dir")
+                        if not download_dir:
+                            sys.exit(1)
+                        Path(download_dir, "router-image-metadata.md").write_text(
+                            "## Router Image Metadata\\n\\n"
+                            "- Image: `ghcr.io/konsultaner/connectanum-router`\\n"
+                            "- Mode: `dry-run`\\n"
+                            "- Publish: `false`\\n"
+                            "- Provenance: `false`\\n"
+                            "- SBOM: `false`\\n\\n"
+                            "### Tags\\n\\n"
+                            f"- `ghcr.io/konsultaner/connectanum-router:{preview_tag}`\\n\\n"
+                            "### Labels\\n\\n"
+                            f"- `org.opencontainers.image.version={preview_tag}`\\n",
+                            encoding="utf-8",
+                        )
+                    else:
+                        sys.exit(1)
+                    """
+                )
+            )
+            fake_gh.chmod(0o755)
+
+            fake_git.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+
+                    if [[ "${1:-}" == "rev-parse" && "${2:-}" == "HEAD" ]]; then
+                      printf '%s\\n' "$FAKE_CI_HEAD"
+                      exit 0
+                    fi
+
+                    if [[ "${1:-}" == "cat-file" && "${2:-}" == "-e" ]]; then
+                      if [[ "${3:-}" == "${FAKE_ROUTER_IMAGE_HEAD}^{commit}" ]]; then
+                        exit 0
+                      fi
+                    fi
+
+                    if [[ "${1:-}" == "diff" && "${2:-}" == "--name-only" ]]; then
+                      printf '%s' "${FAKE_CHANGED_PATHS:-}"
+                      exit 0
+                    fi
+
+                    exec "$REAL_GIT" "$@"
+                    """
+                )
+            )
+            fake_git.chmod(0o755)
+
+            fake_curl.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+
+                    case "$*" in
+                      *githubstatus.com/api/v2/summary.json*)
+                        printf '{"status":{"indicator":"none","description":"All Systems Operational"},"components":[{"name":"Actions","status":"operational"}],"incidents":[]}'
+                        ;;
+                      *ghcr.io/token*)
+                        printf '{"token":"fake-token"}'
+                        ;;
+                      *tags/list*)
+                        printf '{"name":"konsultaner/connectanum-router","tags":["v0.1.0-rc.1"]}'
+                        ;;
+                      *manifests/v0.1.0-rc.1*)
+                        printf 'HTTP/2 200\\r\\ndocker-content-digest: sha256:abcdef\\r\\n'
+                        ;;
+                      *)
+                        exit 1
+                        ;;
+                    esac
+                    """
+                )
+            )
+            fake_curl.chmod(0o755)
+
+            env = os.environ.copy()
+            env["GH_BIN"] = str(fake_gh)
+            env["FAKE_CI_HEAD"] = ci_head
+            env["FAKE_ROUTER_IMAGE_HEAD"] = router_image_head
+            env["FAKE_CHANGED_PATHS"] = changed_paths
+            env["FAKE_WORKFLOW_PATHS"] = workflow_paths
+            env["REAL_GIT"] = real_git or "git"
+            env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
+
+            return subprocess.run(
+                [
+                    str(AUDIT_SCRIPT),
+                    "--branch",
+                    "add-router",
+                    "--require-clean-router-image-dry-run",
                 ],
                 cwd=REPO_ROOT,
                 env=env,

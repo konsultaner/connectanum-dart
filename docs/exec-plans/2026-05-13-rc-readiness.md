@@ -61,6 +61,7 @@ decision because `connectanum_client` still depends on private
 ## Verification
 
 - `bin/test-fast`
+- `python3 -m unittest tool.test_audit_github_deployment_chain -v`
 - `bash -n bin/audit-github-deployment-chain`
 - `bin/audit-github-deployment-chain --help`
 - `bin/audit-github-deployment-chain --branch add-router --require-clean-router-image-dry-run`
@@ -78,6 +79,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-13: Narrowed Router Image dry-run freshness checks in
+  `bin/audit-github-deployment-chain` from all package files to router image
+  runtime/build inputs: Router Image workflow, Docker deployment inputs, native
+  transport sources, root and package `pubspec.yaml` files, package `lib/`,
+  `bin/`, hooks, `tool/install_native.dart`, and router-image metadata
+  tooling. Package test-only changes such as
+  `packages/connectanum_mcp/test/io_client_export_test.dart` no longer force a
+  fresh non-mutating Router Image dry-run when the compiled router image cannot
+  change. `tool/test_audit_github_deployment_chain.py` now covers both accepted
+  stale Router Image evidence after MCP test-only changes and rejected stale
+  Router Image evidence after MCP runtime source changes. Baseline
+  `bin/test-fast` passed before the change on 2026-06-13. Focused
+  `python3 -m unittest tool.test_audit_github_deployment_chain -v` passed on
+  2026-06-13. `git diff --check` and
+  `python3 tool/check_public_artifact_references.py` passed on 2026-06-13.
+  Full local `bin/verify` passed on 2026-06-13, including formatting,
+  Rust/FFI, MCP package smokes, generated consumer-package smokes,
+  router-hosted MCP examples, the installed CLI token-only protected WAMP
+  session/subscription meta smoke, full router tests, zero-copy router tests,
+  and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence from
+  `9a74569` remains the latest clean hosted checkpoint until this tooling
+  commit is pushed and GitHub checks finish.
 - 2026-06-13: Added public MCP IO entrypoint coverage for direct JSON batch
   access by switching the resource/prompt and pub/sub IO export tests to call
   `McpStreamableHttpClient.postBatchDirect` instead of proving the same
@@ -94,9 +117,23 @@ decision because `connectanum_client` still depends on private
   formatting, Rust/FFI, MCP package smokes, generated consumer-package smokes,
   router-hosted MCP examples, the installed CLI token-only protected WAMP
   session/subscription meta smoke, full router tests, zero-copy router tests,
-  and the Chrome/Dart2Wasm browser WebSocket smoke. Latest hosted evidence is
-  still the prior `aab0797` checkpoint until the new implementation commit is
-  pushed and GitHub CI finishes.
+  and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is clean:
+  GitHub `master` CI `27466022456` passed at `9a74569` with `Fast Checks` and
+  `Full Verify` clean, GitHub `add-router` CI `27466022077` also passed at
+  `9a74569`, GitHub `master` Dart Package Publish Dry Run `27466022460` passed
+  at `9a74569`, and the non-mutating Router Image dry-run `27466352428`
+  passed at `9a74569` with preview artifact `sha-9a74569e4b27`, GHCR login
+  skipped, and no push. The strict deployment-chain audit exited successfully
+  on 2026-06-13 with clean latest CI logs, relevant Dart package publish
+  dry-run, relevant Native Artifacts dry-run `26396437881` at `debd545`,
+  relevant Router Image dry-run `27466352428` at `9a74569`, relevant WAMP
+  Profile Benchmarks `27281215258` at `06a56bb`, branch protection, workflow
+  visibility, and router image package visibility gates ready. RC readiness
+  remains gated on release policy: no numeric RC tag points at `9a74569`, the
+  existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+  prerelease or router image RC tag is selected for `9a74569`, the audit
+  suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
+  ownership/version/release-order decisions remain deferred.
 - 2026-06-13: Extended the installed router CLI generated Dart consumer smoke
   so raw bearer-token clients prove protected WAMP session and subscription
   metadata on both protected MCP routes, across direct JSON and Streamable HTTP

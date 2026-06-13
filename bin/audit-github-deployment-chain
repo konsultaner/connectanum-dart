@@ -1008,8 +1008,14 @@ router_image_sensitive_changes_since() {
       deploy/docker/**|\
       native/transport/*|\
       native/transport/**|\
-      packages/*|\
-      packages/*/**|\
+      packages/*/pubspec.yaml|\
+      packages/*/lib/*|\
+      packages/*/lib/**|\
+      packages/*/bin/*|\
+      packages/*/bin/**|\
+      packages/*/hook/*|\
+      packages/*/hook/**|\
+      packages/*/tool/install_native.dart|\
       pubspec.yaml|\
       tool/render_router_image_metadata.py|\
       tool/test_render_router_image_metadata.py)
