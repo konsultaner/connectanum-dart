@@ -30,23 +30,32 @@ Future<void> main(List<String> args) async {
     try {
       await client.deleteSession();
     } finally {
-      client.close();
+      client.close(force: true);
     }
   }
 }
 
 Future<McpStreamableHttpClient> _createClient(_Options options) async {
   if (options.authEndpoint != null) {
-    final authClient = ConnectanumHttpAuthClient(options.authEndpoint!);
+    final authClient = ConnectanumHttpAuthClient(
+      options.authEndpoint!,
+      httpClient: _shortLivedHttpClient(),
+      closeHttpClient: true,
+    );
     try {
       final grant = await authClient.issueTicketToken(
         realm: options.authRealm!,
         authId: options.authId!,
         ticket: options.ticket!,
       );
-      return McpStreamableHttpClient.withAuthGrant(options.endpoint, grant);
+      return McpStreamableHttpClient.withAuthGrant(
+        options.endpoint,
+        grant,
+        httpClient: _shortLivedHttpClient(),
+        closeHttpClient: true,
+      );
     } finally {
-      authClient.close();
+      authClient.close(force: true);
     }
   }
 
@@ -55,11 +64,21 @@ Future<McpStreamableHttpClient> _createClient(_Options options) async {
     return McpStreamableHttpClient.withBearerToken(
       options.endpoint,
       bearerToken,
+      httpClient: _shortLivedHttpClient(),
+      closeHttpClient: true,
     );
   }
 
-  return McpStreamableHttpClient(options.endpoint);
+  return McpStreamableHttpClient(
+    options.endpoint,
+    httpClient: _shortLivedHttpClient(),
+    closeHttpClient: true,
+  );
 }
+
+// This example is a short-lived CLI, so avoid keeping HTTP sockets alive
+// after its final request completes.
+HttpClient _shortLivedHttpClient() => HttpClient()..idleTimeout = Duration.zero;
 
 Future<void> _runDirectJsonExample(
   McpStreamableHttpClient client,

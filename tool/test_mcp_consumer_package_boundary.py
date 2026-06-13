@@ -130,6 +130,18 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             with self.subTest(helper=public_helper):
                 self.assertIn(public_helper, example)
 
+    def test_fast_smoke_runs_public_router_hosted_client_example_help(self) -> None:
+        body = _function_body(
+            COMMON_SH.read_text(encoding="utf-8"),
+            "run_router_hosted_mcp_example_smoke",
+        )
+
+        self.assertIn(
+            "packages/connectanum_mcp/example/router_hosted_client.dart",
+            body,
+        )
+        self.assertIn("--help", body)
+
 
 if __name__ == "__main__":
     unittest.main()

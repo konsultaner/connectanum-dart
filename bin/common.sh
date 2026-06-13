@@ -379,6 +379,7 @@ run_router_hosted_mcp_example_smoke() {
     fi
   fi
 
+  dart run packages/connectanum_mcp/example/router_hosted_client.dart --help >/dev/null
   dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
 }
 
