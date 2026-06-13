@@ -2,60 +2,46 @@
 
 Last updated: 2026-06-13
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted client resource/prompt example readiness.
-Latest fully clean hosted checkpoint: Commit `1d46289` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client live-smoke readiness.
+Latest fully clean hosted checkpoint: Commit `b9556f5` on GitHub `master`.
 Current implementation checkpoint:
-`packages/connectanum_mcp/example/router_hosted_client.dart` remains the
-checked-in router-hosted MCP consumer example that imports only
-`package:connectanum_mcp/connectanum_mcp_io.dart`. It accepts a
-router-provided MCP endpoint, optional raw bearer-token credentials or a ticket
-HTTP auth-grant flow, performs lifecycle-free direct JSON catalog, tool,
-resource, and prompt calls, can exercise direct JSON WAMP pub/sub
-subscribe/publish/poll/unsubscribe helpers, then initializes a Streamable HTTP
-session, sends `notifications/initialized`, lists tools through the session,
-optionally reads the selected resource and prompt through the session, and
-deletes the session during cleanup. The example now also supports `--dry-run`,
-which parses and validates representative endpoint, auth, direct tool,
-resource, prompt, and direct pub/sub options without creating an HTTP client or
-sending network traffic, emits a redacted JSON summary, and avoids printing
-bearer tokens or ticket secrets. The parser rejects `--tool-arguments` without
-`--tool`, `--prompt-arguments` without `--prompt`, `--pubsub-event` without
-`--pubsub-topic`, and non-string prompt argument values, and the live direct
-pub/sub path still fails if the published event is not observed by the direct
-JSON poll helper. `bin/test-fast` now runs the public example with
-representative `--endpoint`, `--tool`, `--tool-arguments`, `--resource-uri`,
-`--prompt`, `--prompt-arguments`, `--pubsub-topic`, `--pubsub-event`, and
-`--dry-run` options inside `run_router_hosted_mcp_example_smoke` before the
-live router-hosted MCP endpoint smoke, so the checked-in public example is
-parse/run-gated without adding subprocess traffic to the router-hosted endpoint
-logs.
-`tool/test_mcp_consumer_package_boundary.py` asserts the example keeps the
-public IO entrypoint boundary, avoids direct `connectanum_client` and
-`connectanum_router` imports, continues demonstrating the bearer-token,
-auth-grant, direct JSON tool/resource/prompt, pub/sub, initialize,
-delete-session, and dry-run helper set, and stays wired into the fast
-router-hosted smoke path with representative tool, resource, prompt, and pub/sub
-options.
+`bin/common.sh` now proves the checked-in public router-hosted MCP client
+example against a real router-provided MCP endpoint inside the fast smoke path.
+`run_router_hosted_mcp_example_smoke` still first dry-runs
+`packages/connectanum_mcp/example/router_hosted_client.dart` with representative
+tool, resource, prompt, and pub/sub options, then
+`run_public_router_hosted_mcp_client_live_smoke` starts
+`packages/connectanum_router/example/router_hosted_mcp.dart` as an ephemeral
+long-lived server, waits for the public endpoint line, invokes the public client
+live against that endpoint with direct JSON tool/resource/prompt and pub/sub
+options, and shuts the server down through bounded cleanup with a SIGKILL
+fallback plus server-log output on startup failure or timeout. This means
+`bin/test-fast` now proves the consumer-facing example can use router-hosted MCP
+without private project imports or a hand-maintained endpoint. The checked-in
+client example continues to import only
+`package:connectanum_mcp/connectanum_mcp_io.dart`, and
+`tool/test_mcp_consumer_package_boundary.py` now guards both the dry-run and
+live-smoke wiring so the fast path keeps exercising the public package boundary.
 Baseline `bin/test-fast` passed before the change on 2026-06-13. Focused
-`dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
-focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
-`bash -n bin/common.sh`, focused dry-run with resource/prompt options, focused
-invalid prompt-argument invocations of
-`dart run packages/connectanum_mcp/example/router_hosted_client.dart`, and
-focused `source bin/common.sh; run_router_hosted_mcp_example_smoke` all passed
-on 2026-06-13. Updated `bin/test-fast` passed on 2026-06-13. Full local
-`bin/verify` passed on 2026-06-13, including formatting, Rust/FFI,
-Python/tool tests, MCP package smokes, generated consumer-package smokes,
-router-hosted MCP examples, the installed CLI token-only protected WAMP
-session/subscription meta smoke, full router tests, zero-copy router tests, and
-the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence is clean at `1d46289`: GitHub `master` CI `27476333568`
+`bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`source bin/common.sh; run_router_hosted_mcp_example_smoke`, and updated
+`bin/test-fast` all passed on 2026-06-13, including the new
+`Public router-hosted MCP client live smoke completed.` fast-smoke evidence.
+Full local `bin/verify` passed on 2026-06-13, including formatting, Rust/FFI,
+Python/tool tests, MCP package smokes, generated consumer-package smokes, the
+router-hosted MCP live public-client example, the installed CLI token-only
+protected WAMP session/subscription meta smoke, full router tests, zero-copy
+router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence remains clean at the previous pushed checkpoint `b9556f5` until
+this local checkpoint is pushed and hosted checks complete: GitHub `master` CI
+`27477985313`
 passed with `Fast Checks` and `Full Verify` clean, GitHub `add-router` CI
-`27476330211` also passed at `1d46289`, GitHub `master` Dart Package Publish
-Dry Run `27476333560` passed at `1d46289`, and GitHub `add-router` Dart
-Package Publish Dry Run `27476330208` also passed at `1d46289`. The strict
+`27477982334` also passed at `b9556f5`, GitHub `master` Dart Package Publish
+Dry Run `27477985337` passed at `b9556f5`, and GitHub `add-router` Dart
+Package Publish Dry Run `27477982328` also passed at `b9556f5`. The strict
 deployment-chain audit exited successfully on 2026-06-13 with clean latest CI
-logs, relevant Dart package publish dry-run `27476333560` at `1d46289`,
+logs, relevant Dart package publish dry-run `27477985337` at `b9556f5`,
 relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
 Image dry-run `27466352428` at `9a74569` with preview artifact
 `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks `27281215258` at
@@ -64,9 +50,9 @@ visibility gates ready. The audit accepted the older native, router image, and
 WAMP benchmark evidence because no native-release-sensitive,
 router-image-sensitive, or WAMP-profile-sensitive paths changed after their
 respective evidence commits. RC readiness remains gated on release policy: no
-numeric RC tag points at `1d46289`, the existing `v0.1.0-rc.1` tag still
+numeric RC tag points at `b9556f5`, the existing `v0.1.0-rc.1` tag still
 points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
-is selected for `1d46289`, the audit suggests `v0.1.0-rc.2` only after release
+is selected for `b9556f5`, the audit suggests `v0.1.0-rc.2` only after release
 approval, and pub.dev package ownership/version/release-order decisions remain
 deferred.
 Previous implementation checkpoint:

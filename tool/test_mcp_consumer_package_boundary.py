@@ -158,6 +158,34 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--pubsub-event", body)
         self.assertIn("--dry-run", body)
 
+    def test_fast_smoke_runs_public_router_hosted_client_example_live(
+        self,
+    ) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        wrapper_body = _function_body(script, "run_router_hosted_mcp_example_smoke")
+        live_body = _function_body(
+            script,
+            "run_public_router_hosted_mcp_client_live_smoke",
+        )
+
+        self.assertIn("run_public_router_hosted_mcp_client_live_smoke", wrapper_body)
+        self.assertIn(
+            "packages/connectanum_router/example/router_hosted_mcp.dart",
+            live_body,
+        )
+        self.assertNotIn("--smoke-and-exit", live_body)
+        self.assertIn(
+            "packages/connectanum_mcp/example/router_hosted_client.dart",
+            live_body,
+        )
+        self.assertIn("--endpoint \"$endpoint\"", live_body)
+        self.assertIn("--tool example.task.lookup", live_body)
+        self.assertIn("--resource-uri app://example/context", live_body)
+        self.assertIn("--prompt summarize-task", live_body)
+        self.assertIn("--pubsub-topic example.events.task", live_body)
+        self.assertNotRegex(live_body, r"package:connectanum_client/")
+        self.assertNotRegex(live_body, r"package:connectanum_router/")
+
 
 if __name__ == "__main__":
     unittest.main()

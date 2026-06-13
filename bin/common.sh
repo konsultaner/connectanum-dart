@@ -389,8 +389,82 @@ run_router_hosted_mcp_example_smoke() {
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-public-example-dry-run","status":"open"}' \
     --dry-run >/dev/null
-  dart run packages/connectanum_router/example/router_hosted_mcp.dart --smoke-and-exit
+  run_public_router_hosted_mcp_client_live_smoke
 }
+
+run_public_router_hosted_mcp_client_live_smoke() (
+  local endpoint
+  local server_log
+  local server_pid
+  local status
+  local timeout_at
+
+  server_log="$(mktemp "${TMPDIR:-/tmp}/connectanum-router-hosted-mcp.XXXXXX.log")"
+
+  cleanup() {
+    local attempt
+
+    if [[ -n "${server_pid:-}" ]] && kill -0 "$server_pid" 2>/dev/null; then
+      kill -TERM "$server_pid" 2>/dev/null || true
+      for attempt in 1 2 3 4 5; do
+        if ! kill -0 "$server_pid" 2>/dev/null; then
+          wait "$server_pid" 2>/dev/null || true
+          break
+        fi
+        sleep 1
+      done
+      if kill -0 "$server_pid" 2>/dev/null; then
+        kill -KILL "$server_pid" 2>/dev/null || true
+        wait "$server_pid" 2>/dev/null || true
+      fi
+    fi
+    rm -f "$server_log"
+  }
+  trap cleanup EXIT
+
+  dart run packages/connectanum_router/example/router_hosted_mcp.dart \
+    >"$server_log" 2>&1 &
+  server_pid="$!"
+  timeout_at=$((SECONDS + 120))
+
+  while ((SECONDS < timeout_at)); do
+    if ! kill -0 "$server_pid" 2>/dev/null; then
+      wait "$server_pid"
+      status="$?"
+      printf 'Router-hosted MCP example exited before serving the public endpoint.\n'
+      cat "$server_log"
+      return "$status"
+    fi
+
+    endpoint="$(
+      sed -n 's/^Router-hosted MCP endpoint is running at //p' "$server_log" |
+        tail -n 1
+    )"
+    if [[ -n "$endpoint" ]]; then
+      break
+    fi
+    sleep 1
+  done
+
+  if [[ -z "$endpoint" ]]; then
+    printf 'Timed out waiting for the router-hosted MCP example endpoint.\n'
+    cat "$server_log"
+    return 1
+  fi
+
+  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint "$endpoint" \
+    --tool example.task.lookup \
+    --tool-arguments '{"taskId":"T-public-example-live"}' \
+    --resource-uri app://example/context \
+    --prompt summarize-task \
+    --prompt-arguments '{"taskId":"T-public-example-live"}' \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-public-example-live","status":"open"}' \
+    >/dev/null
+
+  printf 'Public router-hosted MCP client live smoke completed.\n'
+)
 
 run_mcp_server_package_smoke() (
   local smoke_dir
