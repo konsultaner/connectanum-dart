@@ -361,6 +361,8 @@ ensure_native_client_test_runtime() {
 }
 
 run_router_hosted_mcp_example_smoke() {
+  local dry_run_summary
+
   if ! native_runtime_supported; then
     printf 'Native router-hosted MCP example smoke requires Linux or macOS; skipping on %s.\n' "$(uname -s)"
     return 0
@@ -379,7 +381,7 @@ run_router_hosted_mcp_example_smoke() {
     fi
   fi
 
-  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \
     --protocol-version 2025-06-18 \
     --tool example.task.lookup \
@@ -391,7 +393,47 @@ run_router_hosted_mcp_example_smoke() {
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-public-example-dry-run","status":"open"}' \
-    --dry-run >/dev/null
+    --dry-run)"
+  if [[ "$dry_run_summary" != *'"authMode":"none"'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report no-auth mode.\n'
+    return 1
+  fi
+  if [[ "$dry_run_summary" != *'"protocolVersion":"2025-06-18"'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the requested protocol version.\n'
+    return 1
+  fi
+
+  dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --protocol-version 2025-06-18 \
+    --bearer-token dry-run-bearer-secret \
+    --dry-run)"
+  if [[ "$dry_run_summary" == *dry-run-bearer-secret* ]]; then
+    printf 'Public router-hosted MCP client bearer dry-run leaked bearer token material.\n'
+    return 1
+  fi
+  if [[ "$dry_run_summary" != *'"authMode":"bearer"'* ]]; then
+    printf 'Public router-hosted MCP client bearer dry-run did not report bearer auth mode.\n'
+    return 1
+  fi
+
+  dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --protocol-version 2025-06-18 \
+    --auth-url http://127.0.0.1:8080/auth \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --ticket dry-run-ticket-secret \
+    --dry-run)"
+  if [[ "$dry_run_summary" == *dry-run-ticket-secret* ]]; then
+    printf 'Public router-hosted MCP client ticket dry-run leaked ticket secret material.\n'
+    return 1
+  fi
+  if [[ "$dry_run_summary" != *'"authMode":"ticket"'* ]]; then
+    printf 'Public router-hosted MCP client ticket dry-run did not report ticket auth mode.\n'
+    return 1
+  fi
+
   run_public_router_hosted_mcp_client_live_smoke
 }
 

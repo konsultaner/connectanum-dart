@@ -203,6 +203,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--pubsub-topic example.events.task", body)
         self.assertIn("--pubsub-event", body)
         self.assertIn("--dry-run", body)
+        self.assertIn("dry_run_summary=\"$(", body)
+        self.assertIn('"authMode":"none"', body)
+        self.assertIn('"protocolVersion":"2025-06-18"', body)
+        self.assertIn("--endpoint http://127.0.0.1:8080/mcp/secure", body)
+        self.assertIn("--bearer-token dry-run-bearer-secret", body)
+        self.assertIn("dry-run-bearer-secret", body)
+        self.assertIn("leaked bearer token material", body)
+        self.assertIn('"authMode":"bearer"', body)
+        self.assertIn("--auth-url http://127.0.0.1:8080/auth", body)
+        self.assertIn("--ticket dry-run-ticket-secret", body)
+        self.assertIn("dry-run-ticket-secret", body)
+        self.assertIn("leaked ticket secret material", body)
+        self.assertIn('"authMode":"ticket"', body)
 
     def test_fast_smoke_runs_public_router_hosted_client_example_live(
         self,

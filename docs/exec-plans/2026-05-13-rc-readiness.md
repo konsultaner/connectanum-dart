@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Hardened the public router-hosted MCP client dry-run gate for
+  downstream application auth readiness. `bin/common.sh` now captures
+  `packages/connectanum_mcp/example/router_hosted_client.dart --dry-run`
+  output before the live router smoke, asserts the no-auth, raw-bearer, and
+  ticket-auth `authMode` summaries, verifies the explicit
+  `--protocol-version 2025-06-18` summary, and fails if placeholder bearer or
+  ticket secrets appear in dry-run output. The live public, ticket-auth,
+  bearer-token, and JSON-response public-client smokes remain in place.
+  `tool/test_mcp_consumer_package_boundary.py` guards the dry-run summary
+  capture, auth-mode assertions, redaction checks, and existing live bearer
+  coverage. Baseline `bin/test-fast` passed before the change on 2026-06-14.
+  Focused `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14,
+  including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+  generated consumer-package smokes, router-hosted MCP live public,
+  ticket-authenticated Streamable, bearer-token Streamable,
+  ticket-authenticated JSON-response, and bearer-token JSON-response
+  public-client examples, the installed CLI consumer smoke, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence remains clean at `70252f2` for the previous checkpoint;
+  hosted evidence for this auth dry-run redaction smoke change is pending
+  after a code commit and push.
+
 - 2026-06-14: Extended the fast router-hosted MCP smoke so the checked-in
   public client example exercises its advertised raw bearer-token mode against
   router-provided secure MCP endpoints. `bin/common.sh` now mints a bearer
@@ -107,9 +133,25 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence remains clean at `65ebfbc` for the previous checkpoint;
-  hosted evidence for the current bearer-token smoke change is pending after a
-  code commit and push.
+  Hosted evidence is clean at `70252f2`: GitHub `master` CI `27491788892`
+  passed with `Fast Checks` and `Full Verify` green in 13m45s, and GitHub
+  `add-router` CI `27491788899` also passed at `70252f2` with `Fast Checks`
+  and `Full Verify` green in 13m24s. No new Dart Package Publish Dry Run was
+  triggered for this smoke-harness/test-doc change; the strict
+  deployment-chain audit accepted Dart Package Publish Dry Run `27490348057`
+  at `65ebfbc` as still relevant because no publish-sensitive paths changed
+  after that commit. The strict deployment-chain audit exited successfully on
+  2026-06-14 with clean latest CI logs at `70252f2`, relevant Native Artifacts
+  dry-run `26396437881` at `debd545`, relevant Router Image dry-run
+  `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`,
+  relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch
+  protection, workflow visibility, and router image package visibility gates
+  ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `70252f2`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
+  for `70252f2`, the audit suggests `v0.1.0-rc.2` only after release
+  approval, and pub.dev package ownership/version/release-order decisions
+  remain deferred.
 - 2026-06-14: Added explicit protocol-version compatibility to the checked-in
   public router-hosted MCP client example. The example now accepts
   `--protocol-version`, defaults it to
