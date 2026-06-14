@@ -2,9 +2,43 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client ticket-auth dry-run fail-fast coverage.
-Latest fully clean hosted checkpoint: Commit `f106ba7` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client action option dry-run fail-fast coverage.
+Latest fully clean hosted checkpoint: Commit `63e80c0` on GitHub `master`.
 Current implementation checkpoint:
+`bin/common.sh` now extends the checked-in public router-hosted MCP client
+dry-run gate beyond auth by negative-testing direct action option dependencies
+before the live router smoke. The fast gate requires `--tool-arguments` without
+`--tool` to fail with `Use --tool-arguments together with --tool.`,
+`--prompt-arguments` without `--prompt` to fail with
+`Use --prompt-arguments together with --prompt.`, and `--pubsub-event` without
+`--pubsub-topic` to fail with
+`Use --pubsub-event together with --pubsub-topic.` before any HTTP request can
+be attempted. The existing positive dry-run summaries, auth-mode/redaction
+negative dry-runs, and live public, ticket-auth, bearer-token, Streamable HTTP,
+JSON-response, direct JSON, WAMP metadata, pub/sub, and batch public-client
+smokes remain in place. `tool/test_mcp_consumer_package_boundary.py` now
+guards the new dangling tool/prompt/pubsub dry-run variables, expected errors,
+and failure messages so this consumer application readiness path cannot
+silently disappear. Baseline `bin/test-fast` passed before the change on
+2026-06-14. Focused `bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, and focused direct dry-runs for each dangling action
+option exited 64 with the expected dependency error. Focused
+`bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'` passed
+on 2026-06-14, including the live public, ticket-authenticated Streamable,
+bearer-token Streamable, ticket-authenticated JSON-response, and bearer-token
+JSON-response public-client examples. An initial `bin/verify` attempt hit a
+timeout in `tests::listen_flow::http3_handshake_surfaced_via_ffi`; a focused
+`cargo test -p ct_ffi listen_flow::http3_handshake_surfaced_via_ffi -- --nocapture`
+rerun passed, and a full local `bin/verify` rerun passed on 2026-06-14,
+including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+generated consumer-package smokes, the router-hosted MCP live public,
+ticket-authenticated Streamable, bearer-token Streamable,
+ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence remains clean at `63e80c0` until this branch change is pushed.
+Previous implementation checkpoint:
 `bin/common.sh` now treats the checked-in public router-hosted MCP client
 dry-run as both a positive and negative auth readiness gate before the live
 router smoke. The fast gate captures the dry-run JSON summary, checks no-auth,
@@ -50,23 +84,23 @@ consumer-package smokes, the router-hosted MCP live public, ticket-authenticated
 Streamable, bearer-token Streamable, ticket-authenticated JSON-response, and
 bearer-token JSON-response public-client examples, the installed CLI consumer
 smoke, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
-browser WebSocket smoke. Hosted evidence is clean at `f106ba7`: GitHub
-`master` CI `27494429330` passed with `Fast Checks` 5m38s and `Full Verify`
-7m38s clean, and GitHub `add-router` CI `27494426654` also passed at
-`f106ba7` with `Fast Checks` 5m53s and `Full Verify` 8m09s clean. No new Dart
+browser WebSocket smoke. Hosted evidence is clean at `63e80c0`: GitHub
+`master` CI `27495762742` passed with `Fast Checks` 5m44s and `Full Verify`
+7m46s clean, and GitHub `add-router` CI `27495762465` also passed at
+`63e80c0` with `Fast Checks` 5m55s and `Full Verify` 7m48s clean. No new Dart
 Package Publish Dry Run was triggered for this smoke-harness/test-doc change;
 the strict deployment-chain audit accepted Dart Package Publish Dry Run `27490348057` at
 `65ebfbc` as still relevant because no publish-sensitive paths changed after
 that commit. The strict deployment-chain audit exited successfully on
-2026-06-14 with clean latest CI logs at `f106ba7`, relevant Native Artifacts
+2026-06-14 with clean latest CI logs at `63e80c0`, relevant Native Artifacts
 dry-run `26396437881` at `debd545`, relevant Router Image dry-run
 `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`, relevant
 WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch protection,
 workflow visibility, and router image package visibility gates ready. RC
 readiness remains gated on release policy: no numeric RC tag points at
-`f106ba7`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`63e80c0`, the existing `v0.1.0-rc.1` tag still points at stale commit
 `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
-`f106ba7`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+`63e80c0`, the audit suggests `v0.1.0-rc.2` only after release approval, and
 pub.dev package ownership/version/release-order decisions remain deferred.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now exposes a

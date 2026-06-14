@@ -466,6 +466,45 @@ run_router_hosted_mcp_example_smoke() {
     return 1
   fi
 
+  local dangling_tool_arguments_output
+  if dangling_tool_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --tool-arguments '{"taskId":"T-public-example-dry-run"}' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted tool arguments without a tool.\n'
+    return 1
+  fi
+  if [[ "$dangling_tool_arguments_output" != *'Use --tool-arguments together with --tool.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the dangling tool arguments error.\n'
+    return 1
+  fi
+
+  local dangling_prompt_arguments_output
+  if dangling_prompt_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --prompt-arguments '{"taskId":"T-public-example-dry-run"}' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted prompt arguments without a prompt.\n'
+    return 1
+  fi
+  if [[ "$dangling_prompt_arguments_output" != *'Use --prompt-arguments together with --prompt.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the dangling prompt arguments error.\n'
+    return 1
+  fi
+
+  local dangling_pubsub_event_output
+  if dangling_pubsub_event_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --pubsub-event '{"taskId":"T-public-example-dry-run","status":"open"}' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a pub/sub event without a topic.\n'
+    return 1
+  fi
+  if [[ "$dangling_pubsub_event_output" != *'Use --pubsub-event together with --pubsub-topic.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the dangling pub/sub event error.\n'
+    return 1
+  fi
+
   run_public_router_hosted_mcp_client_live_smoke
 }
 

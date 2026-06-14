@@ -79,6 +79,27 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Extended the public router-hosted MCP client dry-run gate beyond
+  auth so direct action option dependencies fail before any live smoke work.
+  `bin/common.sh` now requires `--tool-arguments` without `--tool`,
+  `--prompt-arguments` without `--prompt`, and `--pubsub-event` without
+  `--pubsub-topic` to exit with the expected dependency errors before any HTTP
+  request can be attempted. The existing positive dry-run summaries, auth
+  negative dry-runs, and live public, ticket-auth, bearer-token, Streamable,
+  JSON-response, direct JSON, WAMP metadata, pub/sub, and batch public-client
+  smokes remain in place. `tool/test_mcp_consumer_package_boundary.py` guards
+  the new dry-run variables, expected errors, and failure messages. Baseline
+  `bin/test-fast` passed before the change on 2026-06-14. Focused
+  `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused direct dangling option dry-runs, and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-14. An initial `bin/verify` attempt hit a timeout in
+  `tests::listen_flow::http3_handshake_surfaced_via_ffi`; focused
+  `cargo test -p ct_ffi listen_flow::http3_handshake_surfaced_via_ffi -- --nocapture`
+  passed, and a full local `bin/verify` rerun passed on 2026-06-14. Hosted
+  evidence remains at `63e80c0` until this branch change is pushed.
+
 - 2026-06-14: Hardened the public router-hosted MCP client dry-run gate for
   downstream application auth readiness. `bin/common.sh` now treats
   `packages/connectanum_mcp/example/router_hosted_client.dart --dry-run`
@@ -114,23 +135,23 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence is clean at `f106ba7`: GitHub `master` CI `27494429330`
-  passed with `Fast Checks` 5m38s and `Full Verify` 7m38s clean, and GitHub
-  `add-router` CI `27494426654` also passed at `f106ba7` with `Fast Checks`
-  5m53s and `Full Verify` 8m09s clean. No new Dart Package Publish Dry Run was
+  Hosted evidence is clean at `63e80c0`: GitHub `master` CI `27495762742`
+  passed with `Fast Checks` 5m44s and `Full Verify` 7m46s clean, and GitHub
+  `add-router` CI `27495762465` also passed at `63e80c0` with `Fast Checks`
+  5m55s and `Full Verify` 7m48s clean. No new Dart Package Publish Dry Run was
   triggered for this smoke-harness/test-doc change; the strict
   deployment-chain audit accepted Dart Package Publish Dry Run `27490348057`
   at `65ebfbc` as still relevant because no publish-sensitive paths changed
   after that commit. The strict deployment-chain audit exited successfully on
-  2026-06-14 with clean latest CI logs at `f106ba7`, relevant Native Artifacts
+  2026-06-14 with clean latest CI logs at `63e80c0`, relevant Native Artifacts
   dry-run `26396437881` at `debd545`, relevant Router Image dry-run
   `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`,
   relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch
   protection, workflow visibility, and router image package visibility gates
   ready. RC readiness remains gated on release policy: no numeric RC tag
-  points at `f106ba7`, the existing `v0.1.0-rc.1` tag still points at stale
+  points at `63e80c0`, the existing `v0.1.0-rc.1` tag still points at stale
   commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
-  for `f106ba7`, the audit suggests `v0.1.0-rc.2` only after release
+  for `63e80c0`, the audit suggests `v0.1.0-rc.2` only after release
   approval, and pub.dev package ownership/version/release-order decisions
   remain deferred.
 

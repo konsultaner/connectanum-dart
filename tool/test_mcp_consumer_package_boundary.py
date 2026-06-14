@@ -242,6 +242,36 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "did not report the incomplete ticket auth error",
             body,
         )
+        self.assertIn("dangling_tool_arguments_output=\"$(", body)
+        self.assertIn(
+            "accepted tool arguments without a tool",
+            body,
+        )
+        self.assertIn("Use --tool-arguments together with --tool.", body)
+        self.assertIn(
+            "did not report the dangling tool arguments error",
+            body,
+        )
+        self.assertIn("dangling_prompt_arguments_output=\"$(", body)
+        self.assertIn(
+            "accepted prompt arguments without a prompt",
+            body,
+        )
+        self.assertIn("Use --prompt-arguments together with --prompt.", body)
+        self.assertIn(
+            "did not report the dangling prompt arguments error",
+            body,
+        )
+        self.assertIn("dangling_pubsub_event_output=\"$(", body)
+        self.assertIn(
+            "accepted a pub/sub event without a topic",
+            body,
+        )
+        self.assertIn("Use --pubsub-event together with --pubsub-topic.", body)
+        self.assertIn(
+            "did not report the dangling pub/sub event error",
+            body,
+        )
 
     def test_fast_smoke_runs_public_router_hosted_client_example_live(
         self,
