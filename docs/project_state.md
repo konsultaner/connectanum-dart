@@ -2,9 +2,41 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client JSON option dry-run fail-fast coverage.
-Latest fully clean hosted checkpoint: Commit `75ae952` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client URL dry-run fail-fast coverage.
+Latest fully clean hosted checkpoint: Commit `d6f9edf` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now wraps
+malformed endpoint and auth URL parse failures with the same option-specific
+dry-run diagnostic already used for non-HTTP or relative URLs:
+`$option must be an absolute http or https URL.`. This prevents raw
+`Uri.parse` messages from leaking into the public router-hosted MCP client
+example when a consumer application supplies malformed endpoint or auth route
+configuration. `bin/common.sh` now negative-tests missing `--endpoint`,
+malformed `--endpoint`, and malformed `--auth-url` dry-runs before live router
+work, and `tool/test_mcp_consumer_package_boundary.py` guards the helper,
+diagnostic template, and fast-smoke failure strings. Baseline `bin/test-fast`
+passed before the change on 2026-06-14. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused
+`python3 tool/check_public_artifact_references.py`, direct missing-endpoint
+dry-run coverage exiting 64 with `Missing required --endpoint.`, direct
+malformed-endpoint dry-run coverage exiting 64 with
+`--endpoint must be an absolute http or https URL.`, direct malformed-auth URL
+dry-run coverage exiting 64 with
+`--auth-url must be an absolute http or https URL.`, and focused
+`bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'` all
+passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14, including
+formatting, Rust/FFI, Python/tool tests, MCP package smokes, generated
+consumer-package smokes, the router-hosted MCP live public,
+ticket-authenticated Streamable, bearer-token Streamable,
+ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence for this checkpoint is pending; the latest fully clean hosted
+checkpoint remains `d6f9edf`.
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now validates
 malformed JSON option payloads with option-specific dry-run errors, so public
 router-hosted MCP client smoke failures identify the bad CLI option before any
@@ -36,22 +68,21 @@ ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence remains clean at `75ae952` until this branch change is
-pushed: GitHub `master` CI `27500182995`
-passed with `Fast Checks` 6m02s and `Full Verify` 8m11s clean, GitHub
-`add-router` CI `27500182984` also passed at `75ae952`, GitHub `master` Dart
-Package Publish Dry Run `27500183005` passed at `75ae952`, and GitHub
-`add-router` Dart Package Publish Dry Run `27500182981` also passed at
-`75ae952`. The strict deployment-chain audit exited successfully on
-2026-06-14 with clean latest CI logs and Dart package publish dry-run at
-`75ae952`, relevant Native Artifacts dry-run `26396437881` at `debd545`,
-relevant Router Image dry-run `27466352428` at `9a74569` with preview artifact
+Hosted evidence is clean at `d6f9edf`: GitHub `master` CI `27501739340`
+passed with `Fast Checks` 6m04s and `Full Verify` 8m11s clean, GitHub
+`add-router` CI `27501739346` also passed at `d6f9edf`, GitHub `master` Dart
+Package Publish Dry Run `27501739342` passed at `d6f9edf`, and GitHub
+`add-router` Dart Package Publish Dry Run `27501739350` also passed at
+`d6f9edf`. The strict deployment-chain audit exited successfully on 2026-06-14
+with clean latest CI logs and Dart package publish dry-run at `d6f9edf`,
+relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
+Image dry-run `27466352428` at `9a74569` with preview artifact
 `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks `27281215258` at
 `06a56bb`, branch protection, workflow visibility, and router image package
 visibility gates ready. RC readiness remains gated on release policy: no
-numeric RC tag points at `75ae952`, the existing `v0.1.0-rc.1` tag still
+numeric RC tag points at `d6f9edf`, the existing `v0.1.0-rc.1` tag still
 points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
-is selected for `75ae952`, the audit suggests `v0.1.0-rc.2` only after release
+is selected for `d6f9edf`, the audit suggests `v0.1.0-rc.2` only after release
 approval, and pub.dev package ownership/version/release-order decisions remain
 deferred.
 Previous implementation checkpoint:

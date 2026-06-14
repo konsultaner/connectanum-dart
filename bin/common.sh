@@ -403,6 +403,29 @@ run_router_hosted_mcp_example_smoke() {
     return 1
   fi
 
+  local missing_endpoint_output
+  if missing_endpoint_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a missing endpoint.\n'
+    return 1
+  fi
+  if [[ "$missing_endpoint_output" != *'Missing required --endpoint.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the missing endpoint error.\n'
+    return 1
+  fi
+
+  local malformed_endpoint_output
+  if malformed_endpoint_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint 'http://[::1' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a malformed endpoint URL.\n'
+    return 1
+  fi
+  if [[ "$malformed_endpoint_output" != *'--endpoint must be an absolute http or https URL.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the malformed endpoint URL error.\n'
+    return 1
+  fi
+
   local invalid_protocol_output
   if invalid_protocol_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \
@@ -489,6 +512,22 @@ run_router_hosted_mcp_example_smoke() {
   fi
   if [[ "$incomplete_auth_output" != *'Use --auth-url, --realm, --auth-id, and --ticket together.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the incomplete ticket auth error.\n'
+    return 1
+  fi
+
+  local malformed_auth_url_output
+  if malformed_auth_url_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --auth-url 'http://[::1' \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --ticket dry-run-ticket-secret \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a malformed auth URL.\n'
+    return 1
+  fi
+  if [[ "$malformed_auth_url_output" != *'--auth-url must be an absolute http or https URL.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the malformed auth URL error.\n'
     return 1
   fi
 

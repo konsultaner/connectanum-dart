@@ -946,7 +946,12 @@ Uri? _optionalUri(Map<String, String> values, String option) {
 }
 
 Uri _httpUri(String value, String option) {
-  final uri = Uri.parse(value);
+  final Uri uri;
+  try {
+    uri = Uri.parse(value);
+  } on FormatException {
+    throw FormatException('$option must be an absolute http or https URL.');
+  }
   if ((uri.scheme != 'http' && uri.scheme != 'https') || !uri.hasAuthority) {
     throw FormatException('$option must be an absolute http or https URL.');
   }

@@ -122,6 +122,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "_supportedMcpProtocolVersions",
             "_protocolVersionOption",
             "Unsupported MCP protocol version",
+            "_httpUri",
+            "must be an absolute http or https URL.",
             "_bearerTokenOption",
             "_containsMcpWhitespaceOrControl",
             "Bearer token must not contain whitespace or control characters.",
@@ -217,6 +219,29 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dry_run_summary=\"$(", body)
         self.assertIn('"authMode":"none"', body)
         self.assertIn('"protocolVersion":"2025-06-18"', body)
+        self.assertIn("missing_endpoint_output=\"$(", body)
+        self.assertIn(
+            "accepted a missing endpoint",
+            body,
+        )
+        self.assertIn("Missing required --endpoint.", body)
+        self.assertIn(
+            "did not report the missing endpoint error",
+            body,
+        )
+        self.assertIn("malformed_endpoint_output=\"$(", body)
+        self.assertIn(
+            "accepted a malformed endpoint URL",
+            body,
+        )
+        self.assertIn(
+            "--endpoint must be an absolute http or https URL.",
+            body,
+        )
+        self.assertIn(
+            "did not report the malformed endpoint URL error",
+            body,
+        )
         self.assertIn("invalid_protocol_output=\"$(", body)
         self.assertIn(
             "accepted an unsupported protocol version",
@@ -277,6 +302,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "did not report the incomplete ticket auth error",
+            body,
+        )
+        self.assertIn("malformed_auth_url_output=\"$(", body)
+        self.assertIn(
+            "accepted a malformed auth URL",
+            body,
+        )
+        self.assertIn(
+            "--auth-url must be an absolute http or https URL.",
+            body,
+        )
+        self.assertIn(
+            "did not report the malformed auth URL error",
             body,
         )
         self.assertIn("dangling_tool_arguments_output=\"$(", body)
