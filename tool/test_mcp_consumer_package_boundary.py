@@ -190,6 +190,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("--endpoint \"$endpoint\"", live_body)
         self.assertIn("--endpoint \"$secure_endpoint\"", live_body)
+        self.assertIn("--endpoint \"$secure_json_endpoint\"", live_body)
+        self.assertIn(
+            "Bearer-protected JSON-response MCP endpoint is running at",
+            live_body,
+        )
         self.assertIn("auth_url=\"${endpoint%/mcp}/auth\"", live_body)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
         self.assertIn("--realm example.realm", live_body)
@@ -203,6 +208,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--pubsub-topic example.events.task", live_body)
         self.assertIn(
             "Authenticated router-hosted MCP client live smoke completed.",
+            live_body,
+        )
+        self.assertIn(
+            "Authenticated router-hosted JSON-response MCP client live smoke "
+            "completed.",
             live_body,
         )
         self.assertNotRegex(live_body, r"package:connectanum_client/")

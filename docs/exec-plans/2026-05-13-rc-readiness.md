@@ -79,6 +79,58 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Extended the public router-hosted MCP live smoke so it waits for
+  the router example's bearer-protected JSON-response MCP endpoint and runs
+  the checked-in
+  `packages/connectanum_mcp/example/router_hosted_client.dart` against that
+  endpoint with the same public auth-grant flow used by `/mcp/secure`. The
+  public example now proves a consumer application can use
+  `package:connectanum_mcp/connectanum_mcp_io.dart` against router-provided
+  `/mcp`, `/mcp/secure`, and JSON-response `/mcp/secure-json-post` routes for
+  direct JSON tool/resource/prompt calls, WAMP API/meta discovery, direct
+  pub/sub, and Streamable lifecycle/tool/resource/prompt work without private
+  imports or hand-maintained endpoint assumptions.
+  `tool/test_mcp_consumer_package_boundary.py` now guards the parsed
+  JSON-response endpoint, the public example invocation against
+  `$secure_json_endpoint`, and the
+  `Authenticated router-hosted JSON-response MCP client live smoke completed.`
+  line so the smoke cannot silently regress to only the Streamable routes.
+  Baseline `bin/test-fast` passed before the change on 2026-06-14. Focused
+  `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `bash -lc 'source bin/common.sh && run_router_hosted_mcp_example_smoke'`,
+  and updated `bin/test-fast` all passed on 2026-06-14, including the
+  `Public router-hosted MCP client live smoke completed.`,
+  `Authenticated router-hosted MCP client live smoke completed.`, and
+  `Authenticated router-hosted JSON-response MCP client live smoke completed.`
+  evidence. Full local `bin/verify` passed on 2026-06-14, including
+  formatting, Rust/FFI, Python/tool tests, MCP package smokes, generated
+  consumer-package smokes, the router-hosted MCP live public, authenticated
+  Streamable, and authenticated JSON-response public-client examples, the
+  installed CLI token-only protected WAMP session/subscription meta smoke, full
+  router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence for this local checkpoint remains pending
+  until it is pushed and hosted checks complete. The latest fully clean hosted
+  checkpoint is `9115e7e`: GitHub `master` CI `27484483861` passed with
+  `Fast Checks` and `Full Verify` clean, GitHub `add-router` CI `27484483428`
+  also passed at `9115e7e`, GitHub `master` Dart Package Publish Dry Run
+  `27484483869` passed at `9115e7e`, and GitHub `add-router` Dart Package
+  Publish Dry Run `27484483436` also passed at `9115e7e`. The strict
+  deployment-chain audit exited successfully on 2026-06-14 with clean latest
+  CI logs, relevant Dart package publish dry-run `27484483869` at `9115e7e`,
+  relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant
+  Router Image dry-run `27466352428` at `9a74569` with preview artifact
+  `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks `27281215258` at
+  `06a56bb`, branch protection, workflow visibility, and router image package
+  visibility gates ready. The audit accepted the older native, router image,
+  and WAMP benchmark evidence because no native-release-sensitive,
+  router-image-sensitive, or WAMP-profile-sensitive paths changed after their
+  respective evidence commits. RC readiness remains gated on release policy: no
+  numeric RC tag points at `9115e7e`, the existing `v0.1.0-rc.1` tag still
+  points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
+  is selected for `9115e7e`, the audit suggests `v0.1.0-rc.2` only after
+  release approval, and pub.dev package ownership/version/release-order
+  decisions remain deferred.
 - 2026-06-14: Extended the checked-in public router-hosted MCP client example's
   Streamable session path so the selected `--tool` is executed again through
   `McpStreamableHttpClient.callTool` after `initialize`, recording the response
@@ -105,8 +157,26 @@ decision because `connectanum_client` still depends on private
   and authenticated public-client examples, the installed CLI token-only
   protected WAMP session/subscription meta smoke, full router tests, zero-copy
   router tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence remains clean at previous pushed checkpoint `1ebd1d5` until this
-  local checkpoint is pushed and hosted checks complete.
+  evidence is clean at `9115e7e`: GitHub `master` CI `27484483861` passed with
+  `Fast Checks` and `Full Verify` clean, GitHub `add-router` CI `27484483428`
+  also passed at `9115e7e`, GitHub `master` Dart Package Publish Dry Run
+  `27484483869` passed at `9115e7e`, and GitHub `add-router` Dart Package
+  Publish Dry Run `27484483436` also passed at `9115e7e`. The strict
+  deployment-chain audit exited successfully on 2026-06-14 with clean latest CI
+  logs, relevant Dart package publish dry-run `27484483869` at `9115e7e`,
+  relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant
+  Router Image dry-run `27466352428` at `9a74569` with preview artifact
+  `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks `27281215258` at
+  `06a56bb`, branch protection, workflow visibility, and router image package
+  visibility gates ready. The audit accepted the older native, router image,
+  and WAMP benchmark evidence because no native-release-sensitive,
+  router-image-sensitive, or WAMP-profile-sensitive paths changed after their
+  respective evidence commits. RC readiness remains gated on release policy: no
+  numeric RC tag points at `9115e7e`, the existing `v0.1.0-rc.1` tag still
+  points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
+  is selected for `9115e7e`, the audit suggests `v0.1.0-rc.2` only after
+  release approval, and pub.dev package ownership/version/release-order
+  decisions remain deferred.
 - 2026-06-14: Extended the checked-in public router-hosted MCP client example
   with `--wamp-procedure` and `--wamp-topic` options that call direct WAMP
   session/procedure/topic/subscription metadata helpers through the public
