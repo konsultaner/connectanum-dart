@@ -79,6 +79,42 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Extended the checked-in public router-hosted MCP client example
+  with direct JSON and Streamable JSON-RPC batch coverage. Before
+  `initialize`, the example sends a lifecycle-free `postBatchDirect` request
+  that covers `connectanum.tools.list`, optional `connectanum.tool.call`,
+  `resources/read`, `prompts/get`, and WAMP API list/describe tool calls, then
+  asserts the direct batch did not mutate Streamable session state. After
+  `initialize`, the example sends a stateful `postBatch` request that covers
+  `tools/list`, optional `tools/call`, `resources/read`, `prompts/get`, and
+  WAMP API list/describe tool calls, records the response ids under
+  `streamable.batch`, and asserts the initialized MCP session id is preserved.
+  This proves a consumer application can use the public example for direct
+  JSON batching and Streamable HTTP batching on public, bearer-protected
+  Streamable, and bearer-protected JSON-response MCP routes without private
+  imports or hand-maintained consumer assumptions.
+  `tool/test_mcp_consumer_package_boundary.py` now guards `postBatchDirect`,
+  `postBatch`, the stable direct/Streamable batch request ids, and the
+  `directBatch`/`streamable.batch` output keys so this coverage cannot
+  silently regress. Baseline `bin/test-fast` passed before the change on
+  2026-06-14. Focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`,
+  focused `git diff --check`, and focused
+  `python3 tool/check_public_artifact_references.py` passed on 2026-06-14,
+  including the `Public router-hosted MCP client live smoke completed.`,
+  `Authenticated router-hosted MCP client live smoke completed.`, and
+  `Authenticated router-hosted JSON-response MCP client live smoke completed.`
+  evidence with the new batch branches active. Full local `bin/verify` passed
+  on 2026-06-14, including formatting, Rust/FFI, Python/tool tests, MCP package
+  smokes, generated consumer-package smokes, the router-hosted MCP live public,
+  authenticated Streamable, and authenticated JSON-response public-client
+  examples, the installed CLI consumer smoke, full router tests, zero-copy
+  router tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence is pending for this local implementation checkpoint; the latest
+  fully clean hosted checkpoint remains `9a44889` until the implementation is
+  pushed and GitHub CI, Dart package publish dry-runs, and the strict
+  deployment-chain audit are refreshed.
 - 2026-06-14: Extended the checked-in public router-hosted MCP client example's
   Streamable session path so the configured `--wamp-procedure` and
   `--wamp-topic` are exercised after `initialize` through public
@@ -111,11 +147,27 @@ decision because `connectanum_client` still depends on private
   smokes, the router-hosted MCP live public, authenticated Streamable, and
   authenticated JSON-response public-client examples, the installed CLI
   consumer smoke, full router tests, zero-copy router tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
-  local implementation checkpoint; the latest fully clean hosted
-  checkpoint remains `abc9e96` until the implementation is pushed and GitHub CI,
-  Dart package publish dry-runs, and the strict deployment-chain audit are
-  refreshed.
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is clean at
+  `9a44889`: GitHub `master` CI `27488048537` passed with `Fast Checks` 5m29s
+  and `Full Verify` 7m30s clean, GitHub `add-router` CI `27488046645` also
+  passed at `9a44889` with `Fast Checks` 5m30s and `Full Verify` 7m25s clean,
+  GitHub `master` Dart Package Publish Dry Run `27488048521` passed at
+  `9a44889`, and GitHub `add-router` Dart Package Publish Dry Run
+  `27488046647` also passed at `9a44889`. The strict deployment-chain audit
+  exited successfully on 2026-06-14 with clean latest CI logs and Dart package
+  publish dry-run at `9a44889`, relevant Native Artifacts dry-run
+  `26396437881` at `debd545`, relevant Router Image dry-run `27466352428` at
+  `9a74569` with preview artifact `sha-9a74569e4b27`, relevant WAMP Profile
+  Benchmarks `27281215258` at `06a56bb`, branch protection, workflow
+  visibility, and router image package visibility gates ready. The audit
+  accepted the older native, router image, and WAMP benchmark evidence because
+  no native-release-sensitive, router-image-sensitive, or WAMP-profile-sensitive
+  paths changed after their respective evidence commits. RC readiness remains
+  gated on release policy: no numeric RC tag points at `9a44889`, the existing
+  `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+  prerelease or router image RC tag is selected for `9a44889`, the audit
+  suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
+  ownership/version/release-order decisions remain deferred.
 - 2026-06-14: Extended the checked-in public router-hosted MCP client example's
   Streamable session path so `--pubsub-topic` is exercised after
   `initialize` through public `subscribeWampTopic`, `publishWampEvent`,

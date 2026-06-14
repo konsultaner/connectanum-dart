@@ -27,6 +27,7 @@ Future<void> main(List<String> args) async {
   final client = await _createClient(options);
   try {
     await _runDirectJsonExample(client, options);
+    await _runDirectBatchExample(client, options);
     await _runDirectWampMetadataExample(client, options);
     if (options.pubsubTopic != null) {
       await _runDirectPubSubExample(client, options);
@@ -172,6 +173,161 @@ Future<void> _runDirectJsonExample(
       }),
     );
   }
+}
+
+Future<void> _runDirectBatchExample(
+  McpStreamableHttpClient client,
+  _Options options,
+) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final messages = <McpJsonMap>[
+    {
+      'jsonrpc': '2.0',
+      'id': 'direct-batch-tools',
+      'method': 'connectanum.tools.list',
+      'params': {},
+    },
+  ];
+
+  final toolName = options.toolName;
+  if (toolName != null) {
+    messages.add(
+      _toolCallBatchRequest(
+        id: 'direct-batch-tool-call',
+        name: toolName,
+        arguments: options.toolArguments,
+        directJson: true,
+      ),
+    );
+  }
+
+  final resourceUri = options.resourceUri;
+  if (resourceUri != null) {
+    messages.add({
+      'jsonrpc': '2.0',
+      'id': 'direct-batch-resource-read',
+      'method': 'resources/read',
+      'params': {'uri': resourceUri},
+    });
+  }
+
+  final promptName = options.promptName;
+  if (promptName != null) {
+    messages.add({
+      'jsonrpc': '2.0',
+      'id': 'direct-batch-prompt-get',
+      'method': 'prompts/get',
+      'params': {'name': promptName, 'arguments': options.promptArguments},
+    });
+  }
+
+  final wampProcedure = options.wampProcedure;
+  if (wampProcedure != null) {
+    messages.addAll([
+      _toolCallBatchRequest(
+        id: 'direct-batch-wamp-procedure-api-list',
+        name: 'connectanum.api.list',
+        arguments: const {'kind': 'procedure'},
+        directJson: true,
+      ),
+      _toolCallBatchRequest(
+        id: 'direct-batch-wamp-procedure-api-describe',
+        name: 'connectanum.api.describe',
+        arguments: {'uri': wampProcedure, 'kind': 'procedure'},
+        directJson: true,
+      ),
+    ]);
+  }
+
+  final wampTopic = options.wampTopic;
+  if (wampTopic != null) {
+    messages.addAll([
+      _toolCallBatchRequest(
+        id: 'direct-batch-wamp-topic-api-list',
+        name: 'connectanum.api.list',
+        arguments: const {'kind': 'topic'},
+        directJson: true,
+      ),
+      _toolCallBatchRequest(
+        id: 'direct-batch-wamp-topic-api-describe',
+        name: 'connectanum.api.describe',
+        arguments: {'uri': wampTopic, 'kind': 'topic'},
+        directJson: true,
+      ),
+    ]);
+  }
+
+  final responseIds = _expectBatchResponses(
+    await client.postBatchDirect(
+      messages,
+      headers: const {'x-consumer-trace': 'router-hosted-client-direct-batch'},
+    ),
+    [for (final message in messages) message['id']! as String],
+    label: 'Direct JSON',
+  );
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct JSON batch changed Streamable state.');
+  }
+  stdout.writeln(
+    jsonEncode({
+      'directBatch': {'responseIds': responseIds},
+    }),
+  );
+}
+
+McpJsonMap _toolCallBatchRequest({
+  required String id,
+  required String name,
+  required McpJsonMap arguments,
+  required bool directJson,
+}) {
+  return {
+    'jsonrpc': '2.0',
+    'id': id,
+    'method': directJson ? 'connectanum.tool.call' : 'tools/call',
+    'params': {'name': name, 'arguments': arguments},
+  };
+}
+
+List<String> _expectBatchResponses(
+  List<McpJsonMap>? responses,
+  List<String> expectedIds, {
+  required String label,
+}) {
+  if (responses == null) {
+    throw StateError('$label batch returned no responses.');
+  }
+  if (responses.length != expectedIds.length) {
+    throw StateError(
+      '$label batch returned ${responses.length} responses for '
+      '${expectedIds.length} requests.',
+    );
+  }
+
+  final responseIds = <String>[];
+  for (final response in responses) {
+    final id = response['id'];
+    if (id is! String) {
+      throw StateError('$label batch response had a non-string id.');
+    }
+    if (response.containsKey('error')) {
+      throw StateError(
+        '$label batch response $id errored: ${response['error']}',
+      );
+    }
+    responseIds.add(id);
+  }
+
+  final missingIds = [
+    for (final expectedId in expectedIds)
+      if (!responseIds.contains(expectedId)) expectedId,
+  ];
+  if (missingIds.isNotEmpty) {
+    throw StateError('$label batch missed responses for $missingIds.');
+  }
+  return responseIds;
 }
 
 Future<void> _runDirectWampMetadataExample(
@@ -328,7 +484,23 @@ Future<void> _runStreamableSessionExample(
   };
 
   final toolName = options.toolName;
+  final streamableBatchMessages = <McpJsonMap>[
+    {
+      'jsonrpc': '2.0',
+      'id': 'streamable-batch-tools',
+      'method': 'tools/list',
+      'params': {},
+    },
+  ];
   if (toolName != null) {
+    streamableBatchMessages.add(
+      _toolCallBatchRequest(
+        id: 'streamable-batch-tool-call',
+        name: toolName,
+        arguments: options.toolArguments,
+        directJson: false,
+      ),
+    );
     streamable['toolResult'] = await client.callTool(
       toolName,
       id: 'streamable-tool-call',
@@ -338,6 +510,12 @@ Future<void> _runStreamableSessionExample(
 
   final resourceUri = options.resourceUri;
   if (resourceUri != null) {
+    streamableBatchMessages.add({
+      'jsonrpc': '2.0',
+      'id': 'streamable-batch-resource-read',
+      'method': 'resources/read',
+      'params': {'uri': resourceUri},
+    });
     streamable['resourceContent'] = await client.readResource(
       resourceUri,
       id: 'streamable-resource-read',
@@ -346,6 +524,12 @@ Future<void> _runStreamableSessionExample(
 
   final promptName = options.promptName;
   if (promptName != null) {
+    streamableBatchMessages.add({
+      'jsonrpc': '2.0',
+      'id': 'streamable-batch-prompt-get',
+      'method': 'prompts/get',
+      'params': {'name': promptName, 'arguments': options.promptArguments},
+    });
     streamable['prompt'] = await client.getPrompt(
       promptName,
       id: 'streamable-prompt-get',
@@ -355,6 +539,58 @@ Future<void> _runStreamableSessionExample(
 
   final wampProcedure = options.wampProcedure;
   final wampTopic = options.wampTopic;
+  if (wampProcedure != null) {
+    streamableBatchMessages.addAll([
+      _toolCallBatchRequest(
+        id: 'streamable-batch-wamp-procedure-api-list',
+        name: 'connectanum.api.list',
+        arguments: const {'kind': 'procedure'},
+        directJson: false,
+      ),
+      _toolCallBatchRequest(
+        id: 'streamable-batch-wamp-procedure-api-describe',
+        name: 'connectanum.api.describe',
+        arguments: {'uri': wampProcedure, 'kind': 'procedure'},
+        directJson: false,
+      ),
+    ]);
+  }
+  if (wampTopic != null) {
+    streamableBatchMessages.addAll([
+      _toolCallBatchRequest(
+        id: 'streamable-batch-wamp-topic-api-list',
+        name: 'connectanum.api.list',
+        arguments: const {'kind': 'topic'},
+        directJson: false,
+      ),
+      _toolCallBatchRequest(
+        id: 'streamable-batch-wamp-topic-api-describe',
+        name: 'connectanum.api.describe',
+        arguments: {'uri': wampTopic, 'kind': 'topic'},
+        directJson: false,
+      ),
+    ]);
+  }
+  final streamableSessionId = client.sessionId;
+  if (streamableSessionId == null) {
+    throw StateError('Streamable batch has no initialized session id.');
+  }
+  streamable['batch'] = <String, Object?>{
+    'responseIds': _expectBatchResponses(
+      await client.postBatch(
+        streamableBatchMessages,
+        headers: const {
+          'x-consumer-trace': 'router-hosted-client-streamable-batch',
+        },
+      ),
+      [for (final message in streamableBatchMessages) message['id']! as String],
+      label: 'Streamable',
+    ),
+  };
+  if (client.sessionId != streamableSessionId) {
+    throw StateError('Streamable batch changed session id.');
+  }
+
   if (wampProcedure != null || wampTopic != null) {
     final metadata = <String, Object?>{};
 
