@@ -79,6 +79,42 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Added explicit protocol-version compatibility to the checked-in
+  public router-hosted MCP client example. The example now accepts
+  `--protocol-version`, defaults it to
+  `McpStreamableHttpClient.latestProtocolVersion`, includes it in dry-run
+  output, and passes it as `defaultProtocolVersion` through the plain,
+  bearer-token, and ticket-auth-grant `McpStreamableHttpClient` construction
+  paths. `bin/common.sh` now runs the public-client dry run plus the public,
+  authenticated Streamable, and authenticated JSON-response router-hosted MCP
+  live smokes with `--protocol-version 2025-06-18`, proving a consumer
+  application can copy the public example for explicit Streamable HTTP
+  protocol-version compatibility without private imports or consumer-specific
+  assumptions. `tool/test_mcp_consumer_package_boundary.py` guards the public
+  protocol-version wiring, dry-run summary key, and fast smoke flag so this
+  compatibility coverage cannot silently regress. Baseline `bin/test-fast`
+  passed before the change on 2026-06-14. Focused `bash -n bin/common.sh`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `dart run packages/connectanum_mcp/example/router_hosted_client.dart ... --protocol-version 2025-06-18 --dry-run`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-14, including the `Public router-hosted MCP client live
+  smoke completed.`, `Authenticated router-hosted MCP client live smoke
+  completed.`, and `Authenticated router-hosted JSON-response MCP client live
+  smoke completed.` evidence with the explicit protocol-version flag active.
+  Full local `bin/verify` passed on 2026-06-14, including formatting,
+  Rust/FFI, Python/tool tests, MCP package smokes, generated consumer-package
+  smokes, the router-hosted MCP live public, authenticated Streamable, and
+  authenticated JSON-response public-client examples, the installed CLI
+  consumer smoke, full router tests, zero-copy router tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for the new
+  checkpoint is pending; the latest fully clean hosted checkpoint remains
+  `0c63d95`. RC readiness remains gated on release policy: no numeric RC tag
+  points at `0c63d95`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
+  for `0c63d95`, the audit suggests `v0.1.0-rc.2` only after release
+  approval, and pub.dev package ownership/version/release-order decisions
+  remain deferred.
 - 2026-06-14: Extended the checked-in public router-hosted MCP client example
   with direct JSON and Streamable JSON-RPC batch coverage. Before
   `initialize`, the example sends a lifecycle-free `postBatchDirect` request
@@ -111,10 +147,26 @@ decision because `connectanum_client` still depends on private
   authenticated Streamable, and authenticated JSON-response public-client
   examples, the installed CLI consumer smoke, full router tests, zero-copy
   router tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence is pending for this local implementation checkpoint; the latest
-  fully clean hosted checkpoint remains `9a44889` until the implementation is
-  pushed and GitHub CI, Dart package publish dry-runs, and the strict
-  deployment-chain audit are refreshed.
+  evidence is clean at `0c63d95`: GitHub `master` CI `27489148372` passed with
+  `Fast Checks` 5m37s and `Full Verify` 5m28s clean, GitHub `add-router` CI
+  `27489148131` also passed at `0c63d95` with `Fast Checks` 4m42s and
+  `Full Verify` 7m47s clean, GitHub `master` Dart Package Publish Dry Run
+  `27489148377` passed at `0c63d95`, and GitHub `add-router` Dart Package
+  Publish Dry Run `27489148145` also passed at `0c63d95`. The strict
+  deployment-chain audit exited successfully on 2026-06-14 with clean latest
+  CI logs and Dart package publish dry-run at `0c63d95`, relevant Native
+  Artifacts dry-run `26396437881` at `debd545`, relevant Router Image dry-run
+  `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`,
+  relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch
+  protection, workflow visibility, and router image package visibility gates
+  ready. The audit accepted the older native, router image, and WAMP benchmark
+  evidence because no native-release-sensitive, router-image-sensitive, or
+  WAMP-profile-sensitive paths changed after their respective evidence commits.
+  RC readiness remains gated on release policy: no numeric RC tag points at
+  `0c63d95`, the existing `v0.1.0-rc.1` tag still points at stale commit
+  `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+  `0c63d95`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+  pub.dev package ownership/version/release-order decisions remain deferred.
 - 2026-06-14: Extended the checked-in public router-hosted MCP client example's
   Streamable session path so the configured `--wamp-procedure` and
   `--wamp-topic` are exercised after `initialize` through public
@@ -4449,8 +4501,9 @@ decision because `connectanum_client` still depends on private
   The smoke also asserts JSON POST responses keep the active session id stable
   and do not capture POST/SSE cursors before GET/SSE polling. This keeps the
   checked-in public example aligned with the generated consumer-package secure
-  JSON-response route readiness evidence without relying on private downstream
-  application assumptions. Pre-change `bin/test-fast` passed on 2026-05-24.
+  JSON-response route readiness evidence without relying on
+  application-specific assumptions. Pre-change `bin/test-fast` passed on
+  2026-05-24.
   Focused local coverage passed:
   `dart analyze packages/connectanum_router/example/router_hosted_mcp.dart`,
   `bash -lc 'source bin/common.sh; cd_repo_root; dart_workspace_bootstrap; run_router_hosted_mcp_example_smoke'`,

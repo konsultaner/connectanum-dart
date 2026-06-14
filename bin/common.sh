@@ -381,6 +381,7 @@ run_router_hosted_mcp_example_smoke() {
 
   dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \
+    --protocol-version 2025-06-18 \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-public-example-dry-run"}' \
     --resource-uri app://example/context \
@@ -468,6 +469,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
 
   dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$endpoint" \
+    --protocol-version 2025-06-18 \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-public-example-live"}' \
     --resource-uri app://example/context \
@@ -483,6 +485,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
 
   dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$secure_endpoint" \
+    --protocol-version 2025-06-18 \
     --auth-url "$auth_url" \
     --realm example.realm \
     --auth-id mcp-user \
@@ -502,6 +505,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
 
   dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$secure_json_endpoint" \
+    --protocol-version 2025-06-18 \
     --auth-url "$auth_url" \
     --realm example.realm \
     --auth-id mcp-user \

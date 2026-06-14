@@ -59,6 +59,7 @@ Future<McpStreamableHttpClient> _createClient(_Options options) async {
         options.endpoint,
         grant,
         httpClient: _shortLivedHttpClient(),
+        defaultProtocolVersion: options.protocolVersion,
         closeHttpClient: true,
       );
     } finally {
@@ -72,6 +73,7 @@ Future<McpStreamableHttpClient> _createClient(_Options options) async {
       options.endpoint,
       bearerToken,
       httpClient: _shortLivedHttpClient(),
+      defaultProtocolVersion: options.protocolVersion,
       closeHttpClient: true,
     );
   }
@@ -79,6 +81,7 @@ Future<McpStreamableHttpClient> _createClient(_Options options) async {
   return McpStreamableHttpClient(
     options.endpoint,
     httpClient: _shortLivedHttpClient(),
+    defaultProtocolVersion: options.protocolVersion,
     closeHttpClient: true,
   );
 }
@@ -95,6 +98,7 @@ void _printDryRunSummary(IOSink sink, _Options options) {
       'dryRun': true,
       'endpoint': options.endpoint.toString(),
       'authMode': authMode,
+      'protocolVersion': options.protocolVersion,
       if (options.authEndpoint != null)
         'authEndpoint': options.authEndpoint.toString(),
       if (options.authRealm != null) 'realm': options.authRealm,
@@ -712,6 +716,7 @@ Future<void> _runStreamableSessionExample(
 final class _Options {
   const _Options({
     required this.endpoint,
+    required this.protocolVersion,
     required this.toolArguments,
     required this.promptArguments,
     required this.pubsubEvent,
@@ -730,6 +735,7 @@ final class _Options {
   });
 
   final Uri endpoint;
+  final String protocolVersion;
   final String? bearerToken;
   final Uri? authEndpoint;
   final String? authRealm;
@@ -788,6 +794,9 @@ final class _Options {
 
     return _Options(
       endpoint: endpoint,
+      protocolVersion:
+          values['--protocol-version'] ??
+          McpStreamableHttpClient.latestProtocolVersion,
       bearerToken: bearerToken,
       authEndpoint: authEndpoint,
       authRealm: authRealm,
@@ -822,6 +831,7 @@ final class _Options {
 Map<String, String> _parseOptions(List<String> args) {
   const valueOptions = {
     '--endpoint',
+    '--protocol-version',
     '--bearer-token',
     '--auth-url',
     '--realm',
@@ -950,6 +960,7 @@ Usage:
 
 Options:
   --bearer-token TOKEN              Use a bearer-protected MCP route.
+  --protocol-version VERSION        MCP protocol version header to send.
   --auth-url URL                    Issue a ticket auth grant from this URL.
   --realm REALM                     Realm for --auth-url ticket grants.
   --auth-id AUTHID                  Auth id for --auth-url ticket grants.

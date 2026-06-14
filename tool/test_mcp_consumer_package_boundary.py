@@ -118,6 +118,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         for public_helper in (
             "McpStreamableHttpClient.withBearerToken",
             "McpStreamableHttpClient.withAuthGrant",
+            "McpStreamableHttpClient.latestProtocolVersion",
+            "defaultProtocolVersion: options.protocolVersion",
+            "'protocolVersion': options.protocolVersion",
             "listConnectanumToolsDirect",
             "callConnectanumToolDirect",
             "listResourcesDirect",
@@ -189,6 +192,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("--endpoint http://127.0.0.1:8080/mcp", body)
+        self.assertIn("--protocol-version 2025-06-18", body)
         self.assertIn("--tool example.task.lookup", body)
         self.assertIn("--tool-arguments", body)
         self.assertIn("--resource-uri app://example/context", body)
@@ -223,6 +227,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--endpoint \"$endpoint\"", live_body)
         self.assertIn("--endpoint \"$secure_endpoint\"", live_body)
         self.assertIn("--endpoint \"$secure_json_endpoint\"", live_body)
+        self.assertIn("--protocol-version 2025-06-18", live_body)
         self.assertIn(
             "Bearer-protected JSON-response MCP endpoint is running at",
             live_body,
