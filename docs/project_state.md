@@ -2,9 +2,36 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client dry-run smoke runs before native setup.
-Latest fully clean hosted checkpoint: Commit `e350384` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client dry-run failures propagate from the wrapper.
+Latest fully clean hosted checkpoint: Commit `edeedac` on GitHub `master`.
 Current implementation checkpoint:
+`bin/common.sh` now propagates
+`run_public_router_hosted_mcp_client_dry_run_smoke` failures from
+`run_router_hosted_mcp_example_smoke` with an explicit `|| return` before the
+wrapper reaches native runtime checks or native skip handling. This keeps the
+Dart-only public router-hosted MCP client setup gate fail-closed even for
+callers that source `bin/common.sh` and later disable `errexit`.
+`tool/test_mcp_consumer_package_boundary.py` now guards the explicit wrapper
+failure propagation in addition to the existing native-gate ordering checks.
+Baseline `bin/test-fast` passed before the change on 2026-06-14. Focused
+`bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused repro coverage
+with `set +e` returned status 9 from an overridden dry-run helper before the
+native skip branch, focused `git diff --check`, focused
+`python3 tool/check_public_artifact_references.py`, focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'` all
+passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14, including
+formatting, Rust/FFI, Python/tool tests, MCP package smokes, generated
+consumer-package smokes, the router-hosted MCP live public,
+ticket-authenticated Streamable, bearer-token Streamable,
+ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence is pending for this checkpoint; the latest fully clean hosted
+checkpoint remains `edeedac`.
+Previous implementation checkpoint:
 `bin/common.sh` now extracts the public router-hosted MCP client `--dry-run`
 validation into `run_public_router_hosted_mcp_client_dry_run_smoke` and calls
 it before `run_router_hosted_mcp_example_smoke` checks native runtime support,
@@ -30,9 +57,23 @@ ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence is pending for this checkpoint; the latest fully clean hosted
-checkpoint remains `e350384`.
-Previous implementation checkpoint:
+Hosted evidence is clean at `edeedac`: GitHub `master` CI `27506756474`
+passed with `Fast Checks` 6m40s and `Full Verify` 8m54s clean. GitHub
+`master` Dart Package Publish Dry Run `27505129106` remains clean and relevant
+at `e350384`; the strict audit confirmed no publish-sensitive paths changed
+between `e350384` and `edeedac`. The strict deployment-chain audit exited
+successfully on 2026-06-14 with clean latest CI logs at `edeedac`, Dart
+package publish dry-run relevance, relevant Native Artifacts dry-run
+`26396437881` at `debd545`, relevant Router Image dry-run `27466352428` at
+`9a74569` with preview artifact `sha-9a74569e4b27`, relevant WAMP Profile
+Benchmarks `27281215258` at `06a56bb`, branch protection, workflow visibility,
+and router image package visibility gates ready. RC readiness remains gated on
+release policy: no numeric RC tag points at `edeedac`, the existing
+`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+prerelease or router image RC tag is selected for `edeedac`, the audit
+suggests `v0.1.0-rc.2` only after release approval, and pub.dev package
+ownership/version/release-order decisions remain deferred.
+Earlier implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now rejects empty
 or MCP-whitespace-only public client string options before any HTTP request or
 dry-run success summary can be produced. `_nonEmptyStringOption` is used for

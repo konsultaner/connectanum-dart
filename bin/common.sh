@@ -622,7 +622,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
 }
 
 run_router_hosted_mcp_example_smoke() {
-  run_public_router_hosted_mcp_client_dry_run_smoke
+  run_public_router_hosted_mcp_client_dry_run_smoke || return
 
   if ! native_runtime_supported; then
     printf 'Native router-hosted MCP example smoke requires Linux or macOS; skipping on %s.\n' "$(uname -s)"

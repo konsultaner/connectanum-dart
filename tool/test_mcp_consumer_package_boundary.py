@@ -207,6 +207,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "run_public_router_hosted_mcp_client_dry_run_smoke",
             wrapper_body,
         )
+        self.assertIn(
+            "run_public_router_hosted_mcp_client_dry_run_smoke || return",
+            wrapper_body,
+        )
         self.assertLess(
             wrapper_body.index(
                 "run_public_router_hosted_mcp_client_dry_run_smoke",
