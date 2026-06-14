@@ -80,6 +80,37 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-14: Hardened the public router-hosted MCP client example's
+  bearer-token dry-run boundary. The example now validates `--bearer-token`
+  during `_Options.parse`, trims surrounding whitespace like
+  `McpStreamableHttpClient.withBearerToken`, rejects empty tokens with
+  `Bearer token must not be empty.`, and rejects whitespace/control-bearing
+  tokens with `Bearer token must not contain whitespace or control
+  characters.` before any HTTP request or dry-run success summary can be
+  produced. `bin/common.sh` now negative-tests a whitespace-bearing bearer
+  token before live router work, and
+  `tool/test_mcp_consumer_package_boundary.py` guards the parser helper, the
+  invalid-token error, and the fast-smoke failure strings. Baseline
+  `bin/test-fast` passed before the change on 2026-06-14. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, direct invalid
+  `--bearer-token 'dry run bearer secret' --dry-run` coverage, direct empty
+  bearer-token dry-run coverage, direct valid trimmed bearer-token dry-run
+  coverage, and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14,
+  including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  ticket-authenticated Streamable, bearer-token Streamable,
+  ticket-authenticated JSON-response, and bearer-token JSON-response
+  public-client examples, the installed CLI consumer smoke, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence remains clean at `5f138d0` until this branch change is
+  pushed; RC release-policy blockers are unchanged.
+
+- 2026-06-14: Hardened the public router-hosted MCP client example's
   Streamable HTTP protocol-version boundary. The example now validates
   `--protocol-version` during `_Options.parse`, accepts `2025-03-26`,
   `2025-06-18`, and the current
@@ -106,11 +137,22 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence remains clean at `7611077` until this branch change is
-  pushed. RC readiness remains gated on release policy: no numeric RC tag
-  points at `7611077`, the existing `v0.1.0-rc.1` tag still points at stale
+  Hosted evidence is clean at `5f138d0`: GitHub `master` CI `27498652840`
+  passed with `Fast Checks` 5m56s and `Full Verify` 8m20s clean, GitHub
+  `add-router` CI `27498652851` also passed at `5f138d0` with `Fast Checks`
+  6m11s and `Full Verify` 8m13s clean, GitHub `master` Dart Package Publish
+  Dry Run `27498652849` passed at `5f138d0`, and GitHub `add-router` Dart
+  Package Publish Dry Run `27498652839` also passed at `5f138d0`. The strict
+  deployment-chain audit exited successfully on 2026-06-14 with clean latest
+  CI logs and Dart package publish dry-run at `5f138d0`, relevant Native
+  Artifacts dry-run `26396437881` at `debd545`, relevant Router Image dry-run
+  `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`,
+  relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch
+  protection, workflow visibility, and router image package visibility gates
+  ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `5f138d0`, the existing `v0.1.0-rc.1` tag still points at stale
   commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
-  for `7611077`, the audit suggests `v0.1.0-rc.2` only after release
+  for `5f138d0`, the audit suggests `v0.1.0-rc.2` only after release
   approval, and pub.dev package ownership/version/release-order decisions
   remain deferred.
 

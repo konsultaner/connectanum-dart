@@ -762,7 +762,7 @@ final class _Options {
     final values = _parseOptions(args);
     final endpoint = _requiredUri(values, '--endpoint');
     final protocolVersion = _protocolVersionOption(values);
-    final bearerToken = values['--bearer-token'];
+    final bearerToken = _bearerTokenOption(values);
     final authEndpoint = _optionalUri(values, '--auth-url');
     final authRealm = values['--realm'];
     final authId = values['--auth-id'];
@@ -844,6 +844,46 @@ String _protocolVersionOption(Map<String, String> values) {
     'Unsupported MCP protocol version "$value". Supported versions: '
     '${_supportedMcpProtocolVersions.join(', ')}.',
   );
+}
+
+String? _bearerTokenOption(Map<String, String> values) {
+  final rawToken = values['--bearer-token'];
+  if (rawToken == null) {
+    return null;
+  }
+  final token = rawToken.trim();
+  if (token.isEmpty) {
+    throw const FormatException('Bearer token must not be empty.');
+  }
+  if (_containsMcpWhitespaceOrControl(token)) {
+    throw const FormatException(
+      'Bearer token must not contain whitespace or control characters.',
+    );
+  }
+  return token;
+}
+
+bool _containsMcpWhitespaceOrControl(String value) {
+  for (final rune in value.runes) {
+    if (_isMcpWhitespaceOrControlRune(rune)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _isMcpWhitespaceOrControlRune(int rune) {
+  return rune <= 0x20 ||
+      (rune >= 0x7f && rune <= 0x9f) ||
+      rune == 0xa0 ||
+      rune == 0x1680 ||
+      (rune >= 0x2000 && rune <= 0x200a) ||
+      rune == 0x2028 ||
+      rune == 0x2029 ||
+      rune == 0x202f ||
+      rune == 0x205f ||
+      rune == 0x3000 ||
+      rune == 0xfeff;
 }
 
 Map<String, String> _parseOptions(List<String> args) {

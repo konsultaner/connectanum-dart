@@ -416,6 +416,19 @@ run_router_hosted_mcp_example_smoke() {
     return 1
   fi
 
+  local invalid_bearer_output
+  if invalid_bearer_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --bearer-token 'dry run bearer secret' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a bearer token with whitespace.\n'
+    return 1
+  fi
+  if [[ "$invalid_bearer_output" != *'Bearer token must not contain whitespace or control characters.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the invalid bearer token error.\n'
+    return 1
+  fi
+
   dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --protocol-version 2025-06-18 \

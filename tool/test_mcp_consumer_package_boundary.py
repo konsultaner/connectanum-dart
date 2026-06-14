@@ -122,6 +122,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "_supportedMcpProtocolVersions",
             "_protocolVersionOption",
             "Unsupported MCP protocol version",
+            "_bearerTokenOption",
+            "_containsMcpWhitespaceOrControl",
+            "Bearer token must not contain whitespace or control characters.",
             "defaultProtocolVersion: options.protocolVersion",
             "'protocolVersion': options.protocolVersion",
             "listConnectanumToolsDirect",
@@ -220,6 +223,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "did not report the unsupported protocol version error",
+            body,
+        )
+        self.assertIn("invalid_bearer_output=\"$(", body)
+        self.assertIn(
+            "accepted a bearer token with whitespace",
+            body,
+        )
+        self.assertIn(
+            "Bearer token must not contain whitespace or control characters.",
+            body,
+        )
+        self.assertIn(
+            "did not report the invalid bearer token error",
             body,
         )
         self.assertIn("--endpoint http://127.0.0.1:8080/mcp/secure", body)
