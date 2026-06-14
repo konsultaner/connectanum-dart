@@ -360,26 +360,8 @@ ensure_native_client_test_runtime() {
   build_native_ffi_test_release
 }
 
-run_router_hosted_mcp_example_smoke() {
+run_public_router_hosted_mcp_client_dry_run_smoke() {
   local dry_run_summary
-
-  if ! native_runtime_supported; then
-    printf 'Native router-hosted MCP example smoke requires Linux or macOS; skipping on %s.\n' "$(uname -s)"
-    return 0
-  fi
-
-  if ensure_rust_env; then
-    ensure_native_lib_env
-    if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
-      build_native_ffi_test_release
-    fi
-  else
-    ensure_native_lib_env
-    if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
-      printf 'Cargo and CONNECTANUM_NATIVE_LIB unavailable; skipping router-hosted MCP example smoke.\n'
-      return 0
-    fi
-  fi
 
   dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \
@@ -636,6 +618,28 @@ run_router_hosted_mcp_example_smoke() {
   if [[ "$non_string_prompt_arguments_output" != *'--prompt-arguments values must be strings.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the non-string prompt arguments error.\n'
     return 1
+  fi
+}
+
+run_router_hosted_mcp_example_smoke() {
+  run_public_router_hosted_mcp_client_dry_run_smoke
+
+  if ! native_runtime_supported; then
+    printf 'Native router-hosted MCP example smoke requires Linux or macOS; skipping on %s.\n' "$(uname -s)"
+    return 0
+  fi
+
+  if ensure_rust_env; then
+    ensure_native_lib_env
+    if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+      build_native_ffi_test_release
+    fi
+  else
+    ensure_native_lib_env
+    if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+      printf 'Cargo and CONNECTANUM_NATIVE_LIB unavailable; skipping router-hosted MCP example smoke.\n'
+      return 0
+    fi
   fi
 
   run_public_router_hosted_mcp_client_live_smoke

@@ -196,11 +196,29 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
     def test_fast_smoke_runs_public_router_hosted_client_example_dry_run(
         self,
     ) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        wrapper_body = _function_body(script, "run_router_hosted_mcp_example_smoke")
         body = _function_body(
-            COMMON_SH.read_text(encoding="utf-8"),
-            "run_router_hosted_mcp_example_smoke",
+            script,
+            "run_public_router_hosted_mcp_client_dry_run_smoke",
         )
 
+        self.assertIn(
+            "run_public_router_hosted_mcp_client_dry_run_smoke",
+            wrapper_body,
+        )
+        self.assertLess(
+            wrapper_body.index(
+                "run_public_router_hosted_mcp_client_dry_run_smoke",
+            ),
+            wrapper_body.index("native_runtime_supported"),
+        )
+        self.assertLess(
+            wrapper_body.index(
+                "run_public_router_hosted_mcp_client_dry_run_smoke",
+            ),
+            wrapper_body.index("ensure_rust_env"),
+        )
         self.assertIn(
             "packages/connectanum_mcp/example/router_hosted_client.dart",
             body,

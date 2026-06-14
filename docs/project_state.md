@@ -2,9 +2,37 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client non-empty option dry-run fail-fast coverage.
-Latest fully clean hosted checkpoint: Commit `71bbf34` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client dry-run smoke runs before native setup.
+Latest fully clean hosted checkpoint: Commit `e350384` on GitHub `master`.
 Current implementation checkpoint:
+`bin/common.sh` now extracts the public router-hosted MCP client `--dry-run`
+validation into `run_public_router_hosted_mcp_client_dry_run_smoke` and calls
+it before `run_router_hosted_mcp_example_smoke` checks native runtime support,
+Cargo, or `CONNECTANUM_NATIVE_LIB`. This keeps Dart-only consumer CLI setup
+validation active even when a host cannot run the native live router smoke,
+while the live public, ticket-authenticated Streamable, bearer-token
+Streamable, ticket-authenticated JSON-response, and bearer-token JSON-response
+router-hosted MCP examples remain behind the native gate.
+`tool/test_mcp_consumer_package_boundary.py` now guards the extracted dry-run
+helper body and asserts the wrapper runs it before `native_runtime_supported`
+and `ensure_rust_env`. Baseline `bin/test-fast` passed before the change on
+2026-06-14. Focused `bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'` all
+passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14, including
+formatting, Rust/FFI, Python/tool tests, MCP package smokes, generated
+consumer-package smokes, the router-hosted MCP live public,
+ticket-authenticated Streamable, bearer-token Streamable,
+ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence is pending for this checkpoint; the latest fully clean hosted
+checkpoint remains `e350384`.
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now rejects empty
 or MCP-whitespace-only public client string options before any HTTP request or
 dry-run success summary can be produced. `_nonEmptyStringOption` is used for
@@ -33,8 +61,20 @@ ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence is pending for this checkpoint; the latest fully clean hosted
-checkpoint remains `71bbf34`.
+Hosted evidence is clean at `e350384`: GitHub `master` CI `27505129102`
+passed with `Fast Checks` 6m20s and `Full Verify` 8m31s clean, and GitHub
+`master` Dart Package Publish Dry Run `27505129106` passed at `e350384`. The
+strict deployment-chain audit exited successfully on 2026-06-14 with clean
+latest CI logs and Dart package publish dry-run at `e350384`, relevant Native
+Artifacts dry-run `26396437881` at `debd545`, relevant Router Image dry-run
+`27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`, relevant
+WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch protection,
+workflow visibility, and router image package visibility gates ready. RC
+readiness remains gated on release policy: no numeric RC tag points at
+`e350384`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+`e350384`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+pub.dev package ownership/version/release-order decisions remain deferred.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now wraps
 malformed endpoint and auth URL parse failures with the same option-specific
