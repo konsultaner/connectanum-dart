@@ -79,6 +79,41 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Hardened the public router-hosted MCP client example's
+  Streamable HTTP protocol-version boundary. The example now validates
+  `--protocol-version` during `_Options.parse`, accepts `2025-03-26`,
+  `2025-06-18`, and the current
+  `McpStreamableHttpClient.latestProtocolVersion` value `2025-11-25`, and
+  rejects unsupported values such as `1900-01-01` with
+  `Unsupported MCP protocol version "1900-01-01".` plus exit 64 before any
+  HTTP request or dry-run success summary can be produced. `bin/common.sh`
+  now negative-tests that unsupported protocol dry-run before live router
+  work, and `tool/test_mcp_consumer_package_boundary.py` guards the parser
+  helper, the unsupported-version error, and the fast-smoke failure strings.
+  Baseline `bin/test-fast` passed before the change on 2026-06-14. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, direct invalid
+  `--protocol-version 1900-01-01 --dry-run` coverage, direct valid
+  `--protocol-version 2025-06-18 --dry-run` coverage, and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14,
+  including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  ticket-authenticated Streamable, bearer-token Streamable,
+  ticket-authenticated JSON-response, and bearer-token JSON-response
+  public-client examples, the installed CLI consumer smoke, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence remains clean at `7611077` until this branch change is
+  pushed. RC readiness remains gated on release policy: no numeric RC tag
+  points at `7611077`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
+  for `7611077`, the audit suggests `v0.1.0-rc.2` only after release
+  approval, and pub.dev package ownership/version/release-order decisions
+  remain deferred.
+
 - 2026-06-14: Extended the public router-hosted MCP client dry-run gate beyond
   auth so direct action option dependencies fail before any live smoke work.
   `bin/common.sh` now requires `--tool-arguments` without `--tool`,
@@ -98,7 +133,25 @@ decision because `connectanum_client` still depends on private
   `tests::listen_flow::http3_handshake_surfaced_via_ffi`; focused
   `cargo test -p ct_ffi listen_flow::http3_handshake_surfaced_via_ffi -- --nocapture`
   passed, and a full local `bin/verify` rerun passed on 2026-06-14. Hosted
-  evidence remains at `63e80c0` until this branch change is pushed.
+  evidence is clean at `7611077`: GitHub `master` CI `27497182776` passed
+  with `Fast Checks` 5m57s and `Full Verify` 7m39s clean, and GitHub
+  `add-router` CI `27497179912` also passed at `7611077` with `Fast Checks`
+  6m15s and `Full Verify` 8m6s clean. No new Dart Package Publish Dry Run was
+  triggered for this smoke-harness/test-doc change; the strict
+  deployment-chain audit accepted Dart Package Publish Dry Run `27490348057`
+  at `65ebfbc` as still relevant because no publish-sensitive paths changed
+  after that commit. The strict deployment-chain audit exited successfully on
+  2026-06-14 with clean latest CI logs at `7611077`, relevant Native Artifacts
+  dry-run `26396437881` at `debd545`, relevant Router Image dry-run
+  `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`,
+  relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch
+  protection, workflow visibility, and router image package visibility gates
+  ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `7611077`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
+  for `7611077`, the audit suggests `v0.1.0-rc.2` only after release
+  approval, and pub.dev package ownership/version/release-order decisions
+  remain deferred.
 
 - 2026-06-14: Hardened the public router-hosted MCP client dry-run gate for
   downstream application auth readiness. `bin/common.sh` now treats

@@ -119,6 +119,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "McpStreamableHttpClient.withBearerToken",
             "McpStreamableHttpClient.withAuthGrant",
             "McpStreamableHttpClient.latestProtocolVersion",
+            "_supportedMcpProtocolVersions",
+            "_protocolVersionOption",
+            "Unsupported MCP protocol version",
             "defaultProtocolVersion: options.protocolVersion",
             "'protocolVersion': options.protocolVersion",
             "listConnectanumToolsDirect",
@@ -206,6 +209,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dry_run_summary=\"$(", body)
         self.assertIn('"authMode":"none"', body)
         self.assertIn('"protocolVersion":"2025-06-18"', body)
+        self.assertIn("invalid_protocol_output=\"$(", body)
+        self.assertIn(
+            "accepted an unsupported protocol version",
+            body,
+        )
+        self.assertIn(
+            'Unsupported MCP protocol version "1900-01-01".',
+            body,
+        )
+        self.assertIn(
+            "did not report the unsupported protocol version error",
+            body,
+        )
         self.assertIn("--endpoint http://127.0.0.1:8080/mcp/secure", body)
         self.assertIn("--bearer-token dry-run-bearer-secret", body)
         self.assertIn("dry-run-bearer-secret", body)

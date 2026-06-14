@@ -403,6 +403,19 @@ run_router_hosted_mcp_example_smoke() {
     return 1
   fi
 
+  local invalid_protocol_output
+  if invalid_protocol_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --protocol-version 1900-01-01 \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an unsupported protocol version.\n'
+    return 1
+  fi
+  if [[ "$invalid_protocol_output" != *'Unsupported MCP protocol version "1900-01-01".'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the unsupported protocol version error.\n'
+    return 1
+  fi
+
   dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --protocol-version 2025-06-18 \

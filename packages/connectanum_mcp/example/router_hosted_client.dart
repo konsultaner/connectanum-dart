@@ -3,6 +3,12 @@ import 'dart:io';
 
 import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 
+const _supportedMcpProtocolVersions = <String>[
+  '2025-03-26',
+  '2025-06-18',
+  McpStreamableHttpClient.latestProtocolVersion,
+];
+
 Future<void> main(List<String> args) async {
   if (args.contains('--help') || args.contains('-h')) {
     _printUsage(stdout);
@@ -755,6 +761,7 @@ final class _Options {
   static _Options parse(List<String> args) {
     final values = _parseOptions(args);
     final endpoint = _requiredUri(values, '--endpoint');
+    final protocolVersion = _protocolVersionOption(values);
     final bearerToken = values['--bearer-token'];
     final authEndpoint = _optionalUri(values, '--auth-url');
     final authRealm = values['--realm'];
@@ -794,9 +801,7 @@ final class _Options {
 
     return _Options(
       endpoint: endpoint,
-      protocolVersion:
-          values['--protocol-version'] ??
-          McpStreamableHttpClient.latestProtocolVersion,
+      protocolVersion: protocolVersion,
       bearerToken: bearerToken,
       authEndpoint: authEndpoint,
       authRealm: authRealm,
@@ -826,6 +831,19 @@ final class _Options {
       dryRun: values.containsKey('--dry-run'),
     );
   }
+}
+
+String _protocolVersionOption(Map<String, String> values) {
+  final value =
+      values['--protocol-version'] ??
+      McpStreamableHttpClient.latestProtocolVersion;
+  if (_supportedMcpProtocolVersions.contains(value)) {
+    return value;
+  }
+  throw FormatException(
+    'Unsupported MCP protocol version "$value". Supported versions: '
+    '${_supportedMcpProtocolVersions.join(', ')}.',
+  );
 }
 
 Map<String, String> _parseOptions(List<String> args) {
