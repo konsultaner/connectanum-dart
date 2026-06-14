@@ -1,4 +1,5 @@
 import 'streamable_http_client.dart';
+import 'text_validation.dart';
 
 const _apiListTool = 'connectanum.api.list';
 const _apiDescribeTool = 'connectanum.api.describe';
@@ -113,11 +114,12 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedUri = _validatedWampStringArgument(uri, 'uri');
     return _callStructuredTool(
       this,
       _apiDescribeTool,
       id: id,
-      arguments: <String, Object?>{'uri': uri, 'kind': ?kind},
+      arguments: <String, Object?>{'uri': validatedUri, 'kind': ?kind},
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -135,7 +137,12 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
-    if (!procedure.startsWith('wamp.')) {
+    final validatedProcedure = _validatedWampStringArgument(
+      procedure,
+      'procedure',
+    );
+    if (!validatedProcedure.startsWith('wamp.') ||
+        validatedProcedure.length == 'wamp.'.length) {
       throw ArgumentError.value(
         procedure,
         'procedure',
@@ -144,7 +151,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     }
     final structuredContent = await _callStructuredTool(
       this,
-      procedure,
+      validatedProcedure,
       id: id,
       arguments: _wampMetaArguments(
         arguments: arguments,
@@ -156,7 +163,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       headers: headers,
     );
     return McpStreamableWampMetaCallResult.fromJson(
-      procedure,
+      validatedProcedure,
       structuredContent,
     );
   }
@@ -240,10 +247,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedProcedure = _validatedWampStringArgument(
+      procedure,
+      'procedure',
+    );
     return callWampMetaProcedure(
       _wampRegistrationLookupProcedure,
       id: id,
-      arguments: <Object?>[procedure],
+      arguments: <Object?>[validatedProcedure],
       argumentsKeywords: _wampMetaMatchArguments(match),
       streamable: streamable,
       directJson: directJson,
@@ -260,10 +271,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedProcedure = _validatedWampStringArgument(
+      procedure,
+      'procedure',
+    );
     return callWampMetaProcedure(
       _wampRegistrationMatchProcedure,
       id: id,
-      arguments: <Object?>[procedure],
+      arguments: <Object?>[validatedProcedure],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -354,10 +369,11 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedTopic = _validatedWampStringArgument(topic, 'topic');
     return callWampMetaProcedure(
       _wampSubscriptionLookupProcedure,
       id: id,
-      arguments: <Object?>[topic],
+      arguments: <Object?>[validatedTopic],
       argumentsKeywords: _wampMetaMatchArguments(match),
       streamable: streamable,
       directJson: directJson,
@@ -374,10 +390,11 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedTopic = _validatedWampStringArgument(topic, 'topic');
     return callWampMetaProcedure(
       _wampSubscriptionMatchProcedure,
       id: id,
-      arguments: <Object?>[topic],
+      arguments: <Object?>[validatedTopic],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -454,12 +471,13 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final validatedTopic = _validatedWampStringArgument(topic, 'topic');
     final structuredContent = await _callStructuredTool(
       this,
       _pubsubPublishTool,
       id: id,
       arguments: <String, Object?>{
-        'topic': topic,
+        'topic': validatedTopic,
         'arguments': ?arguments,
         'argumentsKeywords': ?argumentsKeywords,
         'acknowledge': ?acknowledge,
@@ -482,10 +500,11 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedTopic = _validatedWampStringArgument(topic, 'topic');
     return notifyConnectanumMethod(
       _pubsubPublishTool,
       params: <String, Object?>{
-        'topic': topic,
+        'topic': validatedTopic,
         'arguments': ?arguments,
         'argumentsKeywords': ?argumentsKeywords,
         'options': ?options,
@@ -506,13 +525,18 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final validatedTopic = _validatedWampStringArgument(topic, 'topic');
+    final validatedQueueLimit = _validatedOptionalPositiveInt(
+      queueLimit,
+      'queueLimit',
+    );
     final structuredContent = await _callStructuredTool(
       this,
       _pubsubSubscribeTool,
       id: id,
       arguments: <String, Object?>{
-        'topic': topic,
-        'queueLimit': ?queueLimit,
+        'topic': validatedTopic,
+        'queueLimit': ?validatedQueueLimit,
         'options': ?options,
       },
       streamable: streamable,
@@ -532,11 +556,16 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final validatedHandle = _validatedWampStringArgument(handle, 'handle');
+    final validatedLimit = _validatedOptionalPositiveInt(limit, 'limit');
     final structuredContent = await _callStructuredTool(
       this,
       _pubsubPollTool,
       id: id,
-      arguments: <String, Object?>{'handle': handle, 'limit': ?limit},
+      arguments: <String, Object?>{
+        'handle': validatedHandle,
+        'limit': ?validatedLimit,
+      },
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -553,11 +582,12 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final validatedHandle = _validatedWampStringArgument(handle, 'handle');
     final structuredContent = await _callStructuredTool(
       this,
       _pubsubUnsubscribeTool,
       id: id,
-      arguments: <String, Object?>{'handle': handle},
+      arguments: <String, Object?>{'handle': validatedHandle},
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -941,6 +971,30 @@ void _putWampOption(McpJsonMap options, String key, Object? value) {
   if (value != null) {
     options[key] = value;
   }
+}
+
+String _validatedWampStringArgument(String value, String name) {
+  if (value.isEmpty) {
+    throw ArgumentError.value(value, name, 'must be a non-empty string');
+  }
+  if (containsMcpWhitespaceOrControl(value)) {
+    throw ArgumentError.value(
+      value,
+      name,
+      'must not contain whitespace or control characters',
+    );
+  }
+  return value;
+}
+
+int? _validatedOptionalPositiveInt(int? value, String name) {
+  if (value == null) {
+    return null;
+  }
+  if (value <= 0) {
+    throw ArgumentError.value(value, name, 'must be a positive integer');
+  }
+  return value;
 }
 
 final class McpStreamableWampMetaCallResult {

@@ -2,9 +2,53 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client dry-run parser failures are covered.
-Latest fully clean hosted checkpoint: Commit `538d88c` on GitHub `master`.
+Last reviewed branch checkpoint: MCP WAMP helper invalid arguments fail locally.
+Latest fully clean hosted checkpoint: Commit `944751e` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_client/lib/src/mcp/wamp_tools.dart` now validates public
+Connectanum WAMP helper arguments before any Streamable HTTP or direct JSON
+request is sent. The helper layer rejects empty or MCP-whitespace/control
+`uri`, `procedure`, `topic`, and subscription `handle` values, rejects the
+bare `wamp.` meta procedure prefix, and enforces positive `queueLimit` and
+poll `limit` values for both Streamable and direct JSON pub/sub helpers.
+`packages/connectanum_client/test/mcp/streamable_http_client_test.dart` now
+covers these fail-fast paths with `rejects invalid WAMP helper arguments before
+sending`, asserting invalid API describe, meta procedure, registration lookup,
+subscription match, publish, notify, subscribe, poll, and unsubscribe helper
+calls raise local `ArgumentError`s and leave the fake endpoint request log
+empty. This closes a consumer-facing gap where malformed WAMP helper input
+could previously reach router-hosted MCP endpoints and surface as route/tool
+errors instead of local API validation.
+Baseline `bin/test-fast` passed before the change on 2026-06-14. Focused
+`dart format packages/connectanum_client/lib/src/mcp/wamp_tools.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+focused `dart test packages/connectanum_mcp/test/io_client_export_test.dart`,
+and focused `git diff --check` passed on 2026-06-14. Full local `bin/verify`
+passed on 2026-06-14, including formatting, Rust/FFI, Python/tool tests, MCP
+package smokes, generated consumer-package smokes, the router-hosted MCP live
+public, ticket-authenticated Streamable, bearer-token Streamable,
+ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence remains clean at `944751e`: GitHub `master` CI `27510222326`
+passed with `Fast Checks` 6m29s and `Full Verify` 9m7s clean, and GitHub
+`add-router` CI `27510221756` also passed. GitHub `master` Dart Package
+Publish Dry Run `27505129106` remains clean and relevant at `e350384`; the
+strict audit confirmed no publish-sensitive paths changed between `e350384`
+and `944751e`. The strict deployment-chain audit exited successfully on
+2026-06-14 with clean latest CI logs at `944751e`, Dart package publish
+dry-run relevance, relevant Native Artifacts dry-run `26396437881` at
+`debd545`, relevant Router Image dry-run `27466352428` at `9a74569` with
+preview artifact `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks
+`27281215258` at `06a56bb`, branch protection, workflow visibility, and router
+image package visibility gates ready. RC readiness remains gated on release
+policy: no numeric RC tag points at `944751e`, the existing `v0.1.0-rc.1` tag
+still points at stale commit `47bbf9c`, no GitHub prerelease or router image
+RC tag is selected for `944751e`, the audit suggests `v0.1.0-rc.2` only after
+release approval, and pub.dev package ownership/version/release-order
+decisions remain deferred.
+Previous implementation checkpoint:
 `bin/common.sh` now extends
 `run_public_router_hosted_mcp_client_dry_run_smoke` with hard CLI parser
 failure coverage for unknown options, missing value options, duplicate value
@@ -32,21 +76,21 @@ ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence remains clean at `538d88c` until this parser-coverage change
-is pushed and GitHub CI refreshes: GitHub `master` CI `27508393480` passed
-with `Fast Checks` 6m35s and `Full Verify` 8m9s clean. GitHub `master` Dart
-Package Publish Dry Run `27505129106` remains clean and relevant at `e350384`;
-the strict audit confirmed no publish-sensitive paths changed between
-`e350384` and `538d88c`. The strict deployment-chain audit exited successfully
-on 2026-06-14 with clean latest CI logs at `538d88c`, Dart package publish
+Hosted evidence is clean at `944751e`: GitHub `master` CI `27510222326`
+passed with `Fast Checks` 6m29s and `Full Verify` 9m7s clean, and GitHub
+`add-router` CI `27510221756` also passed. GitHub `master` Dart Package
+Publish Dry Run `27505129106` remains clean and relevant at `e350384`; the
+strict audit confirmed no publish-sensitive paths changed between `e350384`
+and `944751e`. The strict deployment-chain audit exited successfully on
+2026-06-14 with clean latest CI logs at `944751e`, Dart package publish
 dry-run relevance, relevant Native Artifacts dry-run `26396437881` at
 `debd545`, relevant Router Image dry-run `27466352428` at `9a74569` with
 preview artifact `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks
 `27281215258` at `06a56bb`, branch protection, workflow visibility, and router
 image package visibility gates ready. RC readiness remains gated on release
-policy: no numeric RC tag points at `538d88c`, the existing `v0.1.0-rc.1` tag
+policy: no numeric RC tag points at `944751e`, the existing `v0.1.0-rc.1` tag
 still points at stale commit `47bbf9c`, no GitHub prerelease or router image
-RC tag is selected for `538d88c`, the audit suggests `v0.1.0-rc.2` only after
+RC tag is selected for `944751e`, the audit suggests `v0.1.0-rc.2` only after
 release approval, and pub.dev package ownership/version/release-order
 decisions remain deferred.
 Previous implementation checkpoint:

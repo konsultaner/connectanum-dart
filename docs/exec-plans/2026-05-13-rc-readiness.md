@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Added local fail-fast validation for public Connectanum WAMP MCP
+  helper arguments. `packages/connectanum_client/lib/src/mcp/wamp_tools.dart`
+  now rejects empty or MCP-whitespace/control `uri`, `procedure`, `topic`, and
+  subscription `handle` values, rejects the bare `wamp.` meta procedure
+  prefix, and enforces positive `queueLimit` and poll `limit` values before
+  helper calls can send Streamable HTTP or direct JSON requests. The focused
+  `rejects invalid WAMP helper arguments before sending` regression in
+  `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
+  covers invalid API describe, meta procedure, registration lookup,
+  subscription match, publish, notify, subscribe, poll, and unsubscribe helper
+  calls and asserts the fake endpoint receives no request. Baseline
+  `bin/test-fast` passed before the change on 2026-06-14. Focused
+  `dart format packages/connectanum_client/lib/src/mcp/wamp_tools.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  focused
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  focused `dart test packages/connectanum_mcp/test/io_client_export_test.dart`,
+  and focused `git diff --check` passed on 2026-06-14. Full local
+  `bin/verify` passed on 2026-06-14, including formatting, Rust/FFI,
+  Python/tool tests, MCP package smokes, generated consumer-package smokes, the
+  router-hosted MCP live public, ticket-authenticated Streamable, bearer-token
+  Streamable, ticket-authenticated JSON-response, and bearer-token
+  JSON-response public-client examples, the installed CLI consumer smoke, full
+  router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence remains clean at `944751e`; hosted evidence
+  for this implementation is pending the next pushed commit.
+
 - 2026-06-14: Covered hard CLI parser failures in the public router-hosted MCP
   client dry-run smoke. `bin/common.sh` now makes
   `run_public_router_hosted_mcp_client_dry_run_smoke` assert that
@@ -104,12 +130,21 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence remains clean at `538d88c` until this parser-coverage change
-  is pushed and GitHub CI refreshes. RC release-policy blockers are unchanged:
-  no numeric RC tag points at `538d88c`, `v0.1.0-rc.1` still points at stale
-  commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
-  for `538d88c`, and pub.dev package ownership/version/release-order decisions
-  remain deferred.
+  Hosted evidence is clean at `944751e`: GitHub `master` CI `27510222326`
+  passed with `Fast Checks` 6m29s and `Full Verify` 9m7s clean, and GitHub
+  `add-router` CI `27510221756` also passed. GitHub `master` Dart Package
+  Publish Dry Run `27505129106` remains clean and relevant at `e350384`; the
+  strict audit confirmed no publish-sensitive paths changed between `e350384`
+  and `944751e`. The strict deployment-chain audit exited successfully on
+  2026-06-14 with clean latest CI logs at `944751e`, Dart package publish
+  dry-run relevance, relevant Native Artifacts dry-run `26396437881` at
+  `debd545`, relevant Router Image dry-run `27466352428` at `9a74569`,
+  relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch
+  protection, workflow visibility, and router image package visibility gates
+  ready. RC release-policy blockers are unchanged: no numeric RC tag points at
+  `944751e`, `v0.1.0-rc.1` still points at stale commit `47bbf9c`, no GitHub
+  prerelease or router image RC tag is selected for `944751e`, and pub.dev
+  package ownership/version/release-order decisions remain deferred.
 
 - 2026-06-14: Propagated public router-hosted MCP client dry-run failures from
   `run_router_hosted_mcp_example_smoke`. The wrapper now calls

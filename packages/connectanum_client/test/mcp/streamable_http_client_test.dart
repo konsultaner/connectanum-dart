@@ -4226,6 +4226,60 @@ void main() {
       },
     );
 
+    test('rejects invalid WAMP helper arguments before sending', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      Future<void> expectLocalArgumentError(
+        FutureOr<Object?> Function() action,
+      ) async {
+        await expectLater(Future<Object?>.sync(action), throwsArgumentError);
+        expect(endpoint.requests, isEmpty);
+      }
+
+      await expectLocalArgumentError(
+        () => client.describeWampApi('bad topic', streamable: false),
+      );
+      await expectLocalArgumentError(
+        () => client.callWampMetaProcedure('wamp.', streamable: false),
+      );
+      await expectLocalArgumentError(
+        () => client.lookupWampRegistrationDirect('bad procedure'),
+      );
+      await expectLocalArgumentError(
+        () => client.matchWampSubscription('bad\ntopic', streamable: false),
+      );
+      await expectLocalArgumentError(
+        () => client.publishWampEvent('', streamable: false),
+      );
+      await expectLocalArgumentError(
+        () => client.notifyWampEvent('bad topic', streamable: false),
+      );
+      await expectLocalArgumentError(
+        () =>
+            client.subscribeWampTopicDirect('app.events.audit', queueLimit: 0),
+      );
+      await expectLocalArgumentError(
+        () => client.subscribeWampTopic(
+          'app.events.audit',
+          queueLimit: -1,
+          streamable: false,
+        ),
+      );
+      await expectLocalArgumentError(
+        () => client.pollWampEventsDirect('', limit: 1),
+      );
+      await expectLocalArgumentError(
+        () => client.pollWampEvents('wamp-sub-1', limit: 0, streamable: false),
+      );
+      await expectLocalArgumentError(
+        () => client.unsubscribeWampTopicDirect('bad handle'),
+      );
+    });
+
     test(
       'keeps direct WAMP helpers lifecycle-free with an active Streamable session',
       () async {
