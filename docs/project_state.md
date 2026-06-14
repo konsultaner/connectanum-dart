@@ -2,9 +2,41 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client protocol compatibility.
-Latest fully clean hosted checkpoint: Commit `0c63d95` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client bearer-token smoke coverage.
+Latest fully clean hosted checkpoint: Commit `65ebfbc` on GitHub `master`.
 Current implementation checkpoint:
+`bin/common.sh` now proves the checked-in public router-hosted MCP client can
+use the advertised raw bearer-token path on router-provided secure MCP routes.
+The fast router-hosted MCP smoke obtains a bearer token from the example HTTP
+auth bridge without printing the token, then runs
+`packages/connectanum_mcp/example/router_hosted_client.dart` with
+`--bearer-token` against both the secure Streamable HTTP endpoint and the
+secure JSON-response endpoint. The existing ticket-auth-grant Streamable and
+JSON-response runs remain in place, so the same public smoke covers public,
+auth-grant, and raw bearer-token construction paths with explicit
+`--protocol-version 2025-06-18`, direct JSON tool/resource/prompt calls,
+router-provided WAMP metadata, pub/sub, direct JSON batches, and Streamable
+HTTP session lifecycle coverage. `tool/test_mcp_consumer_package_boundary.py`
+now guards token minting through the public auth bridge, the
+`--bearer-token "$bearer_token"` invocations, and the bearer-token completion
+evidence so this downstream application readiness path cannot silently
+disappear. Baseline `bin/test-fast` passed before the change on 2026-06-14.
+Focused `bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, and focused
+`bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'` passed
+on 2026-06-14, including the `Bearer-token router-hosted MCP client live smoke
+completed.` and `Bearer-token router-hosted JSON-response MCP client live smoke
+completed.` evidence. Full local `bin/verify` passed on 2026-06-14, including
+formatting, Rust/FFI, Python/tool tests, MCP package smokes, generated
+consumer-package smokes, the router-hosted MCP live public, ticket-authenticated
+Streamable, bearer-token Streamable, ticket-authenticated JSON-response, and
+bearer-token JSON-response public-client examples, the installed CLI consumer
+smoke, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
+browser WebSocket smoke. Hosted evidence remains clean at `65ebfbc` for the
+previous checkpoint; hosted evidence for the current bearer-token smoke change
+is pending after a code commit and push.
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now exposes a
 public `--protocol-version` option for router-hosted MCP consumers. The option
 defaults to `McpStreamableHttpClient.latestProtocolVersion`, is included in the
@@ -33,13 +65,27 @@ Python/tool tests, MCP package smokes, generated consumer-package smokes, the
 router-hosted MCP live public, authenticated Streamable, and authenticated
 JSON-response public-client examples, the installed CLI consumer smoke, full
 router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for the new checkpoint is pending; the latest
-fully clean hosted checkpoint remains `0c63d95`. RC readiness remains gated on
-release policy: no numeric RC tag points at `0c63d95`, the existing
-`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub prerelease
-or router image RC tag is selected for `0c63d95`, the audit suggests
-`v0.1.0-rc.2` only after release approval, and pub.dev package
-ownership/version/release-order decisions remain deferred.
+WebSocket smoke. Hosted evidence is clean at `65ebfbc`: GitHub `master` CI
+`27490348053` passed with `Fast Checks` 5m28s and `Full Verify` 6m21s clean,
+GitHub `add-router` CI `27490345405` also passed at `65ebfbc` with
+`Fast Checks` 5m30s and `Full Verify` 8m01s clean, GitHub `master` Dart
+Package Publish Dry Run `27490348057` passed at `65ebfbc`, and GitHub
+`add-router` Dart Package Publish Dry Run `27490345406` also passed at
+`65ebfbc`. The strict deployment-chain audit exited successfully on
+2026-06-14 with clean latest CI logs and Dart package publish dry-run at
+`65ebfbc`, relevant Native Artifacts dry-run `26396437881` at `debd545`,
+relevant Router Image dry-run `27466352428` at `9a74569` with preview artifact
+`sha-9a74569e4b27`, relevant WAMP Profile Benchmarks `27281215258` at
+`06a56bb`, branch protection, workflow visibility, and router image package
+visibility gates ready. The audit accepted the older native, router image, and
+WAMP benchmark evidence because no native-release-sensitive,
+router-image-sensitive, or WAMP-profile-sensitive paths changed after their
+respective evidence commits. RC readiness remains gated on release policy: no
+numeric RC tag points at `65ebfbc`, the existing `v0.1.0-rc.1` tag still
+points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
+is selected for `65ebfbc`, the audit suggests `v0.1.0-rc.2` only after release
+approval, and pub.dev package ownership/version/release-order decisions remain
+deferred.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now exercises
 public JSON-RPC batch APIs against router-hosted MCP endpoints. Before

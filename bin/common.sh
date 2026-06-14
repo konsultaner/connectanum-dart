@@ -397,6 +397,7 @@ run_router_hosted_mcp_example_smoke() {
 
 run_public_router_hosted_mcp_client_live_smoke() (
   local auth_url
+  local bearer_token
   local endpoint
   local secure_endpoint
   local secure_json_endpoint
@@ -483,6 +484,74 @@ run_public_router_hosted_mcp_client_live_smoke() (
 
   printf 'Public router-hosted MCP client live smoke completed.\n'
 
+  bearer_token="$(
+    python3 - "$auth_url" <<'PY'
+import json
+import sys
+import urllib.error
+import urllib.request
+
+auth_url = sys.argv[1]
+
+
+def post(payload, allow_status=()):
+    request = urllib.request.Request(
+        auth_url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            status = response.getcode()
+            body = response.read()
+    except urllib.error.HTTPError as error:
+        status = error.code
+        body = error.read()
+        if status not in allow_status:
+            raise
+    return status, json.loads(body.decode("utf-8"))
+
+
+challenge_status, challenge = post(
+    {
+        "realm": "example.realm",
+        "authmethod": "ticket",
+        "authid": "mcp-user",
+    },
+    allow_status=(401,),
+)
+if challenge_status != 401:
+    raise SystemExit(f"expected 401 auth challenge, got {challenge_status}")
+
+state = challenge.get("state")
+if not isinstance(state, str) or not state:
+    raise SystemExit("auth challenge did not include a state")
+
+grant_status, grant = post(
+    {
+        "state": state,
+        "signature": "mcp-demo-ticket",
+        "extra": {},
+    },
+)
+if not 200 <= grant_status < 300:
+    raise SystemExit(f"expected 2xx auth grant, got {grant_status}")
+
+token = grant.get("access_token")
+token_type = grant.get("token_type")
+if not isinstance(token, str) or not token:
+    raise SystemExit("auth grant did not include an access token")
+if not isinstance(token_type, str) or token_type.lower() != "bearer":
+    raise SystemExit("auth grant did not return a bearer token")
+
+print(token)
+PY
+  )"
+
   dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$secure_endpoint" \
     --protocol-version 2025-06-18 \
@@ -504,6 +573,23 @@ run_public_router_hosted_mcp_client_live_smoke() (
   printf 'Authenticated router-hosted MCP client live smoke completed.\n'
 
   dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint "$secure_endpoint" \
+    --protocol-version 2025-06-18 \
+    --bearer-token "$bearer_token" \
+    --tool example.task.lookup \
+    --tool-arguments '{"taskId":"T-bearer-example-live"}' \
+    --resource-uri app://example/context \
+    --prompt summarize-task \
+    --prompt-arguments '{"taskId":"T-bearer-example-live"}' \
+    --wamp-procedure example.task.lookup \
+    --wamp-topic example.events.task \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-bearer-example-live","status":"open"}' \
+    >/dev/null
+
+  printf 'Bearer-token router-hosted MCP client live smoke completed.\n'
+
+  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$secure_json_endpoint" \
     --protocol-version 2025-06-18 \
     --auth-url "$auth_url" \
@@ -522,6 +608,23 @@ run_public_router_hosted_mcp_client_live_smoke() (
     >/dev/null
 
   printf 'Authenticated router-hosted JSON-response MCP client live smoke completed.\n'
+
+  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint "$secure_json_endpoint" \
+    --protocol-version 2025-06-18 \
+    --bearer-token "$bearer_token" \
+    --tool example.task.lookup \
+    --tool-arguments '{"taskId":"T-bearer-json-response-example-live"}' \
+    --resource-uri app://example/context \
+    --prompt summarize-task \
+    --prompt-arguments '{"taskId":"T-bearer-json-response-example-live"}' \
+    --wamp-procedure example.task.lookup \
+    --wamp-topic example.events.task \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-bearer-json-response-example-live","status":"open"}' \
+    >/dev/null
+
+  printf 'Bearer-token router-hosted JSON-response MCP client live smoke completed.\n'
 )
 
 run_mcp_server_package_smoke() (

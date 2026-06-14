@@ -233,7 +233,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             live_body,
         )
         self.assertIn("auth_url=\"${endpoint%/mcp}/auth\"", live_body)
+        self.assertIn("bearer_token=\"$(", live_body)
+        self.assertIn("python3 - \"$auth_url\"", live_body)
+        self.assertIn("\"authmethod\": \"ticket\"", live_body)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
+        self.assertIn("--bearer-token \"$bearer_token\"", live_body)
         self.assertIn("--realm example.realm", live_body)
         self.assertIn("--auth-id mcp-user", live_body)
         self.assertIn("--ticket mcp-demo-ticket", live_body)
@@ -243,12 +247,23 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--wamp-procedure example.task.lookup", live_body)
         self.assertIn("--wamp-topic example.events.task", live_body)
         self.assertIn("--pubsub-topic example.events.task", live_body)
+        self.assertIn("T-bearer-example-live", live_body)
+        self.assertIn("T-bearer-json-response-example-live", live_body)
         self.assertIn(
             "Authenticated router-hosted MCP client live smoke completed.",
             live_body,
         )
         self.assertIn(
+            "Bearer-token router-hosted MCP client live smoke completed.",
+            live_body,
+        )
+        self.assertIn(
             "Authenticated router-hosted JSON-response MCP client live smoke "
+            "completed.",
+            live_body,
+        )
+        self.assertIn(
+            "Bearer-token router-hosted JSON-response MCP client live smoke "
             "completed.",
             live_body,
         )
