@@ -451,6 +451,21 @@ run_router_hosted_mcp_example_smoke() {
     return 1
   fi
 
+  local incomplete_auth_output
+  if incomplete_auth_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --auth-url http://127.0.0.1:8080/auth \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted incomplete ticket auth options.\n'
+    return 1
+  fi
+  if [[ "$incomplete_auth_output" != *'Use --auth-url, --realm, --auth-id, and --ticket together.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the incomplete ticket auth error.\n'
+    return 1
+  fi
+
   run_public_router_hosted_mcp_client_live_smoke
 }
 

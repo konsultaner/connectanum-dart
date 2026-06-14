@@ -89,14 +89,20 @@ decision because `connectanum_client` still depends on private
   ticket secrets appear in dry-run output, and requires a dry-run combining
   `--bearer-token` with `--auth-url` to fail with
   `Use either --bearer-token or --auth-url, not both.` before any HTTP request
-  can be attempted. The live public, ticket-auth, bearer-token, and
+  can be attempted. It also requires an incomplete ticket-auth dry-run with
+  `--auth-url`, `--realm`, and `--auth-id` but no `--ticket` to fail with
+  `Use --auth-url, --realm, --auth-id, and --ticket together.` before any HTTP
+  request can be attempted. The live public, ticket-auth, bearer-token, and
   JSON-response public-client smokes remain in place.
   `tool/test_mcp_consumer_package_boundary.py` guards the dry-run summary
   capture, auth-mode assertions, redaction checks, mutually exclusive auth
-  failure check, and existing live bearer coverage. Baseline `bin/test-fast`
-  passed before the change on 2026-06-14. Focused `bash -n bin/common.sh`,
-  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  failure check, incomplete ticket-auth failure check, and existing live
+  bearer coverage. Baseline `bin/test-fast` passed before the change on
+  2026-06-14. Focused `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
   `git diff --check`, focused
+  `dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp/secure --auth-url http://127.0.0.1:8080/auth --realm example.realm --auth-id mcp-user --dry-run`
+  exited 64 with the expected incomplete ticket-auth options error, focused
   `dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp/secure --bearer-token dry-run-bearer-secret --auth-url http://127.0.0.1:8080/auth --realm example.realm --auth-id mcp-user --ticket dry-run-ticket-secret --dry-run`
   exited 64 with the expected mutually exclusive auth error and without
   echoing the placeholder token or ticket values, and focused
@@ -108,26 +114,25 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence is clean at `ff0a294`: GitHub `master` CI `27493085486`
-  passed with `Fast Checks` and `Full Verify` green in 13m23s, and GitHub
-  `add-router` CI `27493085494` also passed at `ff0a294` with `Fast Checks`
-  and `Full Verify` green in 13m34s. No new Dart Package Publish Dry Run was
+  Hosted evidence is clean at `f106ba7`: GitHub `master` CI `27494429330`
+  passed with `Fast Checks` 5m38s and `Full Verify` 7m38s clean, and GitHub
+  `add-router` CI `27494426654` also passed at `f106ba7` with `Fast Checks`
+  5m53s and `Full Verify` 8m09s clean. No new Dart Package Publish Dry Run was
   triggered for this smoke-harness/test-doc change; the strict
   deployment-chain audit accepted Dart Package Publish Dry Run `27490348057`
   at `65ebfbc` as still relevant because no publish-sensitive paths changed
   after that commit. The strict deployment-chain audit exited successfully on
-  2026-06-14 with clean latest CI logs at `ff0a294`, relevant Native Artifacts
+  2026-06-14 with clean latest CI logs at `f106ba7`, relevant Native Artifacts
   dry-run `26396437881` at `debd545`, relevant Router Image dry-run
   `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`,
   relevant WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch
   protection, workflow visibility, and router image package visibility gates
   ready. RC readiness remains gated on release policy: no numeric RC tag
-  points at `ff0a294`, the existing `v0.1.0-rc.1` tag still points at stale
+  points at `f106ba7`, the existing `v0.1.0-rc.1` tag still points at stale
   commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected
-  for `ff0a294`, the audit suggests `v0.1.0-rc.2` only after release
+  for `f106ba7`, the audit suggests `v0.1.0-rc.2` only after release
   approval, and pub.dev package ownership/version/release-order decisions
-  remain deferred. This fail-fast smoke-harness/test-doc change is pending
-  commit, push, and hosted CI evidence.
+  remain deferred.
 
 - 2026-06-14: Extended the fast router-hosted MCP smoke so the checked-in
   public client example exercises its advertised raw bearer-token mode against

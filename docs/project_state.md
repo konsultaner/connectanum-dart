@@ -2,8 +2,8 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client auth dry-run fail-fast coverage.
-Latest fully clean hosted checkpoint: Commit `ff0a294` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client ticket-auth dry-run fail-fast coverage.
+Latest fully clean hosted checkpoint: Commit `f106ba7` on GitHub `master`.
 Current implementation checkpoint:
 `bin/common.sh` now treats the checked-in public router-hosted MCP client
 dry-run as both a positive and negative auth readiness gate before the live
@@ -13,6 +13,9 @@ checks the explicit `--protocol-version 2025-06-18` summary, fails if the
 placeholder bearer token or ticket secret appears in dry-run output, and now
 requires a dry-run that combines `--bearer-token` with `--auth-url` to fail
 with `Use either --bearer-token or --auth-url, not both.` before any HTTP
+request can be attempted. It also requires an incomplete ticket-auth dry-run
+with `--auth-url`, `--realm`, and `--auth-id` but no `--ticket` to fail with
+`Use --auth-url, --realm, --auth-id, and --ticket together.` before any HTTP
 request can be attempted. The same smoke still proves the advertised raw
 bearer-token path on router-provided secure MCP routes by obtaining a bearer
 token from the example HTTP auth bridge without printing it, then running
@@ -25,13 +28,16 @@ tool/resource/prompt calls, router-provided WAMP metadata, pub/sub, direct JSON
 batches, and Streamable HTTP session lifecycle coverage.
 `tool/test_mcp_consumer_package_boundary.py` now guards the dry-run summary
 capture, auth-mode assertions, secret-leak failure checks, mutually exclusive
-auth failure checks, token minting through the public auth bridge, the
-`--bearer-token "$bearer_token"` invocations, and the bearer-token completion
-evidence so this downstream application readiness path cannot silently
-disappear. Baseline `bin/test-fast` passed before the change on 2026-06-14.
+auth failure checks, incomplete ticket-auth failure checks, token minting
+through the public auth bridge, the `--bearer-token "$bearer_token"`
+invocations, and the bearer-token completion evidence so this downstream
+application readiness path cannot silently disappear. Baseline `bin/test-fast`
+passed before the change on 2026-06-14.
 Focused `bash -n bin/common.sh`, focused
 `python3 tool/test_mcp_consumer_package_boundary.py`, focused
 `git diff --check`, focused
+`dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp/secure --auth-url http://127.0.0.1:8080/auth --realm example.realm --auth-id mcp-user --dry-run`
+exited 64 with the expected incomplete ticket-auth options error, focused
 `dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp/secure --bearer-token dry-run-bearer-secret --auth-url http://127.0.0.1:8080/auth --realm example.realm --auth-id mcp-user --ticket dry-run-ticket-secret --dry-run`
 exited 64 with the expected mutually exclusive auth error and without echoing
 the placeholder token or ticket values, and focused
@@ -44,26 +50,24 @@ consumer-package smokes, the router-hosted MCP live public, ticket-authenticated
 Streamable, bearer-token Streamable, ticket-authenticated JSON-response, and
 bearer-token JSON-response public-client examples, the installed CLI consumer
 smoke, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
-browser WebSocket smoke. Hosted evidence is clean at `ff0a294`: GitHub
-`master` CI `27493085486` passed with `Fast Checks` and `Full Verify` green in
-13m23s, and GitHub `add-router` CI `27493085494` also passed at `ff0a294` with
-`Fast Checks` and `Full Verify` green in 13m34s. No new Dart Package Publish
-Dry Run was triggered for this smoke-harness/test-doc change; the strict
-deployment-chain audit accepted Dart Package Publish Dry Run `27490348057` at
+browser WebSocket smoke. Hosted evidence is clean at `f106ba7`: GitHub
+`master` CI `27494429330` passed with `Fast Checks` 5m38s and `Full Verify`
+7m38s clean, and GitHub `add-router` CI `27494426654` also passed at
+`f106ba7` with `Fast Checks` 5m53s and `Full Verify` 8m09s clean. No new Dart
+Package Publish Dry Run was triggered for this smoke-harness/test-doc change;
+the strict deployment-chain audit accepted Dart Package Publish Dry Run `27490348057` at
 `65ebfbc` as still relevant because no publish-sensitive paths changed after
 that commit. The strict deployment-chain audit exited successfully on
-2026-06-14 with clean latest CI logs at `ff0a294`, relevant Native Artifacts
+2026-06-14 with clean latest CI logs at `f106ba7`, relevant Native Artifacts
 dry-run `26396437881` at `debd545`, relevant Router Image dry-run
 `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`, relevant
 WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch protection,
 workflow visibility, and router image package visibility gates ready. RC
 readiness remains gated on release policy: no numeric RC tag points at
-`ff0a294`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`f106ba7`, the existing `v0.1.0-rc.1` tag still points at stale commit
 `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
-`ff0a294`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+`f106ba7`, the audit suggests `v0.1.0-rc.2` only after release approval, and
 pub.dev package ownership/version/release-order decisions remain deferred.
-This fail-fast smoke-harness/test-doc change is pending commit, push, and
-hosted CI evidence.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now exposes a
 public `--protocol-version` option for router-hosted MCP consumers. The option

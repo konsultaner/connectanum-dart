@@ -229,6 +229,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "did not report the mutually exclusive auth error",
             body,
         )
+        self.assertIn("incomplete_auth_output=\"$(", body)
+        self.assertIn(
+            "accepted incomplete ticket auth options",
+            body,
+        )
+        self.assertIn(
+            "Use --auth-url, --realm, --auth-id, and --ticket together.",
+            body,
+        )
+        self.assertIn(
+            "did not report the incomplete ticket auth error",
+            body,
+        )
 
     def test_fast_smoke_runs_public_router_hosted_client_example_live(
         self,
