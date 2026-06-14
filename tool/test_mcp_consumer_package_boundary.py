@@ -186,6 +186,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "unsubscribeWampTopic",
             "streamable-pubsub-unsubscribe",
             "deleteSession",
+            "_nonEmptyStringOption",
             "_printDryRunSummary",
             "--dry-run",
         ):
@@ -345,6 +346,26 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("Use --pubsub-event together with --pubsub-topic.", body)
         self.assertIn(
             "did not report the dangling pub/sub event error",
+            body,
+        )
+        self.assertIn("empty_tool_output=\"$(", body)
+        self.assertIn(
+            "accepted an empty tool name",
+            body,
+        )
+        self.assertIn("--tool must not be empty.", body)
+        self.assertIn(
+            "did not report the empty tool name error",
+            body,
+        )
+        self.assertIn("blank_pubsub_topic_output=\"$(", body)
+        self.assertIn(
+            "accepted a blank pub/sub topic",
+            body,
+        )
+        self.assertIn("--pubsub-topic must not be empty.", body)
+        self.assertIn(
+            "did not report the blank pub/sub topic error",
             body,
         )
         self.assertIn("malformed_tool_arguments_output=\"$(", body)

@@ -764,9 +764,9 @@ final class _Options {
     final protocolVersion = _protocolVersionOption(values);
     final bearerToken = _bearerTokenOption(values);
     final authEndpoint = _optionalUri(values, '--auth-url');
-    final authRealm = values['--realm'];
-    final authId = values['--auth-id'];
-    final ticket = values['--ticket'];
+    final authRealm = _nonEmptyStringOption(values, '--realm');
+    final authId = _nonEmptyStringOption(values, '--auth-id');
+    final ticket = _nonEmptyStringOption(values, '--ticket');
 
     if (bearerToken != null && authEndpoint != null) {
       throw const FormatException(
@@ -807,22 +807,22 @@ final class _Options {
       authRealm: authRealm,
       authId: authId,
       ticket: ticket,
-      toolName: values['--tool'],
+      toolName: _nonEmptyStringOption(values, '--tool'),
       toolArguments: _jsonObjectOption(
         values,
         '--tool-arguments',
         const <String, Object?>{},
       ),
-      resourceUri: values['--resource-uri'],
-      promptName: values['--prompt'],
+      resourceUri: _nonEmptyStringOption(values, '--resource-uri'),
+      promptName: _nonEmptyStringOption(values, '--prompt'),
       promptArguments: _jsonStringMapOption(
         values,
         '--prompt-arguments',
         const <String, String>{},
       ),
-      wampProcedure: values['--wamp-procedure'],
-      wampTopic: values['--wamp-topic'],
-      pubsubTopic: values['--pubsub-topic'],
+      wampProcedure: _nonEmptyStringOption(values, '--wamp-procedure'),
+      wampTopic: _nonEmptyStringOption(values, '--wamp-topic'),
+      pubsubTopic: _nonEmptyStringOption(values, '--pubsub-topic'),
       pubsubEvent: _jsonObjectOption(
         values,
         '--pubsub-event',
@@ -861,6 +861,17 @@ String? _bearerTokenOption(Map<String, String> values) {
     );
   }
   return token;
+}
+
+String? _nonEmptyStringOption(Map<String, String> values, String option) {
+  final value = values[option];
+  if (value == null) {
+    return null;
+  }
+  if (value.runes.every(_isMcpWhitespaceOrControlRune)) {
+    throw FormatException('$option must not be empty.');
+  }
+  return value;
 }
 
 bool _containsMcpWhitespaceOrControl(String value) {

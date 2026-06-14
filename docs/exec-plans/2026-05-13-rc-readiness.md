@@ -79,6 +79,34 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Hardened the public router-hosted MCP client example's
+  non-empty option dry-run boundary. `_nonEmptyStringOption` now rejects empty
+  or MCP-whitespace-only ticket-auth strings and direct JSON/resource/prompt/
+  WAMP metadata/pubsub selectors with `$option must not be empty.` before any
+  HTTP request or dry-run success summary can be produced, while preserving
+  non-empty values. `bin/common.sh` now negative-tests an empty `--tool` and a
+  blank `--pubsub-topic`, and
+  `tool/test_mcp_consumer_package_boundary.py` guards the helper and fast-smoke
+  failure strings. Baseline `bin/test-fast` passed before the change on
+  2026-06-14. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, direct empty-tool
+  dry-run coverage, direct blank pub/sub topic dry-run coverage, direct blank
+  realm dry-run coverage, and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14,
+  including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  ticket-authenticated Streamable, bearer-token Streamable,
+  ticket-authenticated JSON-response, and bearer-token JSON-response
+  public-client examples, the installed CLI consumer smoke, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence is pending for this checkpoint; the latest fully clean
+  hosted checkpoint remains `71bbf34`.
+
 - 2026-06-14: Hardened the public router-hosted MCP client example's URL
   dry-run boundary. `_httpUri` now wraps malformed `Uri.parse` failures with
   the same option-specific diagnostic used for non-HTTP or relative URLs,
@@ -105,8 +133,21 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence for this checkpoint is pending; the latest fully clean
-  hosted checkpoint remains `d6f9edf`.
+  Hosted evidence is clean at `71bbf34`: GitHub `master` CI `27503377093`
+  passed with `Fast Checks` 6m17s and `Full Verify` 8m45s clean, GitHub
+  `add-router` CI `27503377075` also passed at `71bbf34`, GitHub `master`
+  Dart Package Publish Dry Run `27503377087` passed at `71bbf34`, and GitHub
+  `add-router` Dart Package Publish Dry Run `27503377071` also passed at
+  `71bbf34`. The strict deployment-chain audit exited successfully on
+  2026-06-14 with clean latest CI logs and Dart package publish dry-run at
+  `71bbf34`, relevant Native Artifacts dry-run `26396437881` at `debd545`,
+  relevant Router Image dry-run `27466352428` at `9a74569`, relevant WAMP
+  Profile Benchmarks `27281215258` at `06a56bb`, branch protection, workflow
+  visibility, and router image package visibility gates ready. RC
+  release-policy blockers are unchanged: no numeric RC tag points at
+  `71bbf34`, `v0.1.0-rc.1` still points at stale commit `47bbf9c`, no GitHub
+  prerelease or router image RC tag is selected for `71bbf34`, and pub.dev
+  package ownership/version/release-order decisions remain deferred.
 
 - 2026-06-14: Hardened the public router-hosted MCP client example's JSON
   option dry-run boundary. `_jsonObjectOption` now wraps malformed JSON as

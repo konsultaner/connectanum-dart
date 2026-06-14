@@ -2,9 +2,40 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client URL dry-run fail-fast coverage.
-Latest fully clean hosted checkpoint: Commit `d6f9edf` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client non-empty option dry-run fail-fast coverage.
+Latest fully clean hosted checkpoint: Commit `71bbf34` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now rejects empty
+or MCP-whitespace-only public client string options before any HTTP request or
+dry-run success summary can be produced. `_nonEmptyStringOption` is used for
+ticket-auth strings and for the direct JSON, resource, prompt, WAMP metadata,
+and pub/sub selectors, preserving non-empty values while reporting
+`$option must not be empty.` for blank setup input. `bin/common.sh` now
+negative-tests an empty `--tool` and a blank `--pubsub-topic` in the public
+router-hosted MCP client dry-run gate, and
+`tool/test_mcp_consumer_package_boundary.py` guards the helper and fast-smoke
+failure strings. Baseline `bin/test-fast` passed before the change on
+2026-06-14. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused
+`python3 tool/check_public_artifact_references.py`, direct empty-tool dry-run
+coverage exiting 64 with `--tool must not be empty.`, direct blank pub/sub
+topic dry-run coverage exiting 64 with
+`--pubsub-topic must not be empty.`, direct blank realm dry-run coverage
+exiting 64 with `--realm must not be empty.`, and focused
+`bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'` all
+passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14, including
+formatting, Rust/FFI, Python/tool tests, MCP package smokes, generated
+consumer-package smokes, the router-hosted MCP live public,
+ticket-authenticated Streamable, bearer-token Streamable,
+ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence is pending for this checkpoint; the latest fully clean hosted
+checkpoint remains `71bbf34`.
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now wraps
 malformed endpoint and auth URL parse failures with the same option-specific
 dry-run diagnostic already used for non-HTTP or relative URLs:
@@ -34,8 +65,23 @@ ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence for this checkpoint is pending; the latest fully clean hosted
-checkpoint remains `d6f9edf`.
+Hosted evidence is clean at `71bbf34`: GitHub `master` CI `27503377093`
+passed with `Fast Checks` 6m17s and `Full Verify` 8m45s clean, GitHub
+`add-router` CI `27503377075` also passed at `71bbf34`, GitHub `master` Dart
+Package Publish Dry Run `27503377087` passed at `71bbf34`, and GitHub
+`add-router` Dart Package Publish Dry Run `27503377071` also passed at
+`71bbf34`. The strict deployment-chain audit exited successfully on
+2026-06-14 with clean latest CI logs and Dart package publish dry-run at
+`71bbf34`, relevant Native Artifacts dry-run `26396437881` at `debd545`,
+relevant Router Image dry-run `27466352428` at `9a74569` with preview
+artifact `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks `27281215258`
+at `06a56bb`, branch protection, workflow visibility, and router image package
+visibility gates ready. RC readiness remains gated on release policy: no
+numeric RC tag points at `71bbf34`, the existing `v0.1.0-rc.1` tag still
+points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
+is selected for `71bbf34`, the audit suggests `v0.1.0-rc.2` only after
+release approval, and pub.dev package ownership/version/release-order
+decisions remain deferred.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now validates
 malformed JSON option payloads with option-specific dry-run errors, so public

@@ -570,6 +570,32 @@ run_router_hosted_mcp_example_smoke() {
     return 1
   fi
 
+  local empty_tool_output
+  if empty_tool_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --tool '' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an empty tool name.\n'
+    return 1
+  fi
+  if [[ "$empty_tool_output" != *'--tool must not be empty.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the empty tool name error.\n'
+    return 1
+  fi
+
+  local blank_pubsub_topic_output
+  if blank_pubsub_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --pubsub-topic '   ' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a blank pub/sub topic.\n'
+    return 1
+  fi
+  if [[ "$blank_pubsub_topic_output" != *'--pubsub-topic must not be empty.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the blank pub/sub topic error.\n'
+    return 1
+  fi
+
   local malformed_tool_arguments_output
   if malformed_tool_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \
