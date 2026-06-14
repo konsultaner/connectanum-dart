@@ -8,6 +8,7 @@ const _supportedMcpProtocolVersions = <String>[
   '2025-06-18',
   McpStreamableHttpClient.latestProtocolVersion,
 ];
+final _mcpToolNamePattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
 
 Future<void> main(List<String> args) async {
   if (args.contains('--help') || args.contains('-h')) {
@@ -807,7 +808,7 @@ final class _Options {
       authRealm: authRealm,
       authId: authId,
       ticket: ticket,
-      toolName: _nonEmptyStringOption(values, '--tool'),
+      toolName: _mcpToolNameOption(values, '--tool'),
       toolArguments: _jsonObjectOption(
         values,
         '--tool-arguments',
@@ -820,9 +821,9 @@ final class _Options {
         '--prompt-arguments',
         const <String, String>{},
       ),
-      wampProcedure: _nonEmptyStringOption(values, '--wamp-procedure'),
-      wampTopic: _nonEmptyStringOption(values, '--wamp-topic'),
-      pubsubTopic: _nonEmptyStringOption(values, '--pubsub-topic'),
+      wampProcedure: _mcpSelectorOption(values, '--wamp-procedure'),
+      wampTopic: _mcpSelectorOption(values, '--wamp-topic'),
+      pubsubTopic: _mcpSelectorOption(values, '--pubsub-topic'),
       pubsubEvent: _jsonObjectOption(
         values,
         '--pubsub-event',
@@ -870,6 +871,33 @@ String? _nonEmptyStringOption(Map<String, String> values, String option) {
   }
   if (value.runes.every(_isMcpWhitespaceOrControlRune)) {
     throw FormatException('$option must not be empty.');
+  }
+  return value;
+}
+
+String? _mcpToolNameOption(Map<String, String> values, String option) {
+  final value = _nonEmptyStringOption(values, option);
+  if (value == null) {
+    return null;
+  }
+  if (!_mcpToolNamePattern.hasMatch(value)) {
+    throw FormatException(
+      '$option must be 1-128 ASCII letters, digits, underscores, hyphens, '
+      'or dots.',
+    );
+  }
+  return value;
+}
+
+String? _mcpSelectorOption(Map<String, String> values, String option) {
+  final value = _nonEmptyStringOption(values, option);
+  if (value == null) {
+    return null;
+  }
+  if (_containsMcpWhitespaceOrControl(value)) {
+    throw FormatException(
+      '$option must not contain whitespace or control characters.',
+    );
   }
   return value;
 }

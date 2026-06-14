@@ -1,11 +1,39 @@
 # Project State
 
-Last updated: 2026-06-14
+Last updated: 2026-06-15
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP WAMP helper required numeric ids now fail
-locally before any request is sent.
-Latest fully clean hosted checkpoint: Commit `a5f2da2` on GitHub `master`.
+Last reviewed branch checkpoint: Public router-hosted MCP client setup now
+fails closed for invalid tool names and WAMP/pub/sub selector strings.
+Latest fully clean hosted checkpoint: Commit `be0ab9c` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now validates the
+public router-hosted MCP client `--tool` option with the same public MCP tool
+name grammar used by the helper client, and validates `--wamp-procedure`,
+`--wamp-topic`, and `--pubsub-topic` for MCP whitespace/control characters
+before a `--dry-run` success summary or live request can be produced. This
+keeps malformed consumer setup from reaching router-hosted direct JSON,
+WAMP metadata, or pub/sub helper calls. `bin/common.sh` extends the public
+router-hosted MCP client dry-run smoke with invalid `--tool`, `--wamp-topic`,
+and `--pubsub-topic` cases, and
+`tool/test_mcp_consumer_package_boundary.py` guards the public example helper
+surface and the new fast-smoke failure checks.
+Baseline `bin/test-fast` passed before the change on 2026-06-15. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+focused `python3 tool/check_public_artifact_references.py`, and focused
+`git diff --check` passed on 2026-06-15. Full local `bin/verify` passed on
+2026-06-15, including formatting, Rust/FFI, Python/tool tests, MCP package
+smokes, generated consumer-package smokes, the router-hosted MCP live public,
+ticket-authenticated Streamable, bearer-token Streamable,
+ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence for this checkpoint is pending until the implementation commit
+is pushed; latest fully clean hosted evidence remains `be0ab9c` and RC
+release-policy blockers are unchanged.
+Previous implementation checkpoint:
 `packages/connectanum_client/lib/src/mcp/wamp_tools.dart` now validates the
 required public Connectanum WAMP helper numeric ids before any Streamable HTTP
 or direct JSON request is sent. `getWampSession`, registration get/list/count
@@ -29,8 +57,23 @@ ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence for this implementation is pending the next pushed commit; the
-latest fully clean hosted checkpoint remains `a5f2da2`.
+Hosted evidence is clean at `be0ab9c`: GitHub `master` CI `27513969634`
+passed with `Fast Checks` and `Full Verify` clean, and GitHub `add-router` CI
+`27513966751` also passed. GitHub `master` Dart Package Publish Dry Run
+`27513969646` passed with zero warnings at `be0ab9c`, WAMP Profile Benchmarks
+`27513969631` passed at `be0ab9c`, and the fresh non-mutating Router Image
+dry-run `27513977053` passed at `be0ab9c` with preview artifact
+`sha-be0ab9ca648d`. The strict deployment-chain audit exited successfully on
+2026-06-14 with clean latest CI logs at `be0ab9c`, Dart package publish
+dry-run relevance, relevant Native Artifacts dry-run `26396437881` at
+`debd545`, relevant Router Image dry-run `27513977053` at `be0ab9c`, relevant
+WAMP Profile Benchmarks `27513969631` at `be0ab9c`, branch protection,
+workflow visibility, and router image package visibility gates ready. RC
+readiness remains gated on release policy: no numeric RC tag points at
+`be0ab9c`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+`be0ab9c`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+pub.dev package ownership/version/release-order decisions remain deferred.
 Previous implementation checkpoint:
 `packages/connectanum_client/lib/src/mcp/wamp_tools.dart` now validates public
 Connectanum WAMP helper arguments before any Streamable HTTP or direct JSON

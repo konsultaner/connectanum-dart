@@ -79,6 +79,34 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-15: Hardened public router-hosted MCP client setup validation for
+  direct JSON/WAMP/pubsub smoke use. `packages/connectanum_mcp/example/router_hosted_client.dart`
+  now validates `--tool` with the public MCP tool-name grammar before dry-run
+  success or live requests, and rejects MCP whitespace/control characters in
+  `--wamp-procedure`, `--wamp-topic`, and `--pubsub-topic` before malformed
+  WAMP metadata or pub/sub selectors can reach router-hosted helper calls.
+  `bin/common.sh` extends
+  `run_public_router_hosted_mcp_client_dry_run_smoke` with invalid `--tool`,
+  invalid `--wamp-topic`, and invalid `--pubsub-topic` failure cases, while
+  `tool/test_mcp_consumer_package_boundary.py` guards the public example
+  helper surface and smoke assertions. Baseline `bin/test-fast` passed before
+  the change on 2026-06-15. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  focused `python3 tool/check_public_artifact_references.py`, and focused
+  `git diff --check` passed on 2026-06-15. Full local `bin/verify` passed on
+  2026-06-15, including formatting, Rust/FFI, Python/tool tests, MCP package
+  smokes, generated consumer-package smokes, the router-hosted MCP live
+  public, ticket-authenticated Streamable, bearer-token Streamable,
+  ticket-authenticated JSON-response, and bearer-token JSON-response
+  public-client examples, the installed CLI consumer smoke, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence for this checkpoint is pending until the implementation
+  commit is pushed; latest fully clean hosted evidence remains `be0ab9c` and
+  RC release-policy blockers are unchanged.
+
 - 2026-06-14: Added local fail-fast validation for required public
   Connectanum WAMP MCP helper numeric ids. `packages/connectanum_client/lib/src/mcp/wamp_tools.dart`
   now rejects non-positive `sessionId`, `registrationId`, and `subscriptionId`
@@ -102,8 +130,23 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence for this implementation is pending the next pushed commit;
-  the latest fully clean hosted checkpoint remains `a5f2da2`.
+  Hosted evidence is clean at `be0ab9c`: GitHub `master` CI `27513969634`
+  passed with `Fast Checks` and `Full Verify` clean, and GitHub `add-router`
+  CI `27513966751` also passed. GitHub `master` Dart Package Publish Dry Run
+  `27513969646` passed with zero warnings at `be0ab9c`, WAMP Profile
+  Benchmarks `27513969631` passed at `be0ab9c`, and the fresh non-mutating
+  Router Image dry-run `27513977053` passed at `be0ab9c` with preview artifact
+  `sha-be0ab9ca648d`. The strict deployment-chain audit exited successfully on
+  2026-06-14 with clean latest CI logs at `be0ab9c`, Dart package publish
+  dry-run relevance, relevant Native Artifacts dry-run `26396437881` at
+  `debd545`, relevant Router Image dry-run `27513977053` at `be0ab9c`,
+  relevant WAMP Profile Benchmarks `27513969631` at `be0ab9c`, branch
+  protection, workflow visibility, and router image package visibility gates
+  ready. RC readiness remains gated on release policy: no numeric RC tag points
+  at `be0ab9c`, the existing `v0.1.0-rc.1` tag still points at stale commit
+  `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+  `be0ab9c`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+  pub.dev package ownership/version/release-order decisions remain deferred.
 
 - 2026-06-14: Added local fail-fast validation for public Connectanum WAMP MCP
   helper arguments. `packages/connectanum_client/lib/src/mcp/wamp_tools.dart`

@@ -187,6 +187,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-pubsub-unsubscribe",
             "deleteSession",
             "_nonEmptyStringOption",
+            "_mcpToolNameOption",
+            "_mcpSelectorOption",
+            "must be 1-128 ASCII letters",
+            "must not contain whitespace or control characters.",
             "_printDryRunSummary",
             "--dry-run",
         ):
@@ -420,6 +424,33 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "did not report the empty tool name error",
             body,
         )
+        self.assertIn("invalid_tool_name_output=\"$(", body)
+        self.assertIn(
+            "accepted an invalid tool name",
+            body,
+        )
+        self.assertIn(
+            "--tool must be 1-128 ASCII letters, digits, underscores, "
+            "hyphens, or dots.",
+            body,
+        )
+        self.assertIn(
+            "did not report the invalid tool name error",
+            body,
+        )
+        self.assertIn("invalid_wamp_topic_output=\"$(", body)
+        self.assertIn(
+            "accepted an invalid WAMP topic",
+            body,
+        )
+        self.assertIn(
+            "--wamp-topic must not contain whitespace or control characters.",
+            body,
+        )
+        self.assertIn(
+            "did not report the invalid WAMP topic error",
+            body,
+        )
         self.assertIn("blank_pubsub_topic_output=\"$(", body)
         self.assertIn(
             "accepted a blank pub/sub topic",
@@ -428,6 +459,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--pubsub-topic must not be empty.", body)
         self.assertIn(
             "did not report the blank pub/sub topic error",
+            body,
+        )
+        self.assertIn("invalid_pubsub_topic_output=\"$(", body)
+        self.assertIn(
+            "accepted an invalid pub/sub topic",
+            body,
+        )
+        self.assertIn(
+            "--pubsub-topic must not contain whitespace or control characters.",
+            body,
+        )
+        self.assertIn(
+            "did not report the invalid pub/sub topic error",
             body,
         )
         self.assertIn("malformed_tool_arguments_output=\"$(", body)

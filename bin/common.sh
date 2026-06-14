@@ -618,6 +618,32 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local invalid_tool_name_output
+  if invalid_tool_name_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --tool 'bad tool' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an invalid tool name.\n'
+    return 1
+  fi
+  if [[ "$invalid_tool_name_output" != *'--tool must be 1-128 ASCII letters, digits, underscores, hyphens, or dots.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the invalid tool name error.\n'
+    return 1
+  fi
+
+  local invalid_wamp_topic_output
+  if invalid_wamp_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --wamp-topic 'bad topic' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an invalid WAMP topic.\n'
+    return 1
+  fi
+  if [[ "$invalid_wamp_topic_output" != *'--wamp-topic must not contain whitespace or control characters.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the invalid WAMP topic error.\n'
+    return 1
+  fi
+
   local blank_pubsub_topic_output
   if blank_pubsub_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \
@@ -628,6 +654,19 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$blank_pubsub_topic_output" != *'--pubsub-topic must not be empty.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the blank pub/sub topic error.\n'
+    return 1
+  fi
+
+  local invalid_pubsub_topic_output
+  if invalid_pubsub_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --pubsub-topic 'bad topic' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an invalid pub/sub topic.\n'
+    return 1
+  fi
+  if [[ "$invalid_pubsub_topic_output" != *'--pubsub-topic must not contain whitespace or control characters.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the invalid pub/sub topic error.\n'
     return 1
   fi
 
