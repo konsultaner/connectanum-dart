@@ -2,18 +2,20 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP router-hosted public client auth dry-run redaction coverage.
-Latest fully clean hosted checkpoint: Commit `70252f2` on GitHub `master`.
+Last reviewed branch checkpoint: MCP router-hosted public client auth dry-run fail-fast coverage.
+Latest fully clean hosted checkpoint: Commit `ff0a294` on GitHub `master`.
 Current implementation checkpoint:
-`bin/common.sh` now captures the checked-in public router-hosted MCP client
-dry-run JSON summary before the live router smoke and asserts consumer-visible
-auth readiness without network traffic. The fast gate checks no-auth,
+`bin/common.sh` now treats the checked-in public router-hosted MCP client
+dry-run as both a positive and negative auth readiness gate before the live
+router smoke. The fast gate captures the dry-run JSON summary, checks no-auth,
 raw-bearer, and ticket-auth dry runs for the expected `authMode` values,
-checks the explicit `--protocol-version 2025-06-18` summary, and fails if the
-placeholder bearer token or ticket secret appears in dry-run output. The same
-smoke still proves the advertised raw bearer-token path on router-provided
-secure MCP routes by obtaining a bearer token from the example HTTP auth
-bridge without printing it, then running
+checks the explicit `--protocol-version 2025-06-18` summary, fails if the
+placeholder bearer token or ticket secret appears in dry-run output, and now
+requires a dry-run that combines `--bearer-token` with `--auth-url` to fail
+with `Use either --bearer-token or --auth-url, not both.` before any HTTP
+request can be attempted. The same smoke still proves the advertised raw
+bearer-token path on router-provided secure MCP routes by obtaining a bearer
+token from the example HTTP auth bridge without printing it, then running
 `packages/connectanum_mcp/example/router_hosted_client.dart` with
 `--bearer-token` against both the secure Streamable HTTP endpoint and the
 secure JSON-response endpoint. The existing ticket-auth-grant Streamable and
@@ -22,14 +24,17 @@ auth-grant, and raw bearer-token construction paths with direct JSON
 tool/resource/prompt calls, router-provided WAMP metadata, pub/sub, direct JSON
 batches, and Streamable HTTP session lifecycle coverage.
 `tool/test_mcp_consumer_package_boundary.py` now guards the dry-run summary
-capture, auth-mode assertions, secret-leak failure checks, token minting
-through the public auth bridge, the `--bearer-token "$bearer_token"`
-invocations, and the bearer-token completion evidence so this downstream
-application readiness path cannot silently disappear. Baseline `bin/test-fast`
-passed before the change on 2026-06-14.
+capture, auth-mode assertions, secret-leak failure checks, mutually exclusive
+auth failure checks, token minting through the public auth bridge, the
+`--bearer-token "$bearer_token"` invocations, and the bearer-token completion
+evidence so this downstream application readiness path cannot silently
+disappear. Baseline `bin/test-fast` passed before the change on 2026-06-14.
 Focused `bash -n bin/common.sh`, focused
 `python3 tool/test_mcp_consumer_package_boundary.py`, focused
-`git diff --check`, and focused
+`git diff --check`, focused
+`dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp/secure --bearer-token dry-run-bearer-secret --auth-url http://127.0.0.1:8080/auth --realm example.realm --auth-id mcp-user --ticket dry-run-ticket-secret --dry-run`
+exited 64 with the expected mutually exclusive auth error and without echoing
+the placeholder token or ticket values, and focused
 `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'` passed
 on 2026-06-14, including the `Bearer-token router-hosted MCP client live smoke
 completed.` and `Bearer-token router-hosted JSON-response MCP client live smoke
@@ -39,26 +44,26 @@ consumer-package smokes, the router-hosted MCP live public, ticket-authenticated
 Streamable, bearer-token Streamable, ticket-authenticated JSON-response, and
 bearer-token JSON-response public-client examples, the installed CLI consumer
 smoke, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
-browser WebSocket smoke. Hosted evidence is clean at `70252f2` for the
-previous checkpoint; hosted evidence for the current auth dry-run redaction
-smoke change is pending after a code commit and push. At `70252f2`, GitHub
-`master` CI `27491788892` passed with `Fast Checks` and `Full Verify` green in
-13m45s, and GitHub `add-router` CI `27491788899` also passed at `70252f2` with
-`Fast Checks` and `Full Verify` green in 13m24s. No new Dart Package Publish
+browser WebSocket smoke. Hosted evidence is clean at `ff0a294`: GitHub
+`master` CI `27493085486` passed with `Fast Checks` and `Full Verify` green in
+13m23s, and GitHub `add-router` CI `27493085494` also passed at `ff0a294` with
+`Fast Checks` and `Full Verify` green in 13m34s. No new Dart Package Publish
 Dry Run was triggered for this smoke-harness/test-doc change; the strict
 deployment-chain audit accepted Dart Package Publish Dry Run `27490348057` at
 `65ebfbc` as still relevant because no publish-sensitive paths changed after
 that commit. The strict deployment-chain audit exited successfully on
-2026-06-14 with clean latest CI logs at `70252f2`, relevant Native Artifacts
+2026-06-14 with clean latest CI logs at `ff0a294`, relevant Native Artifacts
 dry-run `26396437881` at `debd545`, relevant Router Image dry-run
 `27466352428` at `9a74569` with preview artifact `sha-9a74569e4b27`, relevant
 WAMP Profile Benchmarks `27281215258` at `06a56bb`, branch protection,
 workflow visibility, and router image package visibility gates ready. RC
 readiness remains gated on release policy: no numeric RC tag points at
-`70252f2`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`ff0a294`, the existing `v0.1.0-rc.1` tag still points at stale commit
 `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
-`70252f2`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+`ff0a294`, the audit suggests `v0.1.0-rc.2` only after release approval, and
 pub.dev package ownership/version/release-order decisions remain deferred.
+This fail-fast smoke-harness/test-doc change is pending commit, push, and
+hosted CI evidence.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now exposes a
 public `--protocol-version` option for router-hosted MCP consumers. The option

@@ -216,6 +216,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dry-run-ticket-secret", body)
         self.assertIn("leaked ticket secret material", body)
         self.assertIn('"authMode":"ticket"', body)
+        self.assertIn("ambiguous_auth_output=\"$(", body)
+        self.assertIn(
+            "accepted mutually exclusive auth options",
+            body,
+        )
+        self.assertIn(
+            "Use either --bearer-token or --auth-url, not both.",
+            body,
+        )
+        self.assertIn(
+            "did not report the mutually exclusive auth error",
+            body,
+        )
 
     def test_fast_smoke_runs_public_router_hosted_client_example_live(
         self,
