@@ -385,6 +385,59 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local unknown_option_output
+  if unknown_option_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --unknown-option \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an unknown option.\n'
+    return 1
+  fi
+  if [[ "$unknown_option_output" != *'Unknown option: --unknown-option'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the unknown option error.\n'
+    return 1
+  fi
+
+  local missing_tool_value_output
+  if missing_tool_value_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --tool \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a missing tool option value.\n'
+    return 1
+  fi
+  if [[ "$missing_tool_value_output" != *'Missing value for --tool.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the missing tool option value error.\n'
+    return 1
+  fi
+
+  local duplicate_tool_output
+  if duplicate_tool_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --tool example.task.lookup \
+    --tool example.task.lookup \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted duplicate tool options.\n'
+    return 1
+  fi
+  if [[ "$duplicate_tool_output" != *'Duplicate option: --tool.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the duplicate tool option error.\n'
+    return 1
+  fi
+
+  local duplicate_dry_run_output
+  if duplicate_dry_run_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --dry-run \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted duplicate dry-run flags.\n'
+    return 1
+  fi
+  if [[ "$duplicate_dry_run_output" != *'Duplicate option: --dry-run.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the duplicate dry-run flag error.\n'
+    return 1
+  fi
+
   local missing_endpoint_output
   if missing_endpoint_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --dry-run 2>&1)"; then

@@ -242,6 +242,46 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dry_run_summary=\"$(", body)
         self.assertIn('"authMode":"none"', body)
         self.assertIn('"protocolVersion":"2025-06-18"', body)
+        self.assertIn("unknown_option_output=\"$(", body)
+        self.assertIn(
+            "accepted an unknown option",
+            body,
+        )
+        self.assertIn("Unknown option: --unknown-option", body)
+        self.assertIn(
+            "did not report the unknown option error",
+            body,
+        )
+        self.assertIn("missing_tool_value_output=\"$(", body)
+        self.assertIn(
+            "accepted a missing tool option value",
+            body,
+        )
+        self.assertIn("Missing value for --tool.", body)
+        self.assertIn(
+            "did not report the missing tool option value error",
+            body,
+        )
+        self.assertIn("duplicate_tool_output=\"$(", body)
+        self.assertIn(
+            "accepted duplicate tool options",
+            body,
+        )
+        self.assertIn("Duplicate option: --tool.", body)
+        self.assertIn(
+            "did not report the duplicate tool option error",
+            body,
+        )
+        self.assertIn("duplicate_dry_run_output=\"$(", body)
+        self.assertIn(
+            "accepted duplicate dry-run flags",
+            body,
+        )
+        self.assertIn("Duplicate option: --dry-run.", body)
+        self.assertIn(
+            "did not report the duplicate dry-run flag error",
+            body,
+        )
         self.assertIn("missing_endpoint_output=\"$(", body)
         self.assertIn(
             "accepted a missing endpoint",
