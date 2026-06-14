@@ -4253,6 +4253,27 @@ void main() {
         () => client.matchWampSubscription('bad\ntopic', streamable: false),
       );
       await expectLocalArgumentError(
+        () => client.getWampSession(0, streamable: false),
+      );
+      await expectLocalArgumentError(
+        () => client.getWampRegistrationDirect(-1),
+      );
+      await expectLocalArgumentError(
+        () => client.listWampRegistrationCallees(0, streamable: false),
+      );
+      await expectLocalArgumentError(
+        () => client.countWampRegistrationCalleesDirect(-1),
+      );
+      await expectLocalArgumentError(
+        () => client.getWampSubscription(0, streamable: false),
+      );
+      await expectLocalArgumentError(
+        () => client.listWampSubscriptionSubscribersDirect(-1),
+      );
+      await expectLocalArgumentError(
+        () => client.countWampSubscriptionSubscribers(0, streamable: false),
+      );
+      await expectLocalArgumentError(
         () => client.publishWampEvent('', streamable: false),
       );
       await expectLocalArgumentError(

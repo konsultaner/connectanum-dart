@@ -210,10 +210,11 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedSessionId = _validatedPositiveInt(sessionId, 'sessionId');
     return callWampMetaProcedure(
       _wampSessionGetProcedure,
       id: id,
-      arguments: <Object?>[sessionId],
+      arguments: <Object?>[validatedSessionId],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -294,10 +295,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedRegistrationId = _validatedPositiveInt(
+      registrationId,
+      'registrationId',
+    );
     return callWampMetaProcedure(
       _wampRegistrationGetProcedure,
       id: id,
-      arguments: <Object?>[registrationId],
+      arguments: <Object?>[validatedRegistrationId],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -313,10 +318,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedRegistrationId = _validatedPositiveInt(
+      registrationId,
+      'registrationId',
+    );
     return callWampMetaProcedure(
       _wampRegistrationListCalleesProcedure,
       id: id,
-      arguments: <Object?>[registrationId],
+      arguments: <Object?>[validatedRegistrationId],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -332,10 +341,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedRegistrationId = _validatedPositiveInt(
+      registrationId,
+      'registrationId',
+    );
     return callWampMetaProcedure(
       _wampRegistrationCountCalleesProcedure,
       id: id,
-      arguments: <Object?>[registrationId],
+      arguments: <Object?>[validatedRegistrationId],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -410,10 +423,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedSubscriptionId = _validatedPositiveInt(
+      subscriptionId,
+      'subscriptionId',
+    );
     return callWampMetaProcedure(
       _wampSubscriptionGetProcedure,
       id: id,
-      arguments: <Object?>[subscriptionId],
+      arguments: <Object?>[validatedSubscriptionId],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -429,10 +446,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedSubscriptionId = _validatedPositiveInt(
+      subscriptionId,
+      'subscriptionId',
+    );
     return callWampMetaProcedure(
       _wampSubscriptionListSubscribersProcedure,
       id: id,
-      arguments: <Object?>[subscriptionId],
+      arguments: <Object?>[validatedSubscriptionId],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -448,10 +469,14 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
+    final validatedSubscriptionId = _validatedPositiveInt(
+      subscriptionId,
+      'subscriptionId',
+    );
     return callWampMetaProcedure(
       _wampSubscriptionCountSubscribersProcedure,
       id: id,
-      arguments: <Object?>[subscriptionId],
+      arguments: <Object?>[validatedSubscriptionId],
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
@@ -987,14 +1012,18 @@ String _validatedWampStringArgument(String value, String name) {
   return value;
 }
 
-int? _validatedOptionalPositiveInt(int? value, String name) {
-  if (value == null) {
-    return null;
-  }
+int _validatedPositiveInt(int value, String name) {
   if (value <= 0) {
     throw ArgumentError.value(value, name, 'must be a positive integer');
   }
   return value;
+}
+
+int? _validatedOptionalPositiveInt(int? value, String name) {
+  if (value == null) {
+    return null;
+  }
+  return _validatedPositiveInt(value, name);
 }
 
 final class McpStreamableWampMetaCallResult {

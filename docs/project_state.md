@@ -2,9 +2,36 @@
 
 Last updated: 2026-06-14
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP WAMP helper invalid arguments fail locally.
-Latest fully clean hosted checkpoint: Commit `944751e` on GitHub `master`.
+Last reviewed branch checkpoint: MCP WAMP helper required numeric ids now fail
+locally before any request is sent.
+Latest fully clean hosted checkpoint: Commit `a5f2da2` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_client/lib/src/mcp/wamp_tools.dart` now validates the
+required public Connectanum WAMP helper numeric ids before any Streamable HTTP
+or direct JSON request is sent. `getWampSession`, registration get/list/count
+helpers, and subscription get/list/count helpers reject non-positive
+`sessionId`, `registrationId`, and `subscriptionId` values locally; direct JSON
+variants inherit the same guard through the existing Streamable-helper
+delegation. `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
+extends `rejects invalid WAMP helper arguments before sending` with invalid
+session, registration, and subscription id cases for Streamable and direct JSON
+helper variants, asserting each raises a local `ArgumentError` and leaves the
+fake endpoint request log empty.
+Baseline `bin/test-fast` passed before the change on 2026-06-14. Focused
+`dart format packages/connectanum_client/lib/src/mcp/wamp_tools.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+and focused `dart test packages/connectanum_mcp/test/io_client_export_test.dart`
+passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14, including
+formatting, Rust/FFI, Python/tool tests, MCP package smokes, generated
+consumer-package smokes, the router-hosted MCP live public,
+ticket-authenticated Streamable, bearer-token Streamable,
+ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence for this implementation is pending the next pushed commit; the
+latest fully clean hosted checkpoint remains `a5f2da2`.
+Previous implementation checkpoint:
 `packages/connectanum_client/lib/src/mcp/wamp_tools.dart` now validates public
 Connectanum WAMP helper arguments before any Streamable HTTP or direct JSON
 request is sent. The helper layer rejects empty or MCP-whitespace/control
@@ -31,23 +58,23 @@ public, ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence remains clean at `944751e`: GitHub `master` CI `27510222326`
-passed with `Fast Checks` 6m29s and `Full Verify` 9m7s clean, and GitHub
-`add-router` CI `27510221756` also passed. GitHub `master` Dart Package
-Publish Dry Run `27505129106` remains clean and relevant at `e350384`; the
-strict audit confirmed no publish-sensitive paths changed between `e350384`
-and `944751e`. The strict deployment-chain audit exited successfully on
-2026-06-14 with clean latest CI logs at `944751e`, Dart package publish
+Hosted evidence is clean at `a5f2da2`: GitHub `master` CI `27511947086`
+passed with `Fast Checks` and `Full Verify` clean, and GitHub `add-router` CI
+`27511946625` also passed. GitHub `master` Dart Package Publish Dry Run
+`27511947094` passed with zero warnings at `a5f2da2`, WAMP Profile Benchmarks
+`27511947084` passed at `a5f2da2`, and the fresh non-mutating Router Image
+dry-run `27512390867` passed at `a5f2da2` with preview artifact
+`sha-a5f2da2c4c51`. The strict deployment-chain audit exited successfully on
+2026-06-14 with clean latest CI logs at `a5f2da2`, Dart package publish
 dry-run relevance, relevant Native Artifacts dry-run `26396437881` at
-`debd545`, relevant Router Image dry-run `27466352428` at `9a74569` with
-preview artifact `sha-9a74569e4b27`, relevant WAMP Profile Benchmarks
-`27281215258` at `06a56bb`, branch protection, workflow visibility, and router
-image package visibility gates ready. RC readiness remains gated on release
-policy: no numeric RC tag points at `944751e`, the existing `v0.1.0-rc.1` tag
-still points at stale commit `47bbf9c`, no GitHub prerelease or router image
-RC tag is selected for `944751e`, the audit suggests `v0.1.0-rc.2` only after
-release approval, and pub.dev package ownership/version/release-order
-decisions remain deferred.
+`debd545`, relevant Router Image dry-run `27512390867` at `a5f2da2`, relevant
+WAMP Profile Benchmarks `27511947084` at `a5f2da2`, branch protection,
+workflow visibility, and router image package visibility gates ready. RC
+readiness remains gated on release policy: no numeric RC tag points at
+`a5f2da2`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+`a5f2da2`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+pub.dev package ownership/version/release-order decisions remain deferred.
 Previous implementation checkpoint:
 `bin/common.sh` now extends
 `run_public_router_hosted_mcp_client_dry_run_smoke` with hard CLI parser
