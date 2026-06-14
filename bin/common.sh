@@ -386,6 +386,8 @@ run_router_hosted_mcp_example_smoke() {
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-public-example-dry-run"}' \
+    --wamp-procedure example.task.lookup \
+    --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-public-example-dry-run","status":"open"}' \
     --dry-run >/dev/null
@@ -466,6 +468,8 @@ run_public_router_hosted_mcp_client_live_smoke() (
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-public-example-live"}' \
+    --wamp-procedure example.task.lookup \
+    --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-public-example-live","status":"open"}' \
     >/dev/null
@@ -483,6 +487,8 @@ run_public_router_hosted_mcp_client_live_smoke() (
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-authenticated-example-live"}' \
+    --wamp-procedure example.task.lookup \
+    --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-authenticated-example-live","status":"open"}' \
     >/dev/null

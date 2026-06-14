@@ -124,6 +124,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "readResourceDirect",
             "listPromptsDirect",
             "getPromptDirect",
+            "countWampSessionsDirect",
+            "listWampApiDirect",
+            "describeWampApiDirect",
+            "matchWampRegistrationDirect",
+            "matchWampSubscriptionDirect",
             "subscribeWampTopicDirect",
             "publishWampEventDirect",
             "pollWampEventsDirect",
@@ -154,6 +159,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--resource-uri app://example/context", body)
         self.assertIn("--prompt summarize-task", body)
         self.assertIn("--prompt-arguments", body)
+        self.assertIn("--wamp-procedure example.task.lookup", body)
+        self.assertIn("--wamp-topic example.events.task", body)
         self.assertIn("--pubsub-topic example.events.task", body)
         self.assertIn("--pubsub-event", body)
         self.assertIn("--dry-run", body)
@@ -188,6 +195,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--tool example.task.lookup", live_body)
         self.assertIn("--resource-uri app://example/context", live_body)
         self.assertIn("--prompt summarize-task", live_body)
+        self.assertIn("--wamp-procedure example.task.lookup", live_body)
+        self.assertIn("--wamp-topic example.events.task", live_body)
         self.assertIn("--pubsub-topic example.events.task", live_body)
         self.assertIn(
             "Authenticated router-hosted MCP client live smoke completed.",

@@ -27,6 +27,7 @@ Future<void> main(List<String> args) async {
   final client = await _createClient(options);
   try {
     await _runDirectJsonExample(client, options);
+    await _runDirectWampMetadataExample(client, options);
     if (options.pubsubTopic != null) {
       await _runDirectPubSubExample(client, options);
     }
@@ -105,6 +106,8 @@ void _printDryRunSummary(IOSink sink, _Options options) {
           'name': options.promptName,
           'arguments': options.promptArguments,
         },
+      if (options.wampProcedure != null) 'wampProcedure': options.wampProcedure,
+      if (options.wampTopic != null) 'wampTopic': options.wampTopic,
       if (options.pubsubTopic != null)
         'pubsub': {'topic': options.pubsubTopic, 'event': options.pubsubEvent},
     }),
@@ -171,6 +174,82 @@ Future<void> _runDirectJsonExample(
   }
 }
 
+Future<void> _runDirectWampMetadataExample(
+  McpStreamableHttpClient client,
+  _Options options,
+) async {
+  final procedure = options.wampProcedure;
+  final topic = options.wampTopic;
+  if (procedure == null && topic == null) {
+    return;
+  }
+
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final metadata = <String, Object?>{};
+
+  final sessionCount = await client.countWampSessionsDirect(
+    id: 'direct-wamp-session-count',
+  );
+  metadata['sessionCount'] = _wampMetaResultJson(sessionCount);
+
+  if (procedure != null) {
+    final procedures = await client.listWampApiDirect(
+      id: 'direct-wamp-procedure-api-list',
+      kind: 'procedure',
+    );
+    final description = await client.describeWampApiDirect(
+      procedure,
+      id: 'direct-wamp-procedure-api-describe',
+      kind: 'procedure',
+    );
+    final registration = await client.matchWampRegistrationDirect(
+      procedure,
+      id: 'direct-wamp-registration-match',
+    );
+    metadata['procedure'] = {
+      'name': procedure,
+      'catalog': procedures['procedures'],
+      'description': description,
+      'registration': _wampMetaResultJson(registration),
+    };
+  }
+
+  if (topic != null) {
+    final topics = await client.listWampApiDirect(
+      id: 'direct-wamp-topic-api-list',
+      kind: 'topic',
+    );
+    final description = await client.describeWampApiDirect(
+      topic,
+      id: 'direct-wamp-topic-api-describe',
+      kind: 'topic',
+    );
+    metadata['topic'] = {
+      'name': topic,
+      'catalog': topics['topics'],
+      'description': description,
+    };
+  }
+
+  if (client.sessionId != previousSessionId ||
+      client.lastEventId != previousEventId) {
+    throw StateError('Direct WAMP metadata changed Streamable state.');
+  }
+
+  stdout.writeln(jsonEncode({'directWampMetadata': metadata}));
+}
+
+Map<String, Object?> _wampMetaResultJson(
+  McpStreamableWampMetaCallResult result,
+) {
+  return {
+    'procedure': result.procedure,
+    'arguments': result.arguments,
+    'argumentsKeywords': result.argumentsKeywords,
+  };
+}
+
 Future<void> _runDirectPubSubExample(
   McpStreamableHttpClient client,
   _Options options,
@@ -183,6 +262,12 @@ Future<void> _runDirectPubSubExample(
   );
 
   try {
+    final subscriptionMeta = options.wampTopic == topic
+        ? await client.matchWampSubscriptionDirect(
+            topic,
+            id: 'direct-wamp-subscription-match',
+          )
+        : null;
     await client.publishWampEventDirect(
       topic,
       id: 'direct-pubsub-publish',
@@ -209,6 +294,8 @@ Future<void> _runDirectPubSubExample(
         'events': events.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
+        if (subscriptionMeta != null)
+          'subscription': _wampMetaResultJson(subscriptionMeta),
       }),
     );
   } finally {
@@ -275,6 +362,8 @@ final class _Options {
     this.toolName,
     this.resourceUri,
     this.promptName,
+    this.wampProcedure,
+    this.wampTopic,
     this.pubsubTopic,
   });
 
@@ -289,6 +378,8 @@ final class _Options {
   final String? resourceUri;
   final String? promptName;
   final Map<String, String> promptArguments;
+  final String? wampProcedure;
+  final String? wampTopic;
   final String? pubsubTopic;
   final McpJsonMap pubsubEvent;
   final bool dryRun;
@@ -353,6 +444,8 @@ final class _Options {
         '--prompt-arguments',
         const <String, String>{},
       ),
+      wampProcedure: values['--wamp-procedure'],
+      wampTopic: values['--wamp-topic'],
       pubsubTopic: values['--pubsub-topic'],
       pubsubEvent: _jsonObjectOption(
         values,
@@ -377,6 +470,8 @@ Map<String, String> _parseOptions(List<String> args) {
     '--resource-uri',
     '--prompt',
     '--prompt-arguments',
+    '--wamp-procedure',
+    '--wamp-topic',
     '--pubsub-topic',
     '--pubsub-event',
   };
@@ -502,6 +597,8 @@ Options:
   --resource-uri URI                Read this resource through direct JSON and Streamable HTTP.
   --prompt NAME                     Get this prompt through direct JSON and Streamable HTTP.
   --prompt-arguments JSON_OBJECT    String arguments for --prompt.
+  --wamp-procedure URI              Describe and match this WAMP procedure through direct JSON.
+  --wamp-topic URI                  Describe this WAMP topic through direct JSON.
   --pubsub-topic TOPIC              Exercise direct JSON pub/sub helpers.
   --pubsub-event JSON_OBJECT        Event kwargs for --pubsub-topic.
   --dry-run                         Validate options without HTTP requests.
