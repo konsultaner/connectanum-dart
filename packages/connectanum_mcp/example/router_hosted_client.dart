@@ -353,6 +353,58 @@ Future<void> _runStreamableSessionExample(
     );
   }
 
+  final wampProcedure = options.wampProcedure;
+  final wampTopic = options.wampTopic;
+  if (wampProcedure != null || wampTopic != null) {
+    final metadata = <String, Object?>{};
+
+    final sessionCount = await client.countWampSessions(
+      id: 'streamable-wamp-session-count',
+    );
+    metadata['sessionCount'] = _wampMetaResultJson(sessionCount);
+
+    if (wampProcedure != null) {
+      final procedures = await client.listWampApi(
+        id: 'streamable-wamp-procedure-api-list',
+        kind: 'procedure',
+      );
+      final description = await client.describeWampApi(
+        wampProcedure,
+        id: 'streamable-wamp-procedure-api-describe',
+        kind: 'procedure',
+      );
+      final registration = await client.matchWampRegistration(
+        wampProcedure,
+        id: 'streamable-wamp-registration-match',
+      );
+      metadata['procedure'] = <String, Object?>{
+        'name': wampProcedure,
+        'catalog': procedures['procedures'],
+        'description': description,
+        'registration': _wampMetaResultJson(registration),
+      };
+    }
+
+    if (wampTopic != null) {
+      final topics = await client.listWampApi(
+        id: 'streamable-wamp-topic-api-list',
+        kind: 'topic',
+      );
+      final description = await client.describeWampApi(
+        wampTopic,
+        id: 'streamable-wamp-topic-api-describe',
+        kind: 'topic',
+      );
+      metadata['topic'] = <String, Object?>{
+        'name': wampTopic,
+        'catalog': topics['topics'],
+        'description': description,
+      };
+    }
+
+    streamable['wampMetadata'] = metadata;
+  }
+
   final pubsubTopic = options.pubsubTopic;
   if (pubsubTopic != null) {
     final subscription = await client.subscribeWampTopic(
@@ -362,6 +414,12 @@ Future<void> _runStreamableSessionExample(
     );
 
     try {
+      final subscriptionMeta = options.wampTopic == pubsubTopic
+          ? await client.matchWampSubscription(
+              pubsubTopic,
+              id: 'streamable-wamp-subscription-match',
+            )
+          : null;
       final publication = await client.publishWampEvent(
         pubsubTopic,
         id: 'streamable-pubsub-publish',
@@ -392,6 +450,8 @@ Future<void> _runStreamableSessionExample(
           if (subscription.subscriptionId != null)
             'subscriptionId': subscription.subscriptionId,
         },
+        if (subscriptionMeta != null)
+          'subscriptionMetadata': _wampMetaResultJson(subscriptionMeta),
         'publication': <String, Object?>{
           'topic': publication.topic,
           'acknowledged': publication.acknowledged,
@@ -663,8 +723,8 @@ Options:
   --resource-uri URI                Read this resource through direct JSON and Streamable HTTP.
   --prompt NAME                     Get this prompt through direct JSON and Streamable HTTP.
   --prompt-arguments JSON_OBJECT    String arguments for --prompt.
-  --wamp-procedure URI              Describe and match this WAMP procedure through direct JSON.
-  --wamp-topic URI                  Describe this WAMP topic through direct JSON.
+  --wamp-procedure URI              Describe and match this WAMP procedure through direct JSON and Streamable HTTP.
+  --wamp-topic URI                  Describe this WAMP topic through direct JSON and Streamable HTTP.
   --pubsub-topic TOPIC              Exercise direct JSON and Streamable pub/sub helpers.
   --pubsub-event JSON_OBJECT        Event kwargs for --pubsub-topic.
   --dry-run                         Validate options without HTTP requests.
