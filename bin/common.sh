@@ -531,6 +531,48 @@ run_router_hosted_mcp_example_smoke() {
     return 1
   fi
 
+  local malformed_tool_arguments_output
+  if malformed_tool_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --tool example.task.lookup \
+    --tool-arguments '{' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted malformed tool arguments JSON.\n'
+    return 1
+  fi
+  if [[ "$malformed_tool_arguments_output" != *'--tool-arguments must be valid JSON.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the malformed tool arguments error.\n'
+    return 1
+  fi
+
+  local array_pubsub_event_output
+  if array_pubsub_event_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --pubsub-topic example.events.task \
+    --pubsub-event '[]' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a non-object pub/sub event.\n'
+    return 1
+  fi
+  if [[ "$array_pubsub_event_output" != *'--pubsub-event must be a JSON object.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the non-object pub/sub event error.\n'
+    return 1
+  fi
+
+  local non_string_prompt_arguments_output
+  if non_string_prompt_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --prompt summarize-task \
+    --prompt-arguments '{"taskId":123}' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted non-string prompt arguments.\n'
+    return 1
+  fi
+  if [[ "$non_string_prompt_arguments_output" != *'--prompt-arguments values must be strings.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the non-string prompt arguments error.\n'
+    return 1
+  fi
+
   run_public_router_hosted_mcp_client_live_smoke
 }
 

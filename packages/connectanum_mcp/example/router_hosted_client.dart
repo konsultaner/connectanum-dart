@@ -989,7 +989,12 @@ McpJsonMap _jsonObjectOption(
   if (value == null) {
     return defaultValue;
   }
-  final decoded = jsonDecode(value);
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(value);
+  } on FormatException {
+    throw FormatException('$option must be valid JSON.');
+  }
   if (decoded is! Map) {
     throw FormatException('$option must be a JSON object.');
   }

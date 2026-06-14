@@ -125,6 +125,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "_bearerTokenOption",
             "_containsMcpWhitespaceOrControl",
             "Bearer token must not contain whitespace or control characters.",
+            "_jsonObjectOption",
+            "_jsonStringMapOption",
+            "must be valid JSON.",
+            "must be a JSON object.",
+            "values must be strings.",
             "defaultProtocolVersion: options.protocolVersion",
             "'protocolVersion': options.protocolVersion",
             "listConnectanumToolsDirect",
@@ -302,6 +307,36 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("Use --pubsub-event together with --pubsub-topic.", body)
         self.assertIn(
             "did not report the dangling pub/sub event error",
+            body,
+        )
+        self.assertIn("malformed_tool_arguments_output=\"$(", body)
+        self.assertIn(
+            "accepted malformed tool arguments JSON",
+            body,
+        )
+        self.assertIn("--tool-arguments must be valid JSON.", body)
+        self.assertIn(
+            "did not report the malformed tool arguments error",
+            body,
+        )
+        self.assertIn("array_pubsub_event_output=\"$(", body)
+        self.assertIn(
+            "accepted a non-object pub/sub event",
+            body,
+        )
+        self.assertIn("--pubsub-event must be a JSON object.", body)
+        self.assertIn(
+            "did not report the non-object pub/sub event error",
+            body,
+        )
+        self.assertIn("non_string_prompt_arguments_output=\"$(", body)
+        self.assertIn(
+            "accepted non-string prompt arguments",
+            body,
+        )
+        self.assertIn("--prompt-arguments values must be strings.", body)
+        self.assertIn(
+            "did not report the non-string prompt arguments error",
             body,
         )
 

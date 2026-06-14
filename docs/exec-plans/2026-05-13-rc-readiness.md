@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-14: Hardened the public router-hosted MCP client example's JSON
+  option dry-run boundary. `_jsonObjectOption` now wraps malformed JSON as
+  `$option must be valid JSON.`, still rejects non-object values as
+  `$option must be a JSON object.`, and `_jsonStringMapOption` still rejects
+  non-string prompt argument values as `$option values must be strings.` before
+  any HTTP request or dry-run success summary can be produced. `bin/common.sh`
+  now negative-tests malformed `--tool-arguments`, non-object
+  `--pubsub-event`, and non-string `--prompt-arguments` dry-runs before live
+  router work, and `tool/test_mcp_consumer_package_boundary.py` guards the
+  parser helpers, diagnostic templates, and fast-smoke failure strings.
+  Baseline `bin/test-fast` passed before the change on 2026-06-14. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, direct invalid
+  `--tool-arguments '{' --dry-run` coverage, direct invalid
+  `--pubsub-event '[]' --dry-run` coverage, direct invalid
+  `--prompt-arguments '{"taskId":123}' --dry-run` coverage, and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-14. Full local `bin/verify` passed on 2026-06-14,
+  including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  ticket-authenticated Streamable, bearer-token Streamable,
+  ticket-authenticated JSON-response, and bearer-token JSON-response
+  public-client examples, the installed CLI consumer smoke, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence remains clean at `75ae952` until this branch change is
+  pushed; RC release-policy blockers are unchanged.
+
 - 2026-06-14: Hardened the public router-hosted MCP client example's
   bearer-token dry-run boundary. The example now validates `--bearer-token`
   during `_Options.parse`, trims surrounding whitespace like
@@ -107,8 +137,21 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence remains clean at `5f138d0` until this branch change is
-  pushed; RC release-policy blockers are unchanged.
+  Hosted evidence is clean at `75ae952`: GitHub `master` CI `27500182995`
+  passed with `Fast Checks` 6m02s and `Full Verify` 8m11s clean, GitHub
+  `add-router` CI `27500182984` also passed at `75ae952`, GitHub `master`
+  Dart Package Publish Dry Run `27500183005` passed at `75ae952`, and GitHub
+  `add-router` Dart Package Publish Dry Run `27500182981` also passed at
+  `75ae952`. The strict deployment-chain audit exited successfully on
+  2026-06-14 with clean latest CI logs and Dart package publish dry-run at
+  `75ae952`, relevant Native Artifacts dry-run `26396437881` at `debd545`,
+  relevant Router Image dry-run `27466352428` at `9a74569`, relevant WAMP
+  Profile Benchmarks `27281215258` at `06a56bb`, branch protection, workflow
+  visibility, and router image package visibility gates ready. RC
+  release-policy blockers are unchanged: no numeric RC tag points at
+  `75ae952`, `v0.1.0-rc.1` still points at stale commit `47bbf9c`, no GitHub
+  prerelease or router image RC tag is selected for `75ae952`, and
+  pub.dev package ownership/version/release-order decisions remain deferred.
 
 - 2026-06-14: Hardened the public router-hosted MCP client example's
   Streamable HTTP protocol-version boundary. The example now validates
