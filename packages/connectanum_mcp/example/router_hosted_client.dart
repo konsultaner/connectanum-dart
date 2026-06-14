@@ -353,6 +353,63 @@ Future<void> _runStreamableSessionExample(
     );
   }
 
+  final pubsubTopic = options.pubsubTopic;
+  if (pubsubTopic != null) {
+    final subscription = await client.subscribeWampTopic(
+      pubsubTopic,
+      id: 'streamable-pubsub-subscribe',
+      queueLimit: 10,
+    );
+
+    try {
+      final publication = await client.publishWampEvent(
+        pubsubTopic,
+        id: 'streamable-pubsub-publish',
+        argumentsKeywords: options.pubsubEvent,
+        acknowledge: true,
+      );
+      final events = await client.pollWampEvents(
+        subscription.handle,
+        id: 'streamable-pubsub-poll',
+        limit: 10,
+      );
+      final observed = events.events.any(
+        (event) =>
+            _jsonValueEquals(event['argumentsKeywords'], options.pubsubEvent),
+      );
+      if (!observed) {
+        throw StateError(
+          'Published event was not observed on Streamable pub/sub topic '
+          '$pubsubTopic.',
+        );
+      }
+      streamable['pubsub'] = <String, Object?>{
+        'topic': pubsubTopic,
+        'subscription': <String, Object?>{
+          'handle': subscription.handle,
+          'topic': subscription.topic,
+          'queueLimit': subscription.queueLimit,
+          if (subscription.subscriptionId != null)
+            'subscriptionId': subscription.subscriptionId,
+        },
+        'publication': <String, Object?>{
+          'topic': publication.topic,
+          'acknowledged': publication.acknowledged,
+          if (publication.publicationId != null)
+            'publicationId': publication.publicationId,
+        },
+        'events': events.events,
+        'dropped': events.dropped,
+        'remaining': events.remaining,
+      };
+    } finally {
+      await client.unsubscribeWampTopic(
+        subscription.handle,
+        id: 'streamable-pubsub-unsubscribe',
+      );
+    }
+  }
+
   stdout.writeln(jsonEncode({'streamable': streamable}));
 }
 
@@ -608,7 +665,7 @@ Options:
   --prompt-arguments JSON_OBJECT    String arguments for --prompt.
   --wamp-procedure URI              Describe and match this WAMP procedure through direct JSON.
   --wamp-topic URI                  Describe this WAMP topic through direct JSON.
-  --pubsub-topic TOPIC              Exercise direct JSON pub/sub helpers.
+  --pubsub-topic TOPIC              Exercise direct JSON and Streamable pub/sub helpers.
   --pubsub-event JSON_OBJECT        Event kwargs for --pubsub-topic.
   --dry-run                         Validate options without HTTP requests.
 ''');
