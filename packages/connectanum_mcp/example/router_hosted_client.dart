@@ -327,6 +327,15 @@ Future<void> _runStreamableSessionExample(
     'tools': [for (final tool in tools.tools) tool['name']],
   };
 
+  final toolName = options.toolName;
+  if (toolName != null) {
+    streamable['toolResult'] = await client.callTool(
+      toolName,
+      id: 'streamable-tool-call',
+      arguments: options.toolArguments,
+    );
+  }
+
   final resourceUri = options.resourceUri;
   if (resourceUri != null) {
     streamable['resourceContent'] = await client.readResource(
