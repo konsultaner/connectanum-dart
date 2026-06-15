@@ -1968,12 +1968,29 @@ class _RouterMcpEndpoint {
       return null;
     }
     final rawMethod = rawMessage['method'];
-    if (rawMethod is! String || !_isDirectJsonMethod(rawMethod)) {
+    if (rawMethod is! String) {
       return null;
     }
 
     final isNotification = !rawMessage.containsKey('id');
     final recoveredId = _recoverDirectJsonRequestId(rawMessage);
+    if (containsMcpWhitespaceOrControl(rawMethod)) {
+      if (isNotification) {
+        return const _DirectJsonMessageResponse(null);
+      }
+      return _DirectJsonMessageResponse(
+        mcp.JsonRpcResponse.error(
+          recoveredId,
+          mcp.McpException(
+            mcp.McpErrorCodes.invalidRequest,
+            'JSON-RPC method must not contain whitespace or control characters',
+          ),
+        ).toJson(),
+      );
+    }
+    if (!_isDirectJsonMethod(rawMethod)) {
+      return null;
+    }
     try {
       final request = _directJsonRequestFrom(rawMessage);
       final result = await _handleDirectJsonRequest(
@@ -2747,6 +2764,12 @@ _DirectJsonRequest _directJsonRequestFrom(Object? rawMessage) {
     throw mcp.McpException(
       mcp.McpErrorCodes.invalidRequest,
       'JSON-RPC method must be a non-empty string',
+    );
+  }
+  if (containsMcpWhitespaceOrControl(method)) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidRequest,
+      'JSON-RPC method must not contain whitespace or control characters',
     );
   }
   if (message.containsKey('result') || message.containsKey('error')) {

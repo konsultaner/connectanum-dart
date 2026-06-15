@@ -2,11 +2,39 @@
 
 Last updated: 2026-06-15
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP Streamable HTTP clients now reject
-successful non-SSE POST responses unless the response `Content-Type` is
-`application/json`.
-Latest fully clean hosted checkpoint: Commit `36e0a70` on GitHub `master`.
+Last reviewed branch checkpoint: router-hosted MCP direct JSON rejects
+malformed JSON-RPC method strings before unknown-method fallback.
+Latest fully clean hosted checkpoint: Commit `d1320c5` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
+now rejects JSON-RPC request method strings containing whitespace or control
+characters before direct JSON method classification can fall through to the
+generic MCP unknown-method handler. The same validation is preserved inside
+`_directJsonRequestFrom`, keeping direct JSON single requests and mixed batches
+aligned with the public MCP client request validation rule. The router
+integration suite now covers a malformed direct single request returning
+`invalidRequest` (`-32600`) instead of `methodNotFound` (`-32601`), a mixed
+direct JSON batch where the valid neighbor still succeeds while the malformed
+entry returns `invalidRequest`, and standard `Mcp-Method`/`Mcp-Name` optional
+header whitespace on direct JSON helper calls.
+
+Baseline `bin/test-fast` passed before the router method validation change on
+2026-06-15. A focused repro first showed
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n 'hosts MCP over HTTP using the router internal session'`
+returning `-32601` for the malformed method case. After the fix, focused
+`dart format`, `dart analyze packages/connectanum_router`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -n 'hosts MCP over HTTP using the router internal session|smoke tests MCP router RPC pubsub and route security'`,
+`dart test packages/connectanum_client/test/mcp -r expanded`,
+`python3 tool/check_public_artifact_references.py`, and `git diff --check`
+passed on 2026-06-15. Full local `bin/verify` passed on 2026-06-15, including
+formatting, Rust/FFI, Python/tool tests, MCP package smokes, generated
+consumer-package smokes, router-hosted MCP live public/authenticated/bearer and
+JSON-response examples, the installed router CLI consumer smoke, full router
+tests, zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket
+smoke. Hosted evidence for this new local checkpoint is pending; the latest
+fully clean hosted checkpoint remains `d1320c5`.
+
+Previous implementation checkpoint:
 `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart` now
 validates successful non-SSE MCP POST response content type before JSON decode
 or response-session header capture, so direct JSON/Streamable JSON-response
@@ -31,15 +59,29 @@ smokes, the router-hosted MCP live public, ticket-authenticated Streamable,
 bearer-token Streamable, ticket-authenticated JSON-response, and bearer-token
 JSON-response public-client examples, the installed CLI consumer smoke, full
 router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this new local checkpoint is not yet
-available; the latest fully clean hosted checkpoint remains `36e0a70`.
-RC readiness remains gated on release policy: no numeric RC tag points at
-`36e0a70`, the existing `v0.1.0-rc.1` tag still points at stale commit
-`47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if
+WebSocket smoke.
+Commit `d1320c5` (`fix: validate mcp json response content type`) was pushed
+to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence
+is clean at `d1320c5`: GitHub `master` CI `27532050841` and GitHub
+`add-router` CI `27532045778` passed with `Fast Checks` and `Full Verify`
+clean. GitHub `master` Dart Package Publish Dry Run `27532050823` and GitHub
+`add-router` Dart Package Publish Dry Run `27532045702` passed. GitHub
+`master` WAMP Profile Benchmarks `27532050839` and GitHub `add-router` WAMP
+Profile Benchmarks `27532045716` passed. Fresh non-mutating Router Image
+dry-run `27533006293` passed at `d1320c5` with preview metadata
+`sha-d1320c5279a6` and GHCR login skipped. The strict deployment-chain audit
+exited successfully on 2026-06-15 with clean latest CI logs at `d1320c5`,
+Dart package publish dry-run relevance, relevant Native Artifacts dry-run
+`26396437881` at `debd545`, relevant Router Image dry-run `27533006293` at
+`d1320c5`, relevant WAMP Profile Benchmarks `27532050839` at `d1320c5`,
+branch protection, workflow visibility, and router image package visibility
+gates ready. RC readiness remains gated on release policy: no numeric RC tag
+points at `d1320c5`, the existing `v0.1.0-rc.1` tag still points at stale
+commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if
 release policy approves it, no GitHub prerelease or router image RC tag is
-selected for `36e0a70`, and pub.dev package ownership/version/release-order
+selected for `d1320c5`, and pub.dev package ownership/version/release-order
 decisions remain deferred.
-Previous implementation checkpoint:
+Earlier implementation checkpoint:
 `packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
 now validates non-empty `Last-Event-ID` headers on router-hosted MCP
 Streamable HTTP GET polls before calling `ssePollEvents`, returning a

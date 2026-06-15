@@ -962,6 +962,38 @@ void main() {
               .cast<Map>();
       expect(directToolList.map((tool) => tool['name']), contains('app.echo'));
 
+      final directToolsWithHeaderWhitespace = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-tools-list-header-whitespace',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {'Mcp-Method': ' tools/list '},
+      );
+      expect(directToolsWithHeaderWhitespace.statusCode, equals(HttpStatus.ok));
+      expect(directToolsWithHeaderWhitespace.headers['mcp-session-id'], isNull);
+
+      final directInvalidMethod =
+          await _postJson(client, listener.port, '/mcp', {
+            'jsonrpc': '2.0',
+            'id': 'direct-invalid-method',
+            'method': 'tools/list\n',
+            'params': {},
+          });
+      expect(directInvalidMethod.statusCode, equals(HttpStatus.ok));
+      expect(
+        (directInvalidMethod.json?['error'] as Map<String, Object?>)['code'],
+        equals(-32600),
+      );
+      expect(
+        jsonEncode(directInvalidMethod.json?['error']),
+        contains('method must not contain whitespace or control characters'),
+      );
+
       final directToolCall = await _postJson(
         client,
         listener.port,
@@ -986,6 +1018,38 @@ void main() {
       expect(
         jsonEncode(directToolCall.json?['result']),
         contains('direct-standard'),
+      );
+
+      final directToolCallWithHeaderWhitespace = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-tools-call-header-whitespace',
+          'method': 'tools/call',
+          'params': {
+            'name': 'app.echo',
+            'arguments': {'message': 'direct-header-whitespace'},
+          },
+        },
+        headers: {
+          'Mcp-Method': ' tools/call ',
+          'Mcp-Name': ' app.echo ',
+          'Mcp-Param-Message': 'direct-header-whitespace',
+        },
+      );
+      expect(
+        directToolCallWithHeaderWhitespace.statusCode,
+        equals(HttpStatus.ok),
+      );
+      expect(
+        directToolCallWithHeaderWhitespace.headers['mcp-session-id'],
+        isNull,
+      );
+      expect(
+        jsonEncode(directToolCallWithHeaderWhitespace.json?['result']),
+        contains('direct-header-whitespace'),
       );
 
       final directConnectanumToolCall = await _postJson(
@@ -3600,6 +3664,52 @@ void main() {
       expect(
         jsonEncode(directBatchWithErrorResponses[1]['error']),
         contains('Unknown MCP method'),
+      );
+
+      final directBatchWithMalformedMethod = await _postJsonValue(
+        client,
+        listener.port,
+        '/mcp/public',
+        [
+          {
+            'jsonrpc': '2.0',
+            'id': 'batch-valid-before-malformed',
+            'method': 'connectanum.api.list',
+            'params': {'kind': 'procedure'},
+          },
+          {
+            'jsonrpc': '2.0',
+            'id': 'batch-malformed-method',
+            'method': 'tools/list\n',
+            'params': {},
+          },
+        ],
+      );
+      expect(directBatchWithMalformedMethod.statusCode, equals(HttpStatus.ok));
+      expect(directBatchWithMalformedMethod.json, isA<List<Object?>>());
+      final directBatchWithMalformedMethodResponses =
+          (directBatchWithMalformedMethod.json as List)
+              .cast<Map<String, Object?>>();
+      expect(directBatchWithMalformedMethodResponses, hasLength(2));
+      expect(
+        directBatchWithMalformedMethodResponses[0]['id'],
+        equals('batch-valid-before-malformed'),
+      );
+      expect(
+        jsonEncode(directBatchWithMalformedMethodResponses[0]['result']),
+        contains('app.safe.lookup'),
+      );
+      expect(
+        directBatchWithMalformedMethodResponses[1]['id'],
+        equals('batch-malformed-method'),
+      );
+      expect(
+        (directBatchWithMalformedMethodResponses[1]['error'] as Map)['code'],
+        equals(-32600),
+      );
+      expect(
+        jsonEncode(directBatchWithMalformedMethodResponses[1]['error']),
+        contains('method must not contain whitespace or control characters'),
       );
 
       final directDuplicateBatchId = await _postJsonValue(

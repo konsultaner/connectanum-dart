@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-15: Hardened router-hosted MCP direct JSON method validation for
+  downstream application and agent callers.
+  `packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
+  now rejects JSON-RPC request method strings containing whitespace or control
+  characters before direct JSON method classification can fall through to the
+  generic MCP unknown-method handler. The parser-level
+  `_directJsonRequestFrom` invariant uses the same validation, so direct JSON
+  single requests and mixed batches stay aligned with the public MCP client
+  request validation rule. The router integration suite now covers a malformed
+  direct single request returning `invalidRequest` (`-32600`) instead of
+  `methodNotFound` (`-32601`), a mixed direct JSON batch where the valid
+  neighbor still succeeds while the malformed entry returns `invalidRequest`,
+  and standard `Mcp-Method`/`Mcp-Name` optional header whitespace on direct JSON
+  helper calls. Baseline `bin/test-fast` passed before the router method
+  validation change on 2026-06-15. A focused repro first showed
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n 'hosts MCP over HTTP using the router internal session'`
+  returning `-32601` for the malformed method case. After the fix, focused
+  `dart format`, `dart analyze packages/connectanum_router`,
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n 'hosts MCP over HTTP using the router internal session|smoke tests MCP router RPC pubsub and route security'`,
+  `dart test packages/connectanum_client/test/mcp -r expanded`,
+  `python3 tool/check_public_artifact_references.py`, and `git diff --check`
+  passed on 2026-06-15. Full local `bin/verify` passed on 2026-06-15,
+  including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+  generated consumer-package smokes, router-hosted MCP live
+  public/authenticated/bearer and JSON-response examples, the installed router
+  CLI consumer smoke, full router tests, zero-copy router tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this new local
+  checkpoint is pending; the latest fully clean hosted checkpoint remains
+  `d1320c5`.
+
 - 2026-06-15: Tightened MCP Streamable HTTP client POST success-body content
   negotiation. `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart`
   now validates successful non-SSE MCP POST response content type before JSON
@@ -104,9 +134,28 @@ decision because `connectanum_client` still depends on private
   bearer-token Streamable, ticket-authenticated JSON-response, and
   bearer-token JSON-response public-client examples, the installed CLI
   consumer smoke, full router tests, zero-copy router tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this local
-  checkpoint is not yet available; the latest fully clean hosted checkpoint
-  remains `36e0a70`.
+  Chrome/Dart2Wasm browser WebSocket smoke.
+  Commit `d1320c5` (`fix: validate mcp json response content type`) was pushed
+  to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence
+  is clean at `d1320c5`: GitHub `master` CI `27532050841` and GitHub
+  `add-router` CI `27532045778` passed with `Fast Checks` and `Full Verify`
+  clean. GitHub `master` Dart Package Publish Dry Run `27532050823` and GitHub
+  `add-router` Dart Package Publish Dry Run `27532045702` passed. GitHub
+  `master` WAMP Profile Benchmarks `27532050839` and GitHub `add-router` WAMP
+  Profile Benchmarks `27532045716` passed. Fresh non-mutating Router Image
+  dry-run `27533006293` passed at `d1320c5` with preview metadata
+  `sha-d1320c5279a6` and GHCR login skipped. The strict deployment-chain audit
+  exited successfully on 2026-06-15 with clean latest CI logs at `d1320c5`,
+  Dart package publish dry-run relevance, relevant Native Artifacts dry-run
+  `26396437881` at `debd545`, relevant Router Image dry-run `27533006293` at
+  `d1320c5`, relevant WAMP Profile Benchmarks `27532050839` at `d1320c5`,
+  branch protection, workflow visibility, and router image package visibility
+  gates ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `d1320c5`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if
+  release policy approves it, no GitHub prerelease or router image RC tag is
+  selected for `d1320c5`, and pub.dev package ownership/version/release-order
+  decisions remain deferred.
 
 - 2026-06-15: Added router-hosted MCP `Last-Event-ID` resume-header
   validation before Streamable HTTP event-history lookup.
@@ -8226,34 +8275,31 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The current local implementation checkpoint hardens public MCP
-Streamable HTTP/direct JSON tool helpers so malformed tool names are rejected
-before consumer applications send malformed router-hosted MCP tool params or
-`Mcp-Name`/`Mcp-Param-*` metadata.
+Active. The current local implementation checkpoint hardens router-hosted MCP
+direct JSON ingress so malformed JSON-RPC method strings containing whitespace
+or control characters return `invalidRequest` before the generic unknown-method
+fallback. This keeps non-Dart downstream application and agent callers aligned
+with the public `McpStreamableHttpClient` request validation rule and preserves
+direct JSON batch error isolation.
 
-Local evidence for this checkpoint: original baseline `bin/test-fast` reached
-the router-hosted MCP example smoke and failed only because an unrelated local
-bridge held the native runtime lock; the failed example smoke passed when rerun
-with an isolated temp directory outside the repo. Focused
-`McpStreamableHttpClient` tool-name validation regressions, `dart format`,
-targeted `dart analyze`,
-`dart test packages/connectanum_client/test/mcp -r expanded`, and
-`git diff --check` passed on 2026-05-29. After clearing a stale local
-automation runlock from a dead process, fresh `bin/test-fast` and full local
-`bin/verify` passed on 2026-06-08.
+Local evidence for this checkpoint: baseline `bin/test-fast` passed before the
+router method validation change on 2026-06-15. A focused repro first showed the
+malformed direct method case returning `-32601`; after the fix, focused
+`dart analyze packages/connectanum_router`, router integration regressions,
+`dart test packages/connectanum_client/test/mcp -r expanded`,
+`python3 tool/check_public_artifact_references.py`, `git diff --check`, and
+full local `bin/verify` passed on 2026-06-15.
 
-The latest fully clean hosted checkpoint remains `598d8ff`: GitHub CI
-`26526340647` passed with Fast Checks and Full Verify, non-mutating Router
-Image dry-run `26526364040` passed with clean check annotations and preview
-metadata `validation-598d8ff`, and the strict `master` deployment-chain audit
-passed required gates using current CI/router-image evidence plus still
-relevant Dart package publish dry-run, WAMP profile benchmark, and native
-release dry-run evidence. Hosted evidence for the current local MCP tool-name
-validation checkpoint is pending.
+The latest fully clean hosted checkpoint remains `d1320c5`: GitHub `master` CI
+`27532050841`, GitHub `add-router` CI `27532045778`, Dart Package Publish Dry
+Run jobs `27532050823` and `27532045702`, WAMP Profile Benchmarks
+`27532050839` and `27532045716`, non-mutating Router Image dry-run
+`27533006293`, and the strict deployment-chain audit all passed for that
+checkpoint. Hosted evidence for the current local router method-validation
+checkpoint is pending until the implementation commit is pushed.
 
 RC readiness remains not-ready because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for `598d8ff`.
-The audit suggests `v0.1.0-rc.2` as the next numeric tag if release
-approval is given. Pub.dev publishing remains deferred for release-order and
-operator decisions. No RC tag, GitHub Release, or router image was created or
-moved.
+prerelease, or matching RC router image tag has been selected for `d1320c5`.
+The audit suggests `v0.1.0-rc.2` as the next numeric tag if release approval is
+given. Pub.dev publishing remains deferred for release-order and operator
+decisions. No RC tag, GitHub Release, or router image was created or moved.
