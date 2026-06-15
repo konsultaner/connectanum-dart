@@ -2,11 +2,34 @@
 
 Last updated: 2026-06-15
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP HTTP auth grant realm/auth-id selectors
-now reject whitespace/control characters before client or public-example
-requests.
-Latest fully clean hosted checkpoint: Commit `3800678` on GitHub `master`.
+Last reviewed branch checkpoint: MCP Streamable HTTP client stored
+Last-Event-ID resume cursors now have focused fail-fast regression coverage
+before any poll request is sent.
+Latest fully clean hosted checkpoint: Commit `134893b` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_client/test/mcp/streamable_http_client_test.dart` now
+extends the outgoing `Last-Event-ID` validation regression to cover an invalid
+stored `McpStreamableHttpClient.lastEventId` used implicitly by `poll()`.
+No production code changed; the existing `_applyHeaders` path already validates
+the effective resume cursor before sending a Streamable HTTP GET/SSE poll.
+The regression asserts the client throws the same invalid header
+`FormatException`, preserves the stored session/cursor values, and does not add
+a second fake endpoint request after initialization.
+Baseline `bin/test-fast` passed before the stored cursor coverage change on
+2026-06-15. Focused
+`dart format packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --name 'rejects invalid outgoing Last-Event-ID poll values'`,
+and focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`
+passed on 2026-06-15. Full local `bin/verify` passed on 2026-06-15 after the
+stored cursor coverage change, including formatting, Rust/FFI, Python/tool
+tests, MCP package smokes, generated consumer-package smokes, the
+router-hosted MCP live public, ticket-authenticated Streamable, bearer-token
+Streamable, ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Previous implementation checkpoint:
 `packages/connectanum_client/lib/src/mcp/http_auth_client.dart` now rejects
 MCP whitespace/control characters in HTTP auth grant `realm` and `authId`
 values before posting a router-hosted auth challenge request, while preserving
@@ -43,7 +66,27 @@ router-hosted MCP live public, ticket-authenticated Streamable, bearer-token
 Streamable, ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Previous implementation checkpoint:
+Commit `134893b` (`test: validate mcp auth selectors`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is clean
+at `134893b`: GitHub `master` CI `27523931763` and GitHub `add-router` CI
+`27523931023` passed with `Fast Checks` and `Full Verify` clean. GitHub
+`master` Dart Package Publish Dry Run `27523931784` and GitHub `add-router`
+Dart Package Publish Dry Run `27523931002` passed with zero warnings. GitHub
+`master` WAMP Profile Benchmarks `27523931782` and GitHub `add-router` WAMP
+Profile Benchmarks `27523931017` passed. Fresh non-mutating Router Image
+dry-run `27524533360` passed at `134893b` with preview metadata
+`sha-134893b91aa1` and GHCR login skipped. The strict deployment-chain audit
+exited successfully on 2026-06-15 with clean latest CI logs at `134893b`, Dart
+package publish dry-run relevance, relevant Native Artifacts dry-run
+`26396437881` at `debd545`, relevant Router Image dry-run `27524533360` at
+`134893b`, relevant WAMP Profile Benchmarks `27523931782` at `134893b`,
+branch protection, workflow visibility, and router image package visibility
+gates ready. RC readiness remains gated on release policy: no numeric RC tag
+points at `134893b`, the existing `v0.1.0-rc.1` tag still points at stale
+commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+`134893b`, and pub.dev package ownership/version/release-order decisions
+remain deferred.
+Earlier implementation checkpoint:
 `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart` now
 requires MCP resource reads to use absolute URIs with a scheme and rejects MCP
 resource URIs and prompt names containing whitespace/control characters before

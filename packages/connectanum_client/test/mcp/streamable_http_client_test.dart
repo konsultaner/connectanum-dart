@@ -2083,6 +2083,22 @@ void main() {
       expect(client.lastEventId, 'session-1:get:kept-outgoing-invalid-id');
       expect(endpoint.requests, hasLength(1));
       expect(endpoint.requests.last.method, 'POST');
+
+      client.lastEventId = 'bad\u0000stored-id';
+      await expectLater(
+        client.poll(),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('Last-Event-ID header value contains invalid characters'),
+          ),
+        ),
+      );
+
+      expect(client.sessionId, 'session-1');
+      expect(client.lastEventId, 'bad\u0000stored-id');
+      expect(endpoint.requests, hasLength(1));
     });
 
     test('rejects invalid outgoing MCP-Session-Id values', () async {
