@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:connectanum_core/connectanum_core.dart'
+    show containsMcpWhitespaceOrControl;
+
 import 'http_auth_client.dart';
-import 'text_validation.dart';
 
 typedef McpJsonMap = Map<String, Object?>;
 

@@ -105,6 +105,28 @@ void main() {
       expect(error['code'], McpErrorCodes.methodNotFound);
     });
 
+    test(
+      'rejects JSON-RPC methods containing whitespace or control characters',
+      () async {
+        final server = _server();
+        await _initializeAndStart(server);
+
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'bad-method-whitespace',
+          'method': 'tools/list\n',
+        });
+
+        final error = response?['error'] as Map<String, Object?>;
+        expect(response?['id'], 'bad-method-whitespace');
+        expect(error['code'], McpErrorCodes.invalidRequest);
+        expect(
+          error['message'],
+          contains('method must not contain whitespace or control characters'),
+        );
+      },
+    );
+
     test('malformed requests return invalid-request errors', () async {
       final server = _server();
 

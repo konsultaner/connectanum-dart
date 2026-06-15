@@ -1,5 +1,7 @@
+import 'package:connectanum_core/connectanum_core.dart'
+    show containsMcpWhitespaceOrControl;
+
 import 'streamable_http_client.dart';
-import 'text_validation.dart';
 
 const _apiListTool = 'connectanum.api.list';
 const _apiDescribeTool = 'connectanum.api.describe';

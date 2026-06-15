@@ -38,6 +38,7 @@ import 'package:connectanum_core/connectanum_core.dart'
         PayloadMapDecoder,
         ResultPayload,
         UnknownMessage,
+        containsMcpWhitespaceOrControl,
         Welcome;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:connectanum_core/src/message/abort.dart' as abort_msg;
@@ -74,8 +75,6 @@ import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
     as msgpack_serializer;
-import 'package:connectanum_client/src/mcp/text_validation.dart'
-    show containsMcpWhitespaceOrControl;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import 'package:connectanum_mcp/connectanum_mcp.dart' as mcp;
 import 'package:meta/meta.dart';

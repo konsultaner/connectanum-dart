@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:connectanum_core/connectanum_core.dart'
+    show containsMcpWhitespaceOrControl;
+
 import '../protocol/capabilities.dart';
 import '../protocol/constants.dart';
 import '../protocol/errors.dart';
@@ -402,6 +405,12 @@ _ParsedJsonRpcRequest _requestFrom(Object? rawMessage) {
     throw McpException(
       McpErrorCodes.invalidRequest,
       'JSON-RPC method must be a non-empty string',
+    );
+  }
+  if (containsMcpWhitespaceOrControl(method)) {
+    throw McpException(
+      McpErrorCodes.invalidRequest,
+      'JSON-RPC method must not contain whitespace or control characters',
     );
   }
   if (message.containsKey('result') || message.containsKey('error')) {

@@ -3,8 +3,6 @@ import 'dart:io';
 
 import 'package:connectanum_core/connectanum_core.dart';
 
-import 'text_validation.dart';
-
 /// Dart IO client for Connectanum router HTTP auth bridge endpoints.
 ///
 /// The router auth bridge exposes WAMP challenge/response authenticators over a
