@@ -139,6 +139,20 @@ bool _mcpSessionIdHeaderValueValid(String value) {
   return value.isNotEmpty;
 }
 
+bool _mcpLastEventIdHeaderValueValid(String value) {
+  return mcpLastEventIdHeaderValueValidForTest(value);
+}
+
+@visibleForTesting
+bool mcpLastEventIdHeaderValueValidForTest(String value) {
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit < 0x20 || codeUnit == 0x7f) {
+      return false;
+    }
+  }
+  return true;
+}
+
 String? _mcpHeaderValueRaw(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -1275,6 +1289,21 @@ Future<void> _handleMcpHttpRequestForBinding(
       request,
       _mcpLastEventIdHeader,
     );
+    if (lastEventId != null && !_mcpLastEventIdHeaderValueValid(lastEventId)) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.badRequest,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'Invalid Last-Event-ID header',
+          sessionId: mcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        ),
+      );
+      return;
+    }
     final _RouterMcpSsePollBatch pollBatch;
     try {
       pollBatch = endpoint.ssePollEvents(

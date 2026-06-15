@@ -622,5 +622,13 @@ void main() {
         );
       }
     });
+
+    test('validates MCP Last-Event-ID header values', () {
+      expect(mcpLastEventIdHeaderValueValidForTest('session:post:1'), isTrue);
+      expect(mcpLastEventIdHeaderValueValidForTest('session post 1'), isTrue);
+      expect(mcpLastEventIdHeaderValueValidForTest('bad\u0000cursor'), isFalse);
+      expect(mcpLastEventIdHeaderValueValidForTest('bad\u001fcursor'), isFalse);
+      expect(mcpLastEventIdHeaderValueValidForTest('bad\u007fcursor'), isFalse);
+    });
   });
 }
