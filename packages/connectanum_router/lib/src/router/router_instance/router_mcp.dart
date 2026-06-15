@@ -54,13 +54,16 @@ Map<String, String> _mcpCorsResponseHeaders(
     request,
     _mcpCorsRequestHeadersHeader,
   )?.trim();
+  final reflectsRequestHeaders =
+      preflight && requestHeaders != null && requestHeaders.isNotEmpty;
+  final varyHeaders = <String>[
+    if (allowOrigin != '*') 'Origin',
+    if (reflectsRequestHeaders) _mcpCorsRequestHeadersHeader,
+  ];
   return <String, String>{
     _mcpCorsAllowOriginHeader: allowOrigin,
     _mcpCorsExposeHeadersHeader: _mcpCorsExposeHeaders,
-    if (allowOrigin != '*')
-      HttpHeaders.varyHeader: preflight
-          ? 'Origin, Access-Control-Request-Headers'
-          : 'Origin',
+    if (varyHeaders.isNotEmpty) HttpHeaders.varyHeader: varyHeaders.join(', '),
     if (preflight) ...<String, String>{
       _mcpCorsAllowMethodsHeader: _mcpCorsAllowMethods,
       _mcpCorsAllowHeadersHeader:

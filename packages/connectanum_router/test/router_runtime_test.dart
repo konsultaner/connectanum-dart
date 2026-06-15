@@ -3658,6 +3658,90 @@ void main() {
     );
   });
 
+  test('MCP wildcard CORS preflights vary by requested headers', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    options: <String, Object?>{
+                      'allowed_origins': ['*'],
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    runtime.setConnectionProtocol(52, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      52,
+      NativeHttpHandshake.synthetic(
+        handle: 11,
+        method: 'OPTIONS',
+        target: '/mcp',
+        path: '/mcp',
+        protocol: 'http/1.1',
+        headers: const {
+          'origin': 'https://consumer.example',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers':
+              'Authorization, Content-Type, Mcp-Method, Mcp-Name, '
+              'MCP-Protocol-Version, MCP-Session-Id',
+        },
+        body: Uint8List(0),
+        realm: 'router.http',
+        procedure: 'router.http.mcp',
+      ),
+    );
+
+    await _waitUntil(
+      () => runtime.httpResponses[52]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final response = runtime.httpResponses[52]!.single;
+    expect(response.status, HttpStatus.noContent);
+    expect(response.headers['Access-Control-Allow-Origin'], '*');
+    expect(
+      response.headers['Access-Control-Allow-Headers'],
+      'Authorization, Content-Type, Mcp-Method, Mcp-Name, '
+      'MCP-Protocol-Version, MCP-Session-Id',
+    );
+    expect(
+      response.headers[HttpHeaders.varyHeader],
+      'Access-Control-Request-Headers',
+    );
+  });
+
   test('rate limited MCP routes allow Streamable DELETE cleanup', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()
