@@ -3245,14 +3245,19 @@ void main() {
           );
         }
 
-        await expectLater(
-          client.getPrompt('', id: 'invalid-prompt-name'),
-          throwsArgumentError,
-        );
-        await expectLater(
-          client.getPromptDirect('', id: 'invalid-prompt-name-direct'),
-          throwsArgumentError,
-        );
+        for (final promptName in const ['', 'bad prompt', 'bad\nprompt']) {
+          await expectLater(
+            client.getPrompt(promptName, id: 'invalid-prompt-name'),
+            throwsArgumentError,
+          );
+          await expectLater(
+            client.getPromptDirect(
+              promptName,
+              id: 'invalid-prompt-name-direct',
+            ),
+            throwsArgumentError,
+          );
+        }
 
         expect(endpoint.requests, isEmpty);
       },

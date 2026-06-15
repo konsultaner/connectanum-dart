@@ -466,6 +466,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "did not report the resource URI whitespace error",
             body,
         )
+        self.assertIn("invalid_prompt_name_output=\"$(", body)
+        self.assertIn(
+            "accepted an invalid prompt name",
+            body,
+        )
+        self.assertIn(
+            "--prompt must not contain whitespace or control characters.",
+            body,
+        )
+        self.assertIn(
+            "did not report the invalid prompt name error",
+            body,
+        )
         self.assertIn("invalid_wamp_topic_output=\"$(", body)
         self.assertIn(
             "accepted an invalid WAMP topic",

@@ -58,6 +58,14 @@ String _validatedMcpResourceUri(String value, String name) {
 }
 
 String _validatedMcpPromptName(String value, String name) {
+  if (containsMcpWhitespaceOrControl(value)) {
+    throw ArgumentError.value(
+      value,
+      name,
+      'MCP prompt name must not contain whitespace or control characters.',
+    );
+  }
+
   if (value.isNotEmpty) {
     return value;
   }

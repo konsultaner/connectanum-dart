@@ -815,7 +815,7 @@ final class _Options {
         const <String, Object?>{},
       ),
       resourceUri: _mcpResourceUriOption(values, '--resource-uri'),
-      promptName: _nonEmptyStringOption(values, '--prompt'),
+      promptName: _mcpSelectorOption(values, '--prompt'),
       promptArguments: _jsonStringMapOption(
         values,
         '--prompt-arguments',

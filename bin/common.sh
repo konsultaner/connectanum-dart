@@ -657,6 +657,19 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local invalid_prompt_name_output
+  if invalid_prompt_name_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --prompt 'bad prompt' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an invalid prompt name.\n'
+    return 1
+  fi
+  if [[ "$invalid_prompt_name_output" != *'--prompt must not contain whitespace or control characters.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the invalid prompt name error.\n'
+    return 1
+  fi
+
   local invalid_wamp_topic_output
   if invalid_wamp_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \
