@@ -385,6 +385,17 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local pubsub_only_dry_run_summary
+  pubsub_only_dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-pubsub-only-example-dry-run","status":"open"}' \
+    --dry-run)"
+  if [[ "$pubsub_only_dry_run_summary" != *'"subscriptionMetadata":true'* ]]; then
+    printf 'Public router-hosted MCP client pub/sub-only dry-run did not report subscription metadata lookup.\n'
+    return 1
+  fi
+
   local unknown_option_output
   if unknown_option_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \

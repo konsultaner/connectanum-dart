@@ -248,6 +248,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dry_run_summary=\"$(", body)
         self.assertIn('"authMode":"none"', body)
         self.assertIn('"protocolVersion":"2025-06-18"', body)
+        self.assertIn("pubsub_only_dry_run_summary=\"$(", body)
+        self.assertIn("T-pubsub-only-example-dry-run", body)
+        self.assertIn('"subscriptionMetadata":true', body)
+        self.assertIn(
+            "pub/sub-only dry-run did not report subscription metadata lookup",
+            body,
+        )
         self.assertIn("unknown_option_output=\"$(", body)
         self.assertIn(
             "accepted an unknown option",

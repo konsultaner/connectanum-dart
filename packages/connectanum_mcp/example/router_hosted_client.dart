@@ -121,7 +121,11 @@ void _printDryRunSummary(IOSink sink, _Options options) {
       if (options.wampProcedure != null) 'wampProcedure': options.wampProcedure,
       if (options.wampTopic != null) 'wampTopic': options.wampTopic,
       if (options.pubsubTopic != null)
-        'pubsub': {'topic': options.pubsubTopic, 'event': options.pubsubEvent},
+        'pubsub': {
+          'topic': options.pubsubTopic,
+          'event': options.pubsubEvent,
+          'subscriptionMetadata': true,
+        },
     }),
   );
 }

@@ -3,37 +3,34 @@
 Last updated: 2026-06-15
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-proves pub/sub-only consumer usage without requiring a separate WAMP metadata
-selector.
-Latest fully clean hosted checkpoint: Commit `77f22c0` on GitHub `master`.
+proves pub/sub-only consumer usage in both live execution and dry-run planning
+without requiring a separate WAMP metadata selector.
+Latest fully clean hosted checkpoint: Commit `415c76f` on GitHub `master`.
 Current implementation checkpoint:
-`packages/connectanum_mcp/example/router_hosted_client.dart` now resolves WAMP
-subscription metadata whenever `--pubsub-topic` is used, in both direct JSON
-and Streamable HTTP pub/sub paths. A downstream application or agent can now
-exercise router-hosted pub/sub metadata by passing only `--pubsub-topic` and an
-optional `--pubsub-event`, instead of also knowing to pass a matching
-`--wamp-topic`. `bin/common.sh` adds a public live smoke that runs the example
-client with only `--pubsub-topic`/`--pubsub-event`, and
-`tool/test_mcp_consumer_package_boundary.py` keeps that public smoke from
-dropping out of the fast gate.
+`packages/connectanum_mcp/example/router_hosted_client.dart` now reports
+`"subscriptionMetadata":true` in dry-run output whenever `--pubsub-topic` is
+used. This makes pub/sub-only downstream application and agent setup
+self-describing before a router is running, matching the live direct JSON and
+Streamable HTTP paths that resolve WAMP subscription metadata without requiring
+a separate matching `--wamp-topic`. `bin/common.sh` adds a pub/sub-only dry-run
+smoke assertion, and `tool/test_mcp_consumer_package_boundary.py` keeps that
+public contract in the fast boundary guard.
 
-Baseline `bin/test-fast` passed before this MCP pub/sub-only example
-readiness change on 2026-06-15. Focused
-`python3 -m unittest tool/test_mcp_consumer_package_boundary.py` and
-`bash -lc 'source bin/common.sh && run_router_hosted_mcp_example_smoke'`
-passed on 2026-06-15; the focused live smoke printed the new `Pub/sub-only
-router-hosted MCP client live smoke completed.` milestone. Full local
-`bin/verify` passed on 2026-06-15, including the router-hosted MCP live
-examples with the new pub/sub-only public client invocation, generated
-consumer-package smokes, installed router CLI consumer smoke, router runtime
-tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence is still latest-known-clean at `77f22c0` until this checkpoint
-is committed, pushed, and the GitHub deployment chain reports on the new head.
-RC readiness remains gated on release policy: no numeric RC tag points at
-`77f22c0`, the existing `v0.1.0-rc.1` tag still points at stale commit
-`47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if
-release policy approves it, no GitHub prerelease or router image RC tag is
-selected for `77f22c0`, and pub.dev package ownership/version/release-order
+Baseline `bin/test-fast` passed before this MCP pub/sub-only dry-run readiness
+change on 2026-06-15. Focused
+`python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
+`dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp --pubsub-topic example.events.task --pubsub-event '{"taskId":"T-pubsub-only-example-dry-run","status":"open"}' --dry-run`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`
+passed on 2026-06-15. Full local `bin/verify` passed on 2026-06-15, including
+the router-hosted MCP live examples with the pub/sub-only public client
+invocation, generated consumer-package smokes, installed router CLI consumer
+smoke, router runtime tests, zero-copy router tests, and Chrome/Dart2Wasm
+browser WebSocket smoke. Hosted evidence remains latest-known-clean at
+`415c76f` until this dry-run checkpoint is committed, pushed, and the GitHub
+deployment chain reports on the new head. RC readiness remains gated on release
+policy: no approved numeric RC tag, GitHub prerelease, or matching router image
+RC tag has been selected, and pub.dev package ownership/version/release-order
 decisions remain deferred.
 
 Previous implementation checkpoint:
@@ -18007,16 +18004,15 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears. The current local checkpoint makes
-  router-hosted Streamable HTTP MCP accept standard clients while still
-  validating request metadata headers when present, extends the generated
-  consumer-package smoke to prove stateful direct Streamable WAMP API and
-  pub/sub method calls, and now proves the public `connectanum_mcp_io.dart`
-  entrypoint can use stateful direct dotted-method batches and authenticated
-  direct JSON tool/meta helpers through exported APIs without leaking
-  Streamable session headers. The latest fully clean hosted checkpoint is
-  `708c827` on GitHub `master`, including CI, package dry-run, WAMP profile
-  benchmark, Router Image dry-run, and strict deployment-chain audit evidence.
+  consumer integration bug appears. The current local checkpoint also makes
+  pub/sub-only dry-run output advertise subscription metadata lookup when only
+  `--pubsub-topic` and an optional `--pubsub-event` are provided, without
+  requiring a separate matching WAMP metadata selector. The latest fully clean
+  hosted checkpoint is `415c76f` on GitHub `master`, including CI, package
+  dry-run, still-relevant WAMP profile benchmark, Router Image dry-run, native
+  artifact dry-run, and strict deployment-chain audit evidence. RC readiness
+  remains blocked only by explicit RC tag/prerelease/router image tag selection
+  and deferred pub.dev release-order/operator decisions.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub
