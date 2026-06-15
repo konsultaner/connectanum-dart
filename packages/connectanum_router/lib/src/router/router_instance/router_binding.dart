@@ -1071,14 +1071,25 @@ class RouterBinding {
     final listenerSettings = _listenerConfigById[request.listenerId];
     final routeMatch = _matchHttpRoute(listenerSettings?.http, request);
     final matchedRoute = routeMatch.route;
+    final responseRoute = matchedRoute ?? routeMatch.errorRoute;
     final sessionProfile = _resolveHttpSessionProfile(
       listenerSettings: listenerSettings,
-      route: matchedRoute,
+      route: responseRoute,
     );
-    final mcpRoute = matchedRoute?.action.type == HttpRouteActionType.mcp
-        ? matchedRoute
+    final mcpRoute = responseRoute?.action.type == HttpRouteActionType.mcp
+        ? responseRoute
         : null;
     final httpMethod = request.method.trim().toUpperCase();
+    final requestMcpProtocolVersion = mcpRoute == null
+        ? null
+        : _mcpHeaderValue(this, request, _mcpProtocolVersionHeader);
+    final responseMcpProtocolVersion =
+        requestMcpProtocolVersion != null &&
+            _mcpSupportedHttpProtocolVersions.contains(
+              requestMcpProtocolVersion,
+            )
+        ? requestMcpProtocolVersion
+        : mcp.mcpLatestProtocolVersion;
     final mcpResponseSessionId = mcpRoute == null
         ? null
         : _mcpResponseSessionIdForRequest(
@@ -1089,39 +1100,75 @@ class RouterBinding {
             sessionId: _mcpHeaderValue(this, request, _mcpSessionIdHeader),
           );
     if (routeMatch.isMethodNotAllowed) {
+      final extraHeaders = <String, String>{
+        HttpHeaders.allowHeader: routeMatch.allowedMethods.join(', '),
+      };
       await _sendImmediateHttpResponse(
         request: request,
         handshake: retainedHandshake,
-        response: NativeHttpResponse(
-          status: HttpStatus.methodNotAllowed,
-          headers: <String, String>{
-            HttpHeaders.allowHeader: routeMatch.allowedMethods.join(', '),
-          },
-          body: NativeHttpResponseJson(const <String, Object?>{
-            'status': 'error',
-            'reason': 'method_not_allowed',
-            'message': 'HTTP method is not allowed for this route',
-          }),
-        ),
+        response: mcpRoute == null
+            ? NativeHttpResponse(
+                status: HttpStatus.methodNotAllowed,
+                headers: extraHeaders,
+                body: NativeHttpResponseJson(const <String, Object?>{
+                  'status': 'error',
+                  'reason': 'method_not_allowed',
+                  'message': 'HTTP method is not allowed for this route',
+                }),
+              )
+            : _mcpJsonRpcHttpError(
+                status: HttpStatus.methodNotAllowed,
+                code: mcp.McpErrorCodes.invalidRequest,
+                message: 'HTTP method is not allowed for this MCP route',
+                sessionId: mcpResponseSessionId,
+                protocolVersion: responseMcpProtocolVersion,
+                extraHeaders: <String, String>{
+                  ...extraHeaders,
+                  ..._mcpCorsResponseHeaders(
+                    this,
+                    request,
+                    mcpRoute,
+                    preflight: _isCorsPreflight(request),
+                  ),
+                },
+              ),
       );
       retainedHandshake?.release();
       return;
     }
     if (routeMatch.isProtocolNotAllowed) {
+      final extraHeaders = <String, String>{
+        HttpHeaders.upgradeHeader: routeMatch.allowedProtocols.join(', '),
+      };
       await _sendImmediateHttpResponse(
         request: request,
         handshake: retainedHandshake,
-        response: NativeHttpResponse(
-          status: HttpStatus.upgradeRequired,
-          headers: <String, String>{
-            HttpHeaders.upgradeHeader: routeMatch.allowedProtocols.join(', '),
-          },
-          body: NativeHttpResponseJson(const <String, Object?>{
-            'status': 'error',
-            'reason': 'protocol_not_allowed',
-            'message': 'HTTP protocol is not allowed for this route',
-          }),
-        ),
+        response: mcpRoute == null
+            ? NativeHttpResponse(
+                status: HttpStatus.upgradeRequired,
+                headers: extraHeaders,
+                body: NativeHttpResponseJson(const <String, Object?>{
+                  'status': 'error',
+                  'reason': 'protocol_not_allowed',
+                  'message': 'HTTP protocol is not allowed for this route',
+                }),
+              )
+            : _mcpJsonRpcHttpError(
+                status: HttpStatus.upgradeRequired,
+                code: mcp.McpErrorCodes.invalidRequest,
+                message: 'HTTP protocol is not allowed for this MCP route',
+                sessionId: mcpResponseSessionId,
+                protocolVersion: responseMcpProtocolVersion,
+                extraHeaders: <String, String>{
+                  ...extraHeaders,
+                  ..._mcpCorsResponseHeaders(
+                    this,
+                    request,
+                    mcpRoute,
+                    preflight: _isCorsPreflight(request),
+                  ),
+                },
+              ),
       );
       retainedHandshake?.release();
       return;
@@ -1206,9 +1253,6 @@ class RouterBinding {
               authPath: _httpAuthPathFor(listenerSettings?.http),
             )
           : const <String, String>{};
-      final mcpRoute = matchedRoute?.action.type == HttpRouteActionType.mcp
-          ? matchedRoute
-          : null;
       final responseHeaders = mcpRoute == null
           ? authHeaders
           : _mcpHttpResponseHeaders(
@@ -1743,11 +1787,14 @@ class RouterBinding {
     }
     final allowedMethods = <String>{};
     final allowedProtocols = <String>{};
+    HttpRouteSettings? methodNotAllowedRoute;
+    HttpRouteSettings? protocolNotAllowedRoute;
     for (final route in httpSettings.routes) {
       if (_httpRouteMatchesRequest(route, request)) {
         return _HttpRouteMatchResult.route(route);
       }
       if (_httpRouteMatchesRequest(route, request, ignoreMethod: true)) {
+        methodNotAllowedRoute ??= route;
         allowedMethods.addAll(_httpRouteAllowedMethods(route));
       }
       if (route.match.protocols.isNotEmpty &&
@@ -1762,17 +1809,24 @@ class RouterBinding {
             .map(_normaliseHttpRouteProtocol)
             .where((protocol) => protocol.isNotEmpty);
         if (!routeProtocols.contains(requestProtocol)) {
+          protocolNotAllowedRoute ??= route;
           allowedProtocols.addAll(routeProtocols);
         }
       }
     }
     if (allowedMethods.isNotEmpty) {
       final normalized = allowedMethods.toList(growable: false)..sort();
-      return _HttpRouteMatchResult.methodNotAllowed(normalized);
+      return _HttpRouteMatchResult.methodNotAllowed(
+        normalized,
+        route: methodNotAllowedRoute,
+      );
     }
     if (allowedProtocols.isNotEmpty) {
       final normalized = allowedProtocols.toList(growable: false)..sort();
-      return _HttpRouteMatchResult.protocolNotAllowed(normalized);
+      return _HttpRouteMatchResult.protocolNotAllowed(
+        normalized,
+        route: protocolNotAllowedRoute,
+      );
     }
     return const _HttpRouteMatchResult.notFound();
   }
@@ -4695,6 +4749,7 @@ class _HttpRefreshTokenRecord {
 class _HttpRouteMatchResult {
   const _HttpRouteMatchResult._({
     this.route,
+    this.errorRoute,
     this.allowedMethods = const [],
     this.allowedProtocols = const [],
   });
@@ -4702,15 +4757,20 @@ class _HttpRouteMatchResult {
   const _HttpRouteMatchResult.route(HttpRouteSettings route)
     : this._(route: route);
 
-  const _HttpRouteMatchResult.methodNotAllowed(List<String> allowedMethods)
-    : this._(allowedMethods: allowedMethods);
+  const _HttpRouteMatchResult.methodNotAllowed(
+    List<String> allowedMethods, {
+    HttpRouteSettings? route,
+  }) : this._(errorRoute: route, allowedMethods: allowedMethods);
 
-  const _HttpRouteMatchResult.protocolNotAllowed(List<String> allowedProtocols)
-    : this._(allowedProtocols: allowedProtocols);
+  const _HttpRouteMatchResult.protocolNotAllowed(
+    List<String> allowedProtocols, {
+    HttpRouteSettings? route,
+  }) : this._(errorRoute: route, allowedProtocols: allowedProtocols);
 
   const _HttpRouteMatchResult.notFound() : this._();
 
   final HttpRouteSettings? route;
+  final HttpRouteSettings? errorRoute;
   final List<String> allowedMethods;
   final List<String> allowedProtocols;
 

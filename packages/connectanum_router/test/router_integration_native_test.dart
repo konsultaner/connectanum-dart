@@ -2337,6 +2337,103 @@ void main() {
     }, skip: skipReason);
 
     test(
+      'keeps MCP response envelope on route-level method rejection',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9124,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(
+            enableHttp3: false,
+            enableMcp: true,
+            mcpRouteMatch: const HttpRouteMatch(
+              path: '/mcp',
+              methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+            ),
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+
+        final rejected = await _putJson(
+          client,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'method-rejected',
+            'method': 'initialize',
+            'params': {'protocolVersion': '2025-11-25'},
+          },
+          headers: {HttpHeaders.acceptHeader: 'application/json'},
+        );
+
+        expect(rejected.statusCode, equals(HttpStatus.methodNotAllowed));
+        expect(rejected.headers['allow'], contains('POST'));
+        expect(rejected.headers['mcp-protocol-version'], equals('2025-11-25'));
+        expect(rejected.json?['jsonrpc'], equals('2.0'));
+        expect(rejected.json?['id'], isNull);
+        final error = rejected.json?['error'] as Map<String, Object?>;
+        expect(error['code'], equals(McpErrorCodes.invalidRequest));
+        expect(error['message'], contains('HTTP method is not allowed'));
+        expect(rejected.headers, isNot(contains('mcp-session-id')));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'keeps MCP response envelope on route-level protocol rejection',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9125,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(
+            enableHttp3: false,
+            enableMcp: true,
+            mcpRouteMatch: const HttpRouteMatch(
+              path: '/mcp',
+              protocols: ['h2'],
+            ),
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+
+        final rejected = await _postJson(
+          client,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'protocol-rejected',
+            'method': 'initialize',
+            'params': {'protocolVersion': '2025-11-25'},
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json',
+            'MCP-Protocol-Version': '2025-11-25',
+          },
+        );
+
+        expect(rejected.statusCode, equals(HttpStatus.upgradeRequired));
+        expect(rejected.headers['upgrade'], contains('http2'));
+        expect(rejected.headers['mcp-protocol-version'], equals('2025-11-25'));
+        expect(rejected.json?['jsonrpc'], equals('2.0'));
+        expect(rejected.json?['id'], isNull);
+        final error = rejected.json?['error'] as Map<String, Object?>;
+        expect(error['code'], equals(McpErrorCodes.invalidRequest));
+        expect(error['message'], contains('HTTP protocol is not allowed'));
+        expect(rejected.headers, isNot(contains('mcp-session-id')));
+      },
+      skip: skipReason,
+    );
+
+    test(
       'does not run anonymous MCP calls as a privileged realm session',
       () async {
         final harness = await _RouterHarness.start(
@@ -6185,6 +6282,7 @@ RouterSettings _buildRouterSettings({
   required bool enableHttp3,
   bool enableMetrics = false,
   bool enableMcp = false,
+  HttpRouteMatch? mcpRouteMatch,
   Map<String, Object?>? mcpOptions,
 }) {
   final realmBuilder = RealmSettingsBuilder('realm1')
@@ -6343,7 +6441,7 @@ RouterSettings _buildRouterSettings({
         };
     routes.add(
       HttpRouteSettings(
-        match: const HttpRouteMatch(path: '/mcp'),
+        match: mcpRouteMatch ?? const HttpRouteMatch(path: '/mcp'),
         action: HttpRouteAction(
           type: HttpRouteActionType.mcp,
           realm: 'realm1',
@@ -6992,6 +7090,30 @@ _postJson(
   Map<String, String> headers = const <String, String>{},
 }) async {
   final request = await client.post('127.0.0.1', port, path);
+  request.headers.contentType = ContentType.json;
+  headers.forEach(request.headers.set);
+  final bodyBytes = utf8.encode(jsonEncode(payload));
+  request.contentLength = bodyBytes.length;
+  request.add(bodyBytes);
+  return _readJsonHttpResponse(await request.close());
+}
+
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
+_putJson(
+  HttpClient client,
+  int port,
+  String path,
+  Map<String, Object?> payload, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final request = await client.put('127.0.0.1', port, path);
   request.headers.contentType = ContentType.json;
   headers.forEach(request.headers.set);
   final bodyBytes = utf8.encode(jsonEncode(payload));

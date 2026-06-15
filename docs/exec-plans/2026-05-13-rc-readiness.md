@@ -79,6 +79,38 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-15: Preserved MCP response envelopes for router-level HTTP method
+  and protocol rejections.
+  `packages/connectanum_router/lib/src/router/router_instance/router_controller.dart`
+  now leaves simple router-hosted MCP route `methods` and `protocols`
+  constraints in Dart instead of encoding them as native listener filters,
+  preventing the native HTTP listener from returning bare `405`/`426` text
+  before MCP-aware response formatting runs.
+  `packages/connectanum_router/lib/src/router/router_instance/router_binding.dart`
+  now carries route context for method/protocol mismatch results and formats
+  MCP `405 Method Not Allowed` and `426 Upgrade Required` as JSON-RPC
+  `invalidRequest` errors with `MCP-Protocol-Version`, CORS headers,
+  `Allow`/`Upgrade`, and existing MCP session-id echo rules. Non-MCP route
+  errors keep the existing plain router responses. The router integration
+  suite covers both configured MCP `methods` and configured MCP `protocols`
+  rejections through the native listener. Baseline `bin/test-fast` passed
+  before this MCP route-level response-envelope change on 2026-06-15. A
+  focused repro first showed the configured-method MCP route returning the
+  native bare `method not allowed` response without `MCP-Protocol-Version`;
+  after the fix, focused
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n 'keeps MCP response envelope on route-level (method|protocol) rejection' --concurrency=1 -r expanded`,
+  `dart test packages/connectanum_router/test/router_integration_native_test.dart -n 'guards MCP Streamable HTTP ingress and sessions|keeps MCP response envelope on route-level (method|protocol) rejection' --concurrency=1 -r expanded`,
+  `dart analyze packages/connectanum_router`,
+  `python3 tool/check_public_artifact_references.py`, and `git diff --check`
+  passed on 2026-06-15. Full local `bin/verify` passed on 2026-06-15,
+  including formatting, Rust/FFI, Python/tool tests, MCP package smokes,
+  generated consumer-package smokes, router-hosted MCP live
+  public/authenticated/bearer and JSON-response examples, the installed router
+  CLI consumer smoke, full router tests including the new route-level MCP
+  `405`/`426` coverage, zero-copy router tests, and the Chrome/Dart2Wasm
+  browser WebSocket smoke. Hosted evidence for this local checkpoint is not
+  available yet; the latest fully clean hosted checkpoint remains `585bc9f`.
+
 - 2026-06-15: Shared MCP request-method whitespace/control validation across
   the standalone MCP server, public client, and router-hosted MCP ingress.
   `packages/connectanum_core/lib/src/mcp/text_validation.dart` now owns the
@@ -106,9 +138,28 @@ decision because `connectanum_client` still depends on private
   generated consumer-package smokes, router-hosted MCP live
   public/authenticated/bearer and JSON-response examples, the installed router
   CLI consumer smoke, full router tests, zero-copy router tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this
-  shared-validation checkpoint is not available yet; the latest fully clean
-  hosted checkpoint remains `770f62e`.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `585bc9f`
+  (`fix: share mcp method validation`) was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. Hosted evidence is clean at `585bc9f`:
+  GitHub `master` CI `27540483639` and GitHub `add-router` CI `27540478790`
+  passed with `Fast Checks` and `Full Verify` clean. GitHub `master` Dart
+  Package Publish Dry Run `27540483700` and GitHub `add-router` Dart Package
+  Publish Dry Run `27540478785` passed. GitHub `master` WAMP Profile
+  Benchmarks `27540483580` and GitHub `add-router` WAMP Profile Benchmarks
+  `27540478774` passed. Fresh non-mutating Router Image dry-run `27541406240`
+  passed at `585bc9f` with preview metadata `sha-585bc9fcc8aa` and GHCR login
+  skipped. The strict deployment-chain audit exited successfully on 2026-06-15
+  with clean latest CI logs at `585bc9f`, Dart package publish dry-run
+  relevance, relevant Native Artifacts dry-run `26396437881` at `debd545`,
+  relevant Router Image dry-run `27541406240` at `585bc9f`, relevant WAMP
+  Profile Benchmarks `27540483580` at `585bc9f`, branch protection, workflow
+  visibility, and router image package visibility gates ready. RC readiness
+  remains gated on release policy: no numeric RC tag points at `585bc9f`, the
+  existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, the audit
+  suggests `v0.1.0-rc.2` as the next numeric tag if release policy approves
+  it, no GitHub prerelease or router image RC tag is selected for `585bc9f`,
+  and pub.dev package ownership/version/release-order decisions remain
+  deferred.
 
 - 2026-06-15: Hardened router-hosted MCP direct JSON method validation for
   downstream application and agent callers.
@@ -8325,31 +8376,33 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The current local implementation checkpoint hardens router-hosted MCP
-direct JSON ingress so malformed JSON-RPC method strings containing whitespace
-or control characters return `invalidRequest` before the generic unknown-method
-fallback. This keeps non-Dart downstream application and agent callers aligned
-with the public `McpStreamableHttpClient` request validation rule and preserves
-direct JSON batch error isolation.
+Active. The current implementation checkpoint preserves MCP response envelopes
+when router-level HTTP route metadata rejects a router-hosted MCP request.
+Simple MCP route `methods` and `protocols` constraints now stay in Dart so
+configured `405`/`426` responses are JSON-RPC `invalidRequest` errors with MCP
+protocol-version, CORS, `Allow`/`Upgrade`, and session-id echo semantics instead
+of native bare text responses. This keeps downstream application and agent
+callers on the same response contract even when MCP route metadata rejects a
+request before normal method dispatch.
 
 Local evidence for this checkpoint: baseline `bin/test-fast` passed before the
-router method validation change on 2026-06-15. A focused repro first showed the
-malformed direct method case returning `-32601`; after the fix, focused
-`dart analyze packages/connectanum_router`, router integration regressions,
-`dart test packages/connectanum_client/test/mcp -r expanded`,
-`python3 tool/check_public_artifact_references.py`, `git diff --check`, and
-full local `bin/verify` passed on 2026-06-15.
+route-level MCP response-envelope change on 2026-06-15. A focused repro first
+showed the configured-method route returning native bare `method not allowed`;
+after the fix, focused router-native MCP rejection tests, the surrounding
+Streamable HTTP/session slice, router analysis, public-artifact reference
+check, and `git diff --check` passed, followed by full local `bin/verify` on
+2026-06-15.
 
-The latest fully clean hosted checkpoint is `770f62e`: GitHub `master` CI
-`27535774626`, GitHub `add-router` CI `27535774666`, Dart Package Publish Dry
-Run jobs `27535774634` and `27535774670`, WAMP Profile Benchmarks
-`27535774619` and `27535774667`, non-mutating Router Image dry-run
-`27536391439`, and the strict deployment-chain audit all passed for this
+The latest fully clean hosted checkpoint is `585bc9f`: GitHub `master` CI
+`27540483639`, GitHub `add-router` CI `27540478790`, Dart Package Publish Dry
+Run jobs `27540483700` and `27540478785`, WAMP Profile Benchmarks
+`27540483580` and `27540478774`, non-mutating Router Image dry-run
+`27541406240`, and the strict deployment-chain audit all passed for this
 checkpoint. The audit accepted relevant Native Artifacts dry-run `26396437881`
 at `debd545` because no native-release-sensitive inputs changed.
 
 RC readiness remains not-ready because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for `770f62e`.
+prerelease, or matching RC router image tag has been selected for `585bc9f`.
 The audit suggests `v0.1.0-rc.2` as the next numeric tag if release approval is
 given. Pub.dev publishing remains deferred for release-order and operator
 decisions. No RC tag, GitHub Release, or router image was created or moved.

@@ -126,7 +126,11 @@ class Router {
     if (match.headers.isNotEmpty) {
       routeMap['headers'] = Map<String, String>.from(match.headers);
     }
-    if (match.protocols.isNotEmpty) {
+    // Dart formats MCP 405/426 responses with JSON-RPC bodies and MCP headers.
+    final dartHandledMcpRoute =
+        route.action.type == HttpRouteActionType.mcp &&
+        route.methodActions.isEmpty;
+    if (match.protocols.isNotEmpty && !dartHandledMcpRoute) {
       routeMap['protocols'] = List<String>.from(match.protocols);
     }
     final transportAuth = route.action.type == HttpRouteActionType.mcp
@@ -146,10 +150,12 @@ class Router {
     }
 
     final methodTargets = <String, HttpRouteAction>{};
-    for (final method in match.methods) {
-      final normalized = method.trim().toUpperCase();
-      if (normalized.isNotEmpty) {
-        methodTargets[normalized] = route.action;
+    if (!dartHandledMcpRoute) {
+      for (final method in match.methods) {
+        final normalized = method.trim().toUpperCase();
+        if (normalized.isNotEmpty) {
+          methodTargets[normalized] = route.action;
+        }
       }
     }
     for (final entry in route.methodActions.entries) {
