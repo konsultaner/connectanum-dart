@@ -2407,6 +2407,29 @@ void main() {
         expect(endpoint.requests.last.method, 'POST');
         expect(endpoint.requests.last.sessionId, 'session-1');
 
+        client.lastEventId = 'session-1:get:kept-content-type';
+        await expectLater(
+          client.listTools(
+            id: 'wrong-content-type-tools',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-text-json-response': '1',
+              'x-test-response-session-id': 'post-json-content-type-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('Expected application/json'),
+            ),
+          ),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-content-type');
+        expect(endpoint.requests.last.method, 'POST');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
         client.lastEventId = 'session-1:get:kept-sse';
         await expectLater(
           client.listTools(
@@ -5786,6 +5809,20 @@ final class _FakeMcpEndpoint {
     }
     if (request.headers.value('x-test-json-array-response') == '1') {
       _writeJsonValue(request, const <Object?>[]);
+      return;
+    }
+    if (request.headers.value('x-test-text-json-response') == '1') {
+      request.response.statusCode = HttpStatus.ok;
+      request.response.headers.contentType = ContentType.text;
+      _applyTestResponseHeaders(request);
+      request.response.write(
+        jsonEncode(<String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{'tools': <Object?>[]},
+        }),
+      );
+      await request.response.close();
       return;
     }
     final testJsonResponseId = request.headers.value('x-test-json-response-id');

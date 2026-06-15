@@ -79,6 +79,35 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-15: Tightened MCP Streamable HTTP client POST success-body content
+  negotiation. `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart`
+  now validates successful non-SSE MCP POST response content type before JSON
+  decode or response-session header capture, so direct JSON/Streamable
+  JSON-response paths reject `text/plain`, missing, or otherwise non-JSON
+  success bodies. `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
+  covers a `text/plain` response carrying a JSON-RPC body and asserts the
+  client throws `Expected application/json` while preserving the active session
+  and `Last-Event-ID` cursor. A focused repro first showed the malformed
+  success body being accepted. Baseline `bin/test-fast` passed before the
+  content-type change on 2026-06-15. Focused
+  `dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+  focused
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --name 'keeps Streamable HTTP session state after malformed POST responses'`,
+  focused
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  focused `dart test packages/connectanum_client/test/mcp -r expanded`,
+  focused `python3 tool/check_public_artifact_references.py`, and focused
+  `git diff --check` passed on 2026-06-15. Full local `bin/verify` passed on
+  2026-06-15 after the client content-type change, including formatting,
+  Rust/FFI, Python/tool tests, MCP package smokes, generated consumer-package
+  smokes, the router-hosted MCP live public, ticket-authenticated Streamable,
+  bearer-token Streamable, ticket-authenticated JSON-response, and
+  bearer-token JSON-response public-client examples, the installed CLI
+  consumer smoke, full router tests, zero-copy router tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this local
+  checkpoint is not yet available; the latest fully clean hosted checkpoint
+  remains `36e0a70`.
+
 - 2026-06-15: Added router-hosted MCP `Last-Event-ID` resume-header
   validation before Streamable HTTP event-history lookup.
   `packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
@@ -107,6 +136,27 @@ decision because `connectanum_client` still depends on private
   JSON-response public-client examples, the installed CLI consumer smoke, full
   router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
   WebSocket smoke.
+  Commit `36e0a70` (`fix: validate router mcp resume headers`) was pushed to
+  GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is
+  clean at `36e0a70`: GitHub `master` CI `27528895758` and GitHub
+  `add-router` CI `27528895690` passed with `Fast Checks` and `Full Verify`
+  clean. GitHub `master` Dart Package Publish Dry Run `27528895749` and GitHub
+  `add-router` Dart Package Publish Dry Run `27528895677` passed. GitHub
+  `master` WAMP Profile Benchmarks `27528895743` and GitHub `add-router` WAMP
+  Profile Benchmarks `27528895689` passed. Fresh non-mutating Router Image
+  dry-run `27528918197` passed at `36e0a70` with preview metadata
+  `sha-36e0a7002794` and GHCR login skipped. The strict deployment-chain audit
+  exited successfully on 2026-06-15 with clean latest CI logs at `36e0a70`,
+  Dart package publish dry-run relevance, relevant Native Artifacts dry-run
+  `26396437881` at `debd545`, relevant Router Image dry-run `27528918197` at
+  `36e0a70`, relevant WAMP Profile Benchmarks `27528895743` at `36e0a70`,
+  branch protection, workflow visibility, and router image package visibility
+  gates ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `36e0a70`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag
+  if release policy approves it, no GitHub prerelease or router image RC tag is
+  selected for `36e0a70`, and pub.dev package ownership/version/release-order
+  decisions remain deferred.
 
 - 2026-06-15: Added focused coverage for invalid stored MCP Streamable HTTP
   resume cursors. `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`

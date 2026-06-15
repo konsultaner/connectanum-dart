@@ -2,11 +2,44 @@
 
 Last updated: 2026-06-15
 Current branch: `add-router`
-Last reviewed branch checkpoint: Router-hosted MCP Streamable HTTP GET polls
-now reject malformed `Last-Event-ID` resume headers before event-history
-lookup.
-Latest fully clean hosted checkpoint: Commit `07b3e99` on GitHub `master`.
+Last reviewed branch checkpoint: MCP Streamable HTTP clients now reject
+successful non-SSE POST responses unless the response `Content-Type` is
+`application/json`.
+Latest fully clean hosted checkpoint: Commit `36e0a70` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_client/lib/src/mcp/streamable_http_client.dart` now
+validates successful non-SSE MCP POST response content type before JSON decode
+or response-session header capture, so direct JSON/Streamable JSON-response
+paths reject `text/plain`, missing, or otherwise non-JSON success bodies.
+`packages/connectanum_client/test/mcp/streamable_http_client_test.dart` covers
+a `text/plain` response carrying a JSON-RPC body and asserts the client throws
+`Expected application/json` while preserving the active session and
+`Last-Event-ID` cursor. A focused repro first showed the malformed success
+body being accepted. Baseline `bin/test-fast` passed before the content-type
+change on 2026-06-15. Focused
+`dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart`,
+focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded --name 'keeps Streamable HTTP session state after malformed POST responses'`,
+focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+focused `dart test packages/connectanum_client/test/mcp -r expanded`,
+focused `python3 tool/check_public_artifact_references.py`, and focused
+`git diff --check` passed on 2026-06-15. Full local `bin/verify` passed on
+2026-06-15 after the client content-type change, including formatting,
+Rust/FFI, Python/tool tests, MCP package smokes, generated consumer-package
+smokes, the router-hosted MCP live public, ticket-authenticated Streamable,
+bearer-token Streamable, ticket-authenticated JSON-response, and bearer-token
+JSON-response public-client examples, the installed CLI consumer smoke, full
+router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this new local checkpoint is not yet
+available; the latest fully clean hosted checkpoint remains `36e0a70`.
+RC readiness remains gated on release policy: no numeric RC tag points at
+`36e0a70`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if
+release policy approves it, no GitHub prerelease or router image RC tag is
+selected for `36e0a70`, and pub.dev package ownership/version/release-order
+decisions remain deferred.
+Previous implementation checkpoint:
 `packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
 now validates non-empty `Last-Event-ID` headers on router-hosted MCP
 Streamable HTTP GET polls before calling `ssePollEvents`, returning a
@@ -34,7 +67,28 @@ bearer-token Streamable, ticket-authenticated JSON-response, and bearer-token
 JSON-response public-client examples, the installed CLI consumer smoke, full
 router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
 WebSocket smoke.
-Previous implementation checkpoint:
+Commit `36e0a70` (`fix: validate router mcp resume headers`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is
+clean at `36e0a70`: GitHub `master` CI `27528895758` and GitHub `add-router`
+CI `27528895690` passed with `Fast Checks` and `Full Verify` clean. GitHub
+`master` Dart Package Publish Dry Run `27528895749` and GitHub `add-router`
+Dart Package Publish Dry Run `27528895677` passed. GitHub `master` WAMP
+Profile Benchmarks `27528895743` and GitHub `add-router` WAMP Profile
+Benchmarks `27528895689` passed. Fresh non-mutating Router Image dry-run
+`27528918197` passed at `36e0a70` with preview metadata
+`sha-36e0a7002794` and GHCR login skipped. The strict deployment-chain audit
+exited successfully on 2026-06-15 with clean latest CI logs at `36e0a70`,
+Dart package publish dry-run relevance, relevant Native Artifacts dry-run
+`26396437881` at `debd545`, relevant Router Image dry-run `27528918197` at
+`36e0a70`, relevant WAMP Profile Benchmarks `27528895743` at `36e0a70`,
+branch protection, workflow visibility, and router image package visibility
+gates ready. RC readiness remains gated on release policy: no numeric RC tag
+points at `36e0a70`, the existing `v0.1.0-rc.1` tag still points at stale
+commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if
+release policy approves it, no GitHub prerelease or router image RC tag is
+selected for `36e0a70`, and pub.dev package ownership/version/release-order
+decisions remain deferred.
+Earlier implementation checkpoint:
 `packages/connectanum_client/test/mcp/streamable_http_client_test.dart` now
 extends the outgoing `Last-Event-ID` validation regression to cover an invalid
 stored `McpStreamableHttpClient.lastEventId` used implicitly by `poll()`.

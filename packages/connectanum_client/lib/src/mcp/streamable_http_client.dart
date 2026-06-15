@@ -1171,6 +1171,12 @@ final class McpStreamableHttpClient {
       return value;
     }
 
+    if (!_isJson(response)) {
+      throw FormatException(
+        'Expected $_acceptJson response, got ${response.headers.contentType?.mimeType ?? 'unknown'}',
+      );
+    }
+
     final value = _jsonValueFromBody(body);
     _validatePostResponseShape(message, value, responseBodyReturned: true);
     if (capturesSessionHeaders) {
@@ -2020,6 +2026,10 @@ Future<String> _readBody(HttpClientResponse response) {
 
 bool _isSse(HttpClientResponse response) {
   return response.headers.contentType?.mimeType == _acceptSse;
+}
+
+bool _isJson(HttpClientResponse response) {
+  return response.headers.contentType?.mimeType == _acceptJson;
 }
 
 McpJsonMap _jsonMapFromBody(String body, String label) {
