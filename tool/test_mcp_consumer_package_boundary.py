@@ -615,6 +615,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--wamp-procedure example.task.lookup", live_body)
         self.assertIn("--wamp-topic example.events.task", live_body)
         self.assertIn("--pubsub-topic example.events.task", live_body)
+        self.assertIn("T-pubsub-only-example-live", live_body)
+        self.assertIn(
+            "Pub/sub-only router-hosted MCP client live smoke completed.",
+            live_body,
+        )
         self.assertIn("T-bearer-example-live", live_body)
         self.assertIn("T-bearer-json-response-example-live", live_body)
         self.assertIn(

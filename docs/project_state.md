@@ -2,11 +2,41 @@
 
 Last updated: 2026-06-15
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP wildcard CORS preflights
-vary on requested headers for browser-based downstream application and agent
-callers.
-Latest fully clean hosted checkpoint: Commit `8d3d1eb` on GitHub `master`.
+Last reviewed branch checkpoint: the public router-hosted MCP client example
+proves pub/sub-only consumer usage without requiring a separate WAMP metadata
+selector.
+Latest fully clean hosted checkpoint: Commit `77f22c0` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now resolves WAMP
+subscription metadata whenever `--pubsub-topic` is used, in both direct JSON
+and Streamable HTTP pub/sub paths. A downstream application or agent can now
+exercise router-hosted pub/sub metadata by passing only `--pubsub-topic` and an
+optional `--pubsub-event`, instead of also knowing to pass a matching
+`--wamp-topic`. `bin/common.sh` adds a public live smoke that runs the example
+client with only `--pubsub-topic`/`--pubsub-event`, and
+`tool/test_mcp_consumer_package_boundary.py` keeps that public smoke from
+dropping out of the fast gate.
+
+Baseline `bin/test-fast` passed before this MCP pub/sub-only example
+readiness change on 2026-06-15. Focused
+`python3 -m unittest tool/test_mcp_consumer_package_boundary.py` and
+`bash -lc 'source bin/common.sh && run_router_hosted_mcp_example_smoke'`
+passed on 2026-06-15; the focused live smoke printed the new `Pub/sub-only
+router-hosted MCP client live smoke completed.` milestone. Full local
+`bin/verify` passed on 2026-06-15, including the router-hosted MCP live
+examples with the new pub/sub-only public client invocation, generated
+consumer-package smokes, installed router CLI consumer smoke, router runtime
+tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence is still latest-known-clean at `77f22c0` until this checkpoint
+is committed, pushed, and the GitHub deployment chain reports on the new head.
+RC readiness remains gated on release policy: no numeric RC tag points at
+`77f22c0`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if
+release policy approves it, no GitHub prerelease or router image RC tag is
+selected for `77f22c0`, and pub.dev package ownership/version/release-order
+decisions remain deferred.
+
+Previous implementation checkpoint:
 `packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
 now emits `Vary: Access-Control-Request-Headers` whenever a router-hosted MCP
 CORS preflight reflects the caller's requested header list, including wildcard
@@ -26,9 +56,30 @@ focused
 `dart test packages/connectanum_router/test/router_runtime_test.dart --name 'rate limited MCP routes keep Streamable HTTP CORS headers|MCP wildcard CORS preflights vary by requested headers|rate limited MCP routes allow Streamable DELETE cleanup' -r expanded`,
 `dart analyze packages/connectanum_router`, and
 `python3 tool/check_public_artifact_references.py` passed on 2026-06-15. Full
-local `bin/verify` passed on 2026-06-15 for this checkpoint.
+local `bin/verify` passed on 2026-06-15 for this checkpoint. Commit
+`77f22c0` (`fix: vary mcp cors preflight headers`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is clean
+at `77f22c0`: GitHub `master` CI `27549457951` and GitHub `add-router` CI
+`27549449701` passed with `Fast Checks` and `Full Verify` clean. GitHub
+`master` Dart Package Publish Dry Run `27549457873` and GitHub `add-router`
+Dart Package Publish Dry Run `27549449647` passed. GitHub `master` WAMP
+Profile Benchmarks `27549457823` and GitHub `add-router` WAMP Profile
+Benchmarks `27549449612` passed. Fresh non-mutating Router Image dry-run
+`27550613315` passed at `77f22c0` with preview metadata
+`sha-77f22c028820` and GHCR login skipped. The strict deployment-chain audit
+exited successfully on 2026-06-15 with clean latest CI logs at `77f22c0`, Dart
+package publish dry-run relevance, relevant Native Artifacts dry-run
+`26396437881` at `debd545`, relevant Router Image dry-run `27550613315` at
+`77f22c0`, relevant WAMP Profile Benchmarks `27549457823` at `77f22c0`,
+branch protection, workflow visibility, and router image package visibility
+gates ready. RC readiness remains gated on release policy: no numeric RC tag
+points at `77f22c0`, the existing `v0.1.0-rc.1` tag still points at stale
+commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if
+release policy approves it, no GitHub prerelease or router image RC tag is
+selected for `77f22c0`, and pub.dev package ownership/version/release-order
+decisions remain deferred.
 
-Previous implementation checkpoint:
+Earlier implementation checkpoint:
 `packages/connectanum_router/lib/src/router/router_instance/router_controller.dart`
 now keeps simple router-hosted MCP route method/protocol constraints in Dart
 instead of encoding them as native listener filters. This prevents the native

@@ -429,12 +429,10 @@ Future<void> _runDirectPubSubExample(
   );
 
   try {
-    final subscriptionMeta = options.wampTopic == topic
-        ? await client.matchWampSubscriptionDirect(
-            topic,
-            id: 'direct-wamp-subscription-match',
-          )
-        : null;
+    final subscriptionMeta = await client.matchWampSubscriptionDirect(
+      topic,
+      id: 'direct-wamp-subscription-match',
+    );
     await client.publishWampEventDirect(
       topic,
       id: 'direct-pubsub-publish',
@@ -461,8 +459,7 @@ Future<void> _runDirectPubSubExample(
         'events': events.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
-        if (subscriptionMeta != null)
-          'subscription': _wampMetaResultJson(subscriptionMeta),
+        'subscription': _wampMetaResultJson(subscriptionMeta),
       }),
     );
   } finally {
@@ -661,12 +658,10 @@ Future<void> _runStreamableSessionExample(
     );
 
     try {
-      final subscriptionMeta = options.wampTopic == pubsubTopic
-          ? await client.matchWampSubscription(
-              pubsubTopic,
-              id: 'streamable-wamp-subscription-match',
-            )
-          : null;
+      final subscriptionMeta = await client.matchWampSubscription(
+        pubsubTopic,
+        id: 'streamable-wamp-subscription-match',
+      );
       final publication = await client.publishWampEvent(
         pubsubTopic,
         id: 'streamable-pubsub-publish',
@@ -697,8 +692,7 @@ Future<void> _runStreamableSessionExample(
           if (subscription.subscriptionId != null)
             'subscriptionId': subscription.subscriptionId,
         },
-        if (subscriptionMeta != null)
-          'subscriptionMetadata': _wampMetaResultJson(subscriptionMeta),
+        'subscriptionMetadata': _wampMetaResultJson(subscriptionMeta),
         'publication': <String, Object?>{
           'topic': publication.topic,
           'acknowledged': publication.acknowledged,

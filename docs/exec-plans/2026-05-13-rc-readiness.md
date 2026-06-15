@@ -79,6 +79,20 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-15: Hardened the public router-hosted MCP client example for
+  pub/sub-only downstream application and agent usage.
+  `packages/connectanum_mcp/example/router_hosted_client.dart` now resolves
+  WAMP subscription metadata whenever `--pubsub-topic` is used, in both direct
+  JSON and Streamable HTTP pub/sub paths, without requiring a matching
+  `--wamp-topic`. `bin/common.sh` now runs a live public example smoke with
+  only `--pubsub-topic`/`--pubsub-event`, and
+  `tool/test_mcp_consumer_package_boundary.py` asserts that the smoke remains
+  in the fast gate. Baseline `bin/test-fast` passed before the change; focused
+  `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
+  `bash -lc 'source bin/common.sh && run_router_hosted_mcp_example_smoke'`,
+  and full local `bin/verify` passed on 2026-06-15. Hosted evidence remains
+  latest-known-clean at `77f22c0` until this checkpoint is committed, pushed,
+  and GitHub reports on the new head.
 - 2026-06-15: Hardened router-hosted MCP wildcard CORS preflight cache
   behavior for browser-based downstream application and agent callers.
   `packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
@@ -99,7 +113,28 @@ decision because `connectanum_client` still depends on private
   `dart test packages/connectanum_router/test/router_runtime_test.dart --name 'rate limited MCP routes keep Streamable HTTP CORS headers|MCP wildcard CORS preflights vary by requested headers|rate limited MCP routes allow Streamable DELETE cleanup' -r expanded`,
   `dart analyze packages/connectanum_router`, and
   `python3 tool/check_public_artifact_references.py` passed on 2026-06-15.
-  Full local `bin/verify` passed on 2026-06-15 for this checkpoint.
+  Full local `bin/verify` passed on 2026-06-15 for this checkpoint. Commit
+  `77f22c0` (`fix: vary mcp cors preflight headers`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is clean
+  at `77f22c0`: GitHub `master` CI `27549457951` and GitHub `add-router` CI
+  `27549449701` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `master` Dart Package Publish Dry Run `27549457873` and GitHub `add-router`
+  Dart Package Publish Dry Run `27549449647` passed. GitHub `master` WAMP
+  Profile Benchmarks `27549457823` and GitHub `add-router` WAMP Profile
+  Benchmarks `27549449612` passed. Fresh non-mutating Router Image dry-run
+  `27550613315` passed at `77f22c0` with preview metadata
+  `sha-77f22c028820` and GHCR login skipped. The strict deployment-chain audit
+  exited successfully on 2026-06-15 with clean latest CI logs at `77f22c0`,
+  Dart package publish dry-run relevance, relevant Native Artifacts dry-run
+  `26396437881` at `debd545`, relevant Router Image dry-run `27550613315` at
+  `77f22c0`, relevant WAMP Profile Benchmarks `27549457823` at `77f22c0`,
+  branch protection, workflow visibility, and router image package visibility
+  gates ready. RC readiness remains gated on release policy: no numeric RC tag
+  points at `77f22c0`, the existing `v0.1.0-rc.1` tag still points at stale
+  commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag
+  if release policy approves it, no GitHub prerelease or router image RC tag is
+  selected for `77f22c0`, and pub.dev package ownership/version/release-order
+  decisions remain deferred.
 
 - 2026-06-15: Preserved MCP response envelopes for router-level HTTP method
   and protocol rejections.
@@ -8433,16 +8468,16 @@ After the fix, focused router-runtime MCP CORS/rate-limit tests, router
 analysis, the public-artifact reference check, and full local `bin/verify`
 passed on 2026-06-15 for this checkpoint.
 
-The latest fully clean hosted checkpoint is `8d3d1eb`: GitHub `master` CI
-`27545049745`, GitHub `add-router` CI `27545048443`, Dart Package Publish Dry
-Run jobs `27545049608` and `27545048403`, WAMP Profile Benchmarks
-`27545049607` and `27545048406`, non-mutating Router Image dry-run
-`27546200223`, and the strict deployment-chain audit all passed for this
+The latest fully clean hosted checkpoint is `77f22c0`: GitHub `master` CI
+`27549457951`, GitHub `add-router` CI `27549449701`, Dart Package Publish Dry
+Run jobs `27549457873` and `27549449647`, WAMP Profile Benchmarks
+`27549457823` and `27549449612`, non-mutating Router Image dry-run
+`27550613315`, and the strict deployment-chain audit all passed for this
 checkpoint. The audit accepted relevant Native Artifacts dry-run `26396437881`
 at `debd545` because no native-release-sensitive inputs changed.
 
 RC readiness remains not-ready because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for `8d3d1eb`.
+prerelease, or matching RC router image tag has been selected for `77f22c0`.
 The audit suggests `v0.1.0-rc.2` as the next numeric tag if release approval is
 given. Pub.dev publishing remains deferred for release-order and operator
 decisions. No RC tag, GitHub Release, or router image was created or moved.

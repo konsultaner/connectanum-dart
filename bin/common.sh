@@ -897,6 +897,15 @@ run_public_router_hosted_mcp_client_live_smoke() (
 
   printf 'Public router-hosted MCP client live smoke completed.\n'
 
+  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint "$endpoint" \
+    --protocol-version 2025-06-18 \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-pubsub-only-example-live","status":"open"}' \
+    >/dev/null
+
+  printf 'Pub/sub-only router-hosted MCP client live smoke completed.\n'
+
   bearer_token="$(
     python3 - "$auth_url" <<'PY'
 import json
