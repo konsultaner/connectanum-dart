@@ -3228,7 +3228,13 @@ void main() {
         final client = McpStreamableHttpClient(endpoint.uri);
         addTearDown(() => client.close(force: true));
 
-        for (final uri in const ['', 'readme', '/relative/readme']) {
+        for (final uri in const [
+          '',
+          'readme',
+          '/relative/readme',
+          'app://bad resource',
+          'app://bad\nresource',
+        ]) {
           await expectLater(
             client.readResource(uri, id: 'invalid-resource-uri'),
             throwsArgumentError,

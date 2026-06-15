@@ -907,6 +907,11 @@ String? _mcpResourceUriOption(Map<String, String> values, String option) {
   if (value == null) {
     return null;
   }
+  if (_containsMcpWhitespaceOrControl(value)) {
+    throw FormatException(
+      '$option must not contain whitespace or control characters.',
+    );
+  }
   final uri = Uri.tryParse(value);
   if (uri == null || !uri.hasScheme) {
     throw FormatException('$option must be an absolute URI with a scheme.');

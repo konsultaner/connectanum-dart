@@ -38,8 +38,16 @@ String _validatedMcpToolName(String value, String name) {
 }
 
 String _validatedMcpResourceUri(String value, String name) {
+  if (containsMcpWhitespaceOrControl(value)) {
+    throw ArgumentError.value(
+      value,
+      name,
+      'MCP resource URI must not contain whitespace or control characters.',
+    );
+  }
+
   final parsed = Uri.tryParse(value);
-  if (value.isNotEmpty && parsed != null && parsed.hasScheme) {
+  if (parsed != null && parsed.hasScheme) {
     return value;
   }
   throw ArgumentError.value(

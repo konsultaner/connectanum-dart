@@ -79,6 +79,39 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-15: Tightened MCP resource URI fail-fast validation for client and
+  public example consumers. `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart`
+  now rejects MCP resource reads containing whitespace/control characters,
+  while preserving the absolute-URI-with-scheme requirement, before any
+  Streamable HTTP or direct JSON request is sent.
+  `packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
+  extends the invalid resource URI regression with whitespace and control
+  character cases and keeps asserting that no fake endpoint request is sent.
+  `packages/connectanum_mcp/example/router_hosted_client.dart` mirrors the
+  whitespace/control guard for `--resource-uri`, and `bin/common.sh` plus
+  `tool/test_mcp_consumer_package_boundary.py` guard the public dry-run failure
+  and diagnostic. Baseline `bin/test-fast` passed before the change on
+  2026-06-15. A focused regression first showed `app://bad resource` being
+  accepted by `McpStreamableHttpClient.readResource`; after the fix, focused
+  `dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `bash -n bin/common.sh`, focused
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -n 'rejects invalid resource URIs and prompt names before sending' -r expanded`,
+  focused
+  `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  focused `dart test packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`,
+  and focused `git diff --check` passed on 2026-06-15. Full local
+  `bin/verify` passed on 2026-06-15, including formatting, Rust/FFI,
+  Python/tool tests, MCP package smokes, generated consumer-package smokes, the
+  router-hosted MCP live public, ticket-authenticated Streamable, bearer-token
+  Streamable, ticket-authenticated JSON-response, and bearer-token
+  JSON-response public-client examples, the installed CLI consumer smoke, full
+  router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence remains at the previous clean checkpoint
+  until this implementation is committed and pushed.
+
 - 2026-06-15: Added local fail-fast validation for public MCP resource and
   prompt selectors. `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart`
   now rejects resource reads whose URI is empty, relative, or missing a scheme,
@@ -107,15 +140,28 @@ decision because `connectanum_client` still depends on private
   Streamable, ticket-authenticated JSON-response, and bearer-token
   JSON-response public-client examples, the installed CLI consumer smoke, full
   router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. Hosted evidence remains clean at `674c1e5` until this
-  checkpoint is pushed and GitHub CI/dry-runs complete: GitHub `master` CI
-  `27515613720`, GitHub `add-router` CI `27515611314`, GitHub `master` Dart
-  Package Publish Dry Run `27515613713`, and GitHub `add-router` Dart Package
-  Publish Dry Run `27515611298` passed at `674c1e5`; the strict
-  deployment-chain audit passed on 2026-06-15 with relevant Native Artifacts,
-  Router Image, WAMP Profile Benchmarks, branch protection, workflow
+  WebSocket smoke. Commit `ce5d492`
+  (`test: validate mcp resource prompt selectors`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is clean
+  at `ce5d492`: GitHub `master` CI `27517435449` and GitHub `add-router` CI
+  `27517434949` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `master` Dart Package Publish Dry Run `27517435443` and GitHub `add-router`
+  Dart Package Publish Dry Run `27517434963` passed with zero warnings. GitHub
+  `master` WAMP Profile Benchmarks `27517435446` and GitHub `add-router` WAMP
+  Profile Benchmarks `27517434946` passed. The first strict audit found the
+  previous Router Image dry-run stale for this router-image-sensitive client
+  change; after manual non-mutating Router Image dry-run `27517918193` passed
+  at `ce5d492` with preview metadata `sha-ce5d49260818` and GHCR login
+  skipped, the strict deployment-chain audit exited successfully on
+  2026-06-15 with clean latest CI logs, Dart package publish dry-run
+  relevance, relevant Native Artifacts dry-run `26396437881` at `debd545`,
+  relevant Router Image dry-run `27517918193` at `ce5d492`, relevant WAMP
+  Profile Benchmarks `27517435446` at `ce5d492`, branch protection, workflow
   visibility, and router image package visibility gates ready. RC readiness
-  remains gated on release policy.
+  remains gated on release policy: no numeric RC tag points at `ce5d492`, the
+  existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+  prerelease or router image RC tag is selected for `ce5d492`, and pub.dev
+  package ownership/version/release-order decisions remain deferred.
 
 - 2026-06-15: Hardened public router-hosted MCP client setup validation for
   direct JSON/WAMP/pubsub smoke use. `packages/connectanum_mcp/example/router_hosted_client.dart`

@@ -2,25 +2,31 @@
 
 Last updated: 2026-06-15
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP resource and prompt selectors now fail
-fast before Streamable HTTP or direct JSON requests.
-Latest fully clean hosted checkpoint: Commit `674c1e5` on GitHub `master`.
+Last reviewed branch checkpoint: MCP resource URI selectors now reject
+whitespace/control characters before Streamable HTTP, direct JSON, or public
+example requests.
+Latest fully clean hosted checkpoint: Commit `ce5d492` on GitHub `master`.
 Current implementation checkpoint:
 `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart` now
-validates MCP resource reads as absolute URIs with a scheme and prompt names as
-non-empty strings before any Streamable HTTP or direct JSON request is sent.
+requires MCP resource reads to use absolute URIs with a scheme and rejects MCP
+whitespace/control characters before any Streamable HTTP or direct JSON
+request is sent. Prompt names remain locally validated as non-empty strings.
 `packages/connectanum_client/test/mcp/streamable_http_client_test.dart` covers
-invalid resource URI and prompt-name cases for Streamable and direct JSON
-variants and asserts the fake endpoint receives no request.
+empty, relative, missing-scheme, whitespace, and control-character resource URI
+cases for Streamable and direct JSON variants and asserts the fake endpoint
+receives no request.
 `packages/connectanum_mcp/example/router_hosted_client.dart` now applies the
-same absolute-URI guard to `--resource-uri`, `bin/common.sh` extends the
-public router-hosted MCP client dry-run smoke with an invalid
-`--resource-uri readme` case, and
+same whitespace/control guard to `--resource-uri` before dry-run success or
+live requests. `bin/common.sh` extends the public router-hosted MCP client
+dry-run smoke with invalid `--resource-uri readme` and
+`--resource-uri 'app://bad resource'` cases, and
 `tool/test_mcp_consumer_package_boundary.py` guards the public example helper
 surface and fast-smoke diagnostic checks.
 Baseline `bin/test-fast` passed before the change on 2026-06-15. Focused
 `dart format packages/connectanum_client/lib/src/mcp/streamable_http_client.dart packages/connectanum_client/test/mcp/streamable_http_client_test.dart packages/connectanum_mcp/example/router_hosted_client.dart`,
 focused `bash -n bin/common.sh`, focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -n 'rejects invalid resource URIs and prompt names before sending' -r expanded`,
+focused
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r expanded`,
 focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
 `python3 tool/check_public_artifact_references.py`, focused
@@ -33,22 +39,25 @@ public, ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence remains clean at `674c1e5`: GitHub `master` CI
-`27515613720` passed with `Fast Checks` and `Full Verify` clean, and GitHub
-`add-router` CI `27515611314` also passed. GitHub `master` Dart Package
-Publish Dry Run `27515613713` and GitHub `add-router` Dart Package Publish Dry
-Run `27515611298` passed with zero warnings at `674c1e5`. The strict
-deployment-chain audit exited successfully on 2026-06-15 with clean latest CI
-logs at `674c1e5`, Dart package publish dry-run relevance, relevant Native
-Artifacts dry-run `26396437881` at `debd545`, relevant Router Image dry-run
-`27513977053` at `be0ab9c`, relevant WAMP Profile Benchmarks `27513969631` at
-`be0ab9c`, branch protection, workflow visibility, and router image package
-visibility gates ready. RC readiness remains gated on release policy: no
-numeric RC tag points at `674c1e5`, the existing `v0.1.0-rc.1` tag still
-points at stale commit `47bbf9c`, no GitHub prerelease or router image RC tag
-is selected for `674c1e5`, the audit suggests `v0.1.0-rc.2` only after release
-approval, and pub.dev package ownership/version/release-order decisions remain
-deferred.
+Hosted evidence is clean at `ce5d492`: GitHub `master` CI `27517435449`
+passed with `Fast Checks` and `Full Verify` clean, and GitHub `add-router` CI
+`27517434949` also passed. GitHub `master` Dart Package Publish Dry Run
+`27517435443` and GitHub `add-router` Dart Package Publish Dry Run
+`27517434963` passed with zero warnings at `ce5d492`. GitHub `master` WAMP
+Profile Benchmarks `27517435446` and GitHub `add-router` WAMP Profile
+Benchmarks `27517434946` passed at `ce5d492`. Fresh non-mutating Router Image
+dry-run `27517918193` passed at `ce5d492` with preview metadata
+`sha-ce5d49260818` and GHCR login skipped. The strict deployment-chain audit
+exited successfully on 2026-06-15 with clean latest CI logs at `ce5d492`, Dart
+package publish dry-run relevance, relevant Native Artifacts dry-run
+`26396437881` at `debd545`, relevant Router Image dry-run `27517918193` at
+`ce5d492`, relevant WAMP Profile Benchmarks `27517435446` at `ce5d492`,
+branch protection, workflow visibility, and router image package visibility
+gates ready. RC readiness remains gated on release policy: no numeric RC tag
+points at `ce5d492`, the existing `v0.1.0-rc.1` tag still points at stale
+commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+`ce5d492`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+pub.dev package ownership/version/release-order decisions remain deferred.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now validates the
 public router-hosted MCP client `--tool` option with the same public MCP tool

@@ -644,6 +644,19 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local whitespace_resource_uri_output
+  if whitespace_resource_uri_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --resource-uri 'app://bad resource' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a resource URI with whitespace.\n'
+    return 1
+  fi
+  if [[ "$whitespace_resource_uri_output" != *'--resource-uri must not contain whitespace or control characters.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the resource URI whitespace error.\n'
+    return 1
+  fi
+
   local invalid_wamp_topic_output
   if invalid_wamp_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \
