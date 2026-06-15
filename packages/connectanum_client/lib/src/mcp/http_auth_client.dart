@@ -216,10 +216,18 @@ final class ConnectanumHttpAuthClient {
   }
 
   static String _nonEmptyArgument(String value, String name) {
-    if (value.trim().isNotEmpty) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError.value(value, name, '$name must not be empty.');
+    }
+    if (!containsMcpWhitespaceOrControl(value)) {
       return value;
     }
-    throw ArgumentError.value(value, name, '$name must not be empty.');
+    throw ArgumentError.value(
+      value,
+      name,
+      '$name must not contain whitespace or control characters.',
+    );
   }
 
   static Extra _challengeExtraFrom(Object? value) {

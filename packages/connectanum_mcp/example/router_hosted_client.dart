@@ -765,8 +765,8 @@ final class _Options {
     final protocolVersion = _protocolVersionOption(values);
     final bearerToken = _bearerTokenOption(values);
     final authEndpoint = _optionalUri(values, '--auth-url');
-    final authRealm = _nonEmptyStringOption(values, '--realm');
-    final authId = _nonEmptyStringOption(values, '--auth-id');
+    final authRealm = _mcpSelectorOption(values, '--realm');
+    final authId = _mcpSelectorOption(values, '--auth-id');
     final ticket = _nonEmptyStringOption(values, '--ticket');
 
     if (bearerToken != null && authEndpoint != null) {

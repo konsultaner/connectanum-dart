@@ -2,11 +2,48 @@
 
 Last updated: 2026-06-15
 Current branch: `add-router`
-Last reviewed branch checkpoint: MCP prompt selectors now reject
-whitespace/control characters before Streamable HTTP, direct JSON, or public
-example requests.
-Latest fully clean hosted checkpoint: Commit `1fc88c6` on GitHub `master`.
+Last reviewed branch checkpoint: MCP HTTP auth grant realm/auth-id selectors
+now reject whitespace/control characters before client or public-example
+requests.
+Latest fully clean hosted checkpoint: Commit `3800678` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_client/lib/src/mcp/http_auth_client.dart` now rejects
+MCP whitespace/control characters in HTTP auth grant `realm` and `authId`
+values before posting a router-hosted auth challenge request, while preserving
+the existing blank-value guard.
+`packages/connectanum_client/test/mcp/http_auth_client_test.dart` covers blank,
+whitespace, and control-character auth request parameters and asserts the fake
+auth endpoint receives no request.
+`packages/connectanum_mcp/example/router_hosted_client.dart` mirrors the same
+selector guard for public `--realm` and `--auth-id` dry-run/live auth-grant
+configuration. `bin/common.sh` extends the public router-hosted MCP client
+dry-run smoke with invalid `--realm 'bad realm'` and `--auth-id 'bad auth'`
+cases, and `tool/test_mcp_consumer_package_boundary.py` guards those fast-smoke
+diagnostics.
+Baseline `bin/test-fast` passed before the auth-selector change on 2026-06-15.
+A minimal repro first showed
+`dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp/secure --auth-url http://127.0.0.1:8080/auth --realm 'bad realm' --auth-id mcp-user --ticket dry-run-ticket-secret --dry-run`
+being accepted. Focused
+`dart format packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `bash -n bin/common.sh`, focused
+`python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded --name 'rejects invalid auth request parameters before requests'`,
+focused
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+focused
+`dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp/secure --auth-url http://127.0.0.1:8080/auth --realm 'bad realm' --auth-id mcp-user --ticket dry-run-ticket-secret --dry-run`
+and the matching `--auth-id 'bad auth'` dry run now fail with the expected
+whitespace/control diagnostics, focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+focused `python3 tool/check_public_artifact_references.py`, and focused
+`git diff --check` passed on 2026-06-15. Full local `bin/verify` passed on
+2026-06-15 after the auth-selector change, including formatting, Rust/FFI,
+Python/tool tests, MCP package smokes, generated consumer-package smokes, the
+router-hosted MCP live public, ticket-authenticated Streamable, bearer-token
+Streamable, ticket-authenticated JSON-response, and bearer-token JSON-response
+public-client examples, the installed CLI consumer smoke, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Previous implementation checkpoint:
 `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart` now
 requires MCP resource reads to use absolute URIs with a scheme and rejects MCP
 resource URIs and prompt names containing whitespace/control characters before
@@ -45,24 +82,24 @@ ticket-authenticated Streamable, bearer-token Streamable,
 ticket-authenticated JSON-response, and bearer-token JSON-response
 public-client examples, the installed CLI consumer smoke, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence is clean at `1fc88c6`: GitHub `master` CI `27519550557`
+Hosted evidence is clean at `3800678`: GitHub `master` CI `27521765976`
 passed with `Fast Checks` and `Full Verify` clean, and GitHub `add-router` CI
-`27519548006` also passed. GitHub `master` Dart Package Publish Dry Run
-`27519550540` and GitHub `add-router` Dart Package Publish Dry Run
-`27519547997` passed with zero warnings at `1fc88c6`. GitHub `master` WAMP
-Profile Benchmarks `27519550544` and GitHub `add-router` WAMP Profile
-Benchmarks `27519548002` passed at `1fc88c6`. Fresh non-mutating Router Image
-dry-run `27520092686` passed at `1fc88c6` with preview metadata
-`sha-1fc88c6ba225` and GHCR login skipped. The strict deployment-chain audit
-exited successfully on 2026-06-15 with clean latest CI logs at `1fc88c6`, Dart
+`27521761394` also passed. GitHub `master` Dart Package Publish Dry Run
+`27521765981` and GitHub `add-router` Dart Package Publish Dry Run
+`27521761412` passed with zero warnings at `3800678`. GitHub `master` WAMP
+Profile Benchmarks `27521765959` and GitHub `add-router` WAMP Profile
+Benchmarks `27521761415` passed at `3800678`. Fresh non-mutating Router Image
+dry-run `27521797357` passed at `3800678` with preview metadata
+`sha-3800678a2bdf` and GHCR login skipped. The strict deployment-chain audit
+exited successfully on 2026-06-15 with clean latest CI logs at `3800678`, Dart
 package publish dry-run relevance, relevant Native Artifacts dry-run
-`26396437881` at `debd545`, relevant Router Image dry-run `27520092686` at
-`1fc88c6`, relevant WAMP Profile Benchmarks `27519550544` at `1fc88c6`,
+`26396437881` at `debd545`, relevant Router Image dry-run `27521797357` at
+`3800678`, relevant WAMP Profile Benchmarks `27521765959` at `3800678`,
 branch protection, workflow visibility, and router image package visibility
 gates ready. RC readiness remains gated on release policy: no numeric RC tag
-points at `1fc88c6`, the existing `v0.1.0-rc.1` tag still points at stale
+points at `3800678`, the existing `v0.1.0-rc.1` tag still points at stale
 commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
-`1fc88c6`, the audit suggests `v0.1.0-rc.2` only after release approval, and
+`3800678`, the audit suggests `v0.1.0-rc.2` only after release approval, and
 pub.dev package ownership/version/release-order decisions remain deferred.
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now validates the

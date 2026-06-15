@@ -386,6 +386,32 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "did not report the malformed auth URL error",
             body,
         )
+        self.assertIn("invalid_auth_realm_output=\"$(", body)
+        self.assertIn(
+            "accepted an invalid auth realm",
+            body,
+        )
+        self.assertIn(
+            "--realm must not contain whitespace or control characters.",
+            body,
+        )
+        self.assertIn(
+            "did not report the invalid auth realm error",
+            body,
+        )
+        self.assertIn("invalid_auth_id_output=\"$(", body)
+        self.assertIn(
+            "accepted an invalid auth id",
+            body,
+        )
+        self.assertIn(
+            "--auth-id must not contain whitespace or control characters.",
+            body,
+        )
+        self.assertIn(
+            "did not report the invalid auth id error",
+            body,
+        )
         self.assertIn("dangling_tool_arguments_output=\"$(", body)
         self.assertIn(
             "accepted tool arguments without a tool",

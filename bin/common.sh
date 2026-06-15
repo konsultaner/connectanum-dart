@@ -566,6 +566,38 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local invalid_auth_realm_output
+  if invalid_auth_realm_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --auth-url http://127.0.0.1:8080/auth \
+    --realm 'bad realm' \
+    --auth-id mcp-user \
+    --ticket dry-run-ticket-secret \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an invalid auth realm.\n'
+    return 1
+  fi
+  if [[ "$invalid_auth_realm_output" != *'--realm must not contain whitespace or control characters.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the invalid auth realm error.\n'
+    return 1
+  fi
+
+  local invalid_auth_id_output
+  if invalid_auth_id_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --auth-url http://127.0.0.1:8080/auth \
+    --realm example.realm \
+    --auth-id 'bad auth' \
+    --ticket dry-run-ticket-secret \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an invalid auth id.\n'
+    return 1
+  fi
+  if [[ "$invalid_auth_id_output" != *'--auth-id must not contain whitespace or control characters.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the invalid auth id error.\n'
+    return 1
+  fi
+
   local dangling_tool_arguments_output
   if dangling_tool_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \

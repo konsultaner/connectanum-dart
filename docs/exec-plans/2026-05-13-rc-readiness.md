@@ -79,6 +79,40 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-15: Tightened MCP HTTP auth grant selector validation for client and
+  public example consumers. `packages/connectanum_client/lib/src/mcp/http_auth_client.dart`
+  now rejects MCP whitespace/control characters in `realm` and `authId` before
+  posting a router-hosted auth challenge request, preserving the existing
+  blank-value guard. `packages/connectanum_client/test/mcp/http_auth_client_test.dart`
+  covers blank, whitespace, and control-character auth request parameters and
+  keeps asserting that no fake auth endpoint request is sent.
+  `packages/connectanum_mcp/example/router_hosted_client.dart` mirrors the
+  same guard for public `--realm` and `--auth-id` ticket-auth dry-run/live
+  configuration, and `bin/common.sh` plus
+  `tool/test_mcp_consumer_package_boundary.py` guard the public dry-run
+  failures and diagnostics. Baseline `bin/test-fast` passed before the change
+  on 2026-06-15. A minimal repro first showed
+  `dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp/secure --auth-url http://127.0.0.1:8080/auth --realm 'bad realm' --auth-id mcp-user --ticket dry-run-ticket-secret --dry-run`
+  being accepted; after the fix, focused
+  `dart format packages/connectanum_client/lib/src/mcp/http_auth_client.dart packages/connectanum_client/test/mcp/http_auth_client_test.dart packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `bash -n bin/common.sh`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded --name 'rejects invalid auth request parameters before requests'`,
+  focused
+  `dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
+  focused `python3 tool/check_public_artifact_references.py`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  focused `git diff --check`, and direct public dry-run checks for invalid
+  `--realm` and `--auth-id` failed with the expected whitespace/control
+  diagnostics on 2026-06-15. Full local `bin/verify` passed on 2026-06-15
+  after the auth-selector change, including formatting, Rust/FFI, Python/tool
+  tests, MCP package smokes, generated consumer-package smokes, the
+  router-hosted MCP live public, ticket-authenticated Streamable,
+  bearer-token Streamable, ticket-authenticated JSON-response, and bearer-token
+  JSON-response public-client examples, the installed CLI consumer smoke, full
+  router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+  WebSocket smoke.
+
 - 2026-06-15: Tightened MCP prompt-name fail-fast validation for client and
   public example consumers. `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart`
   now rejects MCP prompt names containing whitespace/control characters before
@@ -112,9 +146,26 @@ decision because `connectanum_client` still depends on private
   ticket-authenticated JSON-response, and bearer-token JSON-response
   public-client examples, the installed CLI consumer smoke, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence for this implementation is pending; the latest fully clean
-  hosted checkpoint remains `1fc88c6` until the current commit is pushed and
-  audited.
+  Commit `3800678` (`test: validate mcp prompt whitespace`) was pushed to
+  GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is
+  clean at `3800678`: GitHub `master` CI `27521765976` and GitHub `add-router`
+  CI `27521761394` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `master` Dart Package Publish Dry Run `27521765981` and GitHub `add-router`
+  Dart Package Publish Dry Run `27521761412` passed with zero warnings. GitHub
+  `master` WAMP Profile Benchmarks `27521765959` and GitHub `add-router` WAMP
+  Profile Benchmarks `27521761415` passed. Fresh non-mutating Router Image
+  dry-run `27521797357` passed at `3800678` with preview metadata
+  `sha-3800678a2bdf` and GHCR login skipped. The strict deployment-chain audit
+  exited successfully on 2026-06-15 with clean latest CI logs, Dart package
+  publish dry-run relevance, relevant Native Artifacts dry-run `26396437881`
+  at `debd545`, relevant Router Image dry-run `27521797357` at `3800678`,
+  relevant WAMP Profile Benchmarks `27521765959` at `3800678`, branch
+  protection, workflow visibility, and router image package visibility gates
+  ready. RC readiness remains gated on release policy: no numeric RC tag points
+  at `3800678`, the existing `v0.1.0-rc.1` tag still points at stale commit
+  `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
+  `3800678`, and pub.dev package ownership/version/release-order decisions
+  remain deferred.
 
 - 2026-06-15: Tightened MCP resource URI fail-fast validation for client and
   public example consumers. `packages/connectanum_client/lib/src/mcp/streamable_http_client.dart`

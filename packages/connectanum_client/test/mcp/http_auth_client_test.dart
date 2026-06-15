@@ -249,7 +249,7 @@ void main() {
       expect(endpoint.requests, isEmpty);
     });
 
-    test('rejects blank auth request parameters before requests', () async {
+    test('rejects invalid auth request parameters before requests', () async {
       final endpoint = await _FakeHttpAuthEndpoint.bind();
       addTearDown(endpoint.close);
 
@@ -268,6 +268,22 @@ void main() {
         client.issueTicketToken(
           realm: 'realm1',
           authId: '  ',
+          ticket: 'ticket-secret',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.issueTicketToken(
+          realm: 'bad realm',
+          authId: 'user-1',
+          ticket: 'ticket-secret',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.issueTicketToken(
+          realm: 'realm1',
+          authId: 'user\u0085id',
           ticket: 'ticket-secret',
         ),
         throwsArgumentError,
