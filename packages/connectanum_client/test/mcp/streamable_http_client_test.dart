@@ -3219,6 +3219,39 @@ void main() {
       expect(endpoint.requests, isEmpty);
     });
 
+    test(
+      'rejects invalid resource URIs and prompt names before sending',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        for (final uri in const ['', 'readme', '/relative/readme']) {
+          await expectLater(
+            client.readResource(uri, id: 'invalid-resource-uri'),
+            throwsArgumentError,
+          );
+          await expectLater(
+            client.readResourceDirect(uri, id: 'invalid-resource-uri-direct'),
+            throwsArgumentError,
+          );
+        }
+
+        await expectLater(
+          client.getPrompt('', id: 'invalid-prompt-name'),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.getPromptDirect('', id: 'invalid-prompt-name-direct'),
+          throwsArgumentError,
+        );
+
+        expect(endpoint.requests, isEmpty);
+      },
+    );
+
     test('lists and calls tools through typed helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);

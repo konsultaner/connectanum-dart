@@ -189,7 +189,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "_nonEmptyStringOption",
             "_mcpToolNameOption",
             "_mcpSelectorOption",
+            "_mcpResourceUriOption",
             "must be 1-128 ASCII letters",
+            "must be an absolute URI with a scheme.",
             "must not contain whitespace or control characters.",
             "_printDryRunSummary",
             "--dry-run",
@@ -436,6 +438,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "did not report the invalid tool name error",
+            body,
+        )
+        self.assertIn("invalid_resource_uri_output=\"$(", body)
+        self.assertIn(
+            "accepted an invalid resource URI",
+            body,
+        )
+        self.assertIn(
+            "--resource-uri must be an absolute URI with a scheme.",
+            body,
+        )
+        self.assertIn(
+            "did not report the invalid resource URI error",
             body,
         )
         self.assertIn("invalid_wamp_topic_output=\"$(", body)

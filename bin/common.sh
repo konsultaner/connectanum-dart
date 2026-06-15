@@ -631,6 +631,19 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local invalid_resource_uri_output
+  if invalid_resource_uri_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --resource-uri readme \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an invalid resource URI.\n'
+    return 1
+  fi
+  if [[ "$invalid_resource_uri_output" != *'--resource-uri must be an absolute URI with a scheme.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the invalid resource URI error.\n'
+    return 1
+  fi
+
   local invalid_wamp_topic_output
   if invalid_wamp_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint http://127.0.0.1:8080/mcp \

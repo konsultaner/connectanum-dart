@@ -37,6 +37,25 @@ String _validatedMcpToolName(String value, String name) {
   );
 }
 
+String _validatedMcpResourceUri(String value, String name) {
+  final parsed = Uri.tryParse(value);
+  if (value.isNotEmpty && parsed != null && parsed.hasScheme) {
+    return value;
+  }
+  throw ArgumentError.value(
+    value,
+    name,
+    'MCP resource URI must be an absolute URI with a scheme.',
+  );
+}
+
+String _validatedMcpPromptName(String value, String name) {
+  if (value.isNotEmpty) {
+    return value;
+  }
+  throw ArgumentError.value(value, name, 'MCP prompt name is required.');
+}
+
 bool _mcpProtocolVersionSupported(String value) =>
     _mcpSupportedProtocolVersions.contains(value);
 
@@ -768,10 +787,11 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final resourceUri = _validatedMcpResourceUri(uri, 'uri');
     final response = await request(
       'resources/read',
       id: id,
-      params: <String, Object?>{'uri': uri},
+      params: <String, Object?>{'uri': resourceUri},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
       protocolVersion: protocolVersion,
@@ -856,10 +876,11 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    final promptName = _validatedMcpPromptName(name, 'name');
     final response = await request(
       'prompts/get',
       id: id,
-      params: <String, Object?>{'name': name, 'arguments': arguments},
+      params: <String, Object?>{'name': promptName, 'arguments': arguments},
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
       protocolVersion: protocolVersion,

@@ -814,7 +814,7 @@ final class _Options {
         '--tool-arguments',
         const <String, Object?>{},
       ),
-      resourceUri: _nonEmptyStringOption(values, '--resource-uri'),
+      resourceUri: _mcpResourceUriOption(values, '--resource-uri'),
       promptName: _nonEmptyStringOption(values, '--prompt'),
       promptArguments: _jsonStringMapOption(
         values,
@@ -898,6 +898,18 @@ String? _mcpSelectorOption(Map<String, String> values, String option) {
     throw FormatException(
       '$option must not contain whitespace or control characters.',
     );
+  }
+  return value;
+}
+
+String? _mcpResourceUriOption(Map<String, String> values, String option) {
+  final value = _nonEmptyStringOption(values, option);
+  if (value == null) {
+    return null;
+  }
+  final uri = Uri.tryParse(value);
+  if (uri == null || !uri.hasScheme) {
+    throw FormatException('$option must be an absolute URI with a scheme.');
   }
   return value;
 }
