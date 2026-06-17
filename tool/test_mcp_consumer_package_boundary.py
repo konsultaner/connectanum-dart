@@ -103,6 +103,36 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
                 )
                 self.assertNotRegex(body, r"import 'package:connectanum_client/")
 
+    def test_router_cli_consumer_smoke_exercises_raw_json_resource_templates(
+        self,
+    ) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+
+        self.assertIn("resource_templates = post_json(", body)
+        self.assertIn('"method": "resources/templates/list"', body)
+        self.assertIn(
+            'resource_templates["result"]["resourceTemplates"]',
+            body,
+        )
+        self.assertIn("cli://mcp/task/{taskId}", body)
+        self.assertIn(
+            "Installed CLI MCP route missed configured resource template",
+            body,
+        )
+        self.assertIn("secure_templates = post_json(", body)
+        self.assertIn('"id": "secure-resource-templates"', body)
+        self.assertIn(
+            'secure_templates["result"]["resourceTemplates"]',
+            body,
+        )
+        self.assertIn("cli://mcp/secure/task/{taskId}", body)
+        self.assertIn(
+            "Installed CLI protected MCP missed secure resource template",
+            body,
+        )
+        self.assertIn("tool calls/resources/resource templates/prompts", body)
+
     def test_public_router_hosted_client_example_uses_public_io_entrypoint(
         self,
     ) -> None:

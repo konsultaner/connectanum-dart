@@ -23468,7 +23468,17 @@ _, _, resource = post_json(
 if "Router CLI MCP context." not in json.dumps(resource["result"]["contents"]):
     raise AssertionError("Installed CLI MCP resources/read missed context")
 
-_, _, prompts = post_json({"jsonrpc": "2.0", "id": 4, "method": "prompts/list"})
+_, _, resource_templates = post_json(
+    {"jsonrpc": "2.0", "id": 4, "method": "resources/templates/list"}
+)
+resource_template_uris = {
+    template.get("uriTemplate")
+    for template in resource_templates["result"]["resourceTemplates"]
+}
+if "cli://mcp/task/{taskId}" not in resource_template_uris:
+    raise AssertionError("Installed CLI MCP route missed configured resource template")
+
+_, _, prompts = post_json({"jsonrpc": "2.0", "id": 5, "method": "prompts/list"})
 prompt_names = {prompt.get("name") for prompt in prompts["result"]["prompts"]}
 if "summarize-cli-context" not in prompt_names:
     raise AssertionError("Installed CLI MCP route missed configured prompt")
@@ -23476,7 +23486,7 @@ if "summarize-cli-context" not in prompt_names:
 _, _, prompt = post_json(
     {
         "jsonrpc": "2.0",
-        "id": 5,
+        "id": 6,
         "method": "prompts/get",
         "params": {
             "name": "summarize-cli-context",
@@ -23623,6 +23633,23 @@ secure_resource_uris = {
 }
 if "cli://mcp/secure/context" not in secure_resource_uris:
     raise AssertionError("Installed CLI protected MCP missed secure resource")
+_, _, secure_templates = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-resource-templates",
+        "method": "resources/templates/list",
+    },
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+secure_template_uris = {
+    template.get("uriTemplate")
+    for template in secure_templates["result"]["resourceTemplates"]
+}
+if "cli://mcp/secure/task/{taskId}" not in secure_template_uris:
+    raise AssertionError(
+        "Installed CLI protected MCP missed secure resource template"
+    )
 _, _, secure_topics = post_json(
     {
         "jsonrpc": "2.0",
@@ -26268,6 +26295,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
