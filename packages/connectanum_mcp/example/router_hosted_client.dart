@@ -112,7 +112,10 @@ void _printDryRunSummary(IOSink sink, _Options options) {
       if (options.authId != null) 'authId': options.authId,
       if (options.toolName != null)
         'tool': {'name': options.toolName, 'arguments': options.toolArguments},
-      if (options.resourceUri != null) 'resourceUri': options.resourceUri,
+      if (options.resourceUri != null) ...{
+        'resourceUri': options.resourceUri,
+        'resourceTemplates': true,
+      },
       if (options.promptName != null)
         'prompt': {
           'name': options.promptName,
@@ -159,6 +162,9 @@ Future<void> _runDirectJsonExample(
   final resourceUri = options.resourceUri;
   if (resourceUri != null) {
     final resources = await client.listResourcesDirect(id: 'direct-resources');
+    final resourceTemplates = await client.listResourceTemplatesDirect(
+      id: 'direct-resource-templates',
+    );
     final content = await client.readResourceDirect(
       resourceUri,
       id: 'direct-resource-read',
@@ -168,6 +174,12 @@ Future<void> _runDirectJsonExample(
         'directResources': [
           for (final resource in resources.resources) resource['uri'],
         ],
+        'directResourceTemplates': [
+          for (final template in resourceTemplates.resourceTemplates)
+            template['uriTemplate'],
+        ],
+        if (resourceTemplates.nextCursor != null)
+          'directResourceTemplateNextCursor': resourceTemplates.nextCursor,
         'directResourceContent': content,
       }),
     );
@@ -219,6 +231,12 @@ Future<void> _runDirectBatchExample(
 
   final resourceUri = options.resourceUri;
   if (resourceUri != null) {
+    messages.add({
+      'jsonrpc': '2.0',
+      'id': 'direct-batch-resource-templates',
+      'method': 'resources/templates/list',
+      'params': {},
+    });
     messages.add({
       'jsonrpc': '2.0',
       'id': 'direct-batch-resource-read',
@@ -524,10 +542,27 @@ Future<void> _runStreamableSessionExample(
   if (resourceUri != null) {
     streamableBatchMessages.add({
       'jsonrpc': '2.0',
+      'id': 'streamable-batch-resource-templates',
+      'method': 'resources/templates/list',
+      'params': {},
+    });
+    streamableBatchMessages.add({
+      'jsonrpc': '2.0',
       'id': 'streamable-batch-resource-read',
       'method': 'resources/read',
       'params': {'uri': resourceUri},
     });
+    final resourceTemplates = await client.listResourceTemplates(
+      id: 'streamable-resource-templates',
+    );
+    streamable['resourceTemplates'] = <String, Object?>{
+      'uriTemplates': [
+        for (final template in resourceTemplates.resourceTemplates)
+          template['uriTemplate'],
+      ],
+      if (resourceTemplates.nextCursor != null)
+        'nextCursor': resourceTemplates.nextCursor,
+    };
     streamable['resourceContent'] = await client.readResource(
       resourceUri,
       id: 'streamable-resource-read',
@@ -1089,7 +1124,7 @@ Options:
   --ticket TICKET                   Ticket secret for --auth-url grants.
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.
-  --resource-uri URI                Read this resource through direct JSON and Streamable HTTP.
+  --resource-uri URI                Read this resource and list templates through direct JSON and Streamable HTTP.
   --prompt NAME                     Get this prompt through direct JSON and Streamable HTTP.
   --prompt-arguments JSON_OBJECT    String arguments for --prompt.
   --wamp-procedure URI              Describe and match this WAMP procedure through direct JSON and Streamable HTTP.

@@ -384,6 +384,10 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     printf 'Public router-hosted MCP client dry-run did not report the requested protocol version.\n'
     return 1
   fi
+  if [[ "$dry_run_summary" != *'"resourceTemplates":true'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report resource-template discovery.\n'
+    return 1
+  fi
 
   local pubsub_only_dry_run_summary
   pubsub_only_dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \

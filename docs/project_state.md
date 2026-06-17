@@ -1,12 +1,49 @@
 # Project State
 
-Last updated: 2026-06-15
+Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-proves pub/sub-only consumer usage in both live execution and dry-run planning
-without requiring a separate WAMP metadata selector.
-Latest fully clean hosted checkpoint: Commit `415c76f` on GitHub `master`.
+now demonstrates router-provided resource-template discovery over
+lifecycle-free direct JSON, direct JSON batches, initialized Streamable HTTP,
+and Streamable batches whenever a consumer selects `--resource-uri`.
+Latest fully clean hosted checkpoint: Commit `1a9b953` on GitHub `master`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now lists
+router-provided MCP resource templates whenever `--resource-uri` is supplied.
+The public example exercises `listResourceTemplatesDirect` and
+`listResourceTemplates`, includes `resources/templates/list` in both direct
+JSON and Streamable HTTP batch examples, prints discovered template URI
+patterns next to resource content, and reports `"resourceTemplates":true` in
+dry-run output so downstream application setup can see that template discovery
+will run before a router is available. `bin/common.sh` asserts the dry-run
+marker, and `tool/test_mcp_consumer_package_boundary.py` guards the public
+helper calls, stable batch ids, and dry-run contract.
+
+Baseline `bin/test-fast` passed before this public MCP resource-template
+readiness change on 2026-06-17. Focused
+`python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
+`dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp --resource-uri app://example/context --dry-run`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`,
+focused `dart analyze packages/connectanum_mcp`, focused
+`python3 tool/check_public_artifact_references.py`, and focused
+`git diff --check` passed on 2026-06-17. Full local `bin/verify` passed on
+2026-06-18, including formatting, Rust/FFI tests, Python/tool tests, MCP
+package tests, generated consumer-package smokes, the router-hosted MCP live
+public/pub-sub-only/authenticated/bearer and JSON-response examples, the
+installed router CLI consumer smoke, full router tests, zero-copy router tests,
+and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains
+latest-known-clean at `1a9b953` until the GitHub deployment chain reports on
+the resource-template checkpoint head. RC readiness remains gated on release
+policy: no numeric RC tag points at `1a9b953`, the existing `v0.1.0-rc.1` tag
+still points at stale commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as
+the next numeric tag if release policy approves it, no GitHub prerelease or
+router image RC tag is selected for `1a9b953`, and pub.dev package
+ownership/version/release-order decisions remain deferred.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now reports
 `"subscriptionMetadata":true` in dry-run output whenever `--pubsub-topic` is
 used. This makes pub/sub-only downstream application and agent setup
@@ -26,14 +63,27 @@ passed on 2026-06-15. Full local `bin/verify` passed on 2026-06-15, including
 the router-hosted MCP live examples with the pub/sub-only public client
 invocation, generated consumer-package smokes, installed router CLI consumer
 smoke, router runtime tests, zero-copy router tests, and Chrome/Dart2Wasm
-browser WebSocket smoke. Hosted evidence remains latest-known-clean at
-`415c76f` until this dry-run checkpoint is committed, pushed, and the GitHub
-deployment chain reports on the new head. RC readiness remains gated on release
-policy: no approved numeric RC tag, GitHub prerelease, or matching router image
-RC tag has been selected, and pub.dev package ownership/version/release-order
-decisions remain deferred.
+browser WebSocket smoke. Commit `1a9b953` (`test: expose mcp pubsub dry-run
+metadata`) was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
+`master`. Hosted evidence is clean at `1a9b953`: GitHub `master` CI
+`27560108335` and GitHub `add-router` CI `27560103037` passed with `Fast
+Checks` and `Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
+`27560108314` and GitHub `add-router` Dart Package Publish Dry Run
+`27560102960` passed. No new WAMP Profile Benchmarks or Router Image run was
+triggered because no WAMP profile benchmark-sensitive or router-image-sensitive
+inputs changed. The strict deployment-chain audit exited successfully on
+2026-06-15 with clean latest CI logs at `1a9b953`, Dart package publish dry-run
+relevance, relevant Native Artifacts dry-run `26396437881` at `debd545`,
+relevant Router Image dry-run `27550613315` at `77f22c0`, relevant WAMP Profile
+Benchmarks `27549457823` at `77f22c0`, branch protection, workflow visibility,
+and router image package visibility gates ready. RC readiness remains gated on
+release policy: no numeric RC tag points at `1a9b953`, the existing
+`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, the audit suggests
+`v0.1.0-rc.2` as the next numeric tag if release policy approves it, no GitHub
+prerelease or router image RC tag is selected for `1a9b953`, and pub.dev
+package ownership/version/release-order decisions remain deferred.
 
-Previous implementation checkpoint:
+Earlier implementation checkpoint:
 `packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
 now emits `Vary: Access-Control-Request-Headers` whenever a router-hosted MCP
 CORS preflight reflects the caller's requested header list, including wildcard
@@ -18005,14 +18055,15 @@ at the older `47bbf9c` commit.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
   consumer integration bug appears. The current local checkpoint also makes
-  pub/sub-only dry-run output advertise subscription metadata lookup when only
-  `--pubsub-topic` and an optional `--pubsub-event` are provided, without
-  requiring a separate matching WAMP metadata selector. The latest fully clean
-  hosted checkpoint is `415c76f` on GitHub `master`, including CI, package
-  dry-run, still-relevant WAMP profile benchmark, Router Image dry-run, native
-  artifact dry-run, and strict deployment-chain audit evidence. RC readiness
-  remains blocked only by explicit RC tag/prerelease/router image tag selection
-  and deferred pub.dev release-order/operator decisions.
+  the public router-hosted MCP client example advertise and exercise
+  resource-template discovery whenever `--resource-uri` is supplied, across
+  direct JSON, direct JSON batches, initialized Streamable HTTP, and
+  Streamable batches. The latest fully clean hosted checkpoint is `1a9b953` on
+  GitHub `master`, including CI, package dry-run, still-relevant WAMP profile
+  benchmark, Router Image dry-run, native artifact dry-run, and strict
+  deployment-chain audit evidence. RC readiness remains blocked only by
+  explicit RC tag/prerelease/router image tag selection and deferred pub.dev
+  release-order/operator decisions.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

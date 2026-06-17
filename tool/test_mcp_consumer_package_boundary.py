@@ -137,12 +137,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "listConnectanumToolsDirect",
             "callConnectanumToolDirect",
             "listResourcesDirect",
+            "listResourceTemplatesDirect",
             "readResourceDirect",
             "listPromptsDirect",
             "getPromptDirect",
             "postBatchDirect",
             "direct-batch-tools",
             "direct-batch-tool-call",
+            "direct-batch-resource-templates",
             "direct-batch-wamp-procedure-api-list",
             "directBatch",
             "countWampSessionsDirect",
@@ -163,6 +165,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "callTool",
             "streamable-tool-call",
             "toolResult",
+            "listResourceTemplates(",
+            "streamable-resource-templates",
+            "streamable-batch-resource-templates",
+            "resourceTemplates",
             "countWampSessions(",
             "streamable-wamp-session-count",
             "listWampApi(",
@@ -248,6 +254,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dry_run_summary=\"$(", body)
         self.assertIn('"authMode":"none"', body)
         self.assertIn('"protocolVersion":"2025-06-18"', body)
+        self.assertIn('"resourceTemplates":true', body)
+        self.assertIn("resource-template discovery", body)
         self.assertIn("pubsub_only_dry_run_summary=\"$(", body)
         self.assertIn("T-pubsub-only-example-dry-run", body)
         self.assertIn('"subscriptionMetadata":true', body)
