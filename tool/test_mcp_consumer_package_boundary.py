@@ -323,12 +323,44 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            "dart-consumer-secure-json-streamable-procedure-describe",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable procedure "
+            "describe missed metadata.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-streamable-topic-describe",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable topic describe "
+            "missed metadata.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable WAMP describe "
+            "changed session state.",
+            body,
+        )
+        self.assertIn(
             "dart-consumer-secure-json-token-only-direct-procedure-describe",
             body,
         )
         self.assertIn(
             "Dart consumer token-only JSON-response direct procedure describe "
             "missed metadata.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-token-only-streamable-procedure-describe",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only JSON-response Streamable procedure "
+            "describe missed metadata.",
             body,
         )
         self.assertIn("dart-consumer-secure-topic-describe", body)
@@ -386,14 +418,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "active protected JSON-response auth rejection and direct JSON "
-            "procedure/topic/resource/prompt isolation",
+            "active protected JSON-response auth rejection, direct JSON "
+            "procedure/topic/resource/prompt isolation, and Streamable "
+            "procedure/topic describe",
             body,
         )
         self.assertIn(
             "token-only protected JSON-response "
             "tool calls/resources/resource templates/prompts/WAMP "
-            "procedure/session/subscription meta/pubsub/batches",
+            "procedure/session/subscription meta/pubsub/batches plus "
+            "Streamable procedure/topic describe",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)

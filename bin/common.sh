@@ -24873,6 +24873,37 @@ Future<void> main() async {
       'Dart consumer protected JSON-response active direct JSON helpers changed Streamable state.',
     );
 
+    final secureJsonStreamableProcedureDescription =
+        await secureJsonClient.describeWampApi(
+      _secureProcedure,
+      id: 'dart-consumer-secure-json-streamable-procedure-describe',
+      kind: 'procedure',
+    );
+    _expect(
+      jsonEncode(
+        secureJsonStreamableProcedureDescription,
+      ).contains('CLI Secure Lookup'),
+      'Dart consumer protected JSON-response Streamable procedure describe missed metadata.',
+    );
+
+    final secureJsonStreamableTopicDescription =
+        await secureJsonClient.describeWampApi(
+      _secureTopic,
+      id: 'dart-consumer-secure-json-streamable-topic-describe',
+      kind: 'topic',
+    );
+    _expect(
+      jsonEncode(
+        secureJsonStreamableTopicDescription,
+      ).contains('CLI Secure Smoke Events'),
+      'Dart consumer protected JSON-response Streamable topic describe missed metadata.',
+    );
+    _expect(
+      secureJsonClient.sessionId == secureJsonSessionId &&
+          secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response Streamable WAMP describe changed session state.',
+    );
+
     final secureJsonStreamableSubscription =
         await secureJsonClient.subscribeWampTopic(
       _secureTopic,
@@ -25295,6 +25326,19 @@ Future<void> main() async {
       _expect(
         jsonEncode(tokenOnlyStreamableApiTool).contains(_secureTopic),
         'Dart consumer token-only JSON-response Streamable tool call missed topic API.',
+      );
+      final tokenOnlyStreamableProcedureDescription =
+          await tokenOnlyJsonClient.describeWampApi(
+        _secureProcedure,
+        id:
+            'dart-consumer-secure-json-token-only-streamable-procedure-describe',
+        kind: 'procedure',
+      );
+      _expect(
+        jsonEncode(tokenOnlyStreamableProcedureDescription).contains(
+          'CLI Secure Lookup',
+        ),
+        'Dart consumer token-only JSON-response Streamable procedure describe missed metadata.',
       );
       final tokenOnlyStreamableTopicDescription = await tokenOnlyJsonClient
           .describeWampApi(
@@ -26941,6 +26985,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure/session/subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection and direct JSON procedure/topic/resource/prompt isolation, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure/session/subscription meta/pubsub/batches plus Streamable procedure/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure/topic/resource/prompt isolation, and Streamable procedure/topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
