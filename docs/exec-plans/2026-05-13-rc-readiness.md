@@ -79,6 +79,37 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-18: Extended the installed router CLI consumer smoke with declared
+  WAMP procedure metadata checks on the router-provided MCP endpoints. The
+  public `/mcp` route declares non-callable `cli.smoke.lookup` metadata and the
+  bearer-protected `/mcp/secure` and `/mcp/secure-json-post` routes declare
+  non-callable `cli.smoke.secure.lookup` metadata. The public raw JSON smoke
+  calls `connectanum.api.list` for procedure catalog discovery, calls
+  `connectanum.api.describe` for `cli.smoke.lookup`, and then repeats the
+  procedure describe path through standard Streamable HTTP `tools/call` using
+  `connectanum.api.describe`. The protected `/mcp/secure` smoke repeats the raw
+  JSON and Streamable procedure metadata path with a bearer token and an active
+  Streamable session. This covers agents and consumer applications that inspect
+  router-declared WAMP procedure metadata through generic MCP tool/meta APIs
+  without relying on generated Dart helper assumptions or requiring a callable
+  procedure registration. `tool/test_mcp_consumer_package_boundary.py` guards
+  the new procedure ids, assertion text, and updated smoke success summary.
+  Baseline `bin/test-fast` passed before the change on 2026-06-18. Focused
+  `bash -n bin/common.sh`, focused
+  `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples, the
+  installed router CLI consumer smoke with public/protected raw JSON and
+  Streamable WAMP procedure and topic metadata describe/pub-sub checks, full
+  router tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
+  smoke. The latest fully clean hosted checkpoint remains `aa1190f` until this
+  WAMP procedure metadata checkpoint is committed, pushed, and GitHub CI plus
+  the strict deployment-chain audit are observed.
 - 2026-06-18: Extended the installed router CLI consumer smoke with
   Streamable HTTP `tools/call` WAMP topic metadata checks on both
   router-provided MCP endpoints. The public `/mcp` smoke initializes a
@@ -105,9 +136,16 @@ decision because `connectanum_client` still depends on private
   installed router CLI consumer smoke with public/protected raw JSON and
   Streamable WAMP topic describe checks, full router tests, zero-copy router
   tests, and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean
-  hosted checkpoint remains `0b233dd` until this Streamable WAMP topic describe
-  checkpoint is committed, pushed, and GitHub CI plus the strict
-  deployment-chain audit are observed.
+  hosted checkpoint is `aa1190f`: commit `aa1190f` (`test: cover streamable mcp
+  topic describe`) was pushed to GitLab `origin`, GitHub `add-router`, and
+  GitHub `master`. GitHub `master` CI `27749012020` and GitHub `add-router` CI
+  `27749012030` passed with `Fast Checks` and `Full Verify` clean. The strict
+  deployment-chain audit `bin/audit-github-deployment-chain --branch master
+  --strict` exited successfully on 2026-06-18 with branch protection, workflow
+  visibility, router image package visibility, and latest GitHub `master` CI
+  evidence clean. No new Dart Package Publish Dry Run, Native Artifacts, Router
+  Image, or WAMP Profile Benchmarks run was required because no package,
+  workflow, native artifact, image, or benchmark inputs changed.
 - 2026-06-18: Extended the installed router CLI consumer smoke with direct raw
   JSON WAMP topic metadata checks on both router-provided MCP endpoints. The
   public `/mcp` smoke posts `connectanum.api.list` for `cli.smoke.events`, then
@@ -8910,18 +8948,18 @@ decision because `connectanum_client` still depends on private
 ## Handoff
 
 Active. The current implementation checkpoint makes the installed router CLI
-consumer smoke prove Streamable HTTP `tools/call` WAMP topic metadata access on
-both router-provided MCP endpoints. `bin/common.sh` now initializes a public
-Streamable session on `/mcp`, asserts `tools/list` exposes
-`connectanum.api.describe`, calls it through `tools/call` for
-`cli.smoke.events`, and asserts the `CLI Smoke Events` metadata before
-Streamable pub/sub delivery. It repeats the same standard Streamable tool-call
-path on bearer-protected `/mcp/secure` for `cli.smoke.secure.events` and
-asserts `CLI Secure Smoke Events` before protected Streamable pub/sub delivery.
-The generated Dart consumer still covers typed client helpers and the direct
-raw JSON smoke still covers lifecycle-free agents; this checkpoint covers
-agents and consumer applications that use standard Streamable HTTP MCP tool
-calls for WAMP metadata.
+consumer smoke prove declared WAMP procedure metadata access on the
+router-provided MCP endpoints. `bin/common.sh` now declares non-callable
+`cli.smoke.lookup` metadata on public `/mcp` and non-callable
+`cli.smoke.secure.lookup` metadata on bearer-protected `/mcp/secure` and
+`/mcp/secure-json-post`. The public raw JSON smoke calls
+`connectanum.api.list` for procedure catalog discovery, calls
+`connectanum.api.describe` for `cli.smoke.lookup`, and repeats the describe
+path through standard Streamable HTTP `tools/call` using
+`connectanum.api.describe`. The protected `/mcp/secure` smoke repeats the raw
+JSON and Streamable procedure metadata path with a bearer token and an active
+Streamable session. The previous raw JSON and Streamable topic metadata checks
+remain in the installed CLI smoke.
 
 Local evidence for this checkpoint: baseline `bin/test-fast` passed before the
 change on 2026-06-18. Focused `bash -n bin/common.sh`, focused
@@ -8933,23 +8971,21 @@ on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
 formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
 consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
 authenticated, bearer, and JSON-response examples, the installed router CLI
-consumer smoke with public/protected raw JSON and Streamable WAMP topic
-describe checks, full router tests, zero-copy router tests, and Chrome/Dart2Wasm
-browser WebSocket smoke.
+consumer smoke with public/protected raw JSON and Streamable WAMP procedure and
+topic metadata describe/pub-sub checks, full router tests, zero-copy router
+tests, and Chrome/Dart2Wasm browser WebSocket smoke.
 
-The latest fully clean hosted checkpoint is `0b233dd`: GitHub `master` CI
-`27744471480` and GitHub `add-router` CI `27744471455` passed with `Fast
+The latest fully clean hosted checkpoint is `aa1190f`: GitHub `master` CI
+`27749012020` and GitHub `add-router` CI `27749012030` passed with `Fast
 Checks` and `Full Verify` clean, and the strict deployment-chain audit
 `bin/audit-github-deployment-chain --branch master --strict` passed with branch
 protection, workflow visibility, router image package visibility, and latest
 `master` CI evidence clean. No new Dart Package Publish Dry Run, Native
 Artifacts, Router Image, or WAMP Profile Benchmarks run was required for
-`0b233dd` because no package, workflow, native artifact, image, or benchmark
-inputs changed. This Streamable WAMP topic describe checkpoint still needs to
-be committed, pushed, and observed in GitHub CI plus the strict deployment-chain
-audit.
+`aa1190f` because no package, workflow, native artifact, image, or benchmark
+inputs changed.
 
 RC readiness remains not-ready because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for `0b233dd`.
+prerelease, or matching RC router image tag has been selected for `aa1190f`.
 Pub.dev publishing remains deferred for release-order and operator
 decisions. No RC tag, GitHub Release, or router image was created or moved.

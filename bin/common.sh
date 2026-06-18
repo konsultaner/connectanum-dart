@@ -23151,6 +23151,12 @@ router:
                     messages:
                       - role: user
                         text: Summarize {{topic}} from the router CLI MCP smoke.
+                procedures:
+                  - procedure: cli.smoke.lookup
+                    tool_name: cli.smoke.lookup
+                    title: CLI Lookup
+                    description: Procedure metadata exposed by the router CLI MCP smoke.
+                    allow_call: false
                 topics:
                   - topic: cli.smoke.events
                     title: CLI Smoke Events
@@ -23184,6 +23190,12 @@ router:
                     messages:
                       - role: user
                         text: Summarize secure {{topic}} from the router CLI MCP smoke.
+                procedures:
+                  - procedure: cli.smoke.secure.lookup
+                    tool_name: cli.smoke.secure.lookup
+                    title: CLI Secure Lookup
+                    description: Protected procedure metadata exposed by the router CLI MCP smoke.
+                    allow_call: false
                 topics:
                   - topic: cli.smoke.secure.events
                     title: CLI Secure Smoke Events
@@ -23218,6 +23230,12 @@ router:
                     messages:
                       - role: user
                         text: Summarize secure {{topic}} from the router CLI MCP smoke.
+                procedures:
+                  - procedure: cli.smoke.secure.lookup
+                    tool_name: cli.smoke.secure.lookup
+                    title: CLI Secure Lookup
+                    description: Protected procedure metadata exposed by the router CLI MCP smoke.
+                    allow_call: false
                 topics:
                   - topic: cli.smoke.secure.events
                     title: CLI Secure Smoke Events
@@ -23503,6 +23521,31 @@ _, _, prompt = post_json(
 if "consumer readiness" not in json.dumps(prompt["result"]["messages"]):
     raise AssertionError("Installed CLI MCP prompts/get missed substitution")
 
+_, _, procedures = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-procedures",
+        "method": "connectanum.api.list",
+        "params": {"kind": "procedure"},
+    }
+)
+if "cli.smoke.lookup" not in json.dumps(procedures["result"]):
+    raise AssertionError(
+        "Installed CLI MCP direct procedure catalog missed public procedure"
+    )
+_, _, procedure_description = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-procedure-describe",
+        "method": "connectanum.api.describe",
+        "params": {"kind": "procedure", "uri": "cli.smoke.lookup"},
+    }
+)
+if "CLI Lookup" not in json.dumps(procedure_description["result"]):
+    raise AssertionError(
+        "Installed CLI MCP direct procedure describe missed public metadata"
+    )
+
 _, _, topics = post_json(
     {
         "jsonrpc": "2.0",
@@ -23667,6 +23710,27 @@ streamable_topic_content = structured_content(
 if "CLI Smoke Events" not in json.dumps(streamable_topic_content):
     raise AssertionError(
         "Installed CLI MCP Streamable topic describe missed public metadata"
+    )
+_, _, streamable_procedure_description = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-streamable-procedure-describe",
+        "method": "tools/call",
+        "params": {
+            "name": "connectanum.api.describe",
+            "arguments": {"kind": "procedure", "uri": "cli.smoke.lookup"},
+        },
+    },
+    headers=session_headers,
+    accept="application/json",
+)
+streamable_procedure_content = structured_content(
+    streamable_procedure_description,
+    label="Installed CLI MCP Streamable procedure describe",
+)
+if "CLI Lookup" not in json.dumps(streamable_procedure_content):
+    raise AssertionError(
+        "Installed CLI MCP Streamable procedure describe missed public metadata"
     )
 _, _, streamable_publish = post_json(
     {
@@ -23863,6 +23927,40 @@ if "protected consumer readiness" not in json.dumps(
     raise AssertionError(
         "Installed CLI protected MCP prompts/get missed secure substitution"
     )
+_, _, secure_procedures = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-procedures",
+        "method": "connectanum.api.list",
+        "params": {"kind": "procedure"},
+    },
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+if "cli.smoke.secure.lookup" not in json.dumps(secure_procedures["result"]):
+    raise AssertionError(
+        "Installed CLI protected MCP missed secure procedure"
+    )
+_, _, secure_procedure_description = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-procedure-describe",
+        "method": "connectanum.api.describe",
+        "params": {
+            "kind": "procedure",
+            "uri": "cli.smoke.secure.lookup",
+        },
+    },
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+if "CLI Secure Lookup" not in json.dumps(
+    secure_procedure_description["result"]
+):
+    raise AssertionError(
+        "Installed CLI protected MCP direct procedure describe "
+        "missed secure metadata"
+    )
 _, _, secure_topics = post_json(
     {
         "jsonrpc": "2.0",
@@ -24019,6 +24117,32 @@ secure_streamable_topic_content = structured_content(
 if "CLI Secure Smoke Events" not in json.dumps(secure_streamable_topic_content):
     raise AssertionError(
         "Installed CLI protected MCP Streamable topic describe "
+        "missed secure metadata"
+    )
+_, _, secure_streamable_procedure_description = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-streamable-procedure-describe",
+        "method": "tools/call",
+        "params": {
+            "name": "connectanum.api.describe",
+            "arguments": {
+                "kind": "procedure",
+                "uri": "cli.smoke.secure.lookup",
+            },
+        },
+    },
+    endpoint=secure_endpoint,
+    headers=secure_session_headers,
+    accept="application/json",
+)
+secure_streamable_procedure_content = structured_content(
+    secure_streamable_procedure_description,
+    label="Installed CLI protected MCP Streamable procedure describe",
+)
+if "CLI Secure Lookup" not in json.dumps(secure_streamable_procedure_content):
+    raise AssertionError(
+        "Installed CLI protected MCP Streamable procedure describe "
         "missed secure metadata"
     )
 _, _, secure_streamable_publish = post_json(
@@ -26790,6 +26914,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/describe/pub-sub plus Streamable topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection and direct JSON isolation, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP topic describe/pub-sub plus Streamable topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection and direct JSON isolation, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

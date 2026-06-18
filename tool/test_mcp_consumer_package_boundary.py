@@ -120,6 +120,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Installed CLI MCP route missed configured resource template",
             body,
         )
+        self.assertIn("procedures = post_json(", body)
+        self.assertIn('"id": "public-procedures"', body)
+        self.assertIn("cli.smoke.lookup", body)
+        self.assertIn(
+            "Installed CLI MCP direct procedure catalog missed public procedure",
+            body,
+        )
+        self.assertIn("procedure_description = post_json(", body)
+        self.assertIn('"id": "public-procedure-describe"', body)
+        self.assertIn(
+            "Installed CLI MCP direct procedure describe missed public metadata",
+            body,
+        )
         self.assertIn("topics = post_json(", body)
         self.assertIn('"id": "public-topics"', body)
         self.assertIn(
@@ -142,6 +155,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"id": "public-streamable-topic-describe"', body)
         self.assertIn(
             "Installed CLI MCP Streamable topic describe missed public metadata",
+            body,
+        )
+        self.assertIn("streamable_procedure_description = post_json(", body)
+        self.assertIn('"id": "public-streamable-procedure-describe"', body)
+        self.assertIn(
+            "Installed CLI MCP Streamable procedure describe "
+            "missed public metadata",
             body,
         )
         self.assertIn("streamable_publish = post_json(", body)
@@ -177,6 +197,20 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Installed CLI protected MCP prompts/get missed secure substitution",
             body,
         )
+        self.assertIn("secure_procedures = post_json(", body)
+        self.assertIn('"id": "secure-procedures"', body)
+        self.assertIn("cli.smoke.secure.lookup", body)
+        self.assertIn(
+            "Installed CLI protected MCP missed secure procedure",
+            body,
+        )
+        self.assertIn("secure_procedure_description = post_json(", body)
+        self.assertIn('"id": "secure-procedure-describe"', body)
+        self.assertIn(
+            "Installed CLI protected MCP direct procedure describe "
+            '"\n        "missed secure metadata',
+            body,
+        )
         self.assertIn("secure_topic_description = post_json(", body)
         self.assertIn('"id": "secure-topic-describe"', body)
         self.assertIn(
@@ -188,6 +222,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"id": "secure-streamable-topic-describe"', body)
         self.assertIn(
             "Installed CLI protected MCP Streamable topic describe "
+            '"\n        "missed secure metadata',
+            body,
+        )
+        self.assertIn("secure_streamable_procedure_description = post_json(", body)
+        self.assertIn('"id": "secure-streamable-procedure-describe"', body)
+        self.assertIn(
+            "Installed CLI protected MCP Streamable procedure describe "
             '"\n        "missed secure metadata',
             body,
         )
@@ -322,8 +363,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("tool calls/resources/resource templates/prompts", body)
         self.assertIn(
             "public raw JSON resources/resource templates/prompts/WAMP "
-            "topic catalog/describe/pub-sub plus Streamable topic "
-            "describe/pub-sub",
+            "procedure and topic catalog/describe/pub-sub plus Streamable "
+            "procedure and topic describe/pub-sub",
             body,
         )
         self.assertIn(
@@ -337,7 +378,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/WAMP "
-            "topic describe/pub-sub plus Streamable topic describe/pub-sub",
+            "procedure and topic describe/pub-sub plus Streamable procedure "
+            "and topic describe/pub-sub",
             body,
         )
 
