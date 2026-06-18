@@ -4,14 +4,52 @@ Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
 now fails fast when raw dotted direct JSON-RPC calls to
-`connectanum.api.list` or `connectanum.api.describe` do not return the
-configured WAMP procedure/topic metadata. The live example smoke therefore
-proves lightweight consumer agents can use direct method-style WAMP meta API
-access, in addition to typed direct helpers and `connectanum.tool.call`
-wrappers, without creating or advancing Streamable HTTP session state.
-Latest fully clean hosted checkpoint: Commit `32750be` on GitHub `master` and
+`connectanum.tools.list` or `connectanum.tool.call` fail to expose or call the
+configured tool. The live example smoke therefore proves lightweight consumer
+agents can use direct method-style tool API access, in addition to typed direct
+helpers and raw WAMP meta API methods, without creating or advancing
+Streamable HTTP session state.
+Latest fully clean hosted checkpoint: Commit `48d44b8` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now calls
+`callConnectanumMethodDirect` for `connectanum.tools.list` and
+`connectanum.tool.call` inside `_runDirectJsonExample`. The public example
+validates the raw method tool catalog contains the configured `--tool`, asserts
+both typed and raw method tool calls do not return `isError`, emits
+`directToolMethodCatalog` and `directToolMethodResult`, and keeps the direct
+JSON Streamable state guard around typed helper and raw method access.
+`tool/test_mcp_consumer_package_boundary.py` guards the new raw tool method
+ids, labels, helper, and output fields so the public example cannot silently
+drop direct method-style tool API coverage.
+
+Baseline `bin/test-fast` passed before this public router-hosted raw tool
+method self-check change on 2026-06-18. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with raw direct tool method
+checks, raw direct WAMP method metadata checks, direct JSON lifecycle, session
+initialization, session deletion, pub/sub metadata, standard MCP catalog, and
+WAMP catalog self-checks, the installed router CLI consumer smoke, full router
+tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+The latest fully clean hosted checkpoint remains `48d44b8` until this local
+checkpoint is pushed and hosted CI/package dry-run evidence completes. RC
+readiness remains gated on release policy: no numeric RC
+tag points at the current local implementation checkpoint, the existing
+`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub prerelease
+or router image RC tag is selected for the current hosted checkpoint, and
+pub.dev package ownership/version/release-order decisions remain deferred.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now calls
 `callConnectanumMethodDirect` for `connectanum.api.list` and
 `connectanum.api.describe` inside `_runDirectWampMetadataExample`. The public
@@ -40,14 +78,23 @@ authenticated, bearer, and JSON-response examples with raw direct WAMP method
 metadata checks, direct JSON lifecycle, session initialization, session
 deletion, pub/sub metadata, standard MCP catalog, and WAMP catalog self-checks,
 the installed router CLI consumer smoke, full router tests, zero-copy router
-tests, and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean
-hosted checkpoint remains `32750be` until this local checkpoint is pushed and
-hosted CI/package dry-run evidence completes. RC readiness remains gated on
-release policy: no numeric RC tag points at the current local implementation
-checkpoint, the existing `v0.1.0-rc.1` tag still points at stale commit
-`47bbf9c`, no GitHub prerelease or router image RC tag is selected for the
-current hosted checkpoint, and pub.dev package ownership/version/release-order
-decisions remain deferred.
+tests, and Chrome/Dart2Wasm browser WebSocket smoke. Commit `48d44b8`
+(`test: assert router mcp raw metadata methods`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`27789200414` and GitHub `add-router` CI `27789195095` passed with
+`Fast Checks` and `Full Verify` clean. GitHub `master` Dart Package Publish
+Dry Run `27789200393` and GitHub `add-router` Dart Package Publish Dry Run
+`27789195118` also passed. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --strict` exited
+successfully on 2026-06-18 with branch protection, workflow visibility, router
+image package visibility, latest GitHub `master` CI evidence, and latest GitHub
+`master` Dart package dry-run evidence clean. No new Native Artifacts, Router
+Image, or WAMP Profile Benchmarks run was required because no native artifact,
+image, workflow, or benchmark-sensitive inputs changed. RC readiness remains
+gated on release policy: no numeric RC tag points at `48d44b8`, the existing
+`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub prerelease
+or router image RC tag is selected for the current hosted checkpoint, and
+pub.dev package ownership/version/release-order decisions remain deferred.
 
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now adds

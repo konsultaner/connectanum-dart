@@ -180,12 +180,43 @@ Future<void> _runDirectJsonExample(
       value: toolName,
       label: 'Direct tool',
     );
-    final result = await client.callConnectanumToolDirect(
-      toolName,
-      id: 'direct-tool-call',
-      arguments: options.toolArguments,
+    final methodCatalog = await client.callConnectanumMethodDirect(
+      'connectanum.tools.list',
+      id: 'direct-tools-method',
     );
-    stdout.writeln(jsonEncode({'directToolResult': result}));
+    final methodToolCatalog = methodCatalog['tools'];
+    _expectCatalogContainsValue(
+      catalog: methodToolCatalog,
+      field: 'name',
+      value: toolName,
+      label: 'Direct tool method list',
+    );
+    final result = _expectToolResultSucceeded(
+      await client.callConnectanumToolDirect(
+        toolName,
+        id: 'direct-tool-call',
+        arguments: options.toolArguments,
+      ),
+      label: 'Direct tool call',
+    );
+    final methodResult = _expectToolResultSucceeded(
+      await client.callConnectanumMethodDirect(
+        'connectanum.tool.call',
+        id: 'direct-tool-call-method',
+        params: <String, Object?>{
+          'name': toolName,
+          'arguments': options.toolArguments,
+        },
+      ),
+      label: 'Direct tool method call',
+    );
+    stdout.writeln(
+      jsonEncode({
+        'directToolResult': result,
+        'directToolMethodCatalog': methodToolCatalog,
+        'directToolMethodResult': methodResult,
+      }),
+    );
   }
 
   final resourceUri = options.resourceUri;
@@ -630,14 +661,22 @@ Future<void> _runDirectWampMetadataExample(
   stdout.writeln(jsonEncode({'directWampMetadata': metadata}));
 }
 
-McpJsonMap _structuredContentFromToolResult(
+McpJsonMap _expectToolResultSucceeded(
   McpJsonMap result, {
   required String label,
 }) {
   if (result['isError'] == true) {
     throw StateError('$label returned an error: ${jsonEncode(result)}.');
   }
-  final structuredContent = result['structuredContent'];
+  return result;
+}
+
+McpJsonMap _structuredContentFromToolResult(
+  McpJsonMap result, {
+  required String label,
+}) {
+  final toolResult = _expectToolResultSucceeded(result, label: label);
+  final structuredContent = toolResult['structuredContent'];
   if (structuredContent is Map) {
     return structuredContent.cast<String, Object?>();
   }
