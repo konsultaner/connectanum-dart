@@ -25809,6 +25809,15 @@ Future<void> main() async {
       jsonEncode(secureCatalog).contains(_secureTopic),
       'Dart consumer missed protected direct JSON topic catalog.',
     );
+    final secureTopicDescription = await secureClient.describeWampApiDirect(
+      _secureTopic,
+      id: 'dart-consumer-secure-topic-describe',
+      kind: 'topic',
+    );
+    _expect(
+      jsonEncode(secureTopicDescription).contains('CLI Secure Smoke Events'),
+      'Dart consumer missed protected direct JSON topic metadata.',
+    );
 
     final subscription = await secureClient.subscribeWampTopicDirect(
       _secureTopic,
@@ -25888,6 +25897,24 @@ Future<void> main() async {
       secureClient.sessionId == secureSessionId &&
           secureClient.lastEventId == secureLastEventId,
       'Dart consumer protected Streamable auth rejection changed valid session state.',
+    );
+
+    final secureActiveDirectTopicDescription =
+        await secureClient.describeWampApiDirect(
+      _secureTopic,
+      id: 'dart-consumer-secure-active-direct-topic-describe',
+      kind: 'topic',
+    );
+    _expect(
+      jsonEncode(
+        secureActiveDirectTopicDescription,
+      ).contains('CLI Secure Smoke Events'),
+      'Dart consumer protected active direct JSON topic describe missed metadata.',
+    );
+    _expect(
+      secureClient.sessionId == secureSessionId &&
+          secureClient.lastEventId == secureLastEventId,
+      'Dart consumer protected active direct JSON topic describe changed Streamable state.',
     );
 
     final secureStreamableContents = await secureClient.readResource(
@@ -26533,6 +26560,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected auth rejection isolation, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected auth rejection isolation, active protected direct JSON WAMP meta isolation, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
