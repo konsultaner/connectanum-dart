@@ -151,6 +151,12 @@ Future<void> _runDirectJsonExample(
 
   final toolName = options.toolName;
   if (toolName != null) {
+    _expectCatalogContainsValue(
+      catalog: catalog.tools,
+      field: 'name',
+      value: toolName,
+      label: 'Direct tool',
+    );
     final result = await client.callConnectanumToolDirect(
       toolName,
       id: 'direct-tool-call',
@@ -162,6 +168,12 @@ Future<void> _runDirectJsonExample(
   final resourceUri = options.resourceUri;
   if (resourceUri != null) {
     final resources = await client.listResourcesDirect(id: 'direct-resources');
+    _expectCatalogContainsValue(
+      catalog: resources.resources,
+      field: 'uri',
+      value: resourceUri,
+      label: 'Direct resource',
+    );
     final resourceTemplates = await client.listResourceTemplatesDirect(
       id: 'direct-resource-templates',
     );
@@ -188,6 +200,12 @@ Future<void> _runDirectJsonExample(
   final promptName = options.promptName;
   if (promptName != null) {
     final prompts = await client.listPromptsDirect(id: 'direct-prompts');
+    _expectCatalogContainsValue(
+      catalog: prompts.prompts,
+      field: 'name',
+      value: promptName,
+      label: 'Direct prompt',
+    );
     final prompt = await client.getPromptDirect(
       promptName,
       id: 'direct-prompt-get',
@@ -462,11 +480,30 @@ void _expectWampCatalogContains({
 }
 
 bool _wampCatalogContainsUri(Object? catalog, String uri) {
+  return _catalogContainsValue(catalog: catalog, field: 'uri', value: uri);
+}
+
+void _expectCatalogContainsValue({
+  required Object? catalog,
+  required String field,
+  required String value,
+  required String label,
+}) {
+  if (!_catalogContainsValue(catalog: catalog, field: field, value: value)) {
+    throw StateError('$label catalog did not include $value.');
+  }
+}
+
+bool _catalogContainsValue({
+  required Object? catalog,
+  required String field,
+  required String value,
+}) {
   if (catalog is! Iterable<Object?>) {
     return false;
   }
   for (final entry in catalog) {
-    if (entry is Map && entry['uri'] == uri) {
+    if (entry is Map && entry[field] == value) {
       return true;
     }
   }
@@ -557,6 +594,12 @@ Future<void> _runStreamableSessionExample(
     },
   ];
   if (toolName != null) {
+    _expectCatalogContainsValue(
+      catalog: tools.tools,
+      field: 'name',
+      value: toolName,
+      label: 'Streamable tool',
+    );
     streamableBatchMessages.add(
       _toolCallBatchRequest(
         id: 'streamable-batch-tool-call',
@@ -576,6 +619,12 @@ Future<void> _runStreamableSessionExample(
   if (resourceUri != null) {
     streamableBatchMessages.add({
       'jsonrpc': '2.0',
+      'id': 'streamable-batch-resources',
+      'method': 'resources/list',
+      'params': {},
+    });
+    streamableBatchMessages.add({
+      'jsonrpc': '2.0',
       'id': 'streamable-batch-resource-templates',
       'method': 'resources/templates/list',
       'params': {},
@@ -586,6 +635,17 @@ Future<void> _runStreamableSessionExample(
       'method': 'resources/read',
       'params': {'uri': resourceUri},
     });
+    final resources = await client.listResources(id: 'streamable-resources');
+    _expectCatalogContainsValue(
+      catalog: resources.resources,
+      field: 'uri',
+      value: resourceUri,
+      label: 'Streamable resource',
+    );
+    streamable['resources'] = <String, Object?>{
+      'uris': [for (final resource in resources.resources) resource['uri']],
+      if (resources.nextCursor != null) 'nextCursor': resources.nextCursor,
+    };
     final resourceTemplates = await client.listResourceTemplates(
       id: 'streamable-resource-templates',
     );
@@ -607,10 +667,27 @@ Future<void> _runStreamableSessionExample(
   if (promptName != null) {
     streamableBatchMessages.add({
       'jsonrpc': '2.0',
+      'id': 'streamable-batch-prompts',
+      'method': 'prompts/list',
+      'params': {},
+    });
+    streamableBatchMessages.add({
+      'jsonrpc': '2.0',
       'id': 'streamable-batch-prompt-get',
       'method': 'prompts/get',
       'params': {'name': promptName, 'arguments': options.promptArguments},
     });
+    final prompts = await client.listPrompts(id: 'streamable-prompts');
+    _expectCatalogContainsValue(
+      catalog: prompts.prompts,
+      field: 'name',
+      value: promptName,
+      label: 'Streamable prompt',
+    );
+    streamable['prompts'] = <String, Object?>{
+      'names': [for (final prompt in prompts.prompts) prompt['name']],
+      if (prompts.nextCursor != null) 'nextCursor': prompts.nextCursor,
+    };
     streamable['prompt'] = await client.getPrompt(
       promptName,
       id: 'streamable-prompt-get',

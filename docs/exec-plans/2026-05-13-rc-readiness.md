@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-18: Tightened the public router-hosted MCP client example so
+  standard MCP tool/resource/prompt catalog discovery is self-checking on
+  consumer-facing routes. When `--tool`, `--resource-uri`, or `--prompt` is
+  provided, `packages/connectanum_mcp/example/router_hosted_client.dart` now
+  verifies that direct JSON and Streamable catalog helpers expose the requested
+  tool name, resource URI, or prompt name before performing the known-id action.
+  The Streamable batch smoke also includes `resources/list` and `prompts/list`
+  requests so the example proves standard resource and prompt catalog routing
+  in batches, not only resource reads and prompt gets.
+  `tool/test_mcp_consumer_package_boundary.py` guards the generic catalog
+  helper, clear failure text, direct/Streamable labels, and the new Streamable
+  resource/prompt catalog ids. Baseline `bin/test-fast` passed before the
+  change on 2026-06-18. Focused
+  `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`,
+  focused `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18,
+  including the router-hosted MCP live public, pub/sub-only, authenticated,
+  bearer, and JSON-response examples with standard tool/resource/prompt catalog
+  self-checks plus WAMP catalog self-checks, generated consumer-package smokes,
+  the installed router CLI consumer smoke, full router tests, zero-copy router
+  tests, and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean
+  hosted checkpoint remains `574c804` until this local implementation has new
+  hosted evidence.
 - 2026-06-18: Tightened the public router-hosted MCP client example so WAMP
   catalog discovery is self-checking on consumer-facing routes. When
   `--wamp-procedure` or `--wamp-topic` is provided,
@@ -99,7 +125,20 @@ decision because `connectanum_client` still depends on private
   passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18,
   including the router-hosted MCP live public, pub/sub-only, authenticated,
   bearer, and JSON-response examples with WAMP catalog self-checks plus the
-  installed router CLI consumer smoke.
+  installed router CLI consumer smoke. The latest fully clean hosted
+  checkpoint is `574c804`: commit `574c804` (`test: assert router hosted mcp
+  catalogs`) was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
+  `master`. GitHub `master` CI `27768712638` and GitHub `add-router` CI
+  `27768706548` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `master` Dart Package Publish Dry Run `27768712683` and GitHub `add-router`
+  Dart Package Publish Dry Run `27768706066` also passed. The strict
+  deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-18 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-18: Extended the installed router CLI generated Dart consumer smoke
   on bearer-protected JSON-response `/mcp/secure-json-post` with WAMP
   procedure catalog route-parity checks. While a valid JSON-response
