@@ -126,6 +126,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Installed CLI MCP direct topic catalog missed public topic",
             body,
         )
+        self.assertIn("topic_description = post_json(", body)
+        self.assertIn('"id": "public-topic-describe"', body)
+        self.assertIn('"method": "connectanum.api.describe"', body)
+        self.assertIn(
+            "Installed CLI MCP direct topic describe missed public metadata",
+            body,
+        )
         self.assertIn("direct_subscribe = post_json(", body)
         self.assertIn('"id": "public-direct-pubsub-subscribe"', body)
         self.assertIn("direct_publish = post_json(", body)
@@ -162,6 +169,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("protected consumer readiness", body)
         self.assertIn(
             "Installed CLI protected MCP prompts/get missed secure substitution",
+            body,
+        )
+        self.assertIn("secure_topic_description = post_json(", body)
+        self.assertIn('"id": "secure-topic-describe"', body)
+        self.assertIn(
+            "Installed CLI protected MCP direct topic describe missed "
+            "secure metadata",
             body,
         )
         self.assertIn(
@@ -293,7 +307,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("tool calls/resources/resource templates/prompts", body)
-        self.assertIn("public raw JSON resources/resource templates/prompts", body)
+        self.assertIn(
+            "public raw JSON resources/resource templates/prompts/WAMP "
+            "topic catalog/describe/pub-sub",
+            body,
+        )
         self.assertIn(
             "active protected JSON-response auth rejection and direct JSON isolation",
             body,
@@ -304,7 +322,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "protected raw JSON resources/resource templates/prompts/pub-sub",
+            "protected raw JSON resources/resource templates/prompts/WAMP "
+            "topic describe/pub-sub",
             body,
         )
 

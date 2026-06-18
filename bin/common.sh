@@ -23513,6 +23513,18 @@ _, _, topics = post_json(
 )
 if "cli.smoke.events" not in json.dumps(topics["result"]):
     raise AssertionError("Installed CLI MCP direct topic catalog missed public topic")
+_, _, topic_description = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-topic-describe",
+        "method": "connectanum.api.describe",
+        "params": {"kind": "topic", "uri": "cli.smoke.events"},
+    }
+)
+if "CLI Smoke Events" not in json.dumps(topic_description["result"]):
+    raise AssertionError(
+        "Installed CLI MCP direct topic describe missed public metadata"
+    )
 _, _, direct_subscribe = post_json(
     {
         "jsonrpc": "2.0",
@@ -23838,6 +23850,22 @@ _, _, secure_topics = post_json(
 )
 if "cli.smoke.secure.events" not in json.dumps(secure_topics["result"]):
     raise AssertionError("Installed CLI protected MCP missed secure topic")
+_, _, secure_topic_description = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-topic-describe",
+        "method": "connectanum.api.describe",
+        "params": {"kind": "topic", "uri": "cli.smoke.secure.events"},
+    },
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+)
+if "CLI Secure Smoke Events" not in json.dumps(
+    secure_topic_description["result"]
+):
+    raise AssertionError(
+        "Installed CLI protected MCP direct topic describe missed secure metadata"
+    )
 _, _, secure_direct_subscribe = post_json(
     {
         "jsonrpc": "2.0",
@@ -26707,6 +26735,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection and direct JSON isolation, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/describe/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection and direct JSON isolation, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
