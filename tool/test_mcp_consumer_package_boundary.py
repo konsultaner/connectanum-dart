@@ -131,7 +131,28 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Installed CLI protected MCP missed secure resource template",
             body,
         )
+        self.assertIn("secure_resource = post_json(", body)
+        self.assertIn('"id": "secure-resource-read"', body)
+        self.assertIn("Router CLI secure MCP context.", body)
+        self.assertIn(
+            "Installed CLI protected MCP resources/read missed secure context",
+            body,
+        )
+        self.assertIn("secure_prompts = post_json(", body)
+        self.assertIn('"id": "secure-prompts"', body)
+        self.assertIn("summarize-secure-cli-context", body)
+        self.assertIn("secure_prompt = post_json(", body)
+        self.assertIn('"id": "secure-prompt-get"', body)
+        self.assertIn("protected consumer readiness", body)
+        self.assertIn(
+            "Installed CLI protected MCP prompts/get missed secure substitution",
+            body,
+        )
         self.assertIn("tool calls/resources/resource templates/prompts", body)
+        self.assertIn(
+            "protected raw JSON resources/resource templates/prompts/pub-sub",
+            body,
+        )
 
     def test_public_router_hosted_client_example_uses_public_io_entrypoint(
         self,

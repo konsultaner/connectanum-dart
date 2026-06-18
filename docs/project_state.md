@@ -3,38 +3,59 @@
 Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the installed router CLI consumer smoke now
-proves router-provided MCP resource-template discovery over raw direct JSON on
-both public and bearer-protected router MCP endpoints.
-Latest fully clean hosted checkpoint: Commit `52dba41` on GitHub `master`.
+proves router-provided MCP resource-template discovery plus protected resource
+reads and prompt rendering over raw direct JSON on router-hosted MCP endpoints.
+Latest fully clean hosted checkpoint: Commit `7aa7a46` on GitHub `master`.
 Current implementation checkpoint:
+`bin/common.sh` now extends the installed router CLI consumer package smoke on
+bearer-protected `/mcp/secure` with raw JSON `resources/read`, `prompts/list`,
+and `prompts/get` requests after protected resource-template discovery. The
+smoke asserts the configured secure context and `summarize-secure-cli-context`
+prompt substitution, so a direct JSON agent or consumer application can prove
+auth-protected router MCP resources and prompts without private project
+assumptions or generated Dart helper coverage. `tool/test_mcp_consumer_package_boundary.py`
+guards the protected raw JSON resource read, prompt list/get, and updated smoke
+success summary.
+
+Baseline `bin/test-fast` passed before this protected raw JSON resource/prompt
+smoke change on 2026-06-18. Focused `bash -n bin/common.sh`, focused
+`python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+and focused `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`
+passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples, the installed router CLI
+consumer smoke with protected raw JSON resources/resource templates/prompts/pub-sub
+checks, full router tests, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence remains latest-known-clean at `7aa7a46` until
+GitHub reports on this protected raw JSON smoke checkpoint. Existing hosted
+evidence at `7aa7a46` is clean: GitHub `master` CI `27726956561` and GitHub
+`add-router` CI `27726956579` passed with `Fast Checks` and `Full Verify`
+clean. No new Dart Package Publish Dry Run was triggered for `7aa7a46` because
+no publish-sensitive paths changed; the strict audit accepted GitHub `master`
+Dart Package Publish Dry Run `27724124864` at `52dba41` as still relevant. No
+new WAMP Profile Benchmarks or Router Image run was triggered because no WAMP
+profile benchmark-sensitive or router-image-sensitive inputs changed. RC
+readiness remains gated on release policy: no numeric RC tag points at
+`7aa7a46`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if release
+policy approves it, no GitHub prerelease or router image RC tag is selected for
+`7aa7a46`, and pub.dev package ownership/version/release-order decisions remain
+deferred.
+
+Previous implementation checkpoint:
 `bin/common.sh` now posts raw JSON `resources/templates/list` requests in the
 installed router CLI consumer package smoke for both `/mcp` and bearer-protected
 `/mcp/secure`, asserting the configured `cli://mcp/task/{taskId}` and
 `cli://mcp/secure/task/{taskId}` templates. This closes the raw JSON
 agent/consumer path next to the generated Dart consumer coverage without
-requiring private project assumptions. `tool/test_mcp_consumer_package_boundary.py`
-guards the raw public and protected template checks plus the smoke success
-summary.
+requiring private project assumptions. Commit `7aa7a46`
+(`test: cover cli mcp resource templates`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`; hosted CI and strict
+deployment-chain audit evidence are clean as described above.
 
-Baseline `bin/test-fast` passed before this installed CLI raw JSON
-resource-template smoke change on 2026-06-18. Focused
-`python3 -m unittest tool/test_mcp_consumer_package_boundary.py` and focused
-`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'` passed
-on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
-formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
-consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
-authenticated, bearer, and JSON-response examples, the installed router CLI
-consumer smoke with raw resource-template checks, full router tests,
-zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
-remains latest-known-clean at `52dba41` until the GitHub deployment chain
-reports on this installed CLI smoke checkpoint head. RC readiness remains gated
-on release policy: no numeric RC tag points at `52dba41`, the existing
-`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, the audit suggests
-`v0.1.0-rc.2` as the next numeric tag if release policy approves it, no GitHub
-prerelease or router image RC tag is selected for `52dba41`, and pub.dev
-package ownership/version/release-order decisions remain deferred.
-
-Previous implementation checkpoint:
+Earlier implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now lists
 router-provided MCP resource templates whenever `--resource-uri` is supplied.
 The public example exercises `listResourceTemplatesDirect` and
@@ -18094,12 +18115,14 @@ at the older `47bbf9c` commit.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
   consumer integration bug appears. The current local checkpoint makes the
-  installed router CLI consumer smoke prove raw JSON
-  `resources/templates/list` discovery on both public and bearer-protected MCP
-  routes. The latest fully clean hosted checkpoint is `52dba41` on GitHub
-  `master`, including CI, package dry-run, still-relevant WAMP profile
-  benchmark, Router Image dry-run, native artifact dry-run, and strict
-  deployment-chain audit evidence. RC readiness remains blocked only by
+  installed router CLI consumer smoke prove protected raw JSON
+  `resources/read`, `prompts/list`, and `prompts/get` access on the
+  bearer-protected MCP route, alongside existing public/protected
+  `resources/templates/list` discovery. The latest fully clean hosted checkpoint
+  is `7aa7a46` on GitHub `master`, including CI, package dry-run,
+  still-relevant WAMP profile benchmark, Router Image dry-run, native artifact
+  dry-run, and strict deployment-chain audit evidence. RC readiness remains
+  blocked only by
   explicit RC tag/prerelease/router image tag selection and deferred pub.dev
   release-order/operator decisions.
 - Historical paused plan:
