@@ -277,6 +277,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            "dart-consumer-secure-json-active-direct-procedure-catalog",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON procedure "
+            "catalog missed metadata.",
+            body,
+        )
+        self.assertIn(
             "dart-consumer-secure-json-active-direct-procedure-describe",
             body,
         )
@@ -323,6 +332,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            "dart-consumer-secure-json-streamable-procedure-catalog",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable procedure "
+            "catalog missed metadata.",
+            body,
+        )
+        self.assertIn(
             "dart-consumer-secure-json-streamable-procedure-describe",
             body,
         )
@@ -346,12 +364,30 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            "dart-consumer-secure-json-token-only-direct-procedure-catalog",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only JSON-response direct procedure catalog "
+            "missed metadata.",
+            body,
+        )
+        self.assertIn(
             "dart-consumer-secure-json-token-only-direct-procedure-describe",
             body,
         )
         self.assertIn(
             "Dart consumer token-only JSON-response direct procedure describe "
             "missed metadata.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-token-only-streamable-procedure-catalog",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only JSON-response Streamable procedure "
+            "catalog missed metadata.",
             body,
         )
         self.assertIn(
@@ -419,15 +455,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "active protected JSON-response auth rejection, direct JSON "
-            "procedure/topic/resource/prompt isolation, and Streamable "
-            "procedure/topic describe",
+            "procedure catalog/describe/topic/resource/prompt isolation, "
+            "and Streamable procedure catalog/describe plus topic describe",
             body,
         )
         self.assertIn(
             "token-only protected JSON-response "
             "tool calls/resources/resource templates/prompts/WAMP "
-            "procedure/session/subscription meta/pubsub/batches plus "
-            "Streamable procedure/topic describe",
+            "procedure catalog/describe/session/subscription "
+            "meta/pubsub/batches plus Streamable procedure "
+            "catalog/describe/topic describe",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)

@@ -80,6 +80,35 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-18: Extended the installed router CLI generated Dart consumer smoke
+  on bearer-protected JSON-response `/mcp/secure-json-post` with WAMP
+  procedure catalog route-parity checks. While a valid JSON-response
+  Streamable session is active, the generated consumer calls
+  `listWampApiDirect` for procedure metadata, asserts
+  `cli.smoke.secure.lookup` is present, then repeats the procedure catalog path
+  through standard Streamable HTTP `listWampApi` without mutating the active
+  session id or resume cursor. The token-only JSON-response direct and
+  Streamable clients now repeat the procedure catalog checks before their
+  existing procedure describe, topic, resource, prompt, batch, and pub/sub
+  checks. This covers consumer applications that need procedure list discovery
+  on the protected JSON-response MCP route instead of relying only on known
+  procedure ids. `tool/test_mcp_consumer_package_boundary.py` guards the new
+  generated ids, assertion text, and updated smoke success summary. Baseline
+  `bin/test-fast` passed before the change on 2026-06-18. Focused
+  `bash -n bin/common.sh`, focused
+  `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, and focused
+  `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples, the
+  installed router CLI consumer smoke with protected JSON-response direct and
+  Streamable WAMP procedure catalog/describe parity, full router tests,
+  zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. The
+  latest fully clean hosted checkpoint remains `f1d9a9f` until this
+  implementation checkpoint has hosted CI evidence.
+- 2026-06-18: Extended the installed router CLI generated Dart consumer smoke
   on bearer-protected JSON-response `/mcp/secure-json-post` with standard
   Streamable HTTP WAMP procedure/topic metadata checks. While a valid
   JSON-response Streamable session is active, the generated consumer calls
@@ -105,9 +134,17 @@ decision because `connectanum_client` still depends on private
   installed router CLI consumer smoke with protected JSON-response Streamable
   WAMP procedure/topic metadata parity, full router tests, zero-copy router
   tests, and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean
-  hosted checkpoint remains `1f41d5f` until this JSON-response Streamable WAMP
-  procedure metadata checkpoint is committed, pushed, and GitHub CI plus the
-  strict deployment-chain audit are observed.
+  hosted checkpoint is `f1d9a9f`: commit `f1d9a9f` (`test: cover json response
+  streamable mcp metadata`) was pushed to GitLab `origin`, GitHub `add-router`,
+  and GitHub `master`. GitHub `master` CI `27759966878` and GitHub
+  `add-router` CI `27759964857` passed with `Fast Checks` and `Full Verify`
+  clean. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-18 with branch protection, workflow visibility,
+  router image package visibility, and latest GitHub `master` CI evidence
+  clean. No new Dart Package Publish Dry Run, Native Artifacts, Router Image,
+  or WAMP Profile Benchmarks run was required because no package, workflow,
+  native artifact, image, or benchmark inputs changed.
 - 2026-06-18: Extended the installed router CLI generated Dart consumer smoke
   on bearer-protected JSON-response `/mcp/secure-json-post` with WAMP procedure
   metadata route-parity checks. While a valid JSON-response Streamable session
