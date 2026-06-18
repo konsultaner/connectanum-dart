@@ -387,6 +387,12 @@ Future<void> _runDirectWampMetadataExample(
       id: 'direct-wamp-procedure-api-list',
       kind: 'procedure',
     );
+    final procedureCatalog = procedures['procedures'];
+    _expectWampCatalogContains(
+      catalog: procedureCatalog,
+      uri: procedure,
+      label: 'Direct WAMP procedure',
+    );
     final description = await client.describeWampApiDirect(
       procedure,
       id: 'direct-wamp-procedure-api-describe',
@@ -398,7 +404,7 @@ Future<void> _runDirectWampMetadataExample(
     );
     metadata['procedure'] = {
       'name': procedure,
-      'catalog': procedures['procedures'],
+      'catalog': procedureCatalog,
       'description': description,
       'registration': _wampMetaResultJson(registration),
     };
@@ -409,6 +415,12 @@ Future<void> _runDirectWampMetadataExample(
       id: 'direct-wamp-topic-api-list',
       kind: 'topic',
     );
+    final topicCatalog = topics['topics'];
+    _expectWampCatalogContains(
+      catalog: topicCatalog,
+      uri: topic,
+      label: 'Direct WAMP topic',
+    );
     final description = await client.describeWampApiDirect(
       topic,
       id: 'direct-wamp-topic-api-describe',
@@ -416,7 +428,7 @@ Future<void> _runDirectWampMetadataExample(
     );
     metadata['topic'] = {
       'name': topic,
-      'catalog': topics['topics'],
+      'catalog': topicCatalog,
       'description': description,
     };
   }
@@ -437,6 +449,28 @@ Map<String, Object?> _wampMetaResultJson(
     'arguments': result.arguments,
     'argumentsKeywords': result.argumentsKeywords,
   };
+}
+
+void _expectWampCatalogContains({
+  required Object? catalog,
+  required String uri,
+  required String label,
+}) {
+  if (!_wampCatalogContainsUri(catalog, uri)) {
+    throw StateError('$label catalog did not include $uri.');
+  }
+}
+
+bool _wampCatalogContainsUri(Object? catalog, String uri) {
+  if (catalog is! Iterable<Object?>) {
+    return false;
+  }
+  for (final entry in catalog) {
+    if (entry is Map && entry['uri'] == uri) {
+      return true;
+    }
+  }
+  return false;
 }
 
 Future<void> _runDirectPubSubExample(
@@ -651,6 +685,12 @@ Future<void> _runStreamableSessionExample(
         id: 'streamable-wamp-procedure-api-list',
         kind: 'procedure',
       );
+      final procedureCatalog = procedures['procedures'];
+      _expectWampCatalogContains(
+        catalog: procedureCatalog,
+        uri: wampProcedure,
+        label: 'Streamable WAMP procedure',
+      );
       final description = await client.describeWampApi(
         wampProcedure,
         id: 'streamable-wamp-procedure-api-describe',
@@ -662,7 +702,7 @@ Future<void> _runStreamableSessionExample(
       );
       metadata['procedure'] = <String, Object?>{
         'name': wampProcedure,
-        'catalog': procedures['procedures'],
+        'catalog': procedureCatalog,
         'description': description,
         'registration': _wampMetaResultJson(registration),
       };
@@ -673,6 +713,12 @@ Future<void> _runStreamableSessionExample(
         id: 'streamable-wamp-topic-api-list',
         kind: 'topic',
       );
+      final topicCatalog = topics['topics'];
+      _expectWampCatalogContains(
+        catalog: topicCatalog,
+        uri: wampTopic,
+        label: 'Streamable WAMP topic',
+      );
       final description = await client.describeWampApi(
         wampTopic,
         id: 'streamable-wamp-topic-api-describe',
@@ -680,7 +726,7 @@ Future<void> _runStreamableSessionExample(
       );
       metadata['topic'] = <String, Object?>{
         'name': wampTopic,
-        'catalog': topics['topics'],
+        'catalog': topicCatalog,
         'description': description,
       };
     }
