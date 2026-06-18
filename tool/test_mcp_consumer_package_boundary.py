@@ -277,6 +277,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            "dart-consumer-secure-json-active-direct-procedure-describe",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON procedure "
+            "describe missed metadata.",
+            body,
+        )
+        self.assertIn(
             "dart-consumer-secure-json-active-direct-topic-describe",
             body,
         )
@@ -311,6 +320,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "Dart consumer protected JSON-response active direct JSON helpers "
             "changed Streamable state.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-token-only-direct-procedure-describe",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only JSON-response direct procedure describe "
+            "missed metadata.",
             body,
         )
         self.assertIn("dart-consumer-secure-topic-describe", body)
@@ -368,7 +386,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "active protected JSON-response auth rejection and direct JSON isolation",
+            "active protected JSON-response auth rejection and direct JSON "
+            "procedure/topic/resource/prompt isolation",
+            body,
+        )
+        self.assertIn(
+            "token-only protected JSON-response "
+            "tool calls/resources/resource templates/prompts/WAMP "
+            "procedure/session/subscription meta/pubsub/batches",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)
