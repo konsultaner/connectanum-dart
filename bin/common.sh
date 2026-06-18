@@ -25834,6 +25834,61 @@ Future<void> main() async {
       'Dart consumer protected Streamable initialize changed protocol.',
     );
     await secureClient.notifyInitialized();
+    final secureSessionId = secureClient.sessionId;
+    final secureLastEventId = secureClient.lastEventId;
+    _expect(
+      secureSessionId != null && secureSessionId.isNotEmpty,
+      'Dart consumer protected Streamable initialize missed session state.',
+    );
+
+    final unauthenticatedSecureClient = McpStreamableHttpClient(secureEndpoint);
+    try {
+      await _expectMcpHttpRejected(
+        () => unauthenticatedSecureClient.listToolsDirect(
+          id: 'dart-consumer-secure-active-missing-bearer-tools',
+        ),
+        HttpStatus.unauthorized,
+        'Dart consumer protected route without bearer during active session',
+      );
+      _expect(
+        unauthenticatedSecureClient.sessionId == null &&
+            unauthenticatedSecureClient.lastEventId == null,
+        'Dart consumer missing-bearer protected route captured state.',
+      );
+    } finally {
+      unauthenticatedSecureClient.close(force: true);
+    }
+
+    final unknownBearerSecureClient = McpStreamableHttpClient.withBearerToken(
+      secureEndpoint,
+      'not-a-valid-token',
+    );
+    try {
+      await _expectMcpHttpRejected(
+        () => unknownBearerSecureClient.initialize(
+          id: 'dart-consumer-secure-active-unknown-bearer-initialize',
+          protocolVersion: _protocolVersion,
+          clientInfo: const <String, Object?>{
+            'name': 'router-cli-dart-consumer-smoke-unknown-bearer',
+            'version': '0.0.0',
+          },
+        ),
+        HttpStatus.unauthorized,
+        'Dart consumer protected route with unknown bearer during active session',
+      );
+      _expect(
+        unknownBearerSecureClient.sessionId == null &&
+            unknownBearerSecureClient.lastEventId == null,
+        'Dart consumer unknown-bearer protected route captured state.',
+      );
+    } finally {
+      unknownBearerSecureClient.close(force: true);
+    }
+    _expect(
+      secureClient.sessionId == secureSessionId &&
+          secureClient.lastEventId == secureLastEventId,
+      'Dart consumer protected Streamable auth rejection changed valid session state.',
+    );
 
     final secureStreamableContents = await secureClient.readResource(
       'cli://mcp/secure/context',
@@ -26478,6 +26533,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected auth rejection isolation, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

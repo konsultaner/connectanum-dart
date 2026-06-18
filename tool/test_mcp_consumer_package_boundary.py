@@ -164,8 +164,30 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Installed CLI protected MCP prompts/get missed secure substitution",
             body,
         )
+        self.assertIn(
+            "dart-consumer-secure-active-missing-bearer-tools",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected route without bearer during active session",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-active-unknown-bearer-initialize",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected route with unknown bearer during active session",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable auth rejection changed "
+            "valid session state.",
+            body,
+        )
         self.assertIn("tool calls/resources/resource templates/prompts", body)
         self.assertIn("public raw JSON resources/resource templates/prompts", body)
+        self.assertIn("active protected auth rejection isolation", body)
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/pub-sub",
             body,

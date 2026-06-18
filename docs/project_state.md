@@ -18137,13 +18137,18 @@ at the older `47bbf9c` commit.
   consumer integration bug appears. The current local checkpoint makes the
   installed router CLI consumer smoke prove public raw JSON WAMP topic
   catalog/pub-sub and Streamable pub-sub on the router-hosted `/mcp` endpoint,
-  alongside existing protected raw JSON resources/prompts and public/protected
-  `resources/templates/list` discovery. The latest fully clean hosted checkpoint
-  remains `282f7b3` on GitHub `master` until GitHub reports on this public raw
-  JSON WAMP topic/pub-sub smoke checkpoint, including CI, package dry-run,
-  still-relevant WAMP profile benchmark, Router Image dry-run, native artifact
-  dry-run, and strict deployment-chain audit evidence. RC readiness remains
-  blocked only by
+  active protected-route missing/unknown bearer rejection isolation while a
+  valid generated-consumer Streamable session is active, and the existing
+  protected raw JSON resources/prompts plus public/protected
+  `resources/templates/list` discovery. Full local `bin/verify` passed for this
+  checkpoint on 2026-06-18. The latest fully clean hosted checkpoint remains
+  `ec45e89` on GitHub `master`: CI run `27731934096` and GitHub
+  `add-router` CI run `27731929756` both passed `Fast Checks` and
+  `Full Verify`, and the strict deployment-chain audit accepted clean latest CI
+  logs plus the still-relevant Dart package publish dry-run, WAMP profile
+  benchmark, Router Image dry-run, Native Artifacts dry-run, branch protection,
+  workflow visibility, and router image package visibility evidence. RC
+  readiness remains blocked only by
   explicit RC tag/prerelease/router image tag selection and deferred pub.dev
   release-order/operator decisions.
 - Historical paused plan:
