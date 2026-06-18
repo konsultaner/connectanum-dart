@@ -911,14 +911,15 @@ Future<void> _runStreamableSessionExample(
   );
   await client.notifyInitialized();
 
-  if (client.sessionId == null) {
+  final streamableSessionId = client.sessionId;
+  if (streamableSessionId == null) {
     throw StateError('Streamable initialize did not establish a session id.');
   }
 
   final tools = await client.listTools(id: 'streamable-tools');
   final streamable = <String, Object?>{
     'protocolVersion': client.protocolVersion,
-    'sessionId': client.sessionId,
+    'sessionId': streamableSessionId,
     'initialize': initialize['result'],
     'tools': [for (final tool in tools.tools) tool['name']],
   };
@@ -947,10 +948,36 @@ Future<void> _runStreamableSessionExample(
         directJson: false,
       ),
     );
-    streamable['toolResult'] = await client.callTool(
-      toolName,
-      id: 'streamable-tool-call',
-      arguments: options.toolArguments,
+    final methodCatalog = await client.callConnectanumMethod(
+      'connectanum.tools.list',
+      id: 'streamable-tools-method',
+    );
+    final methodToolCatalog = methodCatalog['tools'];
+    _expectCatalogContainsValue(
+      catalog: methodToolCatalog,
+      field: 'name',
+      value: toolName,
+      label: 'Streamable tool method list',
+    );
+    streamable['toolResult'] = _expectToolResultSucceeded(
+      await client.callTool(
+        toolName,
+        id: 'streamable-tool-call',
+        arguments: options.toolArguments,
+      ),
+      label: 'Streamable tool call',
+    );
+    streamable['toolMethodCatalog'] = methodToolCatalog;
+    streamable['toolMethodResult'] = _expectToolResultSucceeded(
+      await client.callConnectanumMethod(
+        'connectanum.tool.call',
+        id: 'streamable-tool-call-method',
+        params: <String, Object?>{
+          'name': toolName,
+          'arguments': options.toolArguments,
+        },
+      ),
+      label: 'Streamable tool method call',
     );
   }
 
@@ -1068,10 +1095,6 @@ Future<void> _runStreamableSessionExample(
       ),
     ]);
   }
-  final streamableSessionId = client.sessionId;
-  if (streamableSessionId == null) {
-    throw StateError('Streamable batch has no initialized session id.');
-  }
   final batchResponses = await client.postBatch(
     streamableBatchMessages,
     headers: const {
@@ -1135,10 +1158,31 @@ Future<void> _runStreamableSessionExample(
         uri: wampProcedure,
         label: 'Streamable WAMP procedure',
       );
+      final methodProcedureCatalog = _structuredContentFromToolResult(
+        await client.callConnectanumMethod(
+          'connectanum.api.list',
+          id: 'streamable-wamp-procedure-api-list-method',
+          params: const <String, Object?>{'kind': 'procedure'},
+        ),
+        label: 'Streamable WAMP procedure method list',
+      )['procedures'];
+      _expectWampCatalogContains(
+        catalog: methodProcedureCatalog,
+        uri: wampProcedure,
+        label: 'Streamable WAMP procedure method list',
+      );
       final description = await client.describeWampApi(
         wampProcedure,
         id: 'streamable-wamp-procedure-api-describe',
         kind: 'procedure',
+      );
+      final methodDescription = _structuredContentFromToolResult(
+        await client.callConnectanumMethod(
+          'connectanum.api.describe',
+          id: 'streamable-wamp-procedure-api-describe-method',
+          params: <String, Object?>{'uri': wampProcedure, 'kind': 'procedure'},
+        ),
+        label: 'Streamable WAMP procedure method describe',
       );
       final registration = await client.matchWampRegistration(
         wampProcedure,
@@ -1148,6 +1192,8 @@ Future<void> _runStreamableSessionExample(
         'name': wampProcedure,
         'catalog': procedureCatalog,
         'description': description,
+        'methodCatalog': methodProcedureCatalog,
+        'methodDescription': methodDescription,
         'registration': _wampMetaResultJson(registration),
       };
     }
@@ -1163,15 +1209,38 @@ Future<void> _runStreamableSessionExample(
         uri: wampTopic,
         label: 'Streamable WAMP topic',
       );
+      final methodTopicCatalog = _structuredContentFromToolResult(
+        await client.callConnectanumMethod(
+          'connectanum.api.list',
+          id: 'streamable-wamp-topic-api-list-method',
+          params: const <String, Object?>{'kind': 'topic'},
+        ),
+        label: 'Streamable WAMP topic method list',
+      )['topics'];
+      _expectWampCatalogContains(
+        catalog: methodTopicCatalog,
+        uri: wampTopic,
+        label: 'Streamable WAMP topic method list',
+      );
       final description = await client.describeWampApi(
         wampTopic,
         id: 'streamable-wamp-topic-api-describe',
         kind: 'topic',
       );
+      final methodDescription = _structuredContentFromToolResult(
+        await client.callConnectanumMethod(
+          'connectanum.api.describe',
+          id: 'streamable-wamp-topic-api-describe-method',
+          params: <String, Object?>{'uri': wampTopic, 'kind': 'topic'},
+        ),
+        label: 'Streamable WAMP topic method describe',
+      );
       metadata['topic'] = <String, Object?>{
         'name': wampTopic,
         'catalog': topicCatalog,
         'description': description,
+        'methodCatalog': methodTopicCatalog,
+        'methodDescription': methodDescription,
       };
     }
 

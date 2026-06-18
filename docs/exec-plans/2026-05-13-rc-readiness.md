@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-06-18
+Last updated: 2026-06-19
 
 ## Problem
 
@@ -79,6 +79,43 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-19: Tightened the public router-hosted MCP client example so raw
+  dotted direct JSON-RPC method calls prove stateful Streamable tool/API
+  access, not only lifecycle-free direct JSON access and typed Streamable
+  helpers. `packages/connectanum_mcp/example/router_hosted_client.dart` now
+  calls `callConnectanumMethod` inside `_runStreamableSessionExample` for
+  `connectanum.tools.list`, `connectanum.tool.call`, `connectanum.api.list`,
+  and `connectanum.api.describe` after `initialize` and
+  `notifications/initialized`. The public example validates the raw Streamable
+  method tool catalog contains the configured `--tool`, asserts typed and raw
+  Streamable tool calls do not return `isError`, validates raw Streamable WAMP
+  procedure/topic catalogs and descriptions for the configured
+  procedure/topic, emits `toolMethodCatalog`, `toolMethodResult`,
+  `methodCatalog`, and `methodDescription`, and keeps the Streamable
+  session-id invariant around the batched calls.
+  `tool/test_mcp_consumer_package_boundary.py` guards the new Streamable raw
+  method ids, labels, and output fields so future edits cannot silently remove
+  stateful direct method-style tool/API coverage from the public example.
+  Baseline `bin/test-fast` passed before the change on 2026-06-19. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples with raw
+  Streamable tool/API method checks, raw direct tool method checks, raw direct
+  WAMP method metadata checks, direct JSON lifecycle, session initialization,
+  session deletion, pub/sub metadata, standard MCP catalog, and WAMP catalog
+  self-checks, the installed router CLI consumer smoke, full router tests,
+  zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. The
+  latest fully clean hosted checkpoint remains `92e86bf` until this local
+  checkpoint is pushed and hosted CI/package dry-run evidence completes.
 - 2026-06-18: Tightened the public router-hosted MCP client example so raw
   dotted direct JSON-RPC method calls prove tool API access, not only typed
   direct helpers and raw WAMP metadata methods.
@@ -109,9 +146,19 @@ decision because `connectanum_client` still depends on private
   JSON lifecycle, session initialization, session deletion, pub/sub metadata,
   standard MCP catalog, and WAMP catalog self-checks, the installed router CLI
   consumer smoke, full router tests, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
-  checkpoint remains `48d44b8` until this local checkpoint is pushed and
-  hosted CI/package dry-run evidence completes.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `92e86bf`
+  (`test: assert router mcp raw tool methods`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27792708835`
+  and GitHub `add-router` CI `27792704354` passed with `Fast Checks` and
+  `Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
+  `27792708806` and GitHub `add-router` Dart Package Publish Dry Run
+  `27792704358` also passed. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-18 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-18: Tightened the public router-hosted MCP client example so raw
   dotted direct JSON-RPC method calls prove WAMP metadata access, not only
   typed direct helpers and `connectanum.tool.call` wrappers.
