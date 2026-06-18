@@ -23641,8 +23641,33 @@ streamable_tool_names = {
 }
 if "connectanum.api.list" not in streamable_tool_names:
     raise AssertionError("Installed CLI MCP Streamable tools/list missed meta tool")
+if "connectanum.api.describe" not in streamable_tool_names:
+    raise AssertionError(
+        "Installed CLI MCP Streamable tools/list missed describe tool"
+    )
 if "connectanum.pubsub.publish" not in streamable_tool_names:
     raise AssertionError("Installed CLI MCP Streamable tools/list missed pubsub tool")
+_, _, streamable_topic_description = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-streamable-topic-describe",
+        "method": "tools/call",
+        "params": {
+            "name": "connectanum.api.describe",
+            "arguments": {"kind": "topic", "uri": "cli.smoke.events"},
+        },
+    },
+    headers=session_headers,
+    accept="application/json",
+)
+streamable_topic_content = structured_content(
+    streamable_topic_description,
+    label="Installed CLI MCP Streamable topic describe",
+)
+if "CLI Smoke Events" not in json.dumps(streamable_topic_content):
+    raise AssertionError(
+        "Installed CLI MCP Streamable topic describe missed public metadata"
+    )
 _, _, streamable_publish = post_json(
     {
         "jsonrpc": "2.0",
@@ -23962,9 +23987,39 @@ if (
 secure_streamable_tool_names = {
     tool.get("name") for tool in secure_streamable_tools["result"]["tools"]
 }
+if "connectanum.api.describe" not in secure_streamable_tool_names:
+    raise AssertionError(
+        "Installed CLI protected MCP Streamable tools/list missed describe tool"
+    )
 if "connectanum.pubsub.publish" not in secure_streamable_tool_names:
     raise AssertionError(
         "Installed CLI protected MCP Streamable tools/list missed pubsub tool"
+    )
+_, _, secure_streamable_topic_description = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "secure-streamable-topic-describe",
+        "method": "tools/call",
+        "params": {
+            "name": "connectanum.api.describe",
+            "arguments": {
+                "kind": "topic",
+                "uri": "cli.smoke.secure.events",
+            },
+        },
+    },
+    endpoint=secure_endpoint,
+    headers=secure_session_headers,
+    accept="application/json",
+)
+secure_streamable_topic_content = structured_content(
+    secure_streamable_topic_description,
+    label="Installed CLI protected MCP Streamable topic describe",
+)
+if "CLI Secure Smoke Events" not in json.dumps(secure_streamable_topic_content):
+    raise AssertionError(
+        "Installed CLI protected MCP Streamable topic describe "
+        "missed secure metadata"
     )
 _, _, secure_streamable_publish = post_json(
     {
@@ -26735,6 +26790,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/describe/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection and direct JSON isolation, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/describe/pub-sub plus Streamable topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection and direct JSON isolation, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP topic describe/pub-sub plus Streamable topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

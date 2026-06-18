@@ -4,30 +4,33 @@ Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the installed router CLI generated Dart
 consumer smoke now proves public raw JSON WAMP topic catalog/describe/pub-sub,
-Streamable pub-sub, protected raw JSON resources/templates/prompts/WAMP topic
-describe/pub-sub, active protected JSON-response auth rejection/direct JSON
-isolation on `/mcp/secure-json-post`, active protected-route auth rejection
-isolation, active protected direct JSON WAMP meta isolation, and active
-protected direct JSON resource-template/prompt isolation while a valid
+public Streamable topic describe/pub-sub, protected raw JSON
+resources/templates/prompts/WAMP topic describe/pub-sub, protected Streamable
+topic describe/pub-sub, active protected JSON-response auth rejection/direct
+JSON isolation on `/mcp/secure-json-post`, active protected-route auth
+rejection isolation, active protected direct JSON WAMP meta isolation, and
+active protected direct JSON resource-template/prompt isolation while a valid
 protected Streamable session remains intact.
-Latest fully clean hosted checkpoint: Commit `c3190c8` on GitHub `master` and
+Latest fully clean hosted checkpoint: Commit `0b233dd` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
-`bin/common.sh` now extends the installed router CLI consumer smoke with direct
-raw JSON WAMP topic metadata checks on both router-provided MCP endpoints. The
-public `/mcp` smoke posts `connectanum.api.list` for `cli.smoke.events`, then
-posts `connectanum.api.describe` and asserts the `CLI Smoke Events` metadata is
-returned before running direct pub/sub plus Streamable pub/sub delivery. The
-bearer-protected `/mcp/secure` smoke repeats the direct raw JSON describe check
-for `cli.smoke.secure.events` and asserts the `CLI Secure Smoke Events`
-metadata before protected direct pub/sub and Streamable pub/sub delivery. This
-covers agents and consumer applications that use the router-provided direct JSON
-tool/meta API surface without generated Dart helper assumptions.
-`tool/test_mcp_consumer_package_boundary.py` guards the raw JSON describe ids,
-assertion text, and updated smoke success summary.
+`bin/common.sh` now extends the installed router CLI consumer smoke with
+Streamable HTTP `tools/call` WAMP topic metadata checks on both router-provided
+MCP endpoints. The public `/mcp` smoke initializes a Streamable session, asserts
+`tools/list` exposes `connectanum.api.describe`, calls it through
+`tools/call` for `cli.smoke.events`, and asserts the `CLI Smoke Events`
+metadata before Streamable pub/sub delivery. The bearer-protected `/mcp/secure`
+smoke repeats the same standard Streamable tool-call path for
+`cli.smoke.secure.events` and asserts `CLI Secure Smoke Events` metadata before
+protected Streamable pub/sub delivery. This covers agents and consumer
+applications that use standard Streamable HTTP MCP tool calls for WAMP metadata
+without relying on lifecycle-free direct JSON calls or generated Dart helper
+assumptions. `tool/test_mcp_consumer_package_boundary.py` guards the new
+Streamable topic describe ids, assertion text, and updated smoke success
+summary.
 
-Baseline `bin/test-fast` passed before this raw JSON WAMP topic describe smoke
-change on 2026-06-18. Focused `bash -n bin/common.sh`, focused
+Baseline `bin/test-fast` passed before this Streamable WAMP topic describe
+smoke change on 2026-06-18. Focused `bash -n bin/common.sh`, focused
 `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
 `git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
 and focused
@@ -36,14 +39,15 @@ on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
 formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
 consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
 authenticated, bearer, and JSON-response examples, the installed router CLI
-consumer smoke with public/protected raw JSON WAMP topic describe checks, full
-router tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-smoke. The latest fully clean hosted evidence remains `c3190c8` until the new
-checkpoint is committed, pushed, and GitHub CI plus the strict deployment-chain
-audit are observed. RC readiness remains gated on release policy: no numeric RC
-tag points at `c3190c8`, the existing `v0.1.0-rc.1` tag still points at stale
-commit `47bbf9c`, no GitHub prerelease or router image RC tag is selected for
-the current checkpoint, and pub.dev package ownership/version/release-order
+consumer smoke with public/protected raw JSON and Streamable WAMP topic
+describe checks, full router tests, zero-copy router tests, and Chrome/Dart2Wasm
+browser WebSocket smoke. The latest fully clean hosted checkpoint remains
+`0b233dd` until this Streamable WAMP topic describe checkpoint is committed,
+pushed, and GitHub CI plus the strict deployment-chain audit are observed. RC
+readiness remains gated on release policy: no numeric RC tag points at
+`0b233dd`, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, no GitHub prerelease or router image RC tag is selected for the
+current checkpoint, and pub.dev package ownership/version/release-order
 decisions remain deferred.
 
 Previous implementation checkpoint:

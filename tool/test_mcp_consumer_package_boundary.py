@@ -138,6 +138,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("direct_publish = post_json(", body)
         self.assertIn('"id": "public-direct-pubsub-publish"', body)
         self.assertIn("public-direct-publish", body)
+        self.assertIn("streamable_topic_description = post_json(", body)
+        self.assertIn('"id": "public-streamable-topic-describe"', body)
+        self.assertIn(
+            "Installed CLI MCP Streamable topic describe missed public metadata",
+            body,
+        )
         self.assertIn("streamable_publish = post_json(", body)
         self.assertIn('"id": "public-streamable-pubsub-publish"', body)
         self.assertIn("public-streamable-publish", body)
@@ -176,6 +182,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "Installed CLI protected MCP direct topic describe missed "
             "secure metadata",
+            body,
+        )
+        self.assertIn("secure_streamable_topic_description = post_json(", body)
+        self.assertIn('"id": "secure-streamable-topic-describe"', body)
+        self.assertIn(
+            "Installed CLI protected MCP Streamable topic describe "
+            '"\n        "missed secure metadata',
             body,
         )
         self.assertIn(
@@ -309,7 +322,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("tool calls/resources/resource templates/prompts", body)
         self.assertIn(
             "public raw JSON resources/resource templates/prompts/WAMP "
-            "topic catalog/describe/pub-sub",
+            "topic catalog/describe/pub-sub plus Streamable topic "
+            "describe/pub-sub",
             body,
         )
         self.assertIn(
@@ -323,7 +337,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/WAMP "
-            "topic describe/pub-sub",
+            "topic describe/pub-sub plus Streamable topic describe/pub-sub",
             body,
         )
 
