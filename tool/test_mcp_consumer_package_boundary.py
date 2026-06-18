@@ -185,6 +185,66 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "valid session state.",
             body,
         )
+        self.assertIn(
+            "dart-consumer-secure-json-active-missing-bearer-tools",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response route without bearer "
+            "during active session",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-unknown-bearer-initialize",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response route with unknown bearer "
+            "during active session",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response auth rejection changed "
+            "valid session state.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-topic-describe",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON topic "
+            "describe missed metadata.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-templates",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON templates "
+            "missed secure task.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-prompts",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON prompts "
+            "missed secure prompt.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-prompt-get",
+            body,
+        )
+        self.assertIn("active JSON-response direct prompt readiness", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON helpers "
+            "changed Streamable state.",
+            body,
+        )
         self.assertIn("dart-consumer-secure-topic-describe", body)
         self.assertIn(
             "Dart consumer missed protected direct JSON topic metadata.",
@@ -234,6 +294,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("tool calls/resources/resource templates/prompts", body)
         self.assertIn("public raw JSON resources/resource templates/prompts", body)
+        self.assertIn(
+            "active protected JSON-response auth rejection and direct JSON isolation",
+            body,
+        )
         self.assertIn("active protected auth rejection isolation", body)
         self.assertIn(
             "active protected direct JSON WAMP meta and resource/prompt isolation",

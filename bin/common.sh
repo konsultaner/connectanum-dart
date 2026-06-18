@@ -24546,6 +24546,112 @@ Future<void> main() async {
       'Dart consumer protected JSON-response initialized state changed.',
     );
 
+    final activeMissingBearerSecureJsonClient =
+        McpStreamableHttpClient(secureJsonEndpoint);
+    try {
+      await _expectMcpHttpRejected(
+        () => activeMissingBearerSecureJsonClient.listToolsDirect(
+          id: 'dart-consumer-secure-json-active-missing-bearer-tools',
+        ),
+        HttpStatus.unauthorized,
+        'Dart consumer protected JSON-response route without bearer during active session',
+      );
+      _expect(
+        activeMissingBearerSecureJsonClient.sessionId == null &&
+            activeMissingBearerSecureJsonClient.lastEventId == null,
+        'Dart consumer JSON-response missing-bearer protected route captured state.',
+      );
+    } finally {
+      activeMissingBearerSecureJsonClient.close(force: true);
+    }
+
+    final activeUnknownBearerSecureJsonClient =
+        McpStreamableHttpClient.withBearerToken(
+      secureJsonEndpoint,
+      'not-a-valid-json-response-token',
+    );
+    try {
+      await _expectMcpHttpRejected(
+        () => activeUnknownBearerSecureJsonClient.initialize(
+          id: 'dart-consumer-secure-json-active-unknown-bearer-initialize',
+          protocolVersion: _protocolVersion,
+          clientInfo: const <String, Object?>{
+            'name':
+                'router-cli-dart-consumer-smoke-secure-json-unknown-bearer',
+            'version': '0.0.0',
+          },
+        ),
+        HttpStatus.unauthorized,
+        'Dart consumer protected JSON-response route with unknown bearer during active session',
+      );
+      _expect(
+        activeUnknownBearerSecureJsonClient.sessionId == null &&
+            activeUnknownBearerSecureJsonClient.lastEventId == null,
+        'Dart consumer JSON-response unknown-bearer protected route captured state.',
+      );
+    } finally {
+      activeUnknownBearerSecureJsonClient.close(force: true);
+    }
+    _expect(
+      secureJsonClient.sessionId == secureJsonSessionId &&
+          secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response auth rejection changed valid session state.',
+    );
+
+    final secureJsonActiveTopicDescription =
+        await secureJsonClient.describeWampApiDirect(
+      _secureTopic,
+      id: 'dart-consumer-secure-json-active-direct-topic-describe',
+      kind: 'topic',
+    );
+    _expect(
+      jsonEncode(
+        secureJsonActiveTopicDescription,
+      ).contains('CLI Secure Smoke Events'),
+      'Dart consumer protected JSON-response active direct JSON topic describe missed metadata.',
+    );
+
+    final secureJsonActiveTemplates =
+        await secureJsonClient.listResourceTemplatesDirect(
+      id: 'dart-consumer-secure-json-active-direct-templates',
+    );
+    _expect(
+      _stringFields(
+        secureJsonActiveTemplates.resourceTemplates,
+        'uriTemplate',
+      ).contains('cli://mcp/secure/task/{taskId}'),
+      'Dart consumer protected JSON-response active direct JSON templates missed secure task.',
+    );
+
+    final secureJsonActivePrompts = await secureJsonClient.listPromptsDirect(
+      id: 'dart-consumer-secure-json-active-direct-prompts',
+    );
+    _expect(
+      _stringFields(
+        secureJsonActivePrompts.prompts,
+        'name',
+      ).contains('summarize-secure-cli-context'),
+      'Dart consumer protected JSON-response active direct JSON prompts missed secure prompt.',
+    );
+    final secureJsonActivePrompt = await secureJsonClient.getPromptDirect(
+      'summarize-secure-cli-context',
+      id: 'dart-consumer-secure-json-active-direct-prompt-get',
+      arguments: const <String, String>{
+        'topic': 'active JSON-response direct prompt readiness',
+      },
+    );
+    _expect(
+      jsonEncode(
+        secureJsonActivePrompt,
+      ).contains('active JSON-response direct prompt readiness'),
+      'Dart consumer protected JSON-response active direct JSON prompt missed substitution.',
+    );
+    _expect(
+      secureJsonClient.sessionId == secureJsonSessionId &&
+          secureJsonClient.lastEventId == null,
+      'Dart consumer protected JSON-response active direct JSON helpers changed Streamable state.',
+    );
+
     final secureJsonStreamableSubscription =
         await secureJsonClient.subscribeWampTopic(
       _secureTopic,
@@ -26601,6 +26707,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection and direct JSON isolation, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
