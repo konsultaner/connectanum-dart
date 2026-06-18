@@ -3,15 +3,56 @@
 Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now fails fast when router-hosted direct JSON or Streamable pub/sub responses
-drop subscription, publication, or event-batch metadata. The live example smoke
-therefore proves public, protected, bearer-token, and protected JSON-response
-routes return usable subscription handles, queue limits, acknowledged
-publication ids, matching poll handles/topics, and undropped event batches
-instead of only proving that a published event payload eventually arrived.
-Latest fully clean hosted checkpoint: Commit `ce2f8b0` on GitHub `master` and
+now fails fast when lifecycle-free direct JSON helpers mutate Streamable HTTP
+session state, when Streamable initialization fails to establish a session, or
+when final session deletion leaves local session/cursor state behind. The live
+example smoke therefore proves public, protected, bearer-token, and protected
+JSON-response routes keep direct tool/resource/prompt, batch, WAMP metadata,
+and pub/sub helpers independent from Streamable session state while still
+cleanly creating and deleting a Streamable session.
+Latest fully clean hosted checkpoint: Commit `12c86e7` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now adds
+`_expectStreamableStateUnchanged` and `_deleteStreamableSession` to make public
+router-hosted MCP lifecycle assumptions self-checking. Direct JSON
+tool/resource/prompt calls capture and re-check `sessionId` / `lastEventId`,
+direct JSON batch and direct WAMP metadata now use the same shared helper, and
+direct JSON pub/sub now proves subscribe, metadata lookup, publish, poll, and
+unsubscribe do not create or advance Streamable session state. The Streamable
+path asserts `initialize` established a session before issuing stateful calls,
+and final cleanup validates `deleteSession()` clears the local session id and
+resume cursor before the example closes its HTTP client.
+`tool/test_mcp_consumer_package_boundary.py` guards the new helper names,
+direct-path labels, and failure text so the public example cannot silently drop
+these lifecycle checks.
+
+Baseline `bin/test-fast` passed before this public router-hosted MCP lifecycle
+self-check change on 2026-06-18. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with direct JSON lifecycle,
+session initialization, session deletion, pub/sub metadata, standard MCP
+catalog, and WAMP catalog self-checks, the installed router CLI consumer smoke,
+full router tests, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke. The latest fully clean hosted checkpoint remains `12c86e7`
+until this local checkpoint is pushed and hosted CI/package dry-run evidence
+completes. RC readiness remains gated on release policy: no numeric RC tag
+points at the current local implementation checkpoint, the existing
+`v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub prerelease
+or router image RC tag is selected for the current hosted checkpoint, and
+pub.dev package ownership/version/release-order decisions remain deferred.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now validates
 router-hosted direct JSON and Streamable pub/sub metadata with shared
 `_expectWampSubscription`, `_expectWampPublication`, and
@@ -41,10 +82,20 @@ consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
 authenticated, bearer, and JSON-response examples with pub/sub metadata
 self-checks plus standard MCP and WAMP catalog self-checks, the installed
 router CLI consumer smoke, full router tests, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
-checkpoint remains `ce2f8b0` until this local checkpoint is pushed and hosted
-CI/package dry-run evidence completes. RC readiness remains gated on release
-policy: no numeric RC tag points at the current implementation checkpoint, the
+Chrome/Dart2Wasm browser WebSocket smoke. Commit `12c86e7`
+(`test: assert router mcp pubsub metadata`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27781451260` and
+GitHub `add-router` CI `27781447950` passed with `Fast Checks` and
+`Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
+`27781451698` and GitHub `add-router` Dart Package Publish Dry Run
+`27781448033` also passed. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --strict` exited
+successfully on 2026-06-18 with branch protection, workflow visibility, router
+image package visibility, latest GitHub `master` CI evidence, and latest
+GitHub `master` Dart package dry-run evidence clean. No new Native Artifacts,
+Router Image, or WAMP Profile Benchmarks run was required because no native
+artifact, image, workflow, or benchmark-sensitive inputs changed. RC readiness
+remains gated on release policy: no numeric RC tag points at `12c86e7`, the
 existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
 prerelease or router image RC tag is selected for the current hosted
 checkpoint, and pub.dev package ownership/version/release-order decisions

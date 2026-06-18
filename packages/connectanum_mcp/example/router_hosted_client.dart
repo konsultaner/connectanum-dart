@@ -42,7 +42,7 @@ Future<void> main(List<String> args) async {
     await _runStreamableSessionExample(client, options);
   } finally {
     try {
-      await client.deleteSession();
+      await _deleteStreamableSession(client);
     } finally {
       client.close(force: true);
     }
@@ -137,10 +137,33 @@ void _printDryRunSummary(IOSink sink, _Options options) {
 // after its final request completes.
 HttpClient _shortLivedHttpClient() => HttpClient()..idleTimeout = Duration.zero;
 
+Future<void> _deleteStreamableSession(McpStreamableHttpClient client) async {
+  await client.deleteSession();
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError(
+      'Streamable session delete did not clear local session state.',
+    );
+  }
+}
+
+void _expectStreamableStateUnchanged(
+  McpStreamableHttpClient client, {
+  required String? sessionId,
+  required String? lastEventId,
+  required String label,
+}) {
+  if (client.sessionId != sessionId || client.lastEventId != lastEventId) {
+    throw StateError('$label changed Streamable state.');
+  }
+}
+
 Future<void> _runDirectJsonExample(
   McpStreamableHttpClient client,
   _Options options,
 ) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+
   final catalog = await client.listConnectanumToolsDirect(id: 'direct-tools');
   stdout.writeln(
     jsonEncode({
@@ -218,6 +241,13 @@ Future<void> _runDirectJsonExample(
       }),
     );
   }
+
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: previousSessionId,
+    lastEventId: previousEventId,
+    label: 'Direct JSON',
+  );
 }
 
 Future<void> _runDirectBatchExample(
@@ -358,10 +388,12 @@ Future<void> _runDirectBatchExample(
       label: 'Direct JSON batch prompt',
     );
   }
-  if (client.sessionId != previousSessionId ||
-      client.lastEventId != previousEventId) {
-    throw StateError('Direct JSON batch changed Streamable state.');
-  }
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: previousSessionId,
+    lastEventId: previousEventId,
+    label: 'Direct JSON batch',
+  );
   stdout.writeln(
     jsonEncode({
       'directBatch': {'responseIds': responseIds},
@@ -530,10 +562,12 @@ Future<void> _runDirectWampMetadataExample(
     };
   }
 
-  if (client.sessionId != previousSessionId ||
-      client.lastEventId != previousEventId) {
-    throw StateError('Direct WAMP metadata changed Streamable state.');
-  }
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: previousSessionId,
+    lastEventId: previousEventId,
+    label: 'Direct WAMP metadata',
+  );
 
   stdout.writeln(jsonEncode({'directWampMetadata': metadata}));
 }
@@ -674,6 +708,8 @@ Future<void> _runDirectPubSubExample(
 ) async {
   const queueLimit = 10;
   final topic = options.pubsubTopic!;
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
   final subscription = await client.subscribeWampTopicDirect(
     topic,
     id: 'direct-pubsub-subscribe',
@@ -742,6 +778,13 @@ Future<void> _runDirectPubSubExample(
       id: 'direct-pubsub-unsubscribe',
     );
   }
+
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: previousSessionId,
+    lastEventId: previousEventId,
+    label: 'Direct JSON pub/sub',
+  );
 }
 
 Future<void> _runStreamableSessionExample(
@@ -756,6 +799,10 @@ Future<void> _runStreamableSessionExample(
     },
   );
   await client.notifyInitialized();
+
+  if (client.sessionId == null) {
+    throw StateError('Streamable initialize did not establish a session id.');
+  }
 
   final tools = await client.listTools(id: 'streamable-tools');
   final streamable = <String, Object?>{
