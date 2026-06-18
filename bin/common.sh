@@ -23413,29 +23413,35 @@ def structured_content(message, *, label):
     return content
 
 
-def poll_direct_pubsub_events(handle):
-    for _ in range(30):
+def poll_direct_pubsub_events(
+    handle,
+    *,
+    endpoint,
+    headers=None,
+    id_prefix,
+    label,
+    marker,
+):
+    for attempt in range(30):
         _, _, poll_result = post_json(
             {
                 "jsonrpc": "2.0",
-                "id": "secure-direct-pubsub-poll",
+                "id": f"{id_prefix}-poll-{attempt}",
                 "method": "connectanum.pubsub.poll",
                 "params": {"handle": handle, "limit": 10},
             },
-            endpoint=secure_endpoint,
-            headers=bearer_headers,
+            endpoint=endpoint,
+            headers=headers,
         )
         content = structured_content(
             poll_result,
-            label="Installed CLI protected MCP direct pubsub poll",
+            label=f"{label} poll",
         )
         events = content.get("events")
-        if isinstance(events, list) and events:
+        if isinstance(events, list) and marker in json.dumps(events):
             return events
         time.sleep(0.05)
-    raise AssertionError(
-        "Timed out waiting for installed CLI protected MCP pubsub events"
-    )
+    raise AssertionError(f"Timed out waiting for {label} events")
 
 
 _, _, tools = post_json({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
@@ -23497,6 +23503,72 @@ _, _, prompt = post_json(
 if "consumer readiness" not in json.dumps(prompt["result"]["messages"]):
     raise AssertionError("Installed CLI MCP prompts/get missed substitution")
 
+_, _, topics = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-topics",
+        "method": "connectanum.api.list",
+        "params": {"kind": "topic"},
+    }
+)
+if "cli.smoke.events" not in json.dumps(topics["result"]):
+    raise AssertionError("Installed CLI MCP direct topic catalog missed public topic")
+_, _, direct_subscribe = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-direct-pubsub-subscribe",
+        "method": "connectanum.pubsub.subscribe",
+        "params": {"topic": "cli.smoke.events", "queueLimit": 5},
+    }
+)
+direct_subscription = structured_content(
+    direct_subscribe,
+    label="Installed CLI MCP direct pubsub subscribe",
+)
+direct_handle = direct_subscription.get("handle")
+if (
+    not isinstance(direct_handle, str)
+    or not direct_handle
+    or direct_subscription.get("topic") != "cli.smoke.events"
+):
+    raise AssertionError(
+        "Installed CLI MCP direct pubsub subscribe was invalid: "
+        f"{direct_subscription}"
+    )
+_, _, direct_publish = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-direct-pubsub-publish",
+        "method": "connectanum.pubsub.publish",
+        "params": {
+            "topic": "cli.smoke.events",
+            "argumentsKeywords": {"via": "public-direct-publish"},
+            "acknowledge": True,
+        },
+    }
+)
+direct_publication = structured_content(
+    direct_publish,
+    label="Installed CLI MCP direct pubsub publish",
+)
+if (
+    direct_publication.get("topic") != "cli.smoke.events"
+    or direct_publication.get("acknowledged") is not True
+):
+    raise AssertionError(
+        "Installed CLI MCP direct pubsub publish was invalid: "
+        f"{direct_publication}"
+    )
+direct_events = poll_direct_pubsub_events(
+    direct_handle,
+    endpoint=endpoint,
+    id_prefix="public-direct-pubsub",
+    label="Installed CLI MCP direct pubsub",
+    marker="public-direct-publish",
+)
+if "public-direct-publish" not in json.dumps(direct_events):
+    raise AssertionError("Installed CLI MCP direct pubsub poll missed public event")
+
 streamable_headers = {
     "MCP-Protocol-Version": protocol_version,
 }
@@ -23557,6 +23629,65 @@ streamable_tool_names = {
 }
 if "connectanum.api.list" not in streamable_tool_names:
     raise AssertionError("Installed CLI MCP Streamable tools/list missed meta tool")
+if "connectanum.pubsub.publish" not in streamable_tool_names:
+    raise AssertionError("Installed CLI MCP Streamable tools/list missed pubsub tool")
+_, _, streamable_publish = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-streamable-pubsub-publish",
+        "method": "tools/call",
+        "params": {
+            "name": "connectanum.pubsub.publish",
+            "arguments": {
+                "topic": "cli.smoke.events",
+                "argumentsKeywords": {"via": "public-streamable-publish"},
+                "acknowledge": True,
+            },
+        },
+    },
+    headers=session_headers,
+    accept="application/json",
+)
+streamable_publication = structured_content(
+    streamable_publish,
+    label="Installed CLI MCP Streamable pubsub publish",
+)
+if (
+    streamable_publication.get("topic") != "cli.smoke.events"
+    or streamable_publication.get("acknowledged") is not True
+):
+    raise AssertionError(
+        "Installed CLI MCP Streamable pubsub publish was invalid: "
+        f"{streamable_publication}"
+    )
+streamable_events = poll_direct_pubsub_events(
+    direct_handle,
+    endpoint=endpoint,
+    id_prefix="public-streamable-pubsub",
+    label="Installed CLI MCP Streamable pubsub",
+    marker="public-streamable-publish",
+)
+if "public-streamable-publish" not in json.dumps(streamable_events):
+    raise AssertionError(
+        "Installed CLI MCP direct pubsub poll missed public Streamable event"
+    )
+_, _, direct_unsubscribe = post_json(
+    {
+        "jsonrpc": "2.0",
+        "id": "public-direct-pubsub-unsubscribe",
+        "method": "connectanum.pubsub.unsubscribe",
+        "params": {"handle": direct_handle},
+    }
+)
+direct_unsubscribe_content = structured_content(
+    direct_unsubscribe,
+    label="Installed CLI MCP direct pubsub unsubscribe",
+)
+if direct_unsubscribe_content.get("unsubscribed") is not True:
+    raise AssertionError(
+        "Installed CLI MCP direct pubsub unsubscribe was invalid: "
+        f"{direct_unsubscribe_content}"
+    )
 
 delete_status, delete_headers, _ = request(
     "DELETE", headers=session_headers, accept="application/json, text/event-stream"
@@ -23837,7 +23968,14 @@ if (
         "Installed CLI protected MCP Streamable pubsub publish was invalid: "
         f"{secure_publish_content}"
     )
-secure_direct_events = poll_direct_pubsub_events(secure_direct_handle)
+secure_direct_events = poll_direct_pubsub_events(
+    secure_direct_handle,
+    endpoint=secure_endpoint,
+    headers=bearer_headers,
+    id_prefix="secure-direct-pubsub",
+    label="Installed CLI protected MCP direct pubsub",
+    marker="secure-streamable-publish",
+)
 if "secure-streamable-publish" not in json.dumps(secure_direct_events):
     raise AssertionError(
         "Installed CLI protected MCP direct pubsub poll missed streamable event"
@@ -26340,6 +26478,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

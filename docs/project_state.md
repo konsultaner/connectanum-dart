@@ -3,21 +3,22 @@
 Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the installed router CLI consumer smoke now
-proves router-provided MCP resource-template discovery plus protected resource
-reads and prompt rendering over raw direct JSON on router-hosted MCP endpoints.
-Latest fully clean hosted checkpoint: Commit `7aa7a46` on GitHub `master`.
+proves public raw JSON WAMP topic catalog/pub-sub and Streamable pub-sub on the
+router-hosted `/mcp` endpoint, plus protected resource reads and prompt
+rendering over raw direct JSON on `/mcp/secure`.
+Latest fully clean hosted checkpoint: Commit `282f7b3` on GitHub `master`.
 Current implementation checkpoint:
 `bin/common.sh` now extends the installed router CLI consumer package smoke on
-bearer-protected `/mcp/secure` with raw JSON `resources/read`, `prompts/list`,
-and `prompts/get` requests after protected resource-template discovery. The
-smoke asserts the configured secure context and `summarize-secure-cli-context`
-prompt substitution, so a direct JSON agent or consumer application can prove
-auth-protected router MCP resources and prompts without private project
-assumptions or generated Dart helper coverage. `tool/test_mcp_consumer_package_boundary.py`
-guards the protected raw JSON resource read, prompt list/get, and updated smoke
-success summary.
+public `/mcp` with raw JSON `connectanum.api.list` topic discovery,
+`connectanum.pubsub.subscribe`, `connectanum.pubsub.publish`,
+`connectanum.pubsub.poll`, and `connectanum.pubsub.unsubscribe`, then proves a
+Streamable HTTP `tools/call` pub-sub publish reaches the same direct raw JSON
+subscription. This closes the public direct JSON agent/consumer path for router
+provided WAMP meta/pub-sub without private project assumptions or generated Dart
+helper coverage. `tool/test_mcp_consumer_package_boundary.py` guards the public
+raw JSON topic/pub-sub ids and updated smoke success summary.
 
-Baseline `bin/test-fast` passed before this protected raw JSON resource/prompt
+Baseline `bin/test-fast` passed before this public raw JSON WAMP topic/pub-sub
 smoke change on 2026-06-18. Focused `bash -n bin/common.sh`, focused
 `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
 `git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
@@ -26,25 +27,44 @@ passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
 formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
 consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
 authenticated, bearer, and JSON-response examples, the installed router CLI
-consumer smoke with protected raw JSON resources/resource templates/prompts/pub-sub
+consumer smoke with public raw JSON WAMP topic/pub-sub and Streamable pub-sub
+checks plus protected raw JSON resources/resource templates/prompts/pub-sub
 checks, full router tests, zero-copy router tests, and Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence remains latest-known-clean at `7aa7a46` until
-GitHub reports on this protected raw JSON smoke checkpoint. Existing hosted
-evidence at `7aa7a46` is clean: GitHub `master` CI `27726956561` and GitHub
-`add-router` CI `27726956579` passed with `Fast Checks` and `Full Verify`
-clean. No new Dart Package Publish Dry Run was triggered for `7aa7a46` because
-no publish-sensitive paths changed; the strict audit accepted GitHub `master`
-Dart Package Publish Dry Run `27724124864` at `52dba41` as still relevant. No
-new WAMP Profile Benchmarks or Router Image run was triggered because no WAMP
-profile benchmark-sensitive or router-image-sensitive inputs changed. RC
-readiness remains gated on release policy: no numeric RC tag points at
-`7aa7a46`, the existing `v0.1.0-rc.1` tag still points at stale commit
-`47bbf9c`, the audit suggests `v0.1.0-rc.2` as the next numeric tag if release
-policy approves it, no GitHub prerelease or router image RC tag is selected for
-`7aa7a46`, and pub.dev package ownership/version/release-order decisions remain
-deferred.
+WebSocket smoke. Hosted evidence remains latest-known-clean at `282f7b3` until
+GitHub reports on this public raw JSON WAMP topic/pub-sub smoke checkpoint:
+GitHub `master` CI `27729497233` and GitHub `add-router` CI `27729497213`
+passed with `Fast Checks` and `Full Verify` clean. No new Dart Package Publish
+Dry Run was triggered for this checkpoint before handoff because no
+publish-sensitive paths changed; the strict audit accepted GitHub `master` Dart
+Package Publish Dry Run `27724124864` at `52dba41` as still relevant. No new
+WAMP Profile Benchmarks or Router Image run was triggered because no WAMP
+profile benchmark-sensitive or router-image-sensitive inputs changed. The
+strict deployment-chain audit exited successfully on 2026-06-18 with clean
+latest CI logs at `282f7b3`, relevant Dart package publish dry-run evidence,
+relevant Native Artifacts dry-run `26396437881` at `debd545`, relevant Router
+Image dry-run `27550613315` at `77f22c0`, relevant WAMP Profile Benchmarks
+`27549457823` at `77f22c0`, branch protection, workflow visibility, and router
+image package visibility gates ready. RC readiness remains gated on release
+policy: no numeric RC tag points at `282f7b3`, the existing `v0.1.0-rc.1` tag
+still points at stale commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as the
+next numeric tag if release policy approves it, no GitHub prerelease or router
+image RC tag is selected for `282f7b3`, and pub.dev
+package ownership/version/release-order decisions remain deferred.
 
 Previous implementation checkpoint:
+`bin/common.sh` now extends the installed router CLI consumer package smoke on
+bearer-protected `/mcp/secure` with raw JSON `resources/read`, `prompts/list`,
+and `prompts/get` requests after protected resource-template discovery. The
+smoke asserts the configured secure context and `summarize-secure-cli-context`
+prompt substitution, so a direct JSON agent or consumer application can prove
+auth-protected router MCP resources and prompts without private project
+assumptions or generated Dart helper coverage. `tool/test_mcp_consumer_package_boundary.py`
+guards the protected raw JSON resource read, prompt list/get, and updated smoke
+success summary. Commit `282f7b3` (`test: cover protected mcp resources prompts`)
+was pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`; hosted
+CI and strict deployment-chain audit evidence are clean as described above.
+
+Earlier implementation checkpoint:
 `bin/common.sh` now posts raw JSON `resources/templates/list` requests in the
 installed router CLI consumer package smoke for both `/mcp` and bearer-protected
 `/mcp/secure`, asserting the configured `cli://mcp/task/{taskId}` and
@@ -18115,11 +18135,12 @@ at the older `47bbf9c` commit.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
   consumer integration bug appears. The current local checkpoint makes the
-  installed router CLI consumer smoke prove protected raw JSON
-  `resources/read`, `prompts/list`, and `prompts/get` access on the
-  bearer-protected MCP route, alongside existing public/protected
+  installed router CLI consumer smoke prove public raw JSON WAMP topic
+  catalog/pub-sub and Streamable pub-sub on the router-hosted `/mcp` endpoint,
+  alongside existing protected raw JSON resources/prompts and public/protected
   `resources/templates/list` discovery. The latest fully clean hosted checkpoint
-  is `7aa7a46` on GitHub `master`, including CI, package dry-run,
+  remains `282f7b3` on GitHub `master` until GitHub reports on this public raw
+  JSON WAMP topic/pub-sub smoke checkpoint, including CI, package dry-run,
   still-relevant WAMP profile benchmark, Router Image dry-run, native artifact
   dry-run, and strict deployment-chain audit evidence. RC readiness remains
   blocked only by

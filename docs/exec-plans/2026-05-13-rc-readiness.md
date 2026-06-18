@@ -80,6 +80,38 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-18: Extended the installed router CLI consumer package smoke to prove
+  public raw JSON WAMP topic catalog/pub-sub and Streamable pub-sub on the
+  router-hosted `/mcp` endpoint. The smoke now posts `connectanum.api.list`
+  topic discovery plus `connectanum.pubsub.subscribe`,
+  `connectanum.pubsub.publish`, `connectanum.pubsub.poll`, and
+  `connectanum.pubsub.unsubscribe` through direct raw JSON, then proves a
+  Streamable HTTP `tools/call` pub-sub publish reaches the same direct raw JSON
+  subscription. This covers direct JSON agents and consumer applications that
+  call the public router-provided MCP endpoint without generated Dart helper
+  assumptions. `tool/test_mcp_consumer_package_boundary.py` guards the public
+  raw JSON topic/pub-sub ids and updated smoke success summary. Baseline
+  `bin/test-fast` passed before the change on 2026-06-18. Focused
+  `bash -n bin/common.sh`, focused
+  `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples, the installed
+  router CLI consumer smoke with public raw JSON WAMP topic/pub-sub and
+  Streamable pub-sub checks plus protected raw JSON resources/resource
+  templates/prompts/pub-sub checks, full router tests, zero-copy router tests,
+  and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains
+  latest-known-clean at `282f7b3` until GitHub reports on this public raw JSON
+  WAMP topic/pub-sub smoke checkpoint. RC readiness remains gated on release
+  policy: no numeric RC tag points at `282f7b3`, the existing `v0.1.0-rc.1` tag
+  still points at stale commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as
+  the next numeric tag if release policy approves it, no GitHub prerelease or
+  router image RC tag is selected for `282f7b3`, and pub.dev package
+  ownership/version/release-order decisions remain deferred.
+- 2026-06-18: Extended the installed router CLI consumer package smoke to prove
   auth-protected MCP resource reads and prompt rendering through raw JSON on
   the bearer-protected `/mcp/secure` route. The smoke now posts
   `resources/read`, `prompts/list`, and `prompts/get` with bearer headers,
@@ -100,14 +132,27 @@ decision because `connectanum_client` still depends on private
   pub/sub-only, authenticated, bearer, and JSON-response examples, the
   installed router CLI consumer smoke with protected raw JSON resources/resource
   templates/prompts/pub-sub checks, full router tests, zero-copy router tests,
-  and Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains
-  latest-known-clean at `7aa7a46` until GitHub reports on this protected raw
-  JSON smoke checkpoint. RC readiness remains gated on release policy: no
-  numeric RC tag points at `7aa7a46`, the existing `v0.1.0-rc.1` tag still
-  points at stale commit `47bbf9c`, the audit suggests `v0.1.0-rc.2` as the
-  next numeric tag if release policy approves it, no GitHub prerelease or router
-  image RC tag is selected for `7aa7a46`, and pub.dev package
-  ownership/version/release-order decisions remain deferred.
+  and Chrome/Dart2Wasm browser WebSocket smoke. Commit `282f7b3`
+  (`test: cover protected mcp resources prompts`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. Hosted evidence is clean
+  at `282f7b3`: GitHub `master` CI `27729497233` and GitHub `add-router` CI
+  `27729497213` passed with `Fast Checks` and `Full Verify` clean. No new Dart
+  Package Publish Dry Run was triggered because no publish-sensitive paths
+  changed; the strict audit accepted GitHub `master` Dart Package Publish Dry
+  Run `27724124864` at `52dba41` as still relevant. No new WAMP Profile
+  Benchmarks or Router Image run was triggered because no WAMP profile
+  benchmark-sensitive or router-image-sensitive inputs changed. The strict
+  deployment-chain audit exited successfully on 2026-06-18 with clean latest CI
+  logs at `282f7b3`, relevant Dart package publish dry-run evidence, relevant
+  Native Artifacts dry-run `26396437881` at `debd545`, relevant Router Image
+  dry-run `27550613315` at `77f22c0`, relevant WAMP Profile Benchmarks
+  `27549457823` at `77f22c0`, branch protection, workflow visibility, and
+  router image package visibility gates ready. RC readiness remains gated on
+  release policy: no numeric RC tag points at `282f7b3`, the existing
+  `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, the audit suggests
+  `v0.1.0-rc.2` as the next numeric tag if release policy approves it, no GitHub
+  prerelease or router image RC tag is selected for `282f7b3`, and pub.dev
+  package ownership/version/release-order decisions remain deferred.
 - 2026-06-18: Extended the installed router CLI consumer package smoke to prove
   router-provided MCP resource-template discovery through raw JSON. The smoke
   now posts `resources/templates/list` to both the public `/mcp` route and the
@@ -8614,14 +8659,17 @@ decision because `connectanum_client` still depends on private
 ## Handoff
 
 Active. The current implementation checkpoint makes the installed router CLI
-consumer package smoke prove auth-protected MCP resource reads and prompt
-rendering through raw JSON on the bearer-protected `/mcp/secure` route, on top
-of existing public and protected resource-template discovery. `bin/common.sh`
-now posts protected `resources/read`, `prompts/list`, and `prompts/get`
-requests with bearer headers, asserting the configured secure context and
-prompt substitution. The generated Dart consumer still covers the typed client
-helpers; the raw JSON smoke now covers agent and consumer applications that call
-the router-provided MCP endpoint directly.
+consumer package smoke prove public raw JSON WAMP topic catalog/pub-sub and
+Streamable pub-sub on the router-hosted `/mcp` endpoint, on top of existing
+protected raw JSON resource/prompt checks and public/protected resource-template
+discovery. `bin/common.sh` now posts public direct JSON
+`connectanum.api.list`, `connectanum.pubsub.subscribe`,
+`connectanum.pubsub.publish`, `connectanum.pubsub.poll`, and
+`connectanum.pubsub.unsubscribe`, then verifies a Streamable HTTP `tools/call`
+pub-sub publish reaches the same direct subscription. The generated Dart
+consumer still covers the typed client helpers; the raw JSON smoke now covers
+agent and consumer applications that call the router-provided MCP endpoint
+directly.
 
 Local evidence for this checkpoint: baseline `bin/test-fast` passed before the
 change on 2026-06-18. Focused `bash -n bin/common.sh`, focused
@@ -8631,24 +8679,26 @@ and focused `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smo
 passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
 formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
 consumer-package smokes, router-hosted MCP live examples, the installed router
-CLI consumer smoke with protected raw JSON resources/resource templates/prompts/pub-sub
+CLI consumer smoke with public raw JSON WAMP topic/pub-sub and Streamable
+pub-sub checks plus protected raw JSON resources/resource templates/prompts/pub-sub
 checks, full router tests, zero-copy router tests, and Chrome/Dart2Wasm browser
 WebSocket smoke.
 
-The latest fully clean hosted checkpoint is `7aa7a46`: GitHub `master` CI
-`27726956561` and GitHub `add-router` CI `27726956579` passed with `Fast
+The latest fully clean hosted checkpoint remains `282f7b3` until GitHub reports
+on this public raw JSON WAMP topic/pub-sub smoke checkpoint: GitHub `master` CI
+`27729497233` and GitHub `add-router` CI `27729497213` passed with `Fast
 Checks` and `Full Verify` clean, and the strict deployment-chain audit passed
 for current-head CI/log evidence. No new Dart Package Publish Dry Run was
-triggered because no publish-sensitive paths changed; the audit accepted GitHub
-`master` Dart Package Publish Dry Run `27724124864` at `52dba41` as still
-relevant. No new WAMP Profile Benchmarks or Router Image run was triggered
-because no WAMP profile benchmark-sensitive or router-image-sensitive inputs
-changed; the audit accepted relevant WAMP Profile Benchmarks `27549457823` at
-`77f22c0`, Router Image dry-run `27550613315` at `77f22c0`, and Native
-Artifacts dry-run `26396437881` at `debd545`.
+triggered for this checkpoint before handoff because no publish-sensitive paths
+changed; the audit accepted GitHub `master` Dart Package Publish Dry Run
+`27724124864` at `52dba41` as still relevant. No new WAMP Profile Benchmarks or
+Router Image run was triggered because no WAMP profile benchmark-sensitive or
+router-image-sensitive inputs changed; the audit accepted relevant WAMP Profile
+Benchmarks `27549457823` at `77f22c0`, Router Image dry-run `27550613315` at
+`77f22c0`, and Native Artifacts dry-run `26396437881` at `debd545`.
 
 RC readiness remains not-ready because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for `7aa7a46`.
+prerelease, or matching RC router image tag has been selected for `282f7b3`.
 The audit suggests `v0.1.0-rc.2` as the next numeric tag if release approval is
 given. Pub.dev publishing remains deferred for release-order and operator
 decisions. No RC tag, GitHub Release, or router image was created or moved.

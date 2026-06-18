@@ -103,7 +103,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
                 )
                 self.assertNotRegex(body, r"import 'package:connectanum_client/")
 
-    def test_router_cli_consumer_smoke_exercises_raw_json_resource_templates(
+    def test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface(
         self,
     ) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
@@ -120,6 +120,22 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Installed CLI MCP route missed configured resource template",
             body,
         )
+        self.assertIn("topics = post_json(", body)
+        self.assertIn('"id": "public-topics"', body)
+        self.assertIn(
+            "Installed CLI MCP direct topic catalog missed public topic",
+            body,
+        )
+        self.assertIn("direct_subscribe = post_json(", body)
+        self.assertIn('"id": "public-direct-pubsub-subscribe"', body)
+        self.assertIn("direct_publish = post_json(", body)
+        self.assertIn('"id": "public-direct-pubsub-publish"', body)
+        self.assertIn("public-direct-publish", body)
+        self.assertIn("streamable_publish = post_json(", body)
+        self.assertIn('"id": "public-streamable-pubsub-publish"', body)
+        self.assertIn("public-streamable-publish", body)
+        self.assertIn("direct_unsubscribe = post_json(", body)
+        self.assertIn('"id": "public-direct-pubsub-unsubscribe"', body)
         self.assertIn("secure_templates = post_json(", body)
         self.assertIn('"id": "secure-resource-templates"', body)
         self.assertIn(
@@ -149,6 +165,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("tool calls/resources/resource templates/prompts", body)
+        self.assertIn("public raw JSON resources/resource templates/prompts", body)
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/pub-sub",
             body,
