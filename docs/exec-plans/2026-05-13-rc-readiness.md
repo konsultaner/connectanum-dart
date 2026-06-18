@@ -80,6 +80,37 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-18: Tightened the public router-hosted MCP client example so
+  standard MCP batch catalog discovery is self-checking on consumer-facing
+  routes. Direct JSON batches now include `resources/list` and `prompts/list`
+  requests when `--resource-uri` or `--prompt` is supplied, and both direct
+  JSON and Streamable batch responses are inspected with
+  `_expectBatchCatalogContains` / `_batchResult`. The example asserts
+  `direct-batch-tools`, `direct-batch-resources`, `direct-batch-prompts`,
+  `streamable-batch-tools`, `streamable-batch-resources`, and
+  `streamable-batch-prompts` contain the requested `--tool`, `--resource-uri`,
+  or `--prompt` value before reporting batch response ids. This makes the live
+  public, protected, bearer-token, and protected JSON-response smokes fail if a
+  route returns placeholder batch responses or loses standard catalog payloads.
+  `tool/test_mcp_consumer_package_boundary.py` guards the new direct batch
+  catalog ids, helper names, non-object-result error text, and
+  direct/Streamable batch catalog labels. Baseline `bin/test-fast` passed
+  before the change on 2026-06-18. Focused
+  `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`,
+  focused `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, and focused
+  `bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'`
+  passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18,
+  including the router-hosted MCP live public, pub/sub-only, authenticated,
+  bearer, and JSON-response examples with standard batch tool/resource/prompt
+  catalog self-checks plus WAMP catalog self-checks, generated
+  consumer-package smokes, the installed router CLI consumer smoke, full router
+  tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+  The latest fully clean hosted checkpoint remains `6ac34b8` until this local
+  implementation has new hosted evidence. No new Native Artifacts, Router
+  Image, or WAMP Profile Benchmarks run was required because no native
+  artifact, image, workflow, or benchmark-sensitive inputs changed.
+- 2026-06-18: Tightened the public router-hosted MCP client example so
   standard MCP tool/resource/prompt catalog discovery is self-checking on
   consumer-facing routes. When `--tool`, `--resource-uri`, or `--prompt` is
   provided, `packages/connectanum_mcp/example/router_hosted_client.dart` now
@@ -103,8 +134,19 @@ decision because `connectanum_client` still depends on private
   self-checks plus WAMP catalog self-checks, generated consumer-package smokes,
   the installed router CLI consumer smoke, full router tests, zero-copy router
   tests, and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean
-  hosted checkpoint remains `574c804` until this local implementation has new
-  hosted evidence.
+  hosted checkpoint is `6ac34b8`: commit `6ac34b8` (`test: assert router
+  hosted standard catalogs`) was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. GitHub `master` CI `27773196795` and
+  GitHub `add-router` CI `27773190116` passed with `Fast Checks` and
+  `Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
+  `27773197186` and GitHub `add-router` Dart Package Publish Dry Run
+  `27773188279` also passed. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-18 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-18: Tightened the public router-hosted MCP client example so WAMP
   catalog discovery is self-checking on consumer-facing routes. When
   `--wamp-procedure` or `--wamp-topic` is provided,

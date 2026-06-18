@@ -3,14 +3,52 @@
 Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now fails fast when a requested tool, resource, or prompt is absent from direct
-JSON or Streamable standard MCP catalogs. The live example smoke therefore
-proves public, protected, bearer-token, and protected JSON-response routes
-expose requested `tools/list`, `resources/list`, and `prompts/list` entries
-instead of only proving known-id calls, reads, and prompt gets.
-Latest fully clean hosted checkpoint: Commit `574c804` on GitHub `master` and
+now fails fast when direct JSON or Streamable batch responses omit the requested
+standard MCP tool, resource, or prompt catalog entry. The live example smoke
+therefore proves public, protected, bearer-token, and protected JSON-response
+routes return usable `tools/list`, `resources/list`, and `prompts/list` batch
+payloads instead of only proving known-id calls, reads, prompt gets, and
+response ids.
+Latest fully clean hosted checkpoint: Commit `6ac34b8` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now validates
+standard MCP catalog contents inside router-hosted batch responses. Direct JSON
+batches add `resources/list` and `prompts/list` requests when `--resource-uri`
+or `--prompt` is supplied, and both direct JSON and Streamable batch responses
+are inspected with `_expectBatchCatalogContains` / `_batchResult`. The public
+example asserts `direct-batch-tools`, `direct-batch-resources`,
+`direct-batch-prompts`, `streamable-batch-tools`,
+`streamable-batch-resources`, and `streamable-batch-prompts` contain the
+requested `--tool`, `--resource-uri`, or `--prompt` value before reporting the
+batch response ids. `tool/test_mcp_consumer_package_boundary.py` guards the new
+direct batch catalog ids, helper names, non-object-result error text, and
+direct/Streamable batch catalog labels.
+
+Baseline `bin/test-fast` passed before this public router-hosted batch catalog
+response self-check change on 2026-06-18. Focused
+`dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 -m unittest tool/test_mcp_consumer_package_boundary.py`,
+focused `git diff --check`, focused
+`python3 tool/check_public_artifact_references.py`, and focused
+`bash -lc 'source bin/common.sh; run_router_hosted_mcp_example_smoke'` passed on
+2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with standard batch
+tool/resource/prompt catalog self-checks plus WAMP catalog self-checks, the
+installed router CLI consumer smoke, full router tests, zero-copy router tests,
+and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
+checkpoint remains `6ac34b8` until this local implementation has new hosted
+evidence. No new Native Artifacts, Router Image, or WAMP Profile Benchmarks run
+was required because no native artifact, image, workflow, or
+benchmark-sensitive inputs changed. RC readiness remains gated on release
+policy: no numeric RC tag points at `6ac34b8`, the existing `v0.1.0-rc.1` tag
+still points at stale commit `47bbf9c`, no GitHub prerelease or router image RC
+tag is selected for the current hosted checkpoint, and pub.dev package
+ownership/version/release-order decisions remain deferred.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now validates
 standard MCP tool/resource/prompt catalog membership before performing
 requested direct JSON and Streamable actions. When `--tool`, `--resource-uri`,
@@ -38,20 +76,20 @@ authenticated, bearer, and JSON-response examples with standard
 tool/resource/prompt catalog self-checks plus WAMP catalog self-checks, the
 installed router CLI consumer smoke, full router tests, zero-copy router tests,
 and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
-checkpoint remains `574c804`: commit `574c804`
-(`test: assert router hosted mcp catalogs`) was pushed to GitLab `origin`,
-GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27768712638`
-and GitHub `add-router` CI `27768706548` passed with `Fast Checks` and
-`Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
-`27768712683` and GitHub `add-router` Dart Package Publish Dry Run
-`27768706066` also passed. The strict deployment-chain audit
+checkpoint is `6ac34b8`: commit `6ac34b8`
+(`test: assert router hosted standard catalogs`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`27773196795` and GitHub `add-router` CI `27773190116` passed with
+`Fast Checks` and `Full Verify` clean. GitHub `master` Dart Package Publish
+Dry Run `27773197186` and GitHub `add-router` Dart Package Publish Dry Run
+`27773188279` also passed. The strict deployment-chain audit
 `bin/audit-github-deployment-chain --branch master --strict` exited
 successfully on 2026-06-18 with branch protection, workflow visibility, router
 image package visibility, latest GitHub `master` CI evidence, and latest
 GitHub `master` Dart package dry-run evidence clean. No new Native Artifacts,
 Router Image, or WAMP Profile Benchmarks run was required because no native
 artifact, image, workflow, or benchmark-sensitive inputs changed. RC readiness
-remains gated on release policy: no numeric RC tag points at `574c804`, the
+remains gated on release policy: no numeric RC tag points at `6ac34b8`, the
 existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
 prerelease or router image RC tag is selected for the current hosted
 checkpoint, and pub.dev package ownership/version/release-order decisions

@@ -251,6 +251,12 @@ Future<void> _runDirectBatchExample(
   if (resourceUri != null) {
     messages.add({
       'jsonrpc': '2.0',
+      'id': 'direct-batch-resources',
+      'method': 'resources/list',
+      'params': {},
+    });
+    messages.add({
+      'jsonrpc': '2.0',
       'id': 'direct-batch-resource-templates',
       'method': 'resources/templates/list',
       'params': {},
@@ -265,6 +271,12 @@ Future<void> _runDirectBatchExample(
 
   final promptName = options.promptName;
   if (promptName != null) {
+    messages.add({
+      'jsonrpc': '2.0',
+      'id': 'direct-batch-prompts',
+      'method': 'prompts/list',
+      'params': {},
+    });
     messages.add({
       'jsonrpc': '2.0',
       'id': 'direct-batch-prompt-get',
@@ -309,14 +321,43 @@ Future<void> _runDirectBatchExample(
     ]);
   }
 
-  final responseIds = _expectBatchResponses(
-    await client.postBatchDirect(
-      messages,
-      headers: const {'x-consumer-trace': 'router-hosted-client-direct-batch'},
-    ),
-    [for (final message in messages) message['id']! as String],
-    label: 'Direct JSON',
+  final batchResponses = await client.postBatchDirect(
+    messages,
+    headers: const {'x-consumer-trace': 'router-hosted-client-direct-batch'},
   );
+  final responseIds = _expectBatchResponses(batchResponses, [
+    for (final message in messages) message['id']! as String,
+  ], label: 'Direct JSON');
+  if (toolName != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'direct-batch-tools',
+      catalogKey: 'tools',
+      field: 'name',
+      value: toolName,
+      label: 'Direct JSON batch tool',
+    );
+  }
+  if (resourceUri != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'direct-batch-resources',
+      catalogKey: 'resources',
+      field: 'uri',
+      value: resourceUri,
+      label: 'Direct JSON batch resource',
+    );
+  }
+  if (promptName != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'direct-batch-prompts',
+      catalogKey: 'prompts',
+      field: 'name',
+      value: promptName,
+      label: 'Direct JSON batch prompt',
+    );
+  }
   if (client.sessionId != previousSessionId ||
       client.lastEventId != previousEventId) {
     throw StateError('Direct JSON batch changed Streamable state.');
@@ -379,6 +420,44 @@ List<String> _expectBatchResponses(
     throw StateError('$label batch missed responses for $missingIds.');
   }
   return responseIds;
+}
+
+void _expectBatchCatalogContains(
+  List<McpJsonMap>? responses, {
+  required String id,
+  required String catalogKey,
+  required String field,
+  required String value,
+  required String label,
+}) {
+  final result = _batchResult(responses, id, label: label);
+  _expectCatalogContainsValue(
+    catalog: result[catalogKey],
+    field: field,
+    value: value,
+    label: label,
+  );
+}
+
+McpJsonMap _batchResult(
+  List<McpJsonMap>? responses,
+  String id, {
+  required String label,
+}) {
+  if (responses == null) {
+    throw StateError('$label batch returned no responses.');
+  }
+  for (final response in responses) {
+    if (response['id'] != id) {
+      continue;
+    }
+    final result = response['result'];
+    if (result is Map) {
+      return result.cast<String, Object?>();
+    }
+    throw StateError('$label batch response $id had a non-object result.');
+  }
+  throw StateError('$label batch missed response $id.');
 }
 
 Future<void> _runDirectWampMetadataExample(
@@ -733,18 +812,46 @@ Future<void> _runStreamableSessionExample(
   if (streamableSessionId == null) {
     throw StateError('Streamable batch has no initialized session id.');
   }
-  streamable['batch'] = <String, Object?>{
-    'responseIds': _expectBatchResponses(
-      await client.postBatch(
-        streamableBatchMessages,
-        headers: const {
-          'x-consumer-trace': 'router-hosted-client-streamable-batch',
-        },
-      ),
-      [for (final message in streamableBatchMessages) message['id']! as String],
-      label: 'Streamable',
-    ),
-  };
+  final batchResponses = await client.postBatch(
+    streamableBatchMessages,
+    headers: const {
+      'x-consumer-trace': 'router-hosted-client-streamable-batch',
+    },
+  );
+  final responseIds = _expectBatchResponses(batchResponses, [
+    for (final message in streamableBatchMessages) message['id']! as String,
+  ], label: 'Streamable');
+  if (toolName != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'streamable-batch-tools',
+      catalogKey: 'tools',
+      field: 'name',
+      value: toolName,
+      label: 'Streamable batch tool',
+    );
+  }
+  if (resourceUri != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'streamable-batch-resources',
+      catalogKey: 'resources',
+      field: 'uri',
+      value: resourceUri,
+      label: 'Streamable batch resource',
+    );
+  }
+  if (promptName != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'streamable-batch-prompts',
+      catalogKey: 'prompts',
+      field: 'name',
+      value: promptName,
+      label: 'Streamable batch prompt',
+    );
+  }
+  streamable['batch'] = <String, Object?>{'responseIds': responseIds};
   if (client.sessionId != streamableSessionId) {
     throw StateError('Streamable batch changed session id.');
   }
