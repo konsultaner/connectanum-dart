@@ -204,10 +204,41 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "changed Streamable state.",
             body,
         )
+        self.assertIn(
+            "dart-consumer-secure-active-direct-templates",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected active direct JSON templates "
+            "missed secure task.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-active-direct-prompts",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected active direct JSON prompts "
+            "missed secure prompt.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-active-direct-prompt-get",
+            body,
+        )
+        self.assertIn("active direct prompt readiness", body)
+        self.assertIn(
+            "Dart consumer protected active direct JSON resource/prompt "
+            "helpers changed Streamable state.",
+            body,
+        )
         self.assertIn("tool calls/resources/resource templates/prompts", body)
         self.assertIn("public raw JSON resources/resource templates/prompts", body)
         self.assertIn("active protected auth rejection isolation", body)
-        self.assertIn("active protected direct JSON WAMP meta isolation", body)
+        self.assertIn(
+            "active protected direct JSON WAMP meta and resource/prompt isolation",
+            body,
+        )
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/pub-sub",
             body,

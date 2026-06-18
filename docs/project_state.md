@@ -4,13 +4,43 @@ Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the installed router CLI generated Dart
 consumer smoke now proves public raw JSON WAMP topic catalog/pub-sub,
-Streamable pub-sub, protected raw JSON resources/templates/prompts/pub-sub, and
-active protected-route auth rejection isolation plus active protected direct
-JSON WAMP meta isolation while a valid `/mcp/secure` Streamable session remains
-intact.
-Latest fully clean hosted checkpoint: Commit `ba120e7` on GitHub `master` and
+Streamable pub-sub, protected raw JSON resources/templates/prompts/pub-sub,
+active protected-route auth rejection isolation, active protected direct JSON
+WAMP meta isolation, and active protected direct JSON resource-template/prompt
+isolation while a valid `/mcp/secure` Streamable session remains intact.
+Latest fully clean hosted checkpoint: Commit `96a1ba4` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/common.sh` now extends the installed router CLI generated Dart consumer
+smoke on bearer-protected `/mcp/secure` with active direct JSON
+resource-template and prompt helper coverage on the auth-grant client. After
+initializing a valid bearer-backed Streamable session, the generated consumer
+calls `listResourceTemplatesDirect`, `listPromptsDirect`, and `getPromptDirect`
+against the protected route, asserts the secure task template and prompt
+substitution are visible, and asserts the direct JSON helpers do not mutate the
+valid client's session id or resume cursor. This covers consumer applications
+that mix authenticated Streamable sessions with lifecycle-free direct JSON
+resource and prompt helper calls through public `connectanum_mcp_io` APIs.
+`tool/test_mcp_consumer_package_boundary.py` guards the new generated-consumer
+ids, state assertion text, and smoke success summary.
+
+Baseline `bin/test-fast` passed before this active protected direct JSON
+resource-template/prompt isolation smoke change on 2026-06-18. Focused
+`bash -n bin/common.sh`, focused
+`python3 -m unittest tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+and focused
+`bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'` passed
+on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples, the installed router CLI
+consumer smoke with active protected direct JSON WAMP meta and resource/prompt
+isolation, full router tests, zero-copy router tests, and Chrome/Dart2Wasm
+browser WebSocket smoke. Hosted evidence remains latest-known-clean at
+`96a1ba4` until this checkpoint is pushed and GitHub reports on it.
+
+Previous implementation checkpoint:
 `bin/common.sh` now extends the installed router CLI generated Dart consumer
 smoke on bearer-protected `/mcp/secure` with protected direct JSON WAMP metadata
 helper coverage on the auth-grant client. The generated consumer calls
@@ -35,8 +65,24 @@ consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
 authenticated, bearer, and JSON-response examples, the installed router CLI
 consumer smoke with active protected direct JSON WAMP meta isolation, full
 router tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-smoke. Hosted evidence remains latest-known-clean at `ba120e7` until GitHub
-reports on this active protected direct JSON WAMP meta isolation checkpoint.
+smoke. Commit `96a1ba4` (`test: cover active protected mcp meta isolation`) was
+pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`. Hosted
+evidence is clean at `96a1ba4`: GitHub `master` CI `27736430852` and GitHub
+`add-router` CI `27736427769` passed with `Fast Checks` and `Full Verify`
+clean. No new Dart Package Publish Dry Run, Native Artifacts, Router Image, or
+WAMP Profile Benchmarks run was required because no inputs sensitive to those
+workflows changed; the strict audit accepted the latest relevant successful
+runs. The strict deployment-chain audit exited successfully on 2026-06-18 with
+clean latest CI logs at `96a1ba4`, relevant Dart Package Publish Dry Run
+`27724124864` at `52dba41`, relevant Native Artifacts dry-run `26396437881` at
+`debd545`, relevant Router Image dry-run `27550613315` at `77f22c0`, relevant
+WAMP Profile Benchmarks `27549457823` at `77f22c0`, branch protection, workflow
+visibility, and router image package visibility gates ready. RC readiness
+remains gated on release policy: no numeric RC tag points at `96a1ba4`, the
+existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, the audit
+suggests `v0.1.0-rc.2` as the next numeric tag if release policy approves it,
+no GitHub prerelease or router image RC tag is selected for `96a1ba4`, and
+pub.dev package ownership/version/release-order decisions remain deferred.
 
 Previous implementation checkpoint:
 `bin/common.sh` now extends the installed router CLI generated Dart consumer

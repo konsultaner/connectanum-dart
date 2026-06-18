@@ -25917,6 +25917,47 @@ Future<void> main() async {
       'Dart consumer protected active direct JSON topic describe changed Streamable state.',
     );
 
+    final secureActiveDirectTemplates =
+        await secureClient.listResourceTemplatesDirect(
+      id: 'dart-consumer-secure-active-direct-templates',
+    );
+    _expect(
+      _stringFields(
+        secureActiveDirectTemplates.resourceTemplates,
+        'uriTemplate',
+      ).contains('cli://mcp/secure/task/{taskId}'),
+      'Dart consumer protected active direct JSON templates missed secure task.',
+    );
+
+    final secureActiveDirectPrompts = await secureClient.listPromptsDirect(
+      id: 'dart-consumer-secure-active-direct-prompts',
+    );
+    _expect(
+      _stringFields(
+        secureActiveDirectPrompts.prompts,
+        'name',
+      ).contains('summarize-secure-cli-context'),
+      'Dart consumer protected active direct JSON prompts missed secure prompt.',
+    );
+    final secureActiveDirectPrompt = await secureClient.getPromptDirect(
+      'summarize-secure-cli-context',
+      id: 'dart-consumer-secure-active-direct-prompt-get',
+      arguments: const <String, String>{
+        'topic': 'active direct prompt readiness',
+      },
+    );
+    _expect(
+      jsonEncode(
+        secureActiveDirectPrompt,
+      ).contains('active direct prompt readiness'),
+      'Dart consumer protected active direct JSON prompt missed substitution.',
+    );
+    _expect(
+      secureClient.sessionId == secureSessionId &&
+          secureClient.lastEventId == secureLastEventId,
+      'Dart consumer protected active direct JSON resource/prompt helpers changed Streamable state.',
+    );
+
     final secureStreamableContents = await secureClient.readResource(
       'cli://mcp/secure/context',
       id: 'dart-consumer-secure-streamable-resource-read',
@@ -26560,6 +26601,6 @@ DART
       dart run bin/main.dart
   )
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected auth rejection isolation, active protected direct JSON WAMP meta isolation, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP topic catalog/pub-sub plus Streamable pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP session and subscription meta/pubsub/batches, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
