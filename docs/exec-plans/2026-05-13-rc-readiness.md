@@ -79,6 +79,38 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-18: Tightened the public router-hosted MCP client example so raw
+  dotted direct JSON-RPC method calls prove WAMP metadata access, not only
+  typed direct helpers and `connectanum.tool.call` wrappers.
+  `packages/connectanum_mcp/example/router_hosted_client.dart` now calls
+  `callConnectanumMethodDirect` for `connectanum.api.list` and
+  `connectanum.api.describe` inside `_runDirectWampMetadataExample`, validates
+  the raw method `structuredContent` for the configured WAMP procedure/topic
+  catalogs and descriptions, emits `methodCatalog` and `methodDescription`,
+  and keeps the direct WAMP metadata Streamable state guard around typed helper
+  and raw method access. `tool/test_mcp_consumer_package_boundary.py` guards
+  the new raw method ids, labels, helper, and structured-content error text so
+  future edits cannot silently remove direct method-style WAMP metadata
+  coverage from the public example. Baseline `bin/test-fast` passed before the
+  change on 2026-06-18. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18,
+  including the router-hosted MCP live public, pub/sub-only, authenticated,
+  bearer, and JSON-response examples with raw direct WAMP method metadata
+  checks, direct JSON lifecycle, session initialization, session deletion,
+  pub/sub metadata, standard MCP catalog, and WAMP catalog self-checks,
+  generated consumer-package smokes, the installed router CLI consumer smoke,
+  full router tests, zero-copy router tests, and Chrome/Dart2Wasm browser
+  WebSocket smoke. The latest fully clean hosted checkpoint remains `32750be`
+  until this local checkpoint is pushed and hosted CI/package dry-run evidence
+  completes.
 - 2026-06-18: Tightened the public router-hosted MCP client example so direct
   JSON helpers and Streamable session cleanup are lifecycle self-checking on
   consumer-facing routes. `packages/connectanum_mcp/example/router_hosted_client.dart`
@@ -108,9 +140,19 @@ decision because `connectanum_client` still depends on private
   initialization, session deletion, pub/sub metadata, standard MCP catalog, and
   WAMP catalog self-checks, generated consumer-package smokes, the installed
   router CLI consumer smoke, full router tests, zero-copy router tests, and
-  Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
-  checkpoint remains `12c86e7` until this local checkpoint is pushed and hosted
-  CI/package dry-run evidence completes.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `32750be`
+  (`test: assert router mcp lifecycle state`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27785333492`
+  and GitHub `add-router` CI `27785333266` passed with `Fast Checks` and
+  `Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
+  `27785333568` and GitHub `add-router` Dart Package Publish Dry Run
+  `27785333268` also passed. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-18 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-18: Tightened the public router-hosted MCP client example so
   router-hosted direct JSON and Streamable pub/sub coverage validates response
   metadata, not only event payload delivery. `packages/connectanum_mcp/example/router_hosted_client.dart`

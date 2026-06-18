@@ -3,16 +3,53 @@
 Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now fails fast when lifecycle-free direct JSON helpers mutate Streamable HTTP
-session state, when Streamable initialization fails to establish a session, or
-when final session deletion leaves local session/cursor state behind. The live
-example smoke therefore proves public, protected, bearer-token, and protected
-JSON-response routes keep direct tool/resource/prompt, batch, WAMP metadata,
-and pub/sub helpers independent from Streamable session state while still
-cleanly creating and deleting a Streamable session.
-Latest fully clean hosted checkpoint: Commit `12c86e7` on GitHub `master` and
+now fails fast when raw dotted direct JSON-RPC calls to
+`connectanum.api.list` or `connectanum.api.describe` do not return the
+configured WAMP procedure/topic metadata. The live example smoke therefore
+proves lightweight consumer agents can use direct method-style WAMP meta API
+access, in addition to typed direct helpers and `connectanum.tool.call`
+wrappers, without creating or advancing Streamable HTTP session state.
+Latest fully clean hosted checkpoint: Commit `32750be` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now calls
+`callConnectanumMethodDirect` for `connectanum.api.list` and
+`connectanum.api.describe` inside `_runDirectWampMetadataExample`. The public
+example validates the raw method `structuredContent` for the configured
+procedure/topic catalogs and descriptions, emits `methodCatalog` and
+`methodDescription` in `directWampMetadata`, and keeps the direct WAMP metadata
+Streamable state guard around typed helper and raw method access.
+`tool/test_mcp_consumer_package_boundary.py` guards the new raw method ids,
+labels, helper, and structured-content error text so the public example cannot
+silently drop direct method-style WAMP metadata coverage.
+
+Baseline `bin/test-fast` passed before this public router-hosted raw WAMP
+metadata method self-check change on 2026-06-18. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with raw direct WAMP method
+metadata checks, direct JSON lifecycle, session initialization, session
+deletion, pub/sub metadata, standard MCP catalog, and WAMP catalog self-checks,
+the installed router CLI consumer smoke, full router tests, zero-copy router
+tests, and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean
+hosted checkpoint remains `32750be` until this local checkpoint is pushed and
+hosted CI/package dry-run evidence completes. RC readiness remains gated on
+release policy: no numeric RC tag points at the current local implementation
+checkpoint, the existing `v0.1.0-rc.1` tag still points at stale commit
+`47bbf9c`, no GitHub prerelease or router image RC tag is selected for the
+current hosted checkpoint, and pub.dev package ownership/version/release-order
+decisions remain deferred.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now adds
 `_expectStreamableStateUnchanged` and `_deleteStreamableSession` to make public
 router-hosted MCP lifecycle assumptions self-checking. Direct JSON
@@ -44,10 +81,19 @@ authenticated, bearer, and JSON-response examples with direct JSON lifecycle,
 session initialization, session deletion, pub/sub metadata, standard MCP
 catalog, and WAMP catalog self-checks, the installed router CLI consumer smoke,
 full router tests, zero-copy router tests, and Chrome/Dart2Wasm browser
-WebSocket smoke. The latest fully clean hosted checkpoint remains `12c86e7`
-until this local checkpoint is pushed and hosted CI/package dry-run evidence
-completes. RC readiness remains gated on release policy: no numeric RC tag
-points at the current local implementation checkpoint, the existing
+WebSocket smoke. Commit `32750be` (`test: assert router mcp lifecycle state`)
+was pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`.
+GitHub `master` CI `27785333492` and GitHub `add-router` CI `27785333266`
+passed with `Fast Checks` and `Full Verify` clean. GitHub `master` Dart Package
+Publish Dry Run `27785333568` and GitHub `add-router` Dart Package Publish Dry
+Run `27785333268` also passed. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --strict` exited
+successfully on 2026-06-18 with branch protection, workflow visibility, router
+image package visibility, latest GitHub `master` CI evidence, and latest GitHub
+`master` Dart package dry-run evidence clean. No new Native Artifacts, Router
+Image, or WAMP Profile Benchmarks run was required because no native artifact,
+image, workflow, or benchmark-sensitive inputs changed. RC readiness remains
+gated on release policy: no numeric RC tag points at `32750be`, the existing
 `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub prerelease
 or router image RC tag is selected for the current hosted checkpoint, and
 pub.dev package ownership/version/release-order decisions remain deferred.

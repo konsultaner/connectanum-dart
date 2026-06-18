@@ -522,10 +522,37 @@ Future<void> _runDirectWampMetadataExample(
       uri: procedure,
       label: 'Direct WAMP procedure',
     );
+    final methodProcedures = _structuredContentFromToolResult(
+      await client.callConnectanumMethodDirect(
+        'connectanum.api.list',
+        id: 'direct-wamp-procedure-api-list-method',
+        params: const <String, Object?>{'kind': 'procedure'},
+      ),
+      label: 'Direct WAMP procedure method list',
+    );
+    final methodProcedureCatalog = methodProcedures['procedures'];
+    _expectWampCatalogContains(
+      catalog: methodProcedureCatalog,
+      uri: procedure,
+      label: 'Direct WAMP procedure method',
+    );
     final description = await client.describeWampApiDirect(
       procedure,
       id: 'direct-wamp-procedure-api-describe',
       kind: 'procedure',
+    );
+    final methodDescription = _structuredContentFromToolResult(
+      await client.callConnectanumMethodDirect(
+        'connectanum.api.describe',
+        id: 'direct-wamp-procedure-api-describe-method',
+        params: <String, Object?>{'uri': procedure, 'kind': 'procedure'},
+      ),
+      label: 'Direct WAMP procedure method describe',
+    );
+    _expectWampCatalogContains(
+      catalog: [methodDescription],
+      uri: procedure,
+      label: 'Direct WAMP procedure method describe',
     );
     final registration = await client.matchWampRegistrationDirect(
       procedure,
@@ -534,7 +561,9 @@ Future<void> _runDirectWampMetadataExample(
     metadata['procedure'] = {
       'name': procedure,
       'catalog': procedureCatalog,
+      'methodCatalog': methodProcedureCatalog,
       'description': description,
+      'methodDescription': methodDescription,
       'registration': _wampMetaResultJson(registration),
     };
   }
@@ -550,15 +579,44 @@ Future<void> _runDirectWampMetadataExample(
       uri: topic,
       label: 'Direct WAMP topic',
     );
+    final methodTopics = _structuredContentFromToolResult(
+      await client.callConnectanumMethodDirect(
+        'connectanum.api.list',
+        id: 'direct-wamp-topic-api-list-method',
+        params: const <String, Object?>{'kind': 'topic'},
+      ),
+      label: 'Direct WAMP topic method list',
+    );
+    final methodTopicCatalog = methodTopics['topics'];
+    _expectWampCatalogContains(
+      catalog: methodTopicCatalog,
+      uri: topic,
+      label: 'Direct WAMP topic method',
+    );
     final description = await client.describeWampApiDirect(
       topic,
       id: 'direct-wamp-topic-api-describe',
       kind: 'topic',
     );
+    final methodDescription = _structuredContentFromToolResult(
+      await client.callConnectanumMethodDirect(
+        'connectanum.api.describe',
+        id: 'direct-wamp-topic-api-describe-method',
+        params: <String, Object?>{'uri': topic, 'kind': 'topic'},
+      ),
+      label: 'Direct WAMP topic method describe',
+    );
+    _expectWampCatalogContains(
+      catalog: [methodDescription],
+      uri: topic,
+      label: 'Direct WAMP topic method describe',
+    );
     metadata['topic'] = {
       'name': topic,
       'catalog': topicCatalog,
+      'methodCatalog': methodTopicCatalog,
       'description': description,
+      'methodDescription': methodDescription,
     };
   }
 
@@ -570,6 +628,20 @@ Future<void> _runDirectWampMetadataExample(
   );
 
   stdout.writeln(jsonEncode({'directWampMetadata': metadata}));
+}
+
+McpJsonMap _structuredContentFromToolResult(
+  McpJsonMap result, {
+  required String label,
+}) {
+  if (result['isError'] == true) {
+    throw StateError('$label returned an error: ${jsonEncode(result)}.');
+  }
+  final structuredContent = result['structuredContent'];
+  if (structuredContent is Map) {
+    return structuredContent.cast<String, Object?>();
+  }
+  throw StateError('$label returned no structured content.');
 }
 
 Map<String, Object?> _wampMetaResultJson(
