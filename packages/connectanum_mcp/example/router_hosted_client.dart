@@ -573,6 +573,85 @@ void _expectCatalogContainsValue({
   }
 }
 
+void _expectWampSubscription(
+  McpStreamableWampSubscriptionResult subscription, {
+  required String topic,
+  required int queueLimit,
+  required String label,
+}) {
+  if (subscription.topic != topic) {
+    throw StateError(
+      '$label returned subscription for ${subscription.topic}, expected $topic.',
+    );
+  }
+  if (subscription.handle.isEmpty) {
+    throw StateError('$label returned an empty subscription handle.');
+  }
+  if (subscription.queueLimit != queueLimit) {
+    throw StateError(
+      '$label returned queue limit ${subscription.queueLimit}, '
+      'expected $queueLimit.',
+    );
+  }
+}
+
+void _expectWampPublication(
+  McpStreamableWampPublicationResult publication, {
+  required String topic,
+  required String label,
+}) {
+  if (publication.topic != topic) {
+    throw StateError(
+      '$label returned publication for ${publication.topic}, expected $topic.',
+    );
+  }
+  if (!publication.acknowledged) {
+    throw StateError('$label did not acknowledge publication to $topic.');
+  }
+  if (publication.publicationId == null) {
+    throw StateError(
+      '$label acknowledged publication without a publication id.',
+    );
+  }
+}
+
+void _expectWampEventBatch(
+  McpStreamableWampEventBatch events, {
+  required String handle,
+  required String topic,
+  required Object? expectedEvent,
+  required String label,
+}) {
+  if (events.handle != handle) {
+    throw StateError(
+      '$label returned events for handle ${events.handle}, expected $handle.',
+    );
+  }
+  if (events.topic != topic) {
+    throw StateError(
+      '$label returned events for ${events.topic}, expected $topic.',
+    );
+  }
+  if (events.dropped != 0) {
+    throw StateError(
+      '$label reported ${events.dropped} dropped pub/sub events.',
+    );
+  }
+  if (events.remaining != 0) {
+    throw StateError(
+      '$label left ${events.remaining} pub/sub events queued after polling.',
+    );
+  }
+  final observed = events.events.any(
+    (event) => _jsonValueEquals(event['argumentsKeywords'], expectedEvent),
+  );
+  if (!observed) {
+    throw StateError(
+      'Published event was not observed on $label topic $topic.',
+    );
+  }
+}
+
 bool _catalogContainsValue({
   required Object? catalog,
   required String field,
@@ -593,11 +672,18 @@ Future<void> _runDirectPubSubExample(
   McpStreamableHttpClient client,
   _Options options,
 ) async {
+  const queueLimit = 10;
   final topic = options.pubsubTopic!;
   final subscription = await client.subscribeWampTopicDirect(
     topic,
     id: 'direct-pubsub-subscribe',
-    queueLimit: 10,
+    queueLimit: queueLimit,
+  );
+  _expectWampSubscription(
+    subscription,
+    topic: topic,
+    queueLimit: queueLimit,
+    label: 'Direct JSON pub/sub',
   );
 
   try {
@@ -605,33 +691,49 @@ Future<void> _runDirectPubSubExample(
       topic,
       id: 'direct-wamp-subscription-match',
     );
-    await client.publishWampEventDirect(
+    final publication = await client.publishWampEventDirect(
       topic,
       id: 'direct-pubsub-publish',
       argumentsKeywords: options.pubsubEvent,
       acknowledge: true,
     );
+    _expectWampPublication(
+      publication,
+      topic: topic,
+      label: 'Direct JSON pub/sub',
+    );
     final events = await client.pollWampEventsDirect(
       subscription.handle,
       id: 'direct-pubsub-poll',
-      limit: 10,
+      limit: queueLimit,
     );
-    final observed = events.events.any(
-      (event) =>
-          _jsonValueEquals(event['argumentsKeywords'], options.pubsubEvent),
+    _expectWampEventBatch(
+      events,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: options.pubsubEvent,
+      label: 'Direct JSON pub/sub',
     );
-    if (!observed) {
-      throw StateError(
-        'Published event was not observed on direct JSON pub/sub topic $topic.',
-      );
-    }
     stdout.writeln(
       jsonEncode({
         'pubsubTopic': topic,
+        'subscription': <String, Object?>{
+          'handle': subscription.handle,
+          'topic': subscription.topic,
+          'queueLimit': subscription.queueLimit,
+          if (subscription.subscriptionId != null)
+            'subscriptionId': subscription.subscriptionId,
+        },
+        'subscriptionMetadata': _wampMetaResultJson(subscriptionMeta),
+        'publication': <String, Object?>{
+          'topic': publication.topic,
+          'acknowledged': publication.acknowledged,
+          if (publication.publicationId != null)
+            'publicationId': publication.publicationId,
+        },
         'events': events.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
-        'subscription': _wampMetaResultJson(subscriptionMeta),
       }),
     );
   } finally {
@@ -920,10 +1022,17 @@ Future<void> _runStreamableSessionExample(
 
   final pubsubTopic = options.pubsubTopic;
   if (pubsubTopic != null) {
+    const queueLimit = 10;
     final subscription = await client.subscribeWampTopic(
       pubsubTopic,
       id: 'streamable-pubsub-subscribe',
-      queueLimit: 10,
+      queueLimit: queueLimit,
+    );
+    _expectWampSubscription(
+      subscription,
+      topic: pubsubTopic,
+      queueLimit: queueLimit,
+      label: 'Streamable pub/sub',
     );
 
     try {
@@ -937,21 +1046,23 @@ Future<void> _runStreamableSessionExample(
         argumentsKeywords: options.pubsubEvent,
         acknowledge: true,
       );
+      _expectWampPublication(
+        publication,
+        topic: pubsubTopic,
+        label: 'Streamable pub/sub',
+      );
       final events = await client.pollWampEvents(
         subscription.handle,
         id: 'streamable-pubsub-poll',
-        limit: 10,
+        limit: queueLimit,
       );
-      final observed = events.events.any(
-        (event) =>
-            _jsonValueEquals(event['argumentsKeywords'], options.pubsubEvent),
+      _expectWampEventBatch(
+        events,
+        handle: subscription.handle,
+        topic: pubsubTopic,
+        expectedEvent: options.pubsubEvent,
+        label: 'Streamable pub/sub',
       );
-      if (!observed) {
-        throw StateError(
-          'Published event was not observed on Streamable pub/sub topic '
-          '$pubsubTopic.',
-        );
-      }
       streamable['pubsub'] = <String, Object?>{
         'topic': pubsubTopic,
         'subscription': <String, Object?>{

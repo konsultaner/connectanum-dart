@@ -80,6 +80,35 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-18: Tightened the public router-hosted MCP client example so
+  router-hosted direct JSON and Streamable pub/sub coverage validates response
+  metadata, not only event payload delivery. `packages/connectanum_mcp/example/router_hosted_client.dart`
+  now shares `_expectWampSubscription`, `_expectWampPublication`, and
+  `_expectWampEventBatch` across direct JSON and Streamable paths. The public
+  example asserts subscription topic, non-empty handle, requested queue limit,
+  acknowledged publication topic/id, polled handle/topic, zero dropped and
+  remaining events, and the expected event payload before reporting pub/sub
+  output. Direct JSON pub/sub output now separates runtime subscription details
+  from `subscriptionMetadata`, matching the Streamable output shape.
+  `tool/test_mcp_consumer_package_boundary.py` guards the helper names, direct
+  and Streamable pub/sub labels, and failure text so future edits cannot
+  silently reduce the consumer-facing smoke back to payload-only coverage.
+  Baseline `bin/test-fast` passed before the change on 2026-06-18. Focused
+  `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18,
+  including the router-hosted MCP live public, pub/sub-only, authenticated,
+  bearer, and JSON-response examples with pub/sub metadata self-checks plus
+  standard MCP and WAMP catalog self-checks, generated consumer-package smokes,
+  the installed router CLI consumer smoke, full router tests, zero-copy router
+  tests, and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean
+  hosted checkpoint remains `ce2f8b0` until this local checkpoint is pushed and
+  hosted CI/package dry-run evidence completes.
+- 2026-06-18: Tightened the public router-hosted MCP client example so
   standard MCP batch catalog discovery is self-checking on consumer-facing
   routes. Direct JSON batches now include `resources/list` and `prompts/list`
   requests when `--resource-uri` or `--prompt` is supplied, and both direct
@@ -106,10 +135,19 @@ decision because `connectanum_client` still depends on private
   catalog self-checks plus WAMP catalog self-checks, generated
   consumer-package smokes, the installed router CLI consumer smoke, full router
   tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
-  The latest fully clean hosted checkpoint remains `6ac34b8` until this local
-  implementation has new hosted evidence. No new Native Artifacts, Router
-  Image, or WAMP Profile Benchmarks run was required because no native
-  artifact, image, workflow, or benchmark-sensitive inputs changed.
+  The latest fully clean hosted checkpoint is `ce2f8b0`: commit `ce2f8b0`
+  (`test: assert router mcp batch catalogs`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27777433586`
+  and GitHub `add-router` CI `27777433893` passed with `Fast Checks` and
+  `Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
+  `27777433585` and GitHub `add-router` Dart Package Publish Dry Run
+  `27777433904` also passed. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-18 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-18: Tightened the public router-hosted MCP client example so
   standard MCP tool/resource/prompt catalog discovery is self-checking on
   consumer-facing routes. When `--tool`, `--resource-uri`, or `--prompt` is

@@ -3,15 +3,54 @@
 Last updated: 2026-06-18
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now fails fast when direct JSON or Streamable batch responses omit the requested
-standard MCP tool, resource, or prompt catalog entry. The live example smoke
+now fails fast when router-hosted direct JSON or Streamable pub/sub responses
+drop subscription, publication, or event-batch metadata. The live example smoke
 therefore proves public, protected, bearer-token, and protected JSON-response
-routes return usable `tools/list`, `resources/list`, and `prompts/list` batch
-payloads instead of only proving known-id calls, reads, prompt gets, and
-response ids.
-Latest fully clean hosted checkpoint: Commit `6ac34b8` on GitHub `master` and
+routes return usable subscription handles, queue limits, acknowledged
+publication ids, matching poll handles/topics, and undropped event batches
+instead of only proving that a published event payload eventually arrived.
+Latest fully clean hosted checkpoint: Commit `ce2f8b0` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now validates
+router-hosted direct JSON and Streamable pub/sub metadata with shared
+`_expectWampSubscription`, `_expectWampPublication`, and
+`_expectWampEventBatch` helpers. The direct JSON path now captures the
+acknowledged publication response, asserts the subscription topic, non-empty
+handle, requested queue limit, publication topic, publication acknowledgement,
+publication id, polled handle/topic, zero dropped/remaining events, and the
+expected event payload. The Streamable path runs the same assertions before
+reporting `streamable.pubsub`. Direct JSON pub/sub output now separates the
+runtime subscription details from `subscriptionMetadata`, matching the
+Streamable output shape. `tool/test_mcp_consumer_package_boundary.py` guards
+the new helper names, labels, and failure text so the public example cannot
+silently fall back to payload-only pub/sub coverage.
+
+Baseline `bin/test-fast` passed before this public router-hosted pub/sub
+metadata self-check change on 2026-06-18. Focused
+`dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-18. Full local `bin/verify` passed on 2026-06-18, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with pub/sub metadata
+self-checks plus standard MCP and WAMP catalog self-checks, the installed
+router CLI consumer smoke, full router tests, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
+checkpoint remains `ce2f8b0` until this local checkpoint is pushed and hosted
+CI/package dry-run evidence completes. RC readiness remains gated on release
+policy: no numeric RC tag points at the current implementation checkpoint, the
+existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+prerelease or router image RC tag is selected for the current hosted
+checkpoint, and pub.dev package ownership/version/release-order decisions
+remain deferred.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now validates
 standard MCP catalog contents inside router-hosted batch responses. Direct JSON
 batches add `resources/list` and `prompts/list` requests when `--resource-uri`
@@ -39,14 +78,24 @@ authenticated, bearer, and JSON-response examples with standard batch
 tool/resource/prompt catalog self-checks plus WAMP catalog self-checks, the
 installed router CLI consumer smoke, full router tests, zero-copy router tests,
 and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean hosted
-checkpoint remains `6ac34b8` until this local implementation has new hosted
-evidence. No new Native Artifacts, Router Image, or WAMP Profile Benchmarks run
-was required because no native artifact, image, workflow, or
-benchmark-sensitive inputs changed. RC readiness remains gated on release
-policy: no numeric RC tag points at `6ac34b8`, the existing `v0.1.0-rc.1` tag
-still points at stale commit `47bbf9c`, no GitHub prerelease or router image RC
-tag is selected for the current hosted checkpoint, and pub.dev package
-ownership/version/release-order decisions remain deferred.
+checkpoint is `ce2f8b0`: commit `ce2f8b0`
+(`test: assert router mcp batch catalogs`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27777433586` and
+GitHub `add-router` CI `27777433893` passed with `Fast Checks` and
+`Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
+`27777433585` and GitHub `add-router` Dart Package Publish Dry Run
+`27777433904` also passed. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --strict` exited
+successfully on 2026-06-18 with branch protection, workflow visibility, router
+image package visibility, latest GitHub `master` CI evidence, and latest
+GitHub `master` Dart package dry-run evidence clean. No new Native Artifacts,
+Router Image, or WAMP Profile Benchmarks run was required because no native
+artifact, image, workflow, or benchmark-sensitive inputs changed. RC readiness
+remains gated on release policy: no numeric RC tag points at `ce2f8b0`, the
+existing `v0.1.0-rc.1` tag still points at stale commit `47bbf9c`, no GitHub
+prerelease or router image RC tag is selected for the current hosted
+checkpoint, and pub.dev package ownership/version/release-order decisions
+remain deferred.
 
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now validates
