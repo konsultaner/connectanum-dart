@@ -750,6 +750,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "describeWampApiDirect",
             "matchWampRegistrationDirect",
             "matchWampSubscriptionDirect",
+            "lookupWampSubscriptionDirect",
+            "listWampSubscriptionsDirect",
+            "getWampSubscriptionDirect",
+            "listWampSubscriptionSubscribersDirect",
+            "countWampSubscriptionSubscribersDirect",
             "subscribeWampTopicDirect",
             "publishWampEventDirect",
             "notifyWampEventDirect",
@@ -822,8 +827,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-wamp-registration-match",
             "matchWampSubscription(",
             "streamable-wamp-subscription-match",
+            "lookupWampSubscription(",
+            "streamable-wamp-configured-subscription-lookup",
+            "listWampSubscriptions(",
+            "streamable-wamp-configured-subscription-list",
+            "getWampSubscription(",
+            "streamable-wamp-configured-subscription-get",
+            "listWampSubscriptionSubscribers(",
+            "streamable-wamp-configured-subscription-subscribers",
+            "countWampSubscriptionSubscribers(",
+            "streamable-wamp-configured-subscription-subscriber-count",
             "wampMetadata",
             "subscriptionMetadata",
+            "configuredSubscriptionMetadata",
             "subscribeWampTopic",
             "streamable-pubsub-subscribe",
             "publishWampEvent",
@@ -917,6 +933,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"protocolVersion":"2025-06-18"', body)
         self.assertIn('"resourceTemplates":true', body)
         self.assertIn("resource-template discovery", body)
+        self.assertIn('"configuredSubscriptionMetadata":true', body)
+        self.assertIn("configured subscription metadata lookup", body)
         self.assertIn("pubsub_only_dry_run_summary=\"$(", body)
         self.assertIn("T-pubsub-only-example-dry-run", body)
         self.assertIn('"subscriptionMetadata":true', body)
@@ -1321,6 +1339,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"directPing"', script)
         self.assertIn('"directWampMetadata"', script)
         self.assertIn('"wampMetadata"', script)
+        self.assertIn('"configuredSubscriptionMetadata"', script)
         self.assertIn('"toolNotificationEvents"', script)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
         self.assertIn("--bearer-token \"$bearer_token\"", live_body)

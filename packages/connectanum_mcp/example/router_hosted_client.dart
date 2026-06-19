@@ -127,7 +127,10 @@ void _printDryRunSummary(IOSink sink, _Options options) {
           'arguments': options.promptArguments,
         },
       if (options.wampProcedure != null) 'wampProcedure': options.wampProcedure,
-      if (options.wampTopic != null) 'wampTopic': options.wampTopic,
+      if (options.wampTopic != null) ...{
+        'wampTopic': options.wampTopic,
+        'configuredSubscriptionMetadata': true,
+      },
       if (options.pubsubTopic != null)
         'pubsub': {
           'topic': options.pubsubTopic,
@@ -997,12 +1000,15 @@ Future<void> _runDirectWampMetadataExample(
       uri: topic,
       label: 'Direct WAMP topic method describe',
     );
+    final configuredSubscriptionMetadata =
+        await _expectConfiguredWampSubscriptionMetaDirect(client, topic);
     metadata['topic'] = {
       'name': topic,
       'catalog': topicCatalog,
       'methodCatalog': methodTopicCatalog,
       'description': description,
       'methodDescription': methodDescription,
+      'configuredSubscriptionMetadata': configuredSubscriptionMetadata,
     };
   }
 
@@ -1046,6 +1052,241 @@ Map<String, Object?> _wampMetaResultJson(
     'arguments': result.arguments,
     'argumentsKeywords': result.argumentsKeywords,
   };
+}
+
+typedef _WampMetaCall = Future<McpStreamableWampMetaCallResult> Function();
+typedef _WampMetaByIdCall =
+    Future<McpStreamableWampMetaCallResult> Function(int subscriptionId);
+
+Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMetaDirect(
+  McpStreamableHttpClient client,
+  String topic,
+) {
+  return _expectConfiguredWampSubscriptionMeta(
+    topic: topic,
+    label: 'Direct JSON configured WAMP subscription metadata',
+    lookup: () => client.lookupWampSubscriptionDirect(
+      topic,
+      id: 'direct-wamp-configured-subscription-lookup',
+      match: 'exact',
+    ),
+    match: () => client.matchWampSubscriptionDirect(
+      topic,
+      id: 'direct-wamp-configured-subscription-match',
+    ),
+    list: () => client.listWampSubscriptionsDirect(
+      id: 'direct-wamp-configured-subscription-list',
+    ),
+    get: (subscriptionId) => client.getWampSubscriptionDirect(
+      subscriptionId,
+      id: 'direct-wamp-configured-subscription-get',
+    ),
+    listSubscribers: (subscriptionId) =>
+        client.listWampSubscriptionSubscribersDirect(
+          subscriptionId,
+          id: 'direct-wamp-configured-subscription-subscribers',
+        ),
+    countSubscribers: (subscriptionId) =>
+        client.countWampSubscriptionSubscribersDirect(
+          subscriptionId,
+          id: 'direct-wamp-configured-subscription-subscriber-count',
+        ),
+  );
+}
+
+Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMetaStreamable(
+  McpStreamableHttpClient client,
+  String topic,
+) {
+  return _expectConfiguredWampSubscriptionMeta(
+    topic: topic,
+    label: 'Streamable configured WAMP subscription metadata',
+    lookup: () => client.lookupWampSubscription(
+      topic,
+      id: 'streamable-wamp-configured-subscription-lookup',
+      match: 'exact',
+    ),
+    match: () => client.matchWampSubscription(
+      topic,
+      id: 'streamable-wamp-configured-subscription-match',
+    ),
+    list: () => client.listWampSubscriptions(
+      id: 'streamable-wamp-configured-subscription-list',
+    ),
+    get: (subscriptionId) => client.getWampSubscription(
+      subscriptionId,
+      id: 'streamable-wamp-configured-subscription-get',
+    ),
+    listSubscribers: (subscriptionId) => client.listWampSubscriptionSubscribers(
+      subscriptionId,
+      id: 'streamable-wamp-configured-subscription-subscribers',
+    ),
+    countSubscribers: (subscriptionId) =>
+        client.countWampSubscriptionSubscribers(
+          subscriptionId,
+          id: 'streamable-wamp-configured-subscription-subscriber-count',
+        ),
+  );
+}
+
+Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMeta({
+  required String topic,
+  required String label,
+  required _WampMetaCall lookup,
+  required _WampMetaCall match,
+  required _WampMetaCall list,
+  required _WampMetaByIdCall get,
+  required _WampMetaByIdCall listSubscribers,
+  required _WampMetaByIdCall countSubscribers,
+}) async {
+  final lookupResult = await lookup();
+  _expectWampMetaProcedure(
+    lookupResult,
+    'wamp.subscription.lookup',
+    label: '$label lookup',
+  );
+  final lookupIds = _integerMetaIds(
+    lookupResult.arguments,
+    '$label lookup arguments',
+  );
+  if (lookupIds.isEmpty) {
+    throw StateError('$label lookup returned no subscription id for $topic.');
+  }
+  final subscriptionId = lookupIds.first;
+
+  final matchResult = await match();
+  _expectWampMetaProcedure(
+    matchResult,
+    'wamp.subscription.match',
+    label: '$label match',
+  );
+  final matchIds = _integerMetaIds(
+    matchResult.arguments,
+    '$label match arguments',
+  );
+  if (!matchIds.contains(subscriptionId)) {
+    throw StateError('$label match did not include lookup id $subscriptionId.');
+  }
+
+  final listResult = await list();
+  _expectWampMetaProcedure(
+    listResult,
+    'wamp.subscription.list',
+    label: '$label list',
+  );
+  final exactSubscriptionIds = _integerMetaIds(
+    listResult.argumentsKeywords['exact'],
+    '$label list exact subscriptions',
+  );
+  if (!exactSubscriptionIds.contains(subscriptionId)) {
+    throw StateError('$label list did not include lookup id $subscriptionId.');
+  }
+
+  final detailsResult = await get(subscriptionId);
+  _expectWampMetaProcedure(
+    detailsResult,
+    'wamp.subscription.get',
+    label: '$label get',
+  );
+  if (detailsResult.argumentsKeywords['uri'] != topic) {
+    throw StateError(
+      '$label details returned ${detailsResult.argumentsKeywords['uri']}, '
+      'expected $topic.',
+    );
+  }
+
+  final subscribersResult = await listSubscribers(subscriptionId);
+  _expectWampMetaProcedure(
+    subscribersResult,
+    'wamp.subscription.list_subscribers',
+    label: '$label subscribers',
+  );
+  final subscriberIds = _integerMetaIds(
+    subscribersResult.arguments,
+    '$label subscriber arguments',
+  );
+  if (subscriberIds.isNotEmpty) {
+    throw StateError(
+      '$label configured subscription exposed live subscribers: '
+      '${jsonEncode(subscriberIds)}.',
+    );
+  }
+
+  final subscriberCountResult = await countSubscribers(subscriptionId);
+  _expectWampMetaProcedure(
+    subscriberCountResult,
+    'wamp.subscription.count_subscribers',
+    label: '$label subscriber count',
+  );
+  final subscriberCount = _singleIntegerMetaArgument(
+    subscriberCountResult,
+    '$label subscriber count',
+  );
+  if (subscriberCount != 0) {
+    throw StateError(
+      '$label configured subscription subscriber count was $subscriberCount, '
+      'expected 0.',
+    );
+  }
+
+  return <String, Object?>{
+    'topic': topic,
+    'subscriptionId': subscriptionId,
+    'lookup': _wampMetaResultJson(lookupResult),
+    'match': _wampMetaResultJson(matchResult),
+    'list': _wampMetaResultJson(listResult),
+    'details': _wampMetaResultJson(detailsResult),
+    'subscribers': _wampMetaResultJson(subscribersResult),
+    'subscriberCount': _wampMetaResultJson(subscriberCountResult),
+  };
+}
+
+void _expectWampMetaProcedure(
+  McpStreamableWampMetaCallResult result,
+  String expectedProcedure, {
+  required String label,
+}) {
+  if (result.procedure != expectedProcedure) {
+    throw StateError(
+      '$label returned ${result.procedure}, expected $expectedProcedure.',
+    );
+  }
+}
+
+List<int> _integerMetaIds(Object? value, String label) {
+  if (value is! Iterable) {
+    throw StateError('$label was not a list of integer ids.');
+  }
+  final ids = <int>[];
+  for (final entry in value) {
+    final id = _integerMetaId(entry);
+    if (id == null) {
+      throw StateError('$label contained a non-integer id: $entry.');
+    }
+    ids.add(id);
+  }
+  return ids;
+}
+
+int _singleIntegerMetaArgument(
+  McpStreamableWampMetaCallResult result,
+  String label,
+) {
+  final values = _integerMetaIds(result.arguments, label);
+  if (values.length != 1) {
+    throw StateError('$label expected one integer value, got $values.');
+  }
+  return values.single;
+}
+
+int? _integerMetaId(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num && value.isFinite && value == value.roundToDouble()) {
+    return value.toInt();
+  }
+  return null;
 }
 
 void _expectWampCatalogContains({
@@ -1864,16 +2105,25 @@ Future<void> _runStreamableSessionExample(
         ),
         label: 'Streamable WAMP topic method describe',
       );
+      final configuredSubscriptionMetadata =
+          await _expectConfiguredWampSubscriptionMetaStreamable(
+            client,
+            wampTopic,
+          );
       metadata['topic'] = <String, Object?>{
         'name': wampTopic,
         'catalog': topicCatalog,
         'description': description,
         'methodCatalog': methodTopicCatalog,
         'methodDescription': methodDescription,
+        'configuredSubscriptionMetadata': configuredSubscriptionMetadata,
       };
     }
 
     streamable['wampMetadata'] = metadata;
+    if (client.sessionId != streamableSessionId) {
+      throw StateError('Streamable WAMP metadata changed session id.');
+    }
   }
 
   final pubsubTopic = options.pubsubTopic;

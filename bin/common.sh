@@ -388,6 +388,10 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     printf 'Public router-hosted MCP client dry-run did not report resource-template discovery.\n'
     return 1
   fi
+  if [[ "$dry_run_summary" != *'"configuredSubscriptionMetadata":true'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report configured subscription metadata lookup.\n'
+    return 1
+  fi
 
   local pubsub_only_dry_run_summary
   pubsub_only_dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
@@ -966,6 +970,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
   assert_public_router_hosted_mcp_client_summary "$live_summary" public \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
@@ -1078,6 +1083,7 @@ PY
   assert_public_router_hosted_mcp_client_summary "$authenticated_summary" authenticated \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
@@ -1103,6 +1109,7 @@ PY
   assert_public_router_hosted_mcp_client_summary "$bearer_summary" bearer-token \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
@@ -1133,6 +1140,7 @@ PY
     "$authenticated_json_summary" authenticated-json-response \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
@@ -1159,6 +1167,7 @@ PY
     "$bearer_json_summary" bearer-token-json-response \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \

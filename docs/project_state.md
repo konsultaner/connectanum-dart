@@ -5,11 +5,11 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: router-hosted MCP now exposes route-configured
 procedures and topics through standard WAMP registration/subscription metadata
 even when no live WAMP callee or subscriber session exists. The direct JSON
-router integration smoke and the installed router CLI Dart MCP consumer smoke
-now prove configured registration metadata plus configured subscription
-metadata, including zero visible callees/subscribers for router-owned
-implementation surfaces.
-Latest fully clean hosted checkpoint: Commit `f0e60c0` on GitHub `master` and
+router integration smoke, installed router CLI Dart MCP consumer smoke, and
+public router-hosted client example now prove configured registration metadata
+plus configured subscription metadata, including zero visible callees/subscribers
+for router-owned implementation surfaces.
+Latest fully clean hosted checkpoint: Commit `1c8ce29` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
 `packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
@@ -27,6 +27,14 @@ JSON-response direct/Streamable and protected token-only direct/Streamable
 routes. The emitted `routerCliConsumerSummary` now marks
 `configuredSubscriptionMeta` explicitly. `tool/test_mcp_consumer_package_boundary.py`
 guards the new summary fragments and human-readable evidence text.
+`packages/connectanum_mcp/example/router_hosted_client.dart` now also proves a
+route-configured `--wamp-topic` through direct JSON
+`wamp.subscription.lookup`, `match`, `list`, `get`, `list_subscribers`, and
+`count_subscribers` helpers before any live pub/sub subscription exists, repeats
+the same configured-only metadata proof inside a Streamable HTTP session, and
+prints `configuredSubscriptionMetadata` in dry-run/live summaries. `bin/common.sh`
+and `tool/test_mcp_consumer_package_boundary.py` require that public example
+evidence across public, authenticated, bearer, and JSON-response smoke paths.
 
 Focused `bash -n bin/common.sh`, focused `git diff --check`, focused
 `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
@@ -44,20 +52,38 @@ router CLI consumer smoke with configured subscription metadata assertions,
 full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
 WebSocket smoke.
 
-Hosted evidence: Commit `f0e60c0`
-(`fix: expose configured mcp registration meta`) was pushed to GitLab
+Current public-example configured subscription metadata checkpoint evidence:
+focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_fast_smoke_runs_public_router_hosted_client_example_dry_run tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_fast_smoke_runs_public_router_hosted_client_example_live`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; ensure_native_lib_env; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-19. Post-change `bin/test-fast` passed on 2026-06-19, and
+full local `bin/verify` passed on 2026-06-19, including formatting, Rust/FFI
+tests, Python/tool tests, MCP package tests, generated consumer-package smokes,
+the router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
+JSON-response examples with configured subscription metadata assertions, the
+installed router CLI consumer smoke, full router tests, zero-copy router tests,
+and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+Hosted evidence: Commit `1c8ce29`
+(`fix: expose configured mcp subscription meta`) was pushed to GitLab
 `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
-`27842851544` passed with `Fast Checks` and `Full Verify` clean. GitHub
-`add-router` CI `27842846559` passed with `Fast Checks` and `Full Verify`
-clean. GitHub `master` Dart Package Publish Dry Run `27842851545`,
-GitHub `add-router` Dart Package Publish Dry Run `27842846587`, GitHub
-`master` WAMP Profile Benchmarks `27842851539`, and GitHub `add-router` WAMP
-Profile Benchmarks `27842846578` passed for the same commit. The strict
+`27846722958` passed with `Fast Checks` and `Full Verify` clean. GitHub
+`add-router` CI `27846718276` passed with `Fast Checks` and `Full Verify`
+clean. GitHub `master` Dart Package Publish Dry Run `27846722959`,
+GitHub `add-router` Dart Package Publish Dry Run `27846718253`, GitHub
+`master` WAMP Profile Benchmarks `27846722972`, and GitHub `add-router` WAMP
+Profile Benchmarks `27846718267` passed for the same commit. The strict
 deployment-chain audit
 `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
 exited successfully on 2026-06-19 with branch protection, workflow visibility,
 router image package visibility, latest GitHub `master` CI evidence, and
 latest GitHub `master` Dart package dry-run evidence clean.
+Hosted evidence for the current public-example configured subscription metadata
+checkpoint is pending until the next push.
 
 Previous implementation checkpoint:
 `bin/common.sh` now captures stdout from the generated Dart consumer used by
@@ -19421,23 +19447,24 @@ at the older `47bbf9c` commit.
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
   Keep hosted GitHub CI clean first, then continue release-candidate readiness
   work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears. The current local checkpoint makes
-  router-hosted MCP expose route-configured topics through standard WAMP
-  subscription metadata even when no live subscriber exists, and makes the
-  installed router CLI generated Dart consumer smoke prove configured
-  subscription metadata on token-only JSON-response direct/Streamable and
-  protected token-only direct/Streamable paths. Post-change `bin/test-fast`
-  passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19. The
-  latest fully clean hosted checkpoint is `f0e60c0` on GitHub `master`: CI run
-  `27842851544` and GitHub `add-router`
-  CI run `27842846559` both passed `Fast Checks` and `Full Verify`; the Dart
+  consumer integration bug appears. The current local checkpoint makes the
+  public router-hosted MCP client example prove route-configured topic
+  subscription metadata over direct JSON and Streamable HTTP before live
+  pub/sub subscription setup, and keeps the installed router CLI generated Dart
+  consumer smoke proving configured subscription metadata on token-only
+  JSON-response direct/Streamable and protected token-only direct/Streamable
+  paths. Post-change `bin/test-fast` passed on 2026-06-19. Full local
+  `bin/verify` passed on 2026-06-19. The latest fully clean hosted checkpoint is
+  `1c8ce29` on GitHub `master`: CI run
+  `27846722958` and GitHub `add-router`
+  CI run `27846718276` both passed `Fast Checks` and `Full Verify`; the Dart
   Package Publish Dry Run and WAMP Profile Benchmarks also passed on both
   branches; and the strict deployment-chain audit accepted branch protection,
   workflow visibility, router image package visibility, latest `master` CI
-  evidence, and latest `master` Dart package dry-run evidence. RC
-  readiness remains blocked only by explicit RC tag/prerelease/router image tag
-  selection and deferred pub.dev
-  release-order/operator decisions.
+  evidence, and latest `master` Dart package dry-run evidence. Hosted evidence
+  for the current local public-example checkpoint is pending until the next
+  push. RC readiness remains blocked only by explicit RC tag/prerelease/router
+  image tag selection and deferred pub.dev release-order/operator decisions.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub
