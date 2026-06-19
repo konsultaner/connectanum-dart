@@ -79,6 +79,35 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-19: Tightened the installed router CLI Dart MCP consumer smoke so
+  `bin/common.sh` captures stdout from the generated package-boundary Dart
+  consumer and asserts a machine-readable `routerCliConsumerSummary` JSON
+  object with `assert_router_cli_consumer_package_summary`. The summary is
+  printed only after the installed router command and public Dart MCP consumer
+  prove public direct JSON, Streamable HTTP, pub/sub, and batch coverage; secure
+  ticket grant, direct JSON, Streamable HTTP, pub/sub, WAMP metadata, auth
+  rejection isolation, and refresh/revoke coverage; JSON-response direct JSON,
+  Streamable HTTP, auth rejection isolation, and token-only coverage; and
+  token-only direct JSON, Streamable HTTP, pub/sub, and WAMP metadata coverage.
+  `dart pub get` and `dart analyze` output stays on stderr so stdout remains
+  machine-readable smoke evidence.
+  `tool/test_mcp_consumer_package_boundary.py` guards the helper, stdout
+  capture, summary field, and required JSON fragments. Baseline `bin/test-fast`
+  passed before the change on 2026-06-19. Focused `bash -n bin/common.sh`,
+  focused
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+  and focused
+  `bash -lc 'source bin/common.sh; ensure_native_lib_env; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-19. Post-change `bin/test-fast` passed on 2026-06-19,
+  including the installed router CLI consumer summary assertion. Full local
+  `bin/verify` passed on 2026-06-19, including formatting, Rust/FFI tests,
+  Python/tool tests, MCP package tests, generated consumer-package smokes, the
+  router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
+  JSON-response examples, the installed router CLI consumer smoke with the new
+  machine-readable summary assertion, full router tests, zero-copy router
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is
+  pending for the next pushed commit; the latest fully clean hosted checkpoint
+  remains `7f3fb95`.
 - 2026-06-19: Tightened the public router-hosted MCP live smoke harness so
   `bin/common.sh` captures the public `router_hosted_client.dart` output for
   public, pub/sub-only, authenticated, bearer-token, authenticated
@@ -105,7 +134,23 @@ decision because `connectanum_client` still depends on private
   router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
   JSON-response examples with captured summary assertions, the installed router
   CLI consumer smoke, full router tests, zero-copy router tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `7f3fb95`
+  (`test: assert router hosted mcp smoke summaries`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27829160125` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `add-router` CI `27829160147` passed with `Fast Checks` and `Full Verify`
+  clean. No new Dart Package Publish Dry Run was triggered for `7f3fb95`
+  because this smoke harness change did not touch publish-sensitive inputs;
+  the latest GitHub `master` Dart Package Publish Dry Run `27824768142` and
+  GitHub `add-router` Dart Package Publish Dry Run `27824767971` remain clean
+  and relevant. No new WAMP Profile Benchmarks, Native Artifacts, or Router
+  Image run was required because this MCP smoke change did not touch
+  benchmark-sensitive, native artifact, image, or workflow inputs. The strict
+  deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-19 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence, and latest GitHub `master` Dart package dry-run evidence clean.
 - 2026-06-19: Tightened the public router-hosted MCP client example so
   Streamable HTTP invalid `Last-Event-ID` polling is proven on the
   consumer-facing package path. `_runStreamableSessionExample` now calls

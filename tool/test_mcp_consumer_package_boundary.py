@@ -450,6 +450,30 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("tool calls/resources/resource templates/prompts", body)
+        self.assertIn("assert_router_cli_consumer_package_summary", script)
+        self.assertIn('dart_consumer_summary="$(', body)
+        self.assertIn("routerCliConsumerSummary", body)
+        self.assertIn(
+            '"public":{"directJson":true,"streamable":true,'
+            '"pubsub":true,"batch":true}',
+            body,
+        )
+        self.assertIn(
+            '"secure":{"ticketGrant":true,"directJson":true,'
+            '"streamable":true,"pubsub":true,"wampMeta":true,'
+            '"authRejectionIsolation":true,"refreshAndRevoke":true}',
+            body,
+        )
+        self.assertIn(
+            '"jsonResponse":{"directJson":true,"streamable":true,'
+            '"authRejectionIsolation":true,"tokenOnly":true}',
+            body,
+        )
+        self.assertIn(
+            '"tokenOnly":{"directJson":true,"streamable":true,'
+            '"pubsub":true,"wampMeta":true}',
+            body,
+        )
         self.assertIn(
             "public raw JSON resources/resource templates/prompts/WAMP "
             "procedure and topic catalog/describe/pub-sub plus Streamable "

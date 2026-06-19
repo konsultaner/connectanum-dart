@@ -856,6 +856,20 @@ assert_public_router_hosted_mcp_client_summary() {
   done
 }
 
+assert_router_cli_consumer_package_summary() {
+  local summary="$1"
+  local expected
+
+  shift
+  for expected in "$@"; do
+    if [[ "$summary" != *"$expected"* ]]; then
+      printf 'Router CLI Dart MCP consumer package summary did not include %s.\n' \
+        "$expected"
+      return 1
+    fi
+  done
+}
+
 run_public_router_hosted_mcp_client_live_smoke() (
   local authenticated_json_summary
   local authenticated_summary
@@ -23018,6 +23032,7 @@ run_router_cli_consumer_package_smoke() (
   local metrics_line
   local metrics_port
   local native_lib
+  local dart_consumer_summary
   local smoke_dir
   local pub_cache
   local router_log
@@ -26702,6 +26717,38 @@ Future<void> main() async {
     } finally {
       refreshedClient.close(force: true);
     }
+
+    print(jsonEncode(<String, Object?>{
+      'routerCliConsumerSummary': <String, Object?>{
+        'public': <String, Object?>{
+          'directJson': true,
+          'streamable': true,
+          'pubsub': true,
+          'batch': true,
+        },
+        'secure': <String, Object?>{
+          'ticketGrant': true,
+          'directJson': true,
+          'streamable': true,
+          'pubsub': true,
+          'wampMeta': true,
+          'authRejectionIsolation': true,
+          'refreshAndRevoke': true,
+        },
+        'jsonResponse': <String, Object?>{
+          'directJson': true,
+          'streamable': true,
+          'authRejectionIsolation': true,
+          'tokenOnly': true,
+        },
+        'tokenOnly': <String, Object?>{
+          'directJson': true,
+          'streamable': true,
+          'pubsub': true,
+          'wampMeta': true,
+        },
+      },
+    }));
   } finally {
     secureJsonClient?.close(force: true);
     secureClient?.close(force: true);
@@ -27112,13 +27159,21 @@ void _expect(bool condition, String message) {
 DART
 
   printf 'Running router CLI Dart MCP consumer package smoke from %s.\n' "$smoke_dir/dart-consumer"
-  (
+  dart_consumer_summary="$(
+    set -e
     cd "$smoke_dir/dart-consumer"
-    PUB_CACHE="$pub_cache" dart pub get
-    PUB_CACHE="$pub_cache" dart analyze
+    PUB_CACHE="$pub_cache" dart pub get >&2
+    PUB_CACHE="$pub_cache" dart analyze >&2
     CONNECTANUM_NATIVE_LIB="$native_lib" MCP_PORT="$mcp_port" PUB_CACHE="$pub_cache" \
       dart run bin/main.dart
-  )
+  )"
+  printf '%s\n' "$dart_consumer_summary"
+  assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
+    '"routerCliConsumerSummary"' \
+    '"public":{"directJson":true,"streamable":true,"pubsub":true,"batch":true}' \
+    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"pubsub":true,"wampMeta":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"jsonResponse":{"directJson":true,"streamable":true,"authRejectionIsolation":true,"tokenOnly":true}' \
+    '"tokenOnly":{"directJson":true,"streamable":true,"pubsub":true,"wampMeta":true}'
 
   printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/session/subscription meta/pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
