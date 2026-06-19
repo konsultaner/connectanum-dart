@@ -79,6 +79,33 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-19: Tightened the public router-hosted MCP live smoke harness so
+  `bin/common.sh` captures the public `router_hosted_client.dart` output for
+  public, pub/sub-only, authenticated, bearer-token, authenticated
+  JSON-response, and bearer JSON-response endpoint paths and asserts the emitted
+  consumer-facing evidence instead of discarding it. The assertions cover direct
+  JSON ping, Streamable output, invalid `Last-Event-ID`
+  rejection/session-invariance, batch response ids, WAMP metadata, pub/sub
+  events, and tool-notification-backed pub/sub evidence on full tool paths; the
+  pub/sub-only path checks the direct ping, Streamable state, invalid
+  `Last-Event-ID` evidence, and method/notification pub/sub events expected
+  without WAMP catalog selectors. The live smoke log now uses a suffix-free
+  `mktemp` template so repeated macOS runs do not collide on a literal
+  `XXXXXX.log`, and cleanup guards the log variable for failure paths.
+  `tool/test_mcp_consumer_package_boundary.py` guards the summary captures,
+  output assertions, and portable temp-log template. Baseline `bin/test-fast`
+  passed before the change on 2026-06-19. Focused
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_fast_smoke_runs_public_router_hosted_client_example_live`
+  and focused
+  `bash -lc 'source bin/common.sh; ensure_native_lib_env; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-19. Post-change `bin/test-fast` passed on 2026-06-19,
+  including the captured-output router-hosted MCP live smoke. Full local
+  `bin/verify` passed on 2026-06-19, including formatting, Rust/FFI tests,
+  Python/tool tests, MCP package tests, generated consumer-package smokes, the
+  router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
+  JSON-response examples with captured summary assertions, the installed router
+  CLI consumer smoke, full router tests, zero-copy router tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-06-19: Tightened the public router-hosted MCP client example so
   Streamable HTTP invalid `Last-Event-ID` polling is proven on the
   consumer-facing package path. `_runStreamableSessionExample` now calls
@@ -103,7 +130,20 @@ decision because `connectanum_client` still depends on private
   pub/sub-only, authenticated, bearer, and JSON-response examples with the
   public Streamable invalid `Last-Event-ID` rejection/session-invariance check,
   the installed router CLI consumer smoke, full router tests, zero-copy router
-  tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Commit `ffee337`
+  (`test: assert streamable last event id rejection`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27824768034` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `add-router` CI `27824767999` passed with `Fast Checks` and `Full Verify`
+  clean. GitHub `master` Dart Package Publish Dry Run `27824768142` and GitHub
+  `add-router` Dart Package Publish Dry Run `27824767971` also passed. No new
+  WAMP Profile Benchmarks, Native Artifacts, or Router Image run was required
+  because this MCP smoke change did not touch benchmark-sensitive, native
+  artifact, image, or workflow inputs. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-19 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence, and latest GitHub `master` Dart package dry-run evidence clean.
 - 2026-06-19: Added an opt-in public router-hosted MCP ticket-auth lifecycle
   smoke for consumer applications. `packages/connectanum_mcp/example/router_hosted_client.dart`
   now accepts `--auth-lifecycle-smoke` with `--auth-url`, issues a ticket

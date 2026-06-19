@@ -2,11 +2,14 @@
 
 Last updated: 2026-06-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: the public router-hosted MCP client example
-now proves Streamable HTTP invalid `Last-Event-ID` polling is rejected without
-changing the active session id or resume cursor. The previous checkpoints also
-prove the opt-in ticket-auth lifecycle smoke, notification-only tool calls with
-observable pub/sub side effects, the standard Streamable HTTP
+Last reviewed branch checkpoint: the public router-hosted MCP client live smoke
+now captures the example output for public, pub/sub-only, authenticated, bearer,
+and JSON-response endpoints and asserts the emitted consumer-facing evidence
+instead of discarding it. The smoke also uses a portable macOS-safe `mktemp`
+template for its server log. Previous checkpoints prove Streamable HTTP invalid
+`Last-Event-ID` polling is rejected without changing the active session id or
+resume cursor, the opt-in ticket-auth lifecycle smoke, notification-only tool
+calls with observable pub/sub side effects, the standard Streamable HTTP
 `notifications/initialized` lifecycle notification, lifecycle-free standard
 direct JSON `tools/list` and `tools/call` alongside the dotted Connectanum
 direct tool aliases, standard MCP `ping` health, raw single standard MCP
@@ -14,37 +17,52 @@ resource and prompt methods, notification-style pub/sub side effects,
 acknowledged raw dotted `connectanum.pubsub.publish`, and WAMP metadata methods
 across direct JSON and Streamable paths, in addition to typed helpers and
 batches.
-Latest fully clean hosted checkpoint: Commit `38d9c1c` on GitHub `master` and
+Latest fully clean hosted checkpoint: Commit `ffee337` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
-`packages/connectanum_mcp/example/router_hosted_client.dart` now exercises the
-public Streamable HTTP `poll` path with a deliberately missing
-`Last-Event-ID` cursor after `initialize`, `notifications/initialized`, and
-`ping`. `_expectInvalidLastEventIdRejected` expects the router-hosted MCP
-endpoint to return HTTP 400, verifies the response names `Last-Event-ID`, and
-then reuses `_expectStreamableStateUnchanged` to prove the active session id
-and resume cursor were not poisoned by the rejected poll. The public
-Streamable JSON output now includes `invalidLastEventId: {rejected: true,
-sessionUnchanged: true}`. `tool/test_mcp_consumer_package_boundary.py` guards
-the public helper, trace header, failure messages, `poll` use, and output
-fields so future edits cannot silently drop this Streamable HTTP compatibility
-evidence.
+`bin/common.sh` now captures the public `router_hosted_client.dart` live smoke
+output for the unauthenticated, pub/sub-only, ticket-authenticated,
+bearer-token, authenticated JSON-response, and bearer JSON-response endpoint
+paths. The new summary assertion helper checks that the public example emits
+the expected downstream evidence, including direct JSON ping, Streamable output,
+invalid `Last-Event-ID` rejection/session-invariance, batch response ids, WAMP
+metadata, pub/sub events, and tool-notification-backed pub/sub evidence on the
+full tool paths. The pub/sub-only path asserts the direct ping, Streamable
+state, invalid `Last-Event-ID` evidence, and method/notification pub/sub events
+that are expected without WAMP catalog selectors. The smoke log now uses a
+suffix-free `mktemp` template so repeated macOS runs do not collide on a
+literal `XXXXXX.log`, and cleanup guards the log variable for failure paths.
+`tool/test_mcp_consumer_package_boundary.py` guards the summary captures, key
+output assertions, and portable temp-log template.
 
-Baseline `bin/test-fast` passed before this public router-hosted Streamable
-invalid `Last-Event-ID` smoke change on 2026-06-19. Focused
-`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
-focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
-focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
-`python3 tool/check_public_artifact_references.py`, focused `git diff --check`,
+Baseline `bin/test-fast` passed before this public router-hosted smoke harness
+change on 2026-06-19. Focused
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_fast_smoke_runs_public_router_hosted_client_example_live`
 and focused
-`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
-passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19, including
-formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
-consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
-authenticated, bearer, and JSON-response examples with the public Streamable
-invalid `Last-Event-ID` rejection/session-invariance check, the installed
-router CLI consumer smoke, full router tests, zero-copy router tests, and the
+`bash -lc 'source bin/common.sh; ensure_native_lib_env; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-19. Post-change `bin/test-fast` passed on 2026-06-19,
+including the captured-output router-hosted MCP live smoke. Full local
+`bin/verify` passed on 2026-06-19, including formatting, Rust/FFI tests,
+Python/tool tests, MCP package tests, generated consumer-package smokes, the
+router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
+JSON-response examples with captured summary assertions, the installed router
+CLI consumer smoke, full router tests, zero-copy router tests, and the
 Chrome/Dart2Wasm browser WebSocket smoke.
+
+Hosted evidence: Commit `ffee337`
+(`test: assert streamable last event id rejection`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`27824768034` passed with `Fast Checks` and `Full Verify` clean. GitHub
+`add-router` CI `27824767999` passed with `Fast Checks` and `Full Verify`
+clean. GitHub `master` Dart Package Publish Dry Run `27824768142` and GitHub
+`add-router` Dart Package Publish Dry Run `27824767971` also passed. No new
+WAMP Profile Benchmarks, Native Artifacts, or Router Image run was required
+because this MCP smoke change did not touch benchmark-sensitive, native
+artifact, image, or workflow inputs. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-19 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence, and
+latest GitHub `master` Dart package dry-run evidence clean.
 
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now accepts

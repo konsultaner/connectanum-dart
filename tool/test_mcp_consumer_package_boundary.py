@@ -1253,10 +1253,33 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Bearer-protected JSON-response MCP endpoint is running at",
             live_body,
         )
+        self.assertIn(
+            'mktemp "${TMPDIR:-/tmp}/connectanum-router-hosted-mcp.XXXXXX"',
+            live_body,
+        )
+        self.assertNotIn("connectanum-router-hosted-mcp.XXXXXX.log", live_body)
         self.assertIn("auth_url=\"${endpoint%/mcp}/auth\"", live_body)
         self.assertIn("bearer_token=\"$(", live_body)
         self.assertIn("python3 - \"$auth_url\"", live_body)
         self.assertIn("\"authmethod\": \"ticket\"", live_body)
+        self.assertIn(
+            "assert_public_router_hosted_mcp_client_summary",
+            script,
+        )
+        self.assertIn("live_summary=\"$(", live_body)
+        self.assertIn("pubsub_only_summary=\"$(", live_body)
+        self.assertIn("authenticated_summary=\"$(", live_body)
+        self.assertIn("bearer_summary=\"$(", live_body)
+        self.assertIn("authenticated_json_summary=\"$(", live_body)
+        self.assertIn("bearer_json_summary=\"$(", live_body)
+        self.assertIn(
+            '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}',
+            script,
+        )
+        self.assertIn('"directPing"', script)
+        self.assertIn('"directWampMetadata"', script)
+        self.assertIn('"wampMetadata"', script)
+        self.assertIn('"toolNotificationEvents"', script)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
         self.assertIn("--bearer-token \"$bearer_token\"", live_body)
         self.assertIn("--realm example.realm", live_body)

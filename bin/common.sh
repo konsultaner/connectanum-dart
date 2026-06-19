@@ -841,10 +841,31 @@ run_router_hosted_mcp_example_smoke() {
   run_public_router_hosted_mcp_client_live_smoke
 }
 
+assert_public_router_hosted_mcp_client_summary() {
+  local summary="$1"
+  local label="$2"
+  local expected
+
+  shift 2
+  for expected in "$@"; do
+    if [[ "$summary" != *"$expected"* ]]; then
+      printf 'Public router-hosted MCP client %s summary did not include %s.\n' \
+        "$label" "$expected"
+      return 1
+    fi
+  done
+}
+
 run_public_router_hosted_mcp_client_live_smoke() (
+  local authenticated_json_summary
+  local authenticated_summary
   local auth_url
+  local bearer_json_summary
+  local bearer_summary
   local bearer_token
   local endpoint
+  local live_summary
+  local pubsub_only_summary
   local secure_endpoint
   local secure_json_endpoint
   local server_log
@@ -852,7 +873,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
   local status
   local timeout_at
 
-  server_log="$(mktemp "${TMPDIR:-/tmp}/connectanum-router-hosted-mcp.XXXXXX.log")"
+  server_log="$(mktemp "${TMPDIR:-/tmp}/connectanum-router-hosted-mcp.XXXXXX")"
 
   cleanup() {
     local attempt
@@ -871,7 +892,9 @@ run_public_router_hosted_mcp_client_live_smoke() (
         wait "$server_pid" 2>/dev/null || true
       fi
     fi
-    rm -f "$server_log"
+    if [[ -n "${server_log:-}" ]]; then
+      rm -f "$server_log"
+    fi
   }
   trap cleanup EXIT
 
@@ -914,7 +937,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
   fi
   auth_url="${endpoint%/mcp}/auth"
 
-  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  live_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$endpoint" \
     --protocol-version 2025-06-18 \
     --tool example.task.lookup \
@@ -925,17 +948,31 @@ run_public_router_hosted_mcp_client_live_smoke() (
     --wamp-procedure example.task.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
-    --pubsub-event '{"taskId":"T-public-example-live","status":"open"}' \
-    >/dev/null
+    --pubsub-event '{"taskId":"T-public-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary "$live_summary" public \
+    '"directPing"' \
+    '"directWampMetadata"' \
+    '"streamable"' \
+    '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
+    '"batch":{"responseIds"' \
+    '"wampMetadata"' \
+    '"pubsub"' \
+    '"toolNotificationEvents"'
 
   printf 'Public router-hosted MCP client live smoke completed.\n'
 
-  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  pubsub_only_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$endpoint" \
     --protocol-version 2025-06-18 \
     --pubsub-topic example.events.task \
-    --pubsub-event '{"taskId":"T-pubsub-only-example-live","status":"open"}' \
-    >/dev/null
+    --pubsub-event '{"taskId":"T-pubsub-only-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary "$pubsub_only_summary" pub/sub-only \
+    '"directPing"' \
+    '"streamable"' \
+    '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
+    '"pubsub"' \
+    '"methodEvents"' \
+    '"methodNotificationEvents"'
 
   printf 'Pub/sub-only router-hosted MCP client live smoke completed.\n'
 
@@ -1007,7 +1044,7 @@ print(token)
 PY
   )"
 
-  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  authenticated_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$secure_endpoint" \
     --protocol-version 2025-06-18 \
     --auth-url "$auth_url" \
@@ -1023,12 +1060,20 @@ PY
     --wamp-procedure example.task.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
-    --pubsub-event '{"taskId":"T-authenticated-example-live","status":"open"}' \
-    >/dev/null
+    --pubsub-event '{"taskId":"T-authenticated-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary "$authenticated_summary" authenticated \
+    '"directPing"' \
+    '"directWampMetadata"' \
+    '"streamable"' \
+    '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
+    '"batch":{"responseIds"' \
+    '"wampMetadata"' \
+    '"pubsub"' \
+    '"toolNotificationEvents"'
 
   printf 'Authenticated router-hosted MCP client live smoke completed.\n'
 
-  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  bearer_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$secure_endpoint" \
     --protocol-version 2025-06-18 \
     --bearer-token "$bearer_token" \
@@ -1040,12 +1085,20 @@ PY
     --wamp-procedure example.task.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
-    --pubsub-event '{"taskId":"T-bearer-example-live","status":"open"}' \
-    >/dev/null
+    --pubsub-event '{"taskId":"T-bearer-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary "$bearer_summary" bearer-token \
+    '"directPing"' \
+    '"directWampMetadata"' \
+    '"streamable"' \
+    '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
+    '"batch":{"responseIds"' \
+    '"wampMetadata"' \
+    '"pubsub"' \
+    '"toolNotificationEvents"'
 
   printf 'Bearer-token router-hosted MCP client live smoke completed.\n'
 
-  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  authenticated_json_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$secure_json_endpoint" \
     --protocol-version 2025-06-18 \
     --auth-url "$auth_url" \
@@ -1061,12 +1114,21 @@ PY
     --wamp-procedure example.task.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
-    --pubsub-event '{"taskId":"T-authenticated-json-response-example-live","status":"open"}' \
-    >/dev/null
+    --pubsub-event '{"taskId":"T-authenticated-json-response-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary \
+    "$authenticated_json_summary" authenticated-json-response \
+    '"directPing"' \
+    '"directWampMetadata"' \
+    '"streamable"' \
+    '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
+    '"batch":{"responseIds"' \
+    '"wampMetadata"' \
+    '"pubsub"' \
+    '"toolNotificationEvents"'
 
   printf 'Authenticated router-hosted JSON-response MCP client live smoke completed.\n'
 
-  dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  bearer_json_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
     --endpoint "$secure_json_endpoint" \
     --protocol-version 2025-06-18 \
     --bearer-token "$bearer_token" \
@@ -1078,8 +1140,17 @@ PY
     --wamp-procedure example.task.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
-    --pubsub-event '{"taskId":"T-bearer-json-response-example-live","status":"open"}' \
-    >/dev/null
+    --pubsub-event '{"taskId":"T-bearer-json-response-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary \
+    "$bearer_json_summary" bearer-token-json-response \
+    '"directPing"' \
+    '"directWampMetadata"' \
+    '"streamable"' \
+    '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
+    '"batch":{"responseIds"' \
+    '"wampMetadata"' \
+    '"pubsub"' \
+    '"toolNotificationEvents"'
 
   printf 'Bearer-token router-hosted JSON-response MCP client live smoke completed.\n'
 )
