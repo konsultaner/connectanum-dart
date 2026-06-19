@@ -79,6 +79,31 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-19: Tightened the public router-hosted MCP client example so
+  Streamable HTTP invalid `Last-Event-ID` polling is proven on the
+  consumer-facing package path. `_runStreamableSessionExample` now calls
+  `_expectInvalidLastEventIdRejected` after `initialize`,
+  `notifications/initialized`, and `ping`; the helper polls with a deliberately
+  missing cursor, expects HTTP 400, verifies the rejection names
+  `Last-Event-ID`, and confirms the active Streamable session id and resume
+  cursor are unchanged. The public Streamable JSON output now includes
+  `invalidLastEventId: {rejected: true, sessionUnchanged: true}`.
+  `tool/test_mcp_consumer_package_boundary.py` guards the helper, trace
+  header, failure messages, `poll` use, and output fields. Baseline
+  `bin/test-fast` passed before the change on 2026-06-19. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `git diff --check`, and focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples with the
+  public Streamable invalid `Last-Event-ID` rejection/session-invariance check,
+  the installed router CLI consumer smoke, full router tests, zero-copy router
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-06-19: Added an opt-in public router-hosted MCP ticket-auth lifecycle
   smoke for consumer applications. `packages/connectanum_mcp/example/router_hosted_client.dart`
   now accepts `--auth-lifecycle-smoke` with `--auth-url`, issues a ticket
@@ -108,7 +133,20 @@ decision because `connectanum_client` still depends on private
   pub/sub-only, authenticated, bearer, and JSON-response examples with the
   authenticated examples exercising refresh/revoke auth lifecycle checks, the
   installed router CLI consumer smoke, full router tests, zero-copy router
-  tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Commit `38d9c1c`
+  (`test: smoke router mcp auth lifecycle`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27821744795`
+  passed with `Fast Checks` and `Full Verify` clean. GitHub `add-router` CI
+  `27821743935` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `master` Dart Package Publish Dry Run `27821744803` and GitHub `add-router`
+  Dart Package Publish Dry Run `27821743496` also passed. No new WAMP Profile
+  Benchmarks, Native Artifacts, or Router Image run was required because this
+  MCP smoke change did not touch benchmark-sensitive, native artifact, image,
+  or workflow inputs. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-19 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence, and latest GitHub `master` Dart package dry-run evidence clean.
 - 2026-06-19: Tightened the public router-hosted MCP examples so
   notification-only tool calls prove observable WAMP/pub-sub side effects on
   the consumer-facing path. `packages/connectanum_router/example/router_hosted_mcp.dart`

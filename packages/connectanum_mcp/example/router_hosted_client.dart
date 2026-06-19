@@ -337,6 +337,42 @@ void _expectStreamableStateUnchanged(
   }
 }
 
+Future<void> _expectInvalidLastEventIdRejected(
+  McpStreamableHttpClient client, {
+  required String sessionId,
+  required String? lastEventId,
+}) async {
+  try {
+    await client.poll(
+      lastEventId: '$sessionId:missing:1',
+      headers: const <String, String>{
+        'x-consumer-trace':
+            'router-hosted-client-streamable-invalid-last-event-id',
+      },
+    );
+    throw StateError('Streamable invalid Last-Event-ID was accepted.');
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.badRequest) {
+      throw StateError(
+        'Streamable invalid Last-Event-ID returned ${error.statusCode}, '
+        'expected ${HttpStatus.badRequest}.',
+      );
+    }
+    if (!error.body.contains('Last-Event-ID')) {
+      throw StateError(
+        'Streamable invalid Last-Event-ID rejection did not name the header.',
+      );
+    }
+  }
+
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'Streamable invalid Last-Event-ID',
+  );
+}
+
 Future<void> _runDirectJsonExample(
   McpStreamableHttpClient client,
   _Options options,
@@ -1428,6 +1464,12 @@ Future<void> _runStreamableSessionExample(
   if (client.sessionId != streamableSessionId) {
     throw StateError('Streamable ping changed session id.');
   }
+  final eventIdBeforeInvalidPoll = client.lastEventId;
+  await _expectInvalidLastEventIdRejected(
+    client,
+    sessionId: streamableSessionId,
+    lastEventId: eventIdBeforeInvalidPoll,
+  );
 
   final tools = await client.listTools(id: 'streamable-tools');
   final streamable = <String, Object?>{
@@ -1436,6 +1478,7 @@ Future<void> _runStreamableSessionExample(
     'initialize': initialize['result'],
     'initializedNotification': {'accepted': true},
     'ping': ping,
+    'invalidLastEventId': {'rejected': true, 'sessionUnchanged': true},
     'tools': [for (final tool in tools.tools) tool['name']],
   };
 
