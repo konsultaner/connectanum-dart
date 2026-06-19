@@ -164,6 +164,9 @@ Future<void> _runDirectJsonExample(
   final previousSessionId = client.sessionId;
   final previousEventId = client.lastEventId;
 
+  final ping = await client.pingDirect(id: 'direct-ping');
+  stdout.writeln(jsonEncode({'directPing': ping}));
+
   final catalog = await client.listConnectanumToolsDirect(id: 'direct-tools');
   stdout.writeln(
     jsonEncode({
@@ -1096,11 +1099,17 @@ Future<void> _runStreamableSessionExample(
     throw StateError('Streamable initialize did not establish a session id.');
   }
 
+  final ping = await client.ping(id: 'streamable-ping');
+  if (client.sessionId != streamableSessionId) {
+    throw StateError('Streamable ping changed session id.');
+  }
+
   final tools = await client.listTools(id: 'streamable-tools');
   final streamable = <String, Object?>{
     'protocolVersion': client.protocolVersion,
     'sessionId': streamableSessionId,
     'initialize': initialize['result'],
+    'ping': ping,
     'tools': [for (final tool in tools.tools) tool['name']],
   };
 

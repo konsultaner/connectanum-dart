@@ -3,15 +3,52 @@
 Last updated: 2026-06-19
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now fails fast when raw single standard MCP resource and prompt requests fail
-on either the lifecycle-free direct JSON path or an initialized Streamable HTTP
-session. The previous checkpoints also prove notification-style pub/sub side
-effects, acknowledged raw dotted `connectanum.pubsub.publish`, raw dotted tool
-methods, and WAMP metadata methods across direct JSON and Streamable paths, in
-addition to typed helpers and batches.
-Latest fully clean hosted checkpoint: Commit `939e1ef` on GitHub `master` and
+now proves standard MCP `ping` health on both lifecycle-free direct JSON and
+initialized Streamable HTTP paths while preserving the direct JSON no-session
+state invariant and the Streamable session id. The previous checkpoints also
+prove raw single standard MCP resource and prompt methods, notification-style
+pub/sub side effects, acknowledged raw dotted `connectanum.pubsub.publish`, raw
+dotted tool methods, and WAMP metadata methods across direct JSON and
+Streamable paths, in addition to typed helpers and batches.
+Latest fully clean hosted checkpoint: Commit `63497e6` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now calls
+`pingDirect(id: 'direct-ping')` inside `_runDirectJsonExample`, emits
+`directPing` in the public JSON output, and leaves the existing
+`_expectStreamableStateUnchanged` check to prove that the direct JSON health
+request does not create or mutate Streamable session state. The initialized
+Streamable flow now calls `ping(id: 'streamable-ping')`, fails fast if that
+health request changes the established session id, and emits `ping` inside the
+public `streamable` output map. `tool/test_mcp_consumer_package_boundary.py`
+guards the new ping helper calls, ids, session-id failure message, and output
+fields so the public example cannot silently drop direct JSON or Streamable
+health coverage.
+
+Baseline `bin/test-fast` passed before this public router-hosted MCP ping
+health self-check change on 2026-06-19. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with direct JSON ping health
+and Streamable ping session-id checks, raw single direct JSON and Streamable
+resource/prompt method checks, direct JSON and Streamable pub/sub notification
+side-effect checks, raw direct JSON pub/sub method publish checks, raw
+Streamable pub/sub method publish checks, raw Streamable tool/API method
+checks, raw direct tool method checks, raw direct WAMP method metadata checks,
+direct JSON lifecycle, session initialization, session deletion, pub/sub
+metadata, standard MCP catalog, and WAMP catalog self-checks, the installed
+router CLI consumer smoke, full router tests, zero-copy router tests, and
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
+checkpoint.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now sends raw
 single-request standard MCP resource and prompt methods through both public
 router-hosted MCP flows. `_runDirectJsonExample` uses `postDirect` for
@@ -49,11 +86,21 @@ method checks, raw direct tool method checks, raw direct WAMP method metadata
 checks, direct JSON lifecycle, session initialization, session deletion,
 pub/sub metadata, standard MCP catalog, and WAMP catalog self-checks, the
 installed router CLI consumer smoke, full router tests, zero-copy router tests,
-and Chrome/Dart2Wasm browser WebSocket smoke. Latest fully clean hosted
-checkpoint remains `939e1ef` until this local checkpoint is pushed and hosted
-CI plus package dry-run evidence completes.
+and Chrome/Dart2Wasm browser WebSocket smoke. Commit `63497e6`
+(`test: assert mcp resource prompt methods`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27805998141`
+and GitHub `add-router` CI `27805993891` passed with `Fast Checks` and
+`Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
+`27805998140` and GitHub `add-router` Dart Package Publish Dry Run
+`27805993886` also passed. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --strict` exited
+successfully on 2026-06-19 with branch protection, workflow visibility, router
+image package visibility, latest GitHub `master` CI evidence, and latest
+GitHub `master` Dart package dry-run evidence clean. No new Native Artifacts,
+Router Image, or WAMP Profile Benchmarks run was required because no native
+artifact, image, workflow, or benchmark-sensitive inputs changed.
 
-Previous implementation checkpoint:
+Earlier implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now sends and
 polls notification-style pub/sub events in both public router-hosted MCP flows.
 `_runDirectPubSubExample` calls `notifyWampEventDirect` and
