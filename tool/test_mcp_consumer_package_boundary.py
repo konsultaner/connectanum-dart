@@ -13,6 +13,9 @@ COMMON_SH = REPO_ROOT / "bin" / "common.sh"
 ROUTER_HOSTED_CLIENT_EXAMPLE = (
     REPO_ROOT / "packages" / "connectanum_mcp" / "example" / "router_hosted_client.dart"
 )
+ROUTER_HOSTED_SERVER_EXAMPLE = (
+    REPO_ROOT / "packages" / "connectanum_router" / "example" / "router_hosted_mcp.dart"
+)
 
 
 def _function_body(script: str, name: str) -> str:
@@ -515,8 +518,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "directPing",
             "listToolsDirect",
             "callToolDirect",
+            "notifyToolDirect",
             "listConnectanumToolsDirect",
             "callConnectanumToolDirect",
+            "notifyConnectanumToolDirect",
             "tools/list",
             "tools/call",
             "connectanum.tools.list",
@@ -533,17 +538,24 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "direct-pubsub-method-poll",
             "direct-pubsub-notification-poll",
             "direct-pubsub-method-notification-poll",
+            "direct-tool-notification-poll",
+            "direct-connectanum-tool-notification-poll",
+            "direct-tool-method-notification-poll",
             "streamable-tools-method",
             "streamable-tool-call-method",
             "streamable-pubsub-publish-method",
             "streamable-pubsub-method-poll",
             "streamable-pubsub-notification-poll",
             "streamable-pubsub-method-notification-poll",
+            "streamable-tool-notification-poll",
+            "streamable-tool-method-notification-poll",
             "streamable-wamp-procedure-api-list-method",
             "streamable-wamp-procedure-api-describe-method",
             "streamable-wamp-topic-api-list-method",
             "streamable-wamp-topic-api-describe-method",
             "_expectToolResultSucceeded",
+            "_canObserveExampleTaskLookup",
+            "_taskLookupEvent",
             "directToolMethodCatalog",
             "directToolMethodResult",
             "toolMethodCatalog",
@@ -552,6 +564,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "methodEvents",
             "notificationEvents",
             "methodNotificationEvents",
+            "toolNotificationEvents",
+            "connectanumToolNotificationEvents",
+            "toolMethodNotificationEvents",
             "methodCatalog",
             "methodDescription",
             "listResourcesDirect",
@@ -653,12 +668,17 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "label: 'Direct JSON pub/sub method poll'",
             "label: 'Direct JSON pub/sub notification poll'",
             "label: 'Direct JSON pub/sub method notification poll'",
+            "label: 'Direct JSON standard tool notification poll'",
+            "label: 'Direct JSON Connectanum tool notification poll'",
+            "label: 'Direct JSON tool method notification poll'",
             "returned an error",
             "returned no structured content",
             "label: 'Streamable pub/sub method publish'",
             "label: 'Streamable pub/sub method poll'",
             "label: 'Streamable pub/sub notification poll'",
             "label: 'Streamable pub/sub method notification poll'",
+            "label: 'Streamable standard tool notification poll'",
+            "label: 'Streamable tool method notification poll'",
             "describeWampApiDirect",
             "matchWampRegistrationDirect",
             "matchWampSubscriptionDirect",
@@ -698,8 +718,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-batch-wamp-procedure-api-list",
             "'batch'",
             "callTool",
+            "notifyTool",
             "streamable-tool-call",
             "toolResult",
+            "Streamable tool notification changed session id.",
+            "Streamable tool method notification changed session id.",
             "listResourceTemplates(",
             "streamable-resource-templates",
             "streamable-batch-resource-templates",
@@ -758,6 +781,21 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         ):
             with self.subTest(helper=public_helper):
                 self.assertIn(public_helper, example)
+
+    def test_public_router_hosted_server_example_publishes_task_lookup_events(
+        self,
+    ) -> None:
+        example = ROUTER_HOSTED_SERVER_EXAMPLE.read_text(encoding="utf-8")
+
+        for expected in (
+            "'publishes_events': ['example.events.task']",
+            "serviceSession.publish(",
+            "'example.events.task'",
+            "'event': 'task.lookup'",
+            "PublishOptions(acknowledge: true)",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, example)
 
     def test_fast_smoke_runs_public_router_hosted_client_example_dry_run(
         self,

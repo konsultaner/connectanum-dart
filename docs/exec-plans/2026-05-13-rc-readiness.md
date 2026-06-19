@@ -79,6 +79,43 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-19: Tightened the public router-hosted MCP examples so
+  notification-only tool calls prove observable WAMP/pub-sub side effects on
+  the consumer-facing path. `packages/connectanum_router/example/router_hosted_mcp.dart`
+  now makes the existing `publishes_events: ['example.events.task']` metadata
+  true for `example.task.lookup` by publishing a task lookup event with task id,
+  status, source, and event marker for every invocation.
+  `packages/connectanum_mcp/example/router_hosted_client.dart` now gates the
+  bundled example tool/topic and verifies `notifyToolDirect`,
+  `notifyConnectanumToolDirect`, and
+  `notifyConnectanumMethodDirect('connectanum.tool.call')` by polling the
+  public subscription for distinct task lookup events. The initialized
+  Streamable path mirrors that proof with `notifyTool` and
+  `notifyConnectanumMethod('connectanum.tool.call')`, while checking the active
+  session id is unchanged by notification-only requests. The public JSON output
+  now includes `toolNotificationEvents`, `connectanumToolNotificationEvents`,
+  and `toolMethodNotificationEvents` where the bundled example tool/topic are
+  selected. `tool/test_mcp_consumer_package_boundary.py` guards the helper
+  calls, poll ids, labels, output fields, and server-side task event
+  publication so future edits cannot silently remove this public package
+  notification side-effect evidence. Baseline `bin/test-fast` passed before the
+  change on 2026-06-19. Focused
+  `dart format packages/connectanum_router/example/router_hosted_mcp.dart packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused
+  `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart packages/connectanum_router/example/router_hosted_mcp.dart`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `git diff --check`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples with
+  observable direct JSON and Streamable tool-notification pub/sub side effects,
+  the installed router CLI consumer smoke, full router tests, zero-copy router
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-06-19: Tightened the public router-hosted MCP client example so the
   standard Streamable HTTP lifecycle notification is proven immediately after
   `initialize`. `_runStreamableSessionExample` now captures the session id
@@ -108,7 +145,20 @@ decision because `connectanum_client` still depends on private
   pub/sub-only, authenticated, bearer, and JSON-response examples with the
   Streamable `notifications/initialized` session-invariance check, the
   installed router CLI consumer smoke, full router tests, zero-copy router
-  tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Commit `3041a35`
+  (`test: assert streamable initialized notification`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27814255516` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `add-router` CI `27814255491` passed with `Fast Checks` and `Full Verify`
+  clean. GitHub `master` Dart Package Publish Dry Run `27814255504` and GitHub
+  `add-router` Dart Package Publish Dry Run `27814255484` also passed. The
+  strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-19 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-19: Tightened the public router-hosted MCP client example so
   lifecycle-free standard direct JSON `tools/list` and `tools/call` are proven
   next to the dotted Connectanum direct tool aliases. `_runDirectJsonExample`

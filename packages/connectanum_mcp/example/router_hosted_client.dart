@@ -936,6 +936,17 @@ void _expectWampEventBatch(
   }
 }
 
+bool _canObserveExampleTaskLookup(_Options options) =>
+    options.toolName == 'example.task.lookup' &&
+    options.pubsubTopic == 'example.events.task';
+
+McpJsonMap _taskLookupEvent(String taskId) => <String, Object?>{
+  'taskId': taskId,
+  'status': 'open',
+  'source': 'router-hosted-mcp-example',
+  'event': 'task.lookup',
+};
+
 bool _catalogContainsValue({
   required Object? catalog,
   required String field,
@@ -1085,6 +1096,82 @@ Future<void> _runDirectPubSubExample(
       expectedEvent: methodNotificationEvent,
       label: 'Direct JSON pub/sub method notification poll',
     );
+    McpStreamableWampEventBatch? standardToolNotificationEvents;
+    McpStreamableWampEventBatch? connectanumToolNotificationEvents;
+    McpStreamableWampEventBatch? toolMethodNotificationEvents;
+    if (_canObserveExampleTaskLookup(options)) {
+      final toolName = options.toolName!;
+      const standardToolNotificationTaskId =
+          'T-direct-standard-tool-notification';
+      await client.notifyToolDirect(
+        toolName,
+        arguments: const {'taskId': standardToolNotificationTaskId},
+        headers: const <String, String>{
+          'x-consumer-trace':
+              'router-hosted-client-direct-standard-tool-notification',
+        },
+      );
+      standardToolNotificationEvents = await client.pollWampEventsDirect(
+        subscription.handle,
+        id: 'direct-tool-notification-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        standardToolNotificationEvents,
+        handle: subscription.handle,
+        topic: topic,
+        expectedEvent: _taskLookupEvent(standardToolNotificationTaskId),
+        label: 'Direct JSON standard tool notification poll',
+      );
+
+      const connectanumToolNotificationTaskId =
+          'T-direct-connectanum-tool-notification';
+      await client.notifyConnectanumToolDirect(
+        toolName,
+        arguments: const {'taskId': connectanumToolNotificationTaskId},
+        headers: const <String, String>{
+          'x-consumer-trace':
+              'router-hosted-client-direct-connectanum-tool-notification',
+        },
+      );
+      connectanumToolNotificationEvents = await client.pollWampEventsDirect(
+        subscription.handle,
+        id: 'direct-connectanum-tool-notification-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        connectanumToolNotificationEvents,
+        handle: subscription.handle,
+        topic: topic,
+        expectedEvent: _taskLookupEvent(connectanumToolNotificationTaskId),
+        label: 'Direct JSON Connectanum tool notification poll',
+      );
+
+      const toolMethodNotificationTaskId = 'T-direct-tool-method-notification';
+      await client.notifyConnectanumMethodDirect(
+        'connectanum.tool.call',
+        params: const <String, Object?>{
+          'name': 'example.task.lookup',
+          'arguments': {'taskId': toolMethodNotificationTaskId},
+        },
+        headers: const <String, String>{
+          'x-consumer-trace':
+              'router-hosted-client-direct-tool-method-notification',
+        },
+      );
+      toolMethodNotificationEvents = await client.pollWampEventsDirect(
+        subscription.handle,
+        id: 'direct-tool-method-notification-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        toolMethodNotificationEvents,
+        handle: subscription.handle,
+        topic: topic,
+        expectedEvent: _taskLookupEvent(toolMethodNotificationTaskId),
+        label: 'Direct JSON tool method notification poll',
+      );
+    }
     stdout.writeln(
       jsonEncode({
         'pubsubTopic': topic,
@@ -1107,6 +1194,13 @@ Future<void> _runDirectPubSubExample(
         'methodEvents': methodEvents.events,
         'notificationEvents': notificationEvents.events,
         'methodNotificationEvents': methodNotificationEvents.events,
+        if (standardToolNotificationEvents != null)
+          'toolNotificationEvents': standardToolNotificationEvents.events,
+        if (connectanumToolNotificationEvents != null)
+          'connectanumToolNotificationEvents':
+              connectanumToolNotificationEvents.events,
+        if (toolMethodNotificationEvents != null)
+          'toolMethodNotificationEvents': toolMethodNotificationEvents.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
       }),
@@ -1687,6 +1781,66 @@ Future<void> _runStreamableSessionExample(
         expectedEvent: methodNotificationEvent,
         label: 'Streamable pub/sub method notification poll',
       );
+      McpStreamableWampEventBatch? toolNotificationEvents;
+      McpStreamableWampEventBatch? toolMethodNotificationEvents;
+      if (_canObserveExampleTaskLookup(options)) {
+        final toolName = options.toolName!;
+        const toolNotificationTaskId = 'T-streamable-tool-notification';
+        await client.notifyTool(
+          toolName,
+          arguments: const {'taskId': toolNotificationTaskId},
+          headers: const <String, String>{
+            'x-consumer-trace':
+                'router-hosted-client-streamable-tool-notification',
+          },
+        );
+        if (client.sessionId != streamableSessionId) {
+          throw StateError('Streamable tool notification changed session id.');
+        }
+        toolNotificationEvents = await client.pollWampEvents(
+          subscription.handle,
+          id: 'streamable-tool-notification-poll',
+          limit: queueLimit,
+        );
+        _expectWampEventBatch(
+          toolNotificationEvents,
+          handle: subscription.handle,
+          topic: pubsubTopic,
+          expectedEvent: _taskLookupEvent(toolNotificationTaskId),
+          label: 'Streamable standard tool notification poll',
+        );
+
+        const toolMethodNotificationTaskId =
+            'T-streamable-tool-method-notification';
+        await client.notifyConnectanumMethod(
+          'connectanum.tool.call',
+          params: const <String, Object?>{
+            'name': 'example.task.lookup',
+            'arguments': {'taskId': toolMethodNotificationTaskId},
+          },
+          headers: const <String, String>{
+            'x-consumer-trace':
+                'router-hosted-client-streamable-tool-method-notification',
+          },
+        );
+        if (client.sessionId != streamableSessionId) {
+          throw StateError(
+            'Streamable tool method notification changed session id.',
+          );
+        }
+        toolMethodNotificationEvents = await client.pollWampEvents(
+          subscription.handle,
+          id: 'streamable-tool-method-notification-poll',
+          limit: queueLimit,
+        );
+        _expectWampEventBatch(
+          toolMethodNotificationEvents,
+          handle: subscription.handle,
+          topic: pubsubTopic,
+          expectedEvent: _taskLookupEvent(toolMethodNotificationTaskId),
+          label: 'Streamable tool method notification poll',
+        );
+      }
       streamable['pubsub'] = <String, Object?>{
         'topic': pubsubTopic,
         'subscription': <String, Object?>{
@@ -1708,6 +1862,10 @@ Future<void> _runStreamableSessionExample(
         'methodEvents': methodEvents.events,
         'notificationEvents': notificationEvents.events,
         'methodNotificationEvents': methodNotificationEvents.events,
+        if (toolNotificationEvents != null)
+          'toolNotificationEvents': toolNotificationEvents.events,
+        if (toolMethodNotificationEvents != null)
+          'toolMethodNotificationEvents': toolMethodNotificationEvents.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
       };

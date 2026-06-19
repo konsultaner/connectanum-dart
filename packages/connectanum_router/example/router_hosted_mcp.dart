@@ -448,9 +448,20 @@ Future<void> _registerExampleApi(RouterSession serviceSession) async {
     ),
   );
 
-  registration.onInvoke((invocation) {
+  registration.onInvoke((invocation) async {
     final taskId = invocation.argumentsKeywords?['taskId'] ?? 'unknown';
-    _observedExampleTaskLookups.add(taskId.toString());
+    final taskIdText = taskId.toString();
+    _observedExampleTaskLookups.add(taskIdText);
+    await serviceSession.publish(
+      'example.events.task',
+      argumentsKeywords: {
+        'taskId': taskIdText,
+        'status': 'open',
+        'source': 'router-hosted-mcp-example',
+        'event': 'task.lookup',
+      },
+      options: PublishOptions(acknowledge: true),
+    );
     invocation.respondWith(
       argumentsKeywords: {
         'taskId': taskId,
