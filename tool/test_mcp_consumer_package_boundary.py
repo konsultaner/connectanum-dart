@@ -825,6 +825,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-wamp-topic-api-describe",
             "matchWampRegistration(",
             "streamable-wamp-registration-match",
+            "lookupWampRegistration(",
+            "streamable-wamp-configured-registration-lookup",
+            "listWampRegistrations(",
+            "streamable-wamp-configured-registration-list",
+            "getWampRegistration(",
+            "streamable-wamp-configured-registration-get",
+            "listWampRegistrationCallees(",
+            "streamable-wamp-configured-registration-callees",
+            "countWampRegistrationCallees(",
+            "streamable-wamp-configured-registration-callee-count",
             "matchWampSubscription(",
             "streamable-wamp-subscription-match",
             "lookupWampSubscription(",
@@ -839,6 +849,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-wamp-configured-subscription-subscriber-count",
             "wampMetadata",
             "subscriptionMetadata",
+            "configuredRegistrationMetadata",
             "configuredSubscriptionMetadata",
             "subscribeWampTopic",
             "streamable-pubsub-subscribe",
@@ -874,6 +885,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
 
         for expected in (
             "'publishes_events': ['example.events.task']",
+            "'procedure': 'example.task.configured.lookup'",
             "serviceSession.publish(",
             "'example.events.task'",
             "'event': 'task.lookup'",
@@ -923,7 +935,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--resource-uri app://example/context", body)
         self.assertIn("--prompt summarize-task", body)
         self.assertIn("--prompt-arguments", body)
-        self.assertIn("--wamp-procedure example.task.lookup", body)
+        self.assertIn("--wamp-procedure example.task.configured.lookup", body)
         self.assertIn("--wamp-topic example.events.task", body)
         self.assertIn("--pubsub-topic example.events.task", body)
         self.assertIn("--pubsub-event", body)
@@ -935,6 +947,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("resource-template discovery", body)
         self.assertIn('"configuredSubscriptionMetadata":true', body)
         self.assertIn("configured subscription metadata lookup", body)
+        self.assertIn('"configuredRegistrationMetadata":true', body)
+        self.assertIn("configured registration metadata lookup", body)
         self.assertIn("pubsub_only_dry_run_summary=\"$(", body)
         self.assertIn("T-pubsub-only-example-dry-run", body)
         self.assertIn('"subscriptionMetadata":true', body)
@@ -1339,6 +1353,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"directPing"', script)
         self.assertIn('"directWampMetadata"', script)
         self.assertIn('"wampMetadata"', script)
+        self.assertIn('"configuredRegistrationMetadata"', script)
         self.assertIn('"configuredSubscriptionMetadata"', script)
         self.assertIn('"toolNotificationEvents"', script)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
@@ -1350,7 +1365,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--tool example.task.lookup", live_body)
         self.assertIn("--resource-uri app://example/context", live_body)
         self.assertIn("--prompt summarize-task", live_body)
-        self.assertIn("--wamp-procedure example.task.lookup", live_body)
+        self.assertIn("--wamp-procedure example.task.configured.lookup", live_body)
         self.assertIn("--wamp-topic example.events.task", live_body)
         self.assertIn("--pubsub-topic example.events.task", live_body)
         self.assertIn("T-pubsub-only-example-live", live_body)

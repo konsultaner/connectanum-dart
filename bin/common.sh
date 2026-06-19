@@ -371,7 +371,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-public-example-dry-run"}' \
-    --wamp-procedure example.task.lookup \
+    --wamp-procedure example.task.configured.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-public-example-dry-run","status":"open"}' \
@@ -390,6 +390,10 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$dry_run_summary" != *'"configuredSubscriptionMetadata":true'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report configured subscription metadata lookup.\n'
+    return 1
+  fi
+  if [[ "$dry_run_summary" != *'"configuredRegistrationMetadata":true'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report configured registration metadata lookup.\n'
     return 1
   fi
 
@@ -963,13 +967,14 @@ run_public_router_hosted_mcp_client_live_smoke() (
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-public-example-live"}' \
-    --wamp-procedure example.task.lookup \
+    --wamp-procedure example.task.configured.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-public-example-live","status":"open"}')"
   assert_public_router_hosted_mcp_client_summary "$live_summary" public \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1076,13 +1081,14 @@ PY
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-authenticated-example-live"}' \
-    --wamp-procedure example.task.lookup \
+    --wamp-procedure example.task.configured.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-authenticated-example-live","status":"open"}')"
   assert_public_router_hosted_mcp_client_summary "$authenticated_summary" authenticated \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1102,13 +1108,14 @@ PY
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-bearer-example-live"}' \
-    --wamp-procedure example.task.lookup \
+    --wamp-procedure example.task.configured.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-bearer-example-live","status":"open"}')"
   assert_public_router_hosted_mcp_client_summary "$bearer_summary" bearer-token \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1132,7 +1139,7 @@ PY
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-authenticated-json-response-example-live"}' \
-    --wamp-procedure example.task.lookup \
+    --wamp-procedure example.task.configured.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-authenticated-json-response-example-live","status":"open"}')"
@@ -1140,6 +1147,7 @@ PY
     "$authenticated_json_summary" authenticated-json-response \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1159,7 +1167,7 @@ PY
     --resource-uri app://example/context \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-bearer-json-response-example-live"}' \
-    --wamp-procedure example.task.lookup \
+    --wamp-procedure example.task.configured.lookup \
     --wamp-topic example.events.task \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-bearer-json-response-example-live","status":"open"}')"
@@ -1167,6 +1175,7 @@ PY
     "$bearer_json_summary" bearer-token-json-response \
     '"directPing"' \
     '"directWampMetadata"' \
+    '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \

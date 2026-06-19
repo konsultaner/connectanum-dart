@@ -126,7 +126,10 @@ void _printDryRunSummary(IOSink sink, _Options options) {
           'name': options.promptName,
           'arguments': options.promptArguments,
         },
-      if (options.wampProcedure != null) 'wampProcedure': options.wampProcedure,
+      if (options.wampProcedure != null) ...{
+        'wampProcedure': options.wampProcedure,
+        'configuredRegistrationMetadata': true,
+      },
       if (options.wampTopic != null) ...{
         'wampTopic': options.wampTopic,
         'configuredSubscriptionMetadata': true,
@@ -947,6 +950,8 @@ Future<void> _runDirectWampMetadataExample(
       procedure,
       id: 'direct-wamp-registration-match',
     );
+    final configuredRegistrationMetadata =
+        await _expectConfiguredWampRegistrationMetaDirect(client, procedure);
     metadata['procedure'] = {
       'name': procedure,
       'catalog': procedureCatalog,
@@ -954,6 +959,7 @@ Future<void> _runDirectWampMetadataExample(
       'description': description,
       'methodDescription': methodDescription,
       'registration': _wampMetaResultJson(registration),
+      'configuredRegistrationMetadata': configuredRegistrationMetadata,
     };
   }
 
@@ -1057,6 +1063,188 @@ Map<String, Object?> _wampMetaResultJson(
 typedef _WampMetaCall = Future<McpStreamableWampMetaCallResult> Function();
 typedef _WampMetaByIdCall =
     Future<McpStreamableWampMetaCallResult> Function(int subscriptionId);
+
+Future<Map<String, Object?>> _expectConfiguredWampRegistrationMetaDirect(
+  McpStreamableHttpClient client,
+  String procedure,
+) {
+  return _expectConfiguredWampRegistrationMeta(
+    procedure: procedure,
+    label: 'Direct JSON configured WAMP registration metadata',
+    lookup: () => client.lookupWampRegistrationDirect(
+      procedure,
+      id: 'direct-wamp-configured-registration-lookup',
+      match: 'exact',
+    ),
+    match: () => client.matchWampRegistrationDirect(
+      procedure,
+      id: 'direct-wamp-configured-registration-match',
+    ),
+    list: () => client.listWampRegistrationsDirect(
+      id: 'direct-wamp-configured-registration-list',
+    ),
+    get: (registrationId) => client.getWampRegistrationDirect(
+      registrationId,
+      id: 'direct-wamp-configured-registration-get',
+    ),
+    listCallees: (registrationId) => client.listWampRegistrationCalleesDirect(
+      registrationId,
+      id: 'direct-wamp-configured-registration-callees',
+    ),
+    countCallees: (registrationId) => client.countWampRegistrationCalleesDirect(
+      registrationId,
+      id: 'direct-wamp-configured-registration-callee-count',
+    ),
+  );
+}
+
+Future<Map<String, Object?>> _expectConfiguredWampRegistrationMetaStreamable(
+  McpStreamableHttpClient client,
+  String procedure,
+) {
+  return _expectConfiguredWampRegistrationMeta(
+    procedure: procedure,
+    label: 'Streamable configured WAMP registration metadata',
+    lookup: () => client.lookupWampRegistration(
+      procedure,
+      id: 'streamable-wamp-configured-registration-lookup',
+      match: 'exact',
+    ),
+    match: () => client.matchWampRegistration(
+      procedure,
+      id: 'streamable-wamp-configured-registration-match',
+    ),
+    list: () => client.listWampRegistrations(
+      id: 'streamable-wamp-configured-registration-list',
+    ),
+    get: (registrationId) => client.getWampRegistration(
+      registrationId,
+      id: 'streamable-wamp-configured-registration-get',
+    ),
+    listCallees: (registrationId) => client.listWampRegistrationCallees(
+      registrationId,
+      id: 'streamable-wamp-configured-registration-callees',
+    ),
+    countCallees: (registrationId) => client.countWampRegistrationCallees(
+      registrationId,
+      id: 'streamable-wamp-configured-registration-callee-count',
+    ),
+  );
+}
+
+Future<Map<String, Object?>> _expectConfiguredWampRegistrationMeta({
+  required String procedure,
+  required String label,
+  required _WampMetaCall lookup,
+  required _WampMetaCall match,
+  required _WampMetaCall list,
+  required _WampMetaByIdCall get,
+  required _WampMetaByIdCall listCallees,
+  required _WampMetaByIdCall countCallees,
+}) async {
+  final lookupResult = await lookup();
+  _expectWampMetaProcedure(
+    lookupResult,
+    'wamp.registration.lookup',
+    label: '$label lookup',
+  );
+  final lookupIds = _integerMetaIds(
+    lookupResult.arguments,
+    '$label lookup arguments',
+  );
+  if (lookupIds.isEmpty) {
+    throw StateError(
+      '$label lookup returned no registration id for $procedure.',
+    );
+  }
+  final registrationId = lookupIds.first;
+
+  final matchResult = await match();
+  _expectWampMetaProcedure(
+    matchResult,
+    'wamp.registration.match',
+    label: '$label match',
+  );
+  final matchIds = _integerMetaIds(
+    matchResult.arguments,
+    '$label match arguments',
+  );
+  if (!matchIds.contains(registrationId)) {
+    throw StateError('$label match did not include lookup id $registrationId.');
+  }
+
+  final listResult = await list();
+  _expectWampMetaProcedure(
+    listResult,
+    'wamp.registration.list',
+    label: '$label list',
+  );
+  final exactRegistrationIds = _integerMetaIds(
+    listResult.argumentsKeywords['exact'],
+    '$label list exact registrations',
+  );
+  if (!exactRegistrationIds.contains(registrationId)) {
+    throw StateError('$label list did not include lookup id $registrationId.');
+  }
+
+  final detailsResult = await get(registrationId);
+  _expectWampMetaProcedure(
+    detailsResult,
+    'wamp.registration.get',
+    label: '$label get',
+  );
+  if (detailsResult.argumentsKeywords['uri'] != procedure) {
+    throw StateError(
+      '$label details returned ${detailsResult.argumentsKeywords['uri']}, '
+      'expected $procedure.',
+    );
+  }
+
+  final calleesResult = await listCallees(registrationId);
+  _expectWampMetaProcedure(
+    calleesResult,
+    'wamp.registration.list_callees',
+    label: '$label callees',
+  );
+  final calleeIds = _integerMetaIds(
+    calleesResult.arguments,
+    '$label callee arguments',
+  );
+  if (calleeIds.isNotEmpty) {
+    throw StateError(
+      '$label configured registration exposed live callees: '
+      '${jsonEncode(calleeIds)}.',
+    );
+  }
+
+  final calleeCountResult = await countCallees(registrationId);
+  _expectWampMetaProcedure(
+    calleeCountResult,
+    'wamp.registration.count_callees',
+    label: '$label callee count',
+  );
+  final calleeCount = _singleIntegerMetaArgument(
+    calleeCountResult,
+    '$label callee count',
+  );
+  if (calleeCount != 0) {
+    throw StateError(
+      '$label configured registration callee count was $calleeCount, '
+      'expected 0.',
+    );
+  }
+
+  return <String, Object?>{
+    'procedure': procedure,
+    'registrationId': registrationId,
+    'lookup': _wampMetaResultJson(lookupResult),
+    'match': _wampMetaResultJson(matchResult),
+    'list': _wampMetaResultJson(listResult),
+    'details': _wampMetaResultJson(detailsResult),
+    'callees': _wampMetaResultJson(calleesResult),
+    'calleeCount': _wampMetaResultJson(calleeCountResult),
+  };
+}
 
 Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMetaDirect(
   McpStreamableHttpClient client,
@@ -2058,6 +2246,11 @@ Future<void> _runStreamableSessionExample(
         wampProcedure,
         id: 'streamable-wamp-registration-match',
       );
+      final configuredRegistrationMetadata =
+          await _expectConfiguredWampRegistrationMetaStreamable(
+            client,
+            wampProcedure,
+          );
       metadata['procedure'] = <String, Object?>{
         'name': wampProcedure,
         'catalog': procedureCatalog,
@@ -2065,6 +2258,7 @@ Future<void> _runStreamableSessionExample(
         'methodCatalog': methodProcedureCatalog,
         'methodDescription': methodDescription,
         'registration': _wampMetaResultJson(registration),
+        'configuredRegistrationMetadata': configuredRegistrationMetadata,
       };
     }
 

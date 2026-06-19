@@ -198,6 +198,24 @@ RouterSettings _buildSettings() {
     'include_registered_procedures': true,
     'include_standard_meta_api': true,
     'include_pubsub_tools': true,
+    'procedures': [
+      {
+        'procedure': 'example.task.configured.lookup',
+        'title': 'Configured task lookup',
+        'description': 'Route-configured task lookup metadata.',
+        'metadata': {
+          'short_description': 'Configured task lookup metadata',
+          'domain': 'example',
+          'entity': 'task',
+          'verbs': ['lookup'],
+          'tags': ['safe', 'demo', 'configured'],
+          'read_only_hint': true,
+          'destructive_hint': false,
+          'idempotent_hint': true,
+          'open_world_hint': false,
+        },
+      },
+    ],
     'topics': [
       {
         'topic': 'example.events.task',
