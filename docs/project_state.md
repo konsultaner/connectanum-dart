@@ -3,50 +3,69 @@
 Last updated: 2026-06-19
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now proves standard MCP `ping` health on both lifecycle-free direct JSON and
-initialized Streamable HTTP paths while preserving the direct JSON no-session
-state invariant and the Streamable session id. The previous checkpoints also
-prove raw single standard MCP resource and prompt methods, notification-style
-pub/sub side effects, acknowledged raw dotted `connectanum.pubsub.publish`, raw
-dotted tool methods, and WAMP metadata methods across direct JSON and
+now proves lifecycle-free standard direct JSON `tools/list` and `tools/call`
+alongside the dotted Connectanum direct tool aliases, plus standard MCP `ping`
+health on both lifecycle-free direct JSON and initialized Streamable HTTP paths.
+The previous checkpoints also prove raw single standard MCP resource and prompt
+methods, notification-style pub/sub side effects, acknowledged raw dotted
+`connectanum.pubsub.publish`, and WAMP metadata methods across direct JSON and
 Streamable paths, in addition to typed helpers and batches.
-Latest fully clean hosted checkpoint: Commit `63497e6` on GitHub `master` and
-GitHub `add-router`.
+Latest fully clean hosted checkpoint before this local change: Commit `a09e829`
+on GitHub `master` and GitHub `add-router`.
 Current implementation checkpoint:
-`packages/connectanum_mcp/example/router_hosted_client.dart` now calls
-`pingDirect(id: 'direct-ping')` inside `_runDirectJsonExample`, emits
-`directPing` in the public JSON output, and leaves the existing
-`_expectStreamableStateUnchanged` check to prove that the direct JSON health
-request does not create or mutate Streamable session state. The initialized
-Streamable flow now calls `ping(id: 'streamable-ping')`, fails fast if that
-health request changes the established session id, and emits `ping` inside the
-public `streamable` output map. `tool/test_mcp_consumer_package_boundary.py`
-guards the new ping helper calls, ids, session-id failure message, and output
-fields so the public example cannot silently drop direct JSON or Streamable
-health coverage.
+`packages/connectanum_mcp/example/router_hosted_client.dart` now exercises the
+standard direct JSON tool surface before and during an initialized Streamable
+session. `_runDirectJsonExample` calls `listToolsDirect(id:
+'direct-standard-tools')`, emits `directStandardTools` and optional
+`directStandardNextCursor`, validates the selected tool in that standard
+catalog, calls `callToolDirect(id: 'direct-standard-tool-call')`, and emits
+`directStandardToolResult` while preserving the existing direct JSON no-session
+state invariant. `_runDirectBatchExample` now sends raw lifecycle-free
+`tools/list` and `tools/call` batch items with ids
+`direct-batch-standard-tools` and `direct-batch-standard-tool-call`, then
+validates the standard batch catalog next to the dotted Connectanum alias
+checks. `tool/test_mcp_consumer_package_boundary.py` guards the public helper
+calls, raw method strings, ids, output fields, and labels so the public example
+cannot silently drop standard direct JSON tool coverage.
 
-Baseline `bin/test-fast` passed before this public router-hosted MCP ping
-health self-check change on 2026-06-19. Focused
+Baseline `bin/test-fast` passed before this public router-hosted standard
+direct JSON tool self-check change on 2026-06-19. Focused
 `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
 focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
 focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+focused
 `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
 and focused
 `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
 passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19, including
 formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
 consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
-authenticated, bearer, and JSON-response examples with direct JSON ping health
-and Streamable ping session-id checks, raw single direct JSON and Streamable
-resource/prompt method checks, direct JSON and Streamable pub/sub notification
-side-effect checks, raw direct JSON pub/sub method publish checks, raw
-Streamable pub/sub method publish checks, raw Streamable tool/API method
-checks, raw direct tool method checks, raw direct WAMP method metadata checks,
-direct JSON lifecycle, session initialization, session deletion, pub/sub
-metadata, standard MCP catalog, and WAMP catalog self-checks, the installed
-router CLI consumer smoke, full router tests, zero-copy router tests, and
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
-checkpoint.
+authenticated, bearer, and JSON-response examples with standard direct JSON
+`tools/list` and `tools/call` checks, direct JSON ping health and Streamable
+ping session-id checks, raw single direct JSON and Streamable resource/prompt
+method checks, direct JSON and Streamable pub/sub notification side-effect
+checks, raw direct JSON pub/sub method publish checks, raw Streamable pub/sub
+method publish checks, raw Streamable tool/API method checks, raw direct dotted
+tool method checks, raw direct WAMP method metadata checks, direct JSON
+lifecycle, session initialization, session deletion, pub/sub metadata, standard
+MCP catalog, and WAMP catalog self-checks, the installed router CLI consumer
+smoke, full router tests, zero-copy router tests, and Chrome/Dart2Wasm browser
+WebSocket smoke.
+
+Previous hosted evidence: Commit `a09e829` (`test: assert mcp ping health
+paths`) was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
+`master`. GitHub `master` CI `27808361414` and GitHub `add-router` CI
+`27808360525` passed with `Fast Checks` and `Full Verify` clean. GitHub
+`master` Dart Package Publish Dry Run `27808361365` and GitHub `add-router`
+Dart Package Publish Dry Run `27808360538` also passed. The strict
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --strict` exited
+successfully on 2026-06-19 with branch protection, workflow visibility, router
+image package visibility, latest GitHub `master` CI evidence, and latest
+GitHub `master` Dart package dry-run evidence clean. No new Native Artifacts,
+Router Image, or WAMP Profile Benchmarks run was required because no native
+artifact, image, workflow, or benchmark-sensitive inputs changed.
 
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now sends raw

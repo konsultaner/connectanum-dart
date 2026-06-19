@@ -167,9 +167,17 @@ Future<void> _runDirectJsonExample(
   final ping = await client.pingDirect(id: 'direct-ping');
   stdout.writeln(jsonEncode({'directPing': ping}));
 
+  final standardCatalog = await client.listToolsDirect(
+    id: 'direct-standard-tools',
+  );
   final catalog = await client.listConnectanumToolsDirect(id: 'direct-tools');
   stdout.writeln(
     jsonEncode({
+      'directStandardTools': [
+        for (final tool in standardCatalog.tools) tool['name'],
+      ],
+      if (standardCatalog.nextCursor != null)
+        'directStandardNextCursor': standardCatalog.nextCursor,
       'directTools': [for (final tool in catalog.tools) tool['name']],
       if (catalog.nextCursor != null) 'nextCursor': catalog.nextCursor,
     }),
@@ -182,6 +190,12 @@ Future<void> _runDirectJsonExample(
       field: 'name',
       value: toolName,
       label: 'Direct tool',
+    );
+    _expectCatalogContainsValue(
+      catalog: standardCatalog.tools,
+      field: 'name',
+      value: toolName,
+      label: 'Direct standard tool',
     );
     final methodCatalog = await client.callConnectanumMethodDirect(
       'connectanum.tools.list',
@@ -202,6 +216,14 @@ Future<void> _runDirectJsonExample(
       ),
       label: 'Direct tool call',
     );
+    final standardResult = _expectToolResultSucceeded(
+      await client.callToolDirect(
+        toolName,
+        id: 'direct-standard-tool-call',
+        arguments: options.toolArguments,
+      ),
+      label: 'Direct standard tool call',
+    );
     final methodResult = _expectToolResultSucceeded(
       await client.callConnectanumMethodDirect(
         'connectanum.tool.call',
@@ -216,6 +238,7 @@ Future<void> _runDirectJsonExample(
     stdout.writeln(
       jsonEncode({
         'directToolResult': result,
+        'directStandardToolResult': standardResult,
         'directToolMethodCatalog': methodToolCatalog,
         'directToolMethodResult': methodResult,
       }),
@@ -361,6 +384,12 @@ Future<void> _runDirectBatchExample(
   final messages = <McpJsonMap>[
     {
       'jsonrpc': '2.0',
+      'id': 'direct-batch-standard-tools',
+      'method': 'tools/list',
+      'params': {},
+    },
+    {
+      'jsonrpc': '2.0',
       'id': 'direct-batch-tools',
       'method': 'connectanum.tools.list',
       'params': {},
@@ -369,6 +398,14 @@ Future<void> _runDirectBatchExample(
 
   final toolName = options.toolName;
   if (toolName != null) {
+    messages.add(
+      _toolCallBatchRequest(
+        id: 'direct-batch-standard-tool-call',
+        name: toolName,
+        arguments: options.toolArguments,
+        directJson: false,
+      ),
+    );
     messages.add(
       _toolCallBatchRequest(
         id: 'direct-batch-tool-call',
@@ -461,6 +498,14 @@ Future<void> _runDirectBatchExample(
     for (final message in messages) message['id']! as String,
   ], label: 'Direct JSON');
   if (toolName != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'direct-batch-standard-tools',
+      catalogKey: 'tools',
+      field: 'name',
+      value: toolName,
+      label: 'Direct JSON batch standard tool',
+    );
     _expectBatchCatalogContains(
       batchResponses,
       id: 'direct-batch-tools',
