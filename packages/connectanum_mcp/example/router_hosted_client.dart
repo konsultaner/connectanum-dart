@@ -861,6 +861,50 @@ Future<void> _runDirectPubSubExample(
       expectedEvent: options.pubsubEvent,
       label: 'Direct JSON pub/sub',
     );
+    final methodPubsubEvent = <String, Object?>{
+      'methodEvent': options.pubsubEvent,
+    };
+    final methodPublication = _structuredContentFromToolResult(
+      await client.callConnectanumMethodDirect(
+        'connectanum.pubsub.publish',
+        id: 'direct-pubsub-publish-method',
+        params: <String, Object?>{
+          'topic': topic,
+          'argumentsKeywords': methodPubsubEvent,
+          'acknowledge': true,
+        },
+      ),
+      label: 'Direct JSON pub/sub method publish',
+    );
+    if (methodPublication['topic'] != topic) {
+      throw StateError(
+        'Direct JSON pub/sub method publish returned topic '
+        '${methodPublication['topic']}, expected $topic.',
+      );
+    }
+    if (methodPublication['acknowledged'] != true) {
+      throw StateError(
+        'Direct JSON pub/sub method publish did not acknowledge publication.',
+      );
+    }
+    if (methodPublication['publicationId'] == null) {
+      throw StateError(
+        'Direct JSON pub/sub method publish acknowledged without '
+        'a publication id.',
+      );
+    }
+    final methodEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'direct-pubsub-method-poll',
+      limit: queueLimit,
+    );
+    _expectWampEventBatch(
+      methodEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: methodPubsubEvent,
+      label: 'Direct JSON pub/sub method poll',
+    );
     stdout.writeln(
       jsonEncode({
         'pubsubTopic': topic,
@@ -879,6 +923,8 @@ Future<void> _runDirectPubSubExample(
             'publicationId': publication.publicationId,
         },
         'events': events.events,
+        'methodPublication': methodPublication,
+        'methodEvents': methodEvents.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
       }),

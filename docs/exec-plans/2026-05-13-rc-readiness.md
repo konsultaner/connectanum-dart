@@ -80,6 +80,41 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-19: Tightened the public router-hosted MCP client example so raw
+  dotted direct JSON method calls also prove pub/sub publish readiness, not only
+  typed direct pub/sub helpers and the stateful Streamable method path.
+  `packages/connectanum_mcp/example/router_hosted_client.dart` now calls
+  `callConnectanumMethodDirect('connectanum.pubsub.publish')` inside
+  `_runDirectPubSubExample` after the typed direct publish and poll, validates
+  the raw method publication returns the configured topic, acknowledgement, and
+  publication id, then polls the same direct subscription for a distinct
+  method-published event. The public JSON output now includes
+  `methodPublication` and `methodEvents`.
+  `tool/test_mcp_consumer_package_boundary.py` guards the new raw direct JSON
+  pub/sub method id, poll id, and labels so future edits cannot silently remove
+  lifecycle-free direct method-style pub/sub coverage from the public example.
+  Baseline `bin/test-fast` passed before the change on 2026-06-19. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples with raw
+  direct JSON pub/sub method publish checks, raw Streamable pub/sub method
+  publish checks, raw Streamable tool/API method checks, raw direct tool method
+  checks, raw direct WAMP method metadata checks, direct JSON lifecycle,
+  session initialization, session deletion, pub/sub metadata, standard MCP
+  catalog, and WAMP catalog self-checks, the installed router CLI consumer
+  smoke, full router tests, zero-copy router tests, and Chrome/Dart2Wasm
+  browser WebSocket smoke. The latest fully clean hosted checkpoint remains
+  `147d286` until this local checkpoint is pushed and hosted CI/package dry-run
+  evidence completes.
+- 2026-06-19: Tightened the public router-hosted MCP client example so raw
   dotted Streamable method calls also prove pub/sub publish readiness, not only
   typed Streamable pub/sub helpers. `packages/connectanum_mcp/example/router_hosted_client.dart`
   now calls `callConnectanumMethod('connectanum.pubsub.publish')` inside
@@ -110,8 +145,19 @@ decision because `connectanum_client` still depends on private
   pub/sub metadata, standard MCP catalog, and WAMP catalog self-checks, the
   installed router CLI consumer smoke, full router tests, zero-copy router
   tests, and Chrome/Dart2Wasm browser WebSocket smoke. The latest fully clean
-  hosted checkpoint remains `8a4410f` until this local checkpoint is pushed and
-  hosted CI/package dry-run evidence completes.
+  hosted checkpoint is now `147d286`
+  (`test: assert streamable mcp pubsub method`). Commit `147d286` was pushed to
+  GitLab `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master`
+  CI `27798203809` and GitHub `add-router` CI `27798199559` passed with
+  `Fast Checks` and `Full Verify` clean. GitHub `master` Dart Package Publish
+  Dry Run `27798203813` and GitHub `add-router` Dart Package Publish Dry Run
+  `27798199556` also passed. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-19 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-19: Tightened the public router-hosted MCP client example so raw
   dotted direct JSON-RPC method calls prove stateful Streamable tool/API
   access, not only lifecycle-free direct JSON access and typed Streamable
