@@ -905,6 +905,47 @@ Future<void> _runDirectPubSubExample(
       expectedEvent: methodPubsubEvent,
       label: 'Direct JSON pub/sub method poll',
     );
+    final notificationEvent = <String, Object?>{
+      'notificationEvent': options.pubsubEvent,
+    };
+    await client.notifyWampEventDirect(
+      topic,
+      argumentsKeywords: notificationEvent,
+    );
+    final notificationEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'direct-pubsub-notification-poll',
+      limit: queueLimit,
+    );
+    _expectWampEventBatch(
+      notificationEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: notificationEvent,
+      label: 'Direct JSON pub/sub notification poll',
+    );
+    final methodNotificationEvent = <String, Object?>{
+      'methodNotificationEvent': options.pubsubEvent,
+    };
+    await client.notifyConnectanumMethodDirect(
+      'connectanum.pubsub.publish',
+      params: <String, Object?>{
+        'topic': topic,
+        'argumentsKeywords': methodNotificationEvent,
+      },
+    );
+    final methodNotificationEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'direct-pubsub-method-notification-poll',
+      limit: queueLimit,
+    );
+    _expectWampEventBatch(
+      methodNotificationEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: methodNotificationEvent,
+      label: 'Direct JSON pub/sub method notification poll',
+    );
     stdout.writeln(
       jsonEncode({
         'pubsubTopic': topic,
@@ -925,6 +966,8 @@ Future<void> _runDirectPubSubExample(
         'events': events.events,
         'methodPublication': methodPublication,
         'methodEvents': methodEvents.events,
+        'notificationEvents': notificationEvents.events,
+        'methodNotificationEvents': methodNotificationEvents.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
       }),
@@ -1380,6 +1423,47 @@ Future<void> _runStreamableSessionExample(
         expectedEvent: methodPubsubEvent,
         label: 'Streamable pub/sub method poll',
       );
+      final notificationEvent = <String, Object?>{
+        'notificationEvent': options.pubsubEvent,
+      };
+      await client.notifyWampEvent(
+        pubsubTopic,
+        argumentsKeywords: notificationEvent,
+      );
+      final notificationEvents = await client.pollWampEvents(
+        subscription.handle,
+        id: 'streamable-pubsub-notification-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        notificationEvents,
+        handle: subscription.handle,
+        topic: pubsubTopic,
+        expectedEvent: notificationEvent,
+        label: 'Streamable pub/sub notification poll',
+      );
+      final methodNotificationEvent = <String, Object?>{
+        'methodNotificationEvent': options.pubsubEvent,
+      };
+      await client.notifyConnectanumMethod(
+        'connectanum.pubsub.publish',
+        params: <String, Object?>{
+          'topic': pubsubTopic,
+          'argumentsKeywords': methodNotificationEvent,
+        },
+      );
+      final methodNotificationEvents = await client.pollWampEvents(
+        subscription.handle,
+        id: 'streamable-pubsub-method-notification-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        methodNotificationEvents,
+        handle: subscription.handle,
+        topic: pubsubTopic,
+        expectedEvent: methodNotificationEvent,
+        label: 'Streamable pub/sub method notification poll',
+      );
       streamable['pubsub'] = <String, Object?>{
         'topic': pubsubTopic,
         'subscription': <String, Object?>{
@@ -1399,6 +1483,8 @@ Future<void> _runStreamableSessionExample(
         'events': events.events,
         'methodPublication': methodPublication,
         'methodEvents': methodEvents.events,
+        'notificationEvents': notificationEvents.events,
+        'methodNotificationEvents': methodNotificationEvents.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
       };

@@ -3,16 +3,56 @@
 Last updated: 2026-06-19
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now fails fast when raw dotted direct JSON-RPC calls to
-`connectanum.pubsub.publish` fail on the lifecycle-free direct JSON path, and
-the previous checkpoint also proves raw dotted tool/WAMP metadata methods plus
-raw Streamable `connectanum.pubsub.publish` inside initialized Streamable HTTP
-sessions. The live example smoke therefore proves lightweight consumer agents
-can use raw dotted tool, WAMP metadata, and pub/sub methods across direct JSON
-and stateful Streamable paths, in addition to typed helpers and batches.
-Latest fully clean hosted checkpoint: Commit `147d286` on GitHub `master` and
+now fails fast when notification-style pub/sub side effects fail on either the
+lifecycle-free direct JSON path or an initialized Streamable HTTP session. The
+previous checkpoints also prove acknowledged raw dotted
+`connectanum.pubsub.publish`, raw dotted tool methods, and WAMP metadata
+methods across direct JSON and Streamable paths, in addition to typed helpers
+and batches.
+Latest fully clean hosted checkpoint: Commit `a176d89` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now sends and
+polls notification-style pub/sub events in both public router-hosted MCP flows.
+`_runDirectPubSubExample` calls `notifyWampEventDirect` and
+`notifyConnectanumMethodDirect('connectanum.pubsub.publish')` after the
+acknowledged typed and raw direct JSON publishes, then polls the existing
+direct subscription with `direct-pubsub-notification-poll` and
+`direct-pubsub-method-notification-poll` for distinct notification events.
+`_runStreamableSessionExample` mirrors the same side-effect coverage with
+`notifyWampEvent`, `notifyConnectanumMethod`, and the corresponding
+Streamable poll ids after the acknowledged Streamable publishes. The public
+JSON output now includes `notificationEvents` and `methodNotificationEvents`
+for both flows.
+`tool/test_mcp_consumer_package_boundary.py` guards the new notification poll
+ids, helper calls, labels, and output fields so the public example cannot
+silently drop notification-style pub/sub side-effect coverage.
+
+Baseline `bin/test-fast` passed before this public router-hosted pub/sub
+notification self-check change on 2026-06-19. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`git diff --check`, focused `python3 tool/check_public_artifact_references.py`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with direct JSON and
+Streamable pub/sub notification side-effect checks, raw direct JSON pub/sub
+method publish checks, raw Streamable pub/sub method publish checks, raw
+Streamable tool/API method checks, raw direct tool method checks, raw direct
+WAMP method metadata checks, direct JSON lifecycle, session initialization,
+session deletion, pub/sub metadata, standard MCP catalog, and WAMP catalog
+self-checks, the installed router CLI consumer smoke, full router tests,
+zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. The
+latest fully clean hosted checkpoint remains `a176d89` until this local
+checkpoint is pushed and hosted CI/package dry-run evidence completes.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now calls
 `callConnectanumMethodDirect('connectanum.pubsub.publish')` inside
 `_runDirectPubSubExample` after the typed direct pub/sub publish and poll. The
@@ -44,8 +84,18 @@ direct WAMP method metadata checks, direct JSON lifecycle, session
 initialization, session deletion, pub/sub metadata, standard MCP catalog, and
 WAMP catalog self-checks, the installed router CLI consumer smoke, full router
 tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
-The latest fully clean hosted checkpoint remains `147d286` until this local
-checkpoint is pushed and hosted CI/package dry-run evidence completes.
+Commit `a176d89` (`test: assert direct mcp pubsub method`) was pushed to
+GitLab `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`27800452634` and GitHub `add-router` CI `27800448873` passed with
+`Fast Checks` and `Full Verify` clean. GitHub `master` Dart Package Publish
+Dry Run `27800452588` and GitHub `add-router` Dart Package Publish Dry Run
+`27800448884` also passed. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --strict` exited
+successfully on 2026-06-19 with branch protection, workflow visibility, router
+image package visibility, latest GitHub `master` CI evidence, and latest GitHub
+`master` Dart package dry-run evidence clean. No new Native Artifacts, Router
+Image, or WAMP Profile Benchmarks run was required because no native artifact,
+image, workflow, or benchmark-sensitive inputs changed.
 
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now calls
