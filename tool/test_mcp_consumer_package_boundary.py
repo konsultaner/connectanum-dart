@@ -455,23 +455,30 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("routerCliConsumerSummary", body)
         self.assertIn(
             '"public":{"directJson":true,"streamable":true,'
+            '"resourcesPrompts":true,"wampMeta":true,'
             '"pubsub":true,"batch":true}',
             body,
         )
         self.assertIn(
             '"secure":{"ticketGrant":true,"directJson":true,'
-            '"streamable":true,"pubsub":true,"wampMeta":true,'
+            '"streamable":true,"resourcesPrompts":true,'
+            '"pubsub":true,"wampMeta":true,'
             '"authRejectionIsolation":true,"refreshAndRevoke":true}',
             body,
         )
         self.assertIn(
-            '"jsonResponse":{"directJson":true,"streamable":true,'
-            '"authRejectionIsolation":true,"tokenOnly":true}',
+            '"jsonResponse":{"active":{"directJson":true,'
+            '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
+            '"authRejectionIsolation":true},"tokenOnly":{"directJson":true,'
+            '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
+            '"pubsub":true,"batch":true}}',
             body,
         )
         self.assertIn(
             '"tokenOnly":{"directJson":true,"streamable":true,'
-            '"pubsub":true,"wampMeta":true}',
+            '"resourcesPrompts":true,"wampMeta":true,'
+            '"sessionMeta":true,"subscriptionMeta":true,'
+            '"pubsub":true,"batch":true}',
             body,
         )
         self.assertIn(

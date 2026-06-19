@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-19: Tightened the installed router CLI Dart MCP consumer summary so
+  `bin/common.sh` now enumerates resource/prompt helper coverage, public WAMP
+  metadata, JSON-response active/token-only coverage, token-only
+  session/subscription metadata, pub/sub, and batch evidence in the
+  `routerCliConsumerSummary` object. The summary now distinguishes active
+  JSON-response auth isolation from token-only JSON-response resource/prompt,
+  WAMP metadata, pub/sub, and batch access, and it marks token-only direct
+  JSON/Streamable WAMP session and subscription metadata explicitly instead of
+  relying on the human-readable completion line.
+  `tool/test_mcp_consumer_package_boundary.py` guards the richer exact summary
+  fragments so future smoke harness edits cannot silently collapse this
+  consumer-facing evidence. Baseline `bin/test-fast` passed before the change
+  on 2026-06-19. Focused `bash -n bin/common.sh`, focused
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+  and focused
+  `bash -lc 'source bin/common.sh; ensure_native_lib_env; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-19. Post-change `bin/test-fast` passed on 2026-06-19,
+  including the richer installed router CLI consumer summary assertion. Full
+  local `bin/verify` passed on 2026-06-19, including formatting, Rust/FFI
+  tests, Python/tool tests, MCP package tests, generated consumer-package
+  smokes, the router-hosted MCP live public, pub/sub-only, authenticated,
+  bearer, and JSON-response examples, the installed router CLI consumer smoke
+  with the expanded machine-readable summary assertion, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence is pending for the next pushed implementation commit; the
+  latest fully clean hosted checkpoint remains `c6b2cf5`.
 - 2026-06-19: Tightened the installed router CLI Dart MCP consumer smoke so
   `bin/common.sh` captures stdout from the generated package-boundary Dart
   consumer and asserts a machine-readable `routerCliConsumerSummary` JSON
@@ -105,9 +131,23 @@ decision because `connectanum_client` still depends on private
   router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
   JSON-response examples, the installed router CLI consumer smoke with the new
   machine-readable summary assertion, full router tests, zero-copy router
-  tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is
-  pending for the next pushed commit; the latest fully clean hosted checkpoint
-  remains `7f3fb95`.
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Commit `c6b2cf5`
+  (`test: assert router cli consumer smoke summary`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27833047753` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `add-router` CI `27833042470` passed with `Fast Checks` and `Full Verify`
+  clean. No new Dart Package Publish Dry Run was triggered for `c6b2cf5`
+  because this smoke harness and boundary-test change did not touch
+  publish-sensitive inputs; the latest GitHub `master` Dart Package Publish Dry
+  Run `27824768142` and GitHub `add-router` Dart Package Publish Dry Run
+  `27824767971` remain clean and relevant. No new WAMP Profile Benchmarks,
+  Native Artifacts, or Router Image run was required because this MCP smoke
+  change did not touch benchmark-sensitive, native artifact, image, or workflow
+  inputs. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-19 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence, and latest GitHub `master` Dart package dry-run evidence clean.
 - 2026-06-19: Tightened the public router-hosted MCP live smoke harness so
   `bin/common.sh` captures the public `router_hosted_client.dart` output for
   public, pub/sub-only, authenticated, bearer-token, authenticated

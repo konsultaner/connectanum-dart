@@ -26723,6 +26723,8 @@ Future<void> main() async {
         'public': <String, Object?>{
           'directJson': true,
           'streamable': true,
+          'resourcesPrompts': true,
+          'wampMeta': true,
           'pubsub': true,
           'batch': true,
         },
@@ -26730,22 +26732,38 @@ Future<void> main() async {
           'ticketGrant': true,
           'directJson': true,
           'streamable': true,
+          'resourcesPrompts': true,
           'pubsub': true,
           'wampMeta': true,
           'authRejectionIsolation': true,
           'refreshAndRevoke': true,
         },
         'jsonResponse': <String, Object?>{
-          'directJson': true,
-          'streamable': true,
-          'authRejectionIsolation': true,
-          'tokenOnly': true,
+          'active': <String, Object?>{
+            'directJson': true,
+            'streamable': true,
+            'resourcesPrompts': true,
+            'wampMeta': true,
+            'authRejectionIsolation': true,
+          },
+          'tokenOnly': <String, Object?>{
+            'directJson': true,
+            'streamable': true,
+            'resourcesPrompts': true,
+            'wampMeta': true,
+            'pubsub': true,
+            'batch': true,
+          },
         },
         'tokenOnly': <String, Object?>{
           'directJson': true,
           'streamable': true,
-          'pubsub': true,
+          'resourcesPrompts': true,
           'wampMeta': true,
+          'sessionMeta': true,
+          'subscriptionMeta': true,
+          'pubsub': true,
+          'batch': true,
         },
       },
     }));
@@ -27170,10 +27188,10 @@ DART
   printf '%s\n' "$dart_consumer_summary"
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
-    '"public":{"directJson":true,"streamable":true,"pubsub":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"pubsub":true,"wampMeta":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
-    '"jsonResponse":{"directJson":true,"streamable":true,"authRejectionIsolation":true,"tokenOnly":true}' \
-    '"tokenOnly":{"directJson":true,"streamable":true,"pubsub":true,"wampMeta":true}'
+    '"public":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
+    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}}' \
+    '"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"sessionMeta":true,"subscriptionMeta":true,"pubsub":true,"batch":true}'
 
   printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/session/subscription meta/pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
