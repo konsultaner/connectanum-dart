@@ -47,6 +47,10 @@ Future<void> main(List<String> args) async {
       client.close(force: true);
     }
   }
+
+  if (options.authLifecycleSmoke) {
+    await _runAuthLifecycleSmoke(options);
+  }
 }
 
 Future<McpStreamableHttpClient> _createClient(_Options options) async {
@@ -110,6 +114,7 @@ void _printDryRunSummary(IOSink sink, _Options options) {
         'authEndpoint': options.authEndpoint.toString(),
       if (options.authRealm != null) 'realm': options.authRealm,
       if (options.authId != null) 'authId': options.authId,
+      if (options.authLifecycleSmoke) 'authLifecycleSmoke': true,
       if (options.toolName != null)
         'tool': {'name': options.toolName, 'arguments': options.toolArguments},
       if (options.resourceUri != null) ...{
@@ -143,6 +148,181 @@ Future<void> _deleteStreamableSession(McpStreamableHttpClient client) async {
     throw StateError(
       'Streamable session delete did not clear local session state.',
     );
+  }
+}
+
+Future<void> _runAuthLifecycleSmoke(_Options options) async {
+  final authEndpoint = options.authEndpoint;
+  if (authEndpoint == null) {
+    throw StateError('Auth lifecycle smoke requires --auth-url.');
+  }
+
+  final authClient = ConnectanumHttpAuthClient(
+    authEndpoint,
+    httpClient: _shortLivedHttpClient(),
+    closeHttpClient: true,
+  );
+  McpStreamableHttpClient? refreshedClient;
+  McpStreamableHttpClient? revokedClient;
+  try {
+    final grant = await authClient.issueTicketToken(
+      realm: options.authRealm!,
+      authId: options.authId!,
+      ticket: options.ticket!,
+      headers: const <String, String>{
+        'x-consumer-trace': 'router-hosted-client-auth-lifecycle-issue',
+      },
+    );
+    final refreshToken = grant.refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw StateError('Auth lifecycle smoke did not receive a refresh token.');
+    }
+
+    final refreshed = await authClient.refreshToken(
+      refreshToken,
+      headers: const <String, String>{
+        'x-consumer-trace': 'router-hosted-client-auth-lifecycle-refresh',
+      },
+    );
+    final refreshedRefreshToken = refreshed.refreshToken;
+    if (refreshedRefreshToken == null || refreshedRefreshToken.isEmpty) {
+      throw StateError('Auth lifecycle smoke did not rotate a refresh token.');
+    }
+
+    refreshedClient = McpStreamableHttpClient.withAuthGrant(
+      options.endpoint,
+      refreshed,
+      httpClient: _shortLivedHttpClient(),
+      defaultProtocolVersion: options.protocolVersion,
+      closeHttpClient: true,
+    );
+    await refreshedClient.pingDirect(
+      id: 'auth-lifecycle-refreshed-direct-ping',
+      headers: const <String, String>{
+        'x-consumer-trace': 'auth-lifecycle-refreshed-direct-ping',
+      },
+    );
+    if (refreshedClient.sessionId != null ||
+        refreshedClient.lastEventId != null) {
+      throw StateError('Auth lifecycle direct ping created Streamable state.');
+    }
+
+    await refreshedClient.initialize(
+      id: 'auth-lifecycle-refreshed-initialize',
+      headers: const <String, String>{
+        'x-consumer-trace': 'auth-lifecycle-refreshed-initialize',
+      },
+    );
+    final refreshedSessionId = refreshedClient.sessionId;
+    if (refreshedSessionId == null || refreshedSessionId.isEmpty) {
+      throw StateError(
+        'Auth lifecycle refreshed grant did not initialize a Streamable session.',
+      );
+    }
+    await refreshedClient.notifyInitialized(
+      headers: const <String, String>{
+        'x-consumer-trace': 'auth-lifecycle-refreshed-initialized',
+      },
+    );
+    await _deleteStreamableSession(refreshedClient);
+    refreshedClient.close(force: true);
+    refreshedClient = null;
+
+    await authClient.revokeToken(
+      refreshed.accessToken,
+      headers: const <String, String>{
+        'x-consumer-trace': 'router-hosted-client-auth-lifecycle-revoke-access',
+      },
+    );
+    revokedClient = McpStreamableHttpClient.withAuthGrant(
+      options.endpoint,
+      refreshed,
+      httpClient: _shortLivedHttpClient(),
+      defaultProtocolVersion: options.protocolVersion,
+      closeHttpClient: true,
+    );
+    await _expectMcpUnauthorized(
+      () async {
+        await revokedClient!.pingDirect(
+          id: 'auth-lifecycle-revoked-direct-ping',
+          headers: const <String, String>{
+            'x-consumer-trace': 'auth-lifecycle-revoked-direct-ping',
+          },
+        );
+      },
+      acceptedMessage: 'Auth lifecycle smoke accepted a revoked access token.',
+      rejectionLabel: 'Auth lifecycle revoked access token',
+    );
+    if (revokedClient.sessionId != null || revokedClient.lastEventId != null) {
+      throw StateError('Auth lifecycle revoked ping changed Streamable state.');
+    }
+
+    await authClient.revokeToken(
+      refreshedRefreshToken,
+      tokenTypeHint: 'refresh_token',
+      headers: const <String, String>{
+        'x-consumer-trace':
+            'router-hosted-client-auth-lifecycle-revoke-refresh',
+      },
+    );
+    await _expectAuthRefreshUnauthorized(authClient, refreshedRefreshToken);
+
+    stdout.writeln(
+      jsonEncode({
+        'authLifecycle': {
+          'issued': true,
+          'refreshed': true,
+          'refreshedDirectPing': true,
+          'refreshedStreamableSession': true,
+          'revokedAccessRejected': true,
+          'revokedRefreshRejected': true,
+        },
+      }),
+    );
+  } finally {
+    refreshedClient?.close(force: true);
+    revokedClient?.close(force: true);
+    authClient.close(force: true);
+  }
+}
+
+Future<void> _expectMcpUnauthorized(
+  Future<void> Function() request, {
+  required String acceptedMessage,
+  required String rejectionLabel,
+}) async {
+  try {
+    await request();
+    throw StateError(acceptedMessage);
+  } on McpStreamableHttpException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        '$rejectionLabel returned ${error.statusCode}, expected '
+        '${HttpStatus.unauthorized}.',
+      );
+    }
+  }
+}
+
+Future<void> _expectAuthRefreshUnauthorized(
+  ConnectanumHttpAuthClient authClient,
+  String refreshToken,
+) async {
+  try {
+    await authClient.refreshToken(
+      refreshToken,
+      headers: const <String, String>{
+        'x-consumer-trace': 'auth-lifecycle-refresh-revoked',
+      },
+    );
+    throw StateError('Auth lifecycle smoke accepted a revoked refresh token.');
+  } on ConnectanumHttpAuthException catch (error) {
+    if (error.statusCode != HttpStatus.unauthorized) {
+      throw StateError(
+        'Auth lifecycle revoked refresh token returned ${error.statusCode}, '
+        'expected ${HttpStatus.unauthorized}.',
+      );
+    }
   }
 }
 
@@ -1887,6 +2067,7 @@ final class _Options {
     required this.toolArguments,
     required this.promptArguments,
     required this.pubsubEvent,
+    required this.authLifecycleSmoke,
     required this.dryRun,
     this.bearerToken,
     this.authEndpoint,
@@ -1917,6 +2098,7 @@ final class _Options {
   final String? wampTopic;
   final String? pubsubTopic;
   final McpJsonMap pubsubEvent;
+  final bool authLifecycleSmoke;
   final bool dryRun;
 
   static _Options parse(List<String> args) {
@@ -1928,6 +2110,7 @@ final class _Options {
     final authRealm = _mcpSelectorOption(values, '--realm');
     final authId = _mcpSelectorOption(values, '--auth-id');
     final ticket = _nonEmptyStringOption(values, '--ticket');
+    final authLifecycleSmoke = values.containsKey('--auth-lifecycle-smoke');
 
     if (bearerToken != null && authEndpoint != null) {
       throw const FormatException(
@@ -1940,6 +2123,11 @@ final class _Options {
         authValues.any((value) => value == null)) {
       throw const FormatException(
         'Use --auth-url, --realm, --auth-id, and --ticket together.',
+      );
+    }
+    if (authLifecycleSmoke && authEndpoint == null) {
+      throw const FormatException(
+        'Use --auth-lifecycle-smoke together with --auth-url.',
       );
     }
 
@@ -1989,6 +2177,7 @@ final class _Options {
         '--pubsub-event',
         const <String, Object?>{'source': 'router-hosted-client-example'},
       ),
+      authLifecycleSmoke: authLifecycleSmoke,
       dryRun: values.containsKey('--dry-run'),
     );
   }
@@ -2121,7 +2310,7 @@ Map<String, String> _parseOptions(List<String> args) {
     '--pubsub-topic',
     '--pubsub-event',
   };
-  const flagOptions = {'--dry-run'};
+  const flagOptions = {'--dry-run', '--auth-lifecycle-smoke'};
 
   final values = <String, String>{};
   for (var index = 0; index < args.length; index += 1) {
@@ -2249,6 +2438,7 @@ Options:
   --realm REALM                     Realm for --auth-url ticket grants.
   --auth-id AUTHID                  Auth id for --auth-url ticket grants.
   --ticket TICKET                   Ticket secret for --auth-url grants.
+  --auth-lifecycle-smoke            Refresh/revoke ticket auth grant lifecycle (requires --auth-url).
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.
   --resource-uri URI                Read this resource and list templates through direct JSON and Streamable HTTP.

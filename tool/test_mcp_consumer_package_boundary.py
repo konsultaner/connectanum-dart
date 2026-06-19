@@ -497,6 +497,24 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         for public_helper in (
             "McpStreamableHttpClient.withBearerToken",
             "McpStreamableHttpClient.withAuthGrant",
+            "ConnectanumHttpAuthClient",
+            "ConnectanumHttpAuthException",
+            "McpStreamableHttpException",
+            "_runAuthLifecycleSmoke",
+            "issueTicketToken(",
+            "refreshToken(",
+            "revokeToken(",
+            "_expectMcpUnauthorized",
+            "_expectAuthRefreshUnauthorized",
+            "auth-lifecycle-refreshed-direct-ping",
+            "auth-lifecycle-refreshed-initialize",
+            "auth-lifecycle-refreshed-initialized",
+            "auth-lifecycle-revoked-direct-ping",
+            "authLifecycle",
+            "revokedAccessRejected",
+            "revokedRefreshRejected",
+            "Use --auth-lifecycle-smoke together with --auth-url.",
+            "--auth-lifecycle-smoke",
             "McpStreamableHttpClient.latestProtocolVersion",
             "_supportedMcpProtocolVersions",
             "_protocolVersionOption",
@@ -954,6 +972,25 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dry-run-ticket-secret", body)
         self.assertIn("leaked ticket secret material", body)
         self.assertIn('"authMode":"ticket"', body)
+        self.assertIn("--auth-lifecycle-smoke", body)
+        self.assertIn('"authLifecycleSmoke":true', body)
+        self.assertIn(
+            "did not report auth lifecycle smoke mode",
+            body,
+        )
+        self.assertIn("dangling_auth_lifecycle_output=\"$(", body)
+        self.assertIn(
+            "accepted auth lifecycle smoke without ticket auth",
+            body,
+        )
+        self.assertIn(
+            "Use --auth-lifecycle-smoke together with --auth-url.",
+            body,
+        )
+        self.assertIn(
+            "did not report the dangling auth lifecycle smoke error",
+            body,
+        )
         self.assertIn("ambiguous_auth_output=\"$(", body)
         self.assertIn(
             "accepted mutually exclusive auth options",
@@ -1216,6 +1253,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--realm example.realm", live_body)
         self.assertIn("--auth-id mcp-user", live_body)
         self.assertIn("--ticket mcp-demo-ticket", live_body)
+        self.assertIn("--auth-lifecycle-smoke", live_body)
         self.assertIn("--tool example.task.lookup", live_body)
         self.assertIn("--resource-uri app://example/context", live_body)
         self.assertIn("--prompt summarize-task", live_body)

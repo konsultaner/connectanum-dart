@@ -2,24 +2,58 @@
 
 Last updated: 2026-06-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: the public router-hosted MCP examples now
-prove notification-only tool calls have observable pub/sub side effects on the
-consumer-facing path. The bundled `example.task.lookup` procedure publishes the
-documented `example.events.task` event, and the public client example verifies
-standard direct JSON tool notifications, Connectanum direct helper
-notifications, direct dotted method notifications, standard Streamable tool
-notifications, and Streamable dotted method notifications by polling the public
-event topic. The previous checkpoints also prove the standard Streamable HTTP
-`notifications/initialized` lifecycle notification, lifecycle-free standard
-direct JSON `tools/list` and `tools/call` alongside the dotted Connectanum
-direct tool aliases, standard MCP `ping` health, raw single standard MCP
-resource and prompt methods, notification-style pub/sub side effects,
-acknowledged raw dotted `connectanum.pubsub.publish`, and WAMP metadata methods
-across direct JSON and Streamable paths, in addition to typed helpers and
-batches.
-Latest fully clean hosted checkpoint: Commit `3041a35` on GitHub `master` and
+Last reviewed branch checkpoint: the public router-hosted MCP client example
+now has an opt-in ticket-auth lifecycle smoke for consumer applications. When
+`--auth-lifecycle-smoke` is paired with `--auth-url`, the client issues a
+ticket grant, refreshes it, proves the refreshed grant works for direct JSON
+and initialized Streamable HTTP, deletes the session, revokes the access and
+refresh tokens, and verifies both revoked credentials are rejected. The previous
+checkpoints also prove notification-only tool calls have observable pub/sub side
+effects, the standard Streamable HTTP `notifications/initialized` lifecycle
+notification, lifecycle-free standard direct JSON `tools/list` and `tools/call`
+alongside the dotted Connectanum direct tool aliases, standard MCP `ping`
+health, raw single standard MCP resource and prompt methods,
+notification-style pub/sub side effects, acknowledged raw dotted
+`connectanum.pubsub.publish`, and WAMP metadata methods across direct JSON and
+Streamable paths, in addition to typed helpers and batches.
+Latest fully clean hosted checkpoint: Commit `05c8abe` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now accepts
+`--auth-lifecycle-smoke` as an explicit ticket-auth lifecycle check for
+consumer applications using router-hosted MCP. `_runAuthLifecycleSmoke` issues
+a ticket grant through `ConnectanumHttpAuthClient`, refreshes the grant, proves
+the refreshed access token works for direct JSON `ping` without Streamable
+state, proves it can initialize and notify an initialized Streamable session,
+deletes that session, revokes the refreshed access token, verifies direct JSON
+rejects the revoked token with HTTP 401 without creating session state, revokes
+the refreshed refresh token, and verifies refresh rejects the revoked token
+with HTTP 401. Dry-run output reports `authLifecycleSmoke: true` without
+printing ticket or token material. `bin/common.sh` covers the new parser guard,
+dry-run summary field, and live authenticated router-hosted MCP and
+JSON-response examples. `tool/test_mcp_consumer_package_boundary.py` guards
+the public option, helper calls, exception types, poll ids, output fields, and
+smoke invocations.
+
+Baseline `bin/test-fast` passed before this public router-hosted auth lifecycle
+smoke change on 2026-06-19. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`python3 tool/check_public_artifact_references.py`, focused `git diff --check`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with the authenticated
+examples exercising refresh/revoke auth lifecycle checks, the installed router
+CLI consumer smoke, full router tests, zero-copy router tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `packages/connectanum_router/example/router_hosted_mcp.dart` now makes the
 existing `publishes_events: ['example.events.task']` metadata true for
 `example.task.lookup`: each invocation records the task lookup and publishes a
@@ -58,6 +92,23 @@ authenticated, bearer, and JSON-response examples with observable direct JSON
 and Streamable tool-notification pub/sub side effects, the installed router CLI
 consumer smoke, full router tests, zero-copy router tests, and the
 Chrome/Dart2Wasm browser WebSocket smoke.
+
+Hosted evidence: Commit `05c8abe`
+(`test: assert mcp tool notification events`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27818087351`
+passed with `Fast Checks` and `Full Verify` clean. GitHub `add-router` CI
+`27818081178` passed with `Fast Checks` and `Full Verify` clean. GitHub
+`master` Dart Package Publish Dry Run `27818087369` and GitHub `add-router`
+Dart Package Publish Dry Run `27818081182` also passed. GitHub `master` WAMP
+Profile Benchmarks `27818087340` and GitHub `add-router` WAMP Profile
+Benchmarks `27818081306` also passed, although no benchmark-sensitive input was
+required for this MCP change. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-19 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence, and
+latest GitHub `master` Dart package dry-run evidence clean. No new Native
+Artifacts or Router Image run was required because no native artifact, image,
+or workflow inputs changed.
 
 Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now captures the

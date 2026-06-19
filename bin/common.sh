@@ -523,6 +523,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     --realm example.realm \
     --auth-id mcp-user \
     --ticket dry-run-ticket-secret \
+    --auth-lifecycle-smoke \
     --dry-run)"
   if [[ "$dry_run_summary" == *dry-run-ticket-secret* ]]; then
     printf 'Public router-hosted MCP client ticket dry-run leaked ticket secret material.\n'
@@ -530,6 +531,23 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$dry_run_summary" != *'"authMode":"ticket"'* ]]; then
     printf 'Public router-hosted MCP client ticket dry-run did not report ticket auth mode.\n'
+    return 1
+  fi
+  if [[ "$dry_run_summary" != *'"authLifecycleSmoke":true'* ]]; then
+    printf 'Public router-hosted MCP client ticket dry-run did not report auth lifecycle smoke mode.\n'
+    return 1
+  fi
+
+  local dangling_auth_lifecycle_output
+  if dangling_auth_lifecycle_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --auth-lifecycle-smoke \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted auth lifecycle smoke without ticket auth.\n'
+    return 1
+  fi
+  if [[ "$dangling_auth_lifecycle_output" != *'Use --auth-lifecycle-smoke together with --auth-url.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the dangling auth lifecycle smoke error.\n'
     return 1
   fi
 
@@ -996,6 +1014,7 @@ PY
     --realm example.realm \
     --auth-id mcp-user \
     --ticket mcp-demo-ticket \
+    --auth-lifecycle-smoke \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-authenticated-example-live"}' \
     --resource-uri app://example/context \
@@ -1033,6 +1052,7 @@ PY
     --realm example.realm \
     --auth-id mcp-user \
     --ticket mcp-demo-ticket \
+    --auth-lifecycle-smoke \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-authenticated-json-response-example-live"}' \
     --resource-uri app://example/context \
