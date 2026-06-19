@@ -79,6 +79,48 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-19: Tightened the public router-hosted MCP client example so raw
+  single-request standard MCP resource and prompt methods are proven on both
+  lifecycle-free direct JSON and initialized Streamable HTTP paths.
+  `packages/connectanum_mcp/example/router_hosted_client.dart` now uses
+  `postDirect` inside `_runDirectJsonExample` for `resources/list`,
+  `resources/templates/list`, `resources/read`, `prompts/list`, and
+  `prompts/get`, validates the configured resource URI and prompt name in the
+  raw catalogs, and emits `directResourceMethodResources`,
+  `directResourceMethodTemplates`, `directResourceMethodContent`,
+  `directPromptMethodCatalog`, and `directPromptMethod`. The Streamable
+  session path mirrors the same standard methods with `post` and emits
+  `resourceMethods` and `promptMethods`. The new `_responseResult` helper
+  rejects missing responses, mismatched ids, JSON-RPC errors, and non-object
+  results before the example can report success.
+  `tool/test_mcp_consumer_package_boundary.py` guards the new raw method ids,
+  labels, helper, and output fields so future edits cannot silently remove
+  single-request direct JSON or Streamable resource/prompt coverage from the
+  public example. Baseline `bin/test-fast` passed before the change on
+  2026-06-19. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples with raw
+  single direct JSON and Streamable resource/prompt method checks, direct JSON
+  and Streamable pub/sub notification side-effect checks, raw direct JSON
+  pub/sub method publish checks, raw Streamable pub/sub method publish checks,
+  raw Streamable tool/API method checks, raw direct tool method checks, raw
+  direct WAMP method metadata checks, direct JSON lifecycle, session
+  initialization, session deletion, pub/sub metadata, standard MCP catalog, and
+  WAMP catalog self-checks, the installed router CLI consumer smoke, full
+  router tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
+  smoke. Latest fully clean hosted checkpoint remains `939e1ef` until this
+  local checkpoint is pushed and hosted CI plus package dry-run evidence
+  completes.
 - 2026-06-19: Tightened the public router-hosted MCP client example so
   notification-style pub/sub sends prove side effects, not only acknowledged
   publish calls. `packages/connectanum_mcp/example/router_hosted_client.dart`
@@ -115,8 +157,18 @@ decision because `connectanum_client` still depends on private
   initialization, session deletion, pub/sub metadata, standard MCP catalog, and
   WAMP catalog self-checks, the installed router CLI consumer smoke, full
   router tests, zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket
-  smoke. The latest fully clean hosted checkpoint remains `a176d89` until this
-  local checkpoint is pushed and hosted CI/package dry-run evidence completes.
+  smoke. Commit `939e1ef` (`test: assert mcp pubsub notifications`) was pushed
+  to GitLab `origin`, GitHub `add-router`, and GitHub `master`. GitHub
+  `master` CI `27803209989` and GitHub `add-router` CI `27803210005` passed
+  with `Fast Checks` and `Full Verify` clean. GitHub `master` Dart Package
+  Publish Dry Run `27803209985` and GitHub `add-router` Dart Package Publish
+  Dry Run `27803210002` also passed. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-19 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-19: Tightened the public router-hosted MCP client example so raw
   dotted direct JSON method calls also prove pub/sub publish readiness, not only
   typed direct pub/sub helpers and the stateful Streamable method path.

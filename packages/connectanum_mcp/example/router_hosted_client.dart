@@ -235,6 +235,42 @@ Future<void> _runDirectJsonExample(
       resourceUri,
       id: 'direct-resource-read',
     );
+    final methodResources = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'direct-resource-list-method',
+        'method': 'resources/list',
+        'params': {},
+      }),
+      'direct-resource-list-method',
+      label: 'Direct JSON resource method list',
+    );
+    _expectCatalogContainsValue(
+      catalog: methodResources['resources'],
+      field: 'uri',
+      value: resourceUri,
+      label: 'Direct JSON resource method list',
+    );
+    final methodResourceTemplates = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'direct-resource-templates-method',
+        'method': 'resources/templates/list',
+        'params': {},
+      }),
+      'direct-resource-templates-method',
+      label: 'Direct JSON resource template method list',
+    );
+    final methodContent = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'direct-resource-read-method',
+        'method': 'resources/read',
+        'params': {'uri': resourceUri},
+      }),
+      'direct-resource-read-method',
+      label: 'Direct JSON resource method read',
+    );
     stdout.writeln(
       jsonEncode({
         'directResources': [
@@ -247,6 +283,10 @@ Future<void> _runDirectJsonExample(
         if (resourceTemplates.nextCursor != null)
           'directResourceTemplateNextCursor': resourceTemplates.nextCursor,
         'directResourceContent': content,
+        'directResourceMethodResources': methodResources['resources'],
+        'directResourceMethodTemplates':
+            methodResourceTemplates['resourceTemplates'],
+        'directResourceMethodContent': methodContent,
       }),
     );
   }
@@ -265,10 +305,38 @@ Future<void> _runDirectJsonExample(
       id: 'direct-prompt-get',
       arguments: options.promptArguments,
     );
+    final methodPrompts = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'direct-prompts-method',
+        'method': 'prompts/list',
+        'params': {},
+      }),
+      'direct-prompts-method',
+      label: 'Direct JSON prompt method list',
+    );
+    _expectCatalogContainsValue(
+      catalog: methodPrompts['prompts'],
+      field: 'name',
+      value: promptName,
+      label: 'Direct JSON prompt method list',
+    );
+    final methodPrompt = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'direct-prompt-get-method',
+        'method': 'prompts/get',
+        'params': {'name': promptName, 'arguments': options.promptArguments},
+      }),
+      'direct-prompt-get-method',
+      label: 'Direct JSON prompt method get',
+    );
     stdout.writeln(
       jsonEncode({
         'directPrompts': [for (final prompt in prompts.prompts) prompt['name']],
         'directPrompt': prompt,
+        'directPromptMethodCatalog': methodPrompts['prompts'],
+        'directPromptMethod': methodPrompt,
       }),
     );
   }
@@ -521,6 +589,29 @@ McpJsonMap _batchResult(
     throw StateError('$label batch response $id had a non-object result.');
   }
   throw StateError('$label batch missed response $id.');
+}
+
+McpJsonMap _responseResult(
+  McpJsonMap? response,
+  String id, {
+  required String label,
+}) {
+  if (response == null) {
+    throw StateError('$label returned no response.');
+  }
+  if (response['id'] != id) {
+    throw StateError(
+      '$label returned response id ${response['id']} instead of $id.',
+    );
+  }
+  final result = response['result'];
+  if (result is Map) {
+    return result.cast<String, Object?>();
+  }
+  if (response.containsKey('error')) {
+    throw StateError('$label returned error ${jsonEncode(response['error'])}.');
+  }
+  throw StateError('$label response had a non-object result.');
 }
 
 Future<void> _runDirectWampMetadataExample(
@@ -1116,6 +1207,47 @@ Future<void> _runStreamableSessionExample(
       resourceUri,
       id: 'streamable-resource-read',
     );
+    final methodResources = _responseResult(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': 'streamable-resource-list-method',
+        'method': 'resources/list',
+        'params': {},
+      }),
+      'streamable-resource-list-method',
+      label: 'Streamable resource method list',
+    );
+    _expectCatalogContainsValue(
+      catalog: methodResources['resources'],
+      field: 'uri',
+      value: resourceUri,
+      label: 'Streamable resource method list',
+    );
+    final methodResourceTemplates = _responseResult(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': 'streamable-resource-templates-method',
+        'method': 'resources/templates/list',
+        'params': {},
+      }),
+      'streamable-resource-templates-method',
+      label: 'Streamable resource template method list',
+    );
+    final methodContent = _responseResult(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': 'streamable-resource-read-method',
+        'method': 'resources/read',
+        'params': {'uri': resourceUri},
+      }),
+      'streamable-resource-read-method',
+      label: 'Streamable resource method read',
+    );
+    streamable['resourceMethods'] = <String, Object?>{
+      'resources': methodResources['resources'],
+      'resourceTemplates': methodResourceTemplates['resourceTemplates'],
+      'content': methodContent,
+    };
   }
 
   final promptName = options.promptName;
@@ -1148,6 +1280,36 @@ Future<void> _runStreamableSessionExample(
       id: 'streamable-prompt-get',
       arguments: options.promptArguments,
     );
+    final methodPrompts = _responseResult(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': 'streamable-prompts-method',
+        'method': 'prompts/list',
+        'params': {},
+      }),
+      'streamable-prompts-method',
+      label: 'Streamable prompt method list',
+    );
+    _expectCatalogContainsValue(
+      catalog: methodPrompts['prompts'],
+      field: 'name',
+      value: promptName,
+      label: 'Streamable prompt method list',
+    );
+    final methodPrompt = _responseResult(
+      await client.post({
+        'jsonrpc': '2.0',
+        'id': 'streamable-prompt-get-method',
+        'method': 'prompts/get',
+        'params': {'name': promptName, 'arguments': options.promptArguments},
+      }),
+      'streamable-prompt-get-method',
+      label: 'Streamable prompt method get',
+    );
+    streamable['promptMethods'] = <String, Object?>{
+      'prompts': methodPrompts['prompts'],
+      'prompt': methodPrompt,
+    };
   }
 
   final wampProcedure = options.wampProcedure;
