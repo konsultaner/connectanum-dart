@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-19: Tightened the public router-hosted MCP client example so the
+  standard Streamable HTTP lifecycle notification is proven immediately after
+  `initialize`. `_runStreamableSessionExample` now captures the session id
+  after `initialize`, calls `notifyInitialized(...)` with an explicit consumer
+  trace header, fails if `notifications/initialized` changes the active
+  session id, and emits `initializedNotification: {accepted: true}` in the
+  public Streamable JSON output. `tool/test_mcp_consumer_package_boundary.py`
+  guards the helper call, trace header, session-invariance failure message, and
+  output field so future edits cannot silently remove the lifecycle
+  notification from the public router-hosted consumer example. The running
+  `bin/test-fast` completed cleanly after the change on 2026-06-19, including
+  the public router-hosted MCP live example, pub/sub-only example,
+  authenticated example, bearer example, JSON-response examples, consumer
+  package smoke, installed router CLI consumer smoke, MCP package tests, client
+  MCP tests, bench smoke package, and focused router worker tests. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `git diff --check`, focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+  and focused
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+  passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  generated consumer-package smokes, the router-hosted MCP live public,
+  pub/sub-only, authenticated, bearer, and JSON-response examples with the
+  Streamable `notifications/initialized` session-invariance check, the
+  installed router CLI consumer smoke, full router tests, zero-copy router
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-06-19: Tightened the public router-hosted MCP client example so
   lifecycle-free standard direct JSON `tools/list` and `tools/call` are proven
   next to the dotted Connectanum direct tool aliases. `_runDirectJsonExample`
@@ -116,7 +146,21 @@ decision because `connectanum_client` still depends on private
   metadata checks, direct JSON lifecycle, session initialization, session
   deletion, pub/sub metadata, standard MCP catalog, and WAMP catalog
   self-checks, the installed router CLI consumer smoke, full router tests,
-  zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke.
+  zero-copy router tests, and Chrome/Dart2Wasm browser WebSocket smoke. Commit
+  `e9f02cd` (`test: assert standard direct mcp tools`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27811042769` passed with `Fast Checks` and `Full Verify` clean after
+  rerunning transient crates.io bootstrap fetch failures. GitHub `add-router`
+  CI `27811037329` passed with `Fast Checks` and `Full Verify` clean. GitHub
+  `master` Dart Package Publish Dry Run `27811042821` and GitHub `add-router`
+  Dart Package Publish Dry Run `27811037327` also passed. The strict
+  deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --strict` exited
+  successfully on 2026-06-19 with branch protection, workflow visibility,
+  router image package visibility, latest GitHub `master` CI evidence, and
+  latest GitHub `master` Dart package dry-run evidence clean. No new Native
+  Artifacts, Router Image, or WAMP Profile Benchmarks run was required because
+  no native artifact, image, workflow, or benchmark-sensitive inputs changed.
 - 2026-06-19: Tightened the public router-hosted MCP client example so
   standard MCP `ping` health is proven on both lifecycle-free direct JSON and
   initialized Streamable HTTP paths. `_runDirectJsonExample` now calls

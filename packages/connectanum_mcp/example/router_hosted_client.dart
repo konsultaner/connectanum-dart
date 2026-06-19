@@ -1137,11 +1137,17 @@ Future<void> _runStreamableSessionExample(
       'version': '0.1.0',
     },
   );
-  await client.notifyInitialized();
-
   final streamableSessionId = client.sessionId;
   if (streamableSessionId == null) {
     throw StateError('Streamable initialize did not establish a session id.');
+  }
+  await client.notifyInitialized(
+    headers: const <String, String>{
+      'x-consumer-trace': 'router-hosted-client-streamable-initialized',
+    },
+  );
+  if (client.sessionId != streamableSessionId) {
+    throw StateError('Streamable initialized notification changed session id.');
   }
 
   final ping = await client.ping(id: 'streamable-ping');
@@ -1154,6 +1160,7 @@ Future<void> _runStreamableSessionExample(
     'protocolVersion': client.protocolVersion,
     'sessionId': streamableSessionId,
     'initialize': initialize['result'],
+    'initializedNotification': {'accepted': true},
     'ping': ping,
     'tools': [for (final tool in tools.tools) tool['name']],
   };

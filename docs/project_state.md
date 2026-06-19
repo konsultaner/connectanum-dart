@@ -3,16 +3,52 @@
 Last updated: 2026-06-19
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now proves lifecycle-free standard direct JSON `tools/list` and `tools/call`
-alongside the dotted Connectanum direct tool aliases, plus standard MCP `ping`
-health on both lifecycle-free direct JSON and initialized Streamable HTTP paths.
-The previous checkpoints also prove raw single standard MCP resource and prompt
-methods, notification-style pub/sub side effects, acknowledged raw dotted
-`connectanum.pubsub.publish`, and WAMP metadata methods across direct JSON and
-Streamable paths, in addition to typed helpers and batches.
-Latest fully clean hosted checkpoint before this local change: Commit `a09e829`
-on GitHub `master` and GitHub `add-router`.
+now proves the standard Streamable HTTP `notifications/initialized` lifecycle
+notification immediately after `initialize`, including session-id invariance
+and an explicit public output marker. The previous checkpoints also prove
+lifecycle-free standard direct JSON `tools/list` and `tools/call` alongside
+the dotted Connectanum direct tool aliases, standard MCP `ping` health on both
+lifecycle-free direct JSON and initialized Streamable HTTP paths, raw single
+standard MCP resource and prompt methods, notification-style pub/sub side
+effects, acknowledged raw dotted `connectanum.pubsub.publish`, and WAMP
+metadata methods across direct JSON and Streamable paths, in addition to typed
+helpers and batches.
+Latest fully clean hosted checkpoint: Commit `e9f02cd` on GitHub `master` and
+GitHub `add-router`.
 Current implementation checkpoint:
+`packages/connectanum_mcp/example/router_hosted_client.dart` now captures the
+Streamable session id immediately after `initialize`, sends the standard
+`notifications/initialized` notification with an explicit consumer trace
+header, fails if that notification changes the active session id, and emits
+`initializedNotification: {accepted: true}` in the public Streamable JSON
+output. `tool/test_mcp_consumer_package_boundary.py` guards the public
+`notifyInitialized` call, trace header, failure message, and output field so
+future edits cannot silently drop the Streamable lifecycle notification from
+the router-hosted consumer example.
+
+The running `bin/test-fast` completed cleanly after this public router-hosted
+Streamable lifecycle hardening change on 2026-06-19, including the public
+router-hosted MCP live example, pub/sub-only example, authenticated example,
+bearer example, JSON-response examples, consumer package smoke, installed
+router CLI consumer smoke, MCP package tests, client MCP tests, bench smoke
+package, and focused router worker tests. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+`python3 tool/check_public_artifact_references.py`, focused `git diff --check`,
+focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
+and focused
+`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_live_smoke'`
+passed on 2026-06-19. Full local `bin/verify` passed on 2026-06-19, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples with the Streamable
+`notifications/initialized` session-invariance check, the installed router CLI
+consumer smoke, full router tests, zero-copy router tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/example/router_hosted_client.dart` now exercises the
 standard direct JSON tool surface before and during an initialized Streamable
 session. `_runDirectJsonExample` calls `listToolsDirect(id:
@@ -53,13 +89,14 @@ MCP catalog, and WAMP catalog self-checks, the installed router CLI consumer
 smoke, full router tests, zero-copy router tests, and Chrome/Dart2Wasm browser
 WebSocket smoke.
 
-Previous hosted evidence: Commit `a09e829` (`test: assert mcp ping health
-paths`) was pushed to GitLab `origin`, GitHub `add-router`, and GitHub
-`master`. GitHub `master` CI `27808361414` and GitHub `add-router` CI
-`27808360525` passed with `Fast Checks` and `Full Verify` clean. GitHub
-`master` Dart Package Publish Dry Run `27808361365` and GitHub `add-router`
-Dart Package Publish Dry Run `27808360538` also passed. The strict
-deployment-chain audit
+Hosted evidence: Commit `e9f02cd` (`test: assert standard direct mcp tools`)
+was pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`.
+GitHub `master` CI `27811042769` passed with `Fast Checks` and `Full Verify`
+clean after rerunning transient crates.io bootstrap fetch failures. GitHub
+`add-router` CI `27811037329` passed with `Fast Checks` and `Full Verify`
+clean. GitHub `master` Dart Package Publish Dry Run `27811042821` and GitHub
+`add-router` Dart Package Publish Dry Run `27811037327` also passed. The
+strict deployment-chain audit
 `bin/audit-github-deployment-chain --branch master --strict` exited
 successfully on 2026-06-19 with branch protection, workflow visibility, router
 image package visibility, latest GitHub `master` CI evidence, and latest
