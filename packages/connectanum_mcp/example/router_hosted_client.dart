@@ -1290,6 +1290,50 @@ Future<void> _runStreamableSessionExample(
         expectedEvent: options.pubsubEvent,
         label: 'Streamable pub/sub',
       );
+      final methodPubsubEvent = <String, Object?>{
+        'methodEvent': options.pubsubEvent,
+      };
+      final methodPublication = _structuredContentFromToolResult(
+        await client.callConnectanumMethod(
+          'connectanum.pubsub.publish',
+          id: 'streamable-pubsub-publish-method',
+          params: <String, Object?>{
+            'topic': pubsubTopic,
+            'argumentsKeywords': methodPubsubEvent,
+            'acknowledge': true,
+          },
+        ),
+        label: 'Streamable pub/sub method publish',
+      );
+      if (methodPublication['topic'] != pubsubTopic) {
+        throw StateError(
+          'Streamable pub/sub method publish returned topic '
+          '${methodPublication['topic']}, expected $pubsubTopic.',
+        );
+      }
+      if (methodPublication['acknowledged'] != true) {
+        throw StateError(
+          'Streamable pub/sub method publish did not acknowledge publication.',
+        );
+      }
+      if (methodPublication['publicationId'] == null) {
+        throw StateError(
+          'Streamable pub/sub method publish acknowledged without '
+          'a publication id.',
+        );
+      }
+      final methodEvents = await client.pollWampEvents(
+        subscription.handle,
+        id: 'streamable-pubsub-method-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        methodEvents,
+        handle: subscription.handle,
+        topic: pubsubTopic,
+        expectedEvent: methodPubsubEvent,
+        label: 'Streamable pub/sub method poll',
+      );
       streamable['pubsub'] = <String, Object?>{
         'topic': pubsubTopic,
         'subscription': <String, Object?>{
@@ -1307,6 +1351,8 @@ Future<void> _runStreamableSessionExample(
             'publicationId': publication.publicationId,
         },
         'events': events.events,
+        'methodPublication': methodPublication,
+        'methodEvents': methodEvents.events,
         'dropped': events.dropped,
         'remaining': events.remaining,
       };
