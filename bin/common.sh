@@ -23308,6 +23308,11 @@ router:
                   - topic: cli.smoke.secure.events
                     title: CLI Secure Smoke Events
                     description: Protected events exposed by the router CLI MCP smoke.
+                  - topic: cli.smoke.secure.metadata
+                    title: CLI Secure Metadata Events
+                    description: Protected configured-only events exposed by the router CLI MCP smoke.
+                    allow_publish: false
+                    allow_subscribe: true
           - match:
               path: /mcp/secure-json-post
             action:
@@ -23348,6 +23353,11 @@ router:
                   - topic: cli.smoke.secure.events
                     title: CLI Secure Smoke Events
                     description: Protected events exposed by the router CLI MCP smoke.
+                  - topic: cli.smoke.secure.metadata
+                    title: CLI Secure Metadata Events
+                    description: Protected configured-only events exposed by the router CLI MCP smoke.
+                    allow_publish: false
+                    allow_subscribe: true
 
   internal_realms:
     - name: connectanum.metrics
@@ -24356,6 +24366,7 @@ import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 
 const _protocolVersion = McpStreamableHttpClient.latestProtocolVersion;
 const _secureTopic = 'cli.smoke.secure.events';
+const _configuredOnlySecureTopic = 'cli.smoke.secure.metadata';
 const _secureProcedure = 'cli.smoke.secure.lookup';
 
 Future<void> main() async {
@@ -25363,6 +25374,15 @@ Future<void> main() async {
         directJson: true,
         expectSseCursor: false,
       );
+      await _expectConfiguredWampSubscriptionMeta(
+        tokenOnlyJsonClient,
+        idPrefix: 'dart-consumer-secure-json-token-only-direct',
+        label:
+            'Dart consumer token-only JSON-response direct configured WAMP subscription meta',
+        topic: _configuredOnlySecureTopic,
+        directJson: true,
+        expectSseCursor: false,
+      );
       final tokenOnlyDirectSubscription =
           await tokenOnlyJsonClient.subscribeWampTopicDirect(
         _secureTopic,
@@ -25647,6 +25667,15 @@ Future<void> main() async {
             tokenOnlyJsonClient.lastEventId == null,
         'Dart consumer token-only JSON-response Streamable batch captured SSE state.',
       );
+      await _expectConfiguredWampSubscriptionMeta(
+        tokenOnlyJsonClient,
+        idPrefix: 'dart-consumer-secure-json-token-only-streamable',
+        label:
+            'Dart consumer token-only JSON-response Streamable configured WAMP subscription meta',
+        topic: _configuredOnlySecureTopic,
+        directJson: false,
+        expectSseCursor: false,
+      );
       final tokenOnlyStreamableSubscription =
           await tokenOnlyJsonClient.subscribeWampTopic(
         _secureTopic,
@@ -25907,6 +25936,15 @@ Future<void> main() async {
         label: 'Dart consumer token-only secure direct WAMP session meta',
         expectedAuthId: 'cli-user',
         expectedAuthRole: 'member',
+        directJson: true,
+        expectSseCursor: false,
+      );
+      await _expectConfiguredWampSubscriptionMeta(
+        tokenOnlySecureClient,
+        idPrefix: 'dart-consumer-secure-token-only-direct',
+        label:
+            'Dart consumer token-only secure direct configured WAMP subscription meta',
+        topic: _configuredOnlySecureTopic,
         directJson: true,
         expectSseCursor: false,
       );
@@ -26190,6 +26228,15 @@ Future<void> main() async {
         label:
             'Dart consumer token-only secure Streamable WAMP registration meta',
         procedure: _secureProcedure,
+        directJson: false,
+        expectSseCursor: true,
+      );
+      await _expectConfiguredWampSubscriptionMeta(
+        tokenOnlySecureClient,
+        idPrefix: 'dart-consumer-secure-token-only-streamable',
+        label:
+            'Dart consumer token-only secure Streamable configured WAMP subscription meta',
+        topic: _configuredOnlySecureTopic,
         directJson: false,
         expectSseCursor: true,
       );
@@ -26791,6 +26838,7 @@ Future<void> main() async {
             'registrationMeta': true,
             'sessionMeta': true,
             'subscriptionMeta': true,
+            'configuredSubscriptionMeta': true,
             'pubsub': true,
             'batch': true,
           },
@@ -26803,6 +26851,7 @@ Future<void> main() async {
           'registrationMeta': true,
           'sessionMeta': true,
           'subscriptionMeta': true,
+          'configuredSubscriptionMeta': true,
           'pubsub': true,
           'batch': true,
         },
@@ -27124,6 +27173,123 @@ Future<void> _expectWampSubscriptionMeta(
   );
 }
 
+Future<int> _expectConfiguredWampSubscriptionMeta(
+  McpStreamableHttpClient client, {
+  required String idPrefix,
+  required String label,
+  required String topic,
+  required bool directJson,
+  required bool expectSseCursor,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final lookup = await client.lookupWampSubscription(
+    topic,
+    id: '$idPrefix-wamp-configured-subscription-lookup',
+    directJson: directJson,
+  );
+  _expect(
+    lookup.procedure == 'wamp.subscription.lookup',
+    '$label returned ${lookup.procedure} for subscription lookup.',
+  );
+  final lookupIds = _integerMetaIds(
+    lookup.arguments,
+    '$label subscription lookup',
+  );
+  _expect(lookupIds.isNotEmpty, '$label returned an empty lookup result.');
+  final subscriptionId = lookupIds.first;
+
+  final match = await client.matchWampSubscription(
+    topic,
+    id: '$idPrefix-wamp-configured-subscription-match',
+    directJson: directJson,
+  );
+  _expect(
+    match.procedure == 'wamp.subscription.match',
+    '$label returned ${match.procedure} for subscription match.',
+  );
+  _expect(
+    _integerMetaIds(match.arguments, '$label subscription match').contains(
+      subscriptionId,
+    ),
+    '$label subscription match did not include lookup id.',
+  );
+
+  final subscriptions = await client.listWampSubscriptions(
+    id: '$idPrefix-wamp-configured-subscription-list',
+    directJson: directJson,
+  );
+  _expect(
+    subscriptions.procedure == 'wamp.subscription.list',
+    '$label returned ${subscriptions.procedure} for subscription list.',
+  );
+  final exactSubscriptionIds = _integerMetaIds(
+    subscriptions.argumentsKeywords['exact'],
+    '$label subscription list exact',
+  );
+  _expect(
+    exactSubscriptionIds.contains(subscriptionId),
+    '$label subscription list missed $topic.',
+  );
+
+  final details = await client.getWampSubscription(
+    subscriptionId,
+    id: '$idPrefix-wamp-configured-subscription-get',
+    directJson: directJson,
+  );
+  _expect(
+    details.procedure == 'wamp.subscription.get',
+    '$label returned ${details.procedure} for subscription get.',
+  );
+  _expect(
+    jsonEncode(details.argumentsKeywords).contains(topic),
+    '$label subscription details missed $topic.',
+  );
+
+  final subscribers = await client.listWampSubscriptionSubscribers(
+    subscriptionId,
+    id: '$idPrefix-wamp-configured-subscription-subscribers',
+    directJson: directJson,
+  );
+  _expect(
+    subscribers.procedure == 'wamp.subscription.list_subscribers',
+    '$label returned ${subscribers.procedure} for subscription subscribers.',
+  );
+  final subscriberIds = _integerMetaIds(
+    subscribers.arguments,
+    '$label subscription subscribers',
+  );
+  _expect(
+    subscriberIds.isEmpty,
+    '$label leaked configured subscription subscribers: '
+    '${jsonEncode(subscriberIds)}.',
+  );
+
+  final subscriberCount = await client.countWampSubscriptionSubscribers(
+    subscriptionId,
+    id: '$idPrefix-wamp-configured-subscription-subscriber-count',
+    directJson: directJson,
+  );
+  _expect(
+    subscriberCount.procedure == 'wamp.subscription.count_subscribers',
+    '$label returned ${subscriberCount.procedure} for subscriber count.',
+  );
+  _expect(
+    _metaCount(subscriberCount, '$label subscription subscriber count') == 0,
+    '$label configured subscription subscriber count was not zero.',
+  );
+
+  _expectWampMetaState(
+    client,
+    previousSessionId: previousSessionId,
+    previousEventId: previousEventId,
+    label: label,
+    directJson: directJson,
+    expectSseCursor: expectSseCursor,
+  );
+  return subscriptionId;
+}
+
 Future<McpStreamableWampEventBatch> _pollUntilEvent(
   McpStreamableHttpClient client,
   String handle, {
@@ -27355,9 +27521,9 @@ DART
     '"routerCliConsumerSummary"' \
     '"public":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
     '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
-    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"pubsub":true,"batch":true}}' \
-    '"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"pubsub":true,"batch":true}'
+    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true}}' \
+    '"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/session/subscription meta/pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/session/subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/session/subscription/configured subscription meta/pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/session/subscription/configured subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

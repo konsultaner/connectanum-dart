@@ -23,6 +23,7 @@ const String _mcpCorsDefaultAllowHeaders =
     'Accept, Authorization, Content-Type, Last-Event-ID, MCP-Method, '
     'MCP-Name, MCP-Protocol-Version, MCP-Session-Id';
 const int _mcpSseEventHistoryLimit = 128;
+const int _mcpConfiguredSubscriptionIdBase = 0x1FFE0000000000;
 const int _mcpConfiguredRegistrationIdBase = 0x1FFF0000000000;
 const Set<String> _mcpSupportedHttpProtocolVersions =
     mcp.mcpSupportedProtocolVersions;
@@ -2606,6 +2607,51 @@ class _RouterMcpEndpoint {
     return visible;
   }
 
+  Future<List<SubscriptionSnapshot>> _visibleConfiguredMetaSubscriptions(
+    Iterable<SubscriptionSnapshot> visibleSubscriptions,
+  ) async {
+    final topics = _configuredTopics(route.action.options);
+    if (topics.isEmpty) {
+      return const <SubscriptionSnapshot>[];
+    }
+
+    final visibleExactTopics = <String>{
+      for (final subscription in visibleSubscriptions)
+        if (subscription.matchPolicy == TopicMatchPolicy.exact)
+          subscription.topic,
+    };
+
+    final visible = <SubscriptionSnapshot>[];
+    for (var index = 0; index < topics.length; index += 1) {
+      final topic = topics[index];
+      if (visibleExactTopics.contains(topic.topic)) {
+        continue;
+      }
+      final canPublish =
+          topic.allowPublish &&
+          await _isAuthorized(AuthorizationAction.publish, topic.topic);
+      final canSubscribe =
+          topic.allowSubscribe &&
+          await _isAuthorized(AuthorizationAction.subscribe, topic.topic);
+      if (!canPublish && !canSubscribe) {
+        continue;
+      }
+      visible.add(
+        SubscriptionSnapshot(
+          id: _mcpConfiguredSubscriptionIdBase + index,
+          topic: topic.topic,
+          matchPolicy: TopicMatchPolicy.exact,
+          subscribers: const <SubscriberRecord>[],
+          options: <String, Object?>{
+            if (!topic.metadata.isEmpty)
+              '_ai_meta_data': topic.metadata.toJson(),
+          },
+        ),
+      );
+    }
+    return visible;
+  }
+
   Future<RealmSnapshot> _snapshot() {
     final boss = binding._boss;
     if (boss == null) {
@@ -2631,6 +2677,9 @@ class _RouterMcpEndpoint {
     );
     final visibleSubscriptions = await _visibleMetaSubscriptions(
       snapshot.subscriptions,
+    );
+    visibleSubscriptions.addAll(
+      await _visibleConfiguredMetaSubscriptions(visibleSubscriptions),
     );
     switch (call.procedure) {
       case 'wamp.session.count':

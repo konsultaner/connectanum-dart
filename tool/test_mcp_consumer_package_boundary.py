@@ -472,14 +472,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"authRejectionIsolation":true},"tokenOnly":{"directJson":true,'
             '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"sessionMeta":true,'
-            '"subscriptionMeta":true,"pubsub":true,"batch":true}}',
+            '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
+            '"pubsub":true,"batch":true}}',
             body,
         )
         self.assertIn(
             '"tokenOnly":{"directJson":true,"streamable":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"sessionMeta":true,'
-            '"subscriptionMeta":true,'
+            '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
             '"pubsub":true,"batch":true}',
             body,
         )
@@ -489,6 +490,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "procedure and topic describe/pub-sub",
             body,
         )
+        self.assertIn("configured subscription meta", body)
+        self.assertIn("_expectConfiguredWampSubscriptionMeta", body)
         self.assertIn(
             "active protected JSON-response auth rejection, direct JSON "
             "procedure catalog/describe/topic/resource/prompt isolation, "
@@ -498,15 +501,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "token-only protected JSON-response "
             "tool calls/resources/resource templates/prompts/WAMP "
-            "procedure catalog/describe/registration/session/subscription "
-            "meta/pubsub/batches plus Streamable procedure "
+            "procedure catalog/describe/registration/session/subscription/"
+            "configured subscription meta/pubsub/batches plus Streamable procedure "
             "catalog/describe/topic describe",
             body,
         )
         self.assertIn(
             "token-only protected tool calls/resources/resource "
-            "templates/prompts/WAMP registration/session/subscription "
-            "meta/batches",
+            "templates/prompts/WAMP registration/session/subscription/"
+            "configured subscription meta/batches",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)

@@ -4043,6 +4043,101 @@ void main() {
         equals([1]),
       );
 
+      final configuredReadOnlySubscriptionLookup = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.lookup',
+        {'topic': 'app.events.readonly'},
+      );
+      final configuredReadOnlySubscriptionIds =
+          (configuredReadOnlySubscriptionLookup['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(configuredReadOnlySubscriptionIds, hasLength(1));
+      final configuredReadOnlySubscriptionId =
+          (configuredReadOnlySubscriptionIds.single as num).toInt();
+      expect(configuredReadOnlySubscriptionId, greaterThan(0));
+      final lateLiveSubscription = await serviceSession.subscribe(
+        'app.events.late',
+      );
+      expect(
+        lateLiveSubscription.subscriptionId,
+        isNot(equals(configuredReadOnlySubscriptionId)),
+      );
+
+      final configuredReadOnlySubscriptionMatch = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.match',
+        {'topic': 'app.events.readonly'},
+      );
+      expect(
+        (configuredReadOnlySubscriptionMatch['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        contains(configuredReadOnlySubscriptionId),
+      );
+
+      final configuredReadOnlySubscriptionList = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.list',
+        const {},
+      );
+      final configuredReadOnlySubscriptionExactIds =
+          ((configuredReadOnlySubscriptionList['structuredContent']
+                      as Map<String, Object?>)['argumentsKeywords']
+                  as Map<String, Object?>)['exact']
+              as List;
+      expect(
+        configuredReadOnlySubscriptionExactIds,
+        contains(configuredReadOnlySubscriptionId),
+      );
+
+      final configuredReadOnlySubscriptionGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.get',
+        {'id': configuredReadOnlySubscriptionId},
+      );
+      final configuredReadOnlySubscriptionDetails =
+          (configuredReadOnlySubscriptionGet['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(
+        configuredReadOnlySubscriptionDetails,
+        containsPair('uri', 'app.events.readonly'),
+      );
+
+      final configuredReadOnlySubscribers = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.list_subscribers',
+        {'id': configuredReadOnlySubscriptionId},
+      );
+      expect(
+        (configuredReadOnlySubscribers['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        isEmpty,
+      );
+
+      final configuredReadOnlySubscriberCount = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.subscription.count_subscribers',
+        {'id': configuredReadOnlySubscriptionId},
+      );
+      expect(
+        (configuredReadOnlySubscriberCount['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        equals([0]),
+      );
+
       final directPubSubPublish = await directPublicMcpClient.publishWampEvent(
         'app.events.audit',
         id: 'direct-pubsub-publish',
