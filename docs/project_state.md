@@ -2,58 +2,69 @@
 
 Last updated: 2026-06-19
 Current branch: `add-router`
-Last reviewed branch checkpoint: the installed router CLI Dart MCP consumer
-smoke now prints a granular machine-readable `routerCliConsumerSummary` JSON
-object after the package-boundary consumer proves public, secure,
-JSON-response active/token-only, and token-only MCP paths through an installed
-router command. The asserted summary now enumerates resource/prompt helpers,
-WAMP metadata, pub/sub, batch, and session/subscription metadata evidence
-instead of only coarse route booleans. Previous checkpoints prove the public
-router-hosted MCP client live smoke captured public, pub/sub-only,
-authenticated, bearer, and JSON-response endpoint evidence, Streamable HTTP
-invalid `Last-Event-ID` polling is rejected without changing the active session
-id or resume cursor, the opt-in ticket-auth lifecycle smoke,
-notification-only tool calls with observable pub/sub side effects, the
-standard Streamable HTTP `notifications/initialized` lifecycle notification,
-lifecycle-free standard direct JSON `tools/list` and `tools/call` alongside
-the dotted Connectanum direct tool aliases, standard MCP `ping` health, raw
-single standard MCP resource and prompt methods, notification-style pub/sub
-side effects, acknowledged raw dotted `connectanum.pubsub.publish`, and WAMP
-metadata methods across direct JSON and Streamable paths, in addition to typed
-helpers and batches.
-Latest fully clean hosted checkpoint: Commit `c6b2cf5` on GitHub `master` and
+Last reviewed branch checkpoint: router-hosted MCP now exposes route-configured
+procedures through standard WAMP registration metadata even when no live WAMP
+callee session is registered. The direct JSON router integration smoke and the
+installed router CLI Dart MCP consumer smoke now prove
+`wamp.registration.lookup`, `match`, `list`, `get`, `list_callees`, and
+`count_callees` for configured procedures across public, protected
+JSON-response, and protected Streamable paths while preserving hidden callees
+for the router-owned implementation. Previous checkpoints prove the
+package-boundary consumer covers public, secure, JSON-response active/token-only,
+and token-only MCP paths through an installed router command with granular
+resource/prompt helpers, WAMP metadata, pub/sub, batch, and session/subscription
+metadata evidence.
+Latest fully clean hosted checkpoint: Commit `a544bc1` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
-`bin/common.sh` now makes the installed router CLI Dart MCP consumer summary
-enumerate resource/prompt helper coverage, public WAMP metadata, JSON-response
-active/token-only coverage, token-only session/subscription metadata, pub/sub,
-and batch evidence in the `routerCliConsumerSummary` object. The summary now
-distinguishes active JSON-response auth isolation from token-only
-JSON-response resource/prompt, WAMP metadata, pub/sub, and batch access, and it
-marks token-only direct JSON/Streamable WAMP session and subscription metadata
-explicitly instead of relying on the human-readable completion line.
-`tool/test_mcp_consumer_package_boundary.py` guards the richer exact summary
-fragments so future smoke harness edits cannot silently collapse this
-consumer-facing evidence.
+`packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`
+now synthesizes visible registration metadata entries for route-configured MCP
+procedures after authorization filtering, assigning stable synthetic ids from a
+deterministic high WAMP id range and reporting no visible callees. The router native
+integration smoke proves configured procedure registration meta over public and
+bearer direct JSON routes. `bin/common.sh` now clears the repo-local
+`.dart_tool/pub/bin/connectanum_router` executable snapshot before and after
+the installed router CLI consumer smoke, then makes the generated consumer
+assert registration metadata on token-only JSON-response direct/Streamable and
+protected token-only direct/Streamable routes. The emitted
+`routerCliConsumerSummary` now marks token-only registration/session/subscription
+metadata explicitly. `tool/test_mcp_consumer_package_boundary.py` guards the
+new summary fragments and human-readable evidence text.
 
-Baseline `bin/test-fast` passed before this granular installed router CLI
-consumer summary change on 2026-06-19. Focused `bash -n bin/common.sh`,
-focused
+Baseline `bin/test-fast` passed before this configured registration metadata
+change on 2026-06-19. Focused `bash -n bin/common.sh`, focused
 `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
 and focused
 `bash -lc 'source bin/common.sh; ensure_native_lib_env; run_router_cli_consumer_package_smoke'`
+passed on 2026-06-19. Focused native router integration
+`bash -lc 'source bin/common.sh; ensure_native_lib_env; cd packages/connectanum_router; dart test test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security"'`
 passed on 2026-06-19. Post-change `bin/test-fast` passed on 2026-06-19,
-including the richer installed router CLI consumer summary assertion. Full
-local `bin/verify` passed on 2026-06-19, including formatting, Rust/FFI tests,
-Python/tool tests, MCP package tests, generated consumer-package smokes, the
-router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
-JSON-response examples, the installed router CLI consumer smoke with the
-expanded machine-readable summary assertion, full router tests, zero-copy
-router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+including the configured registration metadata assertions in the installed
+router CLI consumer smoke. Full local `bin/verify` passed on 2026-06-19,
+including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+generated consumer-package smokes, the router-hosted MCP live public,
+pub/sub-only, authenticated, bearer, and JSON-response examples, the installed
+router CLI consumer smoke with configured registration metadata assertions,
+full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+WebSocket smoke.
 
-Hosted evidence is pending for the next pushed implementation commit. Latest
-fully clean hosted checkpoint remains commit `c6b2cf5` on GitHub `master` and
-GitHub `add-router`.
+Hosted evidence: Commit `a544bc1`
+(`test: detail router cli consumer summary`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27836975574`
+passed with `Fast Checks` and `Full Verify` clean. GitHub `add-router` CI
+`27836974909` passed with `Fast Checks` and `Full Verify` clean. No new Dart
+Package Publish Dry Run was triggered for `a544bc1` because this smoke harness
+and boundary-test change did not touch publish-sensitive inputs; the latest
+GitHub `master` Dart Package Publish Dry Run `27824768142` and GitHub
+`add-router` Dart Package Publish Dry Run `27824767971` remain clean and
+relevant. No new WAMP Profile Benchmarks, Native Artifacts, or Router Image
+run was required because this MCP smoke change did not touch
+benchmark-sensitive, native artifact, image, or workflow inputs. The strict
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-19 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence, and
+latest GitHub `master` Dart package dry-run evidence clean.
 
 Previous implementation checkpoint:
 `bin/common.sh` now captures stdout from the generated Dart consumer used by

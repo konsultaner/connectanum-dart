@@ -23121,6 +23121,7 @@ run_router_cli_consumer_package_smoke() (
       _wait_for_router_cli_smoke_lock_release
     fi
     rm -rf "$ROOT_DIR/.dart_tool/hooks_runner"
+    rm -rf "$ROOT_DIR/.dart_tool/pub/bin/connectanum_router"
     (cd "$ROOT_DIR" && dart pub get >/dev/null 2>&1 || true)
     if [[ -n "${smoke_dir:-}" ]]; then
       rm -rf "$smoke_dir"
@@ -23133,6 +23134,7 @@ run_router_cli_consumer_package_smoke() (
   trap '_cleanup_router_cli_smoke 143' TERM
 
   printf 'Running router CLI consumer package smoke from %s.\n' "$smoke_dir"
+  rm -rf "$ROOT_DIR/.dart_tool/pub/bin/connectanum_router"
   (
     cd "$smoke_dir"
     PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
@@ -25343,6 +25345,15 @@ Future<void> main() async {
             tokenOnlyJsonClient.lastEventId == null,
         'Dart consumer token-only JSON-response direct batch captured state.',
       );
+      await _expectWampRegistrationMeta(
+        tokenOnlyJsonClient,
+        idPrefix: 'dart-consumer-secure-json-token-only-direct',
+        label:
+            'Dart consumer token-only JSON-response direct WAMP registration meta',
+        procedure: _secureProcedure,
+        directJson: true,
+        expectSseCursor: false,
+      );
       await _expectWampSessionMeta(
         tokenOnlyJsonClient,
         idPrefix: 'dart-consumer-secure-json-token-only-direct',
@@ -25437,6 +25448,15 @@ Future<void> main() async {
         'Dart consumer token-only JSON-response initialize missed state.',
       );
       await tokenOnlyJsonClient.notifyInitialized();
+      await _expectWampRegistrationMeta(
+        tokenOnlyJsonClient,
+        idPrefix: 'dart-consumer-secure-json-token-only-streamable',
+        label:
+            'Dart consumer token-only JSON-response Streamable WAMP registration meta',
+        procedure: _secureProcedure,
+        directJson: false,
+        expectSseCursor: false,
+      );
       await _expectWampSessionMeta(
         tokenOnlyJsonClient,
         idPrefix: 'dart-consumer-secure-json-token-only-streamable',
@@ -25873,6 +25893,14 @@ Future<void> main() async {
         ),
         'Dart consumer token-only secure direct topic describe missed metadata.',
       );
+      await _expectWampRegistrationMeta(
+        tokenOnlySecureClient,
+        idPrefix: 'dart-consumer-secure-token-only-direct',
+        label: 'Dart consumer token-only secure direct WAMP registration meta',
+        procedure: _secureProcedure,
+        directJson: true,
+        expectSseCursor: false,
+      );
       await _expectWampSessionMeta(
         tokenOnlySecureClient,
         idPrefix: 'dart-consumer-secure-token-only-direct',
@@ -26155,6 +26183,15 @@ Future<void> main() async {
           'CLI Secure Smoke Events',
         ),
         'Dart consumer token-only secure Streamable topic describe missed metadata.',
+      );
+      await _expectWampRegistrationMeta(
+        tokenOnlySecureClient,
+        idPrefix: 'dart-consumer-secure-token-only-streamable',
+        label:
+            'Dart consumer token-only secure Streamable WAMP registration meta',
+        procedure: _secureProcedure,
+        directJson: false,
+        expectSseCursor: true,
       );
       final tokenOnlySecureCatalogLastEventId =
           tokenOnlySecureClient.lastEventId;
@@ -26751,6 +26788,9 @@ Future<void> main() async {
             'streamable': true,
             'resourcesPrompts': true,
             'wampMeta': true,
+            'registrationMeta': true,
+            'sessionMeta': true,
+            'subscriptionMeta': true,
             'pubsub': true,
             'batch': true,
           },
@@ -26760,6 +26800,7 @@ Future<void> main() async {
           'streamable': true,
           'resourcesPrompts': true,
           'wampMeta': true,
+          'registrationMeta': true,
           'sessionMeta': true,
           'subscriptionMeta': true,
           'pubsub': true,
@@ -26847,6 +26888,124 @@ Future<int> _expectWampSessionMeta(
     expectSseCursor: expectSseCursor,
   );
   return visibleSessionId;
+}
+
+Future<int> _expectWampRegistrationMeta(
+  McpStreamableHttpClient client, {
+  required String idPrefix,
+  required String label,
+  required String procedure,
+  required bool directJson,
+  required bool expectSseCursor,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final lookup = await client.lookupWampRegistration(
+    procedure,
+    id: '$idPrefix-wamp-registration-lookup',
+    directJson: directJson,
+  );
+  _expect(
+    lookup.procedure == 'wamp.registration.lookup',
+    '$label returned ${lookup.procedure} for registration lookup.',
+  );
+  final lookupIds = _integerMetaIds(
+    lookup.arguments,
+    '$label registration lookup',
+  );
+  _expect(lookupIds.isNotEmpty, '$label returned an empty lookup result.');
+  final registrationId = lookupIds.first;
+
+  final match = await client.matchWampRegistration(
+    procedure,
+    id: '$idPrefix-wamp-registration-match',
+    directJson: directJson,
+  );
+  _expect(
+    match.procedure == 'wamp.registration.match',
+    '$label returned ${match.procedure} for registration match.',
+  );
+  final matchedRegistrationId = _singleMetaId(
+    match.arguments,
+    '$label registration match',
+  );
+  _expect(
+    matchedRegistrationId == registrationId,
+    '$label registration match did not agree with lookup.',
+  );
+
+  final registrations = await client.listWampRegistrations(
+    id: '$idPrefix-wamp-registration-list',
+    directJson: directJson,
+  );
+  _expect(
+    registrations.procedure == 'wamp.registration.list',
+    '$label returned ${registrations.procedure} for registration list.',
+  );
+  final exactRegistrationIds = _integerMetaIds(
+    registrations.argumentsKeywords['exact'],
+    '$label registration list exact',
+  );
+  _expect(
+    exactRegistrationIds.contains(registrationId),
+    '$label registration list missed $procedure.',
+  );
+
+  final details = await client.getWampRegistration(
+    registrationId,
+    id: '$idPrefix-wamp-registration-get',
+    directJson: directJson,
+  );
+  _expect(
+    details.procedure == 'wamp.registration.get',
+    '$label returned ${details.procedure} for registration get.',
+  );
+  _expect(
+    jsonEncode(details.argumentsKeywords).contains(procedure),
+    '$label registration details missed $procedure.',
+  );
+
+  final callees = await client.listWampRegistrationCallees(
+    registrationId,
+    id: '$idPrefix-wamp-registration-callees',
+    directJson: directJson,
+  );
+  _expect(
+    callees.procedure == 'wamp.registration.list_callees',
+    '$label returned ${callees.procedure} for registration callees.',
+  );
+  final calleeIds = _integerMetaIds(
+    callees.arguments,
+    '$label registration callees',
+  );
+  _expect(
+    calleeIds.isEmpty,
+    '$label leaked registration callees: ${jsonEncode(calleeIds)}.',
+  );
+
+  final calleeCount = await client.countWampRegistrationCallees(
+    registrationId,
+    id: '$idPrefix-wamp-registration-callee-count',
+    directJson: directJson,
+  );
+  _expect(
+    calleeCount.procedure == 'wamp.registration.count_callees',
+    '$label returned ${calleeCount.procedure} for registration callee count.',
+  );
+  _expect(
+    _metaCount(calleeCount, '$label registration callee count') == 0,
+    '$label registration callee count leaked internal sessions.',
+  );
+
+  _expectWampMetaState(
+    client,
+    previousSessionId: previousSessionId,
+    previousEventId: previousEventId,
+    label: label,
+    directJson: directJson,
+    expectSseCursor: expectSseCursor,
+  );
+  return registrationId;
 }
 
 Future<void> _expectWampSubscriptionMeta(
@@ -27077,6 +27236,12 @@ int _metaCount(McpStreamableWampMetaCallResult result, String label) {
   throw StateError('$label returned ${jsonEncode(result.structuredContent)}.');
 }
 
+int _singleMetaId(Object? value, String label) {
+  final ids = _integerMetaIds(value, label);
+  _expect(ids.length == 1, '$label returned ${jsonEncode(value)}.');
+  return ids.single;
+}
+
 int _integerFrom(Object? value, String label) {
   if (value is int) {
     return value;
@@ -27190,9 +27355,9 @@ DART
     '"routerCliConsumerSummary"' \
     '"public":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
     '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
-    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}}' \
-    '"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"sessionMeta":true,"subscriptionMeta":true,"pubsub":true,"batch":true}'
+    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"pubsub":true,"batch":true}}' \
+    '"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"pubsub":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/session/subscription meta/pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP session and subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/session/subscription meta/pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/session/subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

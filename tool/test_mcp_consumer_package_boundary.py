@@ -471,13 +471,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
             '"authRejectionIsolation":true},"tokenOnly":{"directJson":true,'
             '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
-            '"pubsub":true,"batch":true}}',
+            '"registrationMeta":true,"sessionMeta":true,'
+            '"subscriptionMeta":true,"pubsub":true,"batch":true}}',
             body,
         )
         self.assertIn(
             '"tokenOnly":{"directJson":true,"streamable":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
-            '"sessionMeta":true,"subscriptionMeta":true,'
+            '"registrationMeta":true,"sessionMeta":true,'
+            '"subscriptionMeta":true,'
             '"pubsub":true,"batch":true}',
             body,
         )
@@ -496,9 +498,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "token-only protected JSON-response "
             "tool calls/resources/resource templates/prompts/WAMP "
-            "procedure catalog/describe/session/subscription "
+            "procedure catalog/describe/registration/session/subscription "
             "meta/pubsub/batches plus Streamable procedure "
             "catalog/describe/topic describe",
+            body,
+        )
+        self.assertIn(
+            "token-only protected tool calls/resources/resource "
+            "templates/prompts/WAMP registration/session/subscription "
+            "meta/batches",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)

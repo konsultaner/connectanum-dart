@@ -23,6 +23,7 @@ const String _mcpCorsDefaultAllowHeaders =
     'Accept, Authorization, Content-Type, Last-Event-ID, MCP-Method, '
     'MCP-Name, MCP-Protocol-Version, MCP-Session-Id';
 const int _mcpSseEventHistoryLimit = 128;
+const int _mcpConfiguredRegistrationIdBase = 0x1FFF0000000000;
 const Set<String> _mcpSupportedHttpProtocolVersions =
     mcp.mcpSupportedProtocolVersions;
 const Set<String> _mcpPostResponseTransportModes = <String>{
@@ -2548,6 +2549,43 @@ class _RouterMcpEndpoint {
     return visible;
   }
 
+  Future<List<RegistrationSnapshot>> _visibleConfiguredMetaRegistrations(
+    Iterable<RegistrationSnapshot> visibleRegistrations,
+  ) async {
+    final procedures = _configuredProcedures(route.action.options);
+    if (procedures.isEmpty) {
+      return const <RegistrationSnapshot>[];
+    }
+
+    final visibleExactProcedures = <String>{
+      for (final registration in visibleRegistrations)
+        if (registration.matchPolicy == ProcedureMatchPolicy.exact)
+          registration.procedure,
+    };
+
+    final visible = <RegistrationSnapshot>[];
+    for (var index = 0; index < procedures.length; index += 1) {
+      final procedure = procedures[index];
+      if (visibleExactProcedures.contains(procedure.procedure)) {
+        continue;
+      }
+      if (procedure.allowCall &&
+          !await _isAuthorized(AuthorizationAction.call, procedure.procedure)) {
+        continue;
+      }
+      visible.add(
+        RegistrationSnapshot(
+          registrationId: _mcpConfiguredRegistrationIdBase + index,
+          procedure: procedure.procedure,
+          policy: InvocationPolicy.single,
+          matchPolicy: ProcedureMatchPolicy.exact,
+          callees: const <RegistrationRecord>[],
+        ),
+      );
+    }
+    return visible;
+  }
+
   Future<List<SubscriptionSnapshot>> _visibleMetaSubscriptions(
     Iterable<SubscriptionSnapshot> subscriptions,
   ) async {
@@ -2587,6 +2625,9 @@ class _RouterMcpEndpoint {
     };
     final visibleRegistrations = await _visibleMetaRegistrations(
       snapshot.registrations,
+    );
+    visibleRegistrations.addAll(
+      await _visibleConfiguredMetaRegistrations(visibleRegistrations),
     );
     final visibleSubscriptions = await _visibleMetaSubscriptions(
       snapshot.subscriptions,

@@ -4251,6 +4251,88 @@ void main() {
           describeHidden['structuredContent'] as Map<String, Object?>;
       expect(hiddenApi['allowCall'], isFalse);
 
+      final documentedRegistrationLookup = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.lookup',
+        {'uri': 'app.documented.only'},
+      );
+      final documentedRegistrationIds =
+          (documentedRegistrationLookup['structuredContent']
+                  as Map<String, Object?>)['arguments']
+              as List;
+      expect(documentedRegistrationIds, hasLength(1));
+      final documentedRegistrationId = (documentedRegistrationIds.single as num)
+          .toInt();
+      expect(documentedRegistrationId, greaterThan(0));
+      final lateLiveRegistration = await serviceSession.register(
+        'app.late.live',
+      );
+      expect(
+        lateLiveRegistration.registrationId,
+        isNot(equals(documentedRegistrationId)),
+      );
+
+      final documentedRegistrationList = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.list',
+        const {},
+      );
+      final documentedRegistrationExactIds =
+          ((documentedRegistrationList['structuredContent']
+                      as Map<String, Object?>)['argumentsKeywords']
+                  as Map<String, Object?>)['exact']
+              as List;
+      expect(
+        documentedRegistrationExactIds,
+        contains(documentedRegistrationId),
+      );
+
+      final documentedRegistrationGet = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.get',
+        {'id': documentedRegistrationId},
+      );
+      final documentedRegistrationDetails =
+          (documentedRegistrationGet['structuredContent']
+                  as Map<String, Object?>)['argumentsKeywords']
+              as Map<String, Object?>;
+      expect(
+        documentedRegistrationDetails,
+        containsPair('uri', 'app.documented.only'),
+      );
+
+      final documentedRegistrationCallees = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.list_callees',
+        {'id': documentedRegistrationId},
+      );
+      expect(
+        (documentedRegistrationCallees['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        isEmpty,
+      );
+
+      final documentedRegistrationCalleeCount = await _callRouterJsonMethod(
+        client,
+        listener.port,
+        '/mcp/public',
+        'wamp.registration.count_callees',
+        {'id': documentedRegistrationId},
+      );
+      expect(
+        (documentedRegistrationCalleeCount['structuredContent']
+            as Map<String, Object?>)['arguments'],
+        equals([0]),
+      );
+
       final subscribeResult = await _callMcpTool(
         client,
         listener.port,
@@ -4441,6 +4523,27 @@ void main() {
       expect(
         jsonEncode(secureJsonDirectTopicCatalog),
         contains('app.secure.audit'),
+      );
+      final secureJsonDirectDocumentedRegistration = await secureJsonPostClient
+          .lookupWampRegistration(
+            'app.documented.only',
+            id: 'secure-json-post-direct-documented-registration-lookup',
+            directJson: true,
+          );
+      expect(secureJsonDirectDocumentedRegistration.arguments, hasLength(1));
+      final secureJsonDirectDocumentedRegistrationId =
+          (secureJsonDirectDocumentedRegistration.arguments.single as num)
+              .toInt();
+      expect(secureJsonDirectDocumentedRegistrationId, greaterThan(0));
+      final secureJsonDirectDocumentedRegistrationDetails =
+          await secureJsonPostClient.getWampRegistration(
+            secureJsonDirectDocumentedRegistrationId,
+            id: 'secure-json-post-direct-documented-registration-get',
+            directJson: true,
+          );
+      expect(
+        secureJsonDirectDocumentedRegistrationDetails.argumentsKeywords,
+        containsPair('uri', 'app.documented.only'),
       );
 
       final secureJsonDirectResources = await secureJsonPostClient
