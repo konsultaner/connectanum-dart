@@ -25450,6 +25450,16 @@ Future<void> main() async {
         ).contains('dart-consumer-token-only-json-direct'),
         'Dart consumer token-only JSON-response direct poll missed event.',
       );
+      await _expectNotificationPubSub(
+        tokenOnlyJsonClient,
+        tokenOnlyDirectSubscription.handle,
+        topic: _secureTopic,
+        marker: 'dart-consumer-token-only-json-direct-notification',
+        idPrefix:
+            'dart-consumer-secure-json-token-only-direct-notification-poll',
+        label: 'Dart consumer token-only JSON-response direct pub/sub',
+        directJson: true,
+      );
       final tokenOnlyDirectUnsubscribe =
           await tokenOnlyJsonClient.unsubscribeWampTopicDirect(
         tokenOnlyDirectSubscription.handle,
@@ -25744,6 +25754,16 @@ Future<void> main() async {
         ).contains('dart-consumer-token-only-json-streamable'),
         'Dart consumer token-only JSON-response Streamable poll missed event.',
       );
+      await _expectNotificationPubSub(
+        tokenOnlyJsonClient,
+        tokenOnlyStreamableSubscription.handle,
+        topic: _secureTopic,
+        marker: 'dart-consumer-token-only-json-streamable-notification',
+        idPrefix:
+            'dart-consumer-secure-json-token-only-streamable-notification-poll',
+        label: 'Dart consumer token-only JSON-response Streamable pub/sub',
+        directJson: false,
+      );
       final tokenOnlyStreamableUnsubscribe =
           await tokenOnlyJsonClient.unsubscribeWampTopic(
         tokenOnlyStreamableSubscription.handle,
@@ -26014,6 +26034,15 @@ Future<void> main() async {
           tokenOnlySecureDirectEvents.events,
         ).contains('dart-consumer-token-only-direct'),
         'Dart consumer token-only secure direct poll missed event.',
+      );
+      await _expectNotificationPubSub(
+        tokenOnlySecureClient,
+        tokenOnlySecureDirectSubscription.handle,
+        topic: _secureTopic,
+        marker: 'dart-consumer-token-only-direct-notification',
+        idPrefix: 'dart-consumer-secure-token-only-direct-notification-poll',
+        label: 'Dart consumer token-only secure direct pub/sub',
+        directJson: true,
       );
       final tokenOnlySecureDirectUnsubscribe = await tokenOnlySecureClient
           .unsubscribeWampTopicDirect(
@@ -26310,6 +26339,16 @@ Future<void> main() async {
           tokenOnlySecureStreamableEvents.events,
         ).contains('dart-consumer-token-only-streamable'),
         'Dart consumer token-only secure Streamable poll missed event.',
+      );
+      await _expectNotificationPubSub(
+        tokenOnlySecureClient,
+        tokenOnlySecureStreamableSubscription.handle,
+        topic: _secureTopic,
+        marker: 'dart-consumer-token-only-streamable-notification',
+        idPrefix:
+            'dart-consumer-secure-token-only-streamable-notification-poll',
+        label: 'Dart consumer token-only secure Streamable pub/sub',
+        directJson: false,
       );
       final tokenOnlySecureStreamableUnsubscribe = await tokenOnlySecureClient
           .unsubscribeWampTopic(
@@ -26860,6 +26899,7 @@ Future<void> main() async {
             'subscriptionMeta': true,
             'configuredSubscriptionMeta': true,
             'pubsub': true,
+            'pubsubNotifications': true,
             'batch': true,
           },
         },
@@ -26874,6 +26914,7 @@ Future<void> main() async {
           'subscriptionMeta': true,
           'configuredSubscriptionMeta': true,
           'pubsub': true,
+          'pubsubNotifications': true,
           'batch': true,
         },
       },
@@ -27340,6 +27381,34 @@ Future<McpStreamableWampEventBatch> _pollUntilEvent(
   );
 }
 
+Future<void> _expectNotificationPubSub(
+  McpStreamableHttpClient client,
+  String handle, {
+  required String topic,
+  required String marker,
+  required String idPrefix,
+  required String label,
+  required bool directJson,
+}) async {
+  final event = <String, Object?>{'via': marker};
+  if (directJson) {
+    await client.notifyWampEventDirect(topic, argumentsKeywords: event);
+  } else {
+    await client.notifyWampEvent(topic, argumentsKeywords: event);
+  }
+  final events = await _pollUntilEvent(
+    client,
+    handle,
+    marker: marker,
+    idPrefix: idPrefix,
+    directJson: directJson,
+  );
+  _expect(
+    jsonEncode(events.events).contains(marker),
+    '$label notification-only pub/sub did not deliver an event.',
+  );
+}
+
 Future<void> _expectMcpHttpRejected(
   Future<Object?> Function() operation,
   int statusCode,
@@ -27542,9 +27611,9 @@ DART
     '"routerCliConsumerSummary"' \
     '"public":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
     '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
-    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true}}' \
-    '"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true}'
+    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
+    '"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

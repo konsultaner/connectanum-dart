@@ -474,7 +474,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
             '"sessionMeta":true,'
             '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
-            '"pubsub":true,"batch":true}}',
+            '"pubsub":true,"pubsubNotifications":true,"batch":true}}',
             body,
         )
         self.assertIn(
@@ -483,9 +483,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
             '"sessionMeta":true,'
             '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
-            '"pubsub":true,"batch":true}',
+            '"pubsub":true,"pubsubNotifications":true,"batch":true}',
             body,
         )
+        self.assertIn("pubsubNotifications", body)
+        self.assertIn("_expectNotificationPubSub", body)
+        self.assertIn("notifyWampEventDirect", body)
+        self.assertIn("notifyWampEvent(topic", body)
         self.assertIn(
             "public raw JSON resources/resource templates/prompts/WAMP "
             "procedure and topic catalog/describe/pub-sub plus Streamable "
@@ -507,15 +511,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "tool calls/resources/resource templates/prompts/WAMP "
             "procedure catalog/describe/registration/configured "
             "registration/session/subscription/configured subscription "
-            "meta/pubsub/batches plus Streamable procedure catalog/describe/"
-            "topic describe",
+            "meta/pubsub/notification pubsub/batches plus Streamable "
+            "procedure catalog/describe/topic describe",
             body,
         )
         self.assertIn(
             "token-only protected tool calls/resources/resource "
             "templates/prompts/WAMP registration/configured "
             "registration/session/subscription/configured subscription "
-            "meta/batches",
+            "meta/notification pubsub/batches",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)
