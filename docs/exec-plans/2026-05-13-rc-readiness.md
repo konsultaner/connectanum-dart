@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-20: Tightened the generated router CLI Dart MCP consumer smoke so
+  protected non-JSON-response `/mcp/secure` WAMP procedure metadata is proven
+  through the Dart consumer over both direct JSON and Streamable HTTP.
+  `bin/common.sh` now lists and describes the protected procedure directly,
+  then repeats protected procedure catalog/describe plus topic describe over
+  the active Streamable session while asserting the session id stays stable and
+  the SSE cursor remains valid for that session. This makes the generated
+  downstream consumer proof match the shell-level installed CLI smoke that
+  already exercised protected procedure metadata.
+  `tool/test_mcp_consumer_package_boundary.py` guards the new direct and
+  Streamable procedure metadata request IDs, failure messages, and Streamable
+  SSE-state assertion. Baseline `bin/test-fast` passed before the change on
+  2026-06-20. Focused `bash -n bin/common.sh`, focused
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+  focused `git diff --check`, and focused
+  `bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-20, with the installed router CLI consumer smoke exercising
+  the new generated Dart direct JSON and Streamable protected procedure
+  metadata checks. Full local `bin/verify` passed on 2026-06-20, including
+  formatting, Rust/FFI tests, Python/tool tests, MCP package tests, generated
+  consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+  authenticated, bearer, and JSON-response examples, the installed router CLI
+  consumer smoke with the new generated protected procedure metadata checks,
+  full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence is pending until this implementation commit
+  is pushed and GitHub CI/deployment-chain audit evidence is reviewed.
 - 2026-06-20: Tightened the installed router CLI Dart MCP consumer smoke so
   protected `/mcp/secure` batch evidence is exposed in the machine-readable
   consumer summary. `bin/common.sh` already exercised protected direct JSON and
@@ -101,9 +127,20 @@ decision because `connectanum_client` still depends on private
   pub/sub-only, authenticated, bearer, and JSON-response examples, the
   installed router CLI consumer smoke with explicit `secure.batch` summary
   evidence, full router tests, zero-copy router tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending until
-  this implementation commit is pushed and GitHub CI/deployment-chain audit
-  evidence is reviewed.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `3511218`
+  (`test: expose protected mcp batch evidence`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27867826113`
+  and GitHub `add-router` CI `27867823101` passed with `Fast Checks` and
+  `Full Verify` clean. No new Dart Package Publish Dry Run or WAMP Profile
+  Benchmarks were required because no publish-sensitive or benchmark-sensitive
+  package inputs changed since `7202eaf`; the latest GitHub `master` Dart
+  Package Publish Dry Run `27853666798` remains clean and relevant at
+  `7202eaf`. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-20 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence at `3511218`, and latest relevant Dart package dry-run evidence
+  clean.
 - 2026-06-20: Tightened the installed router CLI Dart MCP consumer smoke so
   active protected JSON-response batch evidence is exposed in the
   machine-readable consumer summary. `bin/common.sh` now sends a direct JSON

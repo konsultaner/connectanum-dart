@@ -2,12 +2,42 @@
 
 Last updated: 2026-06-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: router CLI consumer MCP smoke evidence now
-exposes protected `/mcp/secure` batch coverage in the machine-readable consumer
-summary.
-Latest fully clean hosted checkpoint: Commit `f19107d` on GitHub `master` and
+Last reviewed branch checkpoint: router CLI consumer MCP smoke coverage now
+proves protected `/mcp/secure` procedure metadata through the generated Dart
+consumer over both direct JSON and Streamable HTTP.
+Latest fully clean hosted checkpoint: Commit `3511218` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/common.sh` now tightens the generated router CLI Dart MCP consumer smoke
+for the protected non-JSON-response `/mcp/secure` route. The Dart consumer now
+lists and describes the protected WAMP procedure over direct JSON, then repeats
+protected procedure catalog/describe plus topic describe over the active
+Streamable HTTP session while asserting the session id stays stable and the SSE
+cursor remains valid for that session. This makes the generated downstream
+consumer proof match the shell-level installed CLI smoke that already exercised
+protected procedure metadata. `tool/test_mcp_consumer_package_boundary.py` now
+guards the new direct and Streamable procedure metadata request IDs, failure
+messages, and Streamable SSE-state assertion.
+
+Baseline `bin/test-fast` passed before the protected procedure metadata
+generated-consumer change on 2026-06-20. Focused `bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+`git diff --check`, and
+`bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
+passed on 2026-06-20, with the installed router CLI consumer smoke exercising
+the new generated Dart direct JSON and Streamable protected procedure metadata
+checks. Full local `bin/verify` passed on 2026-06-20, including formatting,
+Rust/FFI tests, Python/tool tests, MCP package tests, generated
+consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
+authenticated, bearer, and JSON-response examples, the installed router CLI
+consumer smoke with the new generated protected procedure metadata checks,
+full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+WebSocket smoke.
+
+Hosted evidence for this local checkpoint is pending until the implementation
+commit is pushed and GitHub CI/deployment-chain audit evidence is reviewed.
+
+Previous implementation checkpoint:
 `bin/common.sh` now promotes the already-exercised protected `/mcp/secure`
 direct JSON and Streamable HTTP batch checks into the installed router CLI Dart
 MCP consumer smoke evidence. The generated `routerCliConsumerSummary` now
@@ -32,8 +62,19 @@ consumer smoke with explicit `secure.batch` summary evidence, full router
 tests, zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket
 smoke.
 
-Hosted evidence for this local checkpoint is pending until the implementation
-commit is pushed and GitHub CI/deployment-chain audit evidence is reviewed.
+Hosted evidence: Commit `3511218`
+(`test: expose protected mcp batch evidence`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27867826113` and
+GitHub `add-router` CI `27867823101` passed with `Fast Checks` and
+`Full Verify` clean. No new Dart Package Publish Dry Run or WAMP Profile
+Benchmarks were required because no publish-sensitive or benchmark-sensitive
+package inputs changed since `7202eaf`; the latest GitHub `master` Dart
+Package Publish Dry Run `27853666798` remains clean and relevant at `7202eaf`.
+The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-20 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence at
+`3511218`, and latest relevant Dart package dry-run evidence clean.
 
 Previous implementation checkpoint:
 `bin/common.sh` now proves active protected JSON-response MCP batch parity in

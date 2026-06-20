@@ -553,6 +553,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "describe missed metadata.",
             body,
         )
+        self.assertIn("dart-consumer-secure-procedure-catalog", body)
+        self.assertIn(
+            "Dart consumer missed protected direct JSON procedure catalog.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-procedure-describe", body)
+        self.assertIn(
+            "Dart consumer missed protected direct JSON procedure metadata.",
+            body,
+        )
         self.assertIn("dart-consumer-secure-topic-describe", body)
         self.assertIn(
             "Dart consumer missed protected direct JSON topic metadata.",
@@ -655,6 +665,25 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "Dart consumer protected Streamable batch did not advance SSE "
             "state.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-streamable-procedure-catalog", body)
+        self.assertIn(
+            "Dart consumer missed protected Streamable procedure catalog.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-streamable-procedure-describe", body)
+        self.assertIn(
+            "Dart consumer missed protected Streamable procedure metadata.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-streamable-topic-describe", body)
+        self.assertIn(
+            "Dart consumer missed protected Streamable topic metadata.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable WAMP metadata lost SSE state.",
             body,
         )
         self.assertIn("tool calls/resources/resource templates/prompts", body)

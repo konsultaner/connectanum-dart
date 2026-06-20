@@ -26579,6 +26579,25 @@ Future<void> main() async {
       'Dart consumer protected direct JSON batch changed Streamable state.',
     );
 
+    final secureProcedureCatalog = await secureClient.listWampApiDirect(
+      id: 'dart-consumer-secure-procedure-catalog',
+      kind: 'procedure',
+    );
+    _expect(
+      jsonEncode(secureProcedureCatalog).contains(_secureProcedure),
+      'Dart consumer missed protected direct JSON procedure catalog.',
+    );
+    final secureProcedureDescription =
+        await secureClient.describeWampApiDirect(
+      _secureProcedure,
+      id: 'dart-consumer-secure-procedure-describe',
+      kind: 'procedure',
+    );
+    _expect(
+      jsonEncode(secureProcedureDescription).contains('CLI Secure Lookup'),
+      'Dart consumer missed protected direct JSON procedure metadata.',
+    );
+
     final secureCatalog = await secureClient.listWampApiDirect(
       id: 'dart-consumer-secure-topics',
       kind: 'topic',
@@ -26833,6 +26852,48 @@ Future<void> main() async {
         'name',
       ).contains('connectanum.pubsub.publish'),
       'Dart consumer missed protected Streamable pubsub tool.',
+    );
+
+    final secureStreamableMetaLastEventId = secureClient.lastEventId;
+    final secureStreamableProcedureCatalog = await secureClient.listWampApi(
+      id: 'dart-consumer-secure-streamable-procedure-catalog',
+      kind: 'procedure',
+    );
+    _expect(
+      jsonEncode(secureStreamableProcedureCatalog).contains(_secureProcedure),
+      'Dart consumer missed protected Streamable procedure catalog.',
+    );
+    final secureStreamableProcedureDescription =
+        await secureClient.describeWampApi(
+      _secureProcedure,
+      id: 'dart-consumer-secure-streamable-procedure-describe',
+      kind: 'procedure',
+    );
+    _expect(
+      jsonEncode(
+        secureStreamableProcedureDescription,
+      ).contains('CLI Secure Lookup'),
+      'Dart consumer missed protected Streamable procedure metadata.',
+    );
+    final secureStreamableTopicDescription = await secureClient.describeWampApi(
+      _secureTopic,
+      id: 'dart-consumer-secure-streamable-topic-describe',
+      kind: 'topic',
+    );
+    _expect(
+      jsonEncode(
+        secureStreamableTopicDescription,
+      ).contains('CLI Secure Smoke Events'),
+      'Dart consumer missed protected Streamable topic metadata.',
+    );
+    final secureStreamableMetaNextEventId = secureClient.lastEventId;
+    _expect(
+      secureClient.sessionId == secureBatchSessionId &&
+          secureBatchSessionId != null &&
+          secureStreamableMetaNextEventId != null &&
+          secureStreamableMetaNextEventId.startsWith('$secureBatchSessionId:') &&
+          secureStreamableMetaNextEventId != secureStreamableMetaLastEventId,
+      'Dart consumer protected Streamable WAMP metadata lost SSE state.',
     );
 
     final publication = await secureClient.publishWampEvent(
