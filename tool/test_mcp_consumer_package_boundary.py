@@ -365,6 +365,33 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "changed Streamable state.",
             body,
         )
+        self.assertIn("dart-consumer-secure-json-direct-subscribe", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response direct subscription was "
+            "invalid.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-direct-publish", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response direct publish was invalid.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-direct-poll", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response direct poll missed event.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-direct-unsubscribe", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response direct unsubscribe was "
+            "invalid.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response direct access captured "
+            "state.",
+            body,
+        )
         self.assertIn(
             "dart-consumer-secure-json-streamable-procedure-catalog",
             body,
@@ -395,6 +422,34 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "Dart consumer protected JSON-response Streamable WAMP describe "
             "changed session state.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-subscribe", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable subscription was "
+            "invalid.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-publish", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable publish was "
+            "invalid.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-poll", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable poll missed "
+            "event.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-unsubscribe", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable unsubscribe was "
+            "invalid.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response pubsub captured SSE state.",
             body,
         )
         self.assertIn(
@@ -503,7 +558,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"jsonResponse":{"active":{"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
-            '"authRejectionIsolation":true,"refreshAndRevoke":true},'
+            '"pubsub":true,"authRejectionIsolation":true,'
+            '"refreshAndRevoke":true},'
             '"tokenOnly":{"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
@@ -548,9 +604,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("_expectConfiguredWampSubscriptionMeta", body)
         self.assertIn(
             "active protected JSON-response auth rejection/refresh-revoke, "
-            "direct JSON procedure catalog/describe/topic/resource/prompt "
-            "isolation, and Streamable procedure catalog/describe plus topic "
-            "describe",
+            "direct JSON procedure catalog/describe/topic/resource/prompt/"
+            "pub-sub isolation, and Streamable procedure catalog/describe "
+            "plus topic describe/pub-sub/session delete",
             body,
         )
         self.assertIn(
