@@ -79,6 +79,30 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-20: Tightened the generated router CLI Dart MCP consumer smoke so
+  `/mcp/secure-json-post` proves active protected JSON-response WAMP metadata
+  readiness for downstream consumers. The generated consumer now checks
+  configured registration, session, configured subscription, and live
+  subscription metadata over both direct JSON and active Streamable HTTP calls
+  while asserting the JSON-response route does not capture an SSE cursor or
+  mutate the active Streamable session state. The machine-readable smoke summary
+  now advertises `jsonResponse.active` `registrationMeta`,
+  `configuredRegistrationMeta`, `sessionMeta`, `subscriptionMeta`, and
+  `configuredSubscriptionMeta` coverage, and
+  `tool/test_mcp_consumer_package_boundary.py` guards the generated labels,
+  summary fragment, and human-readable smoke evidence. Baseline `bin/test-fast`
+  passed before the change on 2026-06-20. Focused `bash -n bin/common.sh`,
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, and focused
+  `bash -lc 'set -euo pipefail; source bin/common.sh; cd_repo_root; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-20, with the installed router CLI consumer smoke emitting
+  the new `jsonResponse.active` metadata flags. Full local `bin/verify` passed
+  on 2026-06-20, including formatting, Rust/FFI tests, Python/tool tests, MCP
+  package tests, consumer package smokes, router-hosted MCP example smokes, the
+  installed router CLI consumer smoke with the new active JSON-response WAMP
+  metadata checks, full router tests, zero-copy router tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains pending for
+  this checkpoint; the latest fully clean hosted checkpoint is still `8ec5819`.
 - 2026-06-20: Hardened repository verification scripts so root smoke helpers
   export `DART_SUPPRESS_ANALYTICS=true` by default while preserving caller
   overrides. Pre-change `bin/test-fast` reproduced a router-hosted MCP dry-run
@@ -93,9 +117,20 @@ decision because `connectanum_client` still depends on private
   passed on 2026-06-20, including formatting, Rust/FFI tests, Python/tool tests,
   MCP package tests, consumer package smokes, router-hosted MCP example smokes,
   the installed router CLI consumer smoke, full router tests, zero-copy router
-  tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
-  remains pending until GitHub CI/deployment-chain audit evidence is reviewed
-  after this implementation commit is pushed.
+  tests, and the Chrome/Dart2Wasm browser WebSocket smoke. Commit `8ec5819`
+  (`ci: suppress dart analytics in repo scripts`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27879275624` and GitHub `add-router` CI `27879272872` passed with
+  `Fast Checks` and `Full Verify` clean. No new Dart Package Publish Dry Run or
+  WAMP Profile Benchmarks were required because no publish-sensitive or
+  benchmark-sensitive package inputs changed since `7202eaf`; the latest
+  GitHub `master` Dart Package Publish Dry Run `27853666798` remains clean and
+  relevant at `7202eaf`. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-20 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence at `8ec5819`, and latest relevant Dart package dry-run evidence
+  clean.
 - 2026-06-20: Tightened the generated router CLI Dart MCP consumer smoke so
   protected active JSON-response direct JSON and Streamable resource,
   resource-template, and prompt pagination are proven through the generated

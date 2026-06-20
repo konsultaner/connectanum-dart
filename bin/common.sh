@@ -25045,6 +25045,34 @@ Future<void> main() async {
       ).contains('CLI Secure Smoke Events'),
       'Dart consumer protected JSON-response active direct JSON topic describe missed metadata.',
     );
+    await _expectConfiguredWampRegistrationMeta(
+      secureJsonClient,
+      idPrefix: 'dart-consumer-secure-json-active-direct',
+      label:
+          'Dart consumer protected JSON-response active direct configured WAMP registration meta',
+      procedure: _secureProcedure,
+      directJson: true,
+      expectSseCursor: false,
+    );
+    await _expectWampSessionMeta(
+      secureJsonClient,
+      idPrefix: 'dart-consumer-secure-json-active-direct',
+      label:
+          'Dart consumer protected JSON-response active direct WAMP session meta',
+      expectedAuthId: 'cli-user',
+      expectedAuthRole: 'member',
+      directJson: true,
+      expectSseCursor: false,
+    );
+    await _expectConfiguredWampSubscriptionMeta(
+      secureJsonClient,
+      idPrefix: 'dart-consumer-secure-json-active-direct',
+      label:
+          'Dart consumer protected JSON-response active direct configured WAMP subscription meta',
+      topic: _configuredOnlySecureTopic,
+      directJson: true,
+      expectSseCursor: false,
+    );
 
     final secureJsonActiveResources =
         await secureJsonClient.listResourcesDirect(
@@ -25254,6 +25282,33 @@ Future<void> main() async {
       ).contains('CLI Secure Smoke Events'),
       'Dart consumer protected JSON-response Streamable topic describe missed metadata.',
     );
+    await _expectConfiguredWampRegistrationMeta(
+      secureJsonClient,
+      idPrefix: 'dart-consumer-secure-json-streamable',
+      label:
+          'Dart consumer protected JSON-response Streamable configured WAMP registration meta',
+      procedure: _secureProcedure,
+      directJson: false,
+      expectSseCursor: false,
+    );
+    await _expectWampSessionMeta(
+      secureJsonClient,
+      idPrefix: 'dart-consumer-secure-json-streamable',
+      label: 'Dart consumer protected JSON-response Streamable WAMP session meta',
+      expectedAuthId: 'cli-user',
+      expectedAuthRole: 'member',
+      directJson: false,
+      expectSseCursor: false,
+    );
+    await _expectConfiguredWampSubscriptionMeta(
+      secureJsonClient,
+      idPrefix: 'dart-consumer-secure-json-streamable',
+      label:
+          'Dart consumer protected JSON-response Streamable configured WAMP subscription meta',
+      topic: _configuredOnlySecureTopic,
+      directJson: false,
+      expectSseCursor: false,
+    );
     final secureJsonStreamableResources = await secureJsonClient.listResources(
       id: 'dart-consumer-secure-json-streamable-resources',
     );
@@ -25376,6 +25431,29 @@ Future<void> main() async {
       secureJsonStreamableSubscription.topic == _secureTopic &&
           secureJsonStreamableSubscription.handle.isNotEmpty,
       'Dart consumer protected JSON-response Streamable subscription was invalid.',
+    );
+    await _expectWampSubscriptionMeta(
+      secureJsonClient,
+      idPrefix: 'dart-consumer-secure-json-active-direct',
+      label:
+          'Dart consumer protected JSON-response active direct WAMP subscription meta',
+      topic: _secureTopic,
+      subscription: secureJsonStreamableSubscription,
+      expectedAuthId: 'cli-user',
+      expectedAuthRole: 'member',
+      directJson: true,
+      expectSseCursor: false,
+    );
+    await _expectWampSubscriptionMeta(
+      secureJsonClient,
+      idPrefix: 'dart-consumer-secure-json-streamable',
+      label: 'Dart consumer protected JSON-response Streamable WAMP subscription meta',
+      topic: _secureTopic,
+      subscription: secureJsonStreamableSubscription,
+      expectedAuthId: 'cli-user',
+      expectedAuthRole: 'member',
+      directJson: false,
+      expectSseCursor: false,
     );
     final secureJsonStreamablePublication =
         await secureJsonClient.publishWampEvent(
@@ -27368,6 +27446,11 @@ Future<void> main() async {
             'streamableSessionDelete': true,
             'resourcesPrompts': true,
             'wampMeta': true,
+            'registrationMeta': true,
+            'configuredRegistrationMeta': true,
+            'sessionMeta': true,
+            'subscriptionMeta': true,
+            'configuredSubscriptionMeta': true,
             'pubsub': true,
             'batch': true,
             'authRejectionIsolation': true,
@@ -28098,9 +28181,9 @@ DART
     '"routerCliConsumerSummary"' \
     '"public":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
     '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
-    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
+    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

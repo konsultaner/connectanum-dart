@@ -863,6 +863,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"jsonResponse":{"active":{"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
+            '"registrationMeta":true,"configuredRegistrationMeta":true,'
+            '"sessionMeta":true,'
+            '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
             '"pubsub":true,"batch":true,'
             '"authRejectionIsolation":true,'
             '"refreshAndRevoke":true},'
@@ -909,12 +912,39 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("_expectConfiguredWampRegistrationMeta", body)
         self.assertIn("_expectConfiguredWampSubscriptionMeta", body)
         self.assertIn(
+            "Dart consumer protected JSON-response active direct configured "
+            "WAMP registration meta",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct WAMP "
+            "subscription meta",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable configured "
+            "WAMP subscription meta",
+            body,
+        )
+        self.assertIn(
+            "idPrefix: 'dart-consumer-secure-json-active-direct'",
+            body,
+        )
+        self.assertIn(
+            "idPrefix: 'dart-consumer-secure-json-streamable'",
+            body,
+        )
+        self.assertIn("$idPrefix-wamp-subscription-lookup", body)
+        self.assertIn(
             "active protected JSON-response auth rejection/refresh-revoke, "
-            "direct JSON procedure catalog/describe/topic/resource list "
-            "pagination/read/resource template pagination/prompt pagination/"
-            "pub-sub/batch isolation, and Streamable resource list pagination/"
-            "read/resource template pagination/prompt pagination plus "
-            "procedure/topic metadata/pub-sub/batch/session delete",
+            "direct JSON procedure catalog/describe/topic/registration/"
+            "configured registration/session/subscription/configured "
+            "subscription/resource list pagination/read/resource template "
+            "pagination/prompt pagination/pub-sub/batch isolation, and "
+            "Streamable resource list pagination/read/resource template "
+            "pagination/prompt pagination plus procedure/topic/registration/"
+            "configured registration/session/subscription/configured "
+            "subscription metadata/pub-sub/batch/session delete",
             body,
         )
         self.assertIn(
