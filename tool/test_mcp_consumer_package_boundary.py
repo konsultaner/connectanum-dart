@@ -471,7 +471,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
             '"authRejectionIsolation":true},"tokenOnly":{"directJson":true,'
             '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
-            '"registrationMeta":true,"sessionMeta":true,'
+            '"registrationMeta":true,"configuredRegistrationMeta":true,'
+            '"sessionMeta":true,'
             '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
             '"pubsub":true,"batch":true}}',
             body,
@@ -479,7 +480,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"tokenOnly":{"directJson":true,"streamable":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
-            '"registrationMeta":true,"sessionMeta":true,'
+            '"registrationMeta":true,"configuredRegistrationMeta":true,'
+            '"sessionMeta":true,'
             '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
             '"pubsub":true,"batch":true}',
             body,
@@ -491,6 +493,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("configured subscription meta", body)
+        self.assertIn("configured registration", body)
+        self.assertIn("_expectConfiguredWampRegistrationMeta", body)
         self.assertIn("_expectConfiguredWampSubscriptionMeta", body)
         self.assertIn(
             "active protected JSON-response auth rejection, direct JSON "
@@ -501,15 +505,17 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "token-only protected JSON-response "
             "tool calls/resources/resource templates/prompts/WAMP "
-            "procedure catalog/describe/registration/session/subscription/"
-            "configured subscription meta/pubsub/batches plus Streamable procedure "
-            "catalog/describe/topic describe",
+            "procedure catalog/describe/registration/configured "
+            "registration/session/subscription/configured subscription "
+            "meta/pubsub/batches plus Streamable procedure catalog/describe/"
+            "topic describe",
             body,
         )
         self.assertIn(
             "token-only protected tool calls/resources/resource "
-            "templates/prompts/WAMP registration/session/subscription/"
-            "configured subscription meta/batches",
+            "templates/prompts/WAMP registration/configured "
+            "registration/session/subscription/configured subscription "
+            "meta/batches",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)

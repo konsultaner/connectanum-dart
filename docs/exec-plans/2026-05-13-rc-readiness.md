@@ -79,6 +79,31 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-20: Tightened the installed router CLI Dart MCP consumer smoke so
+  route-configured procedure registration metadata is now explicit in
+  machine-readable consumer evidence. `bin/common.sh` now names the generated
+  Dart helper `_expectConfiguredWampRegistrationMeta`, proves the
+  route-configured protected procedure over token-only JSON-response
+  direct/Streamable routes and protected token-only direct/Streamable routes,
+  and emits `configuredRegistrationMeta: true` in `routerCliConsumerSummary`
+  alongside registration/session/subscription/configured subscription metadata.
+  The human-readable smoke summary now names configured registration evidence
+  for both token-only route families, and
+  `tool/test_mcp_consumer_package_boundary.py` guards the helper name, JSON
+  summary fragments, and summary text. Baseline `bin/test-fast` passed before
+  the change on 2026-06-20. Focused `bash -n bin/common.sh`, focused
+  `git diff --check`, focused
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+  focused
+  `bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`,
+  post-change `bin/test-fast`, and full local `bin/verify` passed on
+  2026-06-20, including formatting, Rust/FFI tests, Python/tool tests, MCP
+  package tests, generated consumer-package smokes, the router-hosted MCP live
+  public, pub/sub-only, authenticated, bearer, and JSON-response examples, the
+  installed router CLI consumer smoke with explicit configured registration
+  metadata summary fields, full router tests, zero-copy router tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this installed
+  router CLI configured registration summary checkpoint is pending.
 - 2026-06-20: The public router-hosted MCP client example now proves
   route-configured procedure registration metadata over direct JSON and
   Streamable HTTP before any live WAMP callee exists. The router-hosted server
@@ -106,7 +131,21 @@ decision because `connectanum_client` still depends on private
   configured registration metadata assertions, the installed router CLI
   consumer smoke, full router tests, zero-copy router tests, and the
   Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this
-  public-example configured registration metadata checkpoint is pending.
+  public-example configured registration metadata checkpoint is clean. Commit
+  `7202eaf` (`test: prove configured mcp registration meta in public example`)
+  was pushed to GitLab `origin`, GitHub `add-router`, and GitHub `master`.
+  GitHub `master` CI `27853666797` and GitHub `add-router` CI `27853666194`
+  passed with `Fast Checks` and `Full Verify` clean. GitHub `master` Dart
+  Package Publish Dry Run `27853666798` and GitHub `add-router` Dart Package
+  Publish Dry Run `27853666197` passed for the same commit. GitHub `master`
+  WAMP Profile Benchmarks `27853666815` and GitHub `add-router` WAMP Profile
+  Benchmarks `27853666244` passed for the same commit. The strict
+  deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-20 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence, latest GitHub `master` WAMP benchmark evidence, and latest GitHub
+  `master` Dart package dry-run evidence clean.
 - 2026-06-19: Router-hosted MCP now exposes route-configured topics through
   standard WAMP subscription metadata even when no live WAMP subscriber session
   exists. `router_mcp.dart` synthesizes visible subscription entries for
@@ -10149,18 +10188,18 @@ and focused
 `bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
 passed on 2026-06-19.
 
-The latest fully clean hosted checkpoint is `e52d75b`: GitHub `master` CI
-`27850764875` and GitHub `add-router` CI `27850763859` passed with `Fast
+The latest fully clean hosted checkpoint is `7202eaf`: GitHub `master` CI
+`27853666797` and GitHub `add-router` CI `27853666194` passed with `Fast
 Checks` and `Full Verify` clean. GitHub `master` Dart Package Publish Dry Run
-`27850764868` and GitHub `add-router` Dart Package Publish Dry Run
-`27850763870` passed for the same commit. The latest WAMP Profile Benchmarks
-remain GitHub `master` `27846722972` and GitHub `add-router` `27846718267` at
-`1c8ce29` because this public-example smoke checkpoint did not trigger
-benchmark-sensitive workflows. The strict deployment-chain audit passed with
-branch protection, workflow visibility, router image package visibility, latest
-`master` CI evidence, and latest `master` Dart package dry-run evidence clean.
+`27853666798` and GitHub `add-router` Dart Package Publish Dry Run
+`27853666197` passed for the same commit. GitHub `master` WAMP Profile
+Benchmarks `27853666815` and GitHub `add-router` WAMP Profile Benchmarks
+`27853666244` passed for the same commit. The strict deployment-chain audit
+passed with branch protection, workflow visibility, router image package
+visibility, latest `master` CI evidence, latest `master` WAMP benchmark
+evidence, and latest `master` Dart package dry-run evidence clean.
 
 RC readiness remains not-ready because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for `e52d75b`.
+prerelease, or matching RC router image tag has been selected for `7202eaf`.
 Pub.dev publishing remains deferred for release-order and operator
 decisions. No RC tag, GitHub Release, or router image was created or moved.
