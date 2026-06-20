@@ -4,6 +4,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Keep automated Dart smoke runs deterministic; analytics startup can wait on
+# network before the target program handles validation-only failures.
+export DART_SUPPRESS_ANALYTICS="${DART_SUPPRESS_ANALYTICS:-true}"
+
 repo_root() {
   printf '%s\n' "$ROOT_DIR"
 }

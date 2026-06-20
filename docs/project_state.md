@@ -2,13 +2,38 @@
 
 Last updated: 2026-06-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: router CLI consumer MCP smoke coverage now
-proves protected JSON-response active-session direct JSON and Streamable
-resource, resource-template, and prompt pagination through the generated Dart
-consumer on `/mcp/secure-json-post` without mutating Streamable session state.
-Latest fully clean hosted checkpoint: Commit `d74f33e` on GitHub `master` and
+Last reviewed branch checkpoint: root verification scripts now suppress Dart
+analytics by default so validation-only Dart smoke runs cannot wait on network
+startup before router-hosted MCP argument validation exits.
+Latest fully clean hosted checkpoint: Commit `0f29c0d` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/common.sh` now exports `DART_SUPPRESS_ANALYTICS=true` by default while
+preserving caller overrides. This hardens repository automation after
+pre-change `bin/test-fast` reproduced a router-hosted MCP dry-run stall before
+the example client reached its expected validation failure. The focused script
+test in `tool/test_verification_scripts.py` now asserts the default environment
+is set whenever root verification helpers source `bin/common.sh`.
+
+Pre-change `bin/test-fast` reproduced the router-hosted MCP dry-run stall on
+2026-06-20 and was interrupted after the stuck validation-only example process
+was inspected. Focused
+`env DART_SUPPRESS_ANALYTICS=true dart run packages/connectanum_mcp/example/router_hosted_client.dart --endpoint http://127.0.0.1:8080/mcp --pubsub-topic '   ' --dry-run`
+exited with the expected usage error on 2026-06-20. After the change, focused
+`bash -n bin/common.sh bin/test-fast bin/test-all`,
+`python3 tool/test_verification_scripts.py`, and
+`env -u DART_SUPPRESS_ANALYTICS bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`
+passed on 2026-06-20. Full local `bin/test-fast` and full local `bin/verify`
+also passed on 2026-06-20, including formatting, Rust/FFI tests, Python/tool
+tests, MCP package tests, consumer package smokes, router-hosted MCP example
+smokes, the installed router CLI consumer smoke, full router tests, zero-copy
+router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+Hosted evidence for this local checkpoint remains pending until GitHub
+CI/deployment-chain audit evidence is reviewed after the implementation commit
+is pushed.
+
+Previous implementation checkpoint:
 `bin/common.sh` now configures the router CLI `/mcp/secure-json-post` fixture
 with page-size-one protected resources, resource templates, and prompts plus
 second-page entries. The generated downstream Dart consumer now follows
@@ -35,9 +60,19 @@ example smokes, the installed router CLI consumer smoke with the new protected
 JSON-response pagination checks, full router tests, zero-copy router tests, and
 the Chrome/Dart2Wasm browser WebSocket smoke.
 
-Hosted evidence for this local checkpoint remains pending until GitHub
-CI/deployment-chain audit evidence is reviewed after the implementation commit
-is pushed.
+Hosted evidence: Commit `0f29c0d`
+(`test: cover json response pagination smoke`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27877228100` and
+GitHub `add-router` CI `27877227462` passed with `Fast Checks` and
+`Full Verify` clean. No new Dart Package Publish Dry Run or WAMP Profile
+Benchmarks were required because no publish-sensitive or benchmark-sensitive
+package inputs changed since `7202eaf`; the latest GitHub `master` Dart Package
+Publish Dry Run `27853666798` remains clean and relevant at `7202eaf`. The
+strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-20 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence at
+`0f29c0d`, and latest relevant Dart package dry-run evidence clean.
 
 Previous implementation checkpoint:
 `bin/common.sh` now tightens the generated router CLI Dart MCP consumer smoke

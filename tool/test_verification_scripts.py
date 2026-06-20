@@ -90,6 +90,27 @@ class VerificationScriptsTest(unittest.TestCase):
         self.assertIn("cargo_with_retry build", package_script)
         self.assertIn("cargo_with_retry test --manifest-path", test_all_script)
 
+    def test_common_suppresses_dart_analytics_by_default(self) -> None:
+        script = textwrap.dedent(
+            f"""
+            set -euo pipefail
+            unset DART_SUPPRESS_ANALYTICS
+            source "{COMMON}"
+            [[ "$DART_SUPPRESS_ANALYTICS" == "true" ]]
+            """
+        )
+
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=REPO_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_browser_websocket_smoke_retries_without_retry_annotations(
         self,
     ) -> None:
