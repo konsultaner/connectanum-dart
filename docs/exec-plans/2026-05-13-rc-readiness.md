@@ -80,6 +80,32 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-20: Tightened the generated router CLI Dart MCP consumer smoke so
+  protected active JSON-response Streamable HTTP resource readiness includes a
+  single `resources/read` call through the Dart consumer on
+  `/mcp/secure-json-post`. `bin/common.sh` now reads
+  `cli://mcp/secure/context` over the active JSON-response Streamable session,
+  verifies the protected resource content, and keeps asserting the
+  JSON-response route does not capture an SSE cursor. The human-readable
+  router CLI smoke summary now distinguishes Streamable resource
+  read/list/template/prompt coverage.
+  `tool/test_mcp_consumer_package_boundary.py` guards the new generated request
+  ID, failure message, and summary fragment. Baseline `bin/test-fast` passed
+  before the change on 2026-06-20. Focused `bash -n bin/common.sh`, focused
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+  focused `git diff --check`, focused
+  `python3 tool/check_public_artifact_references.py`, and focused
+  `bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-20, with the installed router CLI consumer smoke exercising
+  the new generated Dart protected JSON-response Streamable resource read. Full
+  local `bin/verify` passed on 2026-06-20, including formatting, Rust/FFI tests,
+  Python/tool tests, MCP package tests, generated consumer-package smokes, the
+  router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
+  JSON-response examples, the installed router CLI consumer smoke with the new
+  protected JSON-response Streamable resource-read check, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence is pending until this implementation commit is pushed and
+  GitHub CI/deployment-chain audit evidence is reviewed.
+- 2026-06-20: Tightened the generated router CLI Dart MCP consumer smoke so
   protected active Streamable HTTP resource and prompt readiness is proven
   through the Dart consumer on both the JSON-response `/mcp/secure-json-post`
   route and the non-JSON-response `/mcp/secure` route. `bin/common.sh` now
@@ -105,9 +131,20 @@ decision because `connectanum_client` still depends on private
   public, pub/sub-only, authenticated, bearer, and JSON-response examples, the
   installed router CLI consumer smoke with the new protected Streamable
   resource/template/prompt checks, full router tests, zero-copy router tests,
-  and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending
-  until this implementation commit is pushed and GitHub CI/deployment-chain
-  audit evidence is reviewed.
+  and the Chrome/Dart2Wasm browser WebSocket smoke. Commit `da3d066`
+  (`test: cover protected mcp streamable resources`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27871534764` and GitHub `add-router` CI `27871532401` passed with
+  `Fast Checks` and `Full Verify` clean. No new Dart Package Publish Dry Run
+  or WAMP Profile Benchmarks were required because no publish-sensitive or
+  benchmark-sensitive package inputs changed since `7202eaf`; the latest
+  GitHub `master` Dart Package Publish Dry Run `27853666798` remains clean and
+  relevant at `7202eaf`. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-20 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence at `da3d066`, and latest relevant Dart package dry-run evidence
+  clean.
 - 2026-06-20: Tightened the generated router CLI Dart MCP consumer smoke so
   protected non-JSON-response `/mcp/secure` WAMP procedure metadata is proven
   through the Dart consumer over both direct JSON and Streamable HTTP.

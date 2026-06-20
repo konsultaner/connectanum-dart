@@ -457,6 +457,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "missed context.",
             body,
         )
+        self.assertIn(
+            "dart-consumer-secure-json-streamable-resource-read",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable resource read "
+            "missed content.",
+            body,
+        )
         self.assertIn("dart-consumer-secure-json-streamable-templates", body)
         self.assertIn(
             "Dart consumer protected JSON-response Streamable templates "
@@ -809,8 +818,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "active protected JSON-response auth rejection/refresh-revoke, "
             "direct JSON procedure catalog/describe/topic/resource/prompt/"
-            "pub-sub/batch isolation, and Streamable resource/template/prompt "
-            "plus procedure/topic metadata/pub-sub/batch/session delete",
+            "pub-sub/batch isolation, and Streamable resource read/list/"
+            "template/prompt plus procedure/topic metadata/pub-sub/batch/"
+            "session delete",
             body,
         )
         self.assertIn(
