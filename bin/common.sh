@@ -23386,15 +23386,25 @@ router:
                 include_pubsub_tools: true
                 allow_insecure_transport: true
                 post_response_transport: json
+                resource_list_page_size: 1
+                resource_template_list_page_size: 1
+                prompt_list_page_size: 1
                 resources:
                   - uri: cli://mcp/secure/context
                     name: cli-secure-context
                     mime_type: text/plain
                     text: Router CLI secure MCP context.
+                  - uri: cli://mcp/secure/context-extra
+                    name: cli-secure-context-extra
+                    mime_type: text/plain
+                    text: Router CLI secure MCP extra context.
                 resource_templates:
                   - uri_template: cli://mcp/secure/task/{taskId}
                     name: cli-secure-task
                     description: Router CLI secure task resource template.
+                  - uri_template: cli://mcp/secure/task/{taskId}/extra
+                    name: cli-secure-task-extra
+                    description: Router CLI secure extra task resource template.
                 prompts:
                   - name: summarize-secure-cli-context
                     arguments:
@@ -23403,6 +23413,13 @@ router:
                     messages:
                       - role: user
                         text: Summarize secure {{topic}} from the router CLI MCP smoke.
+                  - name: summarize-secure-cli-context-extra
+                    arguments:
+                      - name: topic
+                        required: true
+                    messages:
+                      - role: user
+                        text: Summarize extra secure {{topic}} from the router CLI MCP smoke.
                 procedures:
                   - procedure: cli.smoke.secure.lookup
                     tool_name: cli.smoke.secure.lookup
@@ -25036,6 +25053,23 @@ Future<void> main() async {
       ).contains('cli://mcp/secure/context'),
       'Dart consumer protected JSON-response active direct JSON resources missed context.',
     );
+    _expect(
+      secureJsonActiveResources.nextCursor != null,
+      'Dart consumer protected JSON-response active direct JSON resources missed cursor.',
+    );
+    final secureJsonActiveResourcesPage =
+        await secureJsonClient.listResourcesDirect(
+      id: 'dart-consumer-secure-json-active-direct-resources-page',
+      cursor: secureJsonActiveResources.nextCursor,
+    );
+    _expect(
+      _stringFields(
+            secureJsonActiveResourcesPage.resources,
+            'uri',
+          ).contains('cli://mcp/secure/context-extra') &&
+          secureJsonActiveResourcesPage.nextCursor == null,
+      'Dart consumer protected JSON-response active direct JSON resources cursor page missed extra context.',
+    );
     final secureJsonActiveResourceContents =
         await secureJsonClient.readResourceDirect(
       'cli://mcp/secure/context',
@@ -25059,6 +25093,23 @@ Future<void> main() async {
       ).contains('cli://mcp/secure/task/{taskId}'),
       'Dart consumer protected JSON-response active direct JSON templates missed secure task.',
     );
+    _expect(
+      secureJsonActiveTemplates.nextCursor != null,
+      'Dart consumer protected JSON-response active direct JSON templates missed cursor.',
+    );
+    final secureJsonActiveTemplatesPage =
+        await secureJsonClient.listResourceTemplatesDirect(
+      id: 'dart-consumer-secure-json-active-direct-templates-page',
+      cursor: secureJsonActiveTemplates.nextCursor,
+    );
+    _expect(
+      _stringFields(
+            secureJsonActiveTemplatesPage.resourceTemplates,
+            'uriTemplate',
+          ).contains('cli://mcp/secure/task/{taskId}/extra') &&
+          secureJsonActiveTemplatesPage.nextCursor == null,
+      'Dart consumer protected JSON-response active direct JSON templates cursor page missed secure extra task.',
+    );
 
     final secureJsonActivePrompts = await secureJsonClient.listPromptsDirect(
       id: 'dart-consumer-secure-json-active-direct-prompts',
@@ -25069,6 +25120,23 @@ Future<void> main() async {
         'name',
       ).contains('summarize-secure-cli-context'),
       'Dart consumer protected JSON-response active direct JSON prompts missed secure prompt.',
+    );
+    _expect(
+      secureJsonActivePrompts.nextCursor != null,
+      'Dart consumer protected JSON-response active direct JSON prompts missed cursor.',
+    );
+    final secureJsonActivePromptsPage =
+        await secureJsonClient.listPromptsDirect(
+      id: 'dart-consumer-secure-json-active-direct-prompts-page',
+      cursor: secureJsonActivePrompts.nextCursor,
+    );
+    _expect(
+      _stringFields(
+            secureJsonActivePromptsPage.prompts,
+            'name',
+          ).contains('summarize-secure-cli-context-extra') &&
+          secureJsonActivePromptsPage.nextCursor == null,
+      'Dart consumer protected JSON-response active direct JSON prompts cursor page missed secure extra prompt.',
     );
     final secureJsonActivePrompt = await secureJsonClient.getPromptDirect(
       'summarize-secure-cli-context',
@@ -25192,6 +25260,23 @@ Future<void> main() async {
       ).contains('cli://mcp/secure/context'),
       'Dart consumer protected JSON-response Streamable resources missed context.',
     );
+    _expect(
+      secureJsonStreamableResources.nextCursor != null,
+      'Dart consumer protected JSON-response Streamable resources missed cursor.',
+    );
+    final secureJsonStreamableResourcesPage =
+        await secureJsonClient.listResources(
+      id: 'dart-consumer-secure-json-streamable-resources-page',
+      cursor: secureJsonStreamableResources.nextCursor,
+    );
+    _expect(
+      _stringFields(
+            secureJsonStreamableResourcesPage.resources,
+            'uri',
+          ).contains('cli://mcp/secure/context-extra') &&
+          secureJsonStreamableResourcesPage.nextCursor == null,
+      'Dart consumer protected JSON-response Streamable resources cursor page missed extra context.',
+    );
     final secureJsonStreamableResourceContents =
         await secureJsonClient.readResource(
       'cli://mcp/secure/context',
@@ -25214,6 +25299,23 @@ Future<void> main() async {
       ).contains('cli://mcp/secure/task/{taskId}'),
       'Dart consumer protected JSON-response Streamable templates missed secure task.',
     );
+    _expect(
+      secureJsonStreamableTemplates.nextCursor != null,
+      'Dart consumer protected JSON-response Streamable templates missed cursor.',
+    );
+    final secureJsonStreamableTemplatesPage =
+        await secureJsonClient.listResourceTemplates(
+      id: 'dart-consumer-secure-json-streamable-templates-page',
+      cursor: secureJsonStreamableTemplates.nextCursor,
+    );
+    _expect(
+      _stringFields(
+            secureJsonStreamableTemplatesPage.resourceTemplates,
+            'uriTemplate',
+          ).contains('cli://mcp/secure/task/{taskId}/extra') &&
+          secureJsonStreamableTemplatesPage.nextCursor == null,
+      'Dart consumer protected JSON-response Streamable templates cursor page missed secure extra task.',
+    );
     final secureJsonStreamablePrompts = await secureJsonClient.listPrompts(
       id: 'dart-consumer-secure-json-streamable-prompts',
     );
@@ -25223,6 +25325,23 @@ Future<void> main() async {
         'name',
       ).contains('summarize-secure-cli-context'),
       'Dart consumer protected JSON-response Streamable prompts missed secure prompt.',
+    );
+    _expect(
+      secureJsonStreamablePrompts.nextCursor != null,
+      'Dart consumer protected JSON-response Streamable prompts missed cursor.',
+    );
+    final secureJsonStreamablePromptsPage =
+        await secureJsonClient.listPrompts(
+      id: 'dart-consumer-secure-json-streamable-prompts-page',
+      cursor: secureJsonStreamablePrompts.nextCursor,
+    );
+    _expect(
+      _stringFields(
+            secureJsonStreamablePromptsPage.prompts,
+            'name',
+          ).contains('summarize-secure-cli-context-extra') &&
+          secureJsonStreamablePromptsPage.nextCursor == null,
+      'Dart consumer protected JSON-response Streamable prompts cursor page missed secure extra prompt.',
     );
     final secureJsonStreamablePrompt = await secureJsonClient.getPrompt(
       'summarize-secure-cli-context',
@@ -27978,6 +28097,6 @@ DART
     '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/resource list/read/prompt/pub-sub/batch isolation, and Streamable resource read/list/template/prompt plus procedure/topic metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

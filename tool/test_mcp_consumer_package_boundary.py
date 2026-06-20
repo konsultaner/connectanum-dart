@@ -347,12 +347,40 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            "dart-consumer-secure-json-active-direct-templates-page",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON templates "
+            "missed cursor.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON templates "
+            "cursor page missed secure extra task.",
+            body,
+        )
+        self.assertIn(
             "dart-consumer-secure-json-active-direct-prompts",
             body,
         )
         self.assertIn(
             "Dart consumer protected JSON-response active direct JSON prompts "
             "missed secure prompt.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-prompts-page",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON prompts "
+            "missed cursor.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON prompts "
+            "cursor page missed secure extra prompt.",
             body,
         )
         self.assertIn(
@@ -461,6 +489,20 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            "dart-consumer-secure-json-active-direct-resources-page",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON "
+            "resources missed cursor.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON "
+            "resources cursor page missed extra context.",
+            body,
+        )
+        self.assertIn(
             "dart-consumer-secure-json-active-direct-resource-read",
             body,
         )
@@ -473,6 +515,17 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "Dart consumer protected JSON-response Streamable resources "
             "missed context.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-resources-page", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable resources "
+            "missed cursor.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable resources cursor "
+            "page missed extra context.",
             body,
         )
         self.assertIn(
@@ -490,10 +543,32 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "missed secure task.",
             body,
         )
+        self.assertIn("dart-consumer-secure-json-streamable-templates-page", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable templates missed "
+            "cursor.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable templates cursor "
+            "page missed secure extra task.",
+            body,
+        )
         self.assertIn("dart-consumer-secure-json-streamable-prompts", body)
         self.assertIn(
             "Dart consumer protected JSON-response Streamable prompts missed "
             "secure prompt.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-prompts-page", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable prompts missed "
+            "cursor.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable prompts cursor "
+            "page missed secure extra prompt.",
             body,
         )
         self.assertIn("dart-consumer-secure-json-streamable-prompt-get", body)
@@ -835,10 +910,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("_expectConfiguredWampSubscriptionMeta", body)
         self.assertIn(
             "active protected JSON-response auth rejection/refresh-revoke, "
-            "direct JSON procedure catalog/describe/topic/resource list/"
-            "read/prompt/pub-sub/batch isolation, and Streamable resource "
-            "read/list/template/prompt plus procedure/topic metadata/pub-sub/"
-            "batch/session delete",
+            "direct JSON procedure catalog/describe/topic/resource list "
+            "pagination/read/resource template pagination/prompt pagination/"
+            "pub-sub/batch isolation, and Streamable resource list pagination/"
+            "read/resource template pagination/prompt pagination plus "
+            "procedure/topic metadata/pub-sub/batch/session delete",
             body,
         )
         self.assertIn(
