@@ -43,7 +43,7 @@ host_triple="$(host_rust_triple)"
 lib_name="$(native_lib_file_name)"
 lib_path="$(native_lib_path)"
 
-cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --release
+cargo_with_retry build --manifest-path native/transport/Cargo.toml -p ct_ffi --release
 
 if [[ ! -f "$lib_path" ]]; then
   printf 'Expected built library at %s, but it was not found.\n' "$lib_path" >&2

@@ -144,9 +144,9 @@ run_client_browser_websocket_test() {
 }
 
 if native_runtime_supported; then
-  cargo test --manifest-path native/transport/Cargo.toml -p ct_core
-  cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi
-  cargo test \
+  cargo_with_retry test --manifest-path native/transport/Cargo.toml -p ct_core
+  cargo_with_retry test --manifest-path native/transport/Cargo.toml -p ct_ffi
+  cargo_with_retry test \
     --manifest-path native/transport/Cargo.toml \
     -p ct_ffi \
     --features ffi-test \

@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-20: Hardened the Cargo-sensitive bootstrap and verification paths
+  after the previous GitHub `add-router` CI attempt showed a transient
+  crates.io connection reset in `Bootstrap workspace` before tests started.
+  `bin/common.sh` now provides `retry_command` plus `cargo_with_retry`, with
+  default Cargo retry settings controlled by `CONNECTANUM_CARGO_RETRY_ATTEMPTS`
+  and `CONNECTANUM_CARGO_RETRY_DELAY_SECONDS`. `bin/bootstrap` now uses the
+  shared `cargo_workspace_check`, and `cargo_workspace_check`,
+  `build_native_ffi_test_release`, the Rust test steps in `bin/test-all`, and
+  `bin/package-native-artifact` run Cargo metadata/build/test commands through
+  the retry helper while preserving final failure exit status.
+  `tool/test_verification_scripts.py` now syntax-checks the touched core shell
+  scripts, unit-tests a retry-then-success command, and asserts that
+  bootstrap, verification, and native packaging scripts route Cargo-sensitive
+  commands through the helper.
+  Baseline `bin/test-fast` passed before the change on 2026-06-20. Focused
+  `bash -n bin/common.sh`, `bash -n bin/bootstrap`, `bash -n bin/test-all`,
+  `python3 tool/test_verification_scripts.py`, `bin/bootstrap`, and
+  `git diff --check` passed on 2026-06-20. Post-change `bin/test-fast` passed
+  on 2026-06-20, including the verification-script retry regression, MCP
+  package tests, generated consumer-package smokes, the router-hosted MCP live
+  public, pub/sub-only, authenticated, bearer, and JSON-response examples, the
+  installed router CLI consumer smoke, bench WAMP transport integration
+  coverage, and router native/auth/session tests. Hosted evidence for this
+  bootstrap retry checkpoint is pending until the code/config commit is
+  pushed; the latest fully clean hosted checkpoint remains commit `38623d5` on
+  GitHub `master` and GitHub `add-router`.
 - 2026-06-20: Tightened the installed router CLI Dart MCP consumer smoke so
   notification-only pub/sub delivery is explicit in machine-readable consumer
   evidence. `bin/common.sh` now generates `_expectNotificationPubSub`, sends
@@ -103,8 +129,27 @@ decision because `connectanum_client` still depends on private
   public, pub/sub-only, authenticated, bearer, and JSON-response examples, the
   installed router CLI consumer smoke with explicit `pubsubNotifications`
   summary fields, full router tests, zero-copy router tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending until
-  this code change is pushed.
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is clean on GitHub
+  `master`. Commit `38623d5`
+  (`test: prove notification mcp pubsub in cli smoke`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27857815879` and GitHub `add-router` CI `27857813114` passed with
+  `Fast Checks` and `Full Verify` clean. The first `add-router` attempt failed
+  in `Bootstrap workspace` before tests after `cargo fetch` hit a crates.io
+  connection reset while downloading `futures`; rerunning the failed jobs
+  cleared that transient bootstrap failure. No new Dart Package Publish Dry Run
+  or WAMP Profile Benchmarks were required because this smoke-harness/state
+  update did not change publish-sensitive or benchmark-sensitive inputs; the
+  latest GitHub `master` Dart Package Publish Dry Run `27853666798`, GitHub
+  `add-router` Dart Package Publish Dry Run `27853666197`, GitHub `master`
+  WAMP Profile Benchmarks `27853666815`, and GitHub `add-router` WAMP Profile
+  Benchmarks `27853666244` remain clean and relevant at `7202eaf`. The strict
+  deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-20 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence at `38623d5`, and latest relevant Dart package dry-run evidence
+  clean.
 - 2026-06-20: Tightened the installed router CLI Dart MCP consumer smoke so
   route-configured procedure registration metadata is now explicit in
   machine-readable consumer evidence. `bin/common.sh` now names the generated

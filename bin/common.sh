@@ -128,6 +128,48 @@ require_command() {
   fi
 }
 
+retry_command() {
+  local description="$1"
+  local max_attempts="$2"
+  local delay_seconds="$3"
+  local attempt
+  local status
+
+  shift 3
+
+  if ! [[ "$max_attempts" =~ ^[1-9][0-9]*$ ]]; then
+    printf '%s retry attempts must be a positive integer, got %s.\n' "$description" "$max_attempts" >&2
+    return 2
+  fi
+
+  if ! [[ "$delay_seconds" =~ ^[0-9]+$ ]]; then
+    printf '%s retry delay must be a non-negative integer, got %s.\n' "$description" "$delay_seconds" >&2
+    return 2
+  fi
+
+  for attempt in $(seq 1 "$max_attempts"); do
+    if "$@"; then
+      return 0
+    else
+      status=$?
+    fi
+
+    if (( attempt == max_attempts )); then
+      return "$status"
+    fi
+
+    printf '%s failed on attempt %s/%s; retrying in %ss.\n' "$description" "$attempt" "$max_attempts" "$delay_seconds" >&2
+    sleep "$delay_seconds"
+  done
+}
+
+cargo_with_retry() {
+  local max_attempts="${CONNECTANUM_CARGO_RETRY_ATTEMPTS:-3}"
+  local delay_seconds="${CONNECTANUM_CARGO_RETRY_DELAY_SECONDS:-5}"
+
+  retry_command "Cargo command" "$max_attempts" "$delay_seconds" cargo "$@"
+}
+
 native_lib_path() {
   local file_name
 
@@ -326,7 +368,7 @@ dart_workspace_bootstrap() {
 cargo_workspace_check() {
   require_command cargo
   cd_repo_root
-  cargo metadata --manifest-path native/transport/Cargo.toml --format-version 1 >/dev/null
+  cargo_with_retry metadata --manifest-path native/transport/Cargo.toml --format-version 1 >/dev/null
 }
 
 build_native_ffi_test_release() {
@@ -337,7 +379,7 @@ build_native_ffi_test_release() {
   cd_repo_root
   target_dir="$ROOT_DIR/native/transport/target/ffi-test"
   CARGO_TARGET_DIR="$target_dir" \
-    cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test --release
+    cargo_with_retry build --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test --release
   if built_lib="$(native_ffi_test_lib_path)" && [[ -f "$built_lib" ]]; then
     export CONNECTANUM_NATIVE_LIB="$built_lib"
   fi

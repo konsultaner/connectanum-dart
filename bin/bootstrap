@@ -12,7 +12,7 @@ printf 'Using Dart: %s\n' "$(dart --version 2>&1 | tail -n 1)"
 printf 'Using Cargo: %s\n' "$(cargo --version)"
 
 dart pub get
-cargo metadata --manifest-path native/transport/Cargo.toml --format-version 1 >/dev/null
+cargo_workspace_check
 
 if ensure_chrome_env; then
   printf 'Chrome detected at %s\n' "$CHROME_EXECUTABLE"

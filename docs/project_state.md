@@ -2,16 +2,41 @@
 
 Last updated: 2026-06-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP consumer readiness now has
-explicit machine-readable evidence for notification-only pub/sub delivery on
-token-only router-hosted MCP routes. The direct JSON router integration smoke,
-installed router CLI Dart MCP consumer smoke, and public router-hosted client
-example prove configured registration/subscription metadata plus direct JSON
-and Streamable HTTP notification-to-WAMP topic delivery for consumer
-applications.
-Latest fully clean hosted checkpoint: Commit `a565d46` on GitHub `master` and
+Last reviewed branch checkpoint: deployment-chain bootstrap hardening now
+routes Cargo-sensitive local and hosted verification paths through a retry
+wrapper, addressing the transient crates.io connection reset that affected the
+previous `add-router` GitHub CI attempt before tests started.
+Latest fully clean hosted checkpoint: Commit `38623d5` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/common.sh` now provides `retry_command` plus `cargo_with_retry`, with
+default Cargo retry settings controlled by `CONNECTANUM_CARGO_RETRY_ATTEMPTS`
+and `CONNECTANUM_CARGO_RETRY_DELAY_SECONDS`. `bin/bootstrap` now uses the
+shared `cargo_workspace_check` instead of a one-off `cargo metadata` call, and
+`cargo_workspace_check`, `build_native_ffi_test_release`, the Rust test steps
+inside `bin/test-all`, and `bin/package-native-artifact` now run their Cargo
+metadata/build/test commands through `cargo_with_retry`. This keeps final
+Cargo failures visible while allowing transient registry/network failures to
+clear without rerunning an entire GitHub workflow manually.
+`tool/test_verification_scripts.py` now syntax-checks the core verification
+scripts touched by this path, unit-tests that `retry_command` retries a
+failing command once before succeeding, and asserts that bootstrap,
+verification, and native packaging scripts route Cargo-sensitive commands
+through the retry helper.
+
+Baseline `bin/test-fast` passed before the bootstrap retry hardening on
+2026-06-20. Focused `bash -n bin/common.sh`, `bash -n bin/bootstrap`,
+`bash -n bin/test-all`, `python3 tool/test_verification_scripts.py`,
+`bin/bootstrap`, and `git diff --check` passed on 2026-06-20. Post-change
+`bin/test-fast` passed on 2026-06-20, including the verification-script retry
+regression, MCP package tests, generated consumer-package smokes, the
+router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
+JSON-response examples, the installed router CLI consumer smoke, bench WAMP
+transport integration coverage, and router native/auth/session tests. Hosted
+evidence for this bootstrap retry checkpoint is pending until the code/config
+commit is pushed; the latest fully clean hosted checkpoint remains `38623d5`.
+
+Previous implementation checkpoint:
 `bin/common.sh` now proves notification-only WAMP pub/sub delivery in the
 installed router CLI Dart MCP consumer smoke. The generated consumer helper is
 named `_expectNotificationPubSub`; it sends `notifyWampEventDirect` and
@@ -39,10 +64,30 @@ consumer-package smokes, the router-hosted MCP live public, pub/sub-only,
 authenticated, bearer, and JSON-response examples, the installed router CLI
 consumer smoke with explicit `pubsubNotifications` summary fields, full router
 tests, zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket
-smoke. Hosted evidence for this notification-only pub/sub checkpoint is pending
-until this code change is pushed.
+smoke. Hosted evidence for this notification-only pub/sub checkpoint is clean
+on GitHub `master`.
 
-Previous implementation checkpoint:
+Hosted evidence: Commit `38623d5`
+(`test: prove notification mcp pubsub in cli smoke`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`27857815879` and GitHub `add-router` CI `27857813114` passed with
+`Fast Checks` and `Full Verify` clean. The first `add-router` attempt failed in
+`Bootstrap workspace` before tests after `cargo fetch` hit a crates.io
+connection reset while downloading `futures`; rerunning the failed jobs cleared
+that transient bootstrap failure. No new Dart Package Publish Dry Run or WAMP
+Profile Benchmarks were required because this smoke-harness/state update did
+not change publish-sensitive or benchmark-sensitive inputs; the latest GitHub
+`master` Dart Package Publish Dry Run `27853666798`, GitHub `add-router` Dart
+Package Publish Dry Run `27853666197`, GitHub `master` WAMP Profile Benchmarks
+`27853666815`, and GitHub `add-router` WAMP Profile Benchmarks `27853666244`
+remain clean and relevant at `7202eaf`. The strict
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-20 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence at
+`38623d5`, and latest relevant Dart package dry-run evidence clean.
+
+Earlier implementation checkpoint:
 `bin/common.sh` marks configured registration metadata explicitly in the
 installed router CLI Dart MCP consumer smoke. The generated consumer helper is
 named `_expectConfiguredWampRegistrationMeta`, it proves the route-configured
