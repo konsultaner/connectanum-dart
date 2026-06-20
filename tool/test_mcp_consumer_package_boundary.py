@@ -451,6 +451,24 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "missed metadata.",
             body,
         )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-resources",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON "
+            "resources missed context.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-resource-read",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON "
+            "resource read missed content.",
+            body,
+        )
         self.assertIn("dart-consumer-secure-json-streamable-resources", body)
         self.assertIn(
             "Dart consumer protected JSON-response Streamable resources "
@@ -817,10 +835,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("_expectConfiguredWampSubscriptionMeta", body)
         self.assertIn(
             "active protected JSON-response auth rejection/refresh-revoke, "
-            "direct JSON procedure catalog/describe/topic/resource/prompt/"
-            "pub-sub/batch isolation, and Streamable resource read/list/"
-            "template/prompt plus procedure/topic metadata/pub-sub/batch/"
-            "session delete",
+            "direct JSON procedure catalog/describe/topic/resource list/"
+            "read/prompt/pub-sub/batch isolation, and Streamable resource "
+            "read/list/template/prompt plus procedure/topic metadata/pub-sub/"
+            "batch/session delete",
             body,
         )
         self.assertIn(

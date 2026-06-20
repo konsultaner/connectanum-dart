@@ -3,12 +3,45 @@
 Last updated: 2026-06-20
 Current branch: `add-router`
 Last reviewed branch checkpoint: router CLI consumer MCP smoke coverage now
-proves a protected JSON-response Streamable `resources/read` call through the
-generated Dart consumer on `/mcp/secure-json-post`, matching the single
-resource-read coverage already present for `/mcp/secure`.
-Latest fully clean hosted checkpoint: Commit `da3d066` on GitHub `master` and
+proves protected JSON-response active-session direct JSON
+`resources/list`/`resources/read` helper calls through the generated Dart
+consumer on `/mcp/secure-json-post` without mutating the Streamable session
+state.
+Latest fully clean hosted checkpoint: Commit `d152644` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/common.sh` now tightens the generated router CLI Dart MCP consumer smoke
+for protected active JSON-response direct JSON resource readiness. The
+generated downstream consumer now lists protected resources and reads
+`cli://mcp/secure/context` over direct JSON while an active
+`/mcp/secure-json-post` Streamable session is already open, verifies the
+protected resource content, and keeps asserting direct helpers plus batches do
+not mutate the JSON-response route's Streamable session id or SSE cursor. The
+human-readable router CLI smoke summary now distinguishes direct JSON resource
+list/read coverage.
+`tool/test_mcp_consumer_package_boundary.py` guards the new generated request
+IDs, failure messages, and summary fragment.
+
+Baseline `bin/test-fast` passed before the protected JSON-response active
+direct JSON resource generated-consumer change on 2026-06-20. Focused
+`bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+and
+`bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
+passed on 2026-06-20, with the installed router CLI consumer smoke exercising
+the new generated Dart protected JSON-response active direct JSON
+resource-list/read checks and emitting the updated smoke summary.
+Full local `bin/verify` passed on 2026-06-20, including formatting, Rust/FFI
+tests, Python/tool tests, MCP package tests, consumer package smokes,
+router-hosted MCP example smokes, the installed router CLI consumer smoke with
+the new protected JSON-response active direct JSON resource list/read checks,
+full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
+WebSocket smoke.
+
+Hosted evidence for this local checkpoint is pending until the implementation
+commit is pushed and GitHub CI/deployment-chain audit evidence is reviewed.
+
+Previous implementation checkpoint:
 `bin/common.sh` now tightens the generated router CLI Dart MCP consumer smoke
 for protected active JSON-response Streamable HTTP resource readiness. The
 generated downstream consumer now reads `cli://mcp/secure/context` over the
@@ -34,10 +67,21 @@ JSON-response examples, the installed router CLI consumer smoke with the new
 protected JSON-response Streamable resource-read check, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
 
-Hosted evidence for this local checkpoint is pending until the implementation
-commit is pushed and GitHub CI/deployment-chain audit evidence is reviewed.
+Hosted evidence: Commit `d152644`
+(`test: cover json response streamable resource read`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`27873173083` and GitHub `add-router` CI `27873166905` passed with
+`Fast Checks` and `Full Verify` clean. No new Dart Package Publish Dry Run or
+WAMP Profile Benchmarks were required because no publish-sensitive or
+benchmark-sensitive package inputs changed since `7202eaf`; the latest GitHub
+`master` Dart Package Publish Dry Run `27853666798` remains clean and relevant
+at `7202eaf`. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-20 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence at
+`d152644`, and latest relevant Dart package dry-run evidence clean.
 
-Previous implementation checkpoint:
+Earlier implementation checkpoint:
 `bin/common.sh` now tightens the generated router CLI Dart MCP consumer smoke
 for protected active Streamable HTTP resource and prompt readiness. The
 generated downstream consumer now lists protected resources, lists protected

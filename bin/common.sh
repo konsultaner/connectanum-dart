@@ -25025,6 +25025,29 @@ Future<void> main() async {
       'Dart consumer protected JSON-response active direct JSON topic describe missed metadata.',
     );
 
+    final secureJsonActiveResources =
+        await secureJsonClient.listResourcesDirect(
+      id: 'dart-consumer-secure-json-active-direct-resources',
+    );
+    _expect(
+      _stringFields(
+        secureJsonActiveResources.resources,
+        'uri',
+      ).contains('cli://mcp/secure/context'),
+      'Dart consumer protected JSON-response active direct JSON resources missed context.',
+    );
+    final secureJsonActiveResourceContents =
+        await secureJsonClient.readResourceDirect(
+      'cli://mcp/secure/context',
+      id: 'dart-consumer-secure-json-active-direct-resource-read',
+    );
+    _expect(
+      jsonEncode(
+        secureJsonActiveResourceContents,
+      ).contains('Router CLI secure MCP context.'),
+      'Dart consumer protected JSON-response active direct JSON resource read missed content.',
+    );
+
     final secureJsonActiveTemplates =
         await secureJsonClient.listResourceTemplatesDirect(
       id: 'dart-consumer-secure-json-active-direct-templates',
@@ -27955,6 +27978,6 @@ DART
     '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/resource/prompt/pub-sub/batch isolation, and Streamable resource read/list/template/prompt plus procedure/topic metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/resource list/read/prompt/pub-sub/batch isolation, and Streamable resource read/list/template/prompt plus procedure/topic metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )
