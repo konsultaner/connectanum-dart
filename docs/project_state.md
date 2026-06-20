@@ -3,11 +3,41 @@
 Last updated: 2026-06-20
 Current branch: `add-router`
 Last reviewed branch checkpoint: router CLI consumer MCP smoke evidence now
-proves Streamable HTTP session delete cleanup explicitly across public,
-protected, JSON-response, and token-only route families.
-Latest fully clean hosted checkpoint: Commit `9d76819` on GitHub `master` and
+proves the protected JSON-response refresh/revoke lifecycle across direct JSON
+and Streamable HTTP route access.
+Latest fully clean hosted checkpoint: Commit `d98364a` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/common.sh` now proves protected JSON-response MCP auth lifecycle parity in
+the installed router CLI Dart MCP consumer smoke. The generated consumer reuses
+a refreshed HTTP auth grant against the protected JSON-response endpoint over
+direct JSON and Streamable HTTP, asserts refreshed credentials can still list
+the expected MCP tools, verifies Streamable initialize protocol stability,
+deletes that Streamable session and checks `sessionId`/`lastEventId` cleanup,
+then confirms the revoked access token receives a 401 on the JSON-response
+direct JSON path. The emitted `routerCliConsumerSummary` now includes
+`jsonResponse.active.refreshAndRevoke: true`, and the human-readable smoke
+summary names protected JSON-response auth rejection/refresh-revoke coverage.
+`tool/test_mcp_consumer_package_boundary.py` guards the new request IDs,
+failure messages, summary fragment, and summary text.
+
+Baseline `bin/test-fast` passed before the protected JSON-response auth
+lifecycle evidence change on 2026-06-20. Focused `bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+`git diff --check`, and
+`bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
+passed on 2026-06-20. Full local `bin/verify` passed on 2026-06-20,
+including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+generated consumer-package smokes, the router-hosted MCP live public,
+pub/sub-only, authenticated, bearer, and JSON-response examples, the installed
+router CLI consumer smoke with explicit
+`jsonResponse.active.refreshAndRevoke` summary evidence, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+Hosted evidence for this local checkpoint is pending until the implementation
+commit is pushed and GitHub CI/deployment-chain audit evidence is reviewed.
+
+Previous implementation checkpoint:
 `bin/common.sh` now makes Streamable HTTP session DELETE cleanup explicit in
 the installed router CLI Dart MCP consumer smoke. The generated consumer
 asserts that public, protected, and refreshed protected Streamable sessions
@@ -32,11 +62,25 @@ generated consumer-package smokes, the router-hosted MCP live public,
 pub/sub-only, authenticated, bearer, and JSON-response examples, the installed
 router CLI consumer smoke with explicit `streamableSessionDelete` summary
 fields, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
-browser WebSocket smoke. Hosted evidence for this Streamable session delete
-checkpoint is pending until the code/test commit is pushed; the latest fully
-clean hosted checkpoint remains `9d76819`.
+browser WebSocket smoke.
 
-Previous implementation checkpoint:
+Hosted evidence: Commit `d98364a`
+(`test: expose mcp streamable delete evidence`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`27861620665` and GitHub `add-router` CI `27861620657` passed with
+`Fast Checks` and `Full Verify` clean. No new Dart Package Publish Dry Run or
+WAMP Profile Benchmarks were required because no publish-sensitive or
+benchmark-sensitive package inputs changed since `7202eaf`; the latest GitHub
+`master` Dart Package Publish Dry Run `27853666798`, GitHub `add-router` Dart
+Package Publish Dry Run `27853666197`, GitHub `master` WAMP Profile Benchmarks
+`27853666815`, and GitHub `add-router` WAMP Profile Benchmarks `27853666244`
+remain clean and relevant at `7202eaf`. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-20 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence at
+`d98364a`, and latest relevant Dart package dry-run evidence clean.
+
+Earlier implementation checkpoint:
 `bin/common.sh` now provides `retry_command` plus `cargo_with_retry`, with
 default Cargo retry settings controlled by `CONNECTANUM_CARGO_RETRY_ATTEMPTS`
 and `CONNECTANUM_CARGO_RETRY_DELAY_SECONDS`. `bin/bootstrap` now uses the

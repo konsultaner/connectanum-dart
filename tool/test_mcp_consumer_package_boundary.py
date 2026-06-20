@@ -279,6 +279,37 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "valid session state.",
             body,
         )
+        self.assertIn("dart-consumer-refreshed-json-response-tools", body)
+        self.assertIn(
+            "Dart consumer refreshed grant missed JSON-response direct JSON "
+            "tools.",
+            body,
+        )
+        self.assertIn("dart-consumer-refreshed-json-response-initialize", body)
+        self.assertIn(
+            "Dart consumer refreshed JSON-response initialize changed "
+            "protocol.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-refreshed-json-response-streamable-tools",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer refreshed grant missed JSON-response Streamable "
+            "tools.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer refreshed JSON-response delete leaked state.",
+            body,
+        )
+        self.assertIn("dart-consumer-revoked-json-response-tools", body)
+        self.assertIn(
+            "Dart consumer revoked access token JSON-response direct JSON "
+            "request",
+            body,
+        )
         self.assertIn(
             "dart-consumer-secure-json-active-direct-procedure-catalog",
             body,
@@ -472,7 +503,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"jsonResponse":{"active":{"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
-            '"authRejectionIsolation":true},"tokenOnly":{"directJson":true,'
+            '"authRejectionIsolation":true,"refreshAndRevoke":true},'
+            '"tokenOnly":{"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
@@ -515,9 +547,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("_expectConfiguredWampRegistrationMeta", body)
         self.assertIn("_expectConfiguredWampSubscriptionMeta", body)
         self.assertIn(
-            "active protected JSON-response auth rejection, direct JSON "
-            "procedure catalog/describe/topic/resource/prompt isolation, "
-            "and Streamable procedure catalog/describe plus topic describe",
+            "active protected JSON-response auth rejection/refresh-revoke, "
+            "direct JSON procedure catalog/describe/topic/resource/prompt "
+            "isolation, and Streamable procedure catalog/describe plus topic "
+            "describe",
             body,
         )
         self.assertIn(
