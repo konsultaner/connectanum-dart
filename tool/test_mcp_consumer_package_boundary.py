@@ -361,8 +361,40 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("active JSON-response direct prompt readiness", body)
         self.assertIn(
+            "dart-consumer-secure-json-active-direct-batch-resource-read",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct batch count "
+            "changed.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct batch missed "
+            "content.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-batch-bad-method",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct batch missed "
+            "error isolation.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-batch-api-list",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct batch missed "
+            "topic API.",
+            body,
+        )
+        self.assertIn(
             "Dart consumer protected JSON-response active direct JSON helpers "
-            "changed Streamable state.",
+            "or batch changed Streamable state.",
             body,
         )
         self.assertIn("dart-consumer-secure-json-direct-subscribe", body)
@@ -450,6 +482,39 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "Dart consumer protected JSON-response pubsub captured SSE state.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-streamable-batch-resource-read",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable batch count "
+            "changed.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable batch missed "
+            "content.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-streamable-batch-bad-method",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable batch missed "
+            "error isolation.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-batch-tools", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable batch missed "
+            "tools.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response batch captured SSE state.",
             body,
         )
         self.assertIn(
@@ -558,7 +623,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"jsonResponse":{"active":{"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
-            '"pubsub":true,"authRejectionIsolation":true,'
+            '"pubsub":true,"batch":true,'
+            '"authRejectionIsolation":true,'
             '"refreshAndRevoke":true},'
             '"tokenOnly":{"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
@@ -605,8 +671,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "active protected JSON-response auth rejection/refresh-revoke, "
             "direct JSON procedure catalog/describe/topic/resource/prompt/"
-            "pub-sub isolation, and Streamable procedure catalog/describe "
-            "plus topic describe/pub-sub/session delete",
+            "pub-sub/batch isolation, and Streamable procedure "
+            "catalog/describe plus topic describe/pub-sub/batch/session "
+            "delete",
             body,
         )
         self.assertIn(

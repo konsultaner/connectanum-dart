@@ -80,6 +80,34 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-06-20: Tightened the installed router CLI Dart MCP consumer smoke so
+  active protected JSON-response batch evidence is exposed in the
+  machine-readable consumer summary. `bin/common.sh` now sends a direct JSON
+  batch while a protected JSON-response Streamable session is active, verifies a
+  resource result, method-not-found error isolation, and WAMP topic API
+  metadata, and asserts the direct batch leaves `sessionId`/`lastEventId`
+  unchanged. The already-exercised active protected JSON-response Streamable
+  batch is now guarded as explicit consumer evidence too. The emitted
+  `routerCliConsumerSummary` now includes `jsonResponse.active.batch: true`,
+  and the human-readable smoke summary names protected JSON-response direct JSON
+  batch isolation plus Streamable batch/session-delete coverage.
+  `tool/test_mcp_consumer_package_boundary.py` guards the new direct batch
+  request IDs, existing Streamable batch IDs, failure messages, summary
+  fragment, and summary text. Baseline `bin/test-fast` passed before the change
+  on 2026-06-20. Focused `bash -n bin/common.sh`, focused
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+  focused `git diff --check`, and focused
+  `bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
+  passed on 2026-06-20, with the installed router CLI consumer smoke emitting
+  `jsonResponse.active.batch: true`. Full local `bin/verify` passed on
+  2026-06-20, including formatting, Rust/FFI tests, Python/tool tests, MCP
+  package tests, generated consumer-package smokes, the router-hosted MCP live
+  public, pub/sub-only, authenticated, bearer, and JSON-response examples, the
+  installed router CLI consumer smoke with explicit `jsonResponse.active.batch`
+  summary evidence, full router tests, zero-copy router tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending until
+  this implementation commit is pushed and GitHub CI/deployment-chain audit
+  evidence is reviewed.
+- 2026-06-20: Tightened the installed router CLI Dart MCP consumer smoke so
   active protected JSON-response pub/sub evidence is exposed in the
   machine-readable consumer summary. `bin/common.sh` already exercised direct
   JSON and Streamable HTTP subscription/publish/poll/unsubscribe flows for the
@@ -102,8 +130,23 @@ decision because `connectanum_client` still depends on private
   authenticated, bearer, and JSON-response examples, the installed router CLI
   consumer smoke with explicit `jsonResponse.active.pubsub` summary evidence,
   full router tests, zero-copy router tests, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. Hosted evidence is pending until this implementation commit
-  is pushed and GitHub CI/deployment-chain audit evidence is reviewed.
+  WebSocket smoke. Commit `bef2f08`
+  (`test: expose json response mcp pubsub evidence`) was pushed to GitLab
+  `origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `27864737580` and GitHub `add-router` CI `27864733814` passed with
+  `Fast Checks` and `Full Verify` clean. No new Dart Package Publish Dry Run or
+  WAMP Profile Benchmarks were required because no publish-sensitive or
+  benchmark-sensitive package inputs changed since `7202eaf`; the latest GitHub
+  `master` Dart Package Publish Dry Run `27853666798`, GitHub `add-router`
+  Dart Package Publish Dry Run `27853666197`, GitHub `master` WAMP Profile
+  Benchmarks `27853666815`, and GitHub `add-router` WAMP Profile Benchmarks
+  `27853666244` remain clean and relevant at `7202eaf`. The strict
+  deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-20 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence at `bef2f08`, and latest relevant Dart package dry-run evidence
+  clean.
 - 2026-06-20: Tightened the installed router CLI Dart MCP consumer smoke so
   protected JSON-response routes have explicit refresh/revoke lifecycle
   evidence alongside direct JSON and Streamable HTTP access. `bin/common.sh`
