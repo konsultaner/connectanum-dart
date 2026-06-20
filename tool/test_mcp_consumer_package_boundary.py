@@ -451,9 +451,34 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "missed metadata.",
             body,
         )
+        self.assertIn("dart-consumer-secure-json-streamable-resources", body)
         self.assertIn(
-            "Dart consumer protected JSON-response Streamable WAMP describe "
-            "changed session state.",
+            "Dart consumer protected JSON-response Streamable resources "
+            "missed context.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-templates", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable templates "
+            "missed secure task.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-prompts", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable prompts missed "
+            "secure prompt.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-json-streamable-prompt-get", body)
+        self.assertIn("active JSON-response Streamable prompt readiness", body)
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable prompt missed "
+            "substitution.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable WAMP and "
+            "resource/prompt helpers changed session state.",
             body,
         )
         self.assertIn("dart-consumer-secure-json-streamable-subscribe", body)
@@ -635,6 +660,32 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "state.",
             body,
         )
+        self.assertIn("dart-consumer-secure-streamable-resources", body)
+        self.assertIn(
+            "Dart consumer protected Streamable resources missed context.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-streamable-templates", body)
+        self.assertIn(
+            "Dart consumer protected Streamable templates missed secure task.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-streamable-prompts", body)
+        self.assertIn(
+            "Dart consumer protected Streamable prompts missed secure prompt.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-streamable-prompt-get", body)
+        self.assertIn("protected Streamable prompt readiness", body)
+        self.assertIn(
+            "Dart consumer protected Streamable prompt missed substitution.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable resource/prompt helpers lost "
+            "SSE state.",
+            body,
+        )
         self.assertIn(
             "dart-consumer-secure-streamable-batch-resource-read",
             body,
@@ -758,9 +809,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "active protected JSON-response auth rejection/refresh-revoke, "
             "direct JSON procedure catalog/describe/topic/resource/prompt/"
-            "pub-sub/batch isolation, and Streamable procedure "
-            "catalog/describe plus topic describe/pub-sub/batch/session "
-            "delete",
+            "pub-sub/batch isolation, and Streamable resource/template/prompt "
+            "plus procedure/topic metadata/pub-sub/batch/session delete",
             body,
         )
         self.assertIn(
@@ -787,7 +837,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/WAMP "
             "procedure and topic describe/pub-sub/batches plus Streamable "
-            "procedure and topic describe/pub-sub/batches/session delete",
+            "resources/resource templates/prompts/procedure and topic "
+            "describe/pub-sub/batches/session delete",
             body,
         )
 
