@@ -600,6 +600,63 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "helpers changed Streamable state.",
             body,
         )
+        self.assertIn("dart-consumer-secure-direct-batch-resource-read", body)
+        self.assertIn(
+            "Dart consumer protected direct JSON batch response count changed.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected direct JSON batch resource missed content.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-direct-batch-bad-method", body)
+        self.assertIn(
+            "Dart consumer protected direct JSON batch missed method error "
+            "isolation.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-direct-batch-tools", body)
+        self.assertIn(
+            "Dart consumer protected direct JSON batch missed pubsub tool.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected direct JSON batch changed Streamable "
+            "state.",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-streamable-batch-resource-read",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable batch response count changed.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable batch resource missed content.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-streamable-batch-bad-method", body)
+        self.assertIn(
+            "Dart consumer protected Streamable batch missed method error "
+            "isolation.",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-streamable-batch-tools", body)
+        self.assertIn(
+            "Dart consumer protected Streamable batch missed pubsub tool.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable batch changed session id.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable batch did not advance SSE "
+            "state.",
+            body,
+        )
         self.assertIn("tool calls/resources/resource templates/prompts", body)
         self.assertIn("assert_router_cli_consumer_package_summary", script)
         self.assertIn('dart_consumer_summary="$(', body)
@@ -616,6 +673,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,'
             '"pubsub":true,"wampMeta":true,'
+            '"batch":true,'
             '"authRejectionIsolation":true,"refreshAndRevoke":true}',
             body,
         )
@@ -699,8 +757,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/WAMP "
-            "procedure and topic describe/pub-sub plus Streamable procedure "
-            "and topic describe/pub-sub/session delete",
+            "procedure and topic describe/pub-sub/batches plus Streamable "
+            "procedure and topic describe/pub-sub/batches/session delete",
             body,
         )
 
