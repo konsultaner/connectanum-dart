@@ -24722,6 +24722,10 @@ Future<void> main() async {
       'Dart consumer missed public Streamable meta tool.',
     );
     await publicClient.deleteSession();
+    _expect(
+      publicClient.sessionId == null && publicClient.lastEventId == null,
+      'Dart consumer public Streamable delete leaked state.',
+    );
 
     final grant = await authClient.issueTicketToken(
       realm: 'cli.smoke',
@@ -26806,6 +26810,10 @@ Future<void> main() async {
       'Dart consumer protected direct JSON unsubscribe was invalid.',
     );
     await secureClient.deleteSession();
+    _expect(
+      secureClient.sessionId == null && secureClient.lastEventId == null,
+      'Dart consumer protected Streamable delete leaked state.',
+    );
 
     final refreshedGrant = await authClient.refreshToken(originalRefreshToken);
     _expect(
@@ -26876,6 +26884,10 @@ Future<void> main() async {
         'Dart consumer refreshed grant missed protected Streamable tools.',
       );
       await refreshedClient.deleteSession();
+      _expect(
+        refreshedClient.sessionId == null && refreshedClient.lastEventId == null,
+        'Dart consumer refreshed Streamable delete leaked state.',
+      );
 
       await authClient.revokeToken(
         refreshedGrant.accessToken,
@@ -26907,6 +26919,7 @@ Future<void> main() async {
         'public': <String, Object?>{
           'directJson': true,
           'streamable': true,
+          'streamableSessionDelete': true,
           'resourcesPrompts': true,
           'wampMeta': true,
           'pubsub': true,
@@ -26916,6 +26929,7 @@ Future<void> main() async {
           'ticketGrant': true,
           'directJson': true,
           'streamable': true,
+          'streamableSessionDelete': true,
           'resourcesPrompts': true,
           'pubsub': true,
           'wampMeta': true,
@@ -26926,6 +26940,7 @@ Future<void> main() async {
           'active': <String, Object?>{
             'directJson': true,
             'streamable': true,
+            'streamableSessionDelete': true,
             'resourcesPrompts': true,
             'wampMeta': true,
             'authRejectionIsolation': true,
@@ -26933,6 +26948,7 @@ Future<void> main() async {
           'tokenOnly': <String, Object?>{
             'directJson': true,
             'streamable': true,
+            'streamableSessionDelete': true,
             'resourcesPrompts': true,
             'wampMeta': true,
             'registrationMeta': true,
@@ -26948,6 +26964,7 @@ Future<void> main() async {
         'tokenOnly': <String, Object?>{
           'directJson': true,
           'streamable': true,
+          'streamableSessionDelete': true,
           'resourcesPrompts': true,
           'wampMeta': true,
           'registrationMeta': true,
@@ -27651,11 +27668,11 @@ DART
   printf '%s\n' "$dart_consumer_summary"
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
-    '"public":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
-    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
-    '"tokenOnly":{"directJson":true,"streamable":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
+    '"public":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
+    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"authRejectionIsolation":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
+    '"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection, direct JSON procedure catalog/describe/topic/resource/prompt isolation, and Streamable procedure catalog/describe plus topic describe/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, protected pub/sub, and a public Dart MCP client from the installed command.\n'
   _cleanup_router_cli_smoke 0
 )

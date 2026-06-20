@@ -2,13 +2,41 @@
 
 Last updated: 2026-06-20
 Current branch: `add-router`
-Last reviewed branch checkpoint: deployment-chain bootstrap hardening now
-routes Cargo-sensitive local and hosted verification paths through a retry
-wrapper, addressing the transient crates.io connection reset that affected the
-previous `add-router` GitHub CI attempt before tests started.
-Latest fully clean hosted checkpoint: Commit `38623d5` on GitHub `master` and
+Last reviewed branch checkpoint: router CLI consumer MCP smoke evidence now
+proves Streamable HTTP session delete cleanup explicitly across public,
+protected, JSON-response, and token-only route families.
+Latest fully clean hosted checkpoint: Commit `9d76819` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/common.sh` now makes Streamable HTTP session DELETE cleanup explicit in
+the installed router CLI Dart MCP consumer smoke. The generated consumer
+asserts that public, protected, and refreshed protected Streamable sessions
+clear both `sessionId` and `lastEventId` after `deleteSession()`, matching the
+existing token-only JSON-response and protected token-only cleanup checks. The
+emitted `routerCliConsumerSummary` now includes
+`streamableSessionDelete: true` for `public`, `secure`,
+`jsonResponse.active`, `jsonResponse.tokenOnly`, and `tokenOnly`, and the
+human-readable smoke summary names Streamable session delete coverage for the
+same route families. `tool/test_mcp_consumer_package_boundary.py` guards the
+new summary fragments, cleanup assertions, and summary text so future smoke
+rewrites keep this consumer-facing session evidence.
+
+Baseline `bin/test-fast` passed before the Streamable session delete evidence
+change on 2026-06-20. Focused `bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
+`git diff --check`, and
+`bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
+passed on 2026-06-20. Full local `bin/verify` passed on 2026-06-20,
+including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+generated consumer-package smokes, the router-hosted MCP live public,
+pub/sub-only, authenticated, bearer, and JSON-response examples, the installed
+router CLI consumer smoke with explicit `streamableSessionDelete` summary
+fields, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
+browser WebSocket smoke. Hosted evidence for this Streamable session delete
+checkpoint is pending until the code/test commit is pushed; the latest fully
+clean hosted checkpoint remains `9d76819`.
+
+Previous implementation checkpoint:
 `bin/common.sh` now provides `retry_command` plus `cargo_with_retry`, with
 default Cargo retry settings controlled by `CONNECTANUM_CARGO_RETRY_ATTEMPTS`
 and `CONNECTANUM_CARGO_RETRY_DELAY_SECONDS`. `bin/bootstrap` now uses the
@@ -32,11 +60,31 @@ Baseline `bin/test-fast` passed before the bootstrap retry hardening on
 regression, MCP package tests, generated consumer-package smokes, the
 router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
 JSON-response examples, the installed router CLI consumer smoke, bench WAMP
-transport integration coverage, and router native/auth/session tests. Hosted
-evidence for this bootstrap retry checkpoint is pending until the code/config
-commit is pushed; the latest fully clean hosted checkpoint remains `38623d5`.
+transport integration coverage, and router native/auth/session tests. Full
+local `bin/verify` passed on 2026-06-20, including formatting, Rust/FFI tests,
+Python/tool tests, MCP package tests, generated consumer-package smokes, the
+router-hosted MCP live public, pub/sub-only, authenticated, bearer, and
+JSON-response examples, the installed router CLI consumer smoke, full router
+tests, zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket
+smoke.
 
-Previous implementation checkpoint:
+Hosted evidence: Commit `9d76819`
+(`ci: retry transient cargo bootstrap failures`) was pushed to GitLab
+`origin`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`27860081238` and GitHub `add-router` CI `27860081246` passed with
+`Fast Checks` and `Full Verify` clean. No new Dart Package Publish Dry Run or
+WAMP Profile Benchmarks were required because no publish-sensitive or
+benchmark-sensitive package inputs changed since `7202eaf`; the latest GitHub
+`master` Dart Package Publish Dry Run `27853666798`, GitHub `add-router` Dart
+Package Publish Dry Run `27853666197`, GitHub `master` WAMP Profile Benchmarks
+`27853666815`, and GitHub `add-router` WAMP Profile Benchmarks `27853666244`
+remain clean and relevant at `7202eaf`. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-20 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence at
+`9d76819`, and latest relevant Dart package dry-run evidence clean.
+
+Earlier implementation checkpoint:
 `bin/common.sh` now proves notification-only WAMP pub/sub delivery in the
 installed router CLI Dart MCP consumer smoke. The generated consumer helper is
 named `_expectNotificationPubSub`; it sends `notifyWampEventDirect` and

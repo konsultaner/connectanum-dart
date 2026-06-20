@@ -455,22 +455,26 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("routerCliConsumerSummary", body)
         self.assertIn(
             '"public":{"directJson":true,"streamable":true,'
+            '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"pubsub":true,"batch":true}',
             body,
         )
         self.assertIn(
             '"secure":{"ticketGrant":true,"directJson":true,'
-            '"streamable":true,"resourcesPrompts":true,'
+            '"streamable":true,"streamableSessionDelete":true,'
+            '"resourcesPrompts":true,'
             '"pubsub":true,"wampMeta":true,'
             '"authRejectionIsolation":true,"refreshAndRevoke":true}',
             body,
         )
         self.assertIn(
             '"jsonResponse":{"active":{"directJson":true,'
-            '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
+            '"streamable":true,"streamableSessionDelete":true,'
+            '"resourcesPrompts":true,"wampMeta":true,'
             '"authRejectionIsolation":true},"tokenOnly":{"directJson":true,'
-            '"streamable":true,"resourcesPrompts":true,"wampMeta":true,'
+            '"streamable":true,"streamableSessionDelete":true,'
+            '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
             '"sessionMeta":true,'
             '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
@@ -479,6 +483,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"tokenOnly":{"directJson":true,"streamable":true,'
+            '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
             '"sessionMeta":true,'
@@ -486,14 +491,23 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"pubsub":true,"pubsubNotifications":true,"batch":true}',
             body,
         )
+        self.assertIn("streamableSessionDelete", body)
         self.assertIn("pubsubNotifications", body)
+        self.assertIn("Dart consumer public Streamable delete leaked state.", body)
+        self.assertIn(
+            "Dart consumer token-only JSON-response delete leaked state.",
+            body,
+        )
+        self.assertIn("Dart consumer token-only secure delete leaked state.", body)
+        self.assertIn("Dart consumer protected Streamable delete leaked state.", body)
+        self.assertIn("Dart consumer refreshed Streamable delete leaked state.", body)
         self.assertIn("_expectNotificationPubSub", body)
         self.assertIn("notifyWampEventDirect", body)
         self.assertIn("notifyWampEvent(topic", body)
         self.assertIn(
             "public raw JSON resources/resource templates/prompts/WAMP "
             "procedure and topic catalog/describe/pub-sub plus Streamable "
-            "procedure and topic describe/pub-sub",
+            "procedure and topic describe/pub-sub/session delete",
             body,
         )
         self.assertIn("configured subscription meta", body)
@@ -512,14 +526,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "procedure catalog/describe/registration/configured "
             "registration/session/subscription/configured subscription "
             "meta/pubsub/notification pubsub/batches plus Streamable "
-            "procedure catalog/describe/topic describe",
+            "procedure catalog/describe/topic describe/session delete",
             body,
         )
         self.assertIn(
             "token-only protected tool calls/resources/resource "
             "templates/prompts/WAMP registration/configured "
             "registration/session/subscription/configured subscription "
-            "meta/notification pubsub/batches",
+            "meta/notification pubsub/batches plus Streamable session delete",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)
@@ -530,7 +544,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/WAMP "
             "procedure and topic describe/pub-sub plus Streamable procedure "
-            "and topic describe/pub-sub",
+            "and topic describe/pub-sub/session delete",
             body,
         )
 
