@@ -13,6 +13,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = REPO_ROOT / "bin" / "bootstrap"
 COMMON = REPO_ROOT / "bin" / "common.sh"
+CONNECTANUM_ROUTER = REPO_ROOT / "bin" / "connectanum-router"
 PACKAGE_NATIVE_ARTIFACT = REPO_ROOT / "bin" / "package-native-artifact"
 TEST_ALL = REPO_ROOT / "bin" / "test-all"
 TEST_FAST = REPO_ROOT / "bin" / "test-fast"
@@ -23,6 +24,7 @@ class VerificationScriptsTest(unittest.TestCase):
         for script_path in [
             BOOTSTRAP,
             COMMON,
+            CONNECTANUM_ROUTER,
             PACKAGE_NATIVE_ARTIFACT,
             TEST_ALL,
             TEST_FAST,
@@ -89,6 +91,102 @@ class VerificationScriptsTest(unittest.TestCase):
         self.assertIn("cargo_workspace_check", bootstrap_script)
         self.assertIn("cargo_with_retry build", package_script)
         self.assertIn("cargo_with_retry test --manifest-path", test_all_script)
+
+    def test_connectanum_router_wrapper_delegates_help_without_native_build(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fake_dart = Path(tmp_dir) / "dart"
+            fake_dart.write_text(
+                "#!/usr/bin/env bash\nprintf 'dart %s\\n' \"$*\"\n",
+                encoding="utf-8",
+            )
+            fake_dart.chmod(0o755)
+
+            result = subprocess.run(
+                [str(CONNECTANUM_ROUTER), "--help"],
+                cwd=REPO_ROOT,
+                env={"PATH": f"{tmp_dir}:/usr/bin:/bin"},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(
+                result.stdout.strip(),
+                "dart run connectanum_router --help",
+            )
+
+    def test_connectanum_router_wrapper_appends_resolved_native_lib(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fake_dart = Path(tmp_dir) / "dart"
+            fake_dart.write_text(
+                "#!/usr/bin/env bash\nprintf 'dart %s\\n' \"$*\"\n",
+                encoding="utf-8",
+            )
+            fake_dart.chmod(0o755)
+
+            result = subprocess.run(
+                [str(CONNECTANUM_ROUTER), "--config", "/tmp/router.yaml"],
+                cwd=REPO_ROOT,
+                env={
+                    "CONNECTANUM_NATIVE_LIB": "/tmp/libct_ffi.so",
+                    "PATH": f"{tmp_dir}:/usr/bin:/bin",
+                },
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(
+                result.stdout.strip(),
+                "dart run connectanum_router --config /tmp/router.yaml --native-lib /tmp/libct_ffi.so",
+            )
+
+    def test_connectanum_router_wrapper_preserves_explicit_native_lib(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fake_dart = Path(tmp_dir) / "dart"
+            fake_dart.write_text(
+                "#!/usr/bin/env bash\nprintf 'dart %s\\n' \"$*\"\n",
+                encoding="utf-8",
+            )
+            fake_dart.chmod(0o755)
+
+            result = subprocess.run(
+                [
+                    str(CONNECTANUM_ROUTER),
+                    "--config",
+                    "/tmp/router.yaml",
+                    "--native-lib=/custom/libct_ffi.so",
+                ],
+                cwd=REPO_ROOT,
+                env={"PATH": f"{tmp_dir}:/usr/bin:/bin"},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(
+                result.stdout.strip(),
+                "dart run connectanum_router --config /tmp/router.yaml --native-lib=/custom/libct_ffi.so",
+            )
+
+    def test_connectanum_router_wrapper_uses_release_runtime_helper(self) -> None:
+        wrapper_script = CONNECTANUM_ROUTER.read_text(encoding="utf-8")
+        common_script = COMMON.read_text(encoding="utf-8")
+
+        self.assertIn("ensure_native_release_runtime", wrapper_script)
+        self.assertIn("build_native_release()", common_script)
+        self.assertIn(
+            "cargo_with_retry build --manifest-path native/transport/Cargo.toml -p ct_ffi --release",
+            common_script,
+        )
 
     def test_common_suppresses_dart_analytics_by_default(self) -> None:
         script = textwrap.dedent(

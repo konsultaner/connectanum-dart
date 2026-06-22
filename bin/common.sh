@@ -389,6 +389,43 @@ build_native_ffi_test_release() {
   fi
 }
 
+build_native_release() {
+  local built_lib
+
+  cargo_workspace_check
+  cd_repo_root
+  cargo_with_retry build --manifest-path native/transport/Cargo.toml -p ct_ffi --release
+  if built_lib="$(native_lib_path)" && [[ -f "$built_lib" ]]; then
+    export CONNECTANUM_NATIVE_LIB="$built_lib"
+  fi
+}
+
+ensure_native_release_runtime() {
+  if [[ -n "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+    return 0
+  fi
+
+  if ! native_runtime_supported; then
+    return 1
+  fi
+
+  ensure_native_lib_env
+  if [[ -n "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+    return 0
+  fi
+
+  if [[ "${CONNECTANUM_SKIP_NATIVE_BUILD:-}" == "1" || "${CONNECTANUM_SKIP_NATIVE_BUILD:-}" == "true" ]]; then
+    return 1
+  fi
+
+  if ! ensure_rust_env; then
+    return 1
+  fi
+
+  build_native_release
+  [[ -n "${CONNECTANUM_NATIVE_LIB:-}" ]]
+}
+
 ensure_native_client_test_runtime() {
   if ! native_runtime_supported; then
     return 1

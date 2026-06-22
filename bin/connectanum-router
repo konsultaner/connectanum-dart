@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+has_native_lib_arg=0
+show_help=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --help|-h)
+      show_help=1
+      ;;
+    --native-lib|--native-lib=*)
+      has_native_lib_arg=1
+      ;;
+  esac
+done
+
+cd_repo_root
+require_command dart
+
+if [[ "$show_help" -eq 1 ]]; then
+  exec dart run connectanum_router "$@"
+fi
+
+if [[ "$has_native_lib_arg" -eq 1 ]]; then
+  exec dart run connectanum_router "$@"
+fi
+
+ensure_native_release_runtime || true
+if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+  printf 'Missing native transport library for connectanum_router.\n' >&2
+  printf 'Set CONNECTANUM_NATIVE_LIB, run bin/bootstrap, or install a Rust toolchain so this wrapper can build ct_ffi.\n' >&2
+  exit 78
+fi
+
+exec dart run connectanum_router "$@" --native-lib "$CONNECTANUM_NATIVE_LIB"

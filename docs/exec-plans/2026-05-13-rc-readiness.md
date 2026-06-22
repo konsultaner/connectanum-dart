@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-06-20
+Last updated: 2026-06-22
 
 ## Problem
 
@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-22: Added `bin/connectanum-router` as the first-class source-checkout
+  runner for consumer application smokes and local integrations that need a real
+  router without duplicating native-runtime bootstrap logic. The wrapper
+  preserves package CLI `--help` and explicit `--native-lib` behavior, resolves
+  an existing standard release `ct_ffi` runtime when available, builds
+  `ct_ffi --release` through the shared Cargo retry helper when needed, and
+  delegates to `dart run connectanum_router` with an explicit `--native-lib`.
+  `bin/common.sh` now exposes the shared release-runtime helper, and
+  `tool/test_verification_scripts.py` covers the wrapper help, explicit native
+  library, resolved native library, and release-helper wiring paths. The README,
+  router package README, and deployment docs now point consumer applications at
+  the wrapper as the neutral local checkout entrypoint. Baseline
+  `bin/test-fast` passed before the change on 2026-06-22. Focused
+  `bash -n bin/common.sh bin/connectanum-router bin/test-fast bin/test-all bin/verify`,
+  focused `python3 -m py_compile tool/test_verification_scripts.py`, focused
+  `python3 tool/test_verification_scripts.py`, focused
+  `bin/connectanum-router --help`, a generated-config
+  `bin/connectanum-router --config ...` smoke serving `/healthz`, focused
+  `python3 tool/check_public_artifact_references.py`, focused
+  `python3 tool/test_public_artifact_references.py`, and `git diff --check`
+  passed on 2026-06-22. Post-change `bin/test-fast` also passed on 2026-06-22,
+  including generated consumer smokes, router-hosted MCP
+  public/authenticated/bearer/JSON-response paths, direct JSON WAMP metadata
+  helpers, Streamable HTTP session lifecycle, pub/sub coverage, live WAMP
+  benchmark integration, native runtime tests, and router worker auth/session
+  tests. Full local `bin/verify` passed on 2026-06-22, including formatting,
+  Rust/FFI tests, Python/tool tests, MCP package tests, consumer package
+  smokes, router-hosted MCP example smokes, the installed router CLI consumer
+  smoke, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
+  browser WebSocket smoke.
 - 2026-06-20: Tightened the generated router CLI Dart MCP consumer smoke so
   `/mcp/secure-json-post` proves active protected JSON-response WAMP metadata
   readiness for downstream consumers. The generated consumer now checks
@@ -101,8 +131,20 @@ decision because `connectanum_client` still depends on private
   package tests, consumer package smokes, router-hosted MCP example smokes, the
   installed router CLI consumer smoke with the new active JSON-response WAMP
   metadata checks, full router tests, zero-copy router tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence remains pending for
-  this checkpoint; the latest fully clean hosted checkpoint is still `8ec5819`.
+  Chrome/Dart2Wasm browser WebSocket smoke. Commit `64bd52e`
+  (`test: cover active json response wamp meta`) was pushed to GitLab `origin`,
+  GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27880987308`
+  and GitHub `add-router` CI `27880987327` passed with `Fast Checks` and
+  `Full Verify` clean. No new Dart Package Publish Dry Run or WAMP Profile
+  Benchmarks were required because no publish-sensitive or benchmark-sensitive
+  package inputs changed since `7202eaf`; the latest GitHub `master` Dart
+  Package Publish Dry Run `27853666798` remains clean and relevant at
+  `7202eaf`. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+  exited successfully on 2026-06-20 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence at `64bd52e`, and latest relevant Dart package dry-run evidence
+  clean.
 - 2026-06-20: Hardened repository verification scripts so root smoke helpers
   export `DART_SUPPRESS_ANALYTICS=true` by default while preserving caller
   overrides. Pre-change `bin/test-fast` reproduced a router-hosted MCP dry-run

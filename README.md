@@ -48,6 +48,12 @@ Most users want one of these two paths:
    Until the GHCR package is published, run the router directly as shown above
    or build an image from `deploy/docker/Dockerfile` in your own registry.
 
+From a source checkout, `bin/connectanum-router --config path/to/router.yaml`
+resolves an existing release `ct_ffi` library or builds it with Cargo before
+delegating to `dart run connectanum_router`. This is the preferred local
+checkout runner for consumer applications and smoke tests that need a real
+router without copying native-runtime bootstrap logic.
+
 For a fuller deployment walkthrough, see [docs/deployment.md](docs/deployment.md).
 
 ### Work On The Codebase Locally

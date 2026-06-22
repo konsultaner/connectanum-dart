@@ -62,6 +62,16 @@ export CONNECTANUM_NATIVE_LIB=/absolute/path/to/native/transport/target/release/
 dart run connectanum_router --config /etc/connectanum/router.yaml
 ```
 
+For local source-checkout smoke tests, prefer:
+
+```sh
+bin/connectanum-router --config /etc/connectanum/router.yaml
+```
+
+The wrapper resolves an existing release native library or builds one with
+Cargo, then delegates to the same `connectanum_router` executable with an
+explicit `--native-lib` argument.
+
 During `dart run` / `dart test`, the package build hooks compile `ct_ffi`
 automatically by default. Dart SDK hooks run in a semi-hermetic environment, so
 configure hook inputs in the application `pubspec.yaml`:

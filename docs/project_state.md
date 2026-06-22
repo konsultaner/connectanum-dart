@@ -1,12 +1,45 @@
 # Project State
 
-Last updated: 2026-06-20
+Last updated: 2026-06-22
 Current branch: `add-router`
-Last reviewed branch checkpoint: router CLI generated consumer smoke now proves
-active protected JSON-response WAMP metadata access for downstream consumers.
-Latest fully clean hosted checkpoint: Commit `8ec5819` on GitHub `master` and
+Last reviewed branch checkpoint: source-checkout router runner now gives
+consumer applications a first-class way to launch the router with native
+runtime bootstrap handled by this repository.
+Latest fully clean hosted checkpoint: Commit `64bd52e` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/connectanum-router` now provides a repo-level source-checkout runner for
+consumer application smokes and local integrations that need a real
+`connectanum_router` process without copying private native-runtime bootstrap
+logic. The wrapper preserves `--help` and explicit `--native-lib` behavior,
+resolves an existing standard release `ct_ffi` runtime when available, builds
+`ct_ffi --release` through the shared Cargo retry helper when needed, and then
+delegates to `dart run connectanum_router` with an explicit `--native-lib`.
+`bin/common.sh` now exposes the shared release-runtime helper, and
+`tool/test_verification_scripts.py` covers the wrapper's help, explicit native
+library, resolved native library, and release-helper wiring paths. The README,
+router package README, and deployment docs now point consumer applications at
+the wrapper as the neutral local checkout entrypoint.
+
+Baseline `bin/test-fast` passed before the source-checkout router runner change
+on 2026-06-22. Focused `bash -n bin/common.sh bin/connectanum-router
+bin/test-fast bin/test-all bin/verify`, `python3 -m py_compile
+tool/test_verification_scripts.py`, `python3 tool/test_verification_scripts.py`,
+`bin/connectanum-router --help`, a generated-config
+`bin/connectanum-router --config ...` smoke serving `/healthz`,
+`python3 tool/check_public_artifact_references.py`,
+`python3 tool/test_public_artifact_references.py`, and `git diff --check`
+passed on 2026-06-22. Post-change `bin/test-fast` also passed on 2026-06-22,
+including the generated consumer smokes, router-hosted MCP public/authenticated/
+bearer/JSON-response paths, direct JSON WAMP metadata helpers, Streamable HTTP
+session lifecycle, pub/sub coverage, live WAMP benchmark integration, native
+runtime tests, and router worker auth/session tests. Full local `bin/verify`
+passed on 2026-06-22, including formatting, Rust/FFI tests, Python/tool tests,
+MCP package tests, consumer package smokes, router-hosted MCP example smokes,
+the installed router CLI consumer smoke, full router tests, zero-copy router
+tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `bin/common.sh` now tightens the generated router CLI Dart MCP consumer smoke
 for `/mcp/secure-json-post` active JSON-response WAMP metadata readiness. The
 generated downstream consumer now checks configured registration, session,
@@ -32,8 +65,19 @@ router CLI consumer smoke with the new active JSON-response WAMP metadata
 checks, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
 browser WebSocket smoke.
 
-Hosted evidence remains pending for this checkpoint. The latest fully clean
-hosted checkpoint is still commit `8ec5819`.
+Hosted evidence: Commit `64bd52e`
+(`test: cover active json response wamp meta`) was pushed to GitLab `origin`,
+GitHub `add-router`, and GitHub `master`. GitHub `master` CI `27880987308` and
+GitHub `add-router` CI `27880987327` passed with `Fast Checks` and
+`Full Verify` clean. No new Dart Package Publish Dry Run or WAMP Profile
+Benchmarks were required because no publish-sensitive or benchmark-sensitive
+package inputs changed since `7202eaf`; the latest GitHub `master` Dart Package
+Publish Dry Run `27853666798` remains clean and relevant at `7202eaf`. The
+strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --strict`
+exited successfully on 2026-06-20 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence at
+`64bd52e`, and latest relevant Dart package dry-run evidence clean.
 
 Previous implementation checkpoint:
 `bin/common.sh` now exports `DART_SUPPRESS_ANALYTICS=true` by default while
