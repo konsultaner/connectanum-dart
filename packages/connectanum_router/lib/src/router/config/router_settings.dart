@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
 
@@ -1012,6 +1014,172 @@ class HttpRouteSettings {
     action,
     const MapEquality<String, HttpRouteAction>().hash(methodActions),
   );
+}
+
+const _openMetricsHttpMethods = ['GET', 'HEAD'];
+
+/// Adds router-native HTTP routes for `metrics.open_metrics.listen`.
+///
+/// The generated routes are ordinary HTTP bridge routes backed by the internal
+/// metrics realm, so `/healthz`, `/health`, and the configured metrics path are
+/// served by router sessions instead of a separate sidecar HTTP server.
+extension RouterSettingsOpenMetricsHttp on RouterSettings {
+  RouterSettings withOpenMetricsHttpRoutes() {
+    final openMetrics = metrics?.openMetrics;
+    final listen = openMetrics?.listen?.trim();
+    if (openMetrics == null ||
+        !openMetrics.enabled ||
+        listen == null ||
+        listen.isEmpty) {
+      return this;
+    }
+
+    final routes = _openMetricsHttpRoutes(openMetrics);
+    final updatedListeners = <ListenerSettings>[];
+    var foundMetricsListener = false;
+    var changed = false;
+
+    for (final listener in listeners) {
+      if (listener.endpoint.trim() != listen) {
+        updatedListeners.add(listener);
+        continue;
+      }
+      foundMetricsListener = true;
+      final updated = _withOpenMetricsRoutes(listener, routes);
+      updatedListeners.add(updated);
+      changed = changed || updated != listener;
+    }
+
+    if (!foundMetricsListener) {
+      updatedListeners.add(
+        ListenerSettings(
+          type: 'http',
+          endpoint: listen,
+          options: const {'connectanum_open_metrics_listener': true},
+          protocols: const [ListenerProtocol.http],
+          http: HttpListenerSettings(routes: routes),
+        ),
+      );
+      changed = true;
+    }
+
+    if (!changed) {
+      return this;
+    }
+    return copyWith(listeners: updatedListeners);
+  }
+}
+
+List<HttpRouteSettings> _openMetricsHttpRoutes(
+  OpenMetricsSettings openMetrics,
+) {
+  final realm = openMetrics.realm;
+  return [
+    _openMetricsHttpRoute(
+      path: '/healthz',
+      realm: realm,
+      procedure: 'connectanum.metrics.healthz',
+    ),
+    _openMetricsHttpRoute(
+      path: '/health',
+      realm: realm,
+      procedure: 'connectanum.metrics.healthz',
+    ),
+    _openMetricsHttpRoute(
+      path: _normalizeOpenMetricsHttpPath(openMetrics.path),
+      realm: realm,
+      procedure: 'connectanum.metrics.openmetrics',
+    ),
+  ];
+}
+
+HttpRouteSettings _openMetricsHttpRoute({
+  required String path,
+  required String realm,
+  required String procedure,
+}) {
+  return HttpRouteSettings(
+    match: HttpRouteMatch(path: path, methods: _openMetricsHttpMethods),
+    action: HttpRouteAction(
+      type: HttpRouteActionType.internalCall,
+      realm: realm,
+      procedure: procedure,
+    ),
+  );
+}
+
+ListenerSettings _withOpenMetricsRoutes(
+  ListenerSettings listener,
+  List<HttpRouteSettings> routes,
+) {
+  final existingHttp = listener.http ?? const HttpListenerSettings();
+  final missingRoutes = routes
+      .where((route) => !_hasExactPathRoute(existingHttp, route.match.path))
+      .toList(growable: false);
+  final protocols = _protocolsWithHttp(listener);
+  if (missingRoutes.isEmpty &&
+      const ListEquality<ListenerProtocol>().equals(
+        protocols,
+        listener.protocols,
+      ) &&
+      listener.http != null) {
+    return listener;
+  }
+
+  return ListenerSettings(
+    type: listener.type,
+    endpoint: listener.endpoint,
+    authmethods: listener.authmethods,
+    sessionProfile: listener.sessionProfile,
+    path: listener.path,
+    tls: listener.tls,
+    options: listener.options,
+    protocols: protocols,
+    rawsocket: listener.rawsocket,
+    websocket: listener.websocket,
+    http: HttpListenerSettings(
+      alpn: existingHttp.alpn,
+      http3: existingHttp.http3,
+      sessionProfile: existingHttp.sessionProfile,
+      routes: [...missingRoutes, ...existingHttp.routes],
+      options: existingHttp.options,
+    ),
+  );
+}
+
+List<ListenerProtocol> _protocolsWithHttp(ListenerSettings listener) {
+  final protocols = <ListenerProtocol>[];
+  if (listener.protocols.isEmpty) {
+    final type = listener.type?.trim();
+    if (type != null && type.isNotEmpty) {
+      try {
+        protocols.add(listenerProtocolFromString(type));
+      } on FormatException {
+        // Keep validation in the normal config path; this helper only enriches
+        // metrics routes when the listener type is known.
+      }
+    }
+  }
+  protocols.addAll(listener.protocols);
+  if (!protocols.contains(ListenerProtocol.http)) {
+    protocols.add(ListenerProtocol.http);
+  }
+  return LinkedHashSet<ListenerProtocol>.from(protocols).toList();
+}
+
+bool _hasExactPathRoute(HttpListenerSettings http, String? path) {
+  if (path == null || path.isEmpty) {
+    return false;
+  }
+  return http.routes.any((route) => route.match.path == path);
+}
+
+String _normalizeOpenMetricsHttpPath(String path) {
+  final trimmed = path.trim();
+  if (trimmed.isEmpty || trimmed == '/') {
+    return '/';
+  }
+  return trimmed.startsWith('/') ? trimmed : '/$trimmed';
 }
 
 /// Equality helpers

@@ -2,14 +2,13 @@
 // ignore_for_file: unnecessary_library_name
 library open_metrics_http_server_test;
 
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/connectanum_core.dart' show CallOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
-import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:test/test.dart';
 
@@ -300,139 +299,193 @@ RouterSettings _buildSettings({
   );
 }
 
-Future<(int status, String body, Map<String, String> headers)> _get(
-  Uri uri, {
+int _nextSyntheticHttpRequestId = 1;
+
+Future<HttpResponsePayload> _callMetricsHttp(
+  RouterSession session,
+  String procedure, {
+  String method = 'GET',
+  String path = '/metrics',
   String? bearerToken,
 }) async {
-  final client = HttpClient();
-  try {
-    final request = await client.getUrl(uri);
-    if (bearerToken != null) {
-      request.headers.set(
-        HttpHeaders.authorizationHeader,
-        'Bearer $bearerToken',
-      );
-    }
-    final response = await request.close();
-    final body = await utf8.decodeStream(response);
-    final headers = <String, String>{};
-    response.headers.forEach((name, values) {
-      headers[name] = values.join(',');
-    });
-    return (response.statusCode, body, headers);
-  } finally {
-    client.close(force: true);
-  }
+  final requestId = _nextSyntheticHttpRequestId++;
+  final snapshot = HttpRequestSnapshot(
+    id: requestId,
+    method: method,
+    target: path,
+    path: path,
+    protocol: 'http',
+    version: 1,
+    headers: {
+      if (bearerToken != null)
+        HttpHeaders.authorizationHeader: 'Bearer $bearerToken',
+    },
+    realm: 'connectanum.metrics',
+    procedure: procedure,
+  );
+  final requestPayload = snapshot.toInvocationPayload();
+  final result = await session
+      .call(
+        procedure,
+        argumentsKeywords: {
+          '_http': requestPayload,
+          '_connection': const {
+            'listenerId': 1,
+            'connectionId': 1,
+            'endpoint': '127.0.0.1:0',
+          },
+        },
+        options: CallOptions(
+          custom: {
+            HttpInvocationKeys.requestId: requestId,
+            HttpInvocationKeys.request: requestPayload,
+          },
+        ),
+      )
+      .first;
+  final payload = HttpResponsePayload.fromKeywordArguments(
+    result.argumentsKeywords?.cast<String, Object?>(),
+  );
+  expect(payload, isNotNull);
+  return payload!;
+}
+
+RouterBinding _startRouter(RouterSettings settings) {
+  final runtime = _NoopHandleRuntime();
+  final enrichedSettings = settings.withOpenMetricsHttpRoutes();
+  final router = Router(
+    RouterConfig(
+      endpoints: enrichedSettings.listeners
+          .map(Endpoint.fromListenerSettings)
+          .toList(growable: false),
+    ),
+    settings: enrichedSettings,
+  );
+  return router.start(runtime);
 }
 
 void main() {
-  test('OpenMetrics HTTP server serves /metrics and /healthz', () async {
-    final runtime = _NoopHandleRuntime();
-    final settings = _buildSettings();
-    final router = Router(
-      RouterConfig(
-        endpoints: [
-          Endpoint(
-            host: '127.0.0.1',
-            port: 0,
-            tlsMode: TlsMode.disabled,
-            maxRawSocketSizeExponent: 16,
-          ),
-        ],
-      ),
-      settings: settings,
-    );
+  test('OpenMetrics settings add router-native HTTP routes', () {
+    final settings = _buildSettings().withOpenMetricsHttpRoutes();
 
-    final binding = router.start(runtime);
-    addTearDown(binding.dispose);
-
-    final server = await binding.startOpenMetricsHttpServer();
-    expect(server, isNotNull);
-
-    final listenHost = server!.address.address;
-    final base = Uri.parse('http://$listenHost:${server.port}');
-
-    final health = await _get(base.replace(path: '/healthz'));
-    expect(health.$1, equals(200));
-    expect(health.$2, contains('ok'));
-
-    final metrics = await _get(base.replace(path: '/metrics'));
-    expect(metrics.$1, equals(200));
-    expect(metrics.$2, contains('connectanum_router_realms'));
-    expect(metrics.$2, contains('connectanum_router_process_info'));
+    final listener = settings.listeners.single;
     expect(
-      metrics.$2,
-      contains('connectanum_router_process_resident_memory_bytes'),
+      listener.protocols,
+      equals(const [ListenerProtocol.rawsocket, ListenerProtocol.http]),
     );
-    expect(metrics.$3['content-type'], contains('text/plain'));
-  });
-
-  test('OpenMetrics HTTP server requires auth token when configured', () async {
-    final runtime = _NoopHandleRuntime();
-    final settings = _buildSettings(authToken: 'secret');
-    final router = Router(
-      RouterConfig(
-        endpoints: [
-          Endpoint(
-            host: '127.0.0.1',
-            port: 0,
-            tlsMode: TlsMode.disabled,
-            maxRawSocketSizeExponent: 16,
-          ),
-        ],
-      ),
-      settings: settings,
+    final routes = listener.http?.routes;
+    expect(routes, isNotNull);
+    expect(
+      routes!.map((route) => route.match.path),
+      containsAll(const ['/healthz', '/health', '/metrics']),
     );
-
-    final binding = router.start(runtime);
-    addTearDown(binding.dispose);
-
-    final server = await binding.startOpenMetricsHttpServer();
-    expect(server, isNotNull);
-
-    final listenHost = server!.address.address;
-    final base = Uri.parse('http://$listenHost:${server.port}/metrics');
-
-    final denied = await _get(base);
-    expect(denied.$1, equals(401));
-    expect(denied.$3.containsKey('www-authenticate'), isTrue);
-
-    final ok = await _get(base, bearerToken: 'secret');
-    expect(ok.$1, equals(200));
-    expect(ok.$2, contains('connectanum_router_realms'));
+    final metricsRoute = routes.firstWhere(
+      (route) => route.match.path == '/metrics',
+    );
+    expect(metricsRoute.match.methods, equals(const ['GET', 'HEAD']));
+    expect(metricsRoute.action.type, equals(HttpRouteActionType.internalCall));
+    expect(metricsRoute.action.realm, equals('connectanum.metrics'));
+    expect(
+      metricsRoute.action.procedure,
+      equals('connectanum.metrics.openmetrics'),
+    );
   });
 
   test(
-    'OpenMetrics HTTP server returns unavailable when collection times out',
+    'OpenMetrics internal HTTP routes serve /metrics and /healthz',
     () async {
-      final runtime = _NoopHandleRuntime();
-      final settings = _buildSettings(collectionTimeout: Duration.zero);
-      final router = Router(
-        RouterConfig(
-          endpoints: [
-            Endpoint(
-              host: '127.0.0.1',
-              port: 0,
-              tlsMode: TlsMode.disabled,
-              maxRawSocketSizeExponent: 16,
-            ),
-          ],
-        ),
-        settings: settings,
-      );
-
-      final binding = router.start(runtime);
+      final binding = _startRouter(_buildSettings());
       addTearDown(binding.dispose);
+      await binding.ensureInternalServicesReady();
 
-      final server = await binding.startOpenMetricsHttpServer();
-      expect(server, isNotNull);
+      final caller = await binding.createInternalSession(
+        realmUri: 'connectanum.metrics',
+        authId: 'metrics-test',
+        authRole: 'metrics',
+      );
+      addTearDown(caller.close);
 
-      final listenHost = server!.address.address;
-      final base = Uri.parse('http://$listenHost:${server.port}/metrics');
+      final health = await _callMetricsHttp(
+        caller,
+        'connectanum.metrics.healthz',
+        path: '/healthz',
+      );
+      expect(health.status, equals(200));
+      expect(health.bodyText, contains('ok'));
 
-      final response = await _get(base);
-      expect(response.$1, equals(503));
-      expect(response.$2, isEmpty);
+      final metrics = await _callMetricsHttp(
+        caller,
+        'connectanum.metrics.openmetrics',
+      );
+      expect(metrics.status, equals(200));
+      expect(metrics.bodyText, contains('connectanum_router_realms'));
+      expect(metrics.bodyText, contains('connectanum_router_process_info'));
+      expect(
+        metrics.bodyText,
+        contains('connectanum_router_process_resident_memory_bytes'),
+      );
+      expect(metrics.headers['content-type'], contains('text/plain'));
+
+      final head = await _callMetricsHttp(
+        caller,
+        'connectanum.metrics.openmetrics',
+        method: 'HEAD',
+      );
+      expect(head.status, equals(200));
+      expect(head.bodyText, isEmpty);
+    },
+  );
+
+  test('OpenMetrics internal HTTP route requires auth token', () async {
+    final binding = _startRouter(_buildSettings(authToken: 'secret'));
+    addTearDown(binding.dispose);
+    await binding.ensureInternalServicesReady();
+
+    final caller = await binding.createInternalSession(
+      realmUri: 'connectanum.metrics',
+      authId: 'metrics-test',
+      authRole: 'metrics',
+    );
+    addTearDown(caller.close);
+
+    final denied = await _callMetricsHttp(
+      caller,
+      'connectanum.metrics.openmetrics',
+    );
+    expect(denied.status, equals(401));
+    expect(denied.headers.containsKey('www-authenticate'), isTrue);
+
+    final ok = await _callMetricsHttp(
+      caller,
+      'connectanum.metrics.openmetrics',
+      bearerToken: 'secret',
+    );
+    expect(ok.status, equals(200));
+    expect(ok.bodyText, contains('connectanum_router_realms'));
+  });
+
+  test(
+    'OpenMetrics internal HTTP route returns unavailable when collection times out',
+    () async {
+      final binding = _startRouter(
+        _buildSettings(collectionTimeout: Duration.zero),
+      );
+      addTearDown(binding.dispose);
+      await binding.ensureInternalServicesReady();
+
+      final caller = await binding.createInternalSession(
+        realmUri: 'connectanum.metrics',
+        authId: 'metrics-test',
+        authRole: 'metrics',
+      );
+      addTearDown(caller.close);
+
+      final response = await _callMetricsHttp(
+        caller,
+        'connectanum.metrics.openmetrics',
+      );
+      expect(response.status, equals(503));
+      expect(response.bodyText, isEmpty);
     },
   );
 }

@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-06-22
+Last updated: 2026-06-26
 
 ## Problem
 
@@ -79,6 +79,30 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-06-26: Replaced the OpenMetrics/health sidecar HTTP server with
+  router-native internal HTTP routes. `RouterSettings.withOpenMetricsHttpRoutes()`
+  now derives or merges GET/HEAD `/healthz`, `/health`, and configured
+  metrics-path routes to `connectanum.metrics.healthz` and
+  `connectanum.metrics.openmetrics`; the router CLI applies that settings
+  normalization on startup and SIGHUP reload instead of starting a
+  `RouterBinding`-owned `HttpServer.bind(...)` listener. The metrics internal
+  service now owns health status, OpenMetrics rendering, bearer-token checks,
+  HTTP status/header mapping, HEAD body suppression, and scrape-timeout 503
+  responses. Generated metrics-only listeners are marked and close after
+  application listeners during graceful drain so health can report draining
+  when metrics use a dedicated listener. Baseline `bin/test-fast` passed before
+  the change on 2026-06-26. Focused
+  `dart analyze packages/connectanum_router`, focused
+  `dart test packages/connectanum_router/test/open_metrics_http_server_test.dart`,
+  and focused `dart test packages/connectanum_router/test/router_runtime_test.dart`
+  passed after the change. Post-change `bin/test-fast` and full local
+  `bin/verify` also passed on 2026-06-26, including formatting, Rust/FFI tests,
+  Python/tool tests, MCP package tests, consumer package smokes, live WAMP
+  benchmark integration, router-hosted MCP example smokes, the installed router
+  CLI consumer smoke serving `/healthz` and `/metrics`, full router tests,
+  zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence for this checkpoint is not yet available because the change
+  remains local/unpushed.
 - 2026-06-22: Added `bin/connectanum-router` as the first-class source-checkout
   runner for consumer application smokes and local integrations that need a real
   router without duplicating native-runtime bootstrap logic. The wrapper
@@ -108,7 +132,20 @@ decision because `connectanum_client` still depends on private
   Rust/FFI tests, Python/tool tests, MCP package tests, consumer package
   smokes, router-hosted MCP example smokes, the installed router CLI consumer
   smoke, full router tests, zero-copy router tests, and the Chrome/Dart2Wasm
-  browser WebSocket smoke.
+  browser WebSocket smoke. Commit `10cfe6f`
+  (`tooling: add checkout router runner`) was pushed to GitLab `origin`, GitHub
+  `add-router`, and GitHub `master`. GitHub `master` CI `27950751253` passed
+  with `Fast Checks` and `Full Verify` clean. GitHub `add-router` CI
+  `27950744603` also passed. GitHub `master` Dart Package Publish Dry Run
+  `27950750751` and GitHub `master` WAMP Profile Benchmarks `27950750954` both
+  passed and covered the checked-out head. Matching GitHub `add-router` Dart
+  Package Publish Dry Run `27950744737` and WAMP Profile Benchmarks
+  `27950744646` also passed. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+  exited successfully on 2026-06-22 with branch protection, workflow
+  visibility, router image package visibility, latest GitHub `master` CI
+  evidence, latest relevant Dart package dry-run evidence, and latest relevant
+  WAMP profile benchmark evidence clean at `10cfe6f`.
 - 2026-06-20: Tightened the generated router CLI Dart MCP consumer smoke so
   `/mcp/secure-json-post` proves active protected JSON-response WAMP metadata
   readiness for downstream consumers. The generated consumer now checks

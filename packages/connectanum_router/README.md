@@ -96,7 +96,8 @@ handling before the binding is torn down.
 `RouterBinding.dispose()` already uses that same path, so a normal process
 shutdown or CLI exit drains before the boss/runtime are released.
 
-When the optional OpenMetrics HTTP server is enabled, `/healthz` returns:
+When the optional router-native OpenMetrics HTTP routes are enabled,
+`/healthz` returns:
 
 - `200 ok` while the router is ready
 - `503 starting` before the router is ready

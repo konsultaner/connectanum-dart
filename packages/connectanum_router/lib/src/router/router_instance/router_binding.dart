@@ -148,11 +148,9 @@ class RouterBinding {
   _RouterBoss? _boss;
   bool _ready = false;
   int _nextHttpRequestId = 1;
-  HttpServer? _openMetricsHttpServer;
-  Future<HttpServer?>? _openMetricsHttpServerFuture;
   Future<void>? _drainFuture;
   bool _draining = false;
-  bool _listenersClosed = false;
+  final Set<int> _closedListenerIds = {};
   DateTime? _drainStartedAtUtc;
   DateTime? _drainDeadlineAtUtc;
   Duration? _lastDrainDuration;
@@ -198,10 +196,13 @@ class RouterBinding {
         if (boss != null) {
           bossStop = boss.stop(drainTimeout: drainTimeout);
         }
-        await _closeListenersAndPendingConnections();
+        await _closeListenersAndPendingConnections(
+          includeOpenMetricsListeners: false,
+        );
         if (bossStop != null) {
           await bossStop;
         }
+        await _closeListenersAndPendingConnections();
 
         final finishedAt = DateTime.now().toUtc();
         _lastDrainDuration = finishedAt.difference(_drainStartedAtUtc!);
@@ -237,18 +238,31 @@ class RouterBinding {
     });
   }
 
-  Future<void> _closeListenersAndPendingConnections() async {
-    if (_listenersClosed || _listeners.isEmpty) {
+  Future<void> _closeListenersAndPendingConnections({
+    bool includeOpenMetricsListeners = true,
+  }) async {
+    if (_listeners.isEmpty || _closedListenerIds.length == _listeners.length) {
       return;
     }
-    _listenersClosed = true;
 
     var closedListeners = 0;
     var closedPendingConnections = 0;
-    final snapshot = List<RouterListener>.from(_listeners);
+    final snapshot = _listeners
+        .where((listener) {
+          if (_closedListenerIds.contains(listener.listenerId)) {
+            return false;
+          }
+          return includeOpenMetricsListeners ||
+              !_isOpenMetricsListener(listener);
+        })
+        .toList(growable: false);
+    if (snapshot.isEmpty) {
+      return;
+    }
     for (final listener in snapshot) {
       try {
         runtime.closeListener(listener.listenerId);
+        _closedListenerIds.add(listener.listenerId);
         closedListeners += 1;
       } catch (error) {
         onEvent?.call({
@@ -291,6 +305,11 @@ class RouterBinding {
       'listeners_closed': closedListeners,
       'pending_connections_closed': closedPendingConnections,
     });
+  }
+
+  bool _isOpenMetricsListener(RouterListener listener) {
+    return listener.settings?.options['connectanum_open_metrics_listener'] ==
+        true;
   }
 
   void activateListeners() {
@@ -614,159 +633,6 @@ class RouterBinding {
     return service.buildOpenMetricsPayload(snapshot: snapshot);
   }
 
-  Future<HttpServer?> startOpenMetricsHttpServer({
-    OpenMetricsSettings? settingsOverride,
-  }) async {
-    final metricsSettings = settingsOverride ?? settings.metrics?.openMetrics;
-    if (metricsSettings == null || !metricsSettings.enabled) {
-      return null;
-    }
-    final listen = metricsSettings.listen?.trim();
-    if (listen == null || listen.isEmpty) {
-      return null;
-    }
-    final existing = _openMetricsHttpServer;
-    if (existing != null) {
-      return existing;
-    }
-    final pending = _openMetricsHttpServerFuture;
-    if (pending != null) {
-      return pending;
-    }
-    final future = _startOpenMetricsHttpServer(metricsSettings, listen);
-    _openMetricsHttpServerFuture = future;
-    try {
-      return await future;
-    } finally {
-      _openMetricsHttpServerFuture = null;
-    }
-  }
-
-  Future<void> stopOpenMetricsHttpServer() async {
-    _openMetricsHttpServerFuture = null;
-    final server = _openMetricsHttpServer;
-    if (server == null) {
-      return;
-    }
-    _openMetricsHttpServer = null;
-    await server.close(force: true);
-  }
-
-  Future<HttpServer> _startOpenMetricsHttpServer(
-    OpenMetricsSettings metricsSettings,
-    String listen,
-  ) async {
-    if (!_ready) {
-      activateListeners();
-    }
-    await ensureInternalServicesReady();
-
-    final parsed = _parseListenEndpoint(listen);
-    final address = InternetAddress.tryParse(parsed.host) ?? parsed.host.trim();
-    final server = await HttpServer.bind(address, parsed.port);
-    _openMetricsHttpServer = server;
-
-    final metricsPath = _normalizePath(metricsSettings.path);
-    server.listen(
-      (request) => unawaited(
-        _handleOpenMetricsHttpRequest(request, metricsSettings, metricsPath),
-      ),
-    );
-
-    onEvent?.call({
-      'source': 'binding',
-      'type': 'openmetrics_http_listening',
-      'listen': '${server.address.address}:${server.port}',
-      'path': metricsPath,
-    });
-
-    return server;
-  }
-
-  Future<void> _handleOpenMetricsHttpRequest(
-    HttpRequest request,
-    OpenMetricsSettings metricsSettings,
-    String metricsPath,
-  ) async {
-    final response = request.response;
-    response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-
-    if (request.method != 'GET' && request.method != 'HEAD') {
-      response.statusCode = HttpStatus.methodNotAllowed;
-      await response.close();
-      return;
-    }
-
-    final path = request.uri.path;
-    if (path == '/healthz' || path == '/health') {
-      if (_draining) {
-        response.statusCode = HttpStatus.serviceUnavailable;
-      } else if (!_ready) {
-        response.statusCode = HttpStatus.serviceUnavailable;
-      } else {
-        response.statusCode = HttpStatus.ok;
-      }
-      response.headers.contentType = ContentType.text;
-      if (request.method == 'GET') {
-        if (_draining) {
-          response.write('draining');
-        } else if (!_ready) {
-          response.write('starting');
-        } else {
-          response.write('ok');
-        }
-      }
-      await response.close();
-      return;
-    }
-
-    if (path != metricsPath) {
-      response.statusCode = HttpStatus.notFound;
-      await response.close();
-      return;
-    }
-
-    final expectedToken = metricsSettings.authToken;
-    if (expectedToken != null && expectedToken.isNotEmpty) {
-      final header = request.headers.value(HttpHeaders.authorizationHeader);
-      final bearer = 'Bearer $expectedToken';
-      if (header == null || header != bearer) {
-        response.statusCode = HttpStatus.unauthorized;
-        response.headers.set(HttpHeaders.wwwAuthenticateHeader, 'Bearer');
-        await response.close();
-        return;
-      }
-    }
-
-    String? text;
-    try {
-      text = await collectOpenMetricsText();
-    } catch (error, stackTrace) {
-      onEvent?.call({
-        'source': 'binding',
-        'type': 'openmetrics_http_collect_failed',
-        'error': error.toString(),
-        'stackTrace': stackTrace.toString(),
-      });
-      text = null;
-    }
-    if (text == null) {
-      response.statusCode = HttpStatus.serviceUnavailable;
-      await response.close();
-      return;
-    }
-
-    response.statusCode = HttpStatus.ok;
-    response.headers.set(
-      HttpHeaders.contentTypeHeader,
-      'text/plain; version=0.0.4; charset=utf-8',
-    );
-    if (request.method == 'GET') {
-      response.write(text);
-    }
-    await response.close();
-  }
-
   void _acceptConnections(RouterListener listener) {
     while (true) {
       final connectionId = runtime.pollConnection(listener.listenerId);
@@ -985,7 +851,6 @@ class RouterBinding {
     try {
       await drain();
     } catch (_) {}
-    await stopOpenMetricsHttpServer();
     final boss = _boss;
     if (boss != null) {
       await boss.stop();
@@ -3691,6 +3556,7 @@ class _MetricsService {
 
   registered_msg.Registered? _snapshotRegistration;
   registered_msg.Registered? _openMetricsRegistration;
+  registered_msg.Registered? _healthRegistration;
 
   Future<void> initialize() async {
     _snapshotRegistration = await session.register(
@@ -3706,6 +3572,11 @@ class _MetricsService {
     _openMetricsRegistration!.onInvoke(
       (invocation) => unawaited(_handleOpenMetricsInvocation(invocation)),
     );
+
+    _healthRegistration = await session.register('connectanum.metrics.healthz');
+    _healthRegistration!.onInvoke(
+      (invocation) => unawaited(_handleHealthInvocation(invocation)),
+    );
   }
 
   Future<void> dispose() async {
@@ -3715,8 +3586,12 @@ class _MetricsService {
     if (_openMetricsRegistration != null) {
       await session.unregister(_openMetricsRegistration!.registrationId);
     }
+    if (_healthRegistration != null) {
+      await session.unregister(_healthRegistration!.registrationId);
+    }
     _snapshotRegistration = null;
     _openMetricsRegistration = null;
+    _healthRegistration = null;
   }
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
@@ -3746,12 +3621,24 @@ class _MetricsService {
   Future<void> _handleOpenMetricsInvocation(
     invocation_msg.Invocation invocation,
   ) async {
+    final httpContext = HttpInvocationContext.maybeFromInvocation(invocation);
     try {
+      if (httpContext != null && !_authorizeOpenMetricsHttp(httpContext)) {
+        httpContext.sendText(
+          body: '',
+          status: HttpStatus.unauthorized,
+          headers: const {
+            'www-authenticate': 'Bearer',
+            'cache-control': 'no-store',
+          },
+        );
+        return;
+      }
+
       final text = await buildOpenMetricsPayload();
-      final httpContext = HttpInvocationContext.maybeFromInvocation(invocation);
       if (httpContext != null) {
         httpContext.sendText(
-          body: text,
+          body: _httpTextBody(httpContext, text),
           headers: const {
             'content-type': 'text/plain; version=0.0.4; charset=utf-8',
             'cache-control': 'no-store',
@@ -3767,6 +3654,14 @@ class _MetricsService {
         'error': error.toString(),
         'stackTrace': stackTrace.toString(),
       });
+      if (httpContext != null) {
+        httpContext.sendText(
+          body: '',
+          status: HttpStatus.serviceUnavailable,
+          headers: const {'cache-control': 'no-store'},
+        );
+        return;
+      }
       invocation.respondWith(
         isError: true,
         errorUri: wamp_core.Error.runtimeError,
@@ -3774,6 +3669,69 @@ class _MetricsService {
         argumentsKeywords: {'reason': error.toString()},
       );
     }
+  }
+
+  Future<void> _handleHealthInvocation(
+    invocation_msg.Invocation invocation,
+  ) async {
+    final httpContext = HttpInvocationContext.maybeFromInvocation(invocation);
+    final status = binding.isDraining || !binding.isReady
+        ? HttpStatus.serviceUnavailable
+        : HttpStatus.ok;
+    final body = binding.isDraining
+        ? 'draining'
+        : (!binding.isReady ? 'starting' : 'ok');
+
+    if (httpContext != null) {
+      httpContext.sendText(
+        body: _httpTextBody(httpContext, body),
+        status: status,
+        headers: const {
+          'content-type': 'text/plain; charset=utf-8',
+          'cache-control': 'no-store',
+        },
+      );
+      return;
+    }
+
+    invocation.respondWith(
+      arguments: [body],
+      argumentsKeywords: {'status': status},
+    );
+  }
+
+  bool _authorizeOpenMetricsHttp(HttpInvocationContext httpContext) {
+    final expectedToken = metricsSettings.authToken;
+    if (expectedToken == null || expectedToken.isEmpty) {
+      return true;
+    }
+    final authorization = _headerValue(
+      httpContext.request.headers,
+      HttpHeaders.authorizationHeader,
+    );
+    if (authorization == null) {
+      return false;
+    }
+    final parts = authorization.trim().split(RegExp(r'\s+'));
+    return parts.length == 2 &&
+        parts.first.toLowerCase() == 'bearer' &&
+        parts.last == expectedToken;
+  }
+
+  String _httpTextBody(HttpInvocationContext httpContext, String body) {
+    return httpContext.request.method.trim().toUpperCase() == 'HEAD'
+        ? ''
+        : body;
+  }
+
+  String? _headerValue(Map<String, String> headers, String name) {
+    final lowerName = name.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == lowerName) {
+        return entry.value;
+      }
+    }
+    return null;
   }
 
   Future<Map<String, Object?>> _buildSnapshotPayload() async {
@@ -4877,46 +4835,4 @@ class _ConfiguredHttpAuthProvider {
 
   final String name;
   final HttpAuthProvider provider;
-}
-
-class _ParsedListenEndpoint {
-  const _ParsedListenEndpoint({required this.host, required this.port});
-
-  final String host;
-  final int port;
-}
-
-_ParsedListenEndpoint _parseListenEndpoint(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) {
-    throw FormatException('Listen endpoint must not be empty');
-  }
-  if (trimmed.startsWith('[')) {
-    final closing = trimmed.indexOf(']');
-    if (closing == -1 ||
-        closing + 1 >= trimmed.length ||
-        trimmed[closing + 1] != ':') {
-      throw FormatException('Listen endpoint "$value" must include :port');
-    }
-    final host = trimmed.substring(1, closing);
-    final portPart = trimmed.substring(closing + 2);
-    final port = int.parse(portPart);
-    return _ParsedListenEndpoint(host: host, port: port);
-  }
-  final lastColon = trimmed.lastIndexOf(':');
-  if (lastColon == -1) {
-    throw FormatException('Listen endpoint "$value" must include :port');
-  }
-  final host = trimmed.substring(0, lastColon);
-  final portPart = trimmed.substring(lastColon + 1);
-  final port = int.parse(portPart);
-  return _ParsedListenEndpoint(host: host, port: port);
-}
-
-String _normalizePath(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) {
-    return '/';
-  }
-  return trimmed.startsWith('/') ? trimmed : '/$trimmed';
 }

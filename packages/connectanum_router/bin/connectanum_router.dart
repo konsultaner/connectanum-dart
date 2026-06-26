@@ -35,7 +35,9 @@ Future<void> main(List<String> args) async {
   final configPath = parsed.configPath;
   RouterSettings routerSettings;
   try {
-    routerSettings = await RouterConfigLoaderIo.fromFile(configPath);
+    routerSettings = (await RouterConfigLoaderIo.fromFile(
+      configPath,
+    )).withOpenMetricsHttpRoutes();
   } catch (error) {
     stderr.writeln('Failed to load router config "$configPath": $error');
     exitCode = 64;
@@ -105,21 +107,12 @@ Future<void> main(List<String> args) async {
     }
 
     final metricsSettings = routerSettings.metrics?.openMetrics;
-    if (metricsSettings != null &&
-        metricsSettings.enabled &&
-        (metricsSettings.listen?.trim().isNotEmpty ?? false)) {
+    if (_openMetricsHttpEnabled(metricsSettings)) {
       try {
-        final server = await binding.startOpenMetricsHttpServer(
-          settingsOverride: metricsSettings,
-        );
-        if (server != null) {
-          stdout.writeln(
-            'OpenMetrics exporter listening on ${server.address.address}:${server.port}${metricsSettings.path} '
-            '(healthz: /healthz)',
-          );
-        }
+        await binding.ensureInternalServicesReady();
+        _printOpenMetricsEndpoint(binding, metricsSettings!);
       } catch (error) {
-        stderr.writeln('Failed to start OpenMetrics HTTP exporter: $error');
+        stderr.writeln('Failed to initialize OpenMetrics HTTP routes: $error');
         exitCode = 64;
         return;
       }
@@ -134,7 +127,9 @@ Future<void> main(List<String> args) async {
       }
       reloading = true;
       try {
-        final newSettings = await RouterConfigLoaderIo.fromFile(configPath);
+        final newSettings = (await RouterConfigLoaderIo.fromFile(
+          configPath,
+        )).withOpenMetricsHttpRoutes();
         final newEndpoints = newSettings.listeners
             .map(Endpoint.fromListenerSettings)
             .toList(growable: false);
@@ -170,6 +165,40 @@ Future<void> main(List<String> args) async {
     runtime.dispose();
   }
   exit(exitCode);
+}
+
+bool _openMetricsHttpEnabled(OpenMetricsSettings? metricsSettings) {
+  return metricsSettings != null &&
+      metricsSettings.enabled &&
+      (metricsSettings.listen?.trim().isNotEmpty ?? false);
+}
+
+void _printOpenMetricsEndpoint(
+  RouterBinding binding,
+  OpenMetricsSettings metricsSettings,
+) {
+  final configuredListen = metricsSettings.listen?.trim();
+  if (configuredListen == null || configuredListen.isEmpty) {
+    return;
+  }
+  for (final listener in binding.listeners) {
+    if (listener.settings?.endpoint.trim() != configuredListen) {
+      continue;
+    }
+    stdout.writeln(
+      'OpenMetrics exporter listening on ${listener.endpoint.host}:${listener.port}${_normalizeMetricsPath(metricsSettings.path)} '
+      '(healthz: /healthz)',
+    );
+    return;
+  }
+}
+
+String _normalizeMetricsPath(String path) {
+  final trimmed = path.trim();
+  if (trimmed.isEmpty || trimmed == '/') {
+    return '/';
+  }
+  return trimmed.startsWith('/') ? trimmed : '/$trimmed';
 }
 
 void _logEvent(Object event) {

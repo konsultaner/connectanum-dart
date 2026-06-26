@@ -1,13 +1,40 @@
 # Project State
 
-Last updated: 2026-06-22
+Last updated: 2026-06-26
 Current branch: `add-router`
-Last reviewed branch checkpoint: source-checkout router runner now gives
-consumer applications a first-class way to launch the router with native
-runtime bootstrap handled by this repository.
-Latest fully clean hosted checkpoint: Commit `64bd52e` on GitHub `master` and
+Last reviewed branch checkpoint: OpenMetrics `/healthz`, `/health`, and
+`/metrics` are now served by router-native internal HTTP routes instead of a
+sidecar `HttpServer.bind(...)` path.
+Latest fully clean hosted checkpoint: Commit `10cfe6f` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+OpenMetrics and health endpoints now run through the router's internal HTTP
+route path. `RouterSettings.withOpenMetricsHttpRoutes()` derives or merges
+GET/HEAD `/healthz`, `/health`, and configured metrics-path routes to the
+internal `connectanum.metrics.healthz` and `connectanum.metrics.openmetrics`
+procedures before endpoint derivation. The router CLI applies that helper on
+startup and SIGHUP reload, preserves endpoint reporting, and no longer starts a
+`RouterBinding` sidecar HTTP server. The metrics internal service owns health
+status, OpenMetrics rendering, bearer-token checks, HTTP status/header mapping,
+HEAD body suppression, and scrape-timeout 503 responses. Generated
+metrics-only listeners are marked and close after application listeners during
+graceful drain so health can report draining when the metrics endpoint is on
+its own listener.
+
+Baseline `bin/test-fast` passed before the router-native OpenMetrics route
+change on 2026-06-26. Focused `dart analyze packages/connectanum_router`,
+`dart test packages/connectanum_router/test/open_metrics_http_server_test.dart`,
+and `dart test packages/connectanum_router/test/router_runtime_test.dart`
+passed after the change. Post-change `bin/test-fast` and full local
+`bin/verify` also passed on 2026-06-26, including formatting, Rust/FFI tests,
+Python/tool tests, MCP package tests, consumer package smokes, live WAMP
+benchmark integration, router-hosted MCP example smokes, the installed router
+CLI consumer smoke serving `/healthz` and `/metrics`, full router tests,
+zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence for this checkpoint is not yet available because the change has
+not been pushed; latest fully clean hosted evidence remains `10cfe6f`.
+
+Previous implementation checkpoint:
 `bin/connectanum-router` now provides a repo-level source-checkout runner for
 consumer application smokes and local integrations that need a real
 `connectanum_router` process without copying private native-runtime bootstrap
@@ -38,6 +65,21 @@ passed on 2026-06-22, including formatting, Rust/FFI tests, Python/tool tests,
 MCP package tests, consumer package smokes, router-hosted MCP example smokes,
 the installed router CLI consumer smoke, full router tests, zero-copy router
 tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+Hosted evidence: Commit `10cfe6f`
+(`tooling: add checkout router runner`) was pushed to GitLab `origin`, GitHub
+`add-router`, and GitHub `master`. GitHub `master` CI `27950751253` passed with
+`Fast Checks` and `Full Verify` clean. GitHub `add-router` CI `27950744603`
+also passed. GitHub `master` Dart Package Publish Dry Run `27950750751` and
+GitHub `master` WAMP Profile Benchmarks `27950750954` both passed and covered
+the checked-out head. Matching GitHub `add-router` Dart Package Publish Dry Run
+`27950744737` and WAMP Profile Benchmarks `27950744646` also passed. The strict
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+exited successfully on 2026-06-22 with branch protection, workflow visibility,
+router image package visibility, latest GitHub `master` CI evidence, latest
+relevant Dart package dry-run evidence, and latest relevant WAMP profile
+benchmark evidence clean at `10cfe6f`.
 
 Previous implementation checkpoint:
 `bin/common.sh` now tightens the generated router CLI Dart MCP consumer smoke

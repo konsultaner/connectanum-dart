@@ -112,8 +112,9 @@ runtime.dispose();
 `dispose()` already calls `drain()`, so explicit `drain()` is only needed when
 you want to separate “stop accepting traffic” from final teardown.
 
-When the OpenMetrics HTTP server is enabled, `/healthz` returns `503 draining`
-while the router is draining so a load balancer can stop sending new traffic.
+When the router-native OpenMetrics HTTP routes are enabled, `/healthz` returns
+`503 draining` while the router is draining so a load balancer can stop sending
+new traffic.
 
 ## MCP bridge
 

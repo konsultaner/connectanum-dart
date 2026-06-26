@@ -68,20 +68,29 @@ router:
 
 The router spawns an embedded session for every entry in `internal_realms`.
 When the metrics exporter is enabled, the session matching
-`open_metrics.realm` registers two RPC procedures:
+`open_metrics.realm` registers three RPC procedures:
 
 - `connectanum.metrics.snapshot` – returns a JSON-friendly map with the current
   router counters plus per-realm topic/procedure breakdowns.
 - `connectanum.metrics.openmetrics` – returns an OpenMetrics text payload using
   the same metric names as the Java router (`topics`, `topics_subscribed`,
   `topic_subscribers`, `registered_procedures`, `procedure_endpoints`, …).
+- `connectanum.metrics.healthz` – returns the router readiness state for HTTP
+  probes (`ok`, `starting`, or `draining` with a matching HTTP status when
+  invoked through the HTTP bridge).
 
 If `open_metrics.listen` is set and you run the router via
-`dart run connectanum_router` (or call `RouterBinding.startOpenMetricsHttpServer`
-from embedding code), the exporter is also served over HTTP:
+`dart run connectanum_router`, the runner adds ordinary router HTTP routes for
+the configured metrics listener before starting the native runtime. Embedding
+code should call `RouterSettings.withOpenMetricsHttpRoutes()` before deriving
+`Endpoint.fromListenerSettings` values and constructing `RouterConfig`.
+
+The generated routes are served by the internal metrics session over the normal
+router HTTP bridge:
 
 - `GET /metrics` – OpenMetrics text payload
 - `GET /healthz` – readiness check (`200 ok`, `503 draining` during graceful shutdown)
+- `GET /health` – readiness check alias
 
 If `open_metrics.auth_token` is set to a non-empty value, `GET /metrics`
 requires `Authorization: Bearer <token>`. Metrics snapshot metadata reports

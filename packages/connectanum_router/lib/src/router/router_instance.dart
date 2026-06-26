@@ -7,17 +7,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math' show Random;
 import 'dart:typed_data';
-import 'dart:io'
-    show
-        ContentType,
-        HttpHeaders,
-        HttpRequest,
-        HttpServer,
-        HttpStatus,
-        InternetAddress,
-        Platform,
-        ProcessInfo,
-        pid;
+import 'dart:io' show HttpHeaders, HttpStatus, Platform, ProcessInfo, pid;
 
 import 'package:cbor/cbor.dart';
 import 'package:collection/collection.dart';
