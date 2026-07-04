@@ -187,11 +187,8 @@ struct Args {
     #[arg(long, default_value = "dart")]
     dart: String,
 
-    /// Path to bench_main.dart entrypoint
-    #[arg(
-        long,
-        default_value = "packages/connectanum_bench/tool/bench_main.dart"
-    )]
+    /// Dart bench runner package executable or path accepted by `dart run`
+    #[arg(long, default_value = "connectanum_bench:bench_router_service")]
     bench_main: String,
 
     /// Path to router config consumed by bench_main
@@ -342,7 +339,7 @@ fn run_bench_suite(
                 }
                 Ok(_) => {
                     let trimmed = line.trim();
-                    if trimmed == "READY" {
+                    if is_bench_ready_line(trimmed) {
                         let _ = stdout_event_tx.send(BenchMainStdoutEvent::Ready);
                         continue;
                     }
@@ -566,6 +563,10 @@ enum BenchMainStdoutEvent {
     Ready,
     Eof,
     Error(String),
+}
+
+fn is_bench_ready_line(trimmed: &str) -> bool {
+    trimmed == "READY" || trimmed.ends_with("...READY")
 }
 
 fn wait_for_bench_ready(
@@ -5932,6 +5933,16 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         tx.send(BenchMainStdoutEvent::Ready).unwrap();
         wait_for_bench_ready(&rx, Duration::from_millis(10)).unwrap();
+    }
+
+    #[test]
+    fn bench_ready_line_accepts_dart_run_hook_prefix() {
+        assert!(is_bench_ready_line("READY"));
+        assert!(is_bench_ready_line(
+            "Running build hooks...Running build hooks...READY"
+        ));
+        assert!(!is_bench_ready_line("Running build hooks..."));
+        assert!(!is_bench_ready_line("NOT_READY"));
     }
 
     #[test]

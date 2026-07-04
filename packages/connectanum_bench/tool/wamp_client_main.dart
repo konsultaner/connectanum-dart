@@ -17,6 +17,11 @@ Future<void> main(List<String> args) async {
     ..addFlag('verbose', negatable: true, defaultsTo: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
+  if (args.contains('--help') || args.contains('-h')) {
+    stdout.writeln(parser.usage);
+    return;
+  }
+
   ArgResults results;
   try {
     results = parser.parse(args);

@@ -193,8 +193,18 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             'dart run connectanum_bench:router_bench --help',
             body,
         )
+        self.assertIn(
+            'dart run connectanum_bench:bench_router_service --help',
+            body,
+        )
+        self.assertIn(
+            'dart run connectanum_bench:wamp_client_worker --help',
+            body,
+        )
         self.assertIn("'--config (mandatory)'", body)
         self.assertIn("'--native-lib (mandatory)'", body)
+        self.assertIn("'--router-config'", body)
+        self.assertIn("'--targets-json'", body)
 
     def test_router_cli_consumer_smoke_bounds_router_shutdown(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")

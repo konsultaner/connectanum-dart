@@ -19,7 +19,7 @@ class NativeWampWorker {
     Duration readyTimeout = const Duration(seconds: 60),
     Logger? logger,
   }) : nativeLibraryPath = File(nativeLibraryPath).absolute.path,
-       workerScriptPath = File(workerScriptPath).absolute.path,
+       workerScriptPath = _normalizeWorkerEntrypoint(workerScriptPath),
        dartExecutable = dartExecutable ?? Platform.resolvedExecutable,
        _readyTimeout = readyTimeout,
        _logger = logger ?? Logger('NativeWampWorker');
@@ -118,6 +118,7 @@ class NativeWampWorker {
         entry.key.name: entry.value.toJson(),
     });
     final process = await Process.start(dartExecutable, [
+      if (_usesPackageExecutable) 'run',
       workerScriptPath,
       '--realm',
       realmUri,
@@ -134,7 +135,9 @@ class NativeWampWorker {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) {
-          if (line == 'READY') {
+          final trimmed = line.trim();
+          if (!readyCompleter.isCompleted &&
+              (trimmed == 'READY' || trimmed.endsWith('...READY'))) {
             if (!readyCompleter.isCompleted) {
               readyCompleter.complete();
             }
@@ -193,8 +196,19 @@ class NativeWampWorker {
     );
   }
 
-  Directory get _workerPackageDirectory =>
-      File(workerScriptPath).absolute.parent.parent;
+  Directory get _workerPackageDirectory => _usesPackageExecutable
+      ? Directory.current.absolute
+      : File(workerScriptPath).absolute.parent.parent;
+
+  bool get _usesPackageExecutable =>
+      workerScriptPath.contains(':') && !workerScriptPath.endsWith('.dart');
+}
+
+String _normalizeWorkerEntrypoint(String workerScriptPath) {
+  if (workerScriptPath.contains(':') && !workerScriptPath.endsWith('.dart')) {
+    return workerScriptPath;
+  }
+  return File(workerScriptPath).absolute.path;
 }
 
 class _WorkerResponse {

@@ -24,6 +24,20 @@ CONNECTANUM_ROUTER_PACKAGE_PUBSPEC = (
 CONNECTANUM_BENCH_PACKAGE_BIN = (
     REPO_ROOT / "packages" / "connectanum_bench" / "bin" / "router_bench.dart"
 )
+CONNECTANUM_BENCH_SERVICE_BIN = (
+    REPO_ROOT
+    / "packages"
+    / "connectanum_bench"
+    / "bin"
+    / "bench_router_service.dart"
+)
+CONNECTANUM_BENCH_WORKER_BIN = (
+    REPO_ROOT
+    / "packages"
+    / "connectanum_bench"
+    / "bin"
+    / "wamp_client_worker.dart"
+)
 CONNECTANUM_BENCH_PACKAGE_PUBSPEC = (
     REPO_ROOT / "packages" / "connectanum_bench" / "pubspec.yaml"
 )
@@ -246,9 +260,19 @@ class VerificationScriptsTest(unittest.TestCase):
 
         self.assertIn("\nname: connectanum_bench\n", f"\n{pubspec}")
         self.assertIn("\nexecutables:\n  router_bench:\n", f"\n{pubspec}")
+        self.assertIn("  bench_router_service:\n", pubspec)
+        self.assertIn("  wamp_client_worker:\n", pubspec)
         self.assertIn("Future<void> main(List<String> arguments)", bin_entry)
         self.assertIn("buildArgParser()", bin_entry)
         self.assertIn("BenchmarkRunner(", bin_entry)
+        self.assertIn(
+            "../tool/bench_main.dart",
+            CONNECTANUM_BENCH_SERVICE_BIN.read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "../tool/wamp_client_main.dart",
+            CONNECTANUM_BENCH_WORKER_BIN.read_text(encoding="utf-8"),
+        )
 
     def test_common_suppresses_dart_analytics_by_default(self) -> None:
         script = textwrap.dedent(

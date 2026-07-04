@@ -15,14 +15,16 @@ This package is an internal workspace tool, not an end-user runtime package.
 
 ## Main Entry Point
 
-The Dart bench runner lives at:
+The Dart bench runner is exposed as a package executable:
 
 ```bash
-dart run packages/connectanum_bench/tool/bench_main.dart
+dart run connectanum_bench:bench_router_service
 ```
 
 In practice it is usually started by the Rust orchestrator and scenario files
-under `native/bench/scenarios/`.
+under `native/bench/scenarios/`. The package also exposes the helper worker as
+`connectanum_bench:wamp_client_worker` so a consumer package can run the same
+WAMP worker path without relying on repo-local `tool/` paths.
 
 Secure WAMP scenarios are selected explicitly with `secure_transport = true`
 in the workload definition; the Dart bench runner keeps separate cleartext and

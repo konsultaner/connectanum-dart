@@ -189,9 +189,7 @@ class _BenchRouterService {
         wampTargets: wampTargets,
         secureWampTargets: secureWampTargets,
         nativeLibraryPath: nativeLibraryPath,
-        workerScriptPath: File.fromUri(
-          Platform.script.resolve('wamp_client_main.dart'),
-        ).path,
+        workerScriptPath: _resolveWampWorkerScriptPath(),
       );
       await control.initialize();
       _controlRegistry = control;
@@ -316,6 +314,22 @@ class _BenchRouterService {
     _forceExitTimer = null;
     _logger.info('Teardown complete');
   }
+}
+
+String _resolveWampWorkerScriptPath() {
+  final executableSibling = File.fromUri(
+    Platform.script.resolve('wamp_client_worker.dart'),
+  );
+  if (executableSibling.existsSync()) {
+    return executableSibling.path;
+  }
+  final toolSibling = File.fromUri(
+    Platform.script.resolve('wamp_client_main.dart'),
+  );
+  if (toolSibling.existsSync()) {
+    return toolSibling.path;
+  }
+  return 'connectanum_bench:wamp_client_worker';
 }
 
 class _BenchControlRegistry {

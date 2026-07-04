@@ -7,6 +7,8 @@ issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
 publish_to: none
 executables:
   router_bench:
+  bench_router_service:
+  wamp_client_worker:
 environment:
   sdk: '^3.9.2'
 dependencies:

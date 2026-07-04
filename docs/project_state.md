@@ -5,13 +5,61 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: the router CLI consumer smoke proves a neutral
 generated package can run the router package executable with
 `dart run connectanum_router`, then host the router-backed MCP surface used by
-the public Dart MCP consumer. The benchmark package now also has a neutral
-consumer package smoke proving `dart run connectanum_bench:router_bench --help`
-through public package executable metadata with isolated dependency resolution.
-Latest fully clean hosted checkpoint: Commit `be2f605` on GitHub `master` and
-GitHub `add-router` passed CI, Dart Package Publish Dry Run, and WAMP Profile
-Benchmarks.
+the public Dart MCP consumer. The benchmark package now also exposes the
+bench CLI, router service, and WAMP worker through public package executable
+metadata, and the Rust WAMP orchestrator can start the real bench service with
+`dart run connectanum_bench:bench_router_service`.
+Latest fully clean hosted checkpoint: Commit `0a53342` on GitHub `master` and
+GitHub `add-router` passed CI. The latest relevant Dart Package Publish Dry
+Run and WAMP Profile Benchmarks remain clean at `be2f605` because no
+publish-sensitive or WAMP profile benchmark-sensitive inputs changed in
+`0a53342`.
 Current implementation checkpoint:
+`connectanum_bench` now declares consumer-visible package executables for the
+real benchmark router service and WAMP client worker:
+`connectanum_bench:bench_router_service` and
+`connectanum_bench:wamp_client_worker`. The service and worker `bin/` wrappers
+delegate to the existing `tool/` entrypoints, `bench_main.dart` resolves the
+worker from source checkouts or falls back to the package executable when
+running from a `dart run` snapshot, and `NativeWampWorker` can launch either a
+source Dart file or a package executable worker. The Rust `http_stream`
+orchestrator now defaults `--bench-main` to
+`connectanum_bench:bench_router_service`, and both the Dart worker manager and
+Rust orchestrator treat exact `READY` or Dart build-hook-prefixed `...READY`
+stdout as readiness without accepting arbitrary `NOT_READY` suffixes.
+`run_bench_cli_consumer_package_smoke()` now verifies public help discovery for
+`connectanum_bench:router_bench`,
+`connectanum_bench:bench_router_service`, and
+`connectanum_bench:wamp_client_worker` from an isolated neutral consumer
+package, while the bench README files document the package executable entry
+points instead of private checkout-only tool paths.
+
+Baseline `bin/test-fast` passed before this benchmark service executable
+readiness change on 2026-07-04, including router-hosted MCP live smokes, the
+neutral MCP consumer package smoke, the package-executable router CLI consumer
+smoke, live WAMP benchmark integration, and router fast tests. Focused
+`bash -n bin/common.sh bin/test-fast bin/test-all bin/verify`,
+`python3 -m py_compile tool/test_mcp_consumer_package_boundary.py tool/test_verification_scripts.py`,
+`python3 tool/test_mcp_consumer_package_boundary.py`,
+`python3 tool/test_verification_scripts.py`, `cargo fmt --manifest-path
+native/bench/Cargo.toml --check`, `cargo test --manifest-path
+native/bench/Cargo.toml bench_ready_line_accepts_dart_run_hook_prefix`,
+`cargo check --manifest-path native/bench/Cargo.toml --bin http_stream`,
+`dart analyze packages/connectanum_bench`, `dart test packages/connectanum_bench`,
+and direct `run_bench_cli_consumer_package_smoke` invocations passed after the
+change. A real orchestrator smoke using `native/bench/scenarios/wamp_smoke.toml`
+also passed with the default `connectanum_bench:bench_router_service`
+entrypoint, health status `ok`, and all 12 RawSocket/WebSocket
+JSON/MsgPack/CBOR pub/sub and RPC workloads completed. Full local
+`bin/verify` passed on 2026-07-04, including formatting, Rust/FFI tests,
+Python/tool tests, MCP package tests, consumer package smokes, MCP
+auth/session and Streamable HTTP client tests, live WAMP benchmark integration,
+the neutral benchmark CLI/service/worker consumer package smoke, router-hosted
+MCP example smokes, the package-executable router CLI consumer smoke, full
+router tests, zero-copy router tests, OpenMetrics internal route tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `run_bench_cli_consumer_package_smoke()` now creates an isolated
 `bench-runner` package that depends on `connectanum_bench` through public
 package metadata and neutral path overrides, uses hook user-defines to avoid
@@ -41,18 +89,22 @@ MCP example smokes, the package-executable router CLI consumer smoke, full
 router tests, zero-copy router tests, OpenMetrics internal route tests, and the
 Chrome/Dart2Wasm browser WebSocket smoke.
 
-Hosted evidence after push: Commit `be2f605`
-(`tooling: expose bench package executable`) was pushed to GitLab `origin`
+Hosted evidence after push: Commit `0a53342`
+(`test: add bench cli consumer smoke`) was pushed to GitLab `origin`
 `add-router`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
-`28715965007`, Dart Package Publish Dry Run `28715965008`, and WAMP Profile
-Benchmarks `28715965023` passed at `be2f605`; GitHub `add-router` CI
-`28715964533`, Dart Package Publish Dry Run `28715964511`, and WAMP Profile
-Benchmarks `28715964555` also passed at `be2f605`. The strict
+`28717297110` passed with `Fast Checks` and `Full Verify` clean, and GitHub
+`add-router` CI `28717297101` also passed. The latest relevant Dart Package
+Publish Dry Run `28715965008` and WAMP Profile Benchmarks `28715965023` remain
+clean at `be2f605` because no publish-sensitive or WAMP profile
+benchmark-sensitive inputs changed in `0a53342`. The strict
 deployment-chain audit
 `bin/audit-github-deployment-chain --branch master --run-limit 8 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
 exited successfully on 2026-07-04 with protected `master` branch status
-checks, latest GitHub `master` CI evidence, latest Dart package dry-run
-evidence, and latest WAMP profile benchmark evidence clean at `be2f605`.
+checks, latest GitHub `master` CI evidence at `0a53342`, and latest relevant
+Dart package dry-run and WAMP profile benchmark evidence clean at `be2f605`.
+This hosted evidence update is docs-only bookkeeping after the implementation
+commit and should be bundled with the next code/config change rather than
+committed alone.
 
 Previous implementation checkpoint:
 `packages/connectanum_bench/pubspec.yaml` now declares the `router_bench`

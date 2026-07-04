@@ -5,7 +5,7 @@ Connectanum router under repeatable HTTP and WAMP workloads.
 
 It works together with:
 
-- `packages/connectanum_bench/tool/bench_main.dart`
+- `connectanum_bench:bench_router_service`
   The Dart control-plane runner that boots the router and exposes `/bench/*`
   endpoints.
 - `native/bench/scenarios/*.toml`
@@ -221,7 +221,7 @@ bin/check-bench-artifacts \
   Default router config for bench runs
 - `native/bench/scenarios/`
   Workload catalog
-- `packages/connectanum_bench/tool/bench_main.dart`
+- `connectanum_bench:bench_router_service`
   Dart-side runner and control API
 
 ## Control API

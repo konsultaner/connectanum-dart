@@ -23200,9 +23200,11 @@ DART
 )
 
 run_bench_cli_consumer_package_smoke() (
+  local bench_service_help_output
   local help_output
   local pub_cache
   local smoke_dir
+  local worker_help_output
 
   require_command dart
 
@@ -23248,6 +23250,18 @@ EOF
     grep -F -- 'Print this usage information.' <<<"$help_output" >/dev/null
     grep -F -- '--config (mandatory)' <<<"$help_output" >/dev/null
     grep -F -- '--native-lib (mandatory)' <<<"$help_output" >/dev/null
+    bench_service_help_output="$(
+      PUB_CACHE="$pub_cache" dart run connectanum_bench:bench_router_service --help
+    )"
+    grep -F -- '--router-config' <<<"$bench_service_help_output" >/dev/null
+    grep -F -- '--native-lib' <<<"$bench_service_help_output" >/dev/null
+    grep -F -- '--control-realm' <<<"$bench_service_help_output" >/dev/null
+    worker_help_output="$(
+      PUB_CACHE="$pub_cache" dart run connectanum_bench:wamp_client_worker --help
+    )"
+    grep -F -- '--realm' <<<"$worker_help_output" >/dev/null
+    grep -F -- '--targets-json' <<<"$worker_help_output" >/dev/null
+    grep -F -- '--native-lib' <<<"$worker_help_output" >/dev/null
   )
 )
 
