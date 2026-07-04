@@ -9,12 +9,37 @@ the public Dart MCP consumer. The benchmark package now also exposes the
 bench CLI, router service, and WAMP worker through public package executable
 metadata, and the Rust WAMP orchestrator can start the real bench service with
 `dart run connectanum_bench:bench_router_service`.
-Latest fully clean hosted checkpoint: Commit `0a53342` on GitHub `master` and
-GitHub `add-router` passed CI. The latest relevant Dart Package Publish Dry
-Run and WAMP Profile Benchmarks remain clean at `be2f605` because no
-publish-sensitive or WAMP profile benchmark-sensitive inputs changed in
-`0a53342`.
+Latest fully clean hosted checkpoint: Commit `99a9f9c` on GitHub `master` and
+GitHub `add-router` passed CI, Dart Package Publish Dry Run, WAMP Profile
+Benchmarks, and kTLS Validation. The strict deployment-chain audit passed for
+GitHub `master` at `99a9f9c` with current clean CI, Dart package dry-run, and
+WAMP profile benchmark evidence.
 Current implementation checkpoint:
+`tool/test_verification_scripts.py` now guards the router-native
+OpenMetrics/health contract. The verification script scans production
+`connectanum_router` `bin/` and `lib/` Dart sources and fails if a sidecar
+`HttpServer.bind` is reintroduced, then asserts the package executable applies
+`withOpenMetricsHttpRoutes()` and the generated route settings stay on
+`HttpRouteActionType.internalCall` for `connectanum.metrics.healthz` and
+`connectanum.metrics.openmetrics`. This keeps `/healthz`, `/health`, and
+`/metrics` tied to router-hosted internal sessions instead of a parallel Dart
+HTTP server.
+
+Baseline `bin/test-fast` passed before this guard on 2026-07-04, including
+router-hosted MCP example smokes, the neutral MCP consumer package smoke, the
+package-executable router CLI consumer smoke, live WAMP benchmark integration,
+and router fast tests. Focused `python3 -m py_compile
+tool/test_verification_scripts.py` and
+`python3 tool/test_verification_scripts.py` passed after the change. Full
+local `bin/verify` passed on 2026-07-04, including formatting, Rust/FFI
+tests, Python/tool tests, MCP package tests, consumer package smokes, MCP
+auth/session and Streamable HTTP client tests, live WAMP benchmark integration,
+the neutral benchmark CLI/service/worker consumer package smoke, router-hosted
+MCP example smokes, the package-executable router CLI consumer smoke, full
+router tests, zero-copy router tests, OpenMetrics internal route tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `connectanum_bench` now declares consumer-visible package executables for the
 real benchmark router service and WAMP client worker:
 `connectanum_bench:bench_router_service` and
@@ -58,6 +83,22 @@ the neutral benchmark CLI/service/worker consumer package smoke, router-hosted
 MCP example smokes, the package-executable router CLI consumer smoke, full
 router tests, zero-copy router tests, OpenMetrics internal route tests, and the
 Chrome/Dart2Wasm browser WebSocket smoke.
+
+Hosted evidence after push: Commit `99a9f9c`
+(`tooling: expose bench service executables`) was pushed to GitLab `origin`
+`add-router`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`28719176081`, Dart Package Publish Dry Run `28719176112`, WAMP Profile
+Benchmarks `28719176080`, and kTLS Validation `28719176087` passed at
+`99a9f9c`; GitHub `add-router` CI `28719173604`, Dart Package Publish Dry Run
+`28719173665`, WAMP Profile Benchmarks `28719173621`, and kTLS Validation
+`28719173660` also passed at `99a9f9c`. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 8 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+exited successfully on 2026-07-04 with protected `master` branch status
+checks, latest GitHub `master` CI evidence at `99a9f9c`, latest Dart package
+dry-run evidence at `99a9f9c`, and latest WAMP profile benchmark evidence at
+`99a9f9c`. This hosted evidence update is docs-only bookkeeping after the
+implementation commit and should be bundled with the next code/config change
+rather than committed alone.
 
 Previous implementation checkpoint:
 `run_bench_cli_consumer_package_smoke()` now creates an isolated

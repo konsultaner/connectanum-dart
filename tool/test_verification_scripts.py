@@ -21,6 +21,12 @@ CONNECTANUM_ROUTER_PACKAGE_BIN = (
 CONNECTANUM_ROUTER_PACKAGE_PUBSPEC = (
     REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 )
+CONNECTANUM_ROUTER_PACKAGE_LIB = (
+    REPO_ROOT / "packages" / "connectanum_router" / "lib"
+)
+CONNECTANUM_ROUTER_SETTINGS = (
+    CONNECTANUM_ROUTER_PACKAGE_LIB / "src" / "router" / "config" / "router_settings.dart"
+)
 CONNECTANUM_BENCH_PACKAGE_BIN = (
     REPO_ROOT / "packages" / "connectanum_bench" / "bin" / "router_bench.dart"
 )
@@ -253,6 +259,31 @@ class VerificationScriptsTest(unittest.TestCase):
         self.assertIn("\nexecutables:\n  connectanum_router:\n", f"\n{pubspec}")
         self.assertIn("Future<void> main(List<String> args)", bin_entry)
         self.assertIn("RouterConfigLoaderIo.fromFile", bin_entry)
+
+    def test_router_openmetrics_uses_router_native_routes(self) -> None:
+        bin_entry = CONNECTANUM_ROUTER_PACKAGE_BIN.read_text(encoding="utf-8")
+        settings = CONNECTANUM_ROUTER_SETTINGS.read_text(encoding="utf-8")
+        production_sources = [
+            CONNECTANUM_ROUTER_PACKAGE_BIN,
+            *CONNECTANUM_ROUTER_PACKAGE_LIB.rglob("*.dart"),
+        ]
+
+        for source_path in production_sources:
+            with self.subTest(source=source_path.relative_to(REPO_ROOT)):
+                source = source_path.read_text(encoding="utf-8")
+                self.assertNotIn(
+                    "HttpServer.bind",
+                    source,
+                    "Router package production sources must not serve "
+                    "OpenMetrics/health through a sidecar Dart HttpServer.",
+                )
+
+        self.assertIn("withOpenMetricsHttpRoutes()", bin_entry)
+        self.assertIn("extension RouterSettingsOpenMetricsHttp", settings)
+        self.assertIn("HttpRouteActionType.internalCall", settings)
+        self.assertIn("connectanum.metrics.healthz", settings)
+        self.assertIn("connectanum.metrics.openmetrics", settings)
+        self.assertIn("connectanum_open_metrics_listener", settings)
 
     def test_connectanum_bench_package_exposes_router_bench_executable(self) -> None:
         pubspec = CONNECTANUM_BENCH_PACKAGE_PUBSPEC.read_text(encoding="utf-8")
