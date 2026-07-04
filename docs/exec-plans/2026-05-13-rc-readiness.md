@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-04: Bounded the router CLI consumer package smoke cleanup so
+  successful router-hosted MCP smokes do not keep launchd or CI locks held
+  after the evidence has already been produced.
+  `run_router_cli_consumer_package_smoke()` now excludes the helper `awk`
+  process from its router-process matcher, avoiding the previous self-match
+  that kept cleanup waiting after the smoke success summary. Cleanup now sends
+  graceful termination to the router and matching router processes, waits only
+  a bounded `CONNECTANUM_ROUTER_CLI_SMOKE_SHUTDOWN_TIMEOUT_SECONDS` window
+  with a default of 5 seconds, force-kills the router PID if it is still alive,
+  and no longer removes the shared `.dart_tool/hooks_runner` cache. The MCP
+  consumer package boundary test now guards the matcher exclusion, bounded
+  shutdown helper, forced-kill fallback, absence of the old unbounded wait
+  ordering, and absence of shared hook-cache deletion. Focused
+  `bash -n bin/common.sh`, focused `python3 -m py_compile
+  tool/test_mcp_consumer_package_boundary.py`, and focused
+  `python3 tool/test_mcp_consumer_package_boundary.py` passed. A direct
+  measured
+  `CONNECTANUM_ROUTER_CLI_SMOKE_SHUTDOWN_TIMEOUT_SECONDS=1
+  run_router_cli_consumer_package_smoke` invocation passed and exited in 24
+  seconds end-to-end after two pre-fix measured runs still took about 80-81
+  seconds after printing the same success summary. Post-change `bin/test-fast`
+  and full local `bin/verify` passed on 2026-07-04, including formatting,
+  Rust/FFI tests, Python/tool tests, MCP package tests, consumer package
+  smokes, MCP auth/session and Streamable HTTP client tests, live WAMP
+  benchmark integration, router-hosted MCP example smokes, the
+  source-checkout router CLI consumer smoke, full router tests, zero-copy
+  router tests, OpenMetrics internal route tests, and the Chrome/Dart2Wasm
+  browser WebSocket smoke. No newer hosted evidence is recorded in-tree yet;
+  the latest fully clean hosted CI checkpoint remains `5bbe41a` until this
+  cleanup checkpoint is pushed and hosted workflows complete.
 - 2026-07-04: Hardened the router CLI consumer package smoke to prove the
   source-checkout `connectanum_router` command path end-to-end.
   `run_router_cli_consumer_package_smoke()` now resolves `connectanum_router`
@@ -105,10 +135,21 @@ decision because `connectanum_client` still depends on private
   auth/session and Streamable HTTP client tests, live WAMP benchmark
   integration, router-hosted MCP example smokes, the source-checkout router CLI
   consumer smoke, full router tests, zero-copy router tests, OpenMetrics
-  internal route tests, and the Chrome/Dart2Wasm browser WebSocket smoke. No
-  newer hosted evidence is recorded in-tree yet; the latest fully clean hosted
-  checkpoint remains `ce9366d` until this local checkpoint is pushed and hosted
-  workflows complete.
+  internal route tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Commit `5bbe41a` (`test: use checkout router alias in consumer smoke`) was
+  pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+  `master`. GitHub `master` CI `28709358445` passed with `Fast Checks` and
+  `Full Verify` clean. GitHub `add-router` CI `28709357799` also passed. No
+  new Dart Package Publish Dry Run or WAMP Profile Benchmarks were required
+  because no publish-sensitive or WAMP profile benchmark-sensitive paths
+  changed since `ce9366d`; GitHub `master` Dart Package Publish Dry Run
+  `28707270442` and WAMP Profile Benchmarks `28707270450` remain clean and
+  relevant. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+  exited successfully on 2026-07-04 with protected `master` branch status
+  checks, workflow visibility, router image package visibility, latest GitHub
+  `master` CI evidence at `5bbe41a`, and latest relevant Dart package dry-run
+  and WAMP profile benchmark evidence clean.
 - 2026-07-04: Added an executable-compatible source-checkout router alias for
   consumer application smokes and local benchmark harnesses.
   `bin/connectanum_router` now delegates to the existing

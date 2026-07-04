@@ -116,6 +116,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            r"$2 !~ /(^|\/)(awk|bash|zsh|sh)$/",
+            body,
+        )
+        self.assertIn(
             'if [[ "$router_command" != "$ROOT_DIR/bin/connectanum_router" ]]; then',
             body,
         )
@@ -136,6 +140,30 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertNotIn(
             'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router',
+            body,
+        )
+
+    def test_router_cli_consumer_smoke_bounds_router_shutdown(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+
+        self.assertIn("_wait_for_router_cli_smoke_pid_exit()", body)
+        self.assertIn(
+            "CONNECTANUM_ROUTER_CLI_SMOKE_SHUTDOWN_TIMEOUT_SECONDS:-5",
+            body,
+        )
+        self.assertIn('kill -KILL "$pid"', body)
+        self.assertIn(
+            '_wait_for_router_cli_smoke_pid_exit "$router_pid"',
+            body,
+        )
+        self.assertNotIn(
+            'wait "$router_pid" >/dev/null 2>&1 || true\n'
+            '      router_pids="$(_router_cli_smoke_process_ids)"',
+            body,
+        )
+        self.assertNotIn(
+            'rm -rf "$ROOT_DIR/.dart_tool/hooks_runner"',
             body,
         )
 

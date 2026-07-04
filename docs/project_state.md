@@ -2,13 +2,48 @@
 
 Last updated: 2026-07-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: the router CLI consumer package smoke now
-proves the source-checkout `connectanum_router` alias end-to-end without
-pub-global activation, while the generated Dart consumer still runs from an
-isolated temp package.
-Latest fully clean hosted checkpoint: Commit `ce9366d` on GitHub `master` and
-GitHub `add-router`.
+Last reviewed branch checkpoint: the router CLI consumer package smoke cleanup
+is bounded and no longer waits on its own process matcher or deletes the shared
+repository hook cache after a successful smoke.
+Latest fully clean hosted CI checkpoint: Commit `5bbe41a` on GitHub `master`
+and GitHub `add-router`; latest relevant Dart package dry-run and WAMP profile
+benchmark evidence remains clean at `ce9366d`.
 Current implementation checkpoint:
+`run_router_cli_consumer_package_smoke()` cleanup now excludes the helper
+`awk` process from its router-process matcher, avoiding the previous
+self-match that made cleanup wait after the smoke had already printed success.
+The cleanup path also sends graceful termination to the router and matching
+router processes, waits only a bounded
+`CONNECTANUM_ROUTER_CLI_SMOKE_SHUTDOWN_TIMEOUT_SECONDS` window with a default
+of 5 seconds, force-kills the router PID if it is still alive, and no longer
+removes the shared `.dart_tool/hooks_runner` cache. This keeps launchd and
+CI-held locks from being extended by smoke cleanup while preserving the
+consumer application proof that router-hosted MCP can be exercised from the
+source-checkout `connectanum_router` command.
+`tool/test_mcp_consumer_package_boundary.py` guards the process-matcher
+exclusion, bounded shutdown helper, forced-kill fallback, absence of the old
+unbounded wait ordering, and absence of shared hook-cache deletion.
+
+Focused `bash -n bin/common.sh`, `python3 -m py_compile
+tool/test_mcp_consumer_package_boundary.py`, and
+`python3 tool/test_mcp_consumer_package_boundary.py` passed after the cleanup
+change. A direct measured
+`CONNECTANUM_ROUTER_CLI_SMOKE_SHUTDOWN_TIMEOUT_SECONDS=1
+run_router_cli_consumer_package_smoke` invocation passed and exited in 24
+seconds end-to-end after two pre-fix measured runs still took about 80-81
+seconds after printing the same success summary. Post-change `bin/test-fast`
+and full local `bin/verify` passed on 2026-07-04, including formatting,
+Rust/FFI tests, Python/tool tests, MCP package tests, consumer package smokes,
+MCP auth/session and Streamable HTTP client tests, live WAMP benchmark
+integration, router-hosted MCP example smokes, the source-checkout router CLI
+consumer smoke, full router tests, zero-copy router tests, OpenMetrics
+internal route tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+No newer hosted evidence is recorded in-tree yet; the latest fully clean hosted
+CI checkpoint remains `5bbe41a` until this cleanup checkpoint is pushed and
+hosted workflows complete.
+
+Previous implementation checkpoint:
 `run_router_cli_consumer_package_smoke()` now resolves `connectanum_router`
 from `PATH="$ROOT_DIR/bin:$PATH"`, fails if it is not this checkout's
 `bin/connectanum_router` alias, launches the router through that source
@@ -37,9 +72,21 @@ smokes, the source-checkout router CLI consumer smoke, full router tests,
 zero-copy router tests, OpenMetrics internal route tests, and the
 Chrome/Dart2Wasm browser WebSocket smoke.
 
-No newer hosted evidence is recorded in-tree yet; the latest fully clean hosted
-checkpoint remains `ce9366d` until this local checkpoint is pushed and hosted
-workflows complete.
+Hosted evidence: Commit `5bbe41a`
+(`test: use checkout router alias in consumer smoke`) was pushed to GitLab
+`origin` `add-router`, GitHub `add-router`, and GitHub `master`. GitHub
+`master` CI `28709358445` passed with `Fast Checks` and `Full Verify` clean.
+GitHub `add-router` CI `28709357799` also passed. No new Dart Package Publish
+Dry Run or WAMP Profile Benchmarks were required because no publish-sensitive
+or WAMP profile benchmark-sensitive paths changed since `ce9366d`; GitHub
+`master` Dart Package Publish Dry Run `28707270442` and WAMP Profile
+Benchmarks `28707270450` remain clean and relevant. The strict deployment-chain
+audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+exited successfully on 2026-07-04 with protected `master` branch status
+checks, workflow visibility, router image package visibility, latest GitHub
+`master` CI evidence at `5bbe41a`, and latest relevant Dart package dry-run
+and WAMP profile benchmark evidence clean.
 
 Previous implementation checkpoint:
 `bin/connectanum_router` now delegates to the existing

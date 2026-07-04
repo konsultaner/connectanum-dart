@@ -23227,7 +23227,7 @@ run_router_cli_consumer_package_smoke() (
           BEGIN {
             needle = ENVIRON["ROUTER_SMOKE_CONFIG"]
           }
-          $2 !~ /(^|\/)(bash|zsh|sh)$/ &&
+          $2 !~ /(^|\/)(awk|bash|zsh|sh)$/ &&
           index($0, needle) &&
           index($0, "connectanum_router") &&
           index($0, "--config") {
@@ -23261,6 +23261,31 @@ run_router_cli_consumer_package_smoke() (
     done
   }
 
+  _wait_for_router_cli_smoke_pid_exit() {
+    local pid="$1"
+    local shutdown_timeout_seconds="${CONNECTANUM_ROUTER_CLI_SMOKE_SHUTDOWN_TIMEOUT_SECONDS:-5}"
+    local attempts
+    local attempt
+
+    if ! [[ "$shutdown_timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+      shutdown_timeout_seconds=5
+    fi
+    attempts=$((shutdown_timeout_seconds * 10))
+
+    for ((attempt = 0; attempt < attempts; attempt++)); do
+      if ! kill -0 "$pid" >/dev/null 2>&1; then
+        wait "$pid" >/dev/null 2>&1 || true
+        return 0
+      fi
+      sleep 0.1
+    done
+
+    if kill -0 "$pid" >/dev/null 2>&1; then
+      kill -KILL "$pid" >/dev/null 2>&1 || true
+    fi
+    wait "$pid" >/dev/null 2>&1 || true
+  }
+
   _wait_for_router_cli_smoke_lock_release() {
     local lock_path
 
@@ -23287,15 +23312,14 @@ run_router_cli_consumer_package_smoke() (
       if kill -0 "$router_pid" >/dev/null 2>&1; then
         kill "$router_pid" >/dev/null 2>&1 || true
       fi
-      wait "$router_pid" >/dev/null 2>&1 || true
       router_pids="$(_router_cli_smoke_process_ids)"
       if [[ -n "$router_pids" ]]; then
         kill $router_pids >/dev/null 2>&1 || true
       fi
+      _wait_for_router_cli_smoke_pid_exit "$router_pid"
       _wait_for_router_cli_smoke_processes
       _wait_for_router_cli_smoke_lock_release
     fi
-    rm -rf "$ROOT_DIR/.dart_tool/hooks_runner"
     if [[ -n "${smoke_dir:-}" ]]; then
       rm -rf "$smoke_dir"
     fi
