@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-06-26
+Last updated: 2026-07-04
 
 ## Problem
 
@@ -79,6 +79,33 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-04: Hardened the public router-hosted MCP dry-run smoke against
+  launchd/CI stalls. `bin/common.sh` now provides `run_command_with_timeout()`
+  and routes every validation-only
+  `packages/connectanum_mcp/example/router_hosted_client.dart --dry-run`
+  invocation through `run_public_router_hosted_mcp_client_example_dry_run()`.
+  The helper defaults to `CONNECTANUM_MCP_CLIENT_DRY_RUN_TIMEOUT_SECONDS=60`,
+  returns `124` with a clear diagnostic on timeout, and terminates stalled
+  commands while keeping live router-hosted MCP smokes direct. The consumer
+  boundary test now guards the helper, timeout default, public example path, and
+  dry-run smoke wiring. Baseline `bin/test-fast` passed before the change on
+  2026-07-04. Focused
+  `bash -n bin/common.sh bin/test-fast bin/test-all bin/verify`, focused
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py tool/test_verification_scripts.py`,
+  focused `python3 tool/test_mcp_consumer_package_boundary.py`, focused
+  `python3 tool/test_verification_scripts.py`, a direct timeout failure smoke,
+  and focused
+  `CONNECTANUM_MCP_CLIENT_DRY_RUN_TIMEOUT_SECONDS=30 bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`
+  passed after the change. Post-change `bin/test-fast` and full local
+  `bin/verify` passed on 2026-07-04, including formatting, Rust/FFI tests,
+  Python/tool tests, MCP package tests, consumer package smokes, MCP
+  auth/session and Streamable HTTP client tests, live WAMP benchmark
+  integration, router-hosted MCP example smokes, the installed router CLI
+  consumer smoke serving `/healthz`, `/metrics`, `/auth`, and MCP routes, full
+  router tests, zero-copy router tests, OpenMetrics internal route tests, and
+  the Chrome/Dart2Wasm browser WebSocket smoke. No newer hosted evidence is
+  recorded in-tree yet; the latest fully clean hosted checkpoint remains
+  `9aedf6d` until this checkpoint is pushed and hosted workflows complete.
 - 2026-06-26: Replaced the OpenMetrics/health sidecar HTTP server with
   router-native internal HTTP routes. `RouterSettings.withOpenMetricsHttpRoutes()`
   now derives or merges GET/HEAD `/healthz`, `/health`, and configured
@@ -101,8 +128,20 @@ decision because `connectanum_client` still depends on private
   benchmark integration, router-hosted MCP example smokes, the installed router
   CLI consumer smoke serving `/healthz` and `/metrics`, full router tests,
   zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence for this checkpoint is not yet available because the change
-  remains local/unpushed.
+  Commit `9aedf6d` (`router: serve metrics through internal routes`) was
+  pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+  `master`. GitHub `add-router` CI `28238390769`, Dart Package Publish Dry Run
+  `28238390754`, and WAMP Profile Benchmarks `28238390708` passed and covered
+  the checked-out head. GitHub `master` CI `28239317357`, Dart Package Publish
+  Dry Run `28239317368`, and WAMP Profile Benchmarks `28239317359` also passed
+  and covered the checked-out head. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+  exited successfully on 2026-06-26 with protected `master` branch status
+  checks, workflow visibility, router image package visibility, latest GitHub
+  `master` CI evidence, latest relevant Dart package dry-run evidence, and
+  latest relevant WAMP profile benchmark evidence clean at `9aedf6d`. A strict
+  audit against `add-router` saw the same clean hosted runs but failed only
+  because `add-router` is not a protected release branch.
 - 2026-06-22: Added `bin/connectanum-router` as the first-class source-checkout
   runner for consumer application smokes and local integrations that need a real
   router without duplicating native-runtime bootstrap logic. The wrapper

@@ -167,6 +167,70 @@ retry_command() {
   done
 }
 
+run_command_with_timeout() {
+  local description="$1"
+  local timeout_seconds="$2"
+  shift 2
+
+  if ! [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+    printf '%s timeout must be a positive integer, got %s.\n' \
+      "$description" "$timeout_seconds" >&2
+    return 2
+  fi
+
+  local timed_out_file
+  timed_out_file="$(mktemp "${TMPDIR:-/tmp}/connectanum-timeout.XXXXXX")"
+  : >"$timed_out_file"
+
+  local command_pid
+  local timeout_pid
+  local status
+  local had_errexit=0
+  [[ $- == *e* ]] && had_errexit=1
+  (
+    exec "$@"
+  ) &
+  command_pid=$!
+
+  (
+    sleep "$timeout_seconds" &
+    sleep_pid=$!
+
+    trap 'kill "$sleep_pid" 2>/dev/null || true; exit 0' TERM INT
+    wait "$sleep_pid" 2>/dev/null || exit 0
+
+    if kill -0 "$command_pid" 2>/dev/null; then
+      printf '%s exceeded %ss; terminating stalled command.\n' \
+        "$description" "$timeout_seconds" >"$timed_out_file"
+      kill "$command_pid" 2>/dev/null || true
+      sleep 2
+      kill -9 "$command_pid" 2>/dev/null || true
+    fi
+  ) >/dev/null 2>&1 &
+  timeout_pid=$!
+
+  set +e
+  wait "$command_pid"
+  status=$?
+  if ((had_errexit)); then
+    set -e
+  else
+    set +e
+  fi
+
+  kill "$timeout_pid" 2>/dev/null || true
+  wait "$timeout_pid" 2>/dev/null || true
+
+  if [[ -s "$timed_out_file" ]]; then
+    cat "$timed_out_file" >&2
+    rm -f "$timed_out_file"
+    return 124
+  fi
+
+  rm -f "$timed_out_file"
+  return "$status"
+}
+
 cargo_with_retry() {
   local max_attempts="${CONNECTANUM_CARGO_RETRY_ATTEMPTS:-3}"
   local delay_seconds="${CONNECTANUM_CARGO_RETRY_DELAY_SECONDS:-5}"
@@ -443,10 +507,19 @@ ensure_native_client_test_runtime() {
   build_native_ffi_test_release
 }
 
+run_public_router_hosted_mcp_client_example_dry_run() {
+  local timeout_seconds="${CONNECTANUM_MCP_CLIENT_DRY_RUN_TIMEOUT_SECONDS:-60}"
+
+  run_command_with_timeout \
+    "Public router-hosted MCP client dry-run" \
+    "$timeout_seconds" \
+    dart run packages/connectanum_mcp/example/router_hosted_client.dart "$@"
+}
+
 run_public_router_hosted_mcp_client_dry_run_smoke() {
   local dry_run_summary
 
-  dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --protocol-version 2025-06-18 \
     --tool example.task.lookup \
@@ -481,7 +554,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local pubsub_only_dry_run_summary
-  pubsub_only_dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  pubsub_only_dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-pubsub-only-example-dry-run","status":"open"}' \
@@ -492,7 +565,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local unknown_option_output
-  if unknown_option_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if unknown_option_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --unknown-option \
     --dry-run 2>&1)"; then
@@ -505,7 +578,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local missing_tool_value_output
-  if missing_tool_value_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if missing_tool_value_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --tool \
     --dry-run 2>&1)"; then
@@ -518,7 +591,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local duplicate_tool_output
-  if duplicate_tool_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if duplicate_tool_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --tool example.task.lookup \
     --tool example.task.lookup \
@@ -532,7 +605,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local duplicate_dry_run_output
-  if duplicate_dry_run_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if duplicate_dry_run_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --dry-run \
     --dry-run 2>&1)"; then
@@ -545,7 +618,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local missing_endpoint_output
-  if missing_endpoint_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if missing_endpoint_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --dry-run 2>&1)"; then
     printf 'Public router-hosted MCP client dry-run accepted a missing endpoint.\n'
     return 1
@@ -556,7 +629,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local malformed_endpoint_output
-  if malformed_endpoint_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if malformed_endpoint_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint 'http://[::1' \
     --dry-run 2>&1)"; then
     printf 'Public router-hosted MCP client dry-run accepted a malformed endpoint URL.\n'
@@ -568,7 +641,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_protocol_output
-  if invalid_protocol_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_protocol_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --protocol-version 1900-01-01 \
     --dry-run 2>&1)"; then
@@ -581,7 +654,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_bearer_output
-  if invalid_bearer_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_bearer_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --bearer-token 'dry run bearer secret' \
     --dry-run 2>&1)"; then
@@ -593,7 +666,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
-  dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --protocol-version 2025-06-18 \
     --bearer-token dry-run-bearer-secret \
@@ -607,7 +680,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
-  dry_run_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --protocol-version 2025-06-18 \
     --auth-url http://127.0.0.1:8080/auth \
@@ -630,7 +703,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local dangling_auth_lifecycle_output
-  if dangling_auth_lifecycle_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if dangling_auth_lifecycle_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --auth-lifecycle-smoke \
     --dry-run 2>&1)"; then
@@ -643,7 +716,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local ambiguous_auth_output
-  if ambiguous_auth_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if ambiguous_auth_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --bearer-token dry-run-bearer-secret \
     --auth-url http://127.0.0.1:8080/auth \
@@ -660,7 +733,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local incomplete_auth_output
-  if incomplete_auth_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if incomplete_auth_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --auth-url http://127.0.0.1:8080/auth \
     --realm example.realm \
@@ -675,7 +748,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local malformed_auth_url_output
-  if malformed_auth_url_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if malformed_auth_url_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --auth-url 'http://[::1' \
     --realm example.realm \
@@ -691,7 +764,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_auth_realm_output
-  if invalid_auth_realm_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_auth_realm_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --auth-url http://127.0.0.1:8080/auth \
     --realm 'bad realm' \
@@ -707,7 +780,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_auth_id_output
-  if invalid_auth_id_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_auth_id_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --auth-url http://127.0.0.1:8080/auth \
     --realm example.realm \
@@ -723,7 +796,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local dangling_tool_arguments_output
-  if dangling_tool_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if dangling_tool_arguments_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --tool-arguments '{"taskId":"T-public-example-dry-run"}' \
     --dry-run 2>&1)"; then
@@ -736,7 +809,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local dangling_prompt_arguments_output
-  if dangling_prompt_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if dangling_prompt_arguments_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --prompt-arguments '{"taskId":"T-public-example-dry-run"}' \
     --dry-run 2>&1)"; then
@@ -749,7 +822,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local dangling_pubsub_event_output
-  if dangling_pubsub_event_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if dangling_pubsub_event_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --pubsub-event '{"taskId":"T-public-example-dry-run","status":"open"}' \
     --dry-run 2>&1)"; then
@@ -762,7 +835,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local empty_tool_output
-  if empty_tool_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if empty_tool_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --tool '' \
     --dry-run 2>&1)"; then
@@ -775,7 +848,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_tool_name_output
-  if invalid_tool_name_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_tool_name_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --tool 'bad tool' \
     --dry-run 2>&1)"; then
@@ -788,7 +861,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_resource_uri_output
-  if invalid_resource_uri_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_resource_uri_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --resource-uri readme \
     --dry-run 2>&1)"; then
@@ -801,7 +874,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local whitespace_resource_uri_output
-  if whitespace_resource_uri_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if whitespace_resource_uri_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --resource-uri 'app://bad resource' \
     --dry-run 2>&1)"; then
@@ -814,7 +887,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_prompt_name_output
-  if invalid_prompt_name_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_prompt_name_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --prompt 'bad prompt' \
     --dry-run 2>&1)"; then
@@ -827,7 +900,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_wamp_topic_output
-  if invalid_wamp_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_wamp_topic_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --wamp-topic 'bad topic' \
     --dry-run 2>&1)"; then
@@ -840,7 +913,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local blank_pubsub_topic_output
-  if blank_pubsub_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if blank_pubsub_topic_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --pubsub-topic '   ' \
     --dry-run 2>&1)"; then
@@ -853,7 +926,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local invalid_pubsub_topic_output
-  if invalid_pubsub_topic_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if invalid_pubsub_topic_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --pubsub-topic 'bad topic' \
     --dry-run 2>&1)"; then
@@ -866,7 +939,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local malformed_tool_arguments_output
-  if malformed_tool_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if malformed_tool_arguments_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --tool example.task.lookup \
     --tool-arguments '{' \
@@ -880,7 +953,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local array_pubsub_event_output
-  if array_pubsub_event_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if array_pubsub_event_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --pubsub-topic example.events.task \
     --pubsub-event '[]' \
@@ -894,7 +967,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
 
   local non_string_prompt_arguments_output
-  if non_string_prompt_arguments_output="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  if non_string_prompt_arguments_output="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":123}' \

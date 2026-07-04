@@ -1,13 +1,45 @@
 # Project State
 
-Last updated: 2026-06-26
+Last updated: 2026-07-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: OpenMetrics `/healthz`, `/health`, and
-`/metrics` are now served by router-native internal HTTP routes instead of a
-sidecar `HttpServer.bind(...)` path.
-Latest fully clean hosted checkpoint: Commit `10cfe6f` on GitHub `master` and
+Last reviewed branch checkpoint: public router-hosted MCP dry-run smokes now
+wrap each validation-only client invocation with a bounded command timeout so a
+stalled example startup cannot block launchd or CI indefinitely.
+Latest fully clean hosted checkpoint: Commit `9aedf6d` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/common.sh` now provides `run_command_with_timeout()` and routes every
+public router-hosted MCP client dry-run example invocation through
+`run_public_router_hosted_mcp_client_example_dry_run()`. The helper defaults to
+`CONNECTANUM_MCP_CLIENT_DRY_RUN_TIMEOUT_SECONDS=60`, returns `124` with a clear
+diagnostic when an invocation exceeds its budget, and terminates the stalled
+command while leaving live router-hosted MCP smokes direct. This keeps the
+consumer-facing dry-run matrix useful for direct JSON, WAMP metadata, resources,
+prompts, pub/sub, and Streamable HTTP validation without letting a hung
+`dart run` hold the automation lock. `tool/test_mcp_consumer_package_boundary.py`
+now guards the timeout helper, default budget, public example path, and dry-run
+smoke wiring.
+
+Baseline `bin/test-fast` passed before the timeout hardening on 2026-07-04.
+Focused `bash -n bin/common.sh bin/test-fast bin/test-all bin/verify`,
+`python3 -m py_compile tool/test_mcp_consumer_package_boundary.py
+tool/test_verification_scripts.py`, `python3 tool/test_mcp_consumer_package_boundary.py`,
+`python3 tool/test_verification_scripts.py`, a direct timeout failure smoke, and
+`CONNECTANUM_MCP_CLIENT_DRY_RUN_TIMEOUT_SECONDS=30 bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`
+passed after the change. Post-change `bin/test-fast` and full local
+`bin/verify` passed on 2026-07-04, including formatting, Rust/FFI tests,
+Python/tool tests, MCP package tests, consumer package smokes, MCP auth/session
+and Streamable HTTP client tests, live WAMP benchmark integration,
+router-hosted MCP example smokes, the installed router CLI consumer smoke
+serving `/healthz`, `/metrics`, `/auth`, and MCP routes, full router tests,
+zero-copy router tests, OpenMetrics internal route tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+No newer hosted evidence is recorded in-tree yet; the latest fully clean hosted
+checkpoint remains `9aedf6d` until this local checkpoint is pushed and hosted
+workflows complete.
+
+Previous implementation checkpoint:
 OpenMetrics and health endpoints now run through the router's internal HTTP
 route path. `RouterSettings.withOpenMetricsHttpRoutes()` derives or merges
 GET/HEAD `/healthz`, `/health`, and configured metrics-path routes to the
@@ -31,8 +63,22 @@ Python/tool tests, MCP package tests, consumer package smokes, live WAMP
 benchmark integration, router-hosted MCP example smokes, the installed router
 CLI consumer smoke serving `/healthz` and `/metrics`, full router tests,
 zero-copy router tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
-Hosted evidence for this checkpoint is not yet available because the change has
-not been pushed; latest fully clean hosted evidence remains `10cfe6f`.
+
+Hosted evidence: Commit `9aedf6d`
+(`router: serve metrics through internal routes`) was pushed to GitLab
+`origin` `add-router`, GitHub `add-router`, and GitHub `master`. GitHub
+`add-router` CI `28238390769`, Dart Package Publish Dry Run `28238390754`, and
+WAMP Profile Benchmarks `28238390708` passed and covered the checked-out head.
+GitHub `master` CI `28239317357`, Dart Package Publish Dry Run `28239317368`,
+and WAMP Profile Benchmarks `28239317359` also passed and covered the
+checked-out head. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+exited successfully on 2026-06-26 with protected `master` branch status checks,
+workflow visibility, router image package visibility, latest GitHub `master`
+CI evidence, latest relevant Dart package dry-run evidence, and latest relevant
+WAMP profile benchmark evidence clean at `9aedf6d`. A strict audit against
+`add-router` saw the same clean hosted runs but failed only because
+`add-router` is not a protected release branch.
 
 Previous implementation checkpoint:
 `bin/connectanum-router` now provides a repo-level source-checkout runner for

@@ -1351,11 +1351,22 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
     ) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
         wrapper_body = _function_body(script, "run_router_hosted_mcp_example_smoke")
+        helper_body = _function_body(
+            script,
+            "run_public_router_hosted_mcp_client_example_dry_run",
+        )
         body = _function_body(
             script,
             "run_public_router_hosted_mcp_client_dry_run_smoke",
         )
 
+        self.assertIn("run_command_with_timeout()", script)
+        self.assertIn("CONNECTANUM_MCP_CLIENT_DRY_RUN_TIMEOUT_SECONDS:-60", helper_body)
+        self.assertIn("run_command_with_timeout", helper_body)
+        self.assertIn(
+            "Public router-hosted MCP client dry-run",
+            helper_body,
+        )
         self.assertIn(
             "run_public_router_hosted_mcp_client_dry_run_smoke",
             wrapper_body,
@@ -1378,6 +1389,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "packages/connectanum_mcp/example/router_hosted_client.dart",
+            helper_body,
+        )
+        self.assertIn(
+            "run_public_router_hosted_mcp_client_example_dry_run",
             body,
         )
         self.assertIn("--endpoint http://127.0.0.1:8080/mcp", body)
