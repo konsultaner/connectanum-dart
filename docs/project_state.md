@@ -2,12 +2,42 @@
 
 Last updated: 2026-07-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: public router-hosted MCP dry-run smokes now
-wrap each validation-only client invocation with a bounded command timeout so a
-stalled example startup cannot block launchd or CI indefinitely.
-Latest fully clean hosted checkpoint: Commit `9aedf6d` on GitHub `master` and
+Last reviewed branch checkpoint: the source-checkout router runner now also
+ships the executable-compatible `bin/connectanum_router` alias so consumer
+application smokes that probe for `connectanum_router` on `PATH` can use this
+checkout without global activation.
+Latest fully clean hosted checkpoint: Commit `4f029c8` on GitHub `master` and
 GitHub `add-router`.
 Current implementation checkpoint:
+`bin/connectanum_router` now delegates to the existing
+`bin/connectanum-router` source-checkout runner. The alias preserves the
+package executable name while keeping the native-runtime bootstrap logic in one
+canonical wrapper, so local consumer applications and benchmark harnesses can
+prepend this repo's `bin/` directory to `PATH` and run `connectanum_router`
+directly. `tool/test_verification_scripts.py` now includes the alias in shell
+syntax checks and proves `connectanum_router --help` reaches the same
+`dart run connectanum_router` CLI path through the checkout wrapper. The README
+and router package README document both neutral source-checkout command names.
+
+Baseline `bin/test-fast` passed before the alias change on 2026-07-04.
+Focused `bash -n bin/connectanum-router bin/connectanum_router bin/common.sh
+bin/test-fast bin/test-all bin/verify`, `python3 -m py_compile
+tool/test_verification_scripts.py`, `python3 tool/test_verification_scripts.py`,
+and a direct `PATH="$repo/bin:$PATH" command -v connectanum_router &&
+connectanum_router --help` smoke passed after the change. Post-change
+`bin/test-fast` and full local `bin/verify` passed on 2026-07-04, including
+formatting, Rust/FFI tests, Python/tool tests, MCP package tests, consumer
+package smokes, MCP auth/session and Streamable HTTP client tests, live WAMP
+benchmark integration, router-hosted MCP example smokes, the installed router
+CLI consumer smoke serving `/healthz`, `/metrics`, `/auth`, and MCP routes,
+full router tests, zero-copy router tests, OpenMetrics internal route tests,
+and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+No newer hosted evidence is recorded in-tree yet; the latest fully clean hosted
+checkpoint remains `4f029c8` until this local checkpoint is pushed and hosted
+workflows complete.
+
+Previous implementation checkpoint:
 `bin/common.sh` now provides `run_command_with_timeout()` and routes every
 public router-hosted MCP client dry-run example invocation through
 `run_public_router_hosted_mcp_client_example_dry_run()`. The helper defaults to
@@ -35,9 +65,20 @@ serving `/healthz`, `/metrics`, `/auth`, and MCP routes, full router tests,
 zero-copy router tests, OpenMetrics internal route tests, and the
 Chrome/Dart2Wasm browser WebSocket smoke.
 
-No newer hosted evidence is recorded in-tree yet; the latest fully clean hosted
-checkpoint remains `9aedf6d` until this local checkpoint is pushed and hosted
-workflows complete.
+Hosted evidence: Commit `4f029c8` (`test: bound router-hosted mcp dry runs`)
+was pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+`master`. GitHub `add-router` CI `28705273051` and GitHub `master` CI
+`28705275781` passed with `Fast Checks` and `Full Verify` clean. No new Dart
+Package Publish Dry Run or WAMP Profile Benchmarks were required because no
+publish-sensitive or benchmark-sensitive inputs changed since `9aedf6d`; the
+latest relevant GitHub `master` Dart Package Publish Dry Run `28239317368` and
+WAMP Profile Benchmarks `28239317359` remain clean. The strict deployment-chain
+audit
+`bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+exited successfully on 2026-07-04 with protected `master` branch status checks,
+workflow visibility, router image package visibility, latest GitHub `master`
+CI evidence, latest relevant Dart package dry-run evidence, and latest
+relevant WAMP profile benchmark evidence clean.
 
 Previous implementation checkpoint:
 OpenMetrics and health endpoints now run through the router's internal HTTP

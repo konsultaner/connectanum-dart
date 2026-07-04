@@ -33,10 +33,11 @@ The CLI also accepts `--native-lib <path>` when you do not want to rely on an
 environment variable.
 
 When running from this repository checkout, `bin/connectanum-router --config
-path/to/router.yaml` resolves or builds the standard release `ct_ffi` library
-and then delegates to the package executable with `--native-lib`. Use that
-wrapper for local consumer-application smokes instead of copying native-runtime
-bootstrap logic into each project.
+path/to/router.yaml` or the executable-compatible alias
+`bin/connectanum_router --config path/to/router.yaml` resolves or builds the
+standard release `ct_ffi` library and then delegates to the package executable
+with `--native-lib`. Use either wrapper for local consumer-application smokes
+instead of copying native-runtime bootstrap logic into each project.
 
 From a source checkout, you can prefetch the current host bundle explicitly and
 use the printed path as a `CONNECTANUM_NATIVE_LIB` hook user define:

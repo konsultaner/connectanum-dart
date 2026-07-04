@@ -14,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = REPO_ROOT / "bin" / "bootstrap"
 COMMON = REPO_ROOT / "bin" / "common.sh"
 CONNECTANUM_ROUTER = REPO_ROOT / "bin" / "connectanum-router"
+CONNECTANUM_ROUTER_ALIAS = REPO_ROOT / "bin" / "connectanum_router"
 PACKAGE_NATIVE_ARTIFACT = REPO_ROOT / "bin" / "package-native-artifact"
 TEST_ALL = REPO_ROOT / "bin" / "test-all"
 TEST_FAST = REPO_ROOT / "bin" / "test-fast"
@@ -25,6 +26,7 @@ class VerificationScriptsTest(unittest.TestCase):
             BOOTSTRAP,
             COMMON,
             CONNECTANUM_ROUTER,
+            CONNECTANUM_ROUTER_ALIAS,
             PACKAGE_NATIVE_ARTIFACT,
             TEST_ALL,
             TEST_FAST,
@@ -187,6 +189,35 @@ class VerificationScriptsTest(unittest.TestCase):
             "cargo_with_retry build --manifest-path native/transport/Cargo.toml -p ct_ffi --release",
             common_script,
         )
+
+    def test_connectanum_router_alias_delegates_to_checkout_wrapper(self) -> None:
+        alias_script = CONNECTANUM_ROUTER_ALIAS.read_text(encoding="utf-8")
+
+        self.assertIn('exec "$(dirname "$0")/connectanum-router" "$@"', alias_script)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fake_dart = Path(tmp_dir) / "dart"
+            fake_dart.write_text(
+                "#!/usr/bin/env bash\nprintf 'dart %s\\n' \"$*\"\n",
+                encoding="utf-8",
+            )
+            fake_dart.chmod(0o755)
+
+            result = subprocess.run(
+                [str(CONNECTANUM_ROUTER_ALIAS), "--help"],
+                cwd=REPO_ROOT,
+                env={"PATH": f"{tmp_dir}:/usr/bin:/bin"},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(
+                result.stdout.strip(),
+                "dart run connectanum_router --help",
+            )
 
     def test_common_suppresses_dart_analytics_by_default(self) -> None:
         script = textwrap.dedent(

@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-04: Added an executable-compatible source-checkout router alias for
+  consumer application smokes and local benchmark harnesses.
+  `bin/connectanum_router` now delegates to the existing
+  `bin/connectanum-router` wrapper, preserving one canonical native-runtime
+  bootstrap path while allowing callers that probe `PATH` for the package
+  executable name to run `connectanum_router` directly from this checkout. The
+  verification script test suite now includes the alias in shell syntax checks
+  and proves `connectanum_router --help` reaches the same
+  `dart run connectanum_router` CLI path through the checkout wrapper. The
+  README and router package README document both neutral source-checkout
+  command names. Baseline `bin/test-fast` passed before the change on
+  2026-07-04. Focused
+  `bash -n bin/connectanum-router bin/connectanum_router bin/common.sh bin/test-fast bin/test-all bin/verify`,
+  focused `python3 -m py_compile tool/test_verification_scripts.py`, focused
+  `python3 tool/test_verification_scripts.py`, and a direct
+  `PATH="$repo/bin:$PATH" command -v connectanum_router && connectanum_router --help`
+  smoke passed after the change. Post-change `bin/test-fast` and full local
+  `bin/verify` passed on 2026-07-04, including formatting, Rust/FFI tests,
+  Python/tool tests, MCP package tests, consumer package smokes, MCP
+  auth/session and Streamable HTTP client tests, live WAMP benchmark
+  integration, router-hosted MCP example smokes, the installed router CLI
+  consumer smoke serving `/healthz`, `/metrics`, `/auth`, and MCP routes, full
+  router tests, zero-copy router tests, OpenMetrics internal route tests, and
+  the Chrome/Dart2Wasm browser WebSocket smoke. No newer hosted evidence is
+  recorded in-tree yet; the latest fully clean hosted checkpoint remains
+  `4f029c8` until this checkpoint is pushed and hosted workflows complete.
 - 2026-07-04: Hardened the public router-hosted MCP dry-run smoke against
   launchd/CI stalls. `bin/common.sh` now provides `run_command_with_timeout()`
   and routes every validation-only
@@ -103,9 +129,20 @@ decision because `connectanum_client` still depends on private
   integration, router-hosted MCP example smokes, the installed router CLI
   consumer smoke serving `/healthz`, `/metrics`, `/auth`, and MCP routes, full
   router tests, zero-copy router tests, OpenMetrics internal route tests, and
-  the Chrome/Dart2Wasm browser WebSocket smoke. No newer hosted evidence is
-  recorded in-tree yet; the latest fully clean hosted checkpoint remains
-  `9aedf6d` until this checkpoint is pushed and hosted workflows complete.
+  the Chrome/Dart2Wasm browser WebSocket smoke. Commit `4f029c8`
+  (`test: bound router-hosted mcp dry runs`) was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`. GitHub `add-router`
+  CI `28705273051` and GitHub `master` CI `28705275781` passed with
+  `Fast Checks` and `Full Verify` clean. No new Dart Package Publish Dry Run
+  or WAMP Profile Benchmarks were required because no publish-sensitive or
+  benchmark-sensitive inputs changed since `9aedf6d`; the latest relevant
+  GitHub `master` Dart Package Publish Dry Run `28239317368` and WAMP Profile
+  Benchmarks `28239317359` remain clean. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+  exited successfully on 2026-07-04 with protected `master` branch status
+  checks, workflow visibility, router image package visibility, latest GitHub
+  `master` CI evidence, latest relevant Dart package dry-run evidence, and
+  latest relevant WAMP profile benchmark evidence clean.
 - 2026-06-26: Replaced the OpenMetrics/health sidecar HTTP server with
   router-native internal HTTP routes. `RouterSettings.withOpenMetricsHttpRoutes()`
   now derives or merges GET/HEAD `/healthz`, `/health`, and configured
