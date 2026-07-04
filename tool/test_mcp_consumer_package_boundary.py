@@ -127,12 +127,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             'PATH="$ROOT_DIR/bin:$PATH" connectanum_router --help',
             body,
         )
-        self.assertIn(
-            'PATH="$ROOT_DIR/bin:$PATH" \\\n'
-            '    connectanum_router --config "$smoke_dir/router.yaml"',
-            body,
-        )
-        self.assertIn("source-checkout command", body)
+        self.assertIn("source-checkout alias", body)
         self.assertNotIn("dart pub global activate", body)
         self.assertNotIn(
             'rm -rf "$ROOT_DIR/.dart_tool/pub/bin/connectanum_router"',
@@ -140,6 +135,36 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertNotIn(
             'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router',
+            body,
+        )
+
+    def test_router_cli_consumer_smoke_uses_package_executable(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+        pubspec = _heredoc(body, "$smoke_dir/router-runner/pubspec.yaml")
+
+        dependencies = _section_package_names(
+            _top_level_section(pubspec, "dependencies")
+        )
+        overrides = _section_package_names(
+            _top_level_section(pubspec, "dependency_overrides")
+        )
+
+        self.assertEqual(dependencies, {"connectanum_router"})
+        self.assertNotIn("connectanum_mcp", dependencies)
+        self.assertIn("connectanum_core", overrides)
+        self.assertIn("connectanum_client", overrides)
+        self.assertIn("connectanum_mcp", overrides)
+        self.assertIn("connectanum_router", overrides)
+        self.assertIn("CONNECTANUM_SKIP_NATIVE_BUILD: true", pubspec)
+        self.assertIn('PUB_CACHE="$pub_cache" dart pub get', body)
+        self.assertIn(
+            'PUB_CACHE="$pub_cache" dart run connectanum_router --help',
+            body,
+        )
+        self.assertIn(
+            'exec env PUB_CACHE="$pub_cache" dart run connectanum_router \\\n'
+            '      --config "$smoke_dir/router.yaml"',
             body,
         )
 

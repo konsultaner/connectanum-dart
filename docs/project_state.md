@@ -2,13 +2,67 @@
 
 Last updated: 2026-07-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: router package executable metadata now has a
-verification-script regression so `dart run connectanum_router` cannot lose
-its package executable declaration or bin entrypoint silently.
-Latest fully clean hosted CI checkpoint: Commit `3989542` on GitHub `master`
+Last reviewed branch checkpoint: the router CLI consumer smoke now proves a
+neutral generated package can run the router package executable with
+`dart run connectanum_router`, then host the router-backed MCP surface used by
+the public Dart MCP consumer.
+Latest fully clean hosted CI checkpoint: Commit `a1f3b5c` on GitHub `master`
 and GitHub `add-router`; latest relevant Dart package dry-run and WAMP profile
 benchmark evidence remains clean at `ce9366d`.
 Current implementation checkpoint:
+`run_router_cli_consumer_package_smoke()` now creates an isolated
+`router-runner` package that depends on `connectanum_router` through public
+package metadata and neutral path overrides, uses package hook user-defines to
+avoid a native rebuild during executable discovery, verifies
+`PUB_CACHE="$pub_cache" dart run connectanum_router --help`, and then starts
+the live smoke router through
+`PUB_CACHE="$pub_cache" dart run connectanum_router --config ... --native-lib ...`.
+The same smoke still verifies the source-checkout `connectanum_router` alias is
+discoverable without `dart pub global activate`, but the end-to-end
+router-hosted MCP proof now comes from the package executable path that a
+consumer application or agent harness can reproduce with a package dependency.
+`tool/test_mcp_consumer_package_boundary.py` now guards the generated
+`router-runner` pubspec, hook user-defines, isolated `PUB_CACHE` commands, and
+package executable launch path.
+
+Baseline `bin/test-fast` passed before this package executable smoke change on
+2026-07-04, including router-hosted MCP live smokes, consumer package smokes,
+the source-checkout router CLI consumer smoke, and router fast tests. Focused
+`bash -n bin/common.sh bin/test-fast bin/test-all bin/verify`,
+`python3 -m py_compile tool/test_mcp_consumer_package_boundary.py
+tool/test_verification_scripts.py`, `python3 tool/test_mcp_consumer_package_boundary.py`,
+`python3 tool/test_verification_scripts.py`, and a direct
+`source bin/common.sh; run_router_cli_consumer_package_smoke` invocation passed
+after the change. The direct smoke served `/healthz`, `/metrics`, `/auth`, the
+router-hosted MCP routes, protected and token-only auth/session flows, direct
+JSON and Streamable WAMP metadata, resources, prompts, pub/sub, batch, and
+session-delete coverage, with the router process launched from the generated
+package executable command. Full local `bin/verify` passed on 2026-07-04,
+including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+consumer package smokes, MCP auth/session and Streamable HTTP client tests,
+live WAMP benchmark integration, router-hosted MCP example smokes, the
+package-executable router CLI consumer smoke, full router tests, zero-copy
+router tests, OpenMetrics internal route tests, and the Chrome/Dart2Wasm
+browser WebSocket smoke.
+
+Hosted evidence before this local change: Commit `a1f3b5c`
+(`test: guard router package executable metadata`) was pushed to GitLab
+`origin` `add-router`, GitHub `add-router`, and GitHub `master`. GitHub
+`master` CI `28712820687` passed with `Fast Checks` and `Full Verify` clean.
+GitHub `add-router` CI `28712817830` also passed. No new Dart Package Publish
+Dry Run or WAMP Profile Benchmarks were required because no publish-sensitive
+or WAMP profile benchmark-sensitive paths changed since `ce9366d`; GitHub
+`master` Dart Package Publish Dry Run `28707270442` and WAMP Profile
+Benchmarks `28707270450` remain clean and relevant. The strict
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 8 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+exited successfully on 2026-07-04 with protected `master` branch status
+checks, latest GitHub `master` CI evidence at `a1f3b5c`, and latest relevant
+Dart package dry-run and WAMP profile benchmark evidence clean. No newer
+hosted evidence is recorded in-tree yet for the package executable smoke
+change until it is pushed and hosted workflows complete.
+
+Previous implementation checkpoint:
 `tool/test_verification_scripts.py` now verifies the router package-level pub
 executable contract in addition to the source-checkout wrappers. The new
 regression checks `packages/connectanum_router/pubspec.yaml` for
@@ -32,10 +86,6 @@ live WAMP benchmark integration, router-hosted MCP example smokes, the
 source-checkout router CLI consumer smoke, full router tests, zero-copy router
 tests, OpenMetrics internal route tests, and the Chrome/Dart2Wasm browser
 WebSocket smoke.
-
-No newer hosted evidence is recorded in-tree yet; the latest fully clean
-hosted CI checkpoint remains `3989542` until this metadata regression
-checkpoint is pushed and hosted workflows complete.
 
 Previous implementation checkpoint:
 `run_router_cli_consumer_package_smoke()` cleanup now excludes the helper

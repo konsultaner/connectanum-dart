@@ -79,6 +79,49 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-04: Strengthened the router CLI consumer package smoke so a
+  downstream application or agent harness can reproduce the router process
+  through package executable metadata instead of relying only on a checkout
+  wrapper. `run_router_cli_consumer_package_smoke()` now creates an isolated
+  `router-runner` package that depends on `connectanum_router` through public
+  package metadata and neutral path overrides, uses package hook user-defines
+  to avoid a native rebuild during executable discovery, verifies
+  `PUB_CACHE="$pub_cache" dart run connectanum_router --help`, and starts the
+  live smoke router through
+  `PUB_CACHE="$pub_cache" dart run connectanum_router --config ... --native-lib ...`.
+  The source-checkout `connectanum_router` alias is still verified as a local
+  convenience path without `dart pub global activate`, but the end-to-end
+  router-hosted MCP proof now comes from the generated package executable
+  command. `tool/test_mcp_consumer_package_boundary.py` guards the generated
+  `router-runner` pubspec, hook user-defines, isolated `PUB_CACHE` commands,
+  and package executable launch path. Baseline `bin/test-fast` passed before
+  the change on 2026-07-04, including router-hosted MCP live smokes, consumer
+  package smokes, the source-checkout router CLI consumer smoke, and router
+  fast tests. Focused
+  `bash -n bin/common.sh bin/test-fast bin/test-all bin/verify`,
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py tool/test_verification_scripts.py`,
+  `python3 tool/test_mcp_consumer_package_boundary.py`,
+  `python3 tool/test_verification_scripts.py`, and a direct
+  `source bin/common.sh; run_router_cli_consumer_package_smoke` invocation
+  passed after the change. The direct smoke served `/healthz`, `/metrics`,
+  `/auth`, router-hosted MCP routes, protected and token-only auth/session
+  flows, direct JSON and Streamable WAMP metadata, resources, prompts, pub/sub,
+  batch, and session-delete coverage, with the router process launched from
+  the generated package executable command. Full local `bin/verify` passed on
+  2026-07-04, including formatting, Rust/FFI tests, Python/tool tests, MCP
+  package tests, consumer package smokes, MCP auth/session and Streamable HTTP
+  client tests, live WAMP benchmark integration, router-hosted MCP example
+  smokes, the package-executable router CLI consumer smoke, full router tests,
+  zero-copy router tests, OpenMetrics internal route tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence before this local
+  change: commit `a1f3b5c` (`test: guard router package executable metadata`)
+  was pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+  `master`; GitHub `master` CI `28712820687` and GitHub `add-router` CI
+  `28712817830` passed, and the strict deployment-chain audit passed with
+  latest GitHub `master` CI evidence at `a1f3b5c` plus latest relevant Dart
+  package dry-run and WAMP profile benchmark evidence clean at `ce9366d`. No
+  newer hosted evidence is recorded in-tree yet for this package executable
+  smoke change until it is pushed and hosted workflows complete.
 - 2026-07-04: Added a router package executable metadata regression for
   downstream application readiness. `tool/test_verification_scripts.py` now
   verifies that `packages/connectanum_router/pubspec.yaml` still declares
