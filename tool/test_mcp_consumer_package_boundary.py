@@ -168,6 +168,34 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
 
+    def test_bench_cli_consumer_smoke_uses_package_executable(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_bench_cli_consumer_package_smoke")
+        pubspec = _heredoc(body, "$smoke_dir/bench-runner/pubspec.yaml")
+
+        dependencies = _section_package_names(
+            _top_level_section(pubspec, "dependencies")
+        )
+        overrides = _section_package_names(
+            _top_level_section(pubspec, "dependency_overrides")
+        )
+
+        self.assertEqual(dependencies, {"connectanum_bench"})
+        self.assertIn("connectanum_auth_server", overrides)
+        self.assertIn("connectanum_core", overrides)
+        self.assertIn("connectanum_client", overrides)
+        self.assertIn("connectanum_mcp", overrides)
+        self.assertIn("connectanum_router", overrides)
+        self.assertIn("connectanum_bench", overrides)
+        self.assertIn("CONNECTANUM_SKIP_NATIVE_BUILD: true", pubspec)
+        self.assertIn('PUB_CACHE="$pub_cache" dart pub get', body)
+        self.assertIn(
+            'dart run connectanum_bench:router_bench --help',
+            body,
+        )
+        self.assertIn("'--config (mandatory)'", body)
+        self.assertIn("'--native-lib (mandatory)'", body)
+
     def test_router_cli_consumer_smoke_bounds_router_shutdown(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
         body = _function_body(script, "run_router_cli_consumer_package_smoke")

@@ -5,12 +5,56 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: the router CLI consumer smoke proves a neutral
 generated package can run the router package executable with
 `dart run connectanum_router`, then host the router-backed MCP surface used by
-the public Dart MCP consumer. The benchmark package now also exposes a
-consumer-visible `router_bench` executable with a no-native `--help` path.
-Latest fully clean hosted CI checkpoint: Commit `2b22992` on GitHub `master`
-and GitHub `add-router`; latest relevant Dart package dry-run and WAMP profile
-benchmark evidence remains clean at `ce9366d`.
+the public Dart MCP consumer. The benchmark package now also has a neutral
+consumer package smoke proving `dart run connectanum_bench:router_bench --help`
+through public package executable metadata with isolated dependency resolution.
+Latest fully clean hosted checkpoint: Commit `be2f605` on GitHub `master` and
+GitHub `add-router` passed CI, Dart Package Publish Dry Run, and WAMP Profile
+Benchmarks.
 Current implementation checkpoint:
+`run_bench_cli_consumer_package_smoke()` now creates an isolated
+`bench-runner` package that depends on `connectanum_bench` through public
+package metadata and neutral path overrides, uses hook user-defines to avoid
+native rebuilds during executable discovery, and verifies
+`PUB_CACHE="$pub_cache" dart run connectanum_bench:router_bench --help`
+without requiring benchmark config, a native library, checkout wrappers, or
+private project assumptions. `bin/test-fast` and `bin/test-all` run the smoke
+after the bench VM tests, and
+`tool/test_mcp_consumer_package_boundary.py` guards the generated pubspec,
+isolated `PUB_CACHE` command, package executable invocation, and mandatory
+`--config` / `--native-lib` help output.
+
+Baseline `bin/test-fast` passed before this neutral benchmark consumer smoke
+change on 2026-07-04, including router-hosted MCP live smokes, the neutral MCP
+consumer package smoke, the package-executable router CLI consumer smoke, live
+WAMP benchmark integration, and router fast tests. Focused `bash -n
+bin/common.sh bin/test-fast bin/test-all bin/verify`, `python3 -m py_compile
+tool/test_mcp_consumer_package_boundary.py tool/test_verification_scripts.py`,
+`python3 tool/test_mcp_consumer_package_boundary.py`,
+`python3 tool/test_verification_scripts.py`, and direct
+`run_bench_cli_consumer_package_smoke` invocations passed after the change.
+Full local `bin/verify` passed on 2026-07-04, including formatting,
+Rust/FFI tests, Python/tool tests, MCP package tests, consumer package smokes,
+MCP auth/session and Streamable HTTP client tests, live WAMP benchmark
+integration, the neutral benchmark CLI consumer package smoke, router-hosted
+MCP example smokes, the package-executable router CLI consumer smoke, full
+router tests, zero-copy router tests, OpenMetrics internal route tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Hosted evidence after push: Commit `be2f605`
+(`tooling: expose bench package executable`) was pushed to GitLab `origin`
+`add-router`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`28715965007`, Dart Package Publish Dry Run `28715965008`, and WAMP Profile
+Benchmarks `28715965023` passed at `be2f605`; GitHub `add-router` CI
+`28715964533`, Dart Package Publish Dry Run `28715964511`, and WAMP Profile
+Benchmarks `28715964555` also passed at `be2f605`. The strict
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 8 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+exited successfully on 2026-07-04 with protected `master` branch status
+checks, latest GitHub `master` CI evidence, latest Dart package dry-run
+evidence, and latest WAMP profile benchmark evidence clean at `be2f605`.
+
+Previous implementation checkpoint:
 `packages/connectanum_bench/pubspec.yaml` now declares the `router_bench`
 package executable, and `packages/connectanum_bench/bin/router_bench.dart`
 supports `--help`/`-h` before mandatory config/native-library validation. This

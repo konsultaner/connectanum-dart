@@ -23199,6 +23199,58 @@ DART
   )
 )
 
+run_bench_cli_consumer_package_smoke() (
+  local help_output
+  local pub_cache
+  local smoke_dir
+
+  require_command dart
+
+  smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-bench-cli-smoke.XXXXXX")"
+  pub_cache="$smoke_dir/pub-cache"
+  trap "rm -rf '$smoke_dir'" EXIT
+
+  mkdir -p "$smoke_dir/bench-runner"
+  cat >"$smoke_dir/bench-runner/pubspec.yaml" <<EOF
+name: connectanum_bench_cli_runner_smoke
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+    connectanum_router:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+dependencies:
+  connectanum_bench: any
+dependency_overrides:
+  connectanum_auth_server:
+    path: "$ROOT_DIR/packages/connectanum_auth_server"
+  connectanum_core:
+    path: "$ROOT_DIR/packages/connectanum_core"
+  connectanum_client:
+    path: "$ROOT_DIR/packages/connectanum_client"
+  connectanum_mcp:
+    path: "$ROOT_DIR/packages/connectanum_mcp"
+  connectanum_router:
+    path: "$ROOT_DIR/packages/connectanum_router"
+  connectanum_bench:
+    path: "$ROOT_DIR/packages/connectanum_bench"
+EOF
+
+  printf 'Running bench CLI consumer package smoke from %s.\n' "$smoke_dir"
+  (
+    cd "$smoke_dir/bench-runner"
+    PUB_CACHE="$pub_cache" dart pub get >&2
+    help_output="$(PUB_CACHE="$pub_cache" dart run connectanum_bench:router_bench --help)"
+    grep -F -- '-h, --help' <<<"$help_output" >/dev/null
+    grep -F -- 'Print this usage information.' <<<"$help_output" >/dev/null
+    grep -F -- '--config (mandatory)' <<<"$help_output" >/dev/null
+    grep -F -- '--native-lib (mandatory)' <<<"$help_output" >/dev/null
+  )
+)
+
 run_router_cli_consumer_package_smoke() (
   local health_body
   local mcp_port
