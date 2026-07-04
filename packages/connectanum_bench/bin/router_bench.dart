@@ -6,6 +6,11 @@ import 'package:logging/logging.dart';
 
 Future<void> main(List<String> arguments) async {
   final parser = buildArgParser();
+  if (arguments.contains('--help') || arguments.contains('-h')) {
+    stdout.writeln(parser.usage);
+    return;
+  }
+
   late ArgResults results;
   try {
     results = parser.parse(arguments);

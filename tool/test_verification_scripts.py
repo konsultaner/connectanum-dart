@@ -21,6 +21,12 @@ CONNECTANUM_ROUTER_PACKAGE_BIN = (
 CONNECTANUM_ROUTER_PACKAGE_PUBSPEC = (
     REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 )
+CONNECTANUM_BENCH_PACKAGE_BIN = (
+    REPO_ROOT / "packages" / "connectanum_bench" / "bin" / "router_bench.dart"
+)
+CONNECTANUM_BENCH_PACKAGE_PUBSPEC = (
+    REPO_ROOT / "packages" / "connectanum_bench" / "pubspec.yaml"
+)
 PACKAGE_NATIVE_ARTIFACT = REPO_ROOT / "bin" / "package-native-artifact"
 TEST_ALL = REPO_ROOT / "bin" / "test-all"
 TEST_FAST = REPO_ROOT / "bin" / "test-fast"
@@ -233,6 +239,16 @@ class VerificationScriptsTest(unittest.TestCase):
         self.assertIn("\nexecutables:\n  connectanum_router:\n", f"\n{pubspec}")
         self.assertIn("Future<void> main(List<String> args)", bin_entry)
         self.assertIn("RouterConfigLoaderIo.fromFile", bin_entry)
+
+    def test_connectanum_bench_package_exposes_router_bench_executable(self) -> None:
+        pubspec = CONNECTANUM_BENCH_PACKAGE_PUBSPEC.read_text(encoding="utf-8")
+        bin_entry = CONNECTANUM_BENCH_PACKAGE_BIN.read_text(encoding="utf-8")
+
+        self.assertIn("\nname: connectanum_bench\n", f"\n{pubspec}")
+        self.assertIn("\nexecutables:\n  router_bench:\n", f"\n{pubspec}")
+        self.assertIn("Future<void> main(List<String> arguments)", bin_entry)
+        self.assertIn("buildArgParser()", bin_entry)
+        self.assertIn("BenchmarkRunner(", bin_entry)
 
     def test_common_suppresses_dart_analytics_by_default(self) -> None:
         script = textwrap.dedent(

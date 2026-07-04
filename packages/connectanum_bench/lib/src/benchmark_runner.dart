@@ -130,6 +130,12 @@ class BenchmarkRunner {
 
 ArgParser buildArgParser() {
   return ArgParser()
+    ..addFlag(
+      'help',
+      abbr: 'h',
+      negatable: false,
+      help: 'Print this usage information.',
+    )
     ..addOption(
       'scenario',
       abbr: 's',

@@ -79,6 +79,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-04: Added consumer-visible benchmark CLI packaging for local WAMP
+  benchmark readiness. `packages/connectanum_bench/pubspec.yaml` now declares
+  the `router_bench` executable, and
+  `packages/connectanum_bench/bin/router_bench.dart` supports `--help`/`-h`
+  before mandatory config/native-library validation so a consumer package or
+  path/global activation can discover the benchmark runner without private
+  checkout wrapper assumptions. `tool/test_verification_scripts.py` guards the
+  bench package name, `executables: router_bench:` declaration, CLI
+  `main(List<String> arguments)`, `buildArgParser()` usage, and
+  `BenchmarkRunner` wiring. Baseline `bin/test-fast` passed before the change
+  on 2026-07-04, including router-hosted MCP live smokes, the neutral MCP
+  consumer package smoke, the package-executable router CLI consumer smoke,
+  live WAMP benchmark integration, and router fast tests. Focused `python3 -m
+  py_compile tool/test_verification_scripts.py`, `python3
+  tool/test_verification_scripts.py`, `dart analyze packages/connectanum_bench`,
+  and `dart run connectanum_bench:router_bench --help` passed after the change.
+  Full local `bin/verify` passed on 2026-07-04, including formatting,
+  Rust/FFI tests, Python/tool tests, MCP package tests, consumer package smokes,
+  MCP auth/session and Streamable HTTP client tests, live WAMP benchmark
+  integration, router-hosted MCP example smokes, the package-executable router
+  CLI consumer smoke, full router tests, zero-copy router tests, OpenMetrics
+  internal route tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-04: Strengthened the router CLI consumer package smoke so a
   downstream application or agent harness can reproduce the router process
   through package executable metadata instead of relying only on a checkout
@@ -113,15 +135,15 @@ decision because `connectanum_client` still depends on private
   client tests, live WAMP benchmark integration, router-hosted MCP example
   smokes, the package-executable router CLI consumer smoke, full router tests,
   zero-copy router tests, OpenMetrics internal route tests, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence before this local
-  change: commit `a1f3b5c` (`test: guard router package executable metadata`)
-  was pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
-  `master`; GitHub `master` CI `28712820687` and GitHub `add-router` CI
-  `28712817830` passed, and the strict deployment-chain audit passed with
-  latest GitHub `master` CI evidence at `a1f3b5c` plus latest relevant Dart
-  package dry-run and WAMP profile benchmark evidence clean at `ce9366d`. No
-  newer hosted evidence is recorded in-tree yet for this package executable
-  smoke change until it is pushed and hosted workflows complete.
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence after push: commit
+  `2b22992` (`test: prove router package executable smoke`) was pushed to
+  GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`;
+  GitHub `master` CI `28714340160` and GitHub `add-router` CI `28714338171`
+  passed, and the strict deployment-chain audit passed with latest GitHub
+  `master` CI evidence at `2b22992` plus latest relevant Dart package dry-run
+  and WAMP profile benchmark evidence clean at `ce9366d`. This hosted evidence
+  update is docs-only bookkeeping after the implementation commit and should be
+  bundled with the next code/config change rather than committed alone.
 - 2026-07-04: Added a router package executable metadata regression for
   downstream application readiness. `tool/test_verification_scripts.py` now
   verifies that `packages/connectanum_router/pubspec.yaml` still declares
