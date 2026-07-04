@@ -15,6 +15,12 @@ BOOTSTRAP = REPO_ROOT / "bin" / "bootstrap"
 COMMON = REPO_ROOT / "bin" / "common.sh"
 CONNECTANUM_ROUTER = REPO_ROOT / "bin" / "connectanum-router"
 CONNECTANUM_ROUTER_ALIAS = REPO_ROOT / "bin" / "connectanum_router"
+CONNECTANUM_ROUTER_PACKAGE_BIN = (
+    REPO_ROOT / "packages" / "connectanum_router" / "bin" / "connectanum_router.dart"
+)
+CONNECTANUM_ROUTER_PACKAGE_PUBSPEC = (
+    REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
+)
 PACKAGE_NATIVE_ARTIFACT = REPO_ROOT / "bin" / "package-native-artifact"
 TEST_ALL = REPO_ROOT / "bin" / "test-all"
 TEST_FAST = REPO_ROOT / "bin" / "test-fast"
@@ -218,6 +224,15 @@ class VerificationScriptsTest(unittest.TestCase):
                 result.stdout.strip(),
                 "dart run connectanum_router --help",
             )
+
+    def test_connectanum_router_package_exposes_pub_executable(self) -> None:
+        pubspec = CONNECTANUM_ROUTER_PACKAGE_PUBSPEC.read_text(encoding="utf-8")
+        bin_entry = CONNECTANUM_ROUTER_PACKAGE_BIN.read_text(encoding="utf-8")
+
+        self.assertIn("\nname: connectanum_router\n", f"\n{pubspec}")
+        self.assertIn("\nexecutables:\n  connectanum_router:\n", f"\n{pubspec}")
+        self.assertIn("Future<void> main(List<String> args)", bin_entry)
+        self.assertIn("RouterConfigLoaderIo.fromFile", bin_entry)
 
     def test_common_suppresses_dart_analytics_by_default(self) -> None:
         script = textwrap.dedent(

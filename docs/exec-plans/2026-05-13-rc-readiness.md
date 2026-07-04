@@ -79,6 +79,29 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-04: Added a router package executable metadata regression for
+  downstream application readiness. `tool/test_verification_scripts.py` now
+  verifies that `packages/connectanum_router/pubspec.yaml` still declares
+  `name: connectanum_router` and the `executables: connectanum_router:`
+  package executable, and that
+  `packages/connectanum_router/bin/connectanum_router.dart` still exposes the
+  CLI `main(List<String> args)` entrypoint wired through
+  `RouterConfigLoaderIo`. This protects the `dart run connectanum_router`
+  package path alongside the existing source-checkout wrapper and alias
+  checks. Baseline `bin/test-fast` passed before the metadata regression on
+  2026-07-04, including router-hosted MCP live smokes, consumer package
+  smokes, and the source-checkout router CLI consumer smoke. Focused
+  `python3 -m py_compile tool/test_verification_scripts.py` and
+  `python3 tool/test_verification_scripts.py` passed after the change, with 11
+  verification-script tests. Post-change `bin/verify` passed on 2026-07-04,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  consumer package smokes, MCP auth/session and Streamable HTTP client tests,
+  live WAMP benchmark integration, router-hosted MCP example smokes, the
+  source-checkout router CLI consumer smoke, full router tests, zero-copy
+  router tests, OpenMetrics internal route tests, and the Chrome/Dart2Wasm
+  browser WebSocket smoke. No newer hosted evidence is recorded in-tree yet;
+  the latest fully clean hosted CI checkpoint remains `3989542` until this
+  metadata regression checkpoint is pushed and hosted workflows complete.
 - 2026-07-04: Bounded the router CLI consumer package smoke cleanup so
   successful router-hosted MCP smokes do not keep launchd or CI locks held
   after the evidence has already been produced.
@@ -106,9 +129,20 @@ decision because `connectanum_client` still depends on private
   benchmark integration, router-hosted MCP example smokes, the
   source-checkout router CLI consumer smoke, full router tests, zero-copy
   router tests, OpenMetrics internal route tests, and the Chrome/Dart2Wasm
-  browser WebSocket smoke. No newer hosted evidence is recorded in-tree yet;
-  the latest fully clean hosted CI checkpoint remains `5bbe41a` until this
-  cleanup checkpoint is pushed and hosted workflows complete.
+  browser WebSocket smoke. Hosted evidence: commit `3989542`
+  (`test: bound router cli smoke cleanup`) was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `28710841056` passed with `Fast Checks` clean in 6m55s and `Full Verify`
+  clean in 8m59s. GitHub `add-router` CI `28710840339` also passed. No new
+  Dart Package Publish Dry Run or WAMP Profile Benchmarks were required
+  because no publish-sensitive or WAMP profile benchmark-sensitive paths
+  changed since `ce9366d`; GitHub `master` Dart Package Publish Dry Run
+  `28707270442` and WAMP Profile Benchmarks `28707270450` remain clean and
+  relevant. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 8 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+  exited successfully on 2026-07-04 with protected `master` branch status
+  checks, latest GitHub `master` CI evidence at `3989542`, and latest relevant
+  Dart package dry-run and WAMP profile benchmark evidence clean.
 - 2026-07-04: Hardened the router CLI consumer package smoke to prove the
   source-checkout `connectanum_router` command path end-to-end.
   `run_router_cli_consumer_package_smoke()` now resolves `connectanum_router`

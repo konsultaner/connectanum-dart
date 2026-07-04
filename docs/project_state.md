@@ -2,13 +2,42 @@
 
 Last updated: 2026-07-04
 Current branch: `add-router`
-Last reviewed branch checkpoint: the router CLI consumer package smoke cleanup
-is bounded and no longer waits on its own process matcher or deletes the shared
-repository hook cache after a successful smoke.
-Latest fully clean hosted CI checkpoint: Commit `5bbe41a` on GitHub `master`
+Last reviewed branch checkpoint: router package executable metadata now has a
+verification-script regression so `dart run connectanum_router` cannot lose
+its package executable declaration or bin entrypoint silently.
+Latest fully clean hosted CI checkpoint: Commit `3989542` on GitHub `master`
 and GitHub `add-router`; latest relevant Dart package dry-run and WAMP profile
 benchmark evidence remains clean at `ce9366d`.
 Current implementation checkpoint:
+`tool/test_verification_scripts.py` now verifies the router package-level pub
+executable contract in addition to the source-checkout wrappers. The new
+regression checks `packages/connectanum_router/pubspec.yaml` for
+`name: connectanum_router` and the `executables: connectanum_router:`
+declaration, then checks that
+`packages/connectanum_router/bin/connectanum_router.dart` still exposes the CLI
+`main(List<String> args)` entrypoint wired through `RouterConfigLoaderIo`.
+This protects the consumer application path that depends on
+`dart run connectanum_router` while the checkout alias continues to cover local
+automation and smoke harnesses.
+
+Baseline `bin/test-fast` passed before the metadata regression on 2026-07-04,
+including the router-hosted MCP live smokes, consumer package smokes, and the
+source-checkout router CLI consumer smoke. Focused `python3 -m py_compile
+tool/test_verification_scripts.py` and
+`python3 tool/test_verification_scripts.py` passed after the change, with 11
+verification-script tests. Post-change `bin/verify` passed on 2026-07-04,
+including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+consumer package smokes, MCP auth/session and Streamable HTTP client tests,
+live WAMP benchmark integration, router-hosted MCP example smokes, the
+source-checkout router CLI consumer smoke, full router tests, zero-copy router
+tests, OpenMetrics internal route tests, and the Chrome/Dart2Wasm browser
+WebSocket smoke.
+
+No newer hosted evidence is recorded in-tree yet; the latest fully clean
+hosted CI checkpoint remains `3989542` until this metadata regression
+checkpoint is pushed and hosted workflows complete.
+
+Previous implementation checkpoint:
 `run_router_cli_consumer_package_smoke()` cleanup now excludes the helper
 `awk` process from its router-process matcher, avoiding the previous
 self-match that made cleanup wait after the smoke had already printed success.
@@ -39,9 +68,20 @@ integration, router-hosted MCP example smokes, the source-checkout router CLI
 consumer smoke, full router tests, zero-copy router tests, OpenMetrics
 internal route tests, and the Chrome/Dart2Wasm browser WebSocket smoke.
 
-No newer hosted evidence is recorded in-tree yet; the latest fully clean hosted
-CI checkpoint remains `5bbe41a` until this cleanup checkpoint is pushed and
-hosted workflows complete.
+Hosted evidence: Commit `3989542`
+(`test: bound router cli smoke cleanup`) was pushed to GitLab `origin`
+`add-router`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+`28710841056` passed with `Fast Checks` clean in 6m55s and `Full Verify` clean
+in 8m59s. GitHub `add-router` CI `28710840339` also passed. No new Dart
+Package Publish Dry Run or WAMP Profile Benchmarks were required because no
+publish-sensitive or WAMP profile benchmark-sensitive paths changed since
+`ce9366d`; GitHub `master` Dart Package Publish Dry Run `28707270442` and WAMP
+Profile Benchmarks `28707270450` remain clean and relevant. The strict
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --run-limit 8 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+exited successfully on 2026-07-04 with protected `master` branch status
+checks, latest GitHub `master` CI evidence at `3989542`, and latest relevant
+Dart package dry-run and WAMP profile benchmark evidence clean.
 
 Previous implementation checkpoint:
 `run_router_cli_consumer_package_smoke()` now resolves `connectanum_router`
