@@ -10,6 +10,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 COMMON_SH = REPO_ROOT / "bin" / "common.sh"
+MCP_PUBSPEC = REPO_ROOT / "packages" / "connectanum_mcp" / "pubspec.yaml"
+MCP_ROUTER_HOSTED_CLIENT_BIN = (
+    REPO_ROOT / "packages" / "connectanum_mcp" / "bin" / "router_hosted_client.dart"
+)
 ROUTER_HOSTED_CLIENT_EXAMPLE = (
     REPO_ROOT / "packages" / "connectanum_mcp" / "example" / "router_hosted_client.dart"
 )
@@ -54,6 +58,33 @@ def _section_package_names(section: str) -> set[str]:
 
 
 class McpConsumerPackageBoundaryTest(unittest.TestCase):
+    def test_mcp_package_exposes_router_hosted_client_executable(self) -> None:
+        pubspec = MCP_PUBSPEC.read_text(encoding="utf-8")
+        executable = MCP_ROUTER_HOSTED_CLIENT_BIN.read_text(encoding="utf-8")
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_mcp_client_package_smoke")
+
+        self.assertIn("executables:", pubspec)
+        self.assertIn("  router_hosted_client:", pubspec)
+        self.assertIn(
+            "import '../example/router_hosted_client.dart' as example;",
+            executable,
+        )
+        self.assertIn(
+            "Future<void> main(List<String> args) => example.main(args);",
+            executable,
+        )
+        self.assertIn(
+            "dart run connectanum_mcp:router_hosted_client --help",
+            body,
+        )
+        self.assertIn(
+            "dart run connectanum_mcp:router_hosted_client \\",
+            body,
+        )
+        self.assertIn("--pubsub-topic agent.events", body)
+        self.assertIn('"subscriptionMetadata":true', body)
+
     def test_generated_consumer_smokes_depend_on_public_mcp_entrypoint(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
         cases = {
@@ -1450,9 +1481,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "must not contain whitespace or control characters.",
             "_printDryRunSummary",
             "--dry-run",
+            "dart run connectanum_mcp:router_hosted_client",
         ):
             with self.subTest(helper=public_helper):
                 self.assertIn(public_helper, example)
+        self.assertNotIn(
+            "dart run packages/connectanum_mcp/example/router_hosted_client.dart",
+            example,
+        )
 
     def test_public_router_hosted_server_example_publishes_task_lookup_events(
         self,
@@ -1512,6 +1548,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             wrapper_body.index("ensure_rust_env"),
         )
         self.assertIn(
+            "connectanum_mcp:router_hosted_client",
+            helper_body,
+        )
+        self.assertNotIn(
             "packages/connectanum_mcp/example/router_hosted_client.dart",
             helper_body,
         )
@@ -1907,6 +1947,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertNotIn("--smoke-and-exit", live_body)
         self.assertIn(
+            "connectanum_mcp:router_hosted_client",
+            live_body,
+        )
+        self.assertNotIn(
             "packages/connectanum_mcp/example/router_hosted_client.dart",
             live_body,
         )

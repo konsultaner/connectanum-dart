@@ -2915,7 +2915,7 @@ Map<String, String> _jsonStringMapOption(
 void _printUsage(IOSink sink) {
   sink.writeln('''
 Usage:
-  dart run packages/connectanum_mcp/example/router_hosted_client.dart \\
+  dart run connectanum_mcp:router_hosted_client \\
     --endpoint http://127.0.0.1:8080/mcp [options]
 
 Options:

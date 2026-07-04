@@ -11,6 +11,8 @@ dependencies:
   connectanum_client: ^2.2.6
   connectanum_core: ^0.1.0
   meta: ^1.16.0
+executables:
+  router_hosted_client:
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.2

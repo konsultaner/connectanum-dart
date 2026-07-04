@@ -513,7 +513,7 @@ run_public_router_hosted_mcp_client_example_dry_run() {
   run_command_with_timeout \
     "Public router-hosted MCP client dry-run" \
     "$timeout_seconds" \
-    dart run packages/connectanum_mcp/example/router_hosted_client.dart "$@"
+    dart run connectanum_mcp:router_hosted_client "$@"
 }
 
 run_public_router_hosted_mcp_client_dry_run_smoke() {
@@ -1115,7 +1115,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
   fi
   auth_url="${endpoint%/mcp}/auth"
 
-  live_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  live_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$endpoint" \
     --protocol-version 2025-06-18 \
     --tool example.task.lookup \
@@ -1141,7 +1141,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
 
   printf 'Public router-hosted MCP client live smoke completed.\n'
 
-  pubsub_only_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  pubsub_only_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$endpoint" \
     --protocol-version 2025-06-18 \
     --pubsub-topic example.events.task \
@@ -1224,7 +1224,7 @@ print(token)
 PY
   )"
 
-  authenticated_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  authenticated_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$secure_endpoint" \
     --protocol-version 2025-06-18 \
     --auth-url "$auth_url" \
@@ -1255,7 +1255,7 @@ PY
 
   printf 'Authenticated router-hosted MCP client live smoke completed.\n'
 
-  bearer_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  bearer_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$secure_endpoint" \
     --protocol-version 2025-06-18 \
     --bearer-token "$bearer_token" \
@@ -1282,7 +1282,7 @@ PY
 
   printf 'Bearer-token router-hosted MCP client live smoke completed.\n'
 
-  authenticated_json_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  authenticated_json_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$secure_json_endpoint" \
     --protocol-version 2025-06-18 \
     --auth-url "$auth_url" \
@@ -1314,7 +1314,7 @@ PY
 
   printf 'Authenticated router-hosted JSON-response MCP client live smoke completed.\n'
 
-  bearer_json_summary="$(dart run packages/connectanum_mcp/example/router_hosted_client.dart \
+  bearer_json_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$secure_json_endpoint" \
     --protocol-version 2025-06-18 \
     --bearer-token "$bearer_token" \
@@ -1635,6 +1635,8 @@ DART
 )
 
 run_mcp_client_package_smoke() (
+  local executable_dry_run
+  local executable_help
   local smoke_dir
 
   require_command dart
@@ -7076,6 +7078,28 @@ DART
   (
     cd "$smoke_dir"
     dart pub get
+    executable_help="$(dart run connectanum_mcp:router_hosted_client --help)"
+    if [[ "$executable_help" != *"--endpoint"* ||
+      "$executable_help" != *"--protocol-version"* ||
+      "$executable_help" != *"--pubsub-topic"* ]]; then
+      printf 'MCP client package executable help output missed expected options.\n'
+      return 1
+    fi
+
+    executable_dry_run="$(dart run connectanum_mcp:router_hosted_client \
+      --endpoint http://127.0.0.1:8080/mcp \
+      --protocol-version 2025-06-18 \
+      --pubsub-topic agent.events \
+      --pubsub-event '{"text":"ready"}' \
+      --dry-run)"
+    if [[ "$executable_dry_run" != *'"dryRun":true'* ||
+      "$executable_dry_run" != *'"endpoint":"http://127.0.0.1:8080/mcp"'* ||
+      "$executable_dry_run" != *'"pubsub":{"topic":"agent.events"'* ||
+      "$executable_dry_run" != *'"subscriptionMetadata":true'* ]]; then
+      printf 'MCP client package executable dry-run summary was unexpected.\n'
+      printf '%s\n' "$executable_dry_run"
+      return 1
+    fi
     dart analyze
     dart run bin/main.dart
   )

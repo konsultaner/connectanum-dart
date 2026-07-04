@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-04: Exposed the public router-hosted MCP client as a
+  consumer-visible `connectanum_mcp` package executable.
+  `packages/connectanum_mcp/pubspec.yaml` now declares `router_hosted_client`,
+  `packages/connectanum_mcp/bin/router_hosted_client.dart` delegates to the
+  existing public example, and the example usage advertises
+  `dart run connectanum_mcp:router_hosted_client`. The public router-hosted MCP
+  dry-run and live smoke helpers now run the package executable for public,
+  pub/sub-only, authenticated, bearer-token, and JSON-response flows, and the
+  neutral MCP client consumer package smoke verifies both `--help` and a
+  representative dry-run with Streamable HTTP protocol version, pub/sub event
+  metadata, and subscription metadata. Baseline `bin/test-fast` passed before
+  the change on 2026-07-04, including router-hosted MCP example smokes, the
+  neutral MCP consumer package smoke, the package-executable router CLI
+  consumer smoke, live WAMP benchmark integration, and router fast tests.
+  Focused `dart format --output=none --set-exit-if-changed packages/connectanum_mcp/bin/router_hosted_client.dart packages/connectanum_mcp/example/router_hosted_client.dart`,
+  `dart analyze packages/connectanum_mcp`, `bash -n bin/common.sh`,
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`,
+  `python3 tool/test_mcp_consumer_package_boundary.py`, direct
+  `dart run connectanum_mcp:router_hosted_client --help`, direct
+  `dart run connectanum_mcp:router_hosted_client --endpoint http://127.0.0.1:8080/mcp --protocol-version 2025-06-18 --pubsub-topic agent.events --pubsub-event '{"text":"ready"}' --dry-run`,
+  `bash -lc 'source bin/common.sh; run_mcp_client_package_smoke'`, and
+  `bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`
+  passed after the change. Full local `bin/verify` passed on 2026-07-04,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  consumer package smokes, MCP auth/session and Streamable HTTP client tests,
+  live WAMP benchmark integration, the neutral benchmark CLI/service/worker
+  consumer package smoke, router-hosted MCP example smokes through the package
+  executable, the package-executable router CLI consumer smoke, full router
+  tests, zero-copy router tests, OpenMetrics internal route tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-04: Added a router-native OpenMetrics/health regression guard to the
   verification script tests. `tool/test_verification_scripts.py` now scans
   production `connectanum_router` `bin/` and `lib/` Dart sources and fails if a
