@@ -106,6 +106,39 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
                 )
                 self.assertNotRegex(body, r"import 'package:connectanum_client/")
 
+    def test_router_cli_consumer_smoke_uses_checkout_command_alias(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+
+        self.assertIn(
+            'router_command="$(PATH="$ROOT_DIR/bin:$PATH" '
+            'command -v connectanum_router || true)"',
+            body,
+        )
+        self.assertIn(
+            'if [[ "$router_command" != "$ROOT_DIR/bin/connectanum_router" ]]; then',
+            body,
+        )
+        self.assertIn(
+            'PATH="$ROOT_DIR/bin:$PATH" connectanum_router --help',
+            body,
+        )
+        self.assertIn(
+            'PATH="$ROOT_DIR/bin:$PATH" \\\n'
+            '    connectanum_router --config "$smoke_dir/router.yaml"',
+            body,
+        )
+        self.assertIn("source-checkout command", body)
+        self.assertNotIn("dart pub global activate", body)
+        self.assertNotIn(
+            'rm -rf "$ROOT_DIR/.dart_tool/pub/bin/connectanum_router"',
+            body,
+        )
+        self.assertNotIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router',
+            body,
+        )
+
     def test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface(
         self,
     ) -> None:

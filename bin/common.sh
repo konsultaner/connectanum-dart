@@ -23209,6 +23209,7 @@ run_router_cli_consumer_package_smoke() (
   local dart_consumer_summary
   local smoke_dir
   local pub_cache
+  local router_command
   local router_log
   local router_pid
 
@@ -23218,8 +23219,8 @@ run_router_cli_consumer_package_smoke() (
   pub_cache="$smoke_dir/pub-cache"
   router_log="$smoke_dir/router.log"
   router_pid=""
-  # Path activation resolves the source package through the workspace and can
-  # rewrite repo-local package metadata to point at the temp pub cache.
+  # The executable smoke should prove that consumer harnesses can discover the
+  # source-checkout alias without requiring pub global activation first.
   _router_cli_smoke_process_ids() {
     ROUTER_SMOKE_CONFIG="$smoke_dir/router.yaml" ps -ww -axo pid=,comm=,command= \
       | awk '
@@ -23295,8 +23296,6 @@ run_router_cli_consumer_package_smoke() (
       _wait_for_router_cli_smoke_lock_release
     fi
     rm -rf "$ROOT_DIR/.dart_tool/hooks_runner"
-    rm -rf "$ROOT_DIR/.dart_tool/pub/bin/connectanum_router"
-    (cd "$ROOT_DIR" && dart pub get >/dev/null 2>&1 || true)
     if [[ -n "${smoke_dir:-}" ]]; then
       rm -rf "$smoke_dir"
     fi
@@ -23308,12 +23307,14 @@ run_router_cli_consumer_package_smoke() (
   trap '_cleanup_router_cli_smoke 143' TERM
 
   printf 'Running router CLI consumer package smoke from %s.\n' "$smoke_dir"
-  rm -rf "$ROOT_DIR/.dart_tool/pub/bin/connectanum_router"
+  router_command="$(PATH="$ROOT_DIR/bin:$PATH" command -v connectanum_router || true)"
+  if [[ "$router_command" != "$ROOT_DIR/bin/connectanum_router" ]]; then
+    printf 'Expected source-checkout connectanum_router alias, got: %s\n' "${router_command:-<missing>}" >&2
+    return 1
+  fi
   (
     cd "$smoke_dir"
-    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
-      dart pub global activate --source path "$ROOT_DIR/packages/connectanum_router"
-    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help \
+    PATH="$ROOT_DIR/bin:$PATH" connectanum_router --help \
       | grep -F 'Usage: dart run connectanum_router --config <path>'
   )
 
@@ -23576,7 +23577,7 @@ router:
             provider: cli-ticket-db
 YAML
 
-  PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
+  PATH="$ROOT_DIR/bin:$PATH" \
     connectanum_router --config "$smoke_dir/router.yaml" --native-lib "$native_lib" \
     >"$router_log" 2>&1 &
   router_pid=$!
@@ -28294,6 +28295,6 @@ DART
     '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the installed command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the source-checkout command.\n'
   _cleanup_router_cli_smoke 0
 )

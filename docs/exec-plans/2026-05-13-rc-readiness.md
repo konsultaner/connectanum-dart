@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-04: Hardened the router CLI consumer package smoke to prove the
+  source-checkout `connectanum_router` command path end-to-end.
+  `run_router_cli_consumer_package_smoke()` now resolves `connectanum_router`
+  from `PATH="$ROOT_DIR/bin:$PATH"`, fails if it is not this checkout's
+  `bin/connectanum_router` alias, launches the router through that source
+  checkout command, and no longer runs `dart pub global activate` for the
+  router executable. The generated Dart consumer package still uses its
+  isolated `PUB_CACHE` for dependency resolution and analysis. This proves a
+  consumer application or agent harness can put the checkout `bin/` directory
+  on `PATH` and exercise router-hosted MCP without relying on a global pub
+  cache or private project assumptions. The MCP consumer package boundary test
+  now guards the checkout command lookup, launch path, final smoke summary, and
+  absence of pub-global activation for the router executable. Baseline
+  `bin/test-fast` passed before the change on 2026-07-04. Focused
+  `bash -n bin/common.sh`, focused `python3 -m py_compile
+  tool/test_mcp_consumer_package_boundary.py`, focused
+  `python3 tool/test_mcp_consumer_package_boundary.py`, and a direct
+  `run_router_cli_consumer_package_smoke` invocation passed after the change,
+  with the router CLI consumer package smoke serving `/healthz`, `/metrics`,
+  `/auth`, router-hosted MCP routes, and a public Dart MCP client from the
+  source-checkout command. Post-change `bin/test-fast` and full local
+  `bin/verify` passed on 2026-07-04, including formatting, Rust/FFI tests,
+  Python/tool tests, MCP package tests, consumer package smokes, MCP
+  auth/session and Streamable HTTP client tests, live WAMP benchmark
+  integration, router-hosted MCP example smokes, the source-checkout router CLI
+  consumer smoke, full router tests, zero-copy router tests, OpenMetrics
+  internal route tests, and the Chrome/Dart2Wasm browser WebSocket smoke. No
+  newer hosted evidence is recorded in-tree yet; the latest fully clean hosted
+  checkpoint remains `ce9366d` until this local checkpoint is pushed and hosted
+  workflows complete.
 - 2026-07-04: Added an executable-compatible source-checkout router alias for
   consumer application smokes and local benchmark harnesses.
   `bin/connectanum_router` now delegates to the existing
@@ -102,9 +132,19 @@ decision because `connectanum_client` still depends on private
   integration, router-hosted MCP example smokes, the installed router CLI
   consumer smoke serving `/healthz`, `/metrics`, `/auth`, and MCP routes, full
   router tests, zero-copy router tests, OpenMetrics internal route tests, and
-  the Chrome/Dart2Wasm browser WebSocket smoke. No newer hosted evidence is
-  recorded in-tree yet; the latest fully clean hosted checkpoint remains
-  `4f029c8` until this checkpoint is pushed and hosted workflows complete.
+  the Chrome/Dart2Wasm browser WebSocket smoke. Commit `ce9366d`
+  (`tooling: add connectanum_router checkout alias`) was pushed to GitLab
+  `origin` `add-router`, GitHub `add-router`, and GitHub `master`. GitHub
+  `add-router` CI `28707268764`, Dart Package Publish Dry Run `28707268762`,
+  and WAMP Profile Benchmarks `28707268766` passed and covered the checked-out
+  head. GitHub `master` CI `28707270451`, Dart Package Publish Dry Run
+  `28707270442`, and WAMP Profile Benchmarks `28707270450` also passed and
+  covered the checked-out head. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --run-limit 6 --require-clean-latest-ci --show-dart-package-publish-dry-run --require-clean-dart-package-publish-dry-run --show-wamp-profile-benchmarks --require-clean-wamp-profile-benchmarks --strict`
+  exited successfully on 2026-07-04 with protected `master` branch status
+  checks, workflow visibility, router image package visibility, latest GitHub
+  `master` CI evidence, latest Dart package dry-run evidence, and latest WAMP
+  profile benchmark evidence clean at `ce9366d`.
 - 2026-07-04: Hardened the public router-hosted MCP dry-run smoke against
   launchd/CI stalls. `bin/common.sh` now provides `run_command_with_timeout()`
   and routes every validation-only
