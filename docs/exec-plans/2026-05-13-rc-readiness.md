@@ -79,6 +79,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Expanded router-native OpenMetrics/health internal-route
+  coverage for the metrics router session. `open_metrics_http_server_test.dart`
+  now proves `connectanum.metrics.healthz` serves both `/healthz` and the
+  `/health` alias, preserves `cache-control: no-store`, and suppresses the
+  response body for HEAD health requests while retaining text headers. Baseline
+  `bin/test-fast` passed before the change on 2026-07-05. Focused
+  `dart test packages/connectanum_router/test/open_metrics_http_server_test.dart -r expanded`
+  passed after the change. Full local `bin/verify` passed after the change on
+  2026-07-05, including formatting, Rust/FFI tests, MCP package tests,
+  consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+  example smokes, router CLI consumer smokes, full router tests with the
+  expanded OpenMetrics/health regression, HTTP/2 and HTTP/3 router
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-05: Implemented file-backed HTTP response streaming for WAMP-backed
   router HTTP handlers. `HttpInvocationContext.sendFile` responses now bypass
   the normal materialized native response sender and stream through
@@ -94,7 +107,21 @@ decision because `connectanum_client` still depends on private
   benchmark integration, router-hosted MCP example smokes, router CLI consumer
   smokes, full router tests with the new file-backed HTTP response stream
   regression, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
-  browser WebSocket smoke.
+  browser WebSocket smoke. Hosted evidence after push: commit `9bde9da` was
+  pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+  `master`. GitHub `add-router` CI `28744999936`, Dart Package Publish Dry
+  Run `28744999932`, and WAMP Profile Benchmarks `28744999962` passed at
+  `9bde9da`; GitHub `master` CI `28745005169`, Dart Package Publish Dry Run
+  `28745005161`, WAMP Profile Benchmarks `28745005165`, and Router Image
+  dry-run `28745447883` also passed at `9bde9da`. Router Image dry-run preview
+  metadata was `sha-9bde9da2c2c7`, with GHCR login/push skipped. Native
+  Artifacts dry-run `28741330334` remains clean and relevant from `d539a34`
+  because this checkpoint did not touch native-release-sensitive paths. The
+  strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed for `master` at `9bde9da`; RC readiness is blocked only on selecting
+  and approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-05: Added native HTTP/3 direct JSON WAMP helper coverage for
   router-hosted MCP. The new router integration smoke sends raw HTTP/3
   JSON-RPC requests to `/mcp` without a Streamable HTTP session and asserts

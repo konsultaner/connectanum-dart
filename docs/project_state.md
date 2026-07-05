@@ -25,31 +25,48 @@ APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart consumer
 access without private checkout assumptions. The isolated global activation
 paths put the generated Pub cache `bin/` directory on `PATH` during activation
 so Pub does not emit executable-path warnings in strict CI log audits.
-Latest fully clean hosted checkpoint: Commit `1076dfc` on GitHub `master` and
-GitHub `add-router` passed CI after native HTTP/3 direct JSON WAMP helper
-coverage landed for router-hosted MCP. GitHub `add-router` CI `28743289285`
+Latest fully clean hosted checkpoint: Commit `9bde9da` on GitHub `master` and
+GitHub `add-router` passed CI after file-backed HTTP response streaming landed
+for WAMP-backed router HTTP handlers. GitHub `add-router` CI `28744999936`
 passed with Fast Checks and Full Verify green, and GitHub `master` CI
-`28743290019` passed with Fast Checks and Full Verify green after fast-forward
-promotion. Dart Package Publish Dry Run `28743289246` on `add-router` and
-`28743290021` on `master` passed at `1076dfc`; WAMP Profile Benchmarks
-`28743289250` on `add-router` and `28743290053` on `master` passed at
-`1076dfc`. Native Artifacts dry-run `28741330334` remains the latest clean
+`28745005169` passed with Fast Checks and Full Verify green after fast-forward
+promotion. Dart Package Publish Dry Run `28744999932` on `add-router` and
+`28745005161` on `master` passed at `9bde9da`; WAMP Profile Benchmarks
+`28744999962` on `add-router` and `28745005165` on `master` passed at
+`9bde9da`. Native Artifacts dry-run `28741330334` remains the latest clean
 non-mutating native release evidence at `d539a34` with validation tag
-`v0.1.0-rc.2-validation.d539a34`; the strict audit accepted it for `1076dfc`
+`v0.1.0-rc.2-validation.d539a34`; the strict audit accepted it for `9bde9da`
 because no native-release-sensitive paths changed since then. Router Image
-dry-run `28741330364` remains the latest clean router image evidence at
-`d539a34` with preview metadata `sha-d539a34ce150`; the strict audit accepted
-it for `1076dfc` because no router-image-sensitive paths changed since then.
-kTLS Validation did not path-trigger for this router-test-only change; the
-last kTLS validation checkpoint remains clean at `8d884a1`. The strict
-deployment-chain audit passed for GitHub `master` at `1076dfc`; its latest CI
-log scan was clean with no warning/deprecation/skipped/reset/connection-noise
-matches.
+dry-run `28745447883` passed at `9bde9da` with preview metadata
+`sha-9bde9da2c2c7` and skipped GHCR login/push. kTLS Validation did not
+path-trigger for this router-Dart-only change; the last kTLS validation
+checkpoint remains clean at `8d884a1`. The strict deployment-chain audit
+passed for GitHub `master` at `9bde9da`; its latest CI log scan was clean with
+no warning/deprecation/skipped/reset/connection-noise matches.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `1076dfc` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `9bde9da` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+Router-native OpenMetrics/health internal-route coverage now pins the `/health`
+alias and HEAD `/healthz` response semantics in addition to the existing
+`/metrics` and `/healthz` assertions. The regression exercises
+`connectanum.metrics.healthz` through the internal metrics router session,
+asserts `cache-control: no-store`, proves `/health` returns the same ready body
+as `/healthz`, and proves HEAD health responses retain text headers while
+suppressing the body.
+
+Baseline `bin/test-fast` passed before this health-route coverage change on
+2026-07-05. Focused
+`dart test packages/connectanum_router/test/open_metrics_http_server_test.dart -r expanded`
+passed after the change on 2026-07-05. Full local `bin/verify` passed after
+the change on 2026-07-05, including formatting, Rust/FFI tests, MCP package
+tests, consumer package smokes, live WAMP benchmark integration, router-hosted
+MCP example smokes, router CLI consumer smokes, full router tests with the
+expanded OpenMetrics/health internal-route regression, HTTP/2 and HTTP/3
+router integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 Router WAMP-backed HTTP handlers can now return file-backed responses through
 `HttpInvocationContext.sendFile` without tripping the previous
 `UnsupportedError`. `RouterBinding` diverts `HttpResponseBodyKind.file`
@@ -72,7 +89,22 @@ the change on 2026-07-05, including formatting, Rust/FFI tests, MCP package
 tests, consumer package smokes, live WAMP benchmark integration, router-hosted
 MCP example smokes, router CLI consumer smokes, full router tests with the new
 file-backed HTTP response stream regression, HTTP/2 and HTTP/3 router
-integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
+after push: commit `9bde9da` was pushed to GitLab `origin` `add-router`,
+GitHub `add-router`, and GitHub `master`. GitHub `add-router` CI
+`28744999936`, Dart Package Publish Dry Run `28744999932`, and WAMP Profile
+Benchmarks `28744999962` passed at `9bde9da`; GitHub `master` CI
+`28745005169`, Dart Package Publish Dry Run `28745005161`, WAMP Profile
+Benchmarks `28745005165`, and Router Image dry-run `28745447883` also passed
+at `9bde9da`. Router Image dry-run preview metadata was
+`sha-9bde9da2c2c7`, with GHCR login/push skipped. Native Artifacts dry-run
+`28741330334` remains clean and relevant from `d539a34` because this
+checkpoint did not touch native-release-sensitive paths. The strict
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+passed for `master` at `9bde9da`; RC readiness is blocked only on selecting
+and approving the numeric RC tag/prerelease/router-image tag plus the deferred
+pub.dev package ownership/order track.
 
 Previous implementation checkpoint:
 Router-hosted MCP now has native HTTP/3 direct JSON WAMP helper coverage in

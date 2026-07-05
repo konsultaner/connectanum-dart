@@ -420,7 +420,7 @@ void main() {
   });
 
   test(
-    'OpenMetrics internal HTTP routes serve /metrics and /healthz',
+    'OpenMetrics internal HTTP routes serve /metrics and health aliases',
     () async {
       final binding = _startRouter(_buildSettings());
       addTearDown(binding.dispose);
@@ -440,6 +440,25 @@ void main() {
       );
       expect(health.status, equals(200));
       expect(health.bodyText, contains('ok'));
+      expect(health.headers['cache-control'], equals('no-store'));
+
+      final healthAlias = await _callMetricsHttp(
+        caller,
+        'connectanum.metrics.healthz',
+        path: '/health',
+      );
+      expect(healthAlias.status, equals(200));
+      expect(healthAlias.bodyText, contains('ok'));
+
+      final healthHead = await _callMetricsHttp(
+        caller,
+        'connectanum.metrics.healthz',
+        method: 'HEAD',
+        path: '/healthz',
+      );
+      expect(healthHead.status, equals(200));
+      expect(healthHead.bodyText, isEmpty);
+      expect(healthHead.headers['content-type'], contains('text/plain'));
 
       final metrics = await _callMetricsHttp(
         caller,
