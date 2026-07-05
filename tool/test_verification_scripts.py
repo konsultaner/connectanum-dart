@@ -259,6 +259,14 @@ class VerificationScriptsTest(unittest.TestCase):
         self.assertIn("\nexecutables:\n  connectanum_router:\n", f"\n{pubspec}")
         self.assertIn("Future<void> main(List<String> args)", bin_entry)
         self.assertIn("RouterConfigLoaderIo.fromFile", bin_entry)
+        self.assertIn(
+            "Usage: connectanum_router --config <path>",
+            bin_entry,
+        )
+        self.assertNotIn(
+            "Usage: dart run connectanum_router --config <path>",
+            bin_entry,
+        )
 
     def test_router_openmetrics_uses_router_native_routes(self) -> None:
         bin_entry = CONNECTANUM_ROUTER_PACKAGE_BIN.read_text(encoding="utf-8")

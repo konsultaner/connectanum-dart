@@ -225,7 +225,7 @@ void _configureLogging({required bool verbose}) {
 
 void _printUsage() {
   stdout.writeln(
-    'Usage: dart run connectanum_router --config <path> [--native-lib <path>] [--verbose]',
+    'Usage: connectanum_router --config <path> [--native-lib <path>] [--verbose]',
   );
   stdout.writeln('');
   stdout.writeln('Options:');

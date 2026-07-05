@@ -23434,7 +23434,7 @@ run_router_cli_consumer_package_smoke() (
   (
     cd "$smoke_dir"
     PATH="$ROOT_DIR/bin:$PATH" connectanum_router --help \
-      | grep -F 'Usage: dart run connectanum_router --config <path>'
+      | grep -F 'Usage: connectanum_router --config <path>'
   )
 
   mkdir -p "$smoke_dir/router-runner"
@@ -23466,7 +23466,7 @@ EOF
     cd "$smoke_dir/router-runner"
     PUB_CACHE="$pub_cache" dart pub get >&2
     PUB_CACHE="$pub_cache" dart run connectanum_router --help \
-      | grep -F 'Usage: dart run connectanum_router --config <path>'
+      | grep -F 'Usage: connectanum_router --config <path>'
   )
 
   global_smoke_workspace="$smoke_dir/global-workspace"
@@ -23520,7 +23520,7 @@ EOF
     return 1
   fi
   PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help \
-    | grep -F 'Usage: dart run connectanum_router --config <path>'
+    | grep -F 'Usage: connectanum_router --config <path>'
 
   native_lib=""
   if native_runtime_supported && ensure_native_client_test_runtime; then

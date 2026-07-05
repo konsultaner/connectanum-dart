@@ -79,6 +79,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Aligned the router CLI help contract with the installed package
+  executable path. `connectanum_router --help` now advertises
+  `Usage: connectanum_router --config <path> [--native-lib <path>] [--verbose]`
+  instead of the checkout-oriented `dart run connectanum_router --config ...`
+  form, and `run_router_cli_consumer_package_smoke()` asserts that usage from
+  the checkout alias, `dart run connectanum_router --help`, and isolated global
+  activation. Boundary and verification-script tests guard the installed
+  command help text and reject the old usage string in production CLI help and
+  generated smoke expectations. Baseline `bin/test-fast` passed before the
+  change on 2026-07-05. Focused `dart format --output=none --set-exit-if-changed packages/connectanum_router/bin/connectanum_router.dart`,
+  `bash -n bin/common.sh`, `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py tool/test_verification_scripts.py`,
+  targeted `python3 -m unittest` coverage for the router CLI consumer and
+  verification-script guards, direct checkout-alias and `dart run` help probes,
+  and direct `bash -lc 'set -euo pipefail; source bin/common.sh; run_router_cli_consumer_package_smoke'`
+  passed after the change. A first full `bin/verify` attempt hit an
+  unreproduced HTTP/3 multi-MB router integration timeout; the immediate full
+  rerun passed on 2026-07-05, including the updated router CLI consumer smoke
+  and the HTTP/3 large-payload router integration test.
 - 2026-07-05: Tightened the router CLI consumer package smoke so the live
   router-hosted MCP flow starts through the globally activated
   `connectanum_router` command, not only `dart run connectanum_router`.

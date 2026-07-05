@@ -158,6 +158,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             'PATH="$ROOT_DIR/bin:$PATH" connectanum_router --help',
             body,
         )
+        self.assertIn(
+            "Usage: connectanum_router --config <path>",
+            body,
+        )
+        self.assertNotIn(
+            "Usage: dart run connectanum_router --config <path>",
+            body,
+        )
         self.assertIn("source-checkout alias", body)
         self.assertNotIn(
             'rm -rf "$ROOT_DIR/.dart_tool/pub/bin/connectanum_router"',
@@ -212,6 +220,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help',
+            body,
+        )
+        self.assertIn(
+            "Usage: connectanum_router --config <path>",
+            body,
+        )
+        self.assertNotIn(
+            "Usage: dart run connectanum_router --config <path>",
             body,
         )
         self.assertIn(

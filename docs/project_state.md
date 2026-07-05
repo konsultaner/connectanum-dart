@@ -2,23 +2,55 @@
 
 Last updated: 2026-07-05
 Current branch: `add-router`
-Last reviewed branch checkpoint: the router CLI consumer smoke now proves a
-consumer application can discover and run `connectanum_router` as an installed
-command from an isolated Pub cache, in addition to the checkout alias and
-`dart run connectanum_router` package executable paths. The router-hosted MCP
-smoke exercises health, metrics, auth, public/protected MCP, direct JSON
-WAMP/meta APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart
-consumer access without private checkout assumptions while the live router is
-started through the isolated installed command.
-Latest fully clean hosted checkpoint: Commit `840a6bb` on GitHub `master` and
+Last reviewed branch checkpoint: the router CLI now advertises the installed
+executable form, `connectanum_router --config ...`, from the checkout alias,
+`dart run connectanum_router --help`, and isolated global activation. The
+router-hosted MCP smoke still starts the live router through the isolated
+installed command and exercises health, metrics, auth, public/protected MCP,
+direct JSON WAMP/meta APIs, Streamable HTTP session lifecycle, pub/sub, and
+neutral Dart consumer access without private checkout assumptions.
+Latest fully clean hosted checkpoint: Commit `d10b8c7` on GitHub `master` and
 GitHub `add-router` retained clean hosted CI evidence after the router CLI
-global activation smoke. GitHub Native Artifacts dry-run `28723003691`,
-GitHub Router Image dry-run `28723003704`, and the strict deployment-chain
-audit passed for GitHub `master` at `840a6bb`.
+installed-command startup smoke. The strict deployment-chain audit passed for
+GitHub `master` at `d10b8c7`; the earlier Native Artifacts and Router Image
+dry-run evidence remains relevant because this branch has not changed those
+release-sensitive inputs since that audit.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag and deferring pub.dev package
 ownership/order for the private core dependency.
 Current implementation checkpoint:
+`packages/connectanum_router/bin/connectanum_router.dart` now prints
+`Usage: connectanum_router --config <path> [--native-lib <path>] [--verbose]`
+so package/global executable help no longer teaches consumers to use the
+checkout-oriented `dart run connectanum_router --config ...` form. The router
+CLI consumer package smoke asserts the installed-command usage text for the
+checkout alias, `dart run connectanum_router --help`, and the isolated global
+activation path. The boundary and verification-script tests now guard the
+installed-command help contract and reject the old `dart run ... --config`
+usage string in production CLI help and generated smoke expectations.
+
+Baseline `bin/test-fast` passed before this router CLI help contract change on
+2026-07-05, including router-hosted MCP live smokes, the neutral MCP consumer
+package smoke, the package-executable/router-installed-command CLI consumer
+smoke, live WAMP benchmark integration, and router fast tests. Focused
+`dart format --output=none --set-exit-if-changed packages/connectanum_router/bin/connectanum_router.dart`,
+`bash -n bin/common.sh`, `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py tool/test_verification_scripts.py`,
+targeted `python3 -m unittest` coverage for the router CLI consumer and
+verification-script guards, direct checkout-alias and `dart run` help probes,
+and direct
+`bash -lc 'set -euo pipefail; source bin/common.sh; run_router_cli_consumer_package_smoke'`
+passed after the change. A first full `bin/verify` attempt hit an
+unreproduced HTTP/3 multi-MB router integration timeout; the immediate full
+rerun passed on 2026-07-05, including formatting, Rust/FFI tests, Python/tool
+tests, MCP package tests, consumer package smokes, MCP auth/session and
+Streamable HTTP client tests, live WAMP benchmark integration, the neutral
+benchmark CLI/service/worker consumer package smoke, router-hosted MCP example
+smokes, the router CLI installed-command/package-executable consumer smoke,
+full router tests, zero-copy router tests, OpenMetrics internal route tests,
+HTTP/2 and HTTP/3 large-payload router integration, and the Chrome/Dart2Wasm
+browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `run_router_cli_consumer_package_smoke()` now creates a lockfile-pinned
 temporary workspace copy for `connectanum_core`, `connectanum_client`,
 `connectanum_mcp`, `connectanum_router`, and `connectanum_auth_server`, then
