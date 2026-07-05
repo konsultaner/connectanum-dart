@@ -44,6 +44,8 @@ typedef CtTestHttp3StreamRequestNative =
       ffi.Pointer<ffi.Int32>,
       ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
       ffi.Pointer<ffi.IntPtr>,
+      ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
+      ffi.Pointer<ffi.IntPtr>,
     );
 typedef CtTestHttp3StreamRequestDart =
     int Function(
@@ -57,6 +59,8 @@ typedef CtTestHttp3StreamRequestDart =
       int,
       ffi.Pointer<pkgffi.Utf8>,
       ffi.Pointer<ffi.Int32>,
+      ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
+      ffi.Pointer<ffi.IntPtr>,
       ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
       ffi.Pointer<ffi.IntPtr>,
     );

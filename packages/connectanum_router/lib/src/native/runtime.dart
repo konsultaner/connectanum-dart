@@ -424,10 +424,38 @@ List<MapEntry<String, String>> _nativeHttpResponseHeaderEntries(
 ];
 
 class NativeHttpTestResponse {
-  NativeHttpTestResponse(this.status, this.body);
+  NativeHttpTestResponse(this.status, this.body, [this.headers = const {}]);
 
   final int status;
   final Uint8List body;
+  final Map<String, String> headers;
+}
+
+Map<String, String> _parseHttpTestHeaderBlock(Uint8List bytes) {
+  if (bytes.isEmpty) {
+    return const {};
+  }
+  final headers = <String, String>{};
+  for (final line in utf8.decode(bytes).split('\n')) {
+    if (line.isEmpty) {
+      continue;
+    }
+    final separator = line.indexOf(':');
+    if (separator <= 0) {
+      continue;
+    }
+    final name = line.substring(0, separator).trim().toLowerCase();
+    final value = line.substring(separator + 1).trim();
+    if (name.isEmpty) {
+      continue;
+    }
+    headers.update(
+      name,
+      (existing) => '$existing, $value',
+      ifAbsent: () => value,
+    );
+  }
+  return headers;
 }
 
 class NativeHttpResponseStreamDescriptor {
@@ -2102,6 +2130,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       }
 
       final statusPtr = arena<ffi.Int32>();
+      final responseHeadersPtrPtr = arena<ffi.Pointer<ffi.Uint8>>();
+      final responseHeadersLenPtr = arena<ffi.IntPtr>();
       final responsePtrPtr = arena<ffi.Pointer<ffi.Uint8>>();
       final responseLenPtr = arena<ffi.IntPtr>();
 
@@ -2116,11 +2146,26 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         payload.length,
         certPtr,
         statusPtr,
+        responseHeadersPtrPtr,
+        responseHeadersLenPtr,
         responsePtrPtr,
         responseLenPtr,
       );
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'HTTP/3 test request failed');
+      }
+      final responseHeadersPtr = responseHeadersPtrPtr.value;
+      final responseHeadersLen = responseHeadersLenPtr.value;
+      Map<String, String> responseHeaders;
+      if (responseHeadersPtr == ffi.nullptr || responseHeadersLen == 0) {
+        responseHeaders = const {};
+      } else {
+        responseHeaders = _parseHttpTestHeaderBlock(
+          Uint8List.fromList(
+            responseHeadersPtr.asTypedList(responseHeadersLen),
+          ),
+        );
+        bufferFree(responseHeadersPtr, responseHeadersLen);
       }
       final status = statusPtr.value;
       final responsePtr = responsePtrPtr.value;
@@ -2132,7 +2177,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         responseBody = Uint8List.fromList(responsePtr.asTypedList(responseLen));
         bufferFree(responsePtr, responseLen);
       }
-      return NativeHttpTestResponse(status, responseBody);
+      return NativeHttpTestResponse(status, responseBody, responseHeaders);
     });
   }
 

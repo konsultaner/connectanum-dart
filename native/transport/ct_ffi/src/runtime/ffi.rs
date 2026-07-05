@@ -3928,6 +3928,8 @@ pub extern "C" fn ct_test_http3_stream_request(
     body_len: usize,
     cert_pem_ptr: *const c_char,
     status_out: *mut c_int,
+    response_headers_ptr_out: *mut *mut u8,
+    response_headers_len_out: *mut usize,
     response_ptr_out: *mut *mut u8,
     response_len_out: *mut usize,
 ) -> c_int {
@@ -4053,6 +4055,13 @@ pub extern "C" fn ct_test_http3_stream_request(
             eprintln!("ffi-test http3 recv_response failed: {err}");
             ERR_INTERNAL
         })?;
+        let mut response_headers = Vec::new();
+        for (name, value) in response.headers() {
+            response_headers.extend_from_slice(name.as_str().as_bytes());
+            response_headers.extend_from_slice(b": ");
+            response_headers.extend_from_slice(value.as_bytes());
+            response_headers.push(b'\n');
+        }
         let mut response_body = Vec::new();
         while let Some(chunk) = stream.recv_data().await.map_err(|err| {
             eprintln!("ffi-test http3 recv_data failed: {err}");
@@ -4060,22 +4069,43 @@ pub extern "C" fn ct_test_http3_stream_request(
         })? {
             response_body.extend_from_slice(chunk.chunk());
         }
-        Ok::<(c_int, Vec<u8>), c_int>((response.status().as_u16() as c_int, response_body))
+        Ok::<(c_int, Vec<u8>, Vec<u8>), c_int>((
+            response.status().as_u16() as c_int,
+            response_headers,
+            response_body,
+        ))
     });
-    let (status, response_body) = match result {
+    let (status, response_headers, response_body) = match result {
         Ok(value) => value,
         Err(code) => return code,
     };
-    let (ptr, len) = if response_body.is_empty() {
+    let (headers_ptr, headers_len) = if response_headers.is_empty()
+        || response_headers_ptr_out.is_null()
+        || response_headers_len_out.is_null()
+    {
         (ptr::null_mut(), 0usize)
     } else {
-        let len = response_body.len();
-        let boxed = response_body.into_boxed_slice();
+        let len = response_headers.len();
+        let boxed = response_headers.into_boxed_slice();
         (Box::into_raw(boxed) as *mut u8, len)
     };
+    let (ptr, len) =
+        if response_body.is_empty() || response_ptr_out.is_null() || response_len_out.is_null() {
+            (ptr::null_mut(), 0usize)
+        } else {
+            let len = response_body.len();
+            let boxed = response_body.into_boxed_slice();
+            (Box::into_raw(boxed) as *mut u8, len)
+        };
     unsafe {
         if !status_out.is_null() {
             *status_out = status;
+        }
+        if !response_headers_ptr_out.is_null() {
+            *response_headers_ptr_out = headers_ptr;
+        }
+        if !response_headers_len_out.is_null() {
+            *response_headers_len_out = headers_len;
         }
         if !response_ptr_out.is_null() {
             *response_ptr_out = ptr;

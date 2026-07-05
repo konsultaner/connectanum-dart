@@ -79,6 +79,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Extended router-hosted MCP native protocol coverage to HTTP/3.
+  The ffi-test HTTP/3 client helper now returns response headers as well as
+  status/body, allowing Dart integration tests to assert MCP protocol and
+  session headers on QUIC responses. Added a router integration smoke that
+  performs an h3 Streamable MCP initialize, initialized notification, and
+  `tools/list` request against `/mcp` with an explicit TLS/http3 route match,
+  same-origin HTTPS `Origin` policy, retained session headers, and an internal
+  `app.echo` registration visible through the router-hosted catalog. Baseline
+  `bin/test-fast` passed before the change on 2026-07-05. Focused ct_ffi
+  compile/test coverage, focused h3 and h2 MCP Dart smokes, focused router
+  analysis, Rust formatting, full `bin/test-fast`, and full local
+  `bin/verify` passed after the change on 2026-07-05, including formatting,
+  Rust/FFI tests, MCP consumer package smokes, live WAMP benchmark
+  integration, router-hosted MCP example smokes, router CLI consumer smokes,
+  full router tests, the new native HTTP/3 MCP smoke, native HTTP/2 MCP
+  coverage, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
+  browser WebSocket smoke.
 - 2026-07-05: Fixed native HTTP/2/HTTP/3 authority handling for
   router-hosted MCP. Native request metadata now synthesizes `host` from URI
   authority when a normal `Host` header is absent, preserving existing `Host`
@@ -89,7 +106,21 @@ decision because `connectanum_client` still depends on private
   initialized notification, and `tools/list` request against `/mcp` with
   same-origin `Origin` policy and retained session headers. Focused ct_core,
   ct_ffi, and Dart h2 MCP tests passed; full `bin/test-fast` and local
-  `bin/verify` passed on 2026-07-05.
+  `bin/verify` passed on 2026-07-05. Hosted evidence after push: commit
+  `8d884a1` was pushed to GitLab `origin` `add-router`, GitHub `add-router`,
+  and GitHub `master`. GitHub `add-router` CI `28739356265`, Dart Package
+  Publish Dry Run `28739356253`, WAMP Profile Benchmarks `28739356240`, and
+  kTLS Validation `28739356245` passed at `8d884a1`; GitHub `master` CI
+  `28739358173`, Dart Package Publish Dry Run `28739358178`, WAMP Profile
+  Benchmarks `28739358172`, and kTLS Validation `28739358189` also passed at
+  `8d884a1`. Router Image dry-run `28739374846` passed at `8d884a1` with
+  preview metadata `sha-8d884a1716f4`. Native Artifacts dry-run `28739900328`
+  passed at `8d884a1` with non-mutating validation tag
+  `v0.1.0-rc.2-validation.8d884a1`. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed for `master` at `8d884a1`; RC readiness is blocked only on selecting
+  and approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-05: Made router-native OpenMetrics/health routes HTTP/2-capable by
   default. `metrics.open_metrics.listen` enrichment now adds
   `ListenerProtocol.http2` when injecting `/healthz`, `/health`, and the

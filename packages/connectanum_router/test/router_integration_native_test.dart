@@ -2522,6 +2522,122 @@ void main() {
       expect(toolList.map((tool) => tool['name']), contains('app.echo'));
     }, skip: skipReason);
 
+    test('serves router-hosted MCP over native HTTP/3', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9127,
+        nativeLib: nativeLib,
+        config: _buildTlsConfig(),
+        settings: _buildRouterSettings(
+          enableHttp3: true,
+          enableMcp: true,
+          mcpRouteMatch: const HttpRouteMatch(
+            path: '/mcp',
+            protocols: ['http3'],
+          ),
+          mcpOptions: const <String, Object?>{
+            'post_response_transport': 'json',
+          },
+        ),
+        connectionSequence: const [],
+      );
+      addTearDown(harness.dispose);
+
+      if (!harness.runtime.supportsHttp3TestClient) {
+        // Skip without failing the suite when ffi-test helpers are unavailable.
+        // ignore: avoid_print
+        print('Skipping HTTP/3 MCP test: native runtime lacks test client');
+        return;
+      }
+
+      final binding = harness.binding;
+      final serviceSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'mcp-http3-service',
+        authRole: 'internal',
+      );
+      addTearDown(serviceSession.close);
+
+      final registration = await serviceSession.register('app.echo');
+      registration.onInvoke((invocation) {
+        invocation.respondWith(
+          argumentsKeywords: {'received': invocation.argumentsKeywords},
+        );
+      });
+
+      final listener = binding.listeners.single;
+      expect(
+        listener.http3Port,
+        greaterThan(0),
+        reason: 'Router did not expose an HTTP/3 port',
+      );
+      final nativeLibPath = nativeLib!;
+      final origin = 'https://127.0.0.1:${listener.http3Port}';
+      final initialize = await _postHttp3Json(
+        nativeLibPath,
+        listener.http3Port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'h3-initialize',
+          'method': 'initialize',
+          'params': {'protocolVersion': '2025-11-25'},
+        },
+        headers: {
+          'origin': origin,
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'initialize',
+        },
+      );
+
+      expect(initialize.statusCode, equals(HttpStatus.ok));
+      expect(initialize.headers['mcp-protocol-version'], equals('2025-11-25'));
+      final mcpSessionId = initialize.headers['mcp-session-id'];
+      expect(mcpSessionId, isNotNull);
+      expect(mcpSessionId, isNotEmpty);
+      final initializeResult =
+          initialize.json?['result'] as Map<String, Object?>;
+      expect(initializeResult['capabilities'], isA<Map<String, Object?>>());
+
+      final sessionHeaders = <String, String>{
+        'origin': origin,
+        HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2025-11-25',
+        'MCP-Session-Id': mcpSessionId!,
+      };
+      Map<String, String> streamableHeaders(String method) {
+        return <String, String>{...sessionHeaders, 'Mcp-Method': method};
+      }
+
+      final initialized = await _postHttp3Json(
+        nativeLibPath,
+        listener.http3Port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'method': 'notifications/initialized', 'params': {}},
+        headers: streamableHeaders('notifications/initialized'),
+      );
+      expect(initialized.statusCode, equals(HttpStatus.accepted));
+
+      final tools = await _postHttp3Json(
+        nativeLibPath,
+        listener.http3Port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'h3-tools-list',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: streamableHeaders('tools/list'),
+      );
+
+      expect(tools.statusCode, equals(HttpStatus.ok));
+      expect(tools.headers['mcp-session-id'], equals(mcpSessionId));
+      final toolList =
+          ((tools.json?['result'] as Map<String, Object?>)['tools'] as List)
+              .cast<Map>();
+      expect(toolList.map((tool) => tool['name']), contains('app.echo'));
+    }, skip: skipReason);
+
     test(
       'does not run anonymous MCP calls as a privileged realm session',
       () async {
@@ -7173,6 +7289,8 @@ Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
       }
 
       final statusPtr = arena<ffi.Int32>();
+      final responseHeadersPtrPtr = arena<ffi.Pointer<ffi.Uint8>>();
+      final responseHeadersLenPtr = arena<ffi.IntPtr>();
       final responsePtrPtr = arena<ffi.Pointer<ffi.Uint8>>();
       final responseLenPtr = arena<ffi.IntPtr>();
 
@@ -7187,6 +7305,8 @@ Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
         payload.length,
         certPtr,
         statusPtr,
+        responseHeadersPtrPtr,
+        responseHeadersLenPtr,
         responsePtrPtr,
         responseLenPtr,
       );
@@ -7197,6 +7317,17 @@ Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
         );
       }
       final status = statusPtr.value;
+      final responseHeadersPtr = responseHeadersPtrPtr.value;
+      final responseHeadersLen = responseHeadersLenPtr.value;
+      Uint8List responseHeaders;
+      if (responseHeadersPtr == ffi.nullptr || responseHeadersLen == 0) {
+        responseHeaders = Uint8List(0);
+      } else {
+        responseHeaders = Uint8List.fromList(
+          responseHeadersPtr.asTypedList(responseHeadersLen),
+        );
+        bufferFree(responseHeadersPtr, responseHeadersLen);
+      }
       final responsePtr = responsePtrPtr.value;
       final responseLen = responseLenPtr.value;
       Uint8List responseBody;
@@ -7206,12 +7337,21 @@ Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
         responseBody = Uint8List.fromList(responsePtr.asTypedList(responseLen));
         bufferFree(responsePtr, responseLen);
       }
-      return <String, Object?>{'status': status, 'body': responseBody};
+      return <String, Object?>{
+        'status': status,
+        'headers': responseHeaders,
+        'body': responseBody,
+      };
     });
   });
   final status = result['status'] as int? ?? 0;
+  final responseHeaders = (result['headers'] as Uint8List?) ?? Uint8List(0);
   final responseBody = (result['body'] as Uint8List?) ?? Uint8List(0);
-  return NativeHttpTestResponse(status, responseBody);
+  return NativeHttpTestResponse(
+    status,
+    responseBody,
+    _parseHttpTestHeaderBlock(responseHeaders),
+  );
 }
 
 Future<void> _writeOpenMetricsSnapshot(
@@ -7424,6 +7564,81 @@ _postHttp2Json(
     socket.destroy();
     rethrow;
   }
+}
+
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
+_postHttp3Json(
+  String nativeLibPath,
+  int port,
+  String path,
+  Map<String, Object?> payload, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final bodyText = jsonEncode(payload);
+  final bodyBytes = Uint8List.fromList(utf8.encode(bodyText));
+  final response = await _runHttp3StreamRequestInIsolate(
+    nativeLibPath,
+    host: '127.0.0.1',
+    port: port,
+    path: path,
+    method: 'POST',
+    headers: <String, String>{
+      'content-type': ContentType.json.mimeType,
+      'content-length': bodyBytes.length.toString(),
+      ...headers,
+    },
+    body: bodyBytes,
+    certificatePem: _http3CaCertificatePem,
+  );
+  final body = utf8.decode(response.body);
+  Object? decoded;
+  if (body.isNotEmpty) {
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException {
+      decoded = null;
+    }
+  }
+  return (
+    statusCode: response.status,
+    json: decoded is Map ? decoded.cast<String, Object?>() : null,
+    body: body,
+    headers: response.headers,
+  );
+}
+
+Map<String, String> _parseHttpTestHeaderBlock(Uint8List bytes) {
+  if (bytes.isEmpty) {
+    return const {};
+  }
+  final headers = <String, String>{};
+  for (final line in utf8.decode(bytes).split('\n')) {
+    if (line.isEmpty) {
+      continue;
+    }
+    final separator = line.indexOf(':');
+    if (separator <= 0) {
+      continue;
+    }
+    final name = line.substring(0, separator).trim().toLowerCase();
+    final value = line.substring(separator + 1).trim();
+    if (name.isEmpty) {
+      continue;
+    }
+    headers.update(
+      name,
+      (existing) => '$existing, $value',
+      ifAbsent: () => value,
+    );
+  }
+  return headers;
 }
 
 Future<
