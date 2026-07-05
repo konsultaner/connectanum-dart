@@ -103,6 +103,7 @@
   - [x] Extend HTTP route translation tables with catch-all wildcard mappings for path/method/protocol combinations. Pathless Dart `HttpRouteMatch` entries now encode to native prefix `/` routes, preserving method/protocol filters while matching non-root paths, and native root-prefix routing keeps more-specific prefixes ahead of the catch-all.
   - [x] Provide reserved realm/namespace shorthand so routes can auto-map into a router-managed HTTP realm with deterministic URI derivation (e.g. `/` -> `router.http.index`). Reserved-realm shorthand keeps full-path derivation for compatibility, while namespace prefix routes derive procedure names from the request path relative to the matched route prefix.
   - [x] Allow namespace-based auto-mapping (path segments -> URI prefixes) for teams already organising registrations by namespace.
+  - [x] Serve configured HTTP `file` routes through the native listener and router binding, including automatic HEAD for GET-backed file routes, safe path resolution, conditional requests, single byte ranges, cache/content headers, and no WAMP fallback.
   - [ ] Map incoming REST requests to internal router sessions through an in-memory transport so PHP/FCM or other external services can act as lightweight proxies.
   - [ ] Provide policy-driven routing (path → WAMP procedure/topic, file proxy, custom isolate handler) with per-route auth hooks aligned with realm permissions.
   - [x] Enforce method/protocol whitelists from the configuration; return 405/426 at the native layer before touching Dart.

@@ -3187,6 +3187,229 @@ void main() {
     },
   );
 
+  test('serves configured file HTTP routes without WAMP fallback', () async {
+    final runtime = _HandleRuntime();
+    final tempDir = await Directory.systemTemp.createTemp(
+      'connectanum-file-route-',
+    );
+    addTearDown(() async {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+    final file = File('${tempDir.path}${Platform.pathSeparator}hello.txt');
+    await file.writeAsString('0123456789abcdef');
+
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: const HttpRouteMatch(
+                    prefix: '/assets',
+                    methods: ['GET'],
+                  ),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.file,
+                    directory: tempDir.path,
+                    cacheControl: 'max-age=60',
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+
+    void enqueueFileRequest({
+      required int connectionId,
+      required int handle,
+      required String method,
+      required String path,
+      Map<String, String> headers = const {},
+    }) {
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: handle,
+          method: method,
+          target: path,
+          path: path,
+          protocol: 'http/1.1',
+          headers: headers,
+          body: Uint8List(0),
+          realm: 'router.http',
+          procedure: 'router.http.file',
+        ),
+      );
+    }
+
+    enqueueFileRequest(
+      connectionId: 144,
+      handle: 44,
+      method: 'GET',
+      path: '/assets/hello.txt',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[144]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final getResponse = runtime.httpResponses[144]!.single;
+    expect(getResponse.status, HttpStatus.ok);
+    expect(getResponse.headers[HttpHeaders.contentLengthHeader], '16');
+    expect(getResponse.headers[HttpHeaders.cacheControlHeader], 'max-age=60');
+    expect(
+      getResponse.headers[HttpHeaders.contentTypeHeader],
+      'text/plain; charset=utf-8',
+    );
+    expect(getResponse.headers[HttpHeaders.acceptRangesHeader], 'bytes');
+    final getBody = getResponse.body;
+    expect(getBody, isA<NativeHttpResponseFile>());
+    expect(
+      await File((getBody as NativeHttpResponseFile).path).readAsString(),
+      '0123456789abcdef',
+    );
+    final etag = getResponse.headers[HttpHeaders.etagHeader]!;
+    final lastModified = getResponse.headers[HttpHeaders.lastModifiedHeader]!;
+
+    enqueueFileRequest(
+      connectionId: 148,
+      handle: 48,
+      method: 'GET',
+      path: '/assets/hello.txt',
+      headers: {HttpHeaders.ifNoneMatchHeader: etag},
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[148]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final notModifiedResponse = runtime.httpResponses[148]!.single;
+    expect(notModifiedResponse.status, HttpStatus.notModified);
+    expect(
+      notModifiedResponse.headers,
+      isNot(contains(HttpHeaders.contentLengthHeader)),
+    );
+
+    enqueueFileRequest(
+      connectionId: 149,
+      handle: 49,
+      method: 'GET',
+      path: '/assets/hello.txt',
+      headers: {
+        HttpHeaders.ifNoneMatchHeader: '"stale"',
+        HttpHeaders.ifModifiedSinceHeader: lastModified,
+      },
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[149]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final staleEtagResponse = runtime.httpResponses[149]!.single;
+    expect(staleEtagResponse.status, HttpStatus.ok);
+
+    enqueueFileRequest(
+      connectionId: 145,
+      handle: 45,
+      method: 'HEAD',
+      path: '/assets/hello.txt',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[145]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final headResponse = runtime.httpResponses[145]!.single;
+    expect(headResponse.status, HttpStatus.ok);
+    expect(headResponse.headers[HttpHeaders.contentLengthHeader], '16');
+    final headBody = headResponse.body;
+    expect(headBody, isA<NativeHttpResponseBytes>());
+    expect((headBody as NativeHttpResponseBytes).bytes, isEmpty);
+
+    enqueueFileRequest(
+      connectionId: 146,
+      handle: 46,
+      method: 'GET',
+      path: '/assets/hello.txt',
+      headers: const {HttpHeaders.rangeHeader: 'bytes=2-5'},
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[146]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final rangeResponse = runtime.httpResponses[146]!.single;
+    expect(rangeResponse.status, HttpStatus.partialContent);
+    expect(
+      rangeResponse.headers[HttpHeaders.contentRangeHeader],
+      'bytes 2-5/16',
+    );
+    expect(rangeResponse.headers[HttpHeaders.contentLengthHeader], '4');
+    final rangeBody = rangeResponse.body;
+    expect(rangeBody, isA<NativeHttpResponseBytes>());
+    expect(utf8.decode((rangeBody as NativeHttpResponseBytes).bytes), '2345');
+
+    enqueueFileRequest(
+      connectionId: 147,
+      handle: 47,
+      method: 'GET',
+      path: '/assets/%2e%2e/secret.txt',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[147]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final traversalResponse = runtime.httpResponses[147]!.single;
+    expect(traversalResponse.status, HttpStatus.notFound);
+    final traversalBody = traversalResponse.body;
+    expect(traversalBody, isA<NativeHttpResponseJson>());
+    expect(
+      (traversalBody as NativeHttpResponseJson).value,
+      containsPair('reason', 'file_not_found'),
+    );
+
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+    expect(
+      events.where((event) => event['type'] == 'http_file_route_response_sent'),
+      hasLength(5),
+    );
+  });
+
   test('dispatches handler HTTP routes without WAMP fallback', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()

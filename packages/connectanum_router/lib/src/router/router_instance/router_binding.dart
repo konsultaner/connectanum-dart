@@ -29,6 +29,63 @@ String? _httpRouteHandlerId(HttpRouteAction action) {
   return null;
 }
 
+String? _httpFileRouteDirectory(HttpRouteAction action) {
+  final direct = action.directory?.trim();
+  if (direct != null && direct.isNotEmpty) {
+    return direct;
+  }
+  const optionKeys = ['directory', 'root', 'document_root', 'documentRoot'];
+  return _firstNonEmptyRouteOption(action, optionKeys);
+}
+
+String? _httpFileRouteContentType(HttpRouteAction action) {
+  final direct = action.contentType?.trim();
+  if (direct != null && direct.isNotEmpty) {
+    return direct;
+  }
+  const optionKeys = ['content_type', 'contentType', 'mime_type', 'mimeType'];
+  return _firstNonEmptyRouteOption(action, optionKeys);
+}
+
+String? _httpFileRouteCacheControl(HttpRouteAction action) {
+  final direct = action.cacheControl?.trim();
+  if (direct != null && direct.isNotEmpty) {
+    return direct;
+  }
+  const optionKeys = ['cache_control', 'cacheControl'];
+  return _firstNonEmptyRouteOption(action, optionKeys);
+}
+
+String? _firstNonEmptyRouteOption(
+  HttpRouteAction action,
+  List<String> optionKeys,
+) {
+  for (final key in optionKeys) {
+    final value = action.options[key];
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+  }
+  return null;
+}
+
+class _HttpFileRange {
+  const _HttpFileRange(this.start, this.end) : unsatisfiable = false;
+  const _HttpFileRange.unsatisfiable()
+    : start = -1,
+      end = -1,
+      unsatisfiable = true;
+
+  final int start;
+  final int end;
+  final bool unsatisfiable;
+
+  int get length => end - start + 1;
+}
+
 /// Immutable snapshot of an HTTP request surfaced by the native runtime.
 class RouterHttpRequest {
   RouterHttpRequest({
@@ -935,8 +992,14 @@ class RouterBinding {
     _cleanupExpiredHttpAuthState();
     final listenerSettings = _listenerConfigById[request.listenerId];
     final routeMatch = _matchHttpRoute(listenerSettings?.http, request);
-    final matchedRoute = routeMatch.route;
-    final responseRoute = matchedRoute ?? routeMatch.errorRoute;
+    final httpMethod = request.method.trim().toUpperCase();
+    final matchedRoute = _withEffectiveHttpRouteAction(
+      routeMatch.route,
+      httpMethod,
+    );
+    final responseRoute =
+        matchedRoute ??
+        _withEffectiveHttpRouteAction(routeMatch.errorRoute, httpMethod);
     final sessionProfile = _resolveHttpSessionProfile(
       listenerSettings: listenerSettings,
       route: responseRoute,
@@ -944,7 +1007,6 @@ class RouterBinding {
     final mcpRoute = responseRoute?.action.type == HttpRouteActionType.mcp
         ? responseRoute
         : null;
-    final httpMethod = request.method.trim().toUpperCase();
     final requestMcpProtocolVersion = mcpRoute == null
         ? null
         : _mcpHeaderValue(this, request, _mcpProtocolVersionHeader);
@@ -1141,6 +1203,18 @@ class RouterBinding {
         ),
       );
       retainedHandshake?.release();
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.file) {
+      try {
+        await _handleConfiguredFileRouteRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
       return;
     }
     if (matchedRoute?.action.type == HttpRouteActionType.auth) {
@@ -1647,6 +1721,45 @@ class RouterBinding {
     return _resolveSessionProfile(profileName);
   }
 
+  HttpRouteSettings? _withEffectiveHttpRouteAction(
+    HttpRouteSettings? route,
+    String method,
+  ) {
+    if (route == null) {
+      return null;
+    }
+    final action = _effectiveHttpRouteAction(route, method);
+    if (identical(action, route.action) || action == route.action) {
+      return route;
+    }
+    return HttpRouteSettings(
+      match: route.match,
+      action: action,
+      methodActions: route.methodActions,
+    );
+  }
+
+  HttpRouteAction _effectiveHttpRouteAction(
+    HttpRouteSettings route,
+    String method,
+  ) {
+    final normalized = method.trim().toUpperCase();
+    for (final entry in route.methodActions.entries) {
+      if (entry.key.trim().toUpperCase() == normalized) {
+        return entry.value;
+      }
+    }
+    if (normalized == 'HEAD') {
+      for (final entry in route.methodActions.entries) {
+        if (entry.key.trim().toUpperCase() == 'GET' &&
+            entry.value.type == HttpRouteActionType.file) {
+          return entry.value;
+        }
+      }
+    }
+    return route.action;
+  }
+
   _HttpRouteMatchResult _matchHttpRoute(
     HttpListenerSettings? httpSettings,
     RouterHttpRequest request,
@@ -1713,6 +1826,15 @@ class RouterBinding {
       if (normalized.isNotEmpty) {
         allowed.add(normalized);
       }
+    }
+    if (allowed.contains('GET') &&
+        (route.action.type == HttpRouteActionType.file ||
+            route.methodActions.entries.any(
+              (entry) =>
+                  entry.key.trim().toUpperCase() == 'GET' &&
+                  entry.value.type == HttpRouteActionType.file,
+            ))) {
+      allowed.add('HEAD');
     }
     return allowed.toList(growable: false);
   }
@@ -3156,6 +3278,435 @@ class RouterBinding {
       await _revokeHttpAccessToken(accessToken, removeFromRefreshToken: false);
     }
     record.accessTokens.clear();
+  }
+
+  Future<void> _handleConfiguredFileRouteRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+  }) async {
+    final method = request.method.trim().toUpperCase();
+    if (method != 'GET' && method != 'HEAD') {
+      await _sendConfiguredFileRouteError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.methodNotAllowed,
+        reason: 'method_not_allowed',
+        message: 'HTTP method is not allowed for file routes',
+        headers: const {HttpHeaders.allowHeader: 'GET, HEAD'},
+      );
+      return;
+    }
+
+    final action = route.action;
+    final directoryPath = _httpFileRouteDirectory(action);
+    if (directoryPath == null || directoryPath.isEmpty) {
+      await _sendConfiguredFileRouteError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'file_route_misconfigured',
+        message: 'HTTP file route is missing a configured directory',
+      );
+      return;
+    }
+
+    final relativeSegments = _configuredFileRelativeSegments(
+      route,
+      request.path,
+    );
+    if (relativeSegments == null || relativeSegments.isEmpty) {
+      await _sendConfiguredFileRouteError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route did not resolve to a file',
+      );
+      return;
+    }
+
+    late final String rootPath;
+    try {
+      rootPath = await Directory(directoryPath).resolveSymbolicLinks();
+    } on FileSystemException {
+      await _sendConfiguredFileRouteError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.internalServerError,
+        reason: 'file_route_misconfigured',
+        message: 'HTTP file route directory is not accessible',
+      );
+      return;
+    }
+
+    final requestedPath = _joinConfiguredFilePath(rootPath, relativeSegments);
+    late final String filePath;
+    late final FileStat stat;
+    try {
+      filePath = await File(requestedPath).resolveSymbolicLinks();
+      if (!_isPathWithinDirectory(rootPath, filePath)) {
+        await _sendConfiguredFileRouteError(
+          request: request,
+          handshake: handshake,
+          status: HttpStatus.notFound,
+          reason: 'file_not_found',
+          message: 'HTTP file route did not resolve to a file',
+        );
+        return;
+      }
+      stat = await File(filePath).stat();
+    } on FileSystemException {
+      await _sendConfiguredFileRouteError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route did not resolve to a file',
+      );
+      return;
+    }
+
+    if (stat.type != FileSystemEntityType.file) {
+      await _sendConfiguredFileRouteError(
+        request: request,
+        handshake: handshake,
+        status: HttpStatus.notFound,
+        reason: 'file_not_found',
+        message: 'HTTP file route did not resolve to a file',
+      );
+      return;
+    }
+
+    final modified = stat.modified.toUtc();
+    final size = stat.size;
+    final etag = _weakFileEtag(size: size, modified: modified);
+    final headers = <String, String>{
+      HttpHeaders.contentLengthHeader: size.toString(),
+      HttpHeaders.lastModifiedHeader: HttpDate.format(modified),
+      HttpHeaders.etagHeader: etag,
+      HttpHeaders.acceptRangesHeader: 'bytes',
+    };
+    final contentType =
+        _httpFileRouteContentType(action) ?? _inferFileContentType(filePath);
+    if (contentType != null && contentType.isNotEmpty) {
+      headers[HttpHeaders.contentTypeHeader] = contentType;
+    }
+    final cacheControl = _httpFileRouteCacheControl(action);
+    if (cacheControl != null && cacheControl.isNotEmpty) {
+      headers[HttpHeaders.cacheControlHeader] = cacheControl;
+    }
+
+    final ifNoneMatch = _headerValue(
+      request.headers,
+      HttpHeaders.ifNoneMatchHeader,
+    );
+    final notModified = ifNoneMatch != null && ifNoneMatch.trim().isNotEmpty
+        ? _etagMatches(ifNoneMatch, etag)
+        : _notModifiedSince(
+            _headerValue(request.headers, HttpHeaders.ifModifiedSinceHeader),
+            modified,
+          );
+    if (notModified) {
+      final notModifiedHeaders = Map<String, String>.from(headers)
+        ..remove(HttpHeaders.contentLengthHeader);
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.notModified,
+          headers: notModifiedHeaders,
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_route_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'status': HttpStatus.notModified,
+      });
+      return;
+    }
+
+    final range = _parseSingleHttpRange(
+      _headerValue(request.headers, HttpHeaders.rangeHeader),
+      size,
+    );
+    if (range?.unsatisfiable ?? false) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.requestedRangeNotSatisfiable,
+          headers: <String, String>{
+            ...headers,
+            HttpHeaders.contentLengthHeader: '0',
+            HttpHeaders.contentRangeHeader: 'bytes */$size',
+          },
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_route_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'status': HttpStatus.requestedRangeNotSatisfiable,
+      });
+      return;
+    }
+
+    if (range != null) {
+      final responseHeaders = <String, String>{
+        ...headers,
+        HttpHeaders.contentLengthHeader: range.length.toString(),
+        HttpHeaders.contentRangeHeader:
+            'bytes ${range.start}-${range.end}/$size',
+      };
+      final body = method == 'HEAD'
+          ? Uint8List(0)
+          : Uint8List.fromList(
+              await File(filePath)
+                  .openRead(range.start, range.end + 1)
+                  .expand((chunk) => chunk)
+                  .toList(),
+            );
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.partialContent,
+          headers: responseHeaders,
+          body: NativeHttpResponseBytes(body),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_file_route_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'status': HttpStatus.partialContent,
+      });
+      return;
+    }
+
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.ok,
+        headers: headers,
+        body: method == 'HEAD'
+            ? NativeHttpResponseBytes(Uint8List(0))
+            : NativeHttpResponseFile(filePath),
+      ),
+    );
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_file_route_response_sent',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'status': HttpStatus.ok,
+    });
+  }
+
+  Future<void> _sendConfiguredFileRouteError({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required int status,
+    required String reason,
+    required String message,
+    Map<String, String> headers = const {},
+  }) async {
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: status,
+        headers: headers,
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': reason,
+          'message': message,
+        }),
+      ),
+    );
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_file_route_error',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'status': status,
+      'reason': reason,
+    });
+  }
+
+  List<String>? _configuredFileRelativeSegments(
+    HttpRouteSettings route,
+    String requestPath,
+  ) {
+    var relativePath = requestPath.isEmpty ? '/' : requestPath;
+    final prefix = route.match.prefix?.trim();
+    if (prefix != null && prefix.isNotEmpty) {
+      final normalizedPrefix = prefix.startsWith('/') ? prefix : '/$prefix';
+      if (normalizedPrefix != '/') {
+        if (relativePath != normalizedPrefix &&
+            !relativePath.startsWith('$normalizedPrefix/')) {
+          return null;
+        }
+        relativePath = relativePath.substring(normalizedPrefix.length);
+      }
+    }
+
+    final segments = <String>[];
+    for (final rawSegment in relativePath.split('/')) {
+      if (rawSegment.isEmpty) {
+        continue;
+      }
+      final decoded = _decodeConfiguredFilePathSegment(rawSegment);
+      if (decoded == null) {
+        return null;
+      }
+      segments.add(decoded);
+    }
+    return segments;
+  }
+
+  String? _decodeConfiguredFilePathSegment(String rawSegment) {
+    final decoded = () {
+      try {
+        return Uri.decodeComponent(rawSegment);
+      } on FormatException {
+        return null;
+      }
+    }();
+    if (decoded == null ||
+        decoded.isEmpty ||
+        decoded == '.' ||
+        decoded == '..' ||
+        decoded.contains('/') ||
+        decoded.contains(r'\') ||
+        decoded.codeUnits.any((unit) => unit < 0x20 || unit == 0x7f)) {
+      return null;
+    }
+    return decoded;
+  }
+
+  String _joinConfiguredFilePath(String rootPath, List<String> segments) {
+    var current = rootPath;
+    for (final segment in segments) {
+      current = current.endsWith(Platform.pathSeparator)
+          ? '$current$segment'
+          : '$current${Platform.pathSeparator}$segment';
+    }
+    return current;
+  }
+
+  bool _isPathWithinDirectory(String rootPath, String filePath) {
+    if (filePath == rootPath) {
+      return true;
+    }
+    final rootPrefix = rootPath.endsWith(Platform.pathSeparator)
+        ? rootPath
+        : '$rootPath${Platform.pathSeparator}';
+    return filePath.startsWith(rootPrefix);
+  }
+
+  String _weakFileEtag({required int size, required DateTime modified}) {
+    return 'W/"${size.toRadixString(16)}-'
+        '${modified.millisecondsSinceEpoch.toRadixString(16)}"';
+  }
+
+  bool _etagMatches(String? ifNoneMatch, String etag) {
+    if (ifNoneMatch == null || ifNoneMatch.trim().isEmpty) {
+      return false;
+    }
+    for (final candidate in ifNoneMatch.split(',')) {
+      final trimmed = candidate.trim();
+      if (trimmed == '*' || trimmed == etag) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _notModifiedSince(String? ifModifiedSince, DateTime modified) {
+    if (ifModifiedSince == null || ifModifiedSince.trim().isEmpty) {
+      return false;
+    }
+    try {
+      final since = HttpDate.parse(ifModifiedSince).toUtc();
+      return !_httpDateSeconds(modified).isAfter(_httpDateSeconds(since));
+    } on FormatException {
+      return false;
+    }
+  }
+
+  DateTime _httpDateSeconds(DateTime value) =>
+      DateTime.fromMillisecondsSinceEpoch(
+        (value.toUtc().millisecondsSinceEpoch ~/ 1000) * 1000,
+        isUtc: true,
+      );
+
+  _HttpFileRange? _parseSingleHttpRange(String? rangeHeader, int size) {
+    final header = rangeHeader?.trim();
+    if (header == null || header.isEmpty || !header.startsWith('bytes=')) {
+      return null;
+    }
+    final spec = header.substring('bytes='.length).trim();
+    if (spec.isEmpty || spec.contains(',')) {
+      return null;
+    }
+    final dashIndex = spec.indexOf('-');
+    if (dashIndex < 0 || size <= 0) {
+      return const _HttpFileRange.unsatisfiable();
+    }
+    if (dashIndex == 0) {
+      final suffixLength = int.tryParse(spec.substring(1).trim());
+      if (suffixLength == null || suffixLength <= 0) {
+        return const _HttpFileRange.unsatisfiable();
+      }
+      final start = suffixLength >= size ? 0 : size - suffixLength;
+      return _HttpFileRange(start, size - 1);
+    }
+
+    final start = int.tryParse(spec.substring(0, dashIndex).trim());
+    final endText = spec.substring(dashIndex + 1).trim();
+    final parsedEnd = endText.isEmpty ? size - 1 : int.tryParse(endText);
+    if (start == null || start < 0 || parsedEnd == null || parsedEnd < start) {
+      return const _HttpFileRange.unsatisfiable();
+    }
+    if (start >= size) {
+      return const _HttpFileRange.unsatisfiable();
+    }
+    final end = parsedEnd >= size ? size - 1 : parsedEnd;
+    return _HttpFileRange(start, end);
+  }
+
+  String? _inferFileContentType(String filePath) {
+    final lower = filePath.toLowerCase();
+    final extensionStart = lower.lastIndexOf('.');
+    if (extensionStart < 0 || extensionStart == lower.length - 1) {
+      return null;
+    }
+    final extension = lower.substring(extensionStart + 1);
+    return switch (extension) {
+      'html' || 'htm' => 'text/html; charset=utf-8',
+      'css' => 'text/css; charset=utf-8',
+      'js' || 'mjs' => 'text/javascript; charset=utf-8',
+      'json' => 'application/json',
+      'txt' => 'text/plain; charset=utf-8',
+      'svg' => 'image/svg+xml',
+      'png' => 'image/png',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      'ico' => 'image/x-icon',
+      'wasm' => 'application/wasm',
+      'pdf' => 'application/pdf',
+      _ => null,
+    };
   }
 
   NativeHttpResponse _toNativeHttpResponse(HttpResponsePayload payload) {

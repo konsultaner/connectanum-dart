@@ -176,6 +176,92 @@ void main() {
       expect(action['procedure'], 'connectanum.mcp.handle');
     });
 
+    test('encodes file HTTP routes as router-hosted file endpoints', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      const settings = RouterSettings(
+        realms: [],
+        listeners: [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/assets', methods: ['GET']),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.file,
+                    directory: 'public',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      final methods = route['methods'] as Map;
+      final action = methods['GET'] as Map;
+      expect(methods, contains('HEAD'));
+      expect(action['type'], 'translation');
+      expect(action['realm'], 'router.http');
+      expect(action['procedure'], 'router.http.file');
+      expect(methods['HEAD'], action);
+    });
+
+    test('rejects file HTTP routes without a directory', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      const settings = RouterSettings(
+        realms: [],
+        listeners: [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(prefix: '/assets'),
+                  action: HttpRouteAction(type: HttpRouteActionType.file),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('HTTP file routes require a directory'),
+          ),
+        ),
+      );
+    });
+
     test('encodes pathless HTTP routes as native catch-all prefix routes', () {
       final endpoint = Endpoint(
         host: '127.0.0.1',

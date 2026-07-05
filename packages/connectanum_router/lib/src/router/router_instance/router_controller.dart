@@ -157,12 +157,21 @@ class Router {
           methodTargets[normalized] = route.action;
         }
       }
+      if (route.action.type == HttpRouteActionType.file &&
+          methodTargets.containsKey('GET')) {
+        methodTargets.putIfAbsent('HEAD', () => route.action);
+      }
     }
     for (final entry in route.methodActions.entries) {
       final normalized = entry.key.trim().toUpperCase();
       if (normalized.isNotEmpty) {
         methodTargets[normalized] = entry.value;
       }
+    }
+    final getMethodAction = methodTargets['GET'];
+    if (getMethodAction != null &&
+        getMethodAction.type == HttpRouteActionType.file) {
+      methodTargets.putIfAbsent('HEAD', () => getMethodAction);
     }
     if (methodTargets.isEmpty) {
       routeMap['default'] = _httpRouteActionToNative(
@@ -259,6 +268,18 @@ class Router {
           'realm': realm,
           'procedure': 'connectanum.mcp.handle',
         };
+      case HttpRouteActionType.file:
+        final directory = _httpFileRouteDirectory(action);
+        if (directory == null || directory.isEmpty) {
+          throw StateError(
+            'HTTP file routes require a directory; set action.directory or action.options.directory.',
+          );
+        }
+        return const <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': 'router.http.file',
+        };
       case HttpRouteActionType.handler:
         final handlerId = _httpRouteHandlerId(action);
         if (handlerId == null || handlerId.isEmpty) {
@@ -276,6 +297,24 @@ class Router {
           'HTTP route action ${action.type} is not yet supported for native wiring.',
         );
     }
+  }
+
+  String? _httpFileRouteDirectory(HttpRouteAction action) {
+    final direct = action.directory?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    const optionKeys = ['directory', 'root', 'document_root', 'documentRoot'];
+    for (final key in optionKeys) {
+      final value = action.options[key];
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
+      }
+    }
+    return null;
   }
 
   String? _resolveRouteRealm(

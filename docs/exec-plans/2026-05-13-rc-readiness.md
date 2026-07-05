@@ -79,6 +79,28 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Implemented configured HTTP `file` route actions as
+  router-hosted native listener endpoints. Native config now validates the file
+  route directory, maps `action: file` to an internal `router.http.file`
+  endpoint, and adds HEAD automatically for GET-backed file routes.
+  `RouterBinding` intercepts configured file routes before WAMP fallback,
+  resolves requested paths inside the configured root with URI segment and
+  symlink containment checks, serves full-file GET responses through native
+  file-backed response descriptors, handles HEAD, conditional requests,
+  inferred content types, configured cache control, and single byte ranges, and
+  returns structured JSON errors for unsafe paths or missing files. Baseline
+  `bin/test-fast` passed before the change on 2026-07-05. Focused
+  `dart test packages/connectanum_router/test/router_json_test.dart packages/connectanum_router/test/router_runtime_test.dart`
+  passed after the change, including native config encoding,
+  missing-directory validation, GET/HEAD/range serving, traversal rejection,
+  and no WAMP fallback for configured file routes. Full local `bin/verify`
+  passed after the change on 2026-07-05, including formatting, Rust/FFI tests,
+  MCP package tests, consumer package smokes, live WAMP benchmark integration,
+  router-hosted MCP example smokes, router CLI consumer smokes, full router
+  tests with the configured file-route regressions, HTTP/2 and HTTP/3 router
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this checkpoint is pending after push; the latest fully clean
+  hosted checkpoint remains `d64d220`.
 - 2026-07-05: Completed HTTP namespace prefix shorthand resolution for
   consumer router configurations. Native HTTP route resolution now derives
   namespace shorthand procedure path segments from the request path relative to
@@ -95,7 +117,22 @@ decision because `connectanum_client` still depends on private
   example smokes, router CLI consumer smokes, full router tests with the
   namespace-prefix shorthand regressions, HTTP/2 and HTTP/3 router
   integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence is pending for this native-route change.
+  evidence after push: commit `d64d220` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`. GitHub `add-router`
+  CI `28748267986`, WAMP Profile Benchmarks `28748268009`, and kTLS Validation
+  `28748268045` passed at `d64d220`; GitHub `master` CI `28748270065`, WAMP
+  Profile Benchmarks `28748270068`, and kTLS Validation `28748270070` also
+  passed at `d64d220`. Native Artifacts dry-run `28748296297` passed at
+  `d64d220` with validation tag `v0.1.0-rc.2-validation.d64d220`, and Router
+  Image dry-run `28748697582` passed at `d64d220` with preview metadata
+  `sha-d64d22063220` and GHCR login/push skipped. Dart Package Publish Dry
+  Run `28746631697` remains clean and relevant from `92635ab` because no
+  publish-sensitive paths changed since then. The strict deployment-chain
+  audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed for `master` at `d64d220`; RC readiness is blocked only on selecting
+  and approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-05: Expanded router-native OpenMetrics/health internal-route
   coverage for the metrics router session. `open_metrics_http_server_test.dart`
   now proves `connectanum.metrics.healthz` serves both `/healthz` and the
