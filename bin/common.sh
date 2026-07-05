@@ -23296,9 +23296,14 @@ run_router_cli_consumer_package_smoke() (
   local metrics_line
   local metrics_port
   local native_lib
+  local package_name
+  local package_source
+  local package_target
   local dart_consumer_summary
   local smoke_dir
   local pub_cache
+  local global_smoke_workspace
+  local global_router_command
   local router_command
   local router_log
   local router_pid
@@ -23463,6 +23468,59 @@ EOF
     PUB_CACHE="$pub_cache" dart run connectanum_router --help \
       | grep -F 'Usage: dart run connectanum_router --config <path>'
   )
+
+  global_smoke_workspace="$smoke_dir/global-workspace"
+  mkdir -p "$global_smoke_workspace/packages"
+  cat >"$global_smoke_workspace/pubspec.yaml" <<EOF
+name: connectanum_router_global_activation_smoke_workspace
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+    connectanum_router:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+workspace:
+  - packages/connectanum_core
+  - packages/connectanum_mcp
+  - packages/connectanum_client
+  - packages/connectanum_router
+  - packages/connectanum_auth_server
+EOF
+  if [[ -f "$ROOT_DIR/pubspec.lock" ]]; then
+    cp "$ROOT_DIR/pubspec.lock" "$global_smoke_workspace/pubspec.lock"
+  fi
+
+  for package_name in \
+    connectanum_core \
+    connectanum_mcp \
+    connectanum_client \
+    connectanum_router \
+    connectanum_auth_server; do
+    package_source="$ROOT_DIR/packages/$package_name"
+    package_target="$global_smoke_workspace/packages/$package_name"
+    mkdir -p "$package_target"
+    cp "$package_source/pubspec.yaml" "$package_target/pubspec.yaml"
+    cp -R "$package_source/lib" "$package_target/lib"
+    if [[ -d "$package_source/bin" ]]; then
+      cp -R "$package_source/bin" "$package_target/bin"
+    fi
+    if [[ -d "$package_source/hook" ]]; then
+      cp -R "$package_source/hook" "$package_target/hook"
+    fi
+  done
+  CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_router" >&2
+  global_router_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v connectanum_router || true)"
+  if [[ "$global_router_command" != "$pub_cache/bin/connectanum_router" ]]; then
+    printf 'Expected isolated pub-cache connectanum_router command, got: %s\n' \
+      "${global_router_command:-<missing>}" >&2
+    return 1
+  fi
+  PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help \
+    | grep -F 'Usage: dart run connectanum_router --config <path>'
 
   native_lib=""
   if native_runtime_supported && ensure_native_client_test_runtime; then

@@ -159,13 +159,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("source-checkout alias", body)
-        self.assertNotIn("dart pub global activate", body)
         self.assertNotIn(
             'rm -rf "$ROOT_DIR/.dart_tool/pub/bin/connectanum_router"',
-            body,
-        )
-        self.assertNotIn(
-            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router',
             body,
         )
 
@@ -191,6 +186,32 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('PUB_CACHE="$pub_cache" dart pub get', body)
         self.assertIn(
             'PUB_CACHE="$pub_cache" dart run connectanum_router --help',
+            body,
+        )
+        self.assertIn("dart pub global activate --source path", body)
+        self.assertIn(
+            'global_smoke_workspace="$smoke_dir/global-workspace"',
+            body,
+        )
+        self.assertIn(
+            '"$global_smoke_workspace/packages/connectanum_router"',
+            body,
+        )
+        self.assertIn("connectanum_router_global_activation_smoke_workspace", body)
+        self.assertIn('"$ROOT_DIR/pubspec.lock"', body)
+        self.assertIn('"$global_smoke_workspace/pubspec.lock"', body)
+        self.assertIn("connectanum_auth_server", body)
+        self.assertIn(
+            'global_router_command="$(PATH="$pub_cache/bin:$PATH" '
+            'PUB_CACHE="$pub_cache" command -v connectanum_router || true)"',
+            body,
+        )
+        self.assertIn(
+            'if [[ "$global_router_command" != "$pub_cache/bin/connectanum_router" ]]; then',
+            body,
+        )
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help',
             body,
         )
         self.assertIn(

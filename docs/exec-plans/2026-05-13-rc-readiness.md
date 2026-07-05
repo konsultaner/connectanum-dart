@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-07-04
+Last updated: 2026-07-05
 
 ## Problem
 
@@ -79,6 +79,31 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Extended the router CLI consumer package smoke to prove
+  installed-command discovery for consumer harnesses. `run_router_cli_consumer_package_smoke()`
+  now creates a lockfile-pinned temporary workspace copy, activates the copied
+  `connectanum_router` package into an isolated Pub cache with native builds
+  skipped, asserts `command -v connectanum_router` resolves to that Pub cache,
+  and runs `connectanum_router --help` before the live router-hosted MCP
+  consumer flow. This keeps the real checkout `.dart_tool` state untouched
+  while covering consumers that need a real installed command instead of only
+  `dart run connectanum_router`. `tool/test_mcp_consumer_package_boundary.py`
+  guards the temp workspace, lockfile copy, isolated command lookup, and help
+  invocation. Baseline `bin/test-fast` passed before the change on
+  2026-07-05, including router-hosted MCP live smokes, the neutral MCP
+  consumer package smoke, the package-executable router CLI consumer smoke,
+  live WAMP benchmark integration, and router fast tests. Focused `bash -n
+  bin/common.sh`, `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`,
+  targeted `python3 -m unittest` coverage for the router CLI boundary tests,
+  and direct `bash -lc 'set -euo pipefail; source bin/common.sh; run_router_cli_consumer_package_smoke'`
+  passed after the change. Full local `bin/verify` passed on 2026-07-05,
+  including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+  consumer package smokes, MCP auth/session and Streamable HTTP client tests,
+  live WAMP benchmark integration, the neutral benchmark CLI/service/worker
+  consumer package smoke, router-hosted MCP example smokes, the updated router
+  CLI installed-command/package-executable consumer smoke, full router tests,
+  zero-copy router tests, OpenMetrics internal route tests, and the
+  Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-04: Exposed the public router-hosted MCP client as a
   consumer-visible `connectanum_mcp` package executable.
   `packages/connectanum_mcp/pubspec.yaml` now declares `router_hosted_client`,

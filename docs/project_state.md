@@ -1,20 +1,54 @@
 # Project State
 
-Last updated: 2026-07-04
+Last updated: 2026-07-05
 Current branch: `add-router`
-Last reviewed branch checkpoint: `connectanum_mcp` now exposes the public
-router-hosted MCP client as `dart run connectanum_mcp:router_hosted_client`.
-The public dry-run/live router-hosted MCP smokes and the neutral MCP client
-consumer package smoke now exercise that package executable so an agent or
-consumer application can validate the package without checkout-only example
-paths. The router and benchmark packages also expose their consumer-facing
-executables through package metadata.
-Latest fully clean hosted checkpoint: Commit `e4f7c2f` on GitHub `master` and
-GitHub `add-router` passed CI after the router-native OpenMetrics/health guard.
-The strict deployment-chain audit passed for GitHub `master` with current clean
-CI at `e4f7c2f`, plus still-relevant Dart package dry-run and WAMP profile
-benchmark evidence from `99a9f9c`.
+Last reviewed branch checkpoint: the router CLI consumer smoke now proves a
+consumer application can discover `connectanum_router` as an installed command
+from an isolated Pub cache, in addition to the checkout alias and
+`dart run connectanum_router` package executable paths. The router-hosted MCP
+smoke still exercises health, metrics, auth, public/protected MCP, direct JSON
+WAMP/meta APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart
+consumer access without private checkout assumptions.
+Latest fully clean hosted checkpoint: Commit `42ac5d9` on GitHub `master` and
+GitHub `add-router` retained clean hosted evidence after the public
+`connectanum_mcp:router_hosted_client` executable change. GitHub Native
+Artifacts dry-run `28723003691`, GitHub Router Image dry-run `28723003704`,
+and the strict deployment-chain audit passed for GitHub `master` at `42ac5d9`.
+The remaining RC-ready audit blockers are release decisions: selecting the
+numeric RC tag/prerelease/router-image tag and deferring pub.dev package
+ownership/order for the private core dependency.
 Current implementation checkpoint:
+`run_router_cli_consumer_package_smoke()` now creates a lockfile-pinned
+temporary workspace copy for `connectanum_core`, `connectanum_client`,
+`connectanum_mcp`, `connectanum_router`, and `connectanum_auth_server`, then
+runs `PUB_CACHE="$pub_cache" dart pub global activate --source path` against
+the copied `connectanum_router` package with native builds skipped. The smoke
+asserts `command -v connectanum_router` resolves to the isolated Pub cache and
+runs `connectanum_router --help` before starting the package-executable router
+and exercising the live router-hosted MCP consumer flow. This avoids mutating
+the real checkout `.dart_tool` state while proving command discovery for
+consumer harnesses that require a real installed executable. The boundary test
+guards the temp workspace, lockfile copy, isolated command lookup, and help
+invocation.
+
+Baseline `bin/test-fast` passed before this router CLI installed-command smoke
+change on 2026-07-05, including router-hosted MCP live smokes, the neutral MCP
+consumer package smoke, the package-executable router CLI consumer smoke, live
+WAMP benchmark integration, and router fast tests. Focused `bash -n
+bin/common.sh`, `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`,
+targeted `python3 -m unittest` coverage for the router CLI consumer boundary
+tests, and direct
+`bash -lc 'set -euo pipefail; source bin/common.sh; run_router_cli_consumer_package_smoke'`
+passed after the change. Full local `bin/verify` passed on 2026-07-05,
+including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+consumer package smokes, MCP auth/session and Streamable HTTP client tests,
+live WAMP benchmark integration, the neutral benchmark CLI/service/worker
+consumer package smoke, router-hosted MCP example smokes, the updated router
+CLI installed-command/package-executable consumer smoke, full router tests,
+zero-copy router tests, OpenMetrics internal route tests, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `packages/connectanum_mcp/pubspec.yaml` declares the `router_hosted_client`
 package executable and `packages/connectanum_mcp/bin/router_hosted_client.dart`
 delegates to the public router-hosted client example. The example usage now
