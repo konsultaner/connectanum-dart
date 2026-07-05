@@ -28102,26 +28102,14 @@ Future<void> main() async {
       secureClient.sessionId == null && secureClient.lastEventId == null,
       'Dart consumer protected Streamable delete leaked state.',
     );
-    final deletedSessionClient = McpStreamableHttpClient.withAuthGrant(
+    await _assertDeletedStreamableSessionRejectedAcrossMethods(
       secureEndpoint,
       grant,
+      sessionId: staleSecureSessionId,
+      lastEventId: staleSecureLastEventId,
+      idPrefix: 'dart-consumer-secure-deleted-session',
+      label: 'Dart consumer protected deleted Streamable session',
     );
-    try {
-      deletedSessionClient.sessionId = staleSecureSessionId;
-      deletedSessionClient.lastEventId = staleSecureLastEventId;
-      await _expectMcpHttpRejected(
-        () => deletedSessionClient.poll(),
-        HttpStatus.notFound,
-        'Dart consumer protected deleted Streamable session poll',
-      );
-      _expect(
-        deletedSessionClient.sessionId == null &&
-            deletedSessionClient.lastEventId == null,
-        'Dart consumer deleted-session poll kept stale state.',
-      );
-    } finally {
-      deletedSessionClient.close(force: true);
-    }
 
     final refreshedGrant = await authClient.refreshToken(originalRefreshToken);
     _expect(
@@ -28295,6 +28283,7 @@ Future<void> main() async {
           'streamable': true,
           'streamableSessionDelete': true,
           'deletedSessionRejected': true,
+          'deletedSessionMatrix': true,
           'resourcesPrompts': true,
           'pubsub': true,
           'wampMeta': true,
@@ -28860,6 +28849,202 @@ Future<void> _expectMcpHttpRejected(
   throw StateError('$label was accepted.');
 }
 
+Future<void> _assertDeletedStreamableSessionRejectedAcrossMethods(
+  Uri endpoint,
+  ConnectanumHttpAuthGrant grant, {
+  required String sessionId,
+  String? lastEventId,
+  required String idPrefix,
+  required String label,
+}) async {
+  final client = McpStreamableHttpClient.withAuthGrant(endpoint, grant);
+  try {
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.postBatch(<McpJsonMap>[
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': '$idPrefix-batch-tools',
+            'method': 'tools/list',
+            'params': <String, Object?>{},
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': '$idPrefix-batch-resources',
+            'method': 'resources/list',
+            'params': <String, Object?>{},
+          },
+        ]);
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label batch tools/resources',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.postBatch(<McpJsonMap>[
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': '$idPrefix-batch-api-list',
+            'method': 'tools/call',
+            'params': <String, Object?>{
+              'name': 'connectanum.api.list',
+              'arguments': <String, Object?>{'kind': 'topic'},
+            },
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': '$idPrefix-batch-pubsub-subscribe',
+            'method': 'tools/call',
+            'params': <String, Object?>{
+              'name': 'connectanum.pubsub.subscribe',
+              'arguments': <String, Object?>{
+                'topic': _secureTopic,
+                'queueLimit': 1,
+              },
+            },
+          },
+        ]);
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label batch WAMP meta/pubsub',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.notifyInitialized();
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label notification',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.listTools(id: '$idPrefix-tools');
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label tools/list',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.callTool(
+          _secureProcedure,
+          id: '$idPrefix-tool-call',
+          arguments: <String, Object?>{'taskId': 'T-$idPrefix-tool-call'},
+        );
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label tools/call',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.listResources(id: '$idPrefix-resources');
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label resources/list',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.readResource(
+          'cli://mcp/secure/context',
+          id: '$idPrefix-resource-read',
+        );
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label resources/read',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.listResourceTemplates(
+          id: '$idPrefix-resource-templates',
+        );
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label resources/templates/list',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.listPrompts(id: '$idPrefix-prompts');
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label prompts/list',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.getPrompt(
+          'summarize-secure-cli-context',
+          id: '$idPrefix-prompt-get',
+          arguments: <String, String>{
+            'topic': 'deleted session replay readiness',
+          },
+        );
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label prompts/get',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.poll();
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label poll',
+    );
+    await _assertDeletedStreamableSessionRejectedWithState(
+      client,
+      () async {
+        await client.deleteSession();
+      },
+      sessionId: sessionId,
+      lastEventId: lastEventId,
+      label: '$label delete',
+    );
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _assertDeletedStreamableSessionRejectedWithState(
+  McpStreamableHttpClient client,
+  Future<void> Function() operation, {
+  required String sessionId,
+  String? lastEventId,
+  required String label,
+}) async {
+  client.sessionId = sessionId;
+  client.lastEventId = lastEventId;
+  await _expectMcpHttpRejected(
+    () async {
+      await operation();
+      return null;
+    },
+    HttpStatus.notFound,
+    label,
+  );
+  _expect(
+    client.sessionId == null && client.lastEventId == null,
+    '$label kept stale Streamable state.',
+  );
+}
+
 Future<void> _expectAuthRejected(
   Future<Object?> Function() operation,
   int statusCode,
@@ -29043,11 +29228,11 @@ DART
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
     '"public":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
   printf 'Router CLI consumer package smoke served /healthz, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
-  printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay.\n'
+  printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay across the method matrix.\n'
   _cleanup_router_cli_smoke 0
 )

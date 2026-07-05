@@ -1223,6 +1223,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"secure":{"ticketGrant":true,"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"deletedSessionRejected":true,'
+            '"deletedSessionMatrix":true,'
             '"resourcesPrompts":true,'
             '"pubsub":true,"wampMeta":true,'
             '"batch":true,'
@@ -1272,14 +1273,39 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "Dart consumer protected deleted Streamable session poll",
+            "label: '$label poll'",
             body,
         )
         self.assertIn(
-            "Dart consumer deleted-session poll kept stale state.",
+            "label: '$label batch WAMP meta/pubsub'",
+            body,
+        )
+        self.assertIn(
+            "idPrefix: 'dart-consumer-secure-deleted-session'",
+            body,
+        )
+        self.assertIn(
+            "$idPrefix-batch-pubsub-subscribe",
+            body,
+        )
+        self.assertIn(
+            "$idPrefix-resource-read",
+            body,
+        )
+        self.assertIn(
+            "$idPrefix-prompt-get",
+            body,
+        )
+        self.assertIn(
+            "label: '$label delete'",
+            body,
+        )
+        self.assertIn(
+            "kept stale Streamable state.",
             body,
         )
         self.assertIn("deletedSessionRejected", body)
+        self.assertIn("deletedSessionMatrix", body)
         self.assertIn("Dart consumer refreshed Streamable delete leaked state.", body)
         self.assertIn("_expectNotificationPubSub", body)
         self.assertIn("notifyWampEventDirect", body)
@@ -1291,6 +1317,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("configured subscription meta", body)
+        self.assertIn(
+            "Router CLI consumer package smoke rejected stale protected "
+            "Streamable session replay across the method matrix.",
+            body,
+        )
         self.assertIn("configured registration", body)
         self.assertIn("_expectConfiguredWampRegistrationMeta", body)
         self.assertIn("_expectConfiguredWampSubscriptionMeta", body)
@@ -1360,7 +1391,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "Router CLI consumer package smoke rejected stale protected "
-            "Streamable session replay.",
+            "Streamable session replay across the method matrix.",
             body,
         )
 
