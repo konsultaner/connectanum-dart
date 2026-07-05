@@ -23313,18 +23313,64 @@ run_bench_cli_consumer_package_smoke() (
   local global_smoke_workspace
   local global_worker_command
   local help_output
+  local http_port
+  local native_lib
   local package_name
   local package_source
   local package_target
+  local ports
   local pub_cache
+  local rawsocket_port
+  local bench_service_log
+  local bench_service_pid
   local smoke_dir
+  local websocket_port
   local worker_help_output
 
   require_command dart
 
   smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-bench-cli-smoke.XXXXXX")"
   pub_cache="$smoke_dir/pub-cache"
-  trap "rm -rf '$smoke_dir'" EXIT
+  bench_service_log="$smoke_dir/bench-service.log"
+  bench_service_pid=""
+
+  _cleanup_bench_cli_smoke() {
+    local status="${1:-0}"
+
+    if [[ -n "${bench_service_pid:-}" ]]; then
+      if kill -0 "$bench_service_pid" >/dev/null 2>&1; then
+        if [[ -n "${http_port:-}" ]]; then
+          curl -fsS -X POST \
+            "http://127.0.0.1:$http_port/bench/stop" \
+            >/dev/null 2>&1 || true
+        fi
+        for _ in {1..50}; do
+          if ! kill -0 "$bench_service_pid" >/dev/null 2>&1; then
+            break
+          fi
+          sleep 0.1
+        done
+      fi
+      if kill -0 "$bench_service_pid" >/dev/null 2>&1; then
+        kill "$bench_service_pid" >/dev/null 2>&1 || true
+        for _ in {1..50}; do
+          if ! kill -0 "$bench_service_pid" >/dev/null 2>&1; then
+            break
+          fi
+          sleep 0.1
+        done
+      fi
+      if kill -0 "$bench_service_pid" >/dev/null 2>&1; then
+        kill -KILL "$bench_service_pid" >/dev/null 2>&1 || true
+      fi
+      wait "$bench_service_pid" >/dev/null 2>&1 || true
+      bench_service_pid=""
+    fi
+
+    return "$status"
+  }
+
+  trap '_cleanup_bench_cli_smoke 0 >/dev/null 2>&1 || true; rm -rf "$smoke_dir"' EXIT
 
   mkdir -p "$smoke_dir/bench-runner"
   cat >"$smoke_dir/bench-runner/pubspec.yaml" <<EOF
@@ -23456,6 +23502,235 @@ EOF
   worker_help_output="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" wamp_client_worker --help)"
   grep -F -- '--realm' <<<"$worker_help_output" >/dev/null
   grep -F -- '--targets-json' <<<"$worker_help_output" >/dev/null
+
+  native_lib=""
+  if native_runtime_supported && ensure_native_client_test_runtime; then
+    native_lib="${CONNECTANUM_NATIVE_LIB:-}"
+  fi
+  if [[ -z "$native_lib" ]]; then
+    printf 'Native runtime unavailable; completed bench CLI help smoke only.\n'
+    return 0
+  fi
+  require_command curl
+  require_command python3
+
+  ports="$(
+    python3 - <<'PY'
+import socket
+
+ports = []
+for _ in range(3):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        ports.append(sock.getsockname()[1])
+print(*ports)
+PY
+  )"
+  read -r http_port rawsocket_port websocket_port <<<"$ports"
+  if [[ ! "$http_port" =~ ^[0-9]+$ ||
+        ! "$rawsocket_port" =~ ^[0-9]+$ ||
+        ! "$websocket_port" =~ ^[0-9]+$ ]]; then
+    printf 'Failed to reserve bench CLI smoke ports: %s\n' "$ports" >&2
+    return 1
+  fi
+
+  cat >"$smoke_dir/bench-router.yaml" <<YAML
+router:
+  session_profiles:
+    - name: public-http
+      auth:
+        methods: []
+
+  realms:
+    - name: bench.control
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: anonymous
+          permissions: []
+        - name: bench
+          permissions: []
+    - name: bench.secure
+      auth:
+        authmethods: [ticket]
+        ticket:
+          authenticator: ticket-basic
+      roles:
+        - name: internal
+          permissions:
+            - uri: bench.
+              match: prefix
+              allow: [register, unregister, subscribe, unsubscribe, publish, call]
+        - name: member
+          permissions:
+            - uri: bench.
+              match: prefix
+              allow: [register, unregister, subscribe, unsubscribe, publish, call]
+
+  listeners:
+    - endpoint: 127.0.0.1:$http_port
+      protocols: [http]
+      tls:
+        mode: disabled
+      http:
+        session_profile: public-http
+        routes:
+          - match:
+              path: /bench/healthz
+              methods: [GET]
+            action:
+              type: rpc
+              realm: bench.control
+              procedure: bench.http.healthz
+          - match:
+              path: /bench/wamp
+              methods: [POST]
+            action:
+              type: rpc
+              realm: bench.control
+              procedure: bench.http.wamp
+          - match:
+              path: /bench/stop
+              methods: [POST]
+            action:
+              type: rpc
+              realm: bench.control
+              procedure: bench.http.stop
+    - endpoint: 127.0.0.1:$rawsocket_port
+      authmethods: [anonymous, ticket]
+      protocols: [rawsocket]
+      tls:
+        mode: disabled
+      rawsocket:
+        max_rawsocket_size_exponent: 16
+    - endpoint: 127.0.0.1:$websocket_port
+      authmethods: [anonymous, ticket]
+      protocols: [websocket]
+      tls:
+        mode: disabled
+      websocket:
+        path: /wamp
+        subprotocols: [wamp.2.json, wamp.2.msgpack, wamp.2.cbor]
+
+  worker_pool:
+    min_workers: 1
+
+  authenticators:
+    anonymous:
+      type: anonymous
+    ticket-basic:
+      type: ticket
+      options:
+        secrets:
+          bench-user:
+            ticket: bench-ticket
+            role: member
+            provider: bench-ticket-store
+YAML
+
+  (
+    cd "$global_smoke_workspace"
+    exec env CONNECTANUM_SKIP_NATIVE_BUILD=true \
+      PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" bench_router_service \
+      --router-config "$smoke_dir/bench-router.yaml" \
+      --native-lib "$native_lib"
+  ) >"$bench_service_log" 2>&1 &
+  bench_service_pid=$!
+
+  for _ in {1..600}; do
+    if grep -F 'READY' "$bench_service_log" >/dev/null 2>&1; then
+      break
+    fi
+    if ! kill -0 "$bench_service_pid" >/dev/null 2>&1; then
+      printf 'Bench router service exited before READY.\n' >&2
+      cat "$bench_service_log" >&2
+      _cleanup_bench_cli_smoke 1
+    fi
+    sleep 0.1
+  done
+  if ! grep -F 'READY' "$bench_service_log" >/dev/null 2>&1; then
+    printf 'Bench router service did not report READY.\n' >&2
+    cat "$bench_service_log" >&2
+    _cleanup_bench_cli_smoke 1
+  fi
+
+  BENCH_HTTP_PORT="$http_port" python3 - <<'PY'
+import json
+import os
+import urllib.error
+import urllib.request
+
+base_url = f"http://127.0.0.1:{os.environ['BENCH_HTTP_PORT']}"
+
+
+def post_json(path, payload=None):
+    data = None if payload is None else json.dumps(payload).encode()
+    request = urllib.request.Request(
+        f"{base_url}{path}",
+        data=data,
+        method="POST" if payload is not None else "GET",
+        headers={"content-type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.status, response.read().decode()
+    except urllib.error.HTTPError as error:
+        body = error.read().decode(errors="replace")
+        raise SystemExit(
+            f"Installed bench service request {path} failed: "
+            f"{error.code} {body}"
+        )
+
+
+def assert_wamp_scenario(label, scenario):
+    status, body = post_json("/bench/wamp", scenario)
+    if status != 200:
+        raise SystemExit(
+            f"Installed bench service WAMP {label} returned HTTP {status}: {body}"
+        )
+    decoded = json.loads(body)
+    samples = decoded.get("samples")
+    if not isinstance(samples, list) or len(samples) != scenario["iterations"]:
+        raise SystemExit(
+            f"Installed bench service WAMP {label} returned unexpected samples: "
+            f"{body}"
+        )
+    sample = samples[0]
+    if sample.get("request_bytes") != scenario["payload_bytes"]:
+        raise SystemExit(
+            f"Installed bench service WAMP {label} sample missed request bytes: "
+            f"{body}"
+        )
+
+
+assert_wamp_scenario(
+    "native rawsocket rpc",
+    {
+        "transport": "rawsocket",
+        "client_impl": "native",
+        "serializer": "json",
+        "mode": "rpc",
+        "uri": "bench.rpc.echo",
+        "iterations": 1,
+        "concurrency": 1,
+        "payload_bytes": 16,
+    },
+)
+assert_wamp_scenario(
+    "dart websocket pubsub",
+    {
+        "transport": "websocket",
+        "client_impl": "dart",
+        "serializer": "cbor",
+        "mode": "pubsub",
+        "uri": "bench.topic",
+        "iterations": 1,
+        "concurrency": 1,
+        "payload_bytes": 16,
+    },
+)
+PY
+  _cleanup_bench_cli_smoke 0
 )
 
 run_router_cli_consumer_package_smoke() (

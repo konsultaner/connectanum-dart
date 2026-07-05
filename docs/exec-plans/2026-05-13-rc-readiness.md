@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Extended the benchmark CLI consumer package smoke from
+  installed-command discovery to a real installed-service WAMP workload check.
+  `run_bench_cli_consumer_package_smoke()` now starts the globally activated
+  `bench_router_service` from the isolated benchmark Pub cache with a
+  temporary router config, waits for `READY`, and posts representative
+  scenarios to `/bench/wamp`. When the native runtime is available, the smoke
+  asserts a native RawSocket JSON RPC sample and a Dart WebSocket CBOR pub/sub
+  sample return the expected sample count and request byte size; help-only
+  coverage remains as the local fallback when native runtime setup is
+  unavailable. The package-boundary test now guards the native-runtime gate,
+  installed service startup, `/bench/wamp` route, and both WAMP scenario
+  assertions so consumer benchmark harnesses do not depend on checkout-private
+  router assumptions. Baseline `bin/test-fast` passed before this change on
+  2026-07-05. Focused `bash -n bin/common.sh`,
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, targeted
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_bench_cli_consumer_smoke_uses_package_executable`,
+  direct `run_bench_cli_consumer_package_smoke`, full
+  `python3 tool/test_mcp_consumer_package_boundary.py`, and full
+  `bin/test-fast` passed after the change. Full local `bin/verify` passed
+  after the change on 2026-07-05, including formatting, Rust/FFI tests,
+  Python/tool tests, MCP package tests, consumer package smokes, MCP
+  auth/session and Streamable HTTP client tests, live WAMP benchmark
+  integration, the updated installed-service WAMP benchmark smoke,
+  router-hosted MCP example smokes, router CLI consumer smokes, full router
+  tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
+  browser WebSocket smoke.
 - 2026-07-05: Isolated the remaining generated MCP consumer package smokes
   from the developer/global Pub cache. `run_mcp_server_package_smoke()` and
   `run_mcp_consumer_package_smoke()` now allocate dedicated temporary
@@ -101,10 +127,22 @@ decision because `connectanum_client` still depends on private
   passed after the change on 2026-07-05, including formatting, Rust/FFI tests,
   MCP server-only and router-hosted consumer package smokes, router CLI
   consumer smokes, full router tests, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. A first direct server-smoke attempt with an in-tree
-  `pub-cache` failed because `dart analyze` traversed cached hosted
-  dependencies, so the final implementation keeps each isolated cache outside
-  the generated package directory.
+  WebSocket smoke. Hosted evidence after push: commit `07049a7` was pushed to
+  GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`.
+  GitHub `master` CI `28732932322` and GitHub `add-router` CI `28732932374`
+  passed at `07049a7`; both runs completed Fast Checks and Full Verify
+  successfully. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed at `07049a7`, and the latest CI log gate was clean. Dart package
+  dry-run, WAMP profile benchmark, router image dry-run, and native artifact
+  dry-run evidence remained relevant from prior clean runs because no
+  corresponding sensitive inputs changed. RC readiness remains blocked only on
+  release decisions: selecting/pushing the next numeric RC tag/prerelease and
+  router-image tag, plus the deferred pub.dev package ownership/order track. A
+  first direct server-smoke attempt with an in-tree `pub-cache` failed because
+  `dart analyze` traversed cached hosted dependencies, so the final
+  implementation keeps each isolated cache outside the generated package
+  directory.
 - 2026-07-05: Extended the benchmark CLI consumer package smoke from
   `dart run connectanum_bench:*` help discovery to installed-command
   discovery for the public benchmark entrypoints. `run_bench_cli_consumer_package_smoke()`

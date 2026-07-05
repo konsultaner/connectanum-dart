@@ -2,42 +2,75 @@
 
 Last updated: 2026-07-05
 Current branch: `add-router`
-Last reviewed branch checkpoint: the MCP server-only and router-hosted MCP
-consumer package smokes now resolve, analyze, and run with separate temporary
-Pub caches outside their generated package directories, so package validation
-does not rely on the user's global Pub cache and `dart analyze` does not walk
-cached hosted dependencies. The benchmark CLI consumer smoke still proves the
-installed `router_bench`, `bench_router_service`, and `wamp_client_worker`
-commands from an isolated Pub cache, in addition to the existing
-`dart run connectanum_bench:*` help probes from a neutral consumer package.
-The MCP client package smoke still proves the installed `router_hosted_client`
-command from an isolated Pub cache, the router CLI still advertises the
-installed executable form, `connectanum_router --config ...`, from the
-checkout alias, `dart run connectanum_router --help`, and isolated global
-activation, and the router-hosted MCP smoke still starts the live router
-through the isolated installed command. The hosted MCP smoke continues to
-exercise health, metrics, auth, public/protected MCP, direct JSON WAMP/meta
+Last reviewed branch checkpoint: the benchmark CLI consumer smoke now proves
+the installed `bench_router_service` executable can start from an isolated Pub
+cache and serve real WAMP workloads through `/bench/wamp` when the native
+runtime is available, covering native RawSocket RPC and Dart WebSocket pub/sub
+instead of stopping at help discovery. The MCP server-only and router-hosted
+MCP consumer package smokes still resolve, analyze, and run with separate
+temporary Pub caches outside their generated package directories, so package
+validation does not rely on the user's global Pub cache and `dart analyze`
+does not walk cached hosted dependencies. The benchmark smoke still verifies
+the installed `router_bench`, `bench_router_service`, and
+`wamp_client_worker` commands from an isolated Pub cache, in addition to the
+existing `dart run connectanum_bench:*` help probes from a neutral consumer
+package. The MCP client package smoke still proves the installed
+`router_hosted_client` command from an isolated Pub cache, the router CLI still
+advertises the installed executable form, `connectanum_router --config ...`,
+from the checkout alias, `dart run connectanum_router --help`, and isolated
+global activation, and the router-hosted MCP smoke still starts the live
+router through the isolated installed command. The hosted MCP smoke continues
+to exercise health, metrics, auth, public/protected MCP, direct JSON WAMP/meta
 APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart consumer
 access without private checkout assumptions. The isolated global activation
 paths put the generated Pub cache `bin/` directory on `PATH` during activation
 so Pub does not emit executable-path warnings in strict CI log audits.
-Latest fully clean hosted checkpoint: Commit `08c4aa6` on GitHub `master` and
-GitHub `add-router` passed CI after the benchmark installed-command smoke and
-audit-test annotation compatibility fixes. GitHub `master` CI `28731309152`
-passed with Fast Checks and Full Verify green, and GitHub `add-router` CI
-`28731308760` also passed with Fast Checks and Full Verify green. The strict
-deployment-chain audit passed for GitHub `master` at `08c4aa6`; its latest CI
-log scan was clean with no warning/deprecation/skipped/reset/connection-noise
-matches. Dart Package Publish Dry Run `28727181711`, WAMP Profile Benchmarks
-`28727181717`, and Router Image dry-run `28727504734` remain relevant at
-`b1ffb67` because no corresponding sensitive inputs changed since then. Native
-Artifacts dry-run evidence from `42ac5d9` remains relevant because no
-native-release-sensitive paths changed since then.
+Latest fully clean hosted checkpoint: Commit `07049a7` on GitHub `master` and
+GitHub `add-router` passed CI after the MCP package-smoke cache isolation.
+GitHub `master` CI `28732932322` passed with Fast Checks and Full Verify
+green, and GitHub `add-router` CI `28732932374` also passed with Fast Checks
+and Full Verify green. The strict deployment-chain audit passed for GitHub
+`master` at `07049a7`; its latest CI log scan was clean with no
+warning/deprecation/skipped/reset/connection-noise matches. Dart Package
+Publish Dry Run `28727181711`, WAMP Profile Benchmarks `28727181717`, and
+Router Image dry-run `28727504734` remain relevant at `b1ffb67` because no
+corresponding sensitive inputs changed since then. Native Artifacts dry-run
+evidence from `42ac5d9` remains relevant because no native-release-sensitive
+paths changed since then.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the checked-out head after stale `v0.1.0-rc.1`, and deferring pub.dev package
-ownership/order for the private core dependency.
+the last fully clean hosted `07049a7` checkpoint after stale `v0.1.0-rc.1`,
+and deferring pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+`run_bench_cli_consumer_package_smoke()` now starts the globally activated
+`bench_router_service` from the isolated benchmark Pub cache with a temporary
+router config, waits for the service `READY` marker, and posts representative
+WAMP scenarios to `/bench/wamp`. When the native runtime is available, the
+smoke asserts a native RawSocket JSON RPC sample and a Dart WebSocket CBOR
+pub/sub sample both return the expected sample count and request byte size.
+The smoke still keeps help probes for `router_bench`, `bench_router_service`,
+and `wamp_client_worker`, and it only falls back to help-only coverage when
+the native runtime cannot be prepared locally. The package-boundary test now
+guards the native-runtime gate, installed service startup, `/bench/wamp`
+route, and both WAMP scenario assertions so consumer benchmark harnesses do
+not depend on checkout-private router assumptions.
+
+Baseline `bin/test-fast` passed before this installed-service WAMP smoke
+change on 2026-07-05. Focused `bash -n bin/common.sh`,
+`python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, targeted
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_bench_cli_consumer_smoke_uses_package_executable`,
+direct `bash -lc 'source bin/common.sh && run_bench_cli_consumer_package_smoke'`,
+full `python3 tool/test_mcp_consumer_package_boundary.py`, and full
+`bin/test-fast` passed after the change on 2026-07-05. Full local
+`bin/verify` passed after the change on 2026-07-05, including formatting,
+Rust/FFI tests, Python/tool tests, MCP package tests, consumer package smokes,
+MCP auth/session and Streamable HTTP client tests, live WAMP benchmark
+integration, the updated installed-service WAMP benchmark smoke,
+router-hosted MCP example smokes, router CLI consumer smokes, full router
+tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+WebSocket smoke.
+
+Previous implementation checkpoint:
 `run_mcp_server_package_smoke()` and `run_mcp_consumer_package_smoke()` now
 allocate dedicated temporary `PUB_CACHE` directories outside their generated
 consumer package directories, pass that cache through `dart pub get`,

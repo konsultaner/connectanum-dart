@@ -406,6 +406,30 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" wamp_client_worker --help',
             body,
         )
+        self.assertIn("native_runtime_supported", body)
+        self.assertIn("ensure_native_client_test_runtime", body)
+        self.assertIn('bench_service_log="$smoke_dir/bench-service.log"', body)
+        self.assertIn('path: /bench/wamp', body)
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" bench_router_service \\\n'
+            '      --router-config "$smoke_dir/bench-router.yaml"',
+            body,
+        )
+        self.assertIn('assert_wamp_scenario(', body)
+        self.assertIn('"native rawsocket rpc"', body)
+        self.assertIn('"client_impl": "native"', body)
+        self.assertIn('"transport": "rawsocket"', body)
+        self.assertIn('"mode": "rpc"', body)
+        self.assertIn('"uri": "bench.rpc.echo"', body)
+        self.assertIn('"dart websocket pubsub"', body)
+        self.assertIn('"client_impl": "dart"', body)
+        self.assertIn('"transport": "websocket"', body)
+        self.assertIn('"mode": "pubsub"', body)
+        self.assertIn('"uri": "bench.topic"', body)
+        self.assertIn(
+            "Installed bench service WAMP {label} returned unexpected samples",
+            body,
+        )
 
     def test_router_cli_consumer_smoke_bounds_router_shutdown(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
