@@ -451,6 +451,66 @@ Future<void> _expectMalformedSessionIdRejected(
   );
 }
 
+Future<void> _expectDirectJsonStaleSessionIdIgnored(
+  McpStreamableHttpClient client,
+  String? authorizationHeader, {
+  required String sessionId,
+  required String? lastEventId,
+}) async {
+  final httpClient = _shortLivedHttpClient();
+  try {
+    final request = await httpClient.postUrl(client.endpoint);
+    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    request.headers.set('MCP-Protocol-Version', client.protocolVersion);
+    request.headers.set('MCP-Session-Id', 'unknown-direct-json-session-id');
+    request.headers.set(
+      'x-consumer-trace',
+      'router-hosted-client-direct-json-stale-session-id',
+    );
+    if (authorizationHeader != null) {
+      request.headers.set(HttpHeaders.authorizationHeader, authorizationHeader);
+    }
+    request.headers.contentType = ContentType.json;
+    final payload = utf8.encode(
+      jsonEncode({
+        'jsonrpc': '2.0',
+        'id': 'direct-json-stale-session-id',
+        'method': 'tools/list',
+        'params': {},
+      }),
+    );
+    request.contentLength = payload.length;
+    request.add(payload);
+
+    final response = await request.close();
+    final body = await utf8.decodeStream(response);
+    if (response.statusCode != HttpStatus.ok) {
+      throw StateError(
+        'Direct JSON stale MCP-Session-Id returned ${response.statusCode}, '
+        'expected ${HttpStatus.ok}: $body',
+      );
+    }
+    if (response.headers.value('MCP-Session-Id') != null) {
+      throw StateError('Direct JSON stale MCP-Session-Id echoed a session id.');
+    }
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, Object?> ||
+        decoded['id'] != 'direct-json-stale-session-id' ||
+        decoded['result'] is! Map<String, Object?>) {
+      throw StateError('Direct JSON stale MCP-Session-Id returned $body.');
+    }
+  } finally {
+    httpClient.close(force: true);
+  }
+
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'Direct JSON stale MCP-Session-Id',
+  );
+}
+
 Future<void> _runDirectJsonExample(
   McpStreamableHttpClient client,
   _Options options,
@@ -1979,6 +2039,13 @@ Future<void> _runStreamableSessionExample(
     sessionId: streamableSessionId,
     lastEventId: eventIdBeforeMalformedSession,
   );
+  final eventIdBeforeDirectStaleSession = client.lastEventId;
+  await _expectDirectJsonStaleSessionIdIgnored(
+    client,
+    authorizationHeader,
+    sessionId: streamableSessionId,
+    lastEventId: eventIdBeforeDirectStaleSession,
+  );
 
   final tools = await client.listTools(id: 'streamable-tools');
   final streamable = <String, Object?>{
@@ -1989,6 +2056,7 @@ Future<void> _runStreamableSessionExample(
     'ping': ping,
     'invalidLastEventId': {'rejected': true, 'sessionUnchanged': true},
     'malformedSessionId': {'rejected': true, 'sessionUnchanged': true},
+    'directJsonStaleSessionId': {'ignored': true, 'sessionUnchanged': true},
     'tools': [for (final tool in tools.tools) tool['name']],
   };
 

@@ -1,32 +1,64 @@
 # Project State
 
-Last updated: 2026-07-05
+Last updated: 2026-07-06
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP ingress now rejects
-malformed `MCP-Session-Id` headers whenever the header is present, including
-direct JSON POSTs that are not otherwise Streamable-session scoped. The public
-router-hosted MCP client example now raw-probes malformed session-header
-rejection across the public, pub/sub-only, auth-grant, bearer, and JSON-response
-live smoke variants while asserting the typed Streamable client keeps its active
-session id and SSE cursor unchanged. Full local `bin/verify` passed on
-2026-07-05 after the malformed-session fix.
-Latest fully clean hosted checkpoint: Commit `9ea4036` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the protected deleted-session replay
-matrix smoke. GitHub `master` CI `28755920653` and GitHub `add-router` CI
-`28755920630` both passed with Fast Checks and Full Verify green at `9ea4036`.
-Dart package dry-run evidence remains clean and relevant from `e209f53`, native
-artifact dry-run evidence remains clean and relevant from `d64d220`, and router
-image plus WAMP profile evidence remains clean and relevant from `e209f53`
-because no publish-, native-release-, image-, or benchmark-sensitive paths
-changed in the smoke-only `9ea4036` checkpoint. The strict deployment-chain
-audit passed for GitHub `master` at `9ea4036` with CI log scan clean and
-clean/relevant Dart package, native release, router image, and WAMP profile
-evidence.
+Last reviewed branch checkpoint: public router-hosted MCP client live smoke now
+proves raw direct JSON MCP requests ignore a syntactically valid but unknown
+`MCP-Session-Id` instead of binding to or echoing stale Streamable session
+state. The probe runs after an active Streamable session exists through the
+public `connectanum_mcp/io.dart` entrypoint, preserves the typed client session
+id and SSE cursor, and `bin/common.sh` requires
+`directJsonStaleSessionId: {ignored: true, sessionUnchanged: true}` across the
+public, pub/sub-only, auth-grant, bearer, and JSON-response live smoke
+variants. Full local `bin/verify` passed on 2026-07-06 after the smoke coverage
+change.
+Latest fully clean hosted checkpoint: Commit `50b2458` on GitHub `master` and
+GitHub `add-router` passed hosted CI after the malformed `MCP-Session-Id`
+router-hosted MCP fix. GitHub `master` CI `28757352754` and GitHub
+`add-router` CI `28757352718` both passed with Fast Checks and Full Verify
+green at `50b2458`. Dart Package Publish Dry Run passed on GitHub `master`
+(`28757352735`) and GitHub `add-router` (`28757352719`), WAMP Profile
+Benchmarks passed on GitHub `master` (`28757352728`) and GitHub `add-router`
+(`28757352711`), and the non-mutating Router Image dry-run
+`28757835462` passed on GitHub `master` at `50b2458` with preview metadata
+`sha-50b2458cf5c2` and GHCR login skipped. Native artifact dry-run evidence
+remains clean and relevant from `d64d220` because no native-release-sensitive
+paths changed. The strict deployment-chain audit passed for GitHub `master` at
+`50b2458` with CI log scan clean and clean/relevant Dart package, native
+release, router image, and WAMP profile evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `9ea4036` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `50b2458` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+The public router-hosted MCP client example now sends a fixed-length raw JSON
+`tools/list` POST to the active MCP endpoint with `Accept: application/json`,
+the current protocol version, a syntactically valid but unknown
+`MCP-Session-Id`, and a consumer trace header. The probe asserts a `200`
+JSON-RPC result, no response `MCP-Session-Id`, and unchanged typed Streamable
+session id/SSE cursor after a real Streamable session is active. The live smoke
+summary exports `directJsonStaleSessionId: {ignored: true,
+sessionUnchanged: true}`, `bin/common.sh` requires that summary field across
+the public, pub/sub-only, auth-grant, bearer, and JSON-response variants, and
+the package-boundary test pins the generated helper, trace header, failure
+messages, and summary key so public consumer coverage cannot silently regress.
+
+Baseline `bin/test-fast` passed before the direct JSON stale-session smoke
+coverage change on 2026-07-06. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+`dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+`bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and
+`bash -lc 'source bin/common.sh && run_public_router_hosted_mcp_client_live_smoke'`
+passed after the change on 2026-07-06. Full local `bin/verify` also passed
+after the change on 2026-07-06, including formatting, Rust/FFI tests, MCP
+package tests, consumer package smokes, live WAMP benchmark integration,
+router-hosted MCP example smokes with malformed and stale
+`MCP-Session-Id` coverage, full router tests, HTTP/2 and HTTP/3 router
+integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
+for this direct JSON stale-session smoke checkpoint is pending push/CI.
+
+Previous implementation checkpoint:
 Router-hosted MCP request validation now treats `MCP-Session-Id` as a controlled
 header on every MCP HTTP request. A malformed value is rejected with `400` and
 no response session header before direct JSON dispatch, not just on GET, DELETE,
@@ -51,8 +83,18 @@ after the change on 2026-07-05, including formatting, Rust/FFI tests, MCP
 package tests, consumer package smokes, live WAMP benchmark integration,
 router-hosted MCP example smokes with malformed `MCP-Session-Id` rejection,
 full router tests, HTTP/2 and HTTP/3 router integration, and the
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this
-malformed-session implementation checkpoint is pending push/CI.
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence after push: commit
+`50b2458` was pushed to GitLab `origin` `add-router`, GitHub `add-router`, and
+GitHub `master`. GitHub `master` CI `28757352754` and GitHub `add-router` CI
+`28757352718` passed with Fast Checks and Full Verify green. Dart Package
+Publish Dry Run passed on GitHub `master` (`28757352735`) and GitHub
+`add-router` (`28757352719`), WAMP Profile Benchmarks passed on GitHub
+`master` (`28757352728`) and GitHub `add-router` (`28757352711`), and Router
+Image dry-run `28757835462` passed on GitHub `master` at `50b2458` with GHCR
+login skipped. The strict deployment-chain audit passed for GitHub `master` at
+`50b2458`; RC readiness is blocked only on selecting/approving the numeric RC
+tag/prerelease/router-image tag plus the deferred pub.dev package
+ownership/order track.
 
 Previous implementation checkpoint:
 The router CLI consumer package smoke now covers protected Streamable HTTP

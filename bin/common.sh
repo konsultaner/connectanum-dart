@@ -1135,6 +1135,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
@@ -1152,6 +1153,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"pubsub"' \
     '"methodEvents"' \
     '"methodNotificationEvents"'
@@ -1251,6 +1253,7 @@ PY
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
@@ -1279,6 +1282,7 @@ PY
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
@@ -1312,6 +1316,7 @@ PY
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
@@ -1341,6 +1346,7 @@ PY
     '"streamable"' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \

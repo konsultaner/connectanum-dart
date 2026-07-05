@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-07-05
+Last updated: 2026-07-06
 
 ## Problem
 
@@ -79,6 +79,31 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Extended public router-hosted MCP live smoke coverage for direct
+  JSON stale-session isolation. The public
+  `connectanum_mcp/io.dart` example now sends a fixed-length raw JSON
+  `tools/list` POST after a Streamable session is active, includes
+  `Accept: application/json`, the current `MCP-Protocol-Version`, and a
+  syntactically valid but unknown `MCP-Session-Id`, and asserts the router
+  returns a normal JSON-RPC result without echoing a session header or mutating
+  the typed Streamable session id/SSE cursor. The live smoke summary now
+  reports `directJsonStaleSessionId: {ignored: true, sessionUnchanged: true}`,
+  `bin/common.sh` requires that field across public, pub/sub-only, auth-grant,
+  bearer, and JSON-response variants, and the package-boundary test pins the
+  generated helper, trace header, failure messages, and summary key. Baseline
+  `bin/test-fast` passed before the change on 2026-07-06. Focused
+  `dart format packages/connectanum_mcp/example/router_hosted_client.dart`,
+  `dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
+  `bash -n bin/common.sh`,
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and
+  `bash -lc 'source bin/common.sh && run_public_router_hosted_mcp_client_live_smoke'`
+  passed after the change. Full local `bin/verify` passed after the change on
+  2026-07-06, including formatting, Rust/FFI tests, MCP package tests,
+  consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+  example smokes with malformed and stale `MCP-Session-Id` coverage, full
+  router tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
+  browser WebSocket smoke. Hosted evidence for this checkpoint is pending
+  push/CI.
 - 2026-07-05: Fixed router-hosted MCP malformed session-header validation for
   direct JSON requests. The router now rejects any present malformed
   `MCP-Session-Id` with `400` and no response session header before dispatch,
@@ -103,8 +128,18 @@ decision because `connectanum_client` still depends on private
   consumer package smokes, live WAMP benchmark integration, router-hosted MCP
   example smokes with malformed `MCP-Session-Id` rejection, full router tests,
   HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. Hosted evidence for this malformed-session implementation
-  checkpoint is pending push/CI.
+  WebSocket smoke. Hosted evidence after push: commit `50b2458` was pushed to
+  GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`.
+  GitHub `master` CI `28757352754` and GitHub `add-router` CI `28757352718`
+  passed with Fast Checks and Full Verify green. Dart Package Publish Dry Run
+  passed on GitHub `master` (`28757352735`) and GitHub `add-router`
+  (`28757352719`), WAMP Profile Benchmarks passed on GitHub `master`
+  (`28757352728`) and GitHub `add-router` (`28757352711`), and Router Image
+  dry-run `28757835462` passed on GitHub `master` at `50b2458` with GHCR login
+  skipped. The strict deployment-chain audit passed for GitHub `master` at
+  `50b2458`; RC readiness is blocked only on selecting/approving the numeric
+  RC tag/prerelease/router-image tag plus the deferred pub.dev package
+  ownership/order track.
 - 2026-07-05: Extended router CLI consumer package smoke coverage for
   protected Streamable HTTP session deletion across the consumer MCP method
   matrix. The generated Dart consumer now captures the active protected MCP
