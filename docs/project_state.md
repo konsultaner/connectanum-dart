@@ -25,23 +25,49 @@ APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart consumer
 access without private checkout assumptions. The isolated global activation
 paths put the generated Pub cache `bin/` directory on `PATH` during activation
 so Pub does not emit executable-path warnings in strict CI log audits.
-Latest fully clean hosted checkpoint: Commit `07049a7` on GitHub `master` and
-GitHub `add-router` passed CI after the MCP package-smoke cache isolation.
-GitHub `master` CI `28732932322` passed with Fast Checks and Full Verify
-green, and GitHub `add-router` CI `28732932374` also passed with Fast Checks
-and Full Verify green. The strict deployment-chain audit passed for GitHub
-`master` at `07049a7`; its latest CI log scan was clean with no
-warning/deprecation/skipped/reset/connection-noise matches. Dart Package
-Publish Dry Run `28727181711`, WAMP Profile Benchmarks `28727181717`, and
-Router Image dry-run `28727504734` remain relevant at `b1ffb67` because no
-corresponding sensitive inputs changed since then. Native Artifacts dry-run
-evidence from `42ac5d9` remains relevant because no native-release-sensitive
-paths changed since then.
+Latest fully clean hosted checkpoint: Commit `3ffc3d9` on GitHub `master` and
+GitHub `add-router` passed CI after the installed-service WAMP benchmark smoke
+landed. GitHub `add-router` CI `28734811570` passed with Fast Checks and Full
+Verify green, and GitHub `master` CI `28735338143` passed with Fast Checks and
+Full Verify green after fast-forward promotion. Router Image dry-runs
+`28735249419` on `add-router` and `28735345336` on `master` passed at
+`3ffc3d9` with preview metadata `0.1.0-rc.2-validation.3ffc3d9`. The strict
+deployment-chain audit passed for GitHub `master` at `3ffc3d9`; its latest CI
+log scan was clean with no warning/deprecation/skipped/reset/connection-noise
+matches. Dart Package Publish Dry Run `28727181711`, Native Artifacts dry-run
+`28723003691`, and WAMP Profile Benchmarks `28727181717` remain relevant
+because no corresponding sensitive inputs changed since their clean runs.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the last fully clean hosted `07049a7` checkpoint after stale `v0.1.0-rc.1`,
-and deferring pub.dev package ownership/order for the private core dependency.
+the clean hosted `3ffc3d9` checkpoint after stale `v0.1.0-rc.1`, and deferring
+pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+`metrics.open_metrics.listen` now enriches router-native health/OpenMetrics
+routes with HTTP/2 protocol support in addition to HTTP/1.1. Existing metrics
+listeners that are matched by endpoint gain `ListenerProtocol.http2` when
+OpenMetrics routes are injected, and auto-created metrics-only listeners are
+created with both HTTP and HTTP/2 protocols. HTTP/3 remains opt-in through
+explicit listener TLS and `http.http3.enabled` configuration, because native
+runtime validation rejects implicit cleartext HTTP/3. The OpenMetrics tests now
+guard both existing-listener enrichment and generated metrics-listener
+protocols, while runtime tests still prove generated metrics listeners start,
+drain, and serve through internal WAMP procedures instead of a standalone
+`HttpServer.bind` path.
+
+Baseline `bin/test-fast` passed before this OpenMetrics HTTP/2 route change on
+2026-07-05. Focused
+`dart test packages/connectanum_router/test/open_metrics_http_server_test.dart -r expanded`,
+focused
+`dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded --plain-name "drain closes generated OpenMetrics listener after application listeners"`,
+full `dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded`,
+full `dart test packages/connectanum_router/test/router_config_loader_test.dart -r expanded`,
+full `bin/test-fast`, and full local `bin/verify` passed after the change on
+2026-07-05, including formatting, Rust/FFI tests, MCP consumer package smokes,
+live WAMP benchmark integration, router-hosted MCP example smokes, router CLI
+consumer smokes, full router tests, HTTP/2 and HTTP/3 router integration, and
+the Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `run_bench_cli_consumer_package_smoke()` now starts the globally activated
 `bench_router_service` from the isolated benchmark Pub cache with a temporary
 router config, waits for the service `READY` marker, and posts representative
@@ -68,7 +94,16 @@ MCP auth/session and Streamable HTTP client tests, live WAMP benchmark
 integration, the updated installed-service WAMP benchmark smoke,
 router-hosted MCP example smokes, router CLI consumer smokes, full router
 tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-WebSocket smoke.
+WebSocket smoke. Hosted evidence after push: commit `3ffc3d9` was pushed to
+GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`.
+GitHub `add-router` CI `28734811570` and Router Image dry-run `28735249419`
+passed at `3ffc3d9`; GitHub `master` CI `28735338143` and Router Image
+dry-run `28735345336` also passed at `3ffc3d9`. The strict deployment-chain
+audit
+`bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+passed for `master` at `3ffc3d9`; RC readiness is blocked only on selecting
+and approving the numeric RC tag/prerelease/router-image tag plus the deferred
+pub.dev package ownership/order track.
 
 Previous implementation checkpoint:
 `run_mcp_server_package_smoke()` and `run_mcp_consumer_package_smoke()` now

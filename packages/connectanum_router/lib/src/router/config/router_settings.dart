@@ -1056,7 +1056,7 @@ extension RouterSettingsOpenMetricsHttp on RouterSettings {
           type: 'http',
           endpoint: listen,
           options: const {'connectanum_open_metrics_listener': true},
-          protocols: const [ListenerProtocol.http],
+          protocols: const [ListenerProtocol.http, ListenerProtocol.http2],
           http: HttpListenerSettings(routes: routes),
         ),
       );
@@ -1163,6 +1163,9 @@ List<ListenerProtocol> _protocolsWithHttp(ListenerSettings listener) {
   protocols.addAll(listener.protocols);
   if (!protocols.contains(ListenerProtocol.http)) {
     protocols.add(ListenerProtocol.http);
+  }
+  if (!protocols.contains(ListenerProtocol.http2)) {
+    protocols.add(ListenerProtocol.http2);
   }
   return LinkedHashSet<ListenerProtocol>.from(protocols).toList();
 }

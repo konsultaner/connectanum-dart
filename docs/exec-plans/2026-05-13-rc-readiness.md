@@ -79,6 +79,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Made router-native OpenMetrics/health routes HTTP/2-capable by
+  default. `metrics.open_metrics.listen` enrichment now adds
+  `ListenerProtocol.http2` when injecting `/healthz`, `/health`, and the
+  configured metrics path into an existing listener, and generated
+  metrics-only listeners are created with both HTTP/1.1 and HTTP/2 protocols.
+  HTTP/3 remains explicit through listener TLS plus `http.http3.enabled`,
+  matching native runtime validation instead of enabling cleartext HTTP/3
+  implicitly. `open_metrics_http_server_test.dart` now guards both
+  existing-listener enrichment and generated metrics-listener protocols, and
+  `router_runtime_test.dart` still proves generated metrics listeners start and
+  drain through the router/native listener path. Baseline `bin/test-fast`
+  passed before this change on 2026-07-05. Focused OpenMetrics tests, focused
+  generated-listener runtime coverage, full router runtime tests, full router
+  config-loader tests, full `bin/test-fast`, and full local `bin/verify`
+  passed after the change on 2026-07-05, including formatting, Rust/FFI tests,
+  MCP consumer package smokes, live WAMP benchmark integration, router-hosted
+  MCP example smokes, router CLI consumer smokes, full router tests, HTTP/2 and
+  HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-05: Extended the benchmark CLI consumer package smoke from
   installed-command discovery to a real installed-service WAMP workload check.
   `run_bench_cli_consumer_package_smoke()` now starts the globally activated
@@ -104,7 +122,16 @@ decision because `connectanum_client` still depends on private
   integration, the updated installed-service WAMP benchmark smoke,
   router-hosted MCP example smokes, router CLI consumer smokes, full router
   tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
-  browser WebSocket smoke.
+  browser WebSocket smoke. Hosted evidence after push: commit `3ffc3d9` was
+  pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+  `master`. GitHub `add-router` CI `28734811570` and Router Image dry-run
+  `28735249419` passed at `3ffc3d9`; GitHub `master` CI `28735338143` and
+  Router Image dry-run `28735345336` also passed at `3ffc3d9`. The strict
+  deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed for `master` at `3ffc3d9`; RC readiness is blocked only on selecting
+  and approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-05: Isolated the remaining generated MCP consumer package smokes
   from the developer/global Pub cache. `run_mcp_server_package_smoke()` and
   `run_mcp_consumer_package_smoke()` now allocate dedicated temporary

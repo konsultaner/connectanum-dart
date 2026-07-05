@@ -234,6 +234,7 @@ class _NoopHandleRuntime extends _FakeRuntime
 RouterSettings _buildSettings({
   String? authToken,
   Duration collectionTimeout = const Duration(seconds: 5),
+  String metricsListen = '127.0.0.1:0',
 }) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
@@ -285,7 +286,7 @@ RouterSettings _buildSettings({
     metrics: MetricsSettings(
       openMetrics: OpenMetricsSettings(
         enabled: true,
-        listen: '127.0.0.1:0',
+        listen: metricsListen,
         path: '/metrics',
         authToken: authToken,
         realm: 'connectanum.metrics',
@@ -371,7 +372,11 @@ void main() {
     final listener = settings.listeners.single;
     expect(
       listener.protocols,
-      equals(const [ListenerProtocol.rawsocket, ListenerProtocol.http]),
+      equals(const [
+        ListenerProtocol.rawsocket,
+        ListenerProtocol.http,
+        ListenerProtocol.http2,
+      ]),
     );
     final routes = listener.http?.routes;
     expect(routes, isNotNull);
@@ -388,6 +393,29 @@ void main() {
     expect(
       metricsRoute.action.procedure,
       equals('connectanum.metrics.openmetrics'),
+    );
+  });
+
+  test('OpenMetrics settings create an HTTP/2-capable metrics listener', () {
+    final settings = _buildSettings(
+      metricsListen: '127.0.0.1:18080',
+    ).withOpenMetricsHttpRoutes();
+
+    final metricsListener = settings.listeners.singleWhere(
+      (listener) => listener.endpoint == '127.0.0.1:18080',
+    );
+    expect(metricsListener.type, 'http');
+    expect(
+      metricsListener.protocols,
+      equals(const [ListenerProtocol.http, ListenerProtocol.http2]),
+    );
+    expect(
+      metricsListener.options['connectanum_open_metrics_listener'],
+      isTrue,
+    );
+    expect(
+      metricsListener.http?.routes.map((route) => route.match.path),
+      containsAll(const ['/healthz', '/health', '/metrics']),
     );
   });
 
