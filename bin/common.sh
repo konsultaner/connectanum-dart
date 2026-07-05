@@ -23782,8 +23782,8 @@ router:
 YAML
 
   (
-    cd "$smoke_dir/router-runner"
-    exec env PUB_CACHE="$pub_cache" dart run connectanum_router \
+    cd "$smoke_dir"
+    exec env PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router \
       --config "$smoke_dir/router.yaml" \
       --native-lib "$native_lib"
   ) >"$router_log" 2>&1 &

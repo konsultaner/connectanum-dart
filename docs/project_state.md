@@ -3,17 +3,18 @@
 Last updated: 2026-07-05
 Current branch: `add-router`
 Last reviewed branch checkpoint: the router CLI consumer smoke now proves a
-consumer application can discover `connectanum_router` as an installed command
-from an isolated Pub cache, in addition to the checkout alias and
+consumer application can discover and run `connectanum_router` as an installed
+command from an isolated Pub cache, in addition to the checkout alias and
 `dart run connectanum_router` package executable paths. The router-hosted MCP
-smoke still exercises health, metrics, auth, public/protected MCP, direct JSON
+smoke exercises health, metrics, auth, public/protected MCP, direct JSON
 WAMP/meta APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart
-consumer access without private checkout assumptions.
-Latest fully clean hosted checkpoint: Commit `42ac5d9` on GitHub `master` and
-GitHub `add-router` retained clean hosted evidence after the public
-`connectanum_mcp:router_hosted_client` executable change. GitHub Native
-Artifacts dry-run `28723003691`, GitHub Router Image dry-run `28723003704`,
-and the strict deployment-chain audit passed for GitHub `master` at `42ac5d9`.
+consumer access without private checkout assumptions while the live router is
+started through the isolated installed command.
+Latest fully clean hosted checkpoint: Commit `840a6bb` on GitHub `master` and
+GitHub `add-router` retained clean hosted CI evidence after the router CLI
+global activation smoke. GitHub Native Artifacts dry-run `28723003691`,
+GitHub Router Image dry-run `28723003704`, and the strict deployment-chain
+audit passed for GitHub `master` at `840a6bb`.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag and deferring pub.dev package
 ownership/order for the private core dependency.
@@ -24,12 +25,18 @@ temporary workspace copy for `connectanum_core`, `connectanum_client`,
 runs `PUB_CACHE="$pub_cache" dart pub global activate --source path` against
 the copied `connectanum_router` package with native builds skipped. The smoke
 asserts `command -v connectanum_router` resolves to the isolated Pub cache and
-runs `connectanum_router --help` before starting the package-executable router
-and exercising the live router-hosted MCP consumer flow. This avoids mutating
-the real checkout `.dart_tool` state while proving command discovery for
-consumer harnesses that require a real installed executable. The boundary test
-guards the temp workspace, lockfile copy, isolated command lookup, and help
-invocation.
+runs `connectanum_router --help`. The live router-hosted MCP consumer flow then
+starts the router through
+`PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --config ... --native-lib ...`
+instead of falling back to `dart run connectanum_router`, so the installed
+command path is covered for startup, `/healthz`, `/metrics`, `/auth`, public
+and protected MCP routes, direct JSON WAMP/meta APIs, Streamable HTTP session
+lifecycle, pub/sub, and the neutral Dart consumer package. This avoids
+mutating the real checkout `.dart_tool` state while proving command discovery
+and execution for consumer harnesses that require a real installed executable.
+The boundary test guards the temp workspace, lockfile copy, isolated command
+lookup, help invocation, installed-command startup, and the absence of the old
+`dart run connectanum_router --config` live-flow fallback.
 
 Baseline `bin/test-fast` passed before this router CLI installed-command smoke
 change on 2026-07-05, including router-hosted MCP live smokes, the neutral MCP
@@ -39,12 +46,19 @@ bin/common.sh`, `python3 -m py_compile tool/test_mcp_consumer_package_boundary.p
 targeted `python3 -m unittest` coverage for the router CLI consumer boundary
 tests, and direct
 `bash -lc 'set -euo pipefail; source bin/common.sh; run_router_cli_consumer_package_smoke'`
+passed after the previous discovery-only change. For the installed-command
+startup follow-up, baseline `bin/test-fast` passed before the change on
+2026-07-05. Focused `bash -n bin/common.sh`,
+`python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, targeted
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_uses_package_executable -v`,
+and direct
+`bash -lc 'set -euo pipefail; source bin/common.sh; run_router_cli_consumer_package_smoke'`
 passed after the change. Full local `bin/verify` passed on 2026-07-05,
 including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
 consumer package smokes, MCP auth/session and Streamable HTTP client tests,
 live WAMP benchmark integration, the neutral benchmark CLI/service/worker
-consumer package smoke, router-hosted MCP example smokes, the updated router
-CLI installed-command/package-executable consumer smoke, full router tests,
+consumer package smoke, router-hosted MCP example smokes, the router CLI
+installed-command startup/package-executable consumer smoke, full router tests,
 zero-copy router tests, OpenMetrics internal route tests, and the
 Chrome/Dart2Wasm browser WebSocket smoke.
 

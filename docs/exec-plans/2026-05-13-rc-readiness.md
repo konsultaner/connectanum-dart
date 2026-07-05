@@ -79,6 +79,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Tightened the router CLI consumer package smoke so the live
+  router-hosted MCP flow starts through the globally activated
+  `connectanum_router` command, not only `dart run connectanum_router`.
+  After the isolated `dart pub global activate --source path` step,
+  `run_router_cli_consumer_package_smoke()` now launches
+  `PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --config ... --native-lib ...`
+  and then exercises `/healthz`, `/metrics`, `/auth`, public/protected MCP,
+  direct JSON WAMP/meta APIs, Streamable HTTP session lifecycle, pub/sub, and
+  the neutral Dart consumer package. The boundary test now guards that
+  installed-command startup and rejects the old live-flow fallback to
+  `dart run connectanum_router --config`. Baseline `bin/test-fast` passed
+  before the change on 2026-07-05. Focused `bash -n bin/common.sh`,
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`,
+  targeted `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_uses_package_executable -v`,
+  and direct `bash -lc 'set -euo pipefail; source bin/common.sh; run_router_cli_consumer_package_smoke'`
+  passed after the change. Full local `bin/verify` passed on 2026-07-05,
+  including the updated router CLI installed-command startup smoke.
 - 2026-07-05: Extended the router CLI consumer package smoke to prove
   installed-command discovery for consumer harnesses. `run_router_cli_consumer_package_smoke()`
   now creates a lockfile-pinned temporary workspace copy, activates the copied

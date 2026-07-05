@@ -215,6 +215,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
+            'exec env PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router \\\n'
+            '      --config "$smoke_dir/router.yaml"',
+            body,
+        )
+        self.assertNotIn(
             'exec env PUB_CACHE="$pub_cache" dart run connectanum_router \\\n'
             '      --config "$smoke_dir/router.yaml"',
             body,
