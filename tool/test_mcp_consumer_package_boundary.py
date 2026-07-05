@@ -319,6 +319,62 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("'--native-lib (mandatory)'", body)
         self.assertIn("'--router-config'", body)
         self.assertIn("'--targets-json'", body)
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" '
+            "dart pub global activate --source path",
+            body,
+        )
+        self.assertIn(
+            'global_smoke_workspace="$smoke_dir/global-workspace"',
+            body,
+        )
+        self.assertIn(
+            '"$global_smoke_workspace/packages/connectanum_bench"',
+            body,
+        )
+        self.assertIn("connectanum_bench_global_activation_smoke_workspace", body)
+        self.assertIn('"$ROOT_DIR/pubspec.lock"', body)
+        self.assertIn('"$global_smoke_workspace/pubspec.lock"', body)
+        self.assertIn('cp -R "$package_source/tool"', body)
+        self.assertIn(
+            'global_bench_command="$(PATH="$pub_cache/bin:$PATH" '
+            'PUB_CACHE="$pub_cache" command -v router_bench || true)"',
+            body,
+        )
+        self.assertIn(
+            'if [[ "$global_bench_command" != "$pub_cache/bin/router_bench" ]]; then',
+            body,
+        )
+        self.assertIn(
+            'global_bench_service_command="$(PATH="$pub_cache/bin:$PATH" '
+            'PUB_CACHE="$pub_cache" command -v bench_router_service || true)"',
+            body,
+        )
+        self.assertIn(
+            'if [[ "$global_bench_service_command" != "$pub_cache/bin/bench_router_service" ]]; then',
+            body,
+        )
+        self.assertIn(
+            'global_worker_command="$(PATH="$pub_cache/bin:$PATH" '
+            'PUB_CACHE="$pub_cache" command -v wamp_client_worker || true)"',
+            body,
+        )
+        self.assertIn(
+            'if [[ "$global_worker_command" != "$pub_cache/bin/wamp_client_worker" ]]; then',
+            body,
+        )
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_bench --help',
+            body,
+        )
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" bench_router_service --help',
+            body,
+        )
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" wamp_client_worker --help',
+            body,
+        )
 
     def test_router_cli_consumer_smoke_bounds_router_shutdown(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")

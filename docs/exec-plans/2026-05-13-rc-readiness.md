@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Extended the benchmark CLI consumer package smoke from
+  `dart run connectanum_bench:*` help discovery to installed-command
+  discovery for the public benchmark entrypoints. `run_bench_cli_consumer_package_smoke()`
+  now creates a lockfile-pinned temporary workspace copy for
+  `connectanum_auth_server`, `connectanum_core`, `connectanum_client`,
+  `connectanum_mcp`, `connectanum_router`, and `connectanum_bench`, copies the
+  benchmark package `tool/` directory needed by the service and worker
+  wrappers, activates the copied `connectanum_bench` package into an isolated
+  Pub cache with activation-time `PATH` ownership, asserts `router_bench`,
+  `bench_router_service`, and `wamp_client_worker` resolve to that cache, and
+  runs installed-command help probes for all three commands. The package
+  boundary test guards the global workspace, lockfile copy, benchmark `tool/`
+  copy, isolated command lookup, activation-time `PATH` usage, and
+  installed-command help invocations. Baseline `bin/test-fast` passed before
+  the change on 2026-07-05. Focused `bash -n bin/common.sh`,
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, targeted
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_bench_cli_consumer_smoke_uses_package_executable -v`,
+  direct `bash -lc 'source bin/common.sh; run_bench_cli_consumer_package_smoke'`,
+  and full `bin/test-fast` passed after the benchmark smoke change on
+  2026-07-05. A captured full `bin/verify` rerun first failed in
+  `tool/test_audit_github_deployment_chain.py` before package smokes because
+  runtime annotation evaluation saw `str | None` under the launchd-resolved
+  Python path, so the test module now imports postponed annotations. Focused
+  `python3 -m py_compile tool/test_audit_github_deployment_chain.py tool/test_mcp_consumer_package_boundary.py`
+  and `python3 tool/test_audit_github_deployment_chain.py` passed after that
+  verification-path fix. Full `bin/verify` passed after the benchmark smoke
+  and annotation compatibility fixes on 2026-07-05, including the updated
+  benchmark installed-command smoke, router-hosted MCP example smokes, router
+  CLI consumer smokes, full router tests, HTTP/2 and HTTP/3 router
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-05: Kept the installed-command consumer smokes compatible with the
   strict CI log gate by putting each generated Pub cache `bin/` directory on
   `PATH` during isolated `dart pub global activate --source path`.
@@ -96,7 +126,18 @@ decision because `connectanum_client` still depends on private
   passed after the fix on 2026-07-05, including the updated MCP client and
   router CLI consumer smokes, router-hosted MCP example smokes, full router
   tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
-  browser WebSocket smoke.
+  browser WebSocket smoke. Hosted evidence after push: commit `b1722de` was
+  pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+  `master`. GitHub `master` CI `28729651587` and GitHub `add-router` CI
+  `28729651100` passed at `b1722de`; both runs completed Fast Checks and Full
+  Verify successfully. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed at `b1722de`, and the latest CI log gate was clean. Dart package
+  dry-run, WAMP profile benchmark, router image dry-run, and native artifact
+  dry-run evidence remained relevant from prior clean runs because no
+  corresponding sensitive inputs changed. RC readiness remains blocked only on
+  release decisions: selecting/pushing the next numeric RC tag/prerelease and
+  router-image tag, plus the deferred pub.dev package ownership/order track.
 - 2026-07-05: Added installed-command coverage for the public
   `connectanum_mcp` router-hosted client executable. `run_mcp_client_package_smoke()`
   now uses an isolated Pub cache for the neutral consumer package, verifies

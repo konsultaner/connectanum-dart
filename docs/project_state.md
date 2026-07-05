@@ -2,33 +2,82 @@
 
 Last updated: 2026-07-05
 Current branch: `add-router`
-Last reviewed branch checkpoint: the MCP client package smoke now proves the
-installed `router_hosted_client` command from an isolated Pub cache, in
-addition to `dart run connectanum_mcp:router_hosted_client` from a neutral
-consumer package. The router CLI still advertises the installed executable
-form, `connectanum_router --config ...`, from the checkout alias,
-`dart run connectanum_router --help`, and isolated global activation. The
-router-hosted MCP smoke still starts the live router through the isolated
-installed command and exercises health, metrics, auth, public/protected MCP,
-direct JSON WAMP/meta APIs, Streamable HTTP session lifecycle, pub/sub, and
-neutral Dart consumer access without private checkout assumptions. Both
-isolated global activation paths now put the generated Pub cache `bin/`
-directory on `PATH` during activation so Pub does not emit executable-path
-warnings in strict CI log audits.
-Latest fully clean hosted checkpoint: Commit `b1ffb67` on GitHub `master` and
-GitHub `add-router` passed CI after the router CLI installed-command help
-alignment. GitHub `master` CI `28727181713`, Dart Package Publish Dry Run
-`28727181711`, WAMP Profile Benchmarks `28727181717`, and Router Image dry-run
-`28727504734` passed at `b1ffb67`; GitHub `add-router` CI `28727181160`, Dart
-Package Publish Dry Run `28727181161`, and WAMP Profile Benchmarks
-`28727181170` also passed at `b1ffb67`. The strict deployment-chain audit
-passed for GitHub `master` at `b1ffb67`; Native Artifacts dry-run evidence
-from `42ac5d9` remains relevant because no native-release-sensitive paths
-changed since then.
+Last reviewed branch checkpoint: the benchmark CLI consumer smoke now proves
+the installed `router_bench`, `bench_router_service`, and `wamp_client_worker`
+commands from an isolated Pub cache, in addition to the existing
+`dart run connectanum_bench:*` help probes from a neutral consumer package.
+The MCP client package smoke still proves the installed `router_hosted_client`
+command from an isolated Pub cache, the router CLI still advertises the
+installed executable form, `connectanum_router --config ...`, from the
+checkout alias, `dart run connectanum_router --help`, and isolated global
+activation, and the router-hosted MCP smoke still starts the live router
+through the isolated installed command. The hosted MCP smoke continues to
+exercise health, metrics, auth, public/protected MCP, direct JSON WAMP/meta
+APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart consumer
+access without private checkout assumptions. The isolated global activation
+paths put the generated Pub cache `bin/` directory on `PATH` during activation
+so Pub does not emit executable-path warnings in strict CI log audits.
+Latest fully clean hosted checkpoint: Commit `b1722de` on GitHub `master` and
+GitHub `add-router` passed CI after the Pub global activation log-cleanliness
+fix. GitHub `master` CI `28729651587` passed with Fast Checks and Full Verify
+green, and GitHub `add-router` CI `28729651100` also passed with Fast Checks
+and Full Verify green. The strict deployment-chain audit passed for GitHub
+`master` at `b1722de`; its latest CI log scan was clean with no
+warning/deprecation/skipped/reset/connection-noise matches. Dart Package
+Publish Dry Run `28727181711`, WAMP Profile Benchmarks `28727181717`, and
+Router Image dry-run `28727504734` remain relevant at `b1ffb67` because no
+corresponding sensitive inputs changed since then. Native Artifacts dry-run
+evidence from `42ac5d9` remains relevant because no native-release-sensitive
+paths changed since then.
 The remaining RC-ready audit blockers are release decisions: selecting the
-numeric RC tag/prerelease/router-image tag and deferring pub.dev package
+numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
+the checked-out head after stale `v0.1.0-rc.1`, and deferring pub.dev package
 ownership/order for the private core dependency.
 Current implementation checkpoint:
+`run_bench_cli_consumer_package_smoke()` still verifies public help discovery
+for `connectanum_bench:router_bench`,
+`connectanum_bench:bench_router_service`, and
+`connectanum_bench:wamp_client_worker` from an isolated neutral consumer
+package. It now also creates a lockfile-pinned temporary workspace copy for
+`connectanum_auth_server`, `connectanum_core`, `connectanum_client`,
+`connectanum_mcp`, `connectanum_router`, and `connectanum_bench`, copies the
+benchmark package `tool/` directory needed by the service and worker wrappers,
+globally activates the copied `connectanum_bench` package into an isolated Pub
+cache with activation-time `PATH` ownership, asserts all three installed
+commands resolve to that Pub cache, and runs installed-command help probes for
+each command. The package boundary test guards the global workspace, lockfile
+copy, benchmark `tool/` copy, isolated command lookup, activation-time `PATH`
+usage, and installed-command help invocations so downstream benchmark harnesses
+can depend on package-visible commands instead of checkout-private paths.
+`tool/test_audit_github_deployment_chain.py` now imports postponed annotations
+so launchd-resolved Python runtimes do not evaluate `str | None` annotations at
+class definition time before the verification suite reaches the Dart/package
+smokes.
+
+Baseline `bin/test-fast` passed before this benchmark installed-command smoke
+change on 2026-07-05, including router-hosted MCP live smokes, neutral MCP and
+benchmark consumer package smokes, router CLI consumer smokes, live WAMP
+benchmark integration, and router fast tests. Focused `bash -n bin/common.sh`,
+`python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, targeted
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_bench_cli_consumer_smoke_uses_package_executable -v`,
+direct `bash -lc 'source bin/common.sh; run_bench_cli_consumer_package_smoke'`,
+and full `bin/test-fast` passed after the benchmark smoke change on
+2026-07-05. A captured full `bin/verify` rerun first failed in
+`tool/test_audit_github_deployment_chain.py` before package smokes because
+runtime annotation evaluation saw `str | None` under the launchd-resolved
+Python path. Focused
+`python3 -m py_compile tool/test_audit_github_deployment_chain.py tool/test_mcp_consumer_package_boundary.py`
+and `python3 tool/test_audit_github_deployment_chain.py` passed after adding
+postponed annotations. Full `bin/verify` passed after the benchmark smoke and
+annotation compatibility fixes on 2026-07-05, including formatting, Rust/FFI
+tests, Python/tool tests, MCP package tests, consumer package smokes, MCP
+auth/session and Streamable HTTP client tests, live WAMP benchmark
+integration, the updated benchmark installed-command smoke, router-hosted MCP
+example smokes, router CLI consumer smokes, full router tests, OpenMetrics
+internal route tests, HTTP/2 and HTTP/3 router integration, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 `run_mcp_client_package_smoke()` now uses an isolated Pub cache for its neutral
 consumer package, verifies `dart run connectanum_mcp:router_hosted_client`
 help and dry-run output, then creates a lockfile-pinned temporary workspace
