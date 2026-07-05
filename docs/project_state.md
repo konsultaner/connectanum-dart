@@ -25,26 +25,56 @@ APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart consumer
 access without private checkout assumptions. The isolated global activation
 paths put the generated Pub cache `bin/` directory on `PATH` during activation
 so Pub does not emit executable-path warnings in strict CI log audits.
-Latest fully clean hosted checkpoint: Commit `d539a34` on GitHub `master` and
-GitHub `add-router` passed CI after native HTTP/3 router-hosted MCP lifecycle
-coverage landed. GitHub `add-router` CI `28741309624` passed with Fast Checks
-and Full Verify green, and GitHub `master` CI `28741311751` passed with Fast
-Checks and Full Verify green after fast-forward promotion. Dart Package Publish
-Dry Run `28741309592` on `add-router` and `28741311759` on `master` passed at
-`d539a34`; WAMP Profile Benchmarks `28741309604` on `add-router` and
-`28741311734` on `master` passed at `d539a34`. Native Artifacts dry-run
-`28741330334` passed at `d539a34` with non-mutating validation tag
-`v0.1.0-rc.2-validation.d539a34`. Router Image dry-run `28741330364` passed at
-`d539a34` with preview metadata `sha-d539a34ce150`. kTLS Validation did not
-path-trigger for the `ct_ffi`/router-only change; the last kTLS validation
-checkpoint remains clean at `8d884a1`. The strict deployment-chain audit passed
-for GitHub `master` at `d539a34`; its latest CI log scan was clean with no
-warning/deprecation/skipped/reset/connection-noise matches.
+Latest fully clean hosted checkpoint: Commit `1076dfc` on GitHub `master` and
+GitHub `add-router` passed CI after native HTTP/3 direct JSON WAMP helper
+coverage landed for router-hosted MCP. GitHub `add-router` CI `28743289285`
+passed with Fast Checks and Full Verify green, and GitHub `master` CI
+`28743290019` passed with Fast Checks and Full Verify green after fast-forward
+promotion. Dart Package Publish Dry Run `28743289246` on `add-router` and
+`28743290021` on `master` passed at `1076dfc`; WAMP Profile Benchmarks
+`28743289250` on `add-router` and `28743290053` on `master` passed at
+`1076dfc`. Native Artifacts dry-run `28741330334` remains the latest clean
+non-mutating native release evidence at `d539a34` with validation tag
+`v0.1.0-rc.2-validation.d539a34`; the strict audit accepted it for `1076dfc`
+because no native-release-sensitive paths changed since then. Router Image
+dry-run `28741330364` remains the latest clean router image evidence at
+`d539a34` with preview metadata `sha-d539a34ce150`; the strict audit accepted
+it for `1076dfc` because no router-image-sensitive paths changed since then.
+kTLS Validation did not path-trigger for this router-test-only change; the
+last kTLS validation checkpoint remains clean at `8d884a1`. The strict
+deployment-chain audit passed for GitHub `master` at `1076dfc`; its latest CI
+log scan was clean with no warning/deprecation/skipped/reset/connection-noise
+matches.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `d539a34` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `1076dfc` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+Router WAMP-backed HTTP handlers can now return file-backed responses through
+`HttpInvocationContext.sendFile` without tripping the previous
+`UnsupportedError`. `RouterBinding` diverts `HttpResponseBodyKind.file`
+payloads to native HTTP response streams, streams file chunks from disk, closes
+the stream before completing the pending HTTP request, and emits a structured
+500 JSON fallback for missing file paths or missing files. Direct
+`NativeHttpResponseFile` handling in the native runtime is now a functional
+fallback that reads file bytes for non-streaming send paths. The router runtime
+regression test now proves a WAMP-backed HTTP route returns a file payload,
+opens the native response stream with the requested status and headers, streams
+the file bytes, and avoids the normal materialized response map.
+
+Baseline `bin/test-fast` passed before this file-backed HTTP response
+streaming change on 2026-07-05. Focused
+`dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded --plain-name "streams file-backed HTTP route responses using native streams"`
+and full
+`dart test packages/connectanum_router/test/router_runtime_test.dart -r expanded`
+passed after the change on 2026-07-05. Full local `bin/verify` passed after
+the change on 2026-07-05, including formatting, Rust/FFI tests, MCP package
+tests, consumer package smokes, live WAMP benchmark integration, router-hosted
+MCP example smokes, router CLI consumer smokes, full router tests with the new
+file-backed HTTP response stream regression, HTTP/2 and HTTP/3 router
+integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 Router-hosted MCP now has native HTTP/3 direct JSON WAMP helper coverage in
 addition to native HTTP/3 Streamable HTTP lifecycle coverage and existing
 native HTTP/2 coverage. `router_integration_native_test.dart` now drives raw
@@ -65,8 +95,19 @@ formatting, Rust/FFI tests, MCP consumer package smokes, live WAMP benchmark
 integration, router-hosted MCP example smokes, router CLI consumer smokes,
 full router tests with the new native HTTP/3 direct JSON MCP smoke, native
 HTTP/2/HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket
-smoke. Hosted evidence has not been refreshed for this local checkpoint yet;
-the latest fully clean hosted checkpoint remains `d539a34`.
+smoke. Hosted evidence after push: commit `1076dfc` was pushed to GitLab
+`origin` `add-router`, GitHub `add-router`, and GitHub `master`. GitHub
+`add-router` CI `28743289285`, Dart Package Publish Dry Run `28743289246`, and
+WAMP Profile Benchmarks `28743289250` passed at `1076dfc`; GitHub `master` CI
+`28743290019`, Dart Package Publish Dry Run `28743290021`, and WAMP Profile
+Benchmarks `28743290053` also passed at `1076dfc`. Native Artifacts dry-run
+`28741330334` and Router Image dry-run `28741330364` remain clean and relevant
+from `d539a34` because this checkpoint did not touch native-release-sensitive
+or router-image-sensitive paths. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+passed for `master` at `1076dfc`; RC readiness is blocked only on selecting
+and approving the numeric RC tag/prerelease/router-image tag plus the deferred
+pub.dev package ownership/order track.
 
 Previous implementation checkpoint:
 Router-hosted MCP now has native HTTP/3 Streamable HTTP lifecycle coverage in

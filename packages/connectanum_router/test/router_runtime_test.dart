@@ -3068,6 +3068,125 @@ void main() {
     expect((body as NativeHttpResponseText).text, 'OK');
   });
 
+  test(
+    'streams file-backed HTTP route responses using native streams',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+
+      final tempDir = await Directory.systemTemp.createTemp(
+        'connectanum-file-response-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final file = File('${tempDir.path}${Platform.pathSeparator}payload.txt');
+      await file.writeAsString('file-backed-response');
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 43;
+
+      final internalSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final registered = await internalSession.register(
+        'com.example.api.health',
+      );
+      registered.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        context!.sendFile(
+          path: file.path,
+          status: 206,
+          headers: const {'x-file': 'true'},
+        );
+      });
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 2,
+          method: 'GET',
+          target: '/api/health',
+          path: '/api/health',
+          protocol: 'http/1.1',
+          headers: const {'x-test': 'file'},
+          body: Uint8List.fromList(utf8.encode('{}')),
+          realm: 'realm1',
+          procedure: 'com.example.api.health',
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any((event) => event['type'] == 'http_response_ready'),
+        timeout: const Duration(seconds: 2),
+      );
+      final responseEvent = events.firstWhere(
+        (event) => event['type'] == 'http_response_ready',
+      );
+      final response = responseEvent['response'] as Map;
+      expect(response['status'], 206);
+      expect(response['bodyKind'], 'file');
+      expect(response['filePath'], file.path);
+
+      await _waitUntil(
+        () => events.any(
+          (event) => event['type'] == 'http_response_file_streamed',
+        ),
+        timeout: const Duration(seconds: 2),
+      );
+      expect(runtime.httpResponses[connectionId], isNull);
+      expect(runtime.responseStreamOpens, hasLength(1));
+      final open = runtime.responseStreamOpens.single;
+      expect(open.handshakeHandle, 2);
+      expect(open.status, 206);
+      expect(open.headers['x-file'], 'true');
+      final handle = open.streamHandle;
+
+      await _waitUntil(
+        () => runtime.closedResponseStreams.contains(handle),
+        timeout: const Duration(seconds: 2),
+      );
+      final chunks = runtime.responseStreamChunks[handle];
+      expect(chunks, isNotNull);
+      final bytes = chunks!.expand((chunk) => chunk).toList();
+      expect(utf8.decode(bytes), 'file-backed-response');
+      expect(runtime.closedResponseStreams.contains(handle), isTrue);
+    },
+  );
+
   test('dispatches handler HTTP routes without WAMP fallback', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()

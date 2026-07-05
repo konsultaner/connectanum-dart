@@ -79,6 +79,22 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Implemented file-backed HTTP response streaming for WAMP-backed
+  router HTTP handlers. `HttpInvocationContext.sendFile` responses now bypass
+  the normal materialized native response sender and stream through
+  `runtime.openHttpResponseStream(...)`, closing the native response stream
+  before completing the pending HTTP call. Missing file paths or missing files
+  emit structured binding events and fall back to a 500 JSON response. Direct
+  `NativeHttpResponseFile` handling is also functional for non-streaming native
+  send paths. Baseline `bin/test-fast` passed before the change on
+  2026-07-05. Focused file-response runtime coverage and the full
+  `router_runtime_test.dart` suite passed after the change. Full local
+  `bin/verify` passed after the change on 2026-07-05, including formatting,
+  Rust/FFI tests, MCP package tests, consumer package smokes, live WAMP
+  benchmark integration, router-hosted MCP example smokes, router CLI consumer
+  smokes, full router tests with the new file-backed HTTP response stream
+  regression, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
+  browser WebSocket smoke.
 - 2026-07-05: Added native HTTP/3 direct JSON WAMP helper coverage for
   router-hosted MCP. The new router integration smoke sends raw HTTP/3
   JSON-RPC requests to `/mcp` without a Streamable HTTP session and asserts
@@ -93,8 +109,20 @@ decision because `connectanum_client` still depends on private
   benchmark integration, router-hosted MCP example smokes, router CLI consumer
   smokes, full router tests with the new native HTTP/3 direct JSON MCP smoke,
   native HTTP/2/HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. Hosted evidence has not been refreshed for this local
-  checkpoint yet; the latest fully clean hosted checkpoint remains `d539a34`.
+  WebSocket smoke. Hosted evidence after push: commit `1076dfc` was pushed to
+  GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`.
+  GitHub `add-router` CI `28743289285`, Dart Package Publish Dry Run
+  `28743289246`, and WAMP Profile Benchmarks `28743289250` passed at
+  `1076dfc`; GitHub `master` CI `28743290019`, Dart Package Publish Dry Run
+  `28743290021`, and WAMP Profile Benchmarks `28743290053` also passed at
+  `1076dfc`. Native Artifacts dry-run `28741330334` and Router Image dry-run
+  `28741330364` remain clean and relevant from `d539a34` because this
+  checkpoint did not touch native-release-sensitive or router-image-sensitive
+  paths. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed for `master` at `1076dfc`; RC readiness is blocked only on selecting
+  and approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-05: Extended router-hosted MCP native protocol coverage to HTTP/3.
   The ffi-test HTTP/3 client helper now returns response headers as well as
   status/body, allowing Dart integration tests to assert MCP protocol and

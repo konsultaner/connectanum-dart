@@ -1449,6 +1449,10 @@ class RouterBinding {
               'connectionId': request.connectionId,
               'response': responsePayload.toEventPayload(),
             });
+            if (responsePayload.bodyKind == HttpResponseBodyKind.file) {
+              _sendFileHttpResponse(pending, responsePayload);
+              return;
+            }
             if (responsePayload.progress || pending.responseStream != null) {
               final sent = _forwardStreamingResponseChunk(
                 pending,
@@ -3179,9 +3183,123 @@ class RouterBinding {
           body: NativeHttpResponseJson(payload.bodyJson),
         );
       case HttpResponseBodyKind.file:
-        throw UnsupportedError(
-          'File-backed HTTP responses are not supported yet.',
+        final filePath = payload.filePath;
+        if (filePath == null || filePath.isEmpty) {
+          throw ArgumentError(
+            'File-backed HTTP responses require a file path.',
+          );
+        }
+        return NativeHttpResponse(
+          status: payload.status,
+          headers: headers,
+          body: NativeHttpResponseFile(filePath),
         );
+    }
+  }
+
+  void _sendFileHttpResponse(
+    _PendingHttpCall pending,
+    HttpResponsePayload payload,
+  ) {
+    unawaited(_sendFileHttpResponseAsync(pending, payload));
+  }
+
+  Future<void> _sendFileHttpResponseAsync(
+    _PendingHttpCall pending,
+    HttpResponsePayload payload,
+  ) async {
+    final filePath = payload.filePath;
+    if (filePath == null || filePath.isEmpty) {
+      await _sendFileHttpResponseError(
+        pending,
+        'missing file path for file-backed HTTP response',
+      );
+      return;
+    }
+
+    final file = File(filePath);
+    if (!await file.exists()) {
+      await _sendFileHttpResponseError(
+        pending,
+        'file-backed HTTP response path does not exist',
+      );
+      return;
+    }
+
+    final stream = _ensureStreamingResponse(pending, payload);
+    if (stream == null) {
+      _completeHttpRequest(pending.id);
+      return;
+    }
+
+    try {
+      await for (final chunk in file.openRead()) {
+        if (chunk.isEmpty) {
+          continue;
+        }
+        stream.add(chunk is Uint8List ? chunk : Uint8List.fromList(chunk));
+      }
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_file_streamed',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+        'path': filePath,
+      });
+      _finishStreamingResponse(pending);
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_file_stream_error',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+        'path': filePath,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      _finishStreamingResponse(pending);
+    }
+  }
+
+  Future<void> _sendFileHttpResponseError(
+    _PendingHttpCall pending,
+    String message,
+  ) async {
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_response_file_stream_error',
+      'httpRequestId': pending.id,
+      'listenerId': pending.request.listenerId,
+      'connectionId': pending.request.connectionId,
+      'error': message,
+    });
+    try {
+      await _sendImmediateHttpResponse(
+        request: pending.request,
+        handshake: pending.handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          headers: const {'content-type': 'application/json'},
+          body: NativeHttpResponseJson({
+            'error': 'file_response_unavailable',
+            'message': message,
+          }),
+        ),
+      );
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_response_send_error',
+        'httpRequestId': pending.id,
+        'listenerId': pending.request.listenerId,
+        'connectionId': pending.request.connectionId,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+    } finally {
+      _completeHttpRequest(pending.id);
     }
   }
 
