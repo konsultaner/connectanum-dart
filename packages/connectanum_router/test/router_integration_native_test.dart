@@ -2433,6 +2433,95 @@ void main() {
       skip: skipReason,
     );
 
+    test('serves router-hosted MCP over native HTTP/2', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9126,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(
+          enableHttp3: false,
+          enableMcp: true,
+          mcpRouteMatch: const HttpRouteMatch(path: '/mcp', protocols: ['h2']),
+          mcpOptions: const <String, Object?>{
+            'post_response_transport': 'json',
+          },
+        ),
+      );
+      addTearDown(harness.dispose);
+
+      final binding = harness.binding;
+      final serviceSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'mcp-http2-service',
+        authRole: 'internal',
+      );
+      addTearDown(serviceSession.close);
+
+      final registration = await serviceSession.register('app.echo');
+      registration.onInvoke((invocation) {
+        invocation.respondWith(
+          argumentsKeywords: {'received': invocation.argumentsKeywords},
+        );
+      });
+
+      final listener = binding.listeners.single;
+      final initialize = await _postHttp2Json(
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'h2-initialize',
+          'method': 'initialize',
+          'params': {'protocolVersion': '2025-11-25'},
+        },
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'initialize',
+        },
+      );
+
+      expect(initialize.statusCode, equals(HttpStatus.ok));
+      expect(initialize.headers['mcp-protocol-version'], equals('2025-11-25'));
+      final mcpSessionId = initialize.headers['mcp-session-id'];
+      expect(mcpSessionId, isNotNull);
+      expect(mcpSessionId, isNotEmpty);
+      final initializeResult =
+          initialize.json?['result'] as Map<String, Object?>;
+      expect(initializeResult['capabilities'], isA<Map<String, Object?>>());
+
+      final sessionHeaders = <String, String>{
+        'origin': 'http://127.0.0.1:${listener.port}',
+        HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2025-11-25',
+        'MCP-Session-Id': mcpSessionId!,
+      };
+      Map<String, String> streamableHeaders(String method) {
+        return <String, String>{...sessionHeaders, 'Mcp-Method': method};
+      }
+
+      final initialized = await _postHttp2Json(
+        listener.port,
+        '/mcp',
+        {'jsonrpc': '2.0', 'method': 'notifications/initialized', 'params': {}},
+        headers: streamableHeaders('notifications/initialized'),
+      );
+      expect(initialized.statusCode, equals(HttpStatus.accepted));
+
+      final tools = await _postHttp2Json(listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'h2-tools-list',
+        'method': 'tools/list',
+        'params': {},
+      }, headers: streamableHeaders('tools/list'));
+
+      expect(tools.statusCode, equals(HttpStatus.ok));
+      expect(tools.headers['mcp-session-id'], equals(mcpSessionId));
+      final toolList =
+          ((tools.json?['result'] as Map<String, Object?>)['tools'] as List)
+              .cast<Map>();
+      expect(toolList.map((tool) => tool['name']), contains('app.echo'));
+    }, skip: skipReason);
+
     test(
       'does not run anonymous MCP calls as a privileged realm session',
       () async {
@@ -7304,6 +7393,47 @@ Future<
     Map<String, String> headers,
   })
 >
+_postHttp2Json(
+  int port,
+  String path,
+  Map<String, Object?> payload, {
+  Map<String, String> headers = const <String, String>{},
+}) async {
+  final socket = await Socket.connect('127.0.0.1', port);
+  final connection = http2.ClientTransportConnection.viaSocket(socket);
+  try {
+    await connection.onInitialPeerSettingsReceived;
+    final bodyBytes = Uint8List.fromList(utf8.encode(jsonEncode(payload)));
+    final stream = connection.makeRequest(<http2.Header>[
+      http2.Header.ascii(':method', 'POST'),
+      http2.Header.ascii(':scheme', 'http'),
+      http2.Header.ascii(':path', path),
+      http2.Header.ascii(':authority', '127.0.0.1:$port'),
+      http2.Header.ascii('content-type', ContentType.json.mimeType),
+      http2.Header.ascii('content-length', bodyBytes.length.toString()),
+      for (final entry in headers.entries)
+        http2.Header.ascii(entry.key.toLowerCase(), entry.value),
+    ], endStream: false);
+    stream.outgoingMessages.add(http2.DataStreamMessage(bodyBytes));
+    await stream.outgoingMessages.close();
+    final response = await _readJsonHttp2Response(stream.incomingMessages);
+    await connection.finish();
+    socket.destroy();
+    return response;
+  } catch (_) {
+    socket.destroy();
+    rethrow;
+  }
+}
+
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
 _putJson(
   HttpClient client,
   int port,
@@ -7318,6 +7448,54 @@ _putJson(
   request.contentLength = bodyBytes.length;
   request.add(bodyBytes);
   return _readJsonHttpResponse(await request.close());
+}
+
+Future<
+  ({
+    int statusCode,
+    Map<String, Object?>? json,
+    String body,
+    Map<String, String> headers,
+  })
+>
+_readJsonHttp2Response(Stream<Object?> messages) async {
+  var statusCode = 0;
+  final bodyBuilder = BytesBuilder(copy: false);
+  final headers = <String, String>{};
+  await for (final message in messages) {
+    if (message is http2.HeadersStreamMessage) {
+      for (final header in message.headers) {
+        final name = utf8.decode(header.name).toLowerCase();
+        final value = utf8.decode(header.value);
+        if (name == ':status') {
+          statusCode = int.tryParse(value) ?? statusCode;
+          continue;
+        }
+        headers.update(
+          name,
+          (existing) => '$existing, $value',
+          ifAbsent: () => value,
+        );
+      }
+    } else if (message is http2.DataStreamMessage) {
+      bodyBuilder.add(message.bytes);
+    }
+  }
+  final body = utf8.decode(bodyBuilder.takeBytes());
+  Object? decoded;
+  if (body.isNotEmpty) {
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException {
+      decoded = null;
+    }
+  }
+  return (
+    statusCode: statusCode,
+    json: decoded is Map ? decoded.cast<String, Object?>() : null,
+    body: body,
+    headers: headers,
+  );
 }
 
 Future<

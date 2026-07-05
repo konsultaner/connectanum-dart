@@ -25,23 +25,53 @@ APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart consumer
 access without private checkout assumptions. The isolated global activation
 paths put the generated Pub cache `bin/` directory on `PATH` during activation
 so Pub does not emit executable-path warnings in strict CI log audits.
-Latest fully clean hosted checkpoint: Commit `3ffc3d9` on GitHub `master` and
-GitHub `add-router` passed CI after the installed-service WAMP benchmark smoke
-landed. GitHub `add-router` CI `28734811570` passed with Fast Checks and Full
-Verify green, and GitHub `master` CI `28735338143` passed with Fast Checks and
-Full Verify green after fast-forward promotion. Router Image dry-runs
-`28735249419` on `add-router` and `28735345336` on `master` passed at
-`3ffc3d9` with preview metadata `0.1.0-rc.2-validation.3ffc3d9`. The strict
-deployment-chain audit passed for GitHub `master` at `3ffc3d9`; its latest CI
-log scan was clean with no warning/deprecation/skipped/reset/connection-noise
-matches. Dart Package Publish Dry Run `28727181711`, Native Artifacts dry-run
-`28723003691`, and WAMP Profile Benchmarks `28727181717` remain relevant
-because no corresponding sensitive inputs changed since their clean runs.
+Latest fully clean hosted checkpoint: Commit `7dc1846` on GitHub `master` and
+GitHub `add-router` passed CI after the router-native OpenMetrics HTTP/2 route
+change landed. GitHub `add-router` CI `28736799733` passed with Fast Checks and
+Full Verify green, and GitHub `master` CI `28736801622` passed with Fast Checks
+and Full Verify green after fast-forward promotion. Dart Package Publish Dry
+Run `28736799737` on `add-router` and `28736801611` on `master` passed at
+`7dc1846`; WAMP Profile Benchmarks `28736799730` on `add-router` and
+`28736801600` on `master` also passed at `7dc1846`. Router Image dry-run
+`28737216716` passed at `7dc1846` with preview metadata
+`0.1.0-rc.2-validation.7dc1846`. The strict deployment-chain audit passed for
+GitHub `master` at `7dc1846`; its latest CI log scan was clean with no
+warning/deprecation/skipped/reset/connection-noise matches. Native Artifacts
+dry-run `28723003691` remains relevant because no native-release-sensitive
+paths changed since that clean run.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `3ffc3d9` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `7dc1846` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+Router-hosted MCP now works over native HTTP/2 for real Streamable HTTP
+clients that send `:authority` without a duplicate HTTP/1.1 `Host` header.
+Native HTTP/2 and HTTP/3 request metadata synthesizes a byte-backed `host`
+header from URI authority only when the client did not send `Host`, preserving
+existing `Host` values. Native HTTP response headers are lowercased before FFI
+response dispatch so mixed-case MCP, CORS, and session headers remain valid on
+HTTP/2 and HTTP/3. `router_integration_native_test.dart` now drives a real h2
+initialize -> initialized notification -> `tools/list` lifecycle on `/mcp`,
+using same-origin `Origin` policy, route-scoped JSON POST responses, retained
+MCP session headers, and an internal `app.echo` registration visible through
+the router-hosted catalog. The FFI HTTP/2 round-trip test also asserts that h2
+authority is surfaced as `host`.
+
+Baseline `bin/test-fast` passed before this HTTP/2 MCP compatibility change on
+2026-07-05. Focused
+`cargo test --manifest-path native/transport/ct_core/Cargo.toml flatten_`,
+focused
+`cargo test --manifest-path native/transport/Cargo.toml -p ct_ffi --features ffi-test http2_request_round_trip_over_network`,
+focused
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "serves router-hosted MCP over native HTTP/2"`,
+full `bin/test-fast`, and full local `bin/verify` passed after the change on
+2026-07-05, including formatting, Rust/FFI tests, MCP consumer package smokes,
+live WAMP benchmark integration, router-hosted MCP example smokes, router CLI
+consumer smokes, full router tests, the new native HTTP/2 MCP smoke, HTTP/2
+and HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket
+smoke.
+
+Previous implementation checkpoint:
 `metrics.open_metrics.listen` now enriches router-native health/OpenMetrics
 routes with HTTP/2 protocol support in addition to HTTP/1.1. Existing metrics
 listeners that are matched by endpoint gain `ListenerProtocol.http2` when
@@ -65,7 +95,19 @@ full `bin/test-fast`, and full local `bin/verify` passed after the change on
 2026-07-05, including formatting, Rust/FFI tests, MCP consumer package smokes,
 live WAMP benchmark integration, router-hosted MCP example smokes, router CLI
 consumer smokes, full router tests, HTTP/2 and HTTP/3 router integration, and
-the Chrome/Dart2Wasm browser WebSocket smoke.
+the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence after push:
+commit `7dc1846` was pushed to GitLab `origin` `add-router`, GitHub
+`add-router`, and GitHub `master`. GitHub `add-router` CI `28736799733`, Dart
+Package Publish Dry Run `28736799737`, and WAMP Profile Benchmarks
+`28736799730` passed at `7dc1846`; GitHub `master` CI `28736801622`, Dart
+Package Publish Dry Run `28736801611`, and WAMP Profile Benchmarks
+`28736801600` also passed at `7dc1846`. Router Image dry-run `28737216716`
+passed at `7dc1846` with preview metadata `0.1.0-rc.2-validation.7dc1846`.
+The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+passed for `master` at `7dc1846`; RC readiness is blocked only on selecting
+and approving the numeric RC tag/prerelease/router-image tag plus the deferred
+pub.dev package ownership/order track.
 
 Previous implementation checkpoint:
 `run_bench_cli_consumer_package_smoke()` now starts the globally activated

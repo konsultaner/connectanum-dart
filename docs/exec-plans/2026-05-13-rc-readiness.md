@@ -79,6 +79,17 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Fixed native HTTP/2/HTTP/3 authority handling for
+  router-hosted MCP. Native request metadata now synthesizes `host` from URI
+  authority when a normal `Host` header is absent, preserving existing `Host`
+  headers, and native response dispatch lowercases HTTP response header names
+  before FFI so MCP session, protocol, and CORS headers are valid on HTTP/2 and
+  HTTP/3. Added FFI coverage that h2 authority is surfaced as `host` and a
+  router integration smoke that performs an h2 Streamable MCP initialize,
+  initialized notification, and `tools/list` request against `/mcp` with
+  same-origin `Origin` policy and retained session headers. Focused ct_core,
+  ct_ffi, and Dart h2 MCP tests passed; full `bin/test-fast` and local
+  `bin/verify` passed on 2026-07-05.
 - 2026-07-05: Made router-native OpenMetrics/health routes HTTP/2-capable by
   default. `metrics.open_metrics.listen` enrichment now adds
   `ListenerProtocol.http2` when injecting `/healthz`, `/health`, and the
@@ -97,6 +108,18 @@ decision because `connectanum_client` still depends on private
   MCP consumer package smokes, live WAMP benchmark integration, router-hosted
   MCP example smokes, router CLI consumer smokes, full router tests, HTTP/2 and
   HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence after push: commit `7dc1846` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`. GitHub `add-router`
+  CI `28736799733`, Dart Package Publish Dry Run `28736799737`, and WAMP
+  Profile Benchmarks `28736799730` passed at `7dc1846`; GitHub `master` CI
+  `28736801622`, Dart Package Publish Dry Run `28736801611`, and WAMP Profile
+  Benchmarks `28736801600` also passed at `7dc1846`. Router Image dry-run
+  `28737216716` passed at `7dc1846` with preview metadata
+  `0.1.0-rc.2-validation.7dc1846`. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed for `master` at `7dc1846`; RC readiness is blocked only on selecting
+  and approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-05: Extended the benchmark CLI consumer package smoke from
   installed-command discovery to a real installed-service WAMP workload check.
   `run_bench_cli_consumer_package_smoke()` now starts the globally activated

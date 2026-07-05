@@ -416,6 +416,13 @@ class NativeHttpResponse {
   final NativeHttpResponseBody body;
 }
 
+List<MapEntry<String, String>> _nativeHttpResponseHeaderEntries(
+  Map<String, String> headers,
+) => [
+  for (final entry in headers.entries)
+    MapEntry(entry.key.toLowerCase(), entry.value),
+];
+
 class NativeHttpTestResponse {
   NativeHttpTestResponse(this.status, this.body);
 
@@ -2663,7 +2670,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         'HTTP responses require a native handshake handle.',
       );
     }
-    final headersList = response.headers.entries.toList(growable: false);
+    final headersList = _nativeHttpResponseHeaderEntries(response.headers);
     final headerCount = headersList.length;
     final headerPtr = headerCount == 0
         ? ffi.Pointer<CtHttpHeader>.fromAddress(0)
@@ -2766,7 +2773,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         'HTTP response streaming requires a native handshake handle.',
       );
     }
-    final entries = headers.entries.toList(growable: false);
+    final entries = _nativeHttpResponseHeaderEntries(headers);
     final headerCount = entries.length;
     final headerPtr = headerCount == 0
         ? ffi.Pointer<CtHttpHeader>.fromAddress(0)

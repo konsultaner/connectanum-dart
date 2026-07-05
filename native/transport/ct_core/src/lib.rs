@@ -6151,7 +6151,11 @@ async fn handle_http2_request(
         .map(|pq| pq.as_str().to_string())
         .unwrap_or_else(|| parts.uri.path().to_string());
     let (path, query) = split_target_components(&target);
-    let headers = flatten_http2_headers(&parts.headers);
+    let authority = parts
+        .uri
+        .authority()
+        .map(|authority| authority.as_str().to_string());
+    let headers = flatten_http2_headers(&parts.headers, authority.as_deref());
     let content_length = parse_content_length(&headers);
     let max_body = endpoint_config
         .max_http_content_length
@@ -6703,7 +6707,11 @@ async fn process_http3_request(
         .map(|pq| pq.as_str().to_string())
         .unwrap_or_else(|| request.uri().path().to_string());
     let (path, query) = split_target_components(&target);
-    let headers = flatten_headers(request.headers());
+    let authority = request
+        .uri()
+        .authority()
+        .map(|authority| authority.as_str().to_string());
+    let headers = flatten_headers(request.headers(), authority.as_deref());
 
     let max_body = endpoint_config
         .max_http_content_length
@@ -6856,20 +6864,30 @@ async fn process_http3_request(
     }
 }
 
-fn flatten_headers(headers: &http::HeaderMap) -> Vec<(Arc<[u8]>, Arc<[u8]>)> {
-    headers
+fn append_authority_host_header(
+    headers: &mut Vec<(Arc<[u8]>, Arc<[u8]>)>,
+    authority: Option<&str>,
+) {
+    if headers
         .iter()
-        .map(|(name, value)| {
-            (
-                http_bytes_from_slice(name.as_str().as_bytes()),
-                http_bytes_from_slice(value.as_bytes()),
-            )
-        })
-        .collect()
+        .any(|(name, _)| name.eq_ignore_ascii_case(b"host"))
+    {
+        return;
+    }
+    let Some(authority) = authority.map(str::trim).filter(|value| !value.is_empty()) else {
+        return;
+    };
+    headers.push((
+        http_bytes_from_slice(b"host"),
+        http_bytes_from_slice(authority.as_bytes()),
+    ));
 }
 
-fn flatten_http2_headers(headers: &http02::HeaderMap) -> Vec<(Arc<[u8]>, Arc<[u8]>)> {
-    headers
+fn flatten_headers(
+    headers: &http::HeaderMap,
+    authority: Option<&str>,
+) -> Vec<(Arc<[u8]>, Arc<[u8]>)> {
+    let mut flattened = headers
         .iter()
         .map(|(name, value)| {
             (
@@ -6877,7 +6895,26 @@ fn flatten_http2_headers(headers: &http02::HeaderMap) -> Vec<(Arc<[u8]>, Arc<[u8
                 http_bytes_from_slice(value.as_bytes()),
             )
         })
-        .collect()
+        .collect();
+    append_authority_host_header(&mut flattened, authority);
+    flattened
+}
+
+fn flatten_http2_headers(
+    headers: &http02::HeaderMap,
+    authority: Option<&str>,
+) -> Vec<(Arc<[u8]>, Arc<[u8]>)> {
+    let mut flattened = headers
+        .iter()
+        .map(|(name, value)| {
+            (
+                http_bytes_from_slice(name.as_str().as_bytes()),
+                http_bytes_from_slice(value.as_bytes()),
+            )
+        })
+        .collect();
+    append_authority_host_header(&mut flattened, authority);
+    flattened
 }
 
 fn split_target_components(target: &str) -> (String, Option<String>) {
@@ -7630,10 +7667,20 @@ mod tests {
             HeaderValue::from_bytes(b"abc\xff").expect("header value"),
         );
 
-        let flattened = flatten_headers(&headers);
+        let flattened = flatten_headers(&headers, None);
         assert_eq!(flattened.len(), 1);
         assert_eq!(flattened[0].0.as_ref(), b"x-binary");
         assert_eq!(flattened[0].1.as_ref(), b"abc\xff");
+    }
+
+    #[test]
+    fn flatten_headers_synthesizes_host_from_authority() {
+        let headers = http::HeaderMap::new();
+
+        let flattened = flatten_headers(&headers, Some("127.0.0.1:9443"));
+        assert_eq!(flattened.len(), 1);
+        assert_eq!(flattened[0].0.as_ref(), b"host");
+        assert_eq!(flattened[0].1.as_ref(), b"127.0.0.1:9443");
     }
 
     #[test]
@@ -7644,10 +7691,24 @@ mod tests {
             Http2HeaderValue::from_bytes(b"abc\xff").expect("header value"),
         );
 
-        let flattened = flatten_http2_headers(&headers);
+        let flattened = flatten_http2_headers(&headers, None);
         assert_eq!(flattened.len(), 1);
         assert_eq!(flattened[0].0.as_ref(), b"x-binary");
         assert_eq!(flattened[0].1.as_ref(), b"abc\xff");
+    }
+
+    #[test]
+    fn flatten_http2_headers_keeps_existing_host() {
+        let mut headers = http02::HeaderMap::new();
+        headers.insert(
+            Http2HeaderName::from_static("host"),
+            Http2HeaderValue::from_static("example.test"),
+        );
+
+        let flattened = flatten_http2_headers(&headers, Some("127.0.0.1:9443"));
+        assert_eq!(flattened.len(), 1);
+        assert_eq!(flattened[0].0.as_ref(), b"host");
+        assert_eq!(flattened[0].1.as_ref(), b"example.test");
     }
 
     #[test]

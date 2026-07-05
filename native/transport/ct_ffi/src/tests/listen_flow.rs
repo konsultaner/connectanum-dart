@@ -4040,6 +4040,8 @@ fn http2_request_round_trip_over_network() {
 
     let port = ct_get_local_port(listener_id);
     assert!(port > 0);
+    let expected_authority = format!("127.0.0.1:{}", port);
+    let client_authority = expected_authority.clone();
 
     let (client_tx, client_rx) = std::sync::mpsc::channel();
     let body_handle = std::thread::spawn(move || {
@@ -4056,7 +4058,7 @@ fn http2_request_round_trip_over_network() {
             });
             let request = Http2TestRequest::builder()
                 .method("POST")
-                .uri("/h2")
+                .uri(format!("http://{client_authority}/h2"))
                 .header("content-length", "4")
                 .body(())
                 .unwrap();
@@ -4115,6 +4117,33 @@ fn http2_request_round_trip_over_network() {
         .expect("protocol utf8");
         assert_eq!(protocol, "http/2");
     }
+    let mut found_host_header = false;
+    for index in 0..info.headers_len {
+        let mut header = CtHttpHeader::default();
+        assert_eq!(
+            ct_http_handshake_header(handle, index, &mut header as *mut CtHttpHeader),
+            SUCCESS
+        );
+        unsafe {
+            let name =
+                std::str::from_utf8(std::slice::from_raw_parts(header.name_ptr, header.name_len))
+                    .expect("header name utf8");
+            let value = std::str::from_utf8(std::slice::from_raw_parts(
+                header.value_ptr,
+                header.value_len,
+            ))
+            .expect("header value utf8");
+            if name.eq_ignore_ascii_case("host") {
+                assert_eq!(value, expected_authority);
+                found_host_header = true;
+                break;
+            }
+        }
+    }
+    assert!(
+        found_host_header,
+        "expected HTTP/2 authority to be surfaced as host"
+    );
 
     let body = b"pong";
     assert_eq!(
