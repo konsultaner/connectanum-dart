@@ -79,6 +79,27 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Extended downstream readiness coverage for configured HTTP
+  `file` routes through the router CLI consumer package smoke. The generated
+  smoke config now creates a temporary static asset directory, exposes it as a
+  `/assets` prefix route with `action.type: file`, and proves the isolated
+  package-executable `connectanum_router` command serves the route over the
+  native listener before the existing MCP/auth checks run. The smoke asserts
+  GET body delivery, HEAD content length, `Range: bytes=0-5`, content
+  type/cache/accept-range headers, and encoded traversal rejection; the
+  boundary test now pins this configured file-route coverage in
+  `tool/test_mcp_consumer_package_boundary.py`. Baseline `bin/test-fast`
+  passed before the smoke change on 2026-07-05. Focused
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
+  `bash -n bin/common.sh`, and
+  `bash -lc 'source bin/common.sh && run_router_cli_consumer_package_smoke'`
+  passed after the change. Full local `bin/verify` passed after the change on
+  2026-07-05, including formatting, Rust/FFI tests, MCP package tests,
+  consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+  example smokes, the updated router CLI consumer smoke with configured
+  file-route coverage, full router tests, HTTP/2 and HTTP/3 router
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this smoke-only implementation checkpoint is pending push/CI.
 - 2026-07-05: Implemented configured HTTP `file` route actions as
   router-hosted native listener endpoints. Native config now validates the file
   route directory, maps `action: file` to an internal `router.http.file`
@@ -86,9 +107,10 @@ decision because `connectanum_client` still depends on private
   `RouterBinding` intercepts configured file routes before WAMP fallback,
   resolves requested paths inside the configured root with URI segment and
   symlink containment checks, serves full-file GET responses through native
-  file-backed response descriptors, handles HEAD, conditional requests,
-  inferred content types, configured cache control, and single byte ranges, and
-  returns structured JSON errors for unsafe paths or missing files. Baseline
+  file-backed response descriptors, handles HEAD, conditional requests with
+  `If-None-Match` precedence over `If-Modified-Since`, inferred content types,
+  configured cache control, and single byte ranges, and returns structured JSON
+  errors for unsafe paths or missing files. Baseline
   `bin/test-fast` passed before the change on 2026-07-05. Focused
   `dart test packages/connectanum_router/test/router_json_test.dart packages/connectanum_router/test/router_runtime_test.dart`
   passed after the change, including native config encoding,
@@ -99,8 +121,20 @@ decision because `connectanum_client` still depends on private
   router-hosted MCP example smokes, router CLI consumer smokes, full router
   tests with the configured file-route regressions, HTTP/2 and HTTP/3 router
   integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence for this checkpoint is pending after push; the latest fully clean
-  hosted checkpoint remains `d64d220`.
+  evidence after push: commit `e209f53` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`. GitHub `add-router`
+  CI `28751073680`, WAMP Profile Benchmarks `28751073669`, and Dart Package
+  Publish Dry Run `28751073666` passed at `e209f53`; GitHub `master` CI
+  `28751077106`, WAMP Profile Benchmarks `28751077125`, Dart Package Publish
+  Dry Run `28751077175`, and Router Image dry-run `28751100998` also passed at
+  `e209f53`. Router Image dry-run preview metadata was `sha-e209f53c8e46`,
+  with GHCR login/push skipped. Native Artifacts dry-run `28748296297` remains
+  clean and relevant from `d64d220` because this checkpoint did not touch
+  native-release-sensitive paths. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed for `master` at `e209f53`; RC readiness is blocked only on selecting
+  and approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-05: Completed HTTP namespace prefix shorthand resolution for
   consumer router configurations. Native HTTP route resolution now derives
   namespace shorthand procedure path segments from the request path relative to

@@ -2,51 +2,73 @@
 
 Last updated: 2026-07-05
 Current branch: `add-router`
-Last reviewed branch checkpoint: configured HTTP `file` route actions now run
-through the router native HTTP listener and Dart router binding instead of a
-standalone HTTP server. Native route config validates a route directory,
-encodes file actions as internal router HTTP endpoints, and auto-exposes HEAD
-for GET-backed file routes. The binding intercepts configured file routes
-before WAMP fallback, serves files with URI segment validation, symlink/root
-containment, HEAD, conditional requests, single byte ranges, content/cache
-headers, and structured JSON errors for invalid or missing files. The focused
-router config/runtime tests prove native config encoding and runtime serving
-without private consumer assumptions; full local `bin/verify` passed on
-2026-07-05.
-Latest fully clean hosted checkpoint: Commit `d64d220` on GitHub `master` and
-GitHub `add-router` passed CI after HTTP namespace prefix shorthand started
-mapping procedure path segments relative to the matched route prefix. GitHub
-`add-router` CI `28748267986` passed with Fast Checks and Full Verify green,
-and GitHub `master` CI `28748270065` passed with Fast Checks and Full Verify
-green after fast-forward promotion. WAMP Profile Benchmarks `28748268009` on
-`add-router` and `28748270068` on `master` passed at `d64d220`, and kTLS
-Validation `28748268045` on `add-router` and `28748270070` on `master` also
-passed at `d64d220`. Native Artifacts dry-run `28748296297` passed at
-`d64d220` with non-mutating validation tag
-`v0.1.0-rc.2-validation.d64d220` and uploaded `native-release-preview`.
-Router Image dry-run `28748697582` passed at `d64d220` with preview metadata
-`sha-d64d22063220`, uploaded `router-image-preview`, and skipped GHCR
-login/push. Dart Package Publish Dry Run `28746631697` on `master` remains
-clean and relevant from `92635ab` because no publish-sensitive paths changed
-since then. The strict deployment-chain audit passed for GitHub `master` at
-`d64d220` with CI log scan clean and clean/relevant Dart package, native
-release, router image, and WAMP profile evidence.
+Last reviewed branch checkpoint: the router CLI consumer package smoke now
+configures a temporary `/assets` HTTP `file` route in the generated router
+config and proves the packaged `connectanum_router` command can serve it over
+the native listener with GET, HEAD, single byte range, cache/content headers,
+and traversal rejection. This extends the previous configured file-route unit
+and runtime coverage to an isolated consumer package smoke with no private
+downstream assumptions. Full local `bin/verify` passed on 2026-07-05 after the
+smoke change.
+Latest fully clean hosted checkpoint: Commit `e209f53` on GitHub `master` and
+GitHub `add-router` passed hosted validation after configured HTTP `file`
+routes were implemented as router-hosted native listener endpoints. GitHub
+`add-router` CI `28751073680`, WAMP Profile Benchmarks `28751073669`, and Dart
+Package Publish Dry Run `28751073666` passed at `e209f53`. GitHub `master` CI
+`28751077106` passed with Fast Checks and Full Verify green, WAMP Profile
+Benchmarks `28751077125` passed, and Dart Package Publish Dry Run
+`28751077175` passed at `e209f53` after fast-forward promotion. Router Image
+dry-run `28751100998` passed at `e209f53` with preview metadata
+`sha-e209f53c8e46`, uploaded `router-image-preview`, skipped GHCR login/push,
+and covered the checked-out head. Native Artifacts dry-run `28748296297`
+remains clean and relevant from `d64d220` because no native-release-sensitive
+paths changed since then; it used non-mutating validation tag
+`v0.1.0-rc.2-validation.d64d220` and uploaded `native-release-preview`. The
+strict deployment-chain audit passed for GitHub `master` at `e209f53` with CI
+log scan clean and clean/relevant Dart package, native release, router image,
+and WAMP profile evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `d64d220` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `e209f53` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+The router CLI consumer package smoke now covers configured HTTP `file` routes
+through the same isolated package-executable path used for downstream
+application readiness. The smoke creates a temporary static asset directory,
+adds a `/assets` prefix route with `action.type: file`, `directory`, and
+`cache_control`, starts the globally activated package command with the
+generated config, and asserts file GET, HEAD content length, `Range:
+bytes=0-5`, content type/cache/accept-range headers, and encoded traversal
+rejection before running the existing router-hosted MCP/auth checks. The
+boundary test in `tool/test_mcp_consumer_package_boundary.py` now pins this
+configured file-route coverage so the public consumer smoke cannot regress to
+MCP-only coverage.
+
+Baseline `bin/test-fast` passed before the smoke change on 2026-07-05.
+Focused `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
+`bash -n bin/common.sh`, and
+`bash -lc 'source bin/common.sh && run_router_cli_consumer_package_smoke'`
+passed after the change on 2026-07-05. Full local `bin/verify` also passed
+after the change on 2026-07-05, including formatting, Rust/FFI tests, MCP
+package tests, consumer package smokes, live WAMP benchmark integration,
+router-hosted MCP example smokes, the updated router CLI consumer smoke with
+configured file-route coverage, full router tests, HTTP/2 and HTTP/3 router
+integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
+for this smoke-only implementation checkpoint is pending push/CI.
+
+Previous implementation checkpoint:
 Configured HTTP `file` routes now serve router-hosted static assets through
 the native listener path. `Router.start` native config maps `action: file`
 routes to an internal `router.http.file` endpoint, validates the configured
 directory, and adds HEAD automatically when GET is file-backed. `RouterBinding`
 handles those routes before generic WAMP dispatch, resolves requested files
 inside the configured root with URI segment and symlink containment checks,
-supports HEAD, weak ETags, `If-None-Match`, `If-Modified-Since`, single
-`Range: bytes=...` requests, inferred content types, configured cache control,
-and structured JSON errors for unsafe paths or missing files. Full-file GET
-responses use native file-backed response descriptors, while byte ranges use
-bounded byte responses.
+supports HEAD, weak ETags, conditional request handling with `If-None-Match`
+precedence over `If-Modified-Since`, single `Range: bytes=...` requests,
+inferred content types, configured cache control, and structured JSON errors
+for unsafe paths or missing files. Full-file GET responses use native
+file-backed response descriptors, while byte ranges use bounded byte
+responses.
 
 Baseline `bin/test-fast` passed before this configured file-route change on
 2026-07-05. Focused
@@ -59,8 +81,20 @@ package tests, consumer package smokes, live WAMP benchmark integration,
 router-hosted MCP example smokes, router CLI consumer smokes, full router
 tests with the configured file-route regressions, HTTP/2 and HTTP/3 router
 integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
-for this checkpoint is pending after push; the latest fully clean hosted
-checkpoint remains `d64d220`.
+after push: commit `e209f53` was pushed to GitLab `origin` `add-router`,
+GitHub `add-router`, and GitHub `master`. GitHub `add-router` CI
+`28751073680`, WAMP Profile Benchmarks `28751073669`, and Dart Package Publish
+Dry Run `28751073666` passed at `e209f53`; GitHub `master` CI `28751077106`,
+WAMP Profile Benchmarks `28751077125`, Dart Package Publish Dry Run
+`28751077175`, and Router Image dry-run `28751100998` also passed at
+`e209f53`. Router Image dry-run preview metadata was `sha-e209f53c8e46`, with
+GHCR login/push skipped. Native Artifacts dry-run `28748296297` remains clean
+and relevant from `d64d220` because this checkpoint did not touch
+native-release-sensitive paths. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-native-release-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+passed for `master` at `e209f53`; RC readiness is blocked only on selecting
+and approving the numeric RC tag/prerelease/router-image tag plus the deferred
+pub.dev package ownership/order track.
 
 Previous implementation checkpoint:
 HTTP namespace shorthand now resolves prefix route procedure names from the

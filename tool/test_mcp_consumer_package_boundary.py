@@ -455,6 +455,26 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
 
+    def test_router_cli_consumer_smoke_exercises_configured_file_route(
+        self,
+    ) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+
+        self.assertIn('printf \'router file route smoke\\n\'', body)
+        self.assertIn("prefix: /assets", body)
+        self.assertIn("type: file", body)
+        self.assertIn('directory: "$smoke_dir/static"', body)
+        self.assertIn("cache_control: max-age=60", body)
+        self.assertIn("/assets/hello.txt", body)
+        self.assertIn("Router CLI configured file route", body)
+        self.assertIn("content-type: text/plain", body)
+        self.assertIn("Range: bytes=0-5", body)
+        self.assertIn("content-range: bytes 0-5/24", body)
+        self.assertIn("/assets/%2e%2e/router.yaml", body)
+        self.assertIn("file_not_found", body)
+        self.assertIn("configured /assets file route", body)
+
     def test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface(
         self,
     ) -> None:

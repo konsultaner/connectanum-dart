@@ -23743,6 +23743,15 @@ run_router_cli_consumer_package_smoke() (
   local package_name
   local package_source
   local package_target
+  local asset_body
+  local asset_body_file
+  local asset_head_headers_file
+  local asset_headers_file
+  local asset_range_body
+  local asset_range_body_file
+  local asset_range_headers_file
+  local asset_traversal_body_file
+  local traversal_status
   local dart_consumer_summary
   local smoke_dir
   local pub_cache
@@ -23987,6 +23996,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 PY
   )"
 
+  mkdir -p "$smoke_dir/static"
+  printf 'router file route smoke\n' >"$smoke_dir/static/hello.txt"
+
   cat >"$smoke_dir/router.yaml" <<YAML
 router:
   session_profiles:
@@ -24045,6 +24057,13 @@ router:
       http:
         session_profile: public-http
         routes:
+          - match:
+              prefix: /assets
+              methods: [GET]
+            action:
+              type: file
+              directory: "$smoke_dir/static"
+              cache_control: max-age=60
           - match:
               path: /auth
               methods: [POST]
@@ -24269,6 +24288,59 @@ YAML
 
   metrics_body="$(curl -fsS "http://127.0.0.1:$metrics_port/metrics")"
   grep -F 'connectanum_router_drain_in_progress' <<<"$metrics_body" >/dev/null
+
+  asset_headers_file="$smoke_dir/asset.headers"
+  asset_body_file="$smoke_dir/asset.body"
+  asset_head_headers_file="$smoke_dir/asset-head.headers"
+  asset_range_headers_file="$smoke_dir/asset-range.headers"
+  asset_range_body_file="$smoke_dir/asset-range.body"
+  asset_traversal_body_file="$smoke_dir/asset-traversal.body"
+
+  curl -fsS -D "$asset_headers_file" -o "$asset_body_file" \
+    "http://127.0.0.1:$mcp_port/assets/hello.txt"
+  asset_body="$(<"$asset_body_file")"
+  if [[ "$asset_body" != "router file route smoke" ]]; then
+    printf 'Router CLI configured file route returned unexpected body: %s\n' \
+      "$asset_body" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+  grep -Eiq '^content-type: text/plain(; charset=utf-8)?\r?$' \
+    "$asset_headers_file"
+  grep -Eiq '^cache-control: max-age=60\r?$' "$asset_headers_file"
+  grep -Eiq '^accept-ranges: bytes\r?$' "$asset_headers_file"
+
+  curl -fsS -I -D "$asset_head_headers_file" -o /dev/null \
+    "http://127.0.0.1:$mcp_port/assets/hello.txt"
+  grep -Eq '^HTTP/[0-9.]+ 200' "$asset_head_headers_file"
+  grep -Eiq '^content-length: 24\r?$' "$asset_head_headers_file"
+
+  curl -fsS -D "$asset_range_headers_file" -H 'Range: bytes=0-5' \
+    -o "$asset_range_body_file" \
+    "http://127.0.0.1:$mcp_port/assets/hello.txt"
+  asset_range_body="$(<"$asset_range_body_file")"
+  if [[ "$asset_range_body" != "router" ]]; then
+    printf 'Router CLI configured file range returned unexpected body: %s\n' \
+      "$asset_range_body" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+  grep -Eq '^HTTP/[0-9.]+ 206' "$asset_range_headers_file"
+  grep -Eiq '^content-range: bytes 0-5/24\r?$' "$asset_range_headers_file"
+
+  traversal_status="$(
+    curl -sS -o "$asset_traversal_body_file" -w '%{http_code}' \
+      "http://127.0.0.1:$mcp_port/assets/%2e%2e/router.yaml"
+  )"
+  if [[ "$traversal_status" != "404" ]]; then
+    printf 'Router CLI configured file traversal returned HTTP %s.\n' \
+      "$traversal_status" >&2
+    cat "$asset_traversal_body_file" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+  grep -F 'file_not_found' "$asset_traversal_body_file" >/dev/null
+
   MCP_PORT="$mcp_port" python3 - <<'PY'
 import json
 import os
@@ -28946,6 +29018,6 @@ DART
     '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
   _cleanup_router_cli_smoke 0
 )
