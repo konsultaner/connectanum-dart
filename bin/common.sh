@@ -7153,7 +7153,7 @@ EOF
     fi
   done
   CONNECTANUM_SKIP_NATIVE_BUILD=true \
-    PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_mcp" >&2
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_mcp" >&2
   global_mcp_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v router_hosted_client || true)"
   if [[ "$global_mcp_command" != "$pub_cache/bin/router_hosted_client" ]]; then
     printf 'Expected isolated pub-cache router_hosted_client command, got: %s\n' \
@@ -23591,7 +23591,7 @@ EOF
     fi
   done
   CONNECTANUM_SKIP_NATIVE_BUILD=true \
-    PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_router" >&2
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_router" >&2
   global_router_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v connectanum_router || true)"
   if [[ "$global_router_command" != "$pub_cache/bin/connectanum_router" ]]; then
     printf 'Expected isolated pub-cache connectanum_router command, got: %s\n' \

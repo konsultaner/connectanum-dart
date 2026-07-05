@@ -11,7 +11,10 @@ form, `connectanum_router --config ...`, from the checkout alias,
 router-hosted MCP smoke still starts the live router through the isolated
 installed command and exercises health, metrics, auth, public/protected MCP,
 direct JSON WAMP/meta APIs, Streamable HTTP session lifecycle, pub/sub, and
-neutral Dart consumer access without private checkout assumptions.
+neutral Dart consumer access without private checkout assumptions. Both
+isolated global activation paths now put the generated Pub cache `bin/`
+directory on `PATH` during activation so Pub does not emit executable-path
+warnings in strict CI log audits.
 Latest fully clean hosted checkpoint: Commit `b1ffb67` on GitHub `master` and
 GitHub `add-router` passed CI after the router CLI installed-command help
 alignment. GitHub `master` CI `28727181713`, Dart Package Publish Dry Run
@@ -31,11 +34,14 @@ consumer package, verifies `dart run connectanum_mcp:router_hosted_client`
 help and dry-run output, then creates a lockfile-pinned temporary workspace
 copy for `connectanum_core`, `connectanum_client`, and `connectanum_mcp`.
 The smoke globally activates the copied `connectanum_mcp` package into the
-isolated Pub cache, asserts `command -v router_hosted_client` resolves to that
-cache, and runs installed-command help plus a representative pub/sub dry-run.
-The package boundary test guards the global activation workspace, example
-copy, command lookup, help invocation, dry-run invocation, and isolated
-`PUB_CACHE` usage for the generated consumer package.
+isolated Pub cache with `PATH="$pub_cache/bin:$PATH"`, asserts
+`command -v router_hosted_client` resolves to that cache, and runs
+installed-command help plus a representative pub/sub dry-run.
+`run_router_cli_consumer_package_smoke()` uses the same activation-time `PATH`
+ownership for its copied `connectanum_router` package. The package boundary
+test guards the global activation workspace, example copy, command lookup,
+help invocation, dry-run invocation, and activation-time `PATH`/isolated
+`PUB_CACHE` usage for the generated consumer packages.
 
 Baseline `bin/test-fast` passed before this MCP client installed-command smoke
 change on 2026-07-05, including router-hosted MCP live smokes, the neutral MCP
@@ -49,7 +55,19 @@ Python/tool tests, MCP package tests, consumer package smokes, MCP
 auth/session and Streamable HTTP client tests, live WAMP benchmark integration,
 router-hosted MCP example smokes, router CLI consumer smokes, full router
 tests, OpenMetrics internal route tests, HTTP/2 and HTTP/3 router integration,
-and the Chrome/Dart2Wasm browser WebSocket smoke.
+and the Chrome/Dart2Wasm browser WebSocket smoke. Follow-up focused
+`bash -n bin/common.sh`, `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`,
+targeted package-boundary `python3 -m unittest` coverage, direct
+`run_mcp_client_package_smoke` and `run_router_cli_consumer_package_smoke`
+invocations with a `Warning: Pub installs executables into` grep guard, and
+full `bin/test-fast` passed after the activation-time `PATH` fix on
+2026-07-05. Full `bin/verify` also passed after the fix on 2026-07-05,
+including formatting, Rust/FFI tests, Python/tool tests, MCP package tests,
+consumer package smokes, MCP auth/session and Streamable HTTP client tests,
+live WAMP benchmark integration, router-hosted MCP example smokes, router CLI
+consumer smokes, full router tests, OpenMetrics internal route tests, HTTP/2
+and HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket
+smoke.
 
 Previous implementation checkpoint:
 `packages/connectanum_router/bin/connectanum_router.dart` now prints

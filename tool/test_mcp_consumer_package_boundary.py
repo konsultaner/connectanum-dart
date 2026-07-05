@@ -85,7 +85,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('PUB_CACHE="$pub_cache" dart pub get', body)
         self.assertIn('PUB_CACHE="$pub_cache" dart analyze', body)
         self.assertIn('PUB_CACHE="$pub_cache" dart run bin/main.dart', body)
-        self.assertIn("dart pub global activate --source path", body)
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" '
+            "dart pub global activate --source path",
+            body,
+        )
         self.assertIn(
             'global_smoke_workspace="$smoke_dir/global-workspace"',
             body,
@@ -229,7 +233,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             'PUB_CACHE="$pub_cache" dart run connectanum_router --help',
             body,
         )
-        self.assertIn("dart pub global activate --source path", body)
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" '
+            "dart pub global activate --source path",
+            body,
+        )
         self.assertIn(
             'global_smoke_workspace="$smoke_dir/global-workspace"',
             body,

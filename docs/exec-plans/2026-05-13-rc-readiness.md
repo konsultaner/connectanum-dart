@@ -79,6 +79,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Kept the installed-command consumer smokes compatible with the
+  strict CI log gate by putting each generated Pub cache `bin/` directory on
+  `PATH` during isolated `dart pub global activate --source path`.
+  `run_mcp_client_package_smoke()` now activates the copied `connectanum_mcp`
+  package with activation-time `PATH` ownership before probing
+  `router_hosted_client`, and `run_router_cli_consumer_package_smoke()` does
+  the same before probing and launching `connectanum_router`. The package
+  boundary test now guards the activation-time `PATH` plus isolated
+  `PUB_CACHE` contract for both smokes. Focused `bash -n bin/common.sh`,
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, targeted
+  `python3 -m unittest` coverage, direct `run_mcp_client_package_smoke` and
+  `run_router_cli_consumer_package_smoke` invocations with a
+  `Warning: Pub installs executables into` grep guard, and full
+  `bin/test-fast` passed after the fix on 2026-07-05. Full `bin/verify` also
+  passed after the fix on 2026-07-05, including the updated MCP client and
+  router CLI consumer smokes, router-hosted MCP example smokes, full router
+  tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
+  browser WebSocket smoke.
 - 2026-07-05: Added installed-command coverage for the public
   `connectanum_mcp` router-hosted client executable. `run_mcp_client_package_smoke()`
   now uses an isolated Pub cache for the neutral consumer package, verifies
