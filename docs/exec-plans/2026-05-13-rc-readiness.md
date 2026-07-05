@@ -79,6 +79,22 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Added native HTTP/3 direct JSON WAMP helper coverage for
+  router-hosted MCP. The new router integration smoke sends raw HTTP/3
+  JSON-RPC requests to `/mcp` without a Streamable HTTP session and asserts
+  direct responses do not create `mcp-session-id` headers. It covers direct
+  `tools/list`, `connectanum.api.list` topic metadata,
+  `wamp.registration.lookup` plus internal-callee isolation, and
+  `connectanum.pubsub` subscribe/publish/poll/unsubscribe over a TLS/http3
+  route with JSON POST responses. Baseline `bin/test-fast` passed before the
+  change on 2026-07-05. Focused h3 direct JSON and h3 lifecycle MCP smokes
+  passed, and full local `bin/verify` passed after the change on 2026-07-05,
+  including formatting, Rust/FFI tests, MCP consumer package smokes, live WAMP
+  benchmark integration, router-hosted MCP example smokes, router CLI consumer
+  smokes, full router tests with the new native HTTP/3 direct JSON MCP smoke,
+  native HTTP/2/HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence has not been refreshed for this local
+  checkpoint yet; the latest fully clean hosted checkpoint remains `d539a34`.
 - 2026-07-05: Extended router-hosted MCP native protocol coverage to HTTP/3.
   The ffi-test HTTP/3 client helper now returns response headers as well as
   status/body, allowing Dart integration tests to assert MCP protocol and
@@ -95,7 +111,20 @@ decision because `connectanum_client` still depends on private
   integration, router-hosted MCP example smokes, router CLI consumer smokes,
   full router tests, the new native HTTP/3 MCP smoke, native HTTP/2 MCP
   coverage, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
-  browser WebSocket smoke.
+  browser WebSocket smoke. Hosted evidence after push: commit `d539a34` was
+  pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+  `master`. GitHub `add-router` CI `28741309624`, Dart Package Publish Dry Run
+  `28741309592`, and WAMP Profile Benchmarks `28741309604` passed at
+  `d539a34`; GitHub `master` CI `28741311751`, Dart Package Publish Dry Run
+  `28741311759`, and WAMP Profile Benchmarks `28741311734` also passed at
+  `d539a34`. Native Artifacts dry-run `28741330334` passed at `d539a34` with
+  non-mutating validation tag `v0.1.0-rc.2-validation.d539a34`. Router Image
+  dry-run `28741330364` passed at `d539a34` with preview metadata
+  `sha-d539a34ce150`. The strict deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed for `master` at `d539a34`; RC readiness is blocked only on selecting
+  and approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-05: Fixed native HTTP/2/HTTP/3 authority handling for
   router-hosted MCP. Native request metadata now synthesizes `host` from URI
   authority when a normal `Host` header is absent, preserving existing `Host`

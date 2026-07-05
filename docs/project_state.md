@@ -25,26 +25,50 @@ APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart consumer
 access without private checkout assumptions. The isolated global activation
 paths put the generated Pub cache `bin/` directory on `PATH` during activation
 so Pub does not emit executable-path warnings in strict CI log audits.
-Latest fully clean hosted checkpoint: Commit `8d884a1` on GitHub `master` and
-GitHub `add-router` passed CI after the router-hosted native HTTP/2 MCP
-compatibility fix landed. GitHub `add-router` CI `28739356265` passed with
-Fast Checks and Full Verify green, and GitHub `master` CI `28739358173` passed
-with Fast Checks and Full Verify green after fast-forward promotion. Dart
-Package Publish Dry Run `28739356253` on `add-router` and `28739358178` on
-`master` passed at `8d884a1`; WAMP Profile Benchmarks `28739356240` on
-`add-router` and `28739358172` on `master` passed at `8d884a1`; kTLS
-Validation `28739356245` on `add-router` and `28739358189` on `master` passed
-at `8d884a1`. Router Image dry-run `28739374846` passed at `8d884a1` with
-preview metadata `sha-8d884a1716f4`. Native Artifacts dry-run `28739900328`
-passed at `8d884a1` with non-mutating validation tag
-`v0.1.0-rc.2-validation.8d884a1`. The strict deployment-chain audit passed for
-GitHub `master` at `8d884a1`; its latest CI log scan was clean with no
+Latest fully clean hosted checkpoint: Commit `d539a34` on GitHub `master` and
+GitHub `add-router` passed CI after native HTTP/3 router-hosted MCP lifecycle
+coverage landed. GitHub `add-router` CI `28741309624` passed with Fast Checks
+and Full Verify green, and GitHub `master` CI `28741311751` passed with Fast
+Checks and Full Verify green after fast-forward promotion. Dart Package Publish
+Dry Run `28741309592` on `add-router` and `28741311759` on `master` passed at
+`d539a34`; WAMP Profile Benchmarks `28741309604` on `add-router` and
+`28741311734` on `master` passed at `d539a34`. Native Artifacts dry-run
+`28741330334` passed at `d539a34` with non-mutating validation tag
+`v0.1.0-rc.2-validation.d539a34`. Router Image dry-run `28741330364` passed at
+`d539a34` with preview metadata `sha-d539a34ce150`. kTLS Validation did not
+path-trigger for the `ct_ffi`/router-only change; the last kTLS validation
+checkpoint remains clean at `8d884a1`. The strict deployment-chain audit passed
+for GitHub `master` at `d539a34`; its latest CI log scan was clean with no
 warning/deprecation/skipped/reset/connection-noise matches.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `8d884a1` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `d539a34` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+Router-hosted MCP now has native HTTP/3 direct JSON WAMP helper coverage in
+addition to native HTTP/3 Streamable HTTP lifecycle coverage and existing
+native HTTP/2 coverage. `router_integration_native_test.dart` now drives raw
+HTTP/3 JSON-RPC requests against `/mcp` without a Streamable HTTP session,
+asserting that direct responses do not mint or retain `mcp-session-id`
+headers. The smoke covers direct `tools/list`, `connectanum.api.list` topic
+metadata, `wamp.registration.lookup` plus callee isolation from internal
+router sessions, and `connectanum.pubsub` subscribe/publish/poll/unsubscribe
+over a TLS/http3 route with JSON POST responses.
+
+Baseline `bin/test-fast` passed before this native HTTP/3 direct JSON MCP
+coverage change on 2026-07-05. Focused
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "serves direct JSON WAMP helpers over native HTTP/3"`,
+focused
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name "serves router-hosted MCP over native HTTP/3"`,
+and full local `bin/verify` passed after the change on 2026-07-05, including
+formatting, Rust/FFI tests, MCP consumer package smokes, live WAMP benchmark
+integration, router-hosted MCP example smokes, router CLI consumer smokes,
+full router tests with the new native HTTP/3 direct JSON MCP smoke, native
+HTTP/2/HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket
+smoke. Hosted evidence has not been refreshed for this local checkpoint yet;
+the latest fully clean hosted checkpoint remains `d539a34`.
+
+Previous implementation checkpoint:
 Router-hosted MCP now has native HTTP/3 Streamable HTTP lifecycle coverage in
 addition to the existing native HTTP/2 coverage. The ffi-test HTTP/3 client
 helper now returns response headers as well as status/body, so Dart integration
@@ -70,7 +94,20 @@ formatting, Rust/FFI tests, MCP consumer package smokes, live WAMP benchmark
 integration, router-hosted MCP example smokes, router CLI consumer smokes,
 full router tests, the new native HTTP/3 MCP smoke, native HTTP/2 MCP
 coverage, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
-browser WebSocket smoke.
+browser WebSocket smoke. Hosted evidence after push: commit `d539a34` was
+pushed to GitLab `origin` `add-router`, GitHub `add-router`, and GitHub
+`master`. GitHub `add-router` CI `28741309624`, Dart Package Publish Dry Run
+`28741309592`, and WAMP Profile Benchmarks `28741309604` passed at `d539a34`;
+GitHub `master` CI `28741311751`, Dart Package Publish Dry Run `28741311759`,
+and WAMP Profile Benchmarks `28741311734` also passed at `d539a34`. Native
+Artifacts dry-run `28741330334` passed at `d539a34` with non-mutating
+validation tag `v0.1.0-rc.2-validation.d539a34`. Router Image dry-run
+`28741330364` passed at `d539a34` with preview metadata
+`sha-d539a34ce150`. The strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+passed for `master` at `d539a34`; RC readiness is blocked only on selecting
+and approving the numeric RC tag/prerelease/router-image tag plus the deferred
+pub.dev package ownership/order track.
 
 Previous implementation checkpoint:
 Router-hosted MCP now works over native HTTP/2 for real Streamable HTTP

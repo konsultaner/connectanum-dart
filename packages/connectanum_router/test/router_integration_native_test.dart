@@ -2638,6 +2638,213 @@ void main() {
       expect(toolList.map((tool) => tool['name']), contains('app.echo'));
     }, skip: skipReason);
 
+    test('serves direct JSON WAMP helpers over native HTTP/3', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9128,
+        nativeLib: nativeLib,
+        config: _buildTlsConfig(),
+        settings: _buildRouterSettings(
+          enableHttp3: true,
+          enableMcp: true,
+          mcpRouteMatch: const HttpRouteMatch(
+            path: '/mcp',
+            protocols: ['http3'],
+          ),
+          mcpOptions: const <String, Object?>{
+            'post_response_transport': 'json',
+            'tool_list_page_size': 100,
+            'topics': [
+              {
+                'topic': 'app.events.audit',
+                'title': 'Audit events',
+                'description': 'Events exposed through router-hosted MCP.',
+              },
+            ],
+          },
+        ),
+        connectionSequence: const [],
+      );
+      addTearDown(harness.dispose);
+
+      if (!harness.runtime.supportsHttp3TestClient) {
+        // Skip without failing the suite when ffi-test helpers are unavailable.
+        // ignore: avoid_print
+        print(
+          'Skipping HTTP/3 MCP direct JSON test: '
+          'native runtime lacks test client',
+        );
+        return;
+      }
+
+      final binding = harness.binding;
+      final serviceSession = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'mcp-http3-direct-service',
+        authRole: 'internal',
+      );
+      addTearDown(serviceSession.close);
+
+      final registration = await serviceSession.register('app.echo');
+      registration.onInvoke((invocation) {
+        invocation.respondWith(
+          argumentsKeywords: {'received': invocation.argumentsKeywords},
+        );
+      });
+
+      final listener = binding.listeners.single;
+      expect(
+        listener.http3Port,
+        greaterThan(0),
+        reason: 'Router did not expose an HTTP/3 port',
+      );
+      final nativeLibPath = nativeLib!;
+      final origin = 'https://127.0.0.1:${listener.http3Port}';
+
+      Map<String, String> directHeaders(String method) {
+        return <String, String>{
+          'origin': origin,
+          HttpHeaders.acceptHeader: ContentType.json.mimeType,
+          'MCP-Protocol-Version': '2025-11-25',
+          'Mcp-Method': method,
+        };
+      }
+
+      Future<Map<String, Object?>> postDirectJson(
+        String method,
+        Map<String, Object?> params, {
+        required String id,
+      }) async {
+        final response = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp',
+          {'jsonrpc': '2.0', 'id': id, 'method': method, 'params': params},
+          headers: directHeaders(method),
+        );
+        expect(response.statusCode, equals(HttpStatus.ok));
+        expect(response.headers['mcp-session-id'], isNull);
+        expect(response.json?['id'], equals(id));
+        final error = response.json?['error'];
+        if (error != null) {
+          fail(
+            'HTTP/3 direct JSON method $method returned '
+            'error: ${jsonEncode(error)}',
+          );
+        }
+        return (response.json?['result'] as Map).cast<String, Object?>();
+      }
+
+      Future<Map<String, Object?>> pollUntilEvents(String handle) async {
+        for (var attempt = 0; attempt < 30; attempt += 1) {
+          final result = await postDirectJson('connectanum.pubsub.poll', {
+            'handle': handle,
+            'limit': 10,
+          }, id: 'h3-direct-pubsub-poll-$attempt');
+          final structured = (result['structuredContent'] as Map)
+              .cast<String, Object?>();
+          final events = structured['events'] as List? ?? const [];
+          if (events.isNotEmpty) {
+            return structured;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+        fail('Timed out waiting for HTTP/3 direct JSON pub/sub events');
+      }
+
+      final tools = await postDirectJson(
+        'tools/list',
+        const <String, Object?>{},
+        id: 'h3-direct-tools-list',
+      );
+      final toolList = (tools['tools'] as List).cast<Map>();
+      expect(toolList.map((tool) => tool['name']), contains('app.echo'));
+
+      final topicCatalog = await postDirectJson('connectanum.api.list', {
+        'kind': 'topic',
+      }, id: 'h3-direct-topic-catalog');
+      final topicCatalogContent = (topicCatalog['structuredContent'] as Map)
+          .cast<String, Object?>();
+      expect(
+        (topicCatalogContent['metadata'] as Map).cast<String, Object?>(),
+        containsPair('authid', 'anonymous'),
+      );
+      expect(jsonEncode(topicCatalogContent), contains('app.events.audit'));
+
+      final registrationLookup = await postDirectJson(
+        'wamp.registration.lookup',
+        {
+          'arguments': ['app.echo'],
+          'argumentsKeywords': {'match': 'exact'},
+        },
+        id: 'h3-direct-registration-lookup',
+      );
+      final registrationLookupContent =
+          (registrationLookup['structuredContent'] as Map)
+              .cast<String, Object?>();
+      final registrationId =
+          ((registrationLookupContent['arguments'] as List).single as num)
+              .toInt();
+      expect(registrationId, greaterThan(0));
+
+      final registrationCallees = await postDirectJson(
+        'wamp.registration.list_callees',
+        {
+          'arguments': [registrationId],
+        },
+        id: 'h3-direct-registration-callees',
+      );
+      final registrationCalleeIds =
+          ((registrationCallees['structuredContent'] as Map)['arguments']
+                  as List)
+              .cast<Object?>();
+      expect(registrationCalleeIds, isEmpty);
+      expect(registrationCalleeIds, isNot(contains(serviceSession.sessionId)));
+
+      String? subscriptionHandle;
+      try {
+        final subscribe = await postDirectJson('connectanum.pubsub.subscribe', {
+          'topic': 'app.events.audit',
+          'queueLimit': 5,
+        }, id: 'h3-direct-pubsub-subscribe');
+        final subscribeContent = (subscribe['structuredContent'] as Map)
+            .cast<String, Object?>();
+        expect(subscribeContent['topic'], equals('app.events.audit'));
+        subscriptionHandle = subscribeContent['handle'] as String;
+        expect(subscriptionHandle, isNotEmpty);
+
+        final publish = await postDirectJson('connectanum.pubsub.publish', {
+          'topic': 'app.events.audit',
+          'argumentsKeywords': {'via': 'h3-direct-json-publish'},
+          'acknowledge': true,
+        }, id: 'h3-direct-pubsub-publish');
+        final publishContent = (publish['structuredContent'] as Map)
+            .cast<String, Object?>();
+        expect(publishContent['acknowledged'], isTrue);
+
+        await serviceSession.publish(
+          'app.events.audit',
+          argumentsKeywords: {'via': 'h3-direct-json-service'},
+          options: core.PublishOptions(acknowledge: true),
+        );
+        final polled = await pollUntilEvents(subscriptionHandle);
+        expect(
+          jsonEncode(polled['events']),
+          contains('h3-direct-json-service'),
+        );
+      } finally {
+        if (subscriptionHandle != null) {
+          final unsubscribe = await postDirectJson(
+            'connectanum.pubsub.unsubscribe',
+            {'handle': subscriptionHandle},
+            id: 'h3-direct-pubsub-unsubscribe',
+          );
+          final unsubscribeContent = (unsubscribe['structuredContent'] as Map)
+              .cast<String, Object?>();
+          expect(unsubscribeContent['unsubscribed'], isTrue);
+        }
+      }
+    }, skip: skipReason);
+
     test(
       'does not run anonymous MCP calls as a privileged realm session',
       () async {
