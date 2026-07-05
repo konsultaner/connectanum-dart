@@ -79,6 +79,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Extended router CLI consumer package smoke coverage for
+  protected Streamable HTTP session deletion. The generated Dart consumer now
+  captures the active protected MCP session id and SSE resume cursor before
+  `deleteSession()`, creates a fresh authenticated `McpStreamableHttpClient`,
+  replays the stale session state, requires `poll()` to fail with `404`, and
+  asserts the client clears stale session/cursor state. The smoke summary now
+  exports `deletedSessionRejected: true` for the secure path and prints an
+  explicit stale-session replay rejection line; the boundary test pins both
+  generated assertions. Baseline `bin/test-fast` passed before the smoke
+  change on 2026-07-05. Focused `bash -n bin/common.sh`,
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and
+  `bash -lc 'source bin/common.sh && run_router_cli_consumer_package_smoke'`
+  passed after the change. Full local `bin/verify` passed after the change on
+  2026-07-05, including formatting, Rust/FFI tests, MCP package tests,
+  consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+  example smokes, the updated router CLI consumer smoke with deleted protected
+  Streamable session replay rejection, full router tests, HTTP/2 and HTTP/3
+  router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this smoke-only implementation checkpoint is pending push/CI.
 - 2026-07-05: Extended downstream readiness coverage for configured HTTP
   `file` routes through the router CLI consumer package smoke. The generated
   smoke config now creates a temporary static asset directory, exposes it as a

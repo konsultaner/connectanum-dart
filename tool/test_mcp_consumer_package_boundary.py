@@ -1222,6 +1222,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"secure":{"ticketGrant":true,"directJson":true,'
             '"streamable":true,"streamableSessionDelete":true,'
+            '"deletedSessionRejected":true,'
             '"resourcesPrompts":true,'
             '"pubsub":true,"wampMeta":true,'
             '"batch":true,'
@@ -1266,6 +1267,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("Dart consumer token-only secure delete leaked state.", body)
         self.assertIn("Dart consumer protected Streamable delete leaked state.", body)
+        self.assertIn(
+            "Dart consumer protected Streamable delete missed active session state.",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected deleted Streamable session poll",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer deleted-session poll kept stale state.",
+            body,
+        )
+        self.assertIn("deletedSessionRejected", body)
         self.assertIn("Dart consumer refreshed Streamable delete leaked state.", body)
         self.assertIn("_expectNotificationPubSub", body)
         self.assertIn("notifyWampEventDirect", body)
@@ -1342,6 +1356,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "procedure and topic describe/pub-sub/batches plus Streamable "
             "resources/resource templates/prompts/procedure and topic "
             "describe/pub-sub/batches/session delete",
+            body,
+        )
+        self.assertIn(
+            "Router CLI consumer package smoke rejected stale protected "
+            "Streamable session replay.",
             body,
         )
 

@@ -3,13 +3,12 @@
 Last updated: 2026-07-05
 Current branch: `add-router`
 Last reviewed branch checkpoint: the router CLI consumer package smoke now
-configures a temporary `/assets` HTTP `file` route in the generated router
-config and proves the packaged `connectanum_router` command can serve it over
-the native listener with GET, HEAD, single byte range, cache/content headers,
-and traversal rejection. This extends the previous configured file-route unit
-and runtime coverage to an isolated consumer package smoke with no private
-downstream assumptions. Full local `bin/verify` passed on 2026-07-05 after the
-smoke change.
+proves protected Streamable HTTP session deletion cannot be replayed by a
+fresh consumer client. The generated Dart consumer captures an active
+authenticated MCP session and SSE cursor, deletes the session, replays the
+deleted session id through a new `McpStreamableHttpClient`, asserts router
+rejection with `404`, and verifies the client clears stale session state. Full
+local `bin/verify` passed on 2026-07-05 after the smoke change.
 Latest fully clean hosted checkpoint: Commit `e209f53` on GitHub `master` and
 GitHub `add-router` passed hosted validation after configured HTTP `file`
 routes were implemented as router-hosted native listener endpoints. GitHub
@@ -32,6 +31,32 @@ numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
 the clean hosted `e209f53` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+The router CLI consumer package smoke now covers protected Streamable HTTP
+deleted-session replay from the same isolated package-executable path used for
+downstream application readiness. The protected Dart consumer path now records
+the active session id and resume cursor before `deleteSession()`, creates a
+fresh authenticated MCP client after deletion, injects the stale session
+state, and requires `poll()` to fail with `HttpStatus.notFound` while clearing
+the replayed session/cursor locally. The smoke summary exports
+`deletedSessionRejected: true` for the secure path, prints an explicit
+stale-session replay rejection line, and the boundary test pins the generated
+assertions so future consumer smokes cannot regress to local-only delete
+checks.
+
+Baseline `bin/test-fast` passed before the smoke change on 2026-07-05.
+Focused `bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and
+`bash -lc 'source bin/common.sh && run_router_cli_consumer_package_smoke'`
+passed after the change on 2026-07-05. Full local `bin/verify` also passed
+after the change on 2026-07-05, including formatting, Rust/FFI tests, MCP
+package tests, consumer package smokes, live WAMP benchmark integration,
+router-hosted MCP example smokes, the updated router CLI consumer smoke with
+deleted protected Streamable session replay rejection, full router tests,
+HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this smoke-only implementation checkpoint
+is pending push/CI.
+
+Previous implementation checkpoint:
 The router CLI consumer package smoke now covers configured HTTP `file` routes
 through the same isolated package-executable path used for downstream
 application readiness. The smoke creates a temporary static asset directory,
