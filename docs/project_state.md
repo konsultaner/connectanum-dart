@@ -2,32 +2,59 @@
 
 Last updated: 2026-07-05
 Current branch: `add-router`
-Last reviewed branch checkpoint: the router CLI consumer package smoke now
-proves protected Streamable HTTP session deletion cannot be replayed across a
-fresh consumer client's MCP method matrix. The generated Dart consumer captures
-an active authenticated MCP session and SSE cursor, deletes the session,
-replays the deleted session id and cursor before each stale-session operation,
-asserts router rejection with `404`, and verifies the client clears stale
-session state after batches, notification-only requests, tool calls, resource
-and prompt reads, polling, and session deletion. Full local `bin/verify` passed
-on 2026-07-05 after the matrix smoke change.
-Latest fully clean hosted checkpoint: Commit `09267bc` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the first protected deleted-session
-replay smoke. GitHub `master` CI `28754584850` and GitHub `add-router` CI
-`28754582663` both passed with Fast Checks and Full Verify green at `09267bc`.
+Last reviewed branch checkpoint: router-hosted MCP ingress now rejects
+malformed `MCP-Session-Id` headers whenever the header is present, including
+direct JSON POSTs that are not otherwise Streamable-session scoped. The public
+router-hosted MCP client example now raw-probes malformed session-header
+rejection across the public, pub/sub-only, auth-grant, bearer, and JSON-response
+live smoke variants while asserting the typed Streamable client keeps its active
+session id and SSE cursor unchanged. Full local `bin/verify` passed on
+2026-07-05 after the malformed-session fix.
+Latest fully clean hosted checkpoint: Commit `9ea4036` on GitHub `master` and
+GitHub `add-router` passed hosted CI after the protected deleted-session replay
+matrix smoke. GitHub `master` CI `28755920653` and GitHub `add-router` CI
+`28755920630` both passed with Fast Checks and Full Verify green at `9ea4036`.
 Dart package dry-run evidence remains clean and relevant from `e209f53`, native
 artifact dry-run evidence remains clean and relevant from `d64d220`, and router
 image plus WAMP profile evidence remains clean and relevant from `e209f53`
 because no publish-, native-release-, image-, or benchmark-sensitive paths
-changed in the smoke-only `09267bc` checkpoint. The strict deployment-chain
-audit passed for GitHub `master` at `09267bc` with CI log scan clean and
+changed in the smoke-only `9ea4036` checkpoint. The strict deployment-chain
+audit passed for GitHub `master` at `9ea4036` with CI log scan clean and
 clean/relevant Dart package, native release, router image, and WAMP profile
 evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `09267bc` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `9ea4036` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+Router-hosted MCP request validation now treats `MCP-Session-Id` as a controlled
+header on every MCP HTTP request. A malformed value is rejected with `400` and
+no response session header before direct JSON dispatch, not just on GET, DELETE,
+or Streamable POST requests. The native router integration regression covers a
+direct JSON `ping` with `Accept: application/json`,
+`MCP-Protocol-Version: 2025-11-25`, and `MCP-Session-Id: malformed session`,
+and the public router-hosted client live smoke now proves the same behavior
+through the published `connectanum_mcp/io.dart` entrypoint. Authenticated smoke
+variants reuse the original auth-grant or bearer authorization header for the
+raw malformed-session probe, and the probe sends a zero-length JSON POST so the
+test proves header-first rejection without body-write race assumptions.
+
+Baseline `bin/test-fast` passed before the malformed-session fix on
+2026-07-05. Focused
+`dart format packages/connectanum_mcp/example/router_hosted_client.dart packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart packages/connectanum_router/test/router_integration_native_test.dart`,
+`dart analyze packages/connectanum_mcp/example/router_hosted_client.dart packages/connectanum_router/lib/src/router/router_instance/router_mcp.dart`,
+`dart test packages/connectanum_router/test/router_integration_native_test.dart -r expanded --plain-name 'guards MCP Streamable HTTP ingress and sessions'`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and
+`bash -lc 'source bin/common.sh && run_public_router_hosted_mcp_client_live_smoke'`
+passed after the change on 2026-07-05. Full local `bin/verify` also passed
+after the change on 2026-07-05, including formatting, Rust/FFI tests, MCP
+package tests, consumer package smokes, live WAMP benchmark integration,
+router-hosted MCP example smokes with malformed `MCP-Session-Id` rejection,
+full router tests, HTTP/2 and HTTP/3 router integration, and the
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this
+malformed-session implementation checkpoint is pending push/CI.
+
+Previous implementation checkpoint:
 The router CLI consumer package smoke now covers protected Streamable HTTP
 deleted-session replay across the same isolated package-executable path used
 for downstream application readiness. The protected Dart consumer path records
@@ -53,8 +80,13 @@ package tests, consumer package smokes, live WAMP benchmark integration,
 router-hosted MCP example smokes, the updated router CLI consumer smoke with
 deleted protected Streamable session replay matrix rejection, full router
 tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this matrix smoke-only implementation
-checkpoint is pending push/CI.
+WebSocket smoke. Hosted evidence after push: commit `9ea4036` was pushed to
+GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`. GitHub
+`master` CI `28755920653` and GitHub `add-router` CI `28755920630` passed with
+Fast Checks and Full Verify green at `9ea4036`. The strict deployment-chain
+audit passed for GitHub `master` at `9ea4036` with CI log scan clean and
+clean/relevant Dart package, native release, router image, and WAMP profile
+evidence.
 
 Previous implementation checkpoint:
 The router CLI consumer package smoke now covers configured HTTP `file` routes

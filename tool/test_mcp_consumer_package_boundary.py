@@ -1546,6 +1546,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "_catalogContainsValue",
             "_expectStreamableStateUnchanged",
             "_expectInvalidLastEventIdRejected",
+            "_expectMalformedSessionIdRejected",
+            "_ClientContext",
+            "authorizationHeader: 'Bearer ${grant.accessToken}'",
+            "authorizationHeader: 'Bearer $bearerToken'",
             "_expectWampSubscription",
             "_expectWampPublication",
             "_expectWampEventBatch",
@@ -1556,6 +1560,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Streamable invalid Last-Event-ID rejection did not name the header.",
             "label: 'Streamable invalid Last-Event-ID'",
             "invalidLastEventId",
+            "router-hosted-client-streamable-malformed-session-id",
+            "Streamable malformed MCP-Session-Id returned",
+            "Streamable malformed MCP-Session-Id rejection echoed a session id.",
+            "Streamable malformed MCP-Session-Id rejection did not name the header.",
+            "label: 'Streamable malformed MCP-Session-Id'",
+            "malformedSessionId",
             "sessionUnchanged",
             "catalog did not include $uri.",
             "catalog did not include $value.",
@@ -2247,6 +2257,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("bearer_json_summary=\"$(", live_body)
         self.assertIn(
             '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}',
+            script,
+        )
+        self.assertIn(
+            '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}',
             script,
         )
         self.assertIn('"directPing"', script)

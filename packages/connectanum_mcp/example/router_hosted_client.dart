@@ -31,7 +31,8 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  final client = await _createClient(options);
+  final clientContext = await _createClient(options);
+  final client = clientContext.client;
   try {
     await _runDirectJsonExample(client, options);
     await _runDirectBatchExample(client, options);
@@ -39,7 +40,11 @@ Future<void> main(List<String> args) async {
     if (options.pubsubTopic != null) {
       await _runDirectPubSubExample(client, options);
     }
-    await _runStreamableSessionExample(client, options);
+    await _runStreamableSessionExample(
+      client,
+      options,
+      authorizationHeader: clientContext.authorizationHeader,
+    );
   } finally {
     try {
       await _deleteStreamableSession(client);
@@ -53,7 +58,7 @@ Future<void> main(List<String> args) async {
   }
 }
 
-Future<McpStreamableHttpClient> _createClient(_Options options) async {
+Future<_ClientContext> _createClient(_Options options) async {
   if (options.authEndpoint != null) {
     final authClient = ConnectanumHttpAuthClient(
       options.authEndpoint!,
@@ -66,12 +71,15 @@ Future<McpStreamableHttpClient> _createClient(_Options options) async {
         authId: options.authId!,
         ticket: options.ticket!,
       );
-      return McpStreamableHttpClient.withAuthGrant(
-        options.endpoint,
-        grant,
-        httpClient: _shortLivedHttpClient(),
-        defaultProtocolVersion: options.protocolVersion,
-        closeHttpClient: true,
+      return _ClientContext(
+        McpStreamableHttpClient.withAuthGrant(
+          options.endpoint,
+          grant,
+          httpClient: _shortLivedHttpClient(),
+          defaultProtocolVersion: options.protocolVersion,
+          closeHttpClient: true,
+        ),
+        authorizationHeader: 'Bearer ${grant.accessToken}',
       );
     } finally {
       authClient.close(force: true);
@@ -80,21 +88,33 @@ Future<McpStreamableHttpClient> _createClient(_Options options) async {
 
   final bearerToken = options.bearerToken;
   if (bearerToken != null) {
-    return McpStreamableHttpClient.withBearerToken(
-      options.endpoint,
-      bearerToken,
-      httpClient: _shortLivedHttpClient(),
-      defaultProtocolVersion: options.protocolVersion,
-      closeHttpClient: true,
+    return _ClientContext(
+      McpStreamableHttpClient.withBearerToken(
+        options.endpoint,
+        bearerToken,
+        httpClient: _shortLivedHttpClient(),
+        defaultProtocolVersion: options.protocolVersion,
+        closeHttpClient: true,
+      ),
+      authorizationHeader: 'Bearer $bearerToken',
     );
   }
 
-  return McpStreamableHttpClient(
-    options.endpoint,
-    httpClient: _shortLivedHttpClient(),
-    defaultProtocolVersion: options.protocolVersion,
-    closeHttpClient: true,
+  return _ClientContext(
+    McpStreamableHttpClient(
+      options.endpoint,
+      httpClient: _shortLivedHttpClient(),
+      defaultProtocolVersion: options.protocolVersion,
+      closeHttpClient: true,
+    ),
   );
+}
+
+class _ClientContext {
+  const _ClientContext(this.client, {this.authorizationHeader});
+
+  final McpStreamableHttpClient client;
+  final String? authorizationHeader;
 }
 
 void _printDryRunSummary(IOSink sink, _Options options) {
@@ -376,6 +396,58 @@ Future<void> _expectInvalidLastEventIdRejected(
     sessionId: sessionId,
     lastEventId: lastEventId,
     label: 'Streamable invalid Last-Event-ID',
+  );
+}
+
+Future<void> _expectMalformedSessionIdRejected(
+  McpStreamableHttpClient client,
+  String? authorizationHeader, {
+  required String sessionId,
+  required String? lastEventId,
+}) async {
+  final httpClient = _shortLivedHttpClient();
+  try {
+    final request = await httpClient.postUrl(client.endpoint);
+    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    request.headers.set('MCP-Protocol-Version', client.protocolVersion);
+    request.headers.set('MCP-Session-Id', 'malformed session');
+    request.headers.set(
+      'x-consumer-trace',
+      'router-hosted-client-streamable-malformed-session-id',
+    );
+    if (authorizationHeader != null) {
+      request.headers.set(HttpHeaders.authorizationHeader, authorizationHeader);
+    }
+    request.headers.contentType = ContentType.json;
+    request.contentLength = 0;
+
+    final response = await request.close();
+    final body = await utf8.decodeStream(response);
+    if (response.statusCode != HttpStatus.badRequest) {
+      throw StateError(
+        'Streamable malformed MCP-Session-Id returned '
+        '${response.statusCode}, expected ${HttpStatus.badRequest}.',
+      );
+    }
+    if (response.headers.value('MCP-Session-Id') != null) {
+      throw StateError(
+        'Streamable malformed MCP-Session-Id rejection echoed a session id.',
+      );
+    }
+    if (!body.contains('MCP-Session-Id')) {
+      throw StateError(
+        'Streamable malformed MCP-Session-Id rejection did not name the header.',
+      );
+    }
+  } finally {
+    httpClient.close(force: true);
+  }
+
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'Streamable malformed MCP-Session-Id',
   );
 }
 
@@ -1867,8 +1939,9 @@ Future<void> _runDirectPubSubExample(
 
 Future<void> _runStreamableSessionExample(
   McpStreamableHttpClient client,
-  _Options options,
-) async {
+  _Options options, {
+  String? authorizationHeader,
+}) async {
   final initialize = await client.initialize(
     id: 'streamable-initialize',
     clientInfo: const <String, Object?>{
@@ -1899,6 +1972,13 @@ Future<void> _runStreamableSessionExample(
     sessionId: streamableSessionId,
     lastEventId: eventIdBeforeInvalidPoll,
   );
+  final eventIdBeforeMalformedSession = client.lastEventId;
+  await _expectMalformedSessionIdRejected(
+    client,
+    authorizationHeader,
+    sessionId: streamableSessionId,
+    lastEventId: eventIdBeforeMalformedSession,
+  );
 
   final tools = await client.listTools(id: 'streamable-tools');
   final streamable = <String, Object?>{
@@ -1908,6 +1988,7 @@ Future<void> _runStreamableSessionExample(
     'initializedNotification': {'accepted': true},
     'ping': ping,
     'invalidLastEventId': {'rejected': true, 'sessionUnchanged': true},
+    'malformedSessionId': {'rejected': true, 'sessionUnchanged': true},
     'tools': [for (final tool in tools.tools) tool['name']],
   };
 

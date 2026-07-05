@@ -1834,6 +1834,36 @@ void main() {
       );
       expect(malformedSessionId.headers, isNot(contains('mcp-session-id')));
 
+      final directJsonMalformedSessionId = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-json-malformed-session-id',
+          'method': 'ping',
+          'params': {},
+        },
+        headers: {
+          'origin': 'http://127.0.0.1:${listener.port}',
+          HttpHeaders.acceptHeader: 'application/json',
+          'MCP-Protocol-Version': '2025-11-25',
+          'MCP-Session-Id': 'malformed session',
+        },
+      );
+      expect(
+        directJsonMalformedSessionId.statusCode,
+        equals(HttpStatus.badRequest),
+      );
+      expect(
+        jsonEncode(directJsonMalformedSessionId.json?['error']),
+        contains('MCP-Session-Id'),
+      );
+      expect(
+        directJsonMalformedSessionId.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
       final malformedSessionIdPoll = await _getHttp(
         client,
         listener.port,

@@ -1043,11 +1043,7 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  final streamableSessionScopedRequest =
-      httpMethod == 'GET' || httpMethod == 'DELETE' || streamableHttpRequest;
-  if (mcpSessionId != null &&
-      streamableSessionScopedRequest &&
-      !_mcpSessionIdHeaderValueValid(mcpSessionId)) {
+  if (mcpSessionId != null && !_mcpSessionIdHeaderValueValid(mcpSessionId)) {
     await binding._sendImmediateHttpResponse(
       request: request,
       handshake: handshake,
