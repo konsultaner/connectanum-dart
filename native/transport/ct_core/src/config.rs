@@ -1,5 +1,6 @@
 use serde::{Deserialize, Deserializer};
 use serde_json::Value as JsonValue;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Duration;
@@ -899,6 +900,99 @@ mod tests {
     }
 
     #[test]
+    fn http_prefix_namespace_shorthand_maps_relative_path_segments() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "protocols": ["http"],
+            "http_routes": [{
+                "path": "/api",
+                "match_kind": "prefix",
+                "methods": {
+                    "GET": {
+                        "type": "namespace",
+                        "realm": "realm1",
+                        "namespace": "api",
+                        "append_method_suffix": true
+                    }
+                }
+            }]
+        }))
+        .unwrap();
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+
+        match runtime.match_http_route("/api/items/42", None, "GET", "http/1.1") {
+            HttpRouteMatch::Resolved(resolution) => {
+                assert_eq!(resolution.realm, "realm1");
+                assert_eq!(resolution.procedure, "api.items.42.get");
+                assert_eq!(resolution.path, "/api/items/42");
+            }
+            other => panic!("expected namespace prefix resolution, got {other:?}"),
+        }
+
+        match runtime.match_http_route("/api", None, "GET", "http/1.1") {
+            HttpRouteMatch::Resolved(resolution) => {
+                assert_eq!(resolution.procedure, "api.index.get");
+                assert_eq!(resolution.path, "/api");
+            }
+            other => panic!("expected namespace index resolution, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn http_reserved_shorthand_keeps_full_path_segments() {
+        let cfg: EndpointConfig = serde_json::from_value(json!({
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "disabled",
+            "protocols": ["http"],
+            "http_routes": [
+                {
+                    "path": "/healthz",
+                    "methods": {
+                        "GET": {
+                            "type": "reserved_realm",
+                            "append_method_suffix": true
+                        }
+                    }
+                },
+                {
+                    "path": "/ops",
+                    "match_kind": "prefix",
+                    "methods": {
+                        "POST": {
+                            "type": "reserved_realm",
+                            "namespace": "ops",
+                            "append_method_suffix": true
+                        }
+                    }
+                }
+            ]
+        }))
+        .unwrap();
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+
+        match runtime.match_http_route("/healthz", None, "GET", "http/1.1") {
+            HttpRouteMatch::Resolved(resolution) => {
+                assert_eq!(resolution.realm, RESERVED_HTTP_REALM);
+                assert_eq!(resolution.procedure, "healthz.get");
+                assert_eq!(resolution.path, "/healthz");
+            }
+            other => panic!("expected exact shorthand resolution, got {other:?}"),
+        }
+
+        match runtime.match_http_route("/ops/restart", None, "POST", "http/1.1") {
+            HttpRouteMatch::Resolved(resolution) => {
+                assert_eq!(resolution.realm, RESERVED_HTTP_REALM);
+                assert_eq!(resolution.procedure, "ops.ops.restart.post");
+                assert_eq!(resolution.path, "/ops/restart");
+            }
+            other => panic!("expected reserved prefix resolution, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn http_settings_parse_alpn_and_options() {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",
@@ -1136,7 +1230,15 @@ impl HttpRouteRuntime {
             .methods
             .get(&method_key)
             .or_else(|| self.default.as_ref())?;
-        Some(target.materialise(&self.transport_auth, path, query, &method_key, protocol))
+        let target_path = self.target_path(target, path);
+        Some(target.materialise(
+            &self.transport_auth,
+            target_path.as_ref(),
+            query,
+            &method_key,
+            protocol,
+            path,
+        ))
     }
 
     fn allowed_methods(&self) -> Vec<String> {
@@ -1150,16 +1252,28 @@ impl HttpRouteRuntime {
         protocols.sort();
         protocols
     }
+
+    fn target_path<'a>(&self, target: &HttpRouteTarget, request_path: &'a str) -> Cow<'a, str> {
+        if matches!(&self.match_kind, HttpRouteMatchKind::Prefix)
+            && self.path != "/"
+            && matches!(target, HttpRouteTarget::Namespace { .. })
+        {
+            Cow::Owned(route_relative_path(&self.path, request_path))
+        } else {
+            Cow::Borrowed(request_path)
+        }
+    }
 }
 
 impl HttpRouteTarget {
     fn materialise(
         &self,
         transport_auth: &HttpRouteTransportAuthRuntime,
-        path: &str,
+        target_path: &str,
         query: Option<&str>,
         method: &str,
         protocol: &str,
+        request_path: &str,
     ) -> HttpRouteResolution {
         match self {
             HttpRouteTarget::Translation { realm, procedure } => HttpRouteResolution {
@@ -1167,7 +1281,7 @@ impl HttpRouteTarget {
                 procedure: procedure.clone(),
                 method: method.to_string(),
                 protocol: protocol.to_string(),
-                path: path.to_string(),
+                path: request_path.to_string(),
                 query: query.map(|value| value.to_string()),
                 transport_auth: transport_auth.clone(),
             },
@@ -1179,7 +1293,7 @@ impl HttpRouteTarget {
                     .as_ref()
                     .map(|value| normalise_namespace(value))
                     .unwrap_or_else(|| String::new());
-                append_path_segments(&mut identifier, path);
+                append_path_segments(&mut identifier, target_path);
                 if *append_method_suffix {
                     append_suffix(&mut identifier, method);
                 }
@@ -1188,7 +1302,7 @@ impl HttpRouteTarget {
                     procedure: identifier,
                     method: method.to_string(),
                     protocol: protocol.to_string(),
-                    path: path.to_string(),
+                    path: request_path.to_string(),
                     query: query.map(|value| value.to_string()),
                     transport_auth: transport_auth.clone(),
                 }
@@ -1199,7 +1313,7 @@ impl HttpRouteTarget {
                 append_method_suffix,
             } => {
                 let mut identifier = normalise_namespace(namespace);
-                append_path_segments(&mut identifier, path);
+                append_path_segments(&mut identifier, target_path);
                 if *append_method_suffix {
                     append_suffix(&mut identifier, method);
                 }
@@ -1208,7 +1322,7 @@ impl HttpRouteTarget {
                     procedure: identifier,
                     method: method.to_string(),
                     protocol: protocol.to_string(),
-                    path: path.to_string(),
+                    path: request_path.to_string(),
                     query: query.map(|value| value.to_string()),
                     transport_auth: transport_auth.clone(),
                 }
@@ -1250,6 +1364,20 @@ fn append_suffix(buffer: &mut String, method: &str) {
         buffer.push('.');
     }
     buffer.push_str(&suffix);
+}
+
+fn route_relative_path(route_path: &str, request_path: &str) -> String {
+    let Some(remainder) = request_path.strip_prefix(route_path) else {
+        return request_path.to_string();
+    };
+    if remainder.is_empty() {
+        return "/".to_string();
+    }
+    if remainder.starts_with('/') {
+        remainder.to_string()
+    } else {
+        format!("/{remainder}")
+    }
 }
 
 fn segments_from_path(path: &str) -> Vec<String> {
