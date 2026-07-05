@@ -79,6 +79,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Added installed-command coverage for the public
+  `connectanum_mcp` router-hosted client executable. `run_mcp_client_package_smoke()`
+  now uses an isolated Pub cache for the neutral consumer package, verifies
+  `dart run connectanum_mcp:router_hosted_client` help and dry-run output, then
+  creates a lockfile-pinned temporary workspace copy for `connectanum_core`,
+  `connectanum_client`, and `connectanum_mcp`. The smoke globally activates the
+  copied `connectanum_mcp` package, asserts `command -v router_hosted_client`
+  resolves to the isolated Pub cache, and runs installed-command help plus a
+  representative pub/sub dry-run. The boundary test guards the global
+  activation workspace, example copy, command lookup, help invocation, dry-run
+  invocation, and isolated `PUB_CACHE` usage for the generated consumer
+  package. Baseline `bin/test-fast` passed before the change on 2026-07-05.
+  Focused `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_mcp_package_exposes_router_hosted_client_executable`,
+  direct `bash -lc 'source bin/common.sh; run_mcp_client_package_smoke'`, and
+  full `bin/test-fast` passed after the change on 2026-07-05. Full
+  `bin/verify` passed on 2026-07-05, including the updated MCP client
+  installed-command smoke, router-hosted MCP example smokes, router CLI
+  consumer smokes, full router tests, HTTP/2 and HTTP/3 router integration, and
+  the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-05: Aligned the router CLI help contract with the installed package
   executable path. `connectanum_router --help` now advertises
   `Usage: connectanum_router --config <path> [--native-lib <path>] [--verbose]`
@@ -96,7 +115,18 @@ decision because `connectanum_client` still depends on private
   passed after the change. A first full `bin/verify` attempt hit an
   unreproduced HTTP/3 multi-MB router integration timeout; the immediate full
   rerun passed on 2026-07-05, including the updated router CLI consumer smoke
-  and the HTTP/3 large-payload router integration test.
+  and the HTTP/3 large-payload router integration test. Hosted evidence after
+  push: commit `b1ffb67` was pushed to GitLab `origin` `add-router`, GitHub
+  `add-router`, and GitHub `master`. GitHub `master` CI `28727181713`, Dart
+  Package Publish Dry Run `28727181711`, WAMP Profile Benchmarks
+  `28727181717`, and Router Image dry-run `28727504734` passed at `b1ffb67`.
+  GitHub `add-router` CI `28727181160`, Dart Package Publish Dry Run
+  `28727181161`, and WAMP Profile Benchmarks `28727181170` also passed at
+  `b1ffb67`. The strict deployment-chain audit passed for GitHub `master` at
+  `b1ffb67`; the Native Artifacts dry-run from `42ac5d9` remains relevant
+  because no native-release-sensitive paths changed. This hosted evidence
+  update is docs-only bookkeeping after the implementation commit and should be
+  bundled with the next code/config change rather than committed alone.
 - 2026-07-05: Tightened the router CLI consumer package smoke so the live
   router-hosted MCP flow starts through the globally activated
   `connectanum_router` command, not only `dart run connectanum_router`.

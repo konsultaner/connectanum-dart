@@ -82,6 +82,39 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "dart run connectanum_mcp:router_hosted_client \\",
             body,
         )
+        self.assertIn('PUB_CACHE="$pub_cache" dart pub get', body)
+        self.assertIn('PUB_CACHE="$pub_cache" dart analyze', body)
+        self.assertIn('PUB_CACHE="$pub_cache" dart run bin/main.dart', body)
+        self.assertIn("dart pub global activate --source path", body)
+        self.assertIn(
+            'global_smoke_workspace="$smoke_dir/global-workspace"',
+            body,
+        )
+        self.assertIn(
+            '"$global_smoke_workspace/packages/connectanum_mcp"',
+            body,
+        )
+        self.assertIn("connectanum_mcp_global_activation_smoke_workspace", body)
+        self.assertIn('"$ROOT_DIR/pubspec.lock"', body)
+        self.assertIn('"$global_smoke_workspace/pubspec.lock"', body)
+        self.assertIn('cp -R "$package_source/example"', body)
+        self.assertIn(
+            'global_mcp_command="$(PATH="$pub_cache/bin:$PATH" '
+            'PUB_CACHE="$pub_cache" command -v router_hosted_client || true)"',
+            body,
+        )
+        self.assertIn(
+            'if [[ "$global_mcp_command" != "$pub_cache/bin/router_hosted_client" ]]; then',
+            body,
+        )
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_hosted_client --help',
+            body,
+        )
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_hosted_client \\',
+            body,
+        )
         self.assertIn("--pubsub-topic agent.events", body)
         self.assertIn('"subscriptionMetadata":true', body)
 

@@ -1637,12 +1637,21 @@ DART
 run_mcp_client_package_smoke() (
   local executable_dry_run
   local executable_help
+  local global_executable_dry_run
+  local global_executable_help
+  local global_mcp_command
+  local global_smoke_workspace
+  local package_name
+  local package_source
+  local package_target
+  local pub_cache
   local smoke_dir
 
   require_command dart
 
   smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-client-smoke.XXXXXX")"
-  trap "rm -rf '$smoke_dir'" EXIT
+  pub_cache="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-client-pub-cache.XXXXXX")"
+  trap "rm -rf '$smoke_dir' '$pub_cache'" EXIT
 
   mkdir -p "$smoke_dir/bin"
   cat >"$smoke_dir/pubspec.yaml" <<EOF
@@ -7077,8 +7086,8 @@ DART
   printf 'Running MCP client-only consumer package smoke from %s.\n' "$smoke_dir"
   (
     cd "$smoke_dir"
-    dart pub get
-    executable_help="$(dart run connectanum_mcp:router_hosted_client --help)"
+    PUB_CACHE="$pub_cache" dart pub get
+    executable_help="$(PUB_CACHE="$pub_cache" dart run connectanum_mcp:router_hosted_client --help)"
     if [[ "$executable_help" != *"--endpoint"* ||
       "$executable_help" != *"--protocol-version"* ||
       "$executable_help" != *"--pubsub-topic"* ]]; then
@@ -7086,7 +7095,7 @@ DART
       return 1
     fi
 
-    executable_dry_run="$(dart run connectanum_mcp:router_hosted_client \
+    executable_dry_run="$(PUB_CACHE="$pub_cache" dart run connectanum_mcp:router_hosted_client \
       --endpoint http://127.0.0.1:8080/mcp \
       --protocol-version 2025-06-18 \
       --pubsub-topic agent.events \
@@ -7100,9 +7109,79 @@ DART
       printf '%s\n' "$executable_dry_run"
       return 1
     fi
-    dart analyze
-    dart run bin/main.dart
+    PUB_CACHE="$pub_cache" dart analyze
+    PUB_CACHE="$pub_cache" dart run bin/main.dart
   )
+
+  global_smoke_workspace="$smoke_dir/global-workspace"
+  mkdir -p "$global_smoke_workspace/packages"
+  cat >"$global_smoke_workspace/pubspec.yaml" <<EOF
+name: connectanum_mcp_global_activation_smoke_workspace
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+workspace:
+  - packages/connectanum_core
+  - packages/connectanum_client
+  - packages/connectanum_mcp
+EOF
+  if [[ -f "$ROOT_DIR/pubspec.lock" ]]; then
+    cp "$ROOT_DIR/pubspec.lock" "$global_smoke_workspace/pubspec.lock"
+  fi
+
+  for package_name in \
+    connectanum_core \
+    connectanum_client \
+    connectanum_mcp; do
+    package_source="$ROOT_DIR/packages/$package_name"
+    package_target="$global_smoke_workspace/packages/$package_name"
+    mkdir -p "$package_target"
+    cp "$package_source/pubspec.yaml" "$package_target/pubspec.yaml"
+    cp -R "$package_source/lib" "$package_target/lib"
+    if [[ -d "$package_source/bin" ]]; then
+      cp -R "$package_source/bin" "$package_target/bin"
+    fi
+    if [[ -d "$package_source/example" ]]; then
+      cp -R "$package_source/example" "$package_target/example"
+    fi
+    if [[ -d "$package_source/hook" ]]; then
+      cp -R "$package_source/hook" "$package_target/hook"
+    fi
+  done
+  CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_mcp" >&2
+  global_mcp_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v router_hosted_client || true)"
+  if [[ "$global_mcp_command" != "$pub_cache/bin/router_hosted_client" ]]; then
+    printf 'Expected isolated pub-cache router_hosted_client command, got: %s\n' \
+      "${global_mcp_command:-<missing>}" >&2
+    return 1
+  fi
+  global_executable_help="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_hosted_client --help)"
+  if [[ "$global_executable_help" != *"--endpoint"* ||
+    "$global_executable_help" != *"--protocol-version"* ||
+    "$global_executable_help" != *"--pubsub-topic"* ]]; then
+    printf 'MCP client global executable help output missed expected options.\n'
+    return 1
+  fi
+
+  global_executable_dry_run="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_hosted_client \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --protocol-version 2025-06-18 \
+    --pubsub-topic agent.events \
+    --pubsub-event '{"text":"ready"}' \
+    --dry-run)"
+  if [[ "$global_executable_dry_run" != *'"dryRun":true'* ||
+    "$global_executable_dry_run" != *'"endpoint":"http://127.0.0.1:8080/mcp"'* ||
+    "$global_executable_dry_run" != *'"pubsub":{"topic":"agent.events"'* ||
+    "$global_executable_dry_run" != *'"subscriptionMetadata":true'* ]]; then
+    printf 'MCP client global executable dry-run summary was unexpected.\n'
+    printf '%s\n' "$global_executable_dry_run"
+    return 1
+  fi
 )
 
 run_mcp_consumer_package_smoke() (
