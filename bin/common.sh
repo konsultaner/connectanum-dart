@@ -1344,12 +1344,14 @@ PY
 )
 
 run_mcp_server_package_smoke() (
+  local pub_cache
   local smoke_dir
 
   require_command dart
 
   smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-server-smoke.XXXXXX")"
-  trap "rm -rf '$smoke_dir'" EXIT
+  pub_cache="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-server-pub-cache.XXXXXX")"
+  trap "rm -rf '$smoke_dir' '$pub_cache'" EXIT
 
   mkdir -p "$smoke_dir/bin"
   cat >"$smoke_dir/pubspec.yaml" <<EOF
@@ -1628,9 +1630,9 @@ DART
   printf 'Running MCP server-only consumer package smoke from %s.\n' "$smoke_dir"
   (
     cd "$smoke_dir"
-    dart pub get
-    dart analyze
-    dart run bin/main.dart
+    PUB_CACHE="$pub_cache" dart pub get
+    PUB_CACHE="$pub_cache" dart analyze
+    PUB_CACHE="$pub_cache" dart run bin/main.dart
   )
 )
 
@@ -7187,6 +7189,7 @@ EOF
 run_mcp_consumer_package_smoke() (
   local hook_setting
   local hook_native_lib
+  local pub_cache
   local smoke_dir
 
   require_command dart
@@ -7202,7 +7205,8 @@ run_mcp_consumer_package_smoke() (
   fi
 
   smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-consumer-smoke.XXXXXX")"
-  trap "rm -rf '$smoke_dir'" EXIT
+  pub_cache="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-consumer-pub-cache.XXXXXX")"
+  trap "rm -rf '$smoke_dir' '$pub_cache'" EXIT
 
   mkdir -p "$smoke_dir/bin"
   cat >"$smoke_dir/pubspec.yaml" <<EOF
@@ -23292,12 +23296,12 @@ DART
   printf 'Running MCP consumer package smoke from %s.\n' "$smoke_dir"
   (
     cd "$smoke_dir"
-    dart pub get
-    dart analyze
+    PUB_CACHE="$pub_cache" dart pub get
+    PUB_CACHE="$pub_cache" dart analyze
     if [[ -n "$hook_native_lib" ]]; then
-      CONNECTANUM_NATIVE_LIB="$hook_native_lib" dart run bin/main.dart
+      CONNECTANUM_NATIVE_LIB="$hook_native_lib" PUB_CACHE="$pub_cache" dart run bin/main.dart
     else
-      dart run bin/main.dart
+      PUB_CACHE="$pub_cache" dart run bin/main.dart
     fi
   )
 )

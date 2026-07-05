@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-05: Isolated the remaining generated MCP consumer package smokes
+  from the developer/global Pub cache. `run_mcp_server_package_smoke()` and
+  `run_mcp_consumer_package_smoke()` now allocate dedicated temporary
+  `PUB_CACHE` directories outside their generated package directories, pass
+  that cache through `dart pub get`, `dart analyze`, and `dart run`, and clean
+  it up with the generated package. Keeping the cache outside the generated
+  package tree avoids analyzer traversal of hosted dependencies while still
+  proving the server-only and router-hosted MCP consumer smokes do not depend
+  on default Pub cache state. The package-boundary test now guards temporary
+  cache allocation, cleanup, get/analyze/run `PUB_CACHE` usage, absence of
+  bare `dart pub get`/`dart analyze`/`dart run` calls, and the native-library
+  run path retaining both `CONNECTANUM_NATIVE_LIB` and the isolated cache.
+  Baseline `bin/test-fast` passed before the change on 2026-07-05. Focused
+  `bash -n bin/common.sh`,
+  `python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, targeted
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_mcp_server_and_consumer_smokes_use_isolated_pub_cache -v`,
+  full `python3 tool/test_mcp_consumer_package_boundary.py`, direct
+  `run_mcp_server_package_smoke`, direct `run_mcp_consumer_package_smoke`,
+  and full `bin/test-fast` passed after the change. Full local `bin/verify`
+  passed after the change on 2026-07-05, including formatting, Rust/FFI tests,
+  MCP server-only and router-hosted consumer package smokes, router CLI
+  consumer smokes, full router tests, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. A first direct server-smoke attempt with an in-tree
+  `pub-cache` failed because `dart analyze` traversed cached hosted
+  dependencies, so the final implementation keeps each isolated cache outside
+  the generated package directory.
 - 2026-07-05: Extended the benchmark CLI consumer package smoke from
   `dart run connectanum_bench:*` help discovery to installed-command
   discovery for the public benchmark entrypoints. `run_bench_cli_consumer_package_smoke()`
@@ -108,7 +134,19 @@ decision because `connectanum_client` still depends on private
   and annotation compatibility fixes on 2026-07-05, including the updated
   benchmark installed-command smoke, router-hosted MCP example smokes, router
   CLI consumer smokes, full router tests, HTTP/2 and HTTP/3 router
-  integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence after push: commit `08c4aa6` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `28731309152` and GitHub `add-router` CI `28731308760` passed at `08c4aa6`;
+  both runs completed Fast Checks and Full Verify successfully. The strict
+  deployment-chain audit
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
+  passed at `08c4aa6`, and the latest CI log gate was clean. Dart package
+  dry-run, WAMP profile benchmark, router image dry-run, and native artifact
+  dry-run evidence remained relevant from prior clean runs because no
+  corresponding sensitive inputs changed. RC readiness remains blocked only on
+  release decisions: selecting/pushing the next numeric RC tag/prerelease and
+  router-image tag, plus the deferred pub.dev package ownership/order track.
 - 2026-07-05: Kept the installed-command consumer smokes compatible with the
   strict CI log gate by putting each generated Pub cache `bin/` directory on
   `PATH` during isolated `dart pub global activate --source path`.

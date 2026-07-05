@@ -2,8 +2,12 @@
 
 Last updated: 2026-07-05
 Current branch: `add-router`
-Last reviewed branch checkpoint: the benchmark CLI consumer smoke now proves
-the installed `router_bench`, `bench_router_service`, and `wamp_client_worker`
+Last reviewed branch checkpoint: the MCP server-only and router-hosted MCP
+consumer package smokes now resolve, analyze, and run with separate temporary
+Pub caches outside their generated package directories, so package validation
+does not rely on the user's global Pub cache and `dart analyze` does not walk
+cached hosted dependencies. The benchmark CLI consumer smoke still proves the
+installed `router_bench`, `bench_router_service`, and `wamp_client_worker`
 commands from an isolated Pub cache, in addition to the existing
 `dart run connectanum_bench:*` help probes from a neutral consumer package.
 The MCP client package smoke still proves the installed `router_hosted_client`
@@ -17,23 +21,53 @@ APIs, Streamable HTTP session lifecycle, pub/sub, and neutral Dart consumer
 access without private checkout assumptions. The isolated global activation
 paths put the generated Pub cache `bin/` directory on `PATH` during activation
 so Pub does not emit executable-path warnings in strict CI log audits.
-Latest fully clean hosted checkpoint: Commit `b1722de` on GitHub `master` and
-GitHub `add-router` passed CI after the Pub global activation log-cleanliness
-fix. GitHub `master` CI `28729651587` passed with Fast Checks and Full Verify
-green, and GitHub `add-router` CI `28729651100` also passed with Fast Checks
-and Full Verify green. The strict deployment-chain audit passed for GitHub
-`master` at `b1722de`; its latest CI log scan was clean with no
-warning/deprecation/skipped/reset/connection-noise matches. Dart Package
-Publish Dry Run `28727181711`, WAMP Profile Benchmarks `28727181717`, and
-Router Image dry-run `28727504734` remain relevant at `b1ffb67` because no
-corresponding sensitive inputs changed since then. Native Artifacts dry-run
-evidence from `42ac5d9` remains relevant because no native-release-sensitive
-paths changed since then.
+Latest fully clean hosted checkpoint: Commit `08c4aa6` on GitHub `master` and
+GitHub `add-router` passed CI after the benchmark installed-command smoke and
+audit-test annotation compatibility fixes. GitHub `master` CI `28731309152`
+passed with Fast Checks and Full Verify green, and GitHub `add-router` CI
+`28731308760` also passed with Fast Checks and Full Verify green. The strict
+deployment-chain audit passed for GitHub `master` at `08c4aa6`; its latest CI
+log scan was clean with no warning/deprecation/skipped/reset/connection-noise
+matches. Dart Package Publish Dry Run `28727181711`, WAMP Profile Benchmarks
+`28727181717`, and Router Image dry-run `28727504734` remain relevant at
+`b1ffb67` because no corresponding sensitive inputs changed since then. Native
+Artifacts dry-run evidence from `42ac5d9` remains relevant because no
+native-release-sensitive paths changed since then.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
 the checked-out head after stale `v0.1.0-rc.1`, and deferring pub.dev package
 ownership/order for the private core dependency.
 Current implementation checkpoint:
+`run_mcp_server_package_smoke()` and `run_mcp_consumer_package_smoke()` now
+allocate dedicated temporary `PUB_CACHE` directories outside their generated
+consumer package directories, pass that cache through `dart pub get`,
+`dart analyze`, and `dart run`, and clean up the cache with the generated
+package. Keeping the cache outside the generated package tree avoids analyzer
+traversal of hosted dependencies while still proving the smokes do not depend
+on the developer's default Pub cache. The package-boundary test now guards the
+temporary cache allocation, cleanup, `PUB_CACHE` usage for get/analyze/run,
+the absence of bare `dart pub get`/`dart analyze`/`dart run` calls, and the
+native-library run path retaining both `CONNECTANUM_NATIVE_LIB` and the
+isolated cache.
+
+Baseline `bin/test-fast` passed before this MCP package-smoke cache-isolation
+change on 2026-07-05. Focused `bash -n bin/common.sh`,
+`python3 -m py_compile tool/test_mcp_consumer_package_boundary.py`, targeted
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_mcp_server_and_consumer_smokes_use_isolated_pub_cache -v`,
+full `python3 tool/test_mcp_consumer_package_boundary.py`, direct
+`bash -lc 'set -euo pipefail; source bin/common.sh; run_mcp_server_package_smoke'`,
+direct
+`bash -lc 'set -euo pipefail; source bin/common.sh; run_mcp_consumer_package_smoke'`,
+and full `bin/test-fast` passed after the cache-isolation change on
+2026-07-05. Full local `bin/verify` passed after the change on 2026-07-05,
+including formatting, Rust/FFI tests, MCP server-only and router-hosted
+consumer package smokes, router CLI consumer smokes, full router tests, and
+the Chrome/Dart2Wasm browser WebSocket smoke. A first direct server-smoke
+attempt with an in-tree `pub-cache` failed because `dart analyze` traversed
+cached hosted dependencies, so the final implementation keeps each isolated
+cache outside the generated package directory.
+
+Previous implementation checkpoint:
 `run_bench_cli_consumer_package_smoke()` still verifies public help discovery
 for `connectanum_bench:router_bench`,
 `connectanum_bench:bench_router_service`, and

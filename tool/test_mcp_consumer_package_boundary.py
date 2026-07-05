@@ -174,6 +174,37 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
                 )
                 self.assertNotRegex(body, r"import 'package:connectanum_client/")
 
+    def test_mcp_server_and_consumer_smokes_use_isolated_pub_cache(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        for function_name in (
+            "run_mcp_server_package_smoke",
+            "run_mcp_consumer_package_smoke",
+        ):
+            with self.subTest(function=function_name):
+                body = _function_body(script, function_name)
+
+                self.assertIn("local pub_cache", body)
+                self.assertIn('pub_cache="$(mktemp -d "${TMPDIR:-/tmp}/', body)
+                self.assertIn("pub-cache.XXXXXX", body)
+                self.assertIn("rm -rf '$smoke_dir' '$pub_cache'", body)
+                self.assertNotIn('pub_cache="$smoke_dir/pub-cache"', body)
+                self.assertIn('PUB_CACHE="$pub_cache" dart pub get', body)
+                self.assertIn('PUB_CACHE="$pub_cache" dart analyze', body)
+                self.assertIn(
+                    'PUB_CACHE="$pub_cache" dart run bin/main.dart',
+                    body,
+                )
+                self.assertNotIn("\n    dart pub get", body)
+                self.assertNotIn("\n    dart analyze", body)
+                self.assertNotIn("\n    dart run bin/main.dart", body)
+
+        consumer_body = _function_body(script, "run_mcp_consumer_package_smoke")
+        self.assertIn(
+            'CONNECTANUM_NATIVE_LIB="$hook_native_lib" '
+            'PUB_CACHE="$pub_cache" dart run bin/main.dart',
+            consumer_body,
+        )
+
     def test_router_cli_consumer_smoke_uses_checkout_command_alias(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
         body = _function_body(script, "run_router_cli_consumer_package_smoke")
