@@ -1814,9 +1814,40 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "label: 'Streamable active direct JSON pub/sub'",
             "label: 'Streamable active direct JSON pub/sub notification poll'",
             "label: 'Streamable active direct JSON pub/sub method notification poll'",
+            "label: 'Streamable active direct JSON tool'",
+            "label: 'Streamable active direct JSON batch tool'",
+            "label: 'Streamable active direct JSON resource'",
+            "label: 'Streamable active direct JSON batch resource'",
+            "label: 'Streamable active direct JSON prompt'",
+            "label: 'Streamable active direct JSON batch prompt'",
+            "label: 'Streamable active direct JSON WAMP procedure'",
+            "label: 'Streamable active direct JSON WAMP topic'",
             "label: 'Streamable standard tool notification poll'",
             "label: 'Streamable tool method notification poll'",
+            "_runActiveDirectJsonExample",
             "_runActiveDirectPubSubExample",
+            "streamable-active-direct-tools",
+            "streamable-active-direct-standard-tool-call",
+            "streamable-active-direct-tool-call-method",
+            "streamable-active-direct-resources",
+            "streamable-active-direct-resource-read",
+            "streamable-active-direct-prompts",
+            "streamable-active-direct-prompt-get",
+            "streamable-active-direct-wamp-session-count",
+            "streamable-active-direct-wamp-procedure-api-list",
+            "streamable-active-direct-wamp-procedure-api-describe",
+            "streamable-active-direct-wamp-topic-api-list",
+            "streamable-active-direct-wamp-topic-api-describe",
+            "streamable-active-direct-batch-tools",
+            "streamable-active-direct-batch-tool-call",
+            "streamable-active-direct-batch-resources",
+            "streamable-active-direct-batch-resource-read",
+            "streamable-active-direct-batch-prompts",
+            "streamable-active-direct-batch-prompt-get",
+            "streamable-active-direct-batch-wamp-procedure-api-list",
+            "streamable-active-direct-batch-wamp-topic-api-list",
+            "router-hosted-client-streamable-active-direct-batch",
+            "Streamable active direct JSON requires an active Streamable session.",
             "describeWampApiDirect",
             "matchWampRegistrationDirect",
             "matchWampSubscriptionDirect",
@@ -2463,7 +2494,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"wampMetadata"', script)
         self.assertIn('"configuredRegistrationMetadata"', script)
         self.assertIn('"configuredSubscriptionMetadata"', script)
-        self.assertIn('"activeDirectJson":{"sessionUnchanged":true', script)
+        self.assertIn(
+            '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"',
+            script,
+        )
         self.assertIn('"toolNotificationEvents"', script)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
         self.assertIn("--bearer-token \"$bearer_token\"", live_body)

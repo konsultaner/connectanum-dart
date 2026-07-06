@@ -1139,7 +1139,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
-    '"activeDirectJson":{"sessionUnchanged":true' \
+    '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
 
   printf 'Public router-hosted MCP client live smoke completed.\n'
@@ -1157,7 +1157,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"pubsub"' \
     '"methodEvents"' \
-    '"activeDirectJson":{"sessionUnchanged":true' \
+    '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"methodNotificationEvents"'
 
   printf 'Pub/sub-only router-hosted MCP client live smoke completed.\n'
@@ -1259,7 +1259,7 @@ PY
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
-    '"activeDirectJson":{"sessionUnchanged":true' \
+    '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
 
   printf 'Authenticated router-hosted MCP client live smoke completed.\n'
@@ -1289,7 +1289,7 @@ PY
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
-    '"activeDirectJson":{"sessionUnchanged":true' \
+    '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
 
   printf 'Bearer-token router-hosted MCP client live smoke completed.\n'
@@ -1324,7 +1324,7 @@ PY
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
-    '"activeDirectJson":{"sessionUnchanged":true' \
+    '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
 
   printf 'Authenticated router-hosted JSON-response MCP client live smoke completed.\n'
@@ -1355,7 +1355,7 @@ PY
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
-    '"activeDirectJson":{"sessionUnchanged":true' \
+    '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
 
   printf 'Bearer-token router-hosted JSON-response MCP client live smoke completed.\n'

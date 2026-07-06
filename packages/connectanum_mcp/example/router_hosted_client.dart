@@ -1740,6 +1740,258 @@ bool _catalogContainsValue({
   return false;
 }
 
+Future<McpJsonMap> _runActiveDirectJsonExample(
+  McpStreamableHttpClient client,
+  _Options options,
+) async {
+  final streamableSessionId = client.sessionId;
+  if (streamableSessionId == null) {
+    throw StateError(
+      'Streamable active direct JSON requires an active Streamable session.',
+    );
+  }
+  final previousEventId = client.lastEventId;
+  final details = <String, Object?>{};
+  final batchMessages = <McpJsonMap>[
+    {
+      'jsonrpc': '2.0',
+      'id': 'streamable-active-direct-batch-tools',
+      'method': 'tools/list',
+      'params': {},
+    },
+  ];
+
+  final tools = await client.listToolsDirect(
+    id: 'streamable-active-direct-tools',
+  );
+  details['tools'] = [for (final tool in tools.tools) tool['name']];
+
+  final toolName = options.toolName;
+  if (toolName != null) {
+    _expectCatalogContainsValue(
+      catalog: tools.tools,
+      field: 'name',
+      value: toolName,
+      label: 'Streamable active direct JSON tool',
+    );
+    batchMessages.add(
+      _toolCallBatchRequest(
+        id: 'streamable-active-direct-batch-tool-call',
+        name: toolName,
+        arguments: options.toolArguments,
+        directJson: true,
+      ),
+    );
+    details['toolResult'] = _expectToolResultSucceeded(
+      await client.callToolDirect(
+        toolName,
+        id: 'streamable-active-direct-standard-tool-call',
+        arguments: options.toolArguments,
+      ),
+      label: 'Streamable active direct JSON standard tool call',
+    );
+    details['toolMethodResult'] = _expectToolResultSucceeded(
+      await client.callConnectanumMethodDirect(
+        'connectanum.tool.call',
+        id: 'streamable-active-direct-tool-call-method',
+        params: <String, Object?>{
+          'name': toolName,
+          'arguments': options.toolArguments,
+        },
+      ),
+      label: 'Streamable active direct JSON tool method call',
+    );
+  }
+
+  final resourceUri = options.resourceUri;
+  if (resourceUri != null) {
+    batchMessages.addAll([
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-resources',
+        'method': 'resources/list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-resource-read',
+        'method': 'resources/read',
+        'params': {'uri': resourceUri},
+      },
+    ]);
+    final resources = await client.listResourcesDirect(
+      id: 'streamable-active-direct-resources',
+    );
+    _expectCatalogContainsValue(
+      catalog: resources.resources,
+      field: 'uri',
+      value: resourceUri,
+      label: 'Streamable active direct JSON resource',
+    );
+    details['resources'] = <String, Object?>{
+      'uris': [for (final resource in resources.resources) resource['uri']],
+      'content': await client.readResourceDirect(
+        resourceUri,
+        id: 'streamable-active-direct-resource-read',
+      ),
+    };
+  }
+
+  final promptName = options.promptName;
+  if (promptName != null) {
+    batchMessages.addAll([
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-prompts',
+        'method': 'prompts/list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-prompt-get',
+        'method': 'prompts/get',
+        'params': {'name': promptName, 'arguments': options.promptArguments},
+      },
+    ]);
+    final prompts = await client.listPromptsDirect(
+      id: 'streamable-active-direct-prompts',
+    );
+    _expectCatalogContainsValue(
+      catalog: prompts.prompts,
+      field: 'name',
+      value: promptName,
+      label: 'Streamable active direct JSON prompt',
+    );
+    details['prompts'] = <String, Object?>{
+      'names': [for (final prompt in prompts.prompts) prompt['name']],
+      'prompt': await client.getPromptDirect(
+        promptName,
+        id: 'streamable-active-direct-prompt-get',
+        arguments: options.promptArguments,
+      ),
+    };
+  }
+
+  final wampProcedure = options.wampProcedure;
+  final wampTopic = options.wampTopic;
+  if (wampProcedure != null || wampTopic != null) {
+    final metadata = <String, Object?>{};
+    final sessionCount = await client.countWampSessionsDirect(
+      id: 'streamable-active-direct-wamp-session-count',
+    );
+    metadata['sessionCount'] = _wampMetaResultJson(sessionCount);
+    if (wampProcedure != null) {
+      batchMessages.add(
+        _toolCallBatchRequest(
+          id: 'streamable-active-direct-batch-wamp-procedure-api-list',
+          name: 'connectanum.api.list',
+          arguments: const {'kind': 'procedure'},
+          directJson: true,
+        ),
+      );
+      final procedures = await client.listWampApiDirect(
+        id: 'streamable-active-direct-wamp-procedure-api-list',
+        kind: 'procedure',
+      );
+      final procedureCatalog = procedures['procedures'];
+      _expectWampCatalogContains(
+        catalog: procedureCatalog,
+        uri: wampProcedure,
+        label: 'Streamable active direct JSON WAMP procedure',
+      );
+      metadata['procedure'] = <String, Object?>{
+        'catalog': procedureCatalog,
+        'description': await client.describeWampApiDirect(
+          wampProcedure,
+          id: 'streamable-active-direct-wamp-procedure-api-describe',
+          kind: 'procedure',
+        ),
+      };
+    }
+    if (wampTopic != null) {
+      batchMessages.add(
+        _toolCallBatchRequest(
+          id: 'streamable-active-direct-batch-wamp-topic-api-list',
+          name: 'connectanum.api.list',
+          arguments: const {'kind': 'topic'},
+          directJson: true,
+        ),
+      );
+      final topics = await client.listWampApiDirect(
+        id: 'streamable-active-direct-wamp-topic-api-list',
+        kind: 'topic',
+      );
+      final topicCatalog = topics['topics'];
+      _expectWampCatalogContains(
+        catalog: topicCatalog,
+        uri: wampTopic,
+        label: 'Streamable active direct JSON WAMP topic',
+      );
+      metadata['topic'] = <String, Object?>{
+        'catalog': topicCatalog,
+        'description': await client.describeWampApiDirect(
+          wampTopic,
+          id: 'streamable-active-direct-wamp-topic-api-describe',
+          kind: 'topic',
+        ),
+      };
+    }
+    details['wampMetadata'] = metadata;
+  }
+
+  final batchResponses = await client.postBatchDirect(
+    batchMessages,
+    headers: const <String, String>{
+      'x-consumer-trace': 'router-hosted-client-streamable-active-direct-batch',
+    },
+  );
+  final responseIds = _expectBatchResponses(batchResponses, [
+    for (final message in batchMessages) message['id']! as String,
+  ], label: 'Streamable active direct JSON');
+  if (toolName != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'streamable-active-direct-batch-tools',
+      catalogKey: 'tools',
+      field: 'name',
+      value: toolName,
+      label: 'Streamable active direct JSON batch tool',
+    );
+  }
+  if (resourceUri != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'streamable-active-direct-batch-resources',
+      catalogKey: 'resources',
+      field: 'uri',
+      value: resourceUri,
+      label: 'Streamable active direct JSON batch resource',
+    );
+  }
+  if (promptName != null) {
+    _expectBatchCatalogContains(
+      batchResponses,
+      id: 'streamable-active-direct-batch-prompts',
+      catalogKey: 'prompts',
+      field: 'name',
+      value: promptName,
+      label: 'Streamable active direct JSON batch prompt',
+    );
+  }
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: streamableSessionId,
+    lastEventId: previousEventId,
+    label: 'Streamable active direct JSON',
+  );
+
+  return <String, Object?>{
+    'sessionUnchanged': true,
+    'batch': <String, Object?>{'responseIds': responseIds},
+    ...details,
+  };
+}
+
 Future<void> _runDirectPubSubExample(
   McpStreamableHttpClient client,
   _Options options,
@@ -2566,6 +2818,11 @@ Future<void> _runStreamableSessionExample(
       throw StateError('Streamable WAMP metadata changed session id.');
     }
   }
+
+  streamable['activeDirectJson'] = await _runActiveDirectJsonExample(
+    client,
+    options,
+  );
 
   final pubsubTopic = options.pubsubTopic;
   if (pubsubTopic != null) {

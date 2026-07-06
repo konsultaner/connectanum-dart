@@ -80,6 +80,32 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-07-06: Hardened the public router-hosted `connectanum_mcp` client
+  example so consumer applications prove active direct JSON tool/catalog,
+  resource, prompt, WAMP metadata, and batch access while a Streamable HTTP
+  session is open. The example now runs an active direct JSON probe after
+  Streamable initialization, uses only public `connectanum_mcp` IO helpers,
+  optionally calls the selected tool/resource/prompt/WAMP metadata targets,
+  posts a direct JSON batch, and asserts the active Streamable `sessionId` and
+  `lastEventId` did not change. The public live smoke now requires
+  `activeDirectJson.sessionUnchanged` plus active direct batch response IDs for
+  public, pub/sub-only, authenticated, bearer-token, authenticated
+  JSON-response, and bearer-token JSON-response runs, and the package-boundary
+  test pins the public example helper, labels, request IDs, source gate, and
+  summary fragment. Baseline `bin/test-fast` passed before the change on
+  2026-07-06. Focused `bash -n bin/common.sh`, `git diff --check`,
+  `dart analyze packages/connectanum_mcp`, full `python3 -m unittest
+  tool.test_mcp_consumer_package_boundary -v`,
+  `python3 tool/check_public_artifact_references.py`, and direct bash
+  `run_public_router_hosted_mcp_client_live_smoke` passed after the change.
+  Post-change `bin/test-fast` and full local `bin/verify` passed on
+  2026-07-06, including formatting, Rust/FFI tests, Python boundary tests, MCP
+  package tests, client/auth tests, consumer package smokes, live WAMP
+  benchmark integration, router-hosted MCP live/example smokes, the router CLI
+  consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence is pending for this local checkpoint; the latest fully clean hosted
+  checkpoint remains `e394793`.
+- 2026-07-06: Hardened the public router-hosted `connectanum_mcp` client
   example so consumer applications prove direct JSON notification-only WAMP
   pub/sub while a Streamable HTTP session is active. The example establishes a
   Streamable session, runs the direct JSON pub/sub probe before creating a
@@ -104,11 +130,16 @@ decision because `connectanum_client` still depends on private
   consumer package smokes, live WAMP benchmark integration, router-hosted MCP
   live/example smokes, the router CLI consumer package smoke, full router
   tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. Latest hosted evidence remains the clean `b7275e2`
-  checkpoint until this code change is pushed and hosted CI completes. RC
-  readiness remains blocked only on selecting/approving the numeric RC
-  tag/prerelease/router image tag plus the deferred pub.dev package
-  ownership/order track.
+  WebSocket smoke. Hosted evidence after push: commit `e394793` was pushed to
+  GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`;
+  GitHub `master` CI `28804950572` and GitHub `add-router` CI `28804941553`
+  passed with Fast Checks and Full Verify green; Dart Package Publish Dry Run
+  passed on GitHub `master` `28804948834` and GitHub `add-router`
+  `28804941463`; and the strict deployment-chain audit passed for GitHub
+  `master` at `e394793` with CI log scan clean and clean/relevant Dart package,
+  native release, router image, and WAMP profile evidence. RC readiness remains
+  blocked only on selecting/approving the numeric RC tag/prerelease/router
+  image tag plus the deferred pub.dev package ownership/order track.
 - 2026-07-06: Hardened the router CLI consumer package smoke so consumer
   applications prove direct JSON notification-only WAMP pub/sub through public
   package helpers while active Streamable sessions are open. The generated
