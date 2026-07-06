@@ -1297,7 +1297,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"directJsonStaleSessionId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
-            '"pubsub":true,"sessionProxy":true,"batch":true}',
+            '"pubsub":true,"pubsubNotifications":true,'
+            '"sessionProxy":true,"batch":true}',
             body,
         )
         self.assertIn(
@@ -1309,7 +1310,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"deletedSessionRejected":true,'
             '"deletedSessionMatrix":true,'
             '"resourcesPrompts":true,'
-            '"pubsub":true,"wampMeta":true,'
+            '"pubsub":true,"pubsubNotifications":true,'
+            '"wampMeta":true,'
             '"batch":true,'
             '"authRejectionIsolation":true,"refreshAndRevoke":true}',
             body,
@@ -1324,7 +1326,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
             '"sessionMeta":true,'
             '"subscriptionMeta":true,"configuredSubscriptionMeta":true,'
-            '"pubsub":true,"batch":true,'
+            '"pubsub":true,"pubsubNotifications":true,"batch":true,'
             '"authRejectionIsolation":true,'
             '"refreshAndRevoke":true},'
             '"tokenOnly":{"directJson":true,'
@@ -1407,6 +1409,28 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("pubsubNotifications", body)
+        self.assertIn("dart-consumer-public-active-direct-notification", body)
+        self.assertIn(
+            "Dart consumer public active direct JSON pub/sub",
+            body,
+        )
+        self.assertIn("dart-consumer-secure-active-direct-notification", body)
+        self.assertIn(
+            "Dart consumer protected active direct JSON pub/sub",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-active-direct-notification",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response active direct JSON pub/sub",
+            body,
+        )
+        self.assertIn(
+            "direct JSON notification-only pub/sub changed Streamable state",
+            body,
+        )
         self.assertIn("Dart consumer public Streamable delete leaked state.", body)
         self.assertIn(
             "Dart consumer token-only JSON-response delete leaked state.",
@@ -1458,7 +1482,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("notifyWampEvent(topic", body)
         self.assertIn(
             "public raw JSON resources/resource templates/prompts/WAMP "
-            "procedure and topic catalog/describe/pub-sub plus Streamable "
+            "procedure and topic catalog/describe/pub-sub/notification "
+            "pub-sub plus Streamable "
             "procedure and topic describe/pub-sub/invalid Last-Event-ID/"
             "session delete",
             body,
@@ -1502,7 +1527,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "direct JSON procedure catalog/describe/topic/registration/"
             "configured registration/session/subscription/configured "
             "subscription/resource list pagination/read/resource template "
-            "pagination/prompt pagination/pub-sub/batch isolation, and "
+            "pagination/prompt pagination/pub-sub/notification pub-sub/"
+            "batch isolation, and "
             "Streamable resource list pagination/read/resource template "
             "pagination/prompt pagination plus procedure/topic/registration/"
             "configured registration/session/subscription/configured "
@@ -1530,12 +1556,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("active protected auth rejection isolation", body)
         self.assertIn(
-            "active protected direct JSON WAMP meta and resource/prompt isolation",
+            "active protected direct JSON WAMP meta, resource/prompt, and "
+            "notification pub-sub isolation",
             body,
         )
         self.assertIn(
             "protected raw JSON resources/resource templates/prompts/WAMP "
-            "procedure and topic describe/pub-sub/batches plus Streamable "
+            "procedure and topic describe/pub-sub/notification pub-sub/"
+            "batches plus Streamable "
             "resources/resource templates/prompts/procedure and topic "
             "describe/pub-sub/batches/invalid Last-Event-ID/session delete",
             body,

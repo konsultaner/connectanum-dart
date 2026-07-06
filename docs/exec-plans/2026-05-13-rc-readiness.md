@@ -80,6 +80,29 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-07-06: Hardened the router CLI consumer package smoke so consumer
+  applications prove direct JSON notification-only WAMP pub/sub through public
+  package helpers while active Streamable sessions are open. The generated
+  Dart consumer now subscribes with direct JSON helpers, sends notification-only
+  events, polls the subscription, and asserts those direct JSON operations do
+  not mutate the active Streamable `sessionId` or `lastEventId` for public raw
+  JSON, protected raw JSON, and active protected JSON-response routes. The
+  machine-readable smoke summary now requires `pubsubNotifications: true` for
+  `public`, `secure`, and `jsonResponse.active`, in addition to existing
+  token-only coverage. The package-boundary test pins the generated route
+  labels, consumer assertions, summary fragments, and human-readable smoke text
+  so this coverage cannot regress to private consumer assumptions. Baseline
+  `bin/test-fast` passed before the change on 2026-07-06. Focused `bash -n
+  bin/common.sh`, `git diff --check`, full `python3 -m unittest
+  tool.test_mcp_consumer_package_boundary -v`, and direct
+  `run_router_cli_consumer_package_smoke` passed after the change.
+  Post-change `bin/test-fast` and full local `bin/verify` also passed on
+  2026-07-06, including formatting, Rust/FFI tests, Python boundary tests, MCP
+  package tests, client/auth tests, consumer package smokes, live WAMP
+  benchmark integration, router-hosted MCP live/example smokes, the updated
+  router CLI consumer package smoke with active direct JSON notification
+  pub/sub coverage, full router tests, HTTP/2 and HTTP/3 router integration,
+  and the Chrome/Dart2Wasm browser WebSocket smoke.
+- 2026-07-06: Hardened the router CLI consumer package smoke so consumer
   applications prove a configured HTTP `session_proxy` route through public
   package code, not only through router runtime unit tests. The generated
   smoke config now exposes `/proxy/healthz` on the router HTTP listener,
@@ -106,8 +129,20 @@ decision because `connectanum_client` still depends on private
   live/example smokes, the updated router CLI consumer package smoke with
   configured `session_proxy` coverage, full router tests, HTTP/2 and HTTP/3
   router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence for this checkpoint is pending push/CI; the latest fully clean
-  hosted checkpoint remains `3996f6b`.
+  evidence after push: commit `a1ebb68` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub `master` CI
+  `28794348618` and GitHub `add-router` CI `28794343917` passed with Fast
+  Checks and Full Verify green; Dart Package Publish Dry Run passed on GitHub
+  `master` `28794350501` and GitHub `add-router` `28794342200`; WAMP Profile
+  Benchmarks passed on GitHub `master` `28794348780` and GitHub `add-router`
+  `28794342199`; Router Image dry-run `28787623457` remains clean and relevant
+  from `3996f6b`; Native Artifacts dry-run `28748296297` remains clean and
+  relevant from `d64d220`; and the strict deployment-chain audit passed for
+  GitHub `master` at `a1ebb68` with CI log scan clean and clean/relevant Dart
+  package, native release, router image, and WAMP profile evidence. RC
+  readiness remains blocked only on selecting/approving the numeric RC
+  tag/prerelease/router image tag plus the deferred pub.dev package
+  ownership/order track.
 - 2026-07-06: Implemented HTTP bridge `session_proxy` route support so
   consumer applications can route REST-style HTTP requests through configured
   router-managed internal realms instead of carrying parsed-only route actions.

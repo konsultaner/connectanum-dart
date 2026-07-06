@@ -3,47 +3,72 @@
 Last updated: 2026-07-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: the router CLI consumer package smoke now
-proves a configured HTTP `session_proxy` route through the public consumer
-package boundary. The generated router config exposes `/proxy/healthz` on the
-same HTTP listener, dispatches GET and HEAD through the internal metrics realm
-via `delegate: metrics` and `connectanum.metrics.healthz`, and the generated
-Dart consumer probes it with `HttpClient` before running the MCP matrix. The
-public smoke summary now requires `sessionProxy: true`, and the Python boundary
-test pins the route config, GET/HEAD probes, summary key, and human-readable
-evidence. The router native HTTP/3 integration fixture also requests an
-explicit ephemeral UDP port with `Http3Settings(enabled: true, port: 0)` so
-local unrelated services cannot collide with the HTTP/3 listener while the TCP
-endpoint is OS-assigned. Baseline `bin/test-fast` passed before the change on
-2026-07-06. Focused `bash -n bin/common.sh`,
-`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, direct
-`run_router_cli_consumer_package_smoke`, and focused router HTTP/3 integration
-tests passed after the change. Post-change `bin/test-fast` and full local
-`bin/verify` also passed on 2026-07-06, including formatting, Rust/FFI tests,
-Python boundary tests, MCP package tests, client/auth tests, consumer package
-smokes, live WAMP benchmark integration, router-hosted MCP live/example smokes,
-the updated router CLI consumer package smoke with configured
-`session_proxy` coverage, full router tests, HTTP/2 and HTTP/3 router
-integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
-for this checkpoint is pending push/CI; the latest fully clean hosted
-checkpoint remains `3996f6b`.
-Latest fully clean hosted checkpoint: Commit `3996f6b` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the HTTP bridge `session_proxy`
-route implementation. GitHub `master` CI `28787608447` and GitHub
-`add-router` CI `28787603768` both passed with Fast Checks and Full Verify
-green at `3996f6b`. Dart Package Publish Dry Run passed on GitHub `master`
-`28787608400` and GitHub `add-router` `28787603733`. WAMP Profile Benchmarks
-passed on GitHub `master` `28787608328` and GitHub `add-router`
-`28787603778`. Router Image dry-run evidence is clean and relevant from GitHub
-`master` `28787623457` at `3996f6b`. Native artifact dry-run evidence remains
-clean and relevant from `d64d220` because no native-release-sensitive paths
-changed. The strict deployment-chain audit passed for GitHub `master` at
-`3996f6b` with CI log scan clean and clean/relevant Dart package, native
-release, router image, and WAMP profile evidence.
+proves direct JSON notification-only WAMP pub/sub through public package
+helpers while active Streamable sessions are open. The generated consumer
+subscribes with direct JSON helpers, sends notification-only events, polls the
+subscription, and asserts those direct JSON operations do not mutate the active
+Streamable `sessionId` or `lastEventId` for public raw JSON, protected raw
+JSON, and active protected JSON-response routes. The machine-readable smoke
+summary now requires `pubsubNotifications: true` for `public`, `secure`, and
+`jsonResponse.active`, in addition to existing token-only coverage, and the
+Python boundary test pins the new route labels, summary keys, session/cursor
+guard, and human-readable smoke evidence. Baseline `bin/test-fast` passed
+before the change on 2026-07-06. Focused `bash -n bin/common.sh`, `git diff
+--check`, `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
+and direct `run_router_cli_consumer_package_smoke` passed after the change.
+Post-change `bin/test-fast` and full local `bin/verify` also passed on
+2026-07-06, including formatting, Rust/FFI tests, Python boundary tests, MCP
+package tests, client/auth tests, consumer package smokes, live WAMP benchmark
+integration, router-hosted MCP live/example smokes, the updated router CLI
+consumer package smoke with active direct JSON notification pub/sub coverage,
+full router tests, HTTP/2 and HTTP/3 router integration, and the
+Chrome/Dart2Wasm browser WebSocket smoke. Latest hosted evidence remains the
+clean `a1ebb68` checkpoint until this code change is pushed and hosted CI
+completes.
+Latest fully clean hosted checkpoint: Commit `a1ebb68` on GitHub `master` and
+GitHub `add-router` passed hosted CI after the router CLI consumer package
+`session_proxy` smoke hardening. GitHub `master` CI `28794348618` and GitHub
+`add-router` CI `28794343917` both passed with Fast Checks and Full Verify
+green at `a1ebb68`. Dart Package Publish Dry Run passed on GitHub `master`
+`28794350501` and GitHub `add-router` `28794342200`. WAMP Profile Benchmarks
+passed on GitHub `master` `28794348780` and GitHub `add-router`
+`28794342199`. Router Image dry-run evidence remains clean and relevant from
+GitHub `master` `28787623457` at `3996f6b` because no router-image-sensitive
+paths changed. Native artifact dry-run evidence remains clean and relevant
+from `d64d220` because no native-release-sensitive paths changed. The strict
+deployment-chain audit passed for GitHub `master` at `a1ebb68` with CI log
+scan clean and clean/relevant Dart package, native release, router image, and
+WAMP profile evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `3996f6b` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `a1ebb68` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+The router CLI consumer package smoke now covers direct JSON notification-only
+WAMP pub/sub for active Streamable sessions across public raw JSON, protected
+raw JSON, and active protected JSON-response routes. The generated
+downstream-style Dart consumer subscribes with public `connectanum_mcp`
+helpers, sends notification-only events through direct JSON helpers, polls the
+subscription, unsubscribes where needed, and asserts direct JSON pub/sub did
+not change the active Streamable `sessionId` or `lastEventId`. The public,
+secure, and `jsonResponse.active` smoke summary sections now report
+`pubsubNotifications: true`, and the package-boundary test pins the generated
+request labels, consumer assertions, summary fragments, and smoke text so this
+coverage cannot silently fall back to private project assumptions.
+
+Baseline `bin/test-fast` passed before the change on 2026-07-06. Focused
+`bash -n bin/common.sh`, `git diff --check`, full `python3 -m unittest
+tool.test_mcp_consumer_package_boundary -v`, and direct
+`run_router_cli_consumer_package_smoke` passed after the change. Post-change
+`bin/test-fast` and full local `bin/verify` also passed on 2026-07-06,
+including formatting, Rust/FFI tests, Python boundary tests, MCP package tests,
+client/auth tests, consumer package smokes, live WAMP benchmark integration,
+router-hosted MCP live/example smokes, the updated router CLI consumer package
+smoke with active direct JSON notification pub/sub coverage, full router tests,
+HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+WebSocket smoke.
+
+Previous implementation checkpoint:
 The router CLI consumer package smoke now covers a router-configured
 `session_proxy` route that is served by the router HTTP listener and backed by
 an internal metrics realm session. The generated downstream-style Dart consumer
@@ -72,8 +97,16 @@ smokes, live WAMP benchmark integration, router-hosted MCP live/example smokes,
 the updated router CLI consumer package smoke with configured
 `session_proxy` coverage, full router tests, HTTP/2 and HTTP/3 router
 integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
-for this checkpoint is pending push/CI; the latest fully clean hosted
-checkpoint remains `3996f6b`.
+after push: commit `a1ebb68` was pushed to GitLab `origin` `add-router`,
+GitHub `add-router`, and GitHub `master`; GitHub `master` CI `28794348618` and
+GitHub `add-router` CI `28794343917` passed with Fast Checks and Full Verify
+green; Dart Package Publish Dry Run passed on both branches; WAMP Profile
+Benchmarks passed on both branches; Router Image dry-run `28787623457` remains
+clean and relevant from `3996f6b`; Native Artifacts dry-run `28748296297`
+remains clean and relevant from `d64d220`; and the strict deployment-chain
+audit passed for GitHub `master` at `a1ebb68` with CI log scan clean and
+clean/relevant Dart package, native release, router image, and WAMP profile
+evidence.
 
 Previous implementation checkpoint:
 HTTP bridge `session_proxy` routes now dispatch through configured internal
