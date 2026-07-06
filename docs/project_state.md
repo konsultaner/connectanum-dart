@@ -3,26 +3,24 @@
 Last updated: 2026-07-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: the router CLI consumer package smoke now
-proves consumer applications see correct Streamable HTTP `Last-Event-ID`
-handling on router-hosted MCP JSON-response routes as well as the existing
-SSE-backed routes. The generated consumer keeps active protected
-JSON-response Streamable sessions for auth-grant and token-only bearer
-clients, sends an unknown but syntactically session-scoped `Last-Event-ID`,
-and asserts a `400` rejection that names `Last-Event-ID` without losing the
-active session id or changing the cursorless JSON-response state. The
-machine-readable smoke summary exports `streamableInvalidLastEventId: true`
-for `jsonResponse.active` and `jsonResponse.tokenOnly` in addition to public,
-protected, and token-only SSE-backed Streamable routes, and the
-package-boundary test pins the helper, route labels, summary keys, and
-human-readable smoke evidence. Full local `bin/verify` passed on 2026-07-06
-after this package-readiness smoke hardening. Hosted evidence for this new
-checkpoint is pending after push; the latest fully clean hosted checkpoint
-remains `334328b`.
-Latest fully clean hosted checkpoint: Commit `334328b` on GitHub `master` and
+proves installed `connectanum_router` exposes router-native OpenMetrics health
+routes through the internal metrics realm, not a sidecar HTTP server. The
+generated consumer smoke starts the globally activated `connectanum_router`
+command, parses the generated OpenMetrics listener, checks `/healthz` and the
+`/health` alias both return `ok`, and verifies `/metrics` contains the router
+drain gauge before running the existing MCP/auth/session matrix. The
+package-boundary test now pins the metrics internal realm config, listener log
+parsing, all three HTTP probes, and the human-readable smoke evidence. Baseline
+`bin/test-fast`, focused boundary checks, direct
+`run_router_cli_consumer_package_smoke`, and full local `bin/verify` passed on
+2026-07-06 after this consumer readiness smoke hardening. Hosted evidence for
+this new checkpoint is pending after push; the latest fully clean hosted
+checkpoint remains `52f1ae3`.
+Latest fully clean hosted checkpoint: Commit `52f1ae3` on GitHub `master` and
 GitHub `add-router` passed hosted CI after the generated router CLI consumer
-invalid `Last-Event-ID` Streamable MCP smoke coverage change. GitHub `master`
-CI `28766292881` and GitHub `add-router` CI `28766290100` both passed with
-Fast Checks and Full Verify green at `334328b`. Dart Package Publish Dry Run
+JSON-response invalid `Last-Event-ID` Streamable MCP smoke coverage change.
+GitHub `master` CI `28768310605` and GitHub `add-router` CI `28768307878`
+both passed with Fast Checks and Full Verify green at `52f1ae3`. Dart Package Publish Dry Run
 remains clean and relevant from GitHub `master` (`28759102889`) and GitHub
 `add-router` (`28759102339`) at `ab1c02c` because no publish-sensitive paths
 changed. WAMP Profile Benchmarks remain clean and relevant from GitHub
@@ -31,45 +29,38 @@ Router Image dry-run evidence remains clean and relevant from GitHub `master`
 `28757835462` at `50b2458`, and native artifact dry-run evidence remains clean
 and relevant from `d64d220` because no benchmark-, image-, or
 native-release-sensitive paths changed. The strict deployment-chain audit
-passed for GitHub `master` at `334328b` with CI log scan clean and
+passed for GitHub `master` at `52f1ae3` with CI log scan clean and
 clean/relevant Dart package, native release, router image, and WAMP profile
 evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `334328b` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `52f1ae3` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
-The router CLI consumer package smoke now covers invalid `Last-Event-ID`
-rejection through generated consumer-package code for protected JSON-response
-Streamable MCP routes, not only through SSE-backed public, protected, and
-token-only routes. The generated Dart consumer keeps active JSON-response
-Streamable sessions for auth-grant and token-only bearer clients, polls with
-an unknown event id scoped to the current session, expects
-`McpStreamableHttpException` with HTTP 400 and an error body that names
-`Last-Event-ID`, then verifies the client session id is unchanged and the
-cursor remains null. The smoke summary exports
-`streamableInvalidLastEventId: true` for `jsonResponse.active` and
-`jsonResponse.tokenOnly`; the shell summary gate requires those keys; and the
-package-boundary test pins the helper, route labels, summary keys, and
-human-readable smoke evidence so consumer-app JSON-response Streamable
-compatibility cannot silently regress.
+The router CLI consumer package smoke now checks the generated OpenMetrics
+listener's `/health` alias alongside `/healthz` and `/metrics` while proving
+the endpoint is served by the installed router command and metrics internal
+realm. The boundary test requires the metrics realm/service config,
+`OpenMetrics exporter listening on` parsing, `/healthz`, `/health`, and
+`/metrics` probes, the `connectanum_router_drain_in_progress` metric, and the
+updated smoke summary so consumer-app observability readiness cannot silently
+fall back to private or sidecar assumptions.
 
-Baseline `bin/test-fast` passed before the generated consumer JSON-response
-invalid `Last-Event-ID` coverage change on 2026-07-06. Focused
-`bash -n bin/common.sh`,
-`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
-`python3 tool/check_public_artifact_references.py`, `git diff --check`, and
+Baseline `bin/test-fast` passed before the OpenMetrics smoke hardening on
+2026-07-06. Focused `bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_native_metrics_routes -v`,
+full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and
 direct `run_router_cli_consumer_package_smoke` passed after the change on
 2026-07-06. Full local `bin/verify` also passed after the change on
 2026-07-06, including formatting, Rust/FFI tests, Python boundary tests, MCP
 package tests, client/auth tests, consumer package smokes, live WAMP benchmark
 integration, router-hosted MCP example smokes, the updated router CLI consumer
-package smoke with JSON-response invalid `Last-Event-ID` coverage, full router
-tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this checkpoint is pending after push;
-the latest fully clean hosted checkpoint remains `334328b`, and RC readiness
-is blocked only on selecting/approving the numeric RC tag/prerelease/router
-image tag plus the deferred pub.dev package ownership/order track.
+package smoke with `/health` alias coverage, full router tests, HTTP/2 and
+HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+Hosted evidence for this checkpoint is pending after push; the latest fully
+clean hosted checkpoint remains `52f1ae3`, and RC readiness is blocked only on
+selecting/approving the numeric RC tag/prerelease/router-image tag plus the
+deferred pub.dev package ownership/order track.
 
 Previous implementation checkpoint:
 The router CLI consumer package smoke now covers invalid `Last-Event-ID`

@@ -496,6 +496,34 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("file_not_found", body)
         self.assertIn("configured /assets file route", body)
 
+    def test_router_cli_consumer_smoke_exercises_native_metrics_routes(
+        self,
+    ) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+
+        self.assertIn("internal_realms:", body)
+        self.assertIn("name: connectanum.metrics", body)
+        self.assertIn("services: [metrics]", body)
+        self.assertIn("open_metrics:", body)
+        self.assertIn("listen: 127.0.0.1:0", body)
+        self.assertIn("OpenMetrics exporter listening on ", body)
+        self.assertIn("connectanum_router_drain_in_progress", body)
+        self.assertIn(
+            'curl -fsS "http://127.0.0.1:$metrics_port/healthz"',
+            body,
+        )
+        self.assertIn(
+            'curl -fsS "http://127.0.0.1:$metrics_port/health"',
+            body,
+        )
+        self.assertIn(
+            'curl -fsS "http://127.0.0.1:$metrics_port/metrics"',
+            body,
+        )
+        self.assertIn("Router CLI health alias returned unexpected body", body)
+        self.assertIn("served /healthz, /health, /metrics", body)
+
     def test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface(
         self,
     ) -> None:
