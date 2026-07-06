@@ -363,6 +363,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"$global_smoke_workspace/packages/connectanum_bench"',
             body,
         )
+        self.assertIn(
+            '"$global_smoke_workspace/packages/connectanum_router"',
+            body,
+        )
         self.assertIn("connectanum_bench_global_activation_smoke_workspace", body)
         self.assertIn('"$ROOT_DIR/pubspec.lock"', body)
         self.assertIn('"$global_smoke_workspace/pubspec.lock"', body)
@@ -374,6 +378,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             'if [[ "$global_bench_command" != "$pub_cache/bin/router_bench" ]]; then',
+            body,
+        )
+        self.assertIn(
+            'global_router_command="$(PATH="$pub_cache/bin:$PATH" '
+            'PUB_CACHE="$pub_cache" command -v connectanum_router || true)"',
+            body,
+        )
+        self.assertIn(
+            'if [[ "$global_router_command" != "$pub_cache/bin/connectanum_router" ]]; then',
             body,
         )
         self.assertIn(
@@ -396,6 +409,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_bench --help',
+            body,
+        )
+        self.assertIn(
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help',
+            body,
+        )
+        self.assertIn(
+            "Usage: connectanum_router --config <path>",
             body,
         )
         self.assertIn(

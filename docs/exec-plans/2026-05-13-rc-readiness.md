@@ -79,6 +79,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Hardened the bench CLI consumer package smoke so local WAMP
+  benchmark harnesses prove router command availability from source-checkout
+  packages before relying on a router process. `run_bench_cli_consumer_package_smoke`
+  now globally activates both `connectanum_bench` and `connectanum_router`
+  from the copied source workspace into the same isolated Pub cache, asserts
+  `router_bench`, `bench_router_service`, `wamp_client_worker`, and
+  `connectanum_router` all resolve from that cache, checks the router help
+  surface, then keeps the existing installed bench router service plus native
+  RawSocket RPC and Dart WebSocket pub/sub WAMP probes. Baseline
+  `bin/test-fast` passed before the change on 2026-07-06. Focused
+  `bash -n bin/common.sh`,
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and direct
+  `run_bench_cli_consumer_package_smoke` passed after the change. Full local
+  `bin/verify` also passed after the change on 2026-07-06, including
+  formatting, Rust/FFI tests, MCP/client/router package tests, consumer
+  package smokes, live WAMP benchmark integration, the hardened bench consumer
+  smoke with isolated `connectanum_router` executable activation,
+  router-hosted MCP example smokes, full router tests, HTTP/2 and HTTP/3
+  router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence is pending for this package-readiness checkpoint.
 - 2026-07-06: Extended the generated router CLI consumer package smoke so
   direct JSON stale-session isolation also covers protected JSON-response MCP
   routes. The neutral Dart consumer now keeps active Streamable sessions for
@@ -103,9 +123,15 @@ decision because `connectanum_client` still depends on private
   stale `MCP-Session-Id` coverage, the updated router CLI consumer package
   smoke with public/protected and JSON-response direct JSON stale-session
   isolation, full router tests, HTTP/2 and HTTP/3 router integration, and the
-  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this new
-  JSON-response generated-consumer coverage is pending push; the latest fully
-  clean hosted checkpoint remains `ddc082d` until branch CI passes.
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence after push: commit
+  `cdd2875` was pushed to GitLab `origin` `add-router`, GitHub `add-router`,
+  and GitHub `master`. GitHub `master` CI `28762455254` and GitHub
+  `add-router` CI `28762455269` passed with Fast Checks and Full Verify green.
+  The strict deployment-chain audit passed for GitHub `master` at `cdd2875`
+  with CI log scan clean and clean/relevant Dart package, native release,
+  router image, and WAMP profile evidence; RC readiness is blocked only on
+  selecting/approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-06: Extended the router CLI consumer package smoke for direct JSON
   stale-session isolation from generated consumer-package code. The neutral
   Dart consumer now keeps active public and protected Streamable MCP sessions,

@@ -2,22 +2,23 @@
 
 Last updated: 2026-07-06
 Current branch: `add-router`
-Last reviewed branch checkpoint: the generated router CLI consumer package
-smoke now proves raw direct JSON MCP requests ignore a syntactically valid but
-unknown `MCP-Session-Id` while public, protected, and protected JSON-response
-Streamable sessions are active. The neutral Dart consumer sends fixed-length
-raw `tools/list` POSTs with `Accept: application/json`, the current MCP
-protocol version, a bogus session header, a trace header, and bearer auth for
-protected routes. It covers `/mcp`, `/mcp/secure`, and `/mcp/secure-json-post`
-for active auth-grant and token-only JSON-response sessions, asserting `200`,
-a JSON-RPC result, no response `MCP-Session-Id`, and unchanged typed
-Streamable session id/SSE cursor. Full local `bin/verify` passed on
-2026-07-06 after the JSON-response generated-consumer smoke coverage change.
-Latest fully clean hosted checkpoint: Commit `ddc082d` on GitHub `master` and
+Last reviewed branch checkpoint: the bench CLI consumer package smoke now
+proves source-checkout consumer applications can install both benchmark and
+router package executables into the same isolated Pub cache before running
+local WAMP probes. The smoke globally activates `connectanum_bench` and
+`connectanum_router` from copied source packages, asserts `router_bench`,
+`bench_router_service`, `wamp_client_worker`, and `connectanum_router` all
+resolve from that isolated cache, checks their help surfaces, then starts the
+installed bench router service and runs native RawSocket RPC plus Dart
+WebSocket pub/sub WAMP scenarios through the package executables. Full local
+`bin/verify` passed on 2026-07-06 after this package-readiness smoke
+hardening; hosted evidence remains at `cdd2875` until the next code checkpoint
+is pushed and CI passes.
+Latest fully clean hosted checkpoint: Commit `cdd2875` on GitHub `master` and
 GitHub `add-router` passed hosted CI after the generated router CLI consumer
-direct JSON stale-session smoke coverage change. GitHub `master` CI
-`28760681502` and GitHub `add-router` CI `28760681515` both passed with Fast
-Checks and Full Verify green at `ddc082d`. Dart Package Publish Dry Run
+JSON-response direct JSON stale-session smoke coverage change. GitHub
+`master` CI `28762455254` and GitHub `add-router` CI `28762455269` both passed
+with Fast Checks and Full Verify green at `cdd2875`. Dart Package Publish Dry Run
 remains clean and relevant from GitHub `master` (`28759102889`) and GitHub
 `add-router` (`28759102339`) at `ab1c02c` because no publish-sensitive paths
 changed. WAMP Profile Benchmarks remain clean and relevant from GitHub
@@ -26,14 +27,41 @@ Router Image dry-run evidence remains clean and relevant from GitHub `master`
 `28757835462` at `50b2458`, and native artifact dry-run evidence remains clean
 and relevant from `d64d220` because no benchmark-, image-, or
 native-release-sensitive paths changed. The strict deployment-chain audit
-passed for GitHub `master` at `ddc082d` with CI log scan clean and
+passed for GitHub `master` at `cdd2875` with CI log scan clean and
 clean/relevant Dart package, native release, router image, and WAMP profile
 evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `ddc082d` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `cdd2875` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+The bench CLI consumer package smoke now activates and verifies the
+`connectanum_router` executable from the same isolated source-checkout
+workspace used for the `connectanum_bench` executables. This closes the
+consumer-package evidence gap where local WAMP benchmark harnesses could prove
+`router_bench`, `bench_router_service`, and `wamp_client_worker` availability
+without also proving that the router command a downstream harness expects is
+available from the same Pub cache. The smoke still runs the live native
+RawSocket RPC and Dart WebSocket pub/sub WAMP probes when the native library is
+available, so command availability and real local WAMP execution are verified
+together.
+
+Baseline `bin/test-fast` passed before the bench consumer package smoke
+hardening on 2026-07-06. Focused `bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and direct
+`run_bench_cli_consumer_package_smoke` passed after the change on 2026-07-06.
+Full local `bin/verify` also passed after the change on 2026-07-06, including
+formatting, Rust/FFI tests, MCP/client/router package tests, consumer package
+smokes, live WAMP benchmark integration, the hardened bench consumer smoke
+with isolated `connectanum_router` executable activation, router-hosted MCP
+example smokes, full router tests, HTTP/2 and HTTP/3 router integration, and
+the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for
+this new package-readiness checkpoint; the latest fully clean hosted
+checkpoint remains `cdd2875` until the new branch CI passes. RC readiness is
+blocked only on selecting/approving the numeric RC tag/prerelease/router-image
+tag plus the deferred pub.dev package ownership/order track.
+
+Previous implementation checkpoint:
 The router CLI consumer package smoke now covers direct JSON stale-session
 isolation through generated consumer-package code for public, protected, and
 protected JSON-response MCP routes, not only through the public example
@@ -61,11 +89,15 @@ router-hosted MCP example smokes with malformed and stale `MCP-Session-Id`
 coverage, the updated router CLI consumer package smoke with public/protected
 and JSON-response direct JSON stale-session isolation, full router tests,
 HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this new JSON-response generated-consumer
-coverage is pending push; the latest fully clean hosted checkpoint remains
-`ddc082d` until the new branch CI passes. RC readiness is blocked only on
-selecting/approving the numeric RC tag/prerelease/router-image tag plus the
-deferred pub.dev package ownership/order track.
+WebSocket smoke. Hosted evidence after push: commit `cdd2875` was pushed to
+GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`.
+GitHub `master` CI `28762455254` and GitHub `add-router` CI `28762455269`
+passed with Fast Checks and Full Verify green. The strict deployment-chain
+audit passed for GitHub `master` at `cdd2875` with CI log scan clean and
+clean/relevant Dart package, native release, router image, and WAMP profile
+evidence; RC readiness is blocked only on selecting/approving the numeric RC
+tag/prerelease/router-image tag plus the deferred pub.dev package
+ownership/order track.
 
 Previous implementation checkpoint:
 The public router-hosted MCP client example now sends a fixed-length raw JSON

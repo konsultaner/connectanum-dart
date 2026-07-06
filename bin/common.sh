@@ -23322,6 +23322,7 @@ run_bench_cli_consumer_package_smoke() (
   local bench_service_help_output
   local global_bench_command
   local global_bench_service_command
+  local global_router_command
   local global_smoke_workspace
   local global_worker_command
   local help_output
@@ -23335,6 +23336,7 @@ run_bench_cli_consumer_package_smoke() (
   local rawsocket_port
   local bench_service_log
   local bench_service_pid
+  local router_help_output
   local smoke_dir
   local websocket_port
   local worker_help_output
@@ -23486,10 +23488,18 @@ EOF
 
   CONNECTANUM_SKIP_NATIVE_BUILD=true \
     PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_bench" >&2
+  CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_router" >&2
   global_bench_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v router_bench || true)"
   if [[ "$global_bench_command" != "$pub_cache/bin/router_bench" ]]; then
     printf 'Expected isolated pub-cache router_bench command, got: %s\n' \
       "${global_bench_command:-<missing>}" >&2
+    return 1
+  fi
+  global_router_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v connectanum_router || true)"
+  if [[ "$global_router_command" != "$pub_cache/bin/connectanum_router" ]]; then
+    printf 'Expected isolated pub-cache connectanum_router command, got: %s\n' \
+      "${global_router_command:-<missing>}" >&2
     return 1
   fi
   global_bench_service_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v bench_router_service || true)"
@@ -23508,6 +23518,8 @@ EOF
   help_output="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_bench --help)"
   grep -F -- '--config (mandatory)' <<<"$help_output" >/dev/null
   grep -F -- '--native-lib (mandatory)' <<<"$help_output" >/dev/null
+  router_help_output="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" connectanum_router --help)"
+  grep -F -- 'Usage: connectanum_router --config <path>' <<<"$router_help_output" >/dev/null
   bench_service_help_output="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" bench_router_service --help)"
   grep -F -- '--router-config' <<<"$bench_service_help_output" >/dev/null
   grep -F -- '--native-lib' <<<"$bench_service_help_output" >/dev/null
