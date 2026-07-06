@@ -2,49 +2,55 @@
 
 Last updated: 2026-07-06
 Current branch: `add-router`
-Last reviewed branch checkpoint: the public router-hosted
-`connectanum_mcp` client example now proves active direct JSON access for
-tool/catalog, resource, prompt, WAMP metadata, and batch calls while a
-Streamable HTTP session is open. The new probe runs after Streamable
-initialization, uses only public `connectanum_mcp` IO client helpers, returns
-an `activeDirectJson` summary with batch response IDs, and asserts the
-Streamable `sessionId` and `lastEventId` do not change. The live smoke now
-requires the active direct JSON batch summary across public, pub/sub-only,
-authenticated, bearer-token, authenticated JSON-response, and bearer-token
-JSON-response runs, and the Python boundary test pins the public example helper
-IDs, labels, source gate, and smoke summary fragment. Baseline `bin/test-fast`
-passed before the change on 2026-07-06. Focused `bash -n bin/common.sh`, `git
-diff --check`, `dart analyze packages/connectanum_mcp`, `python3 -m unittest
-tool.test_mcp_consumer_package_boundary -v`, `python3
-tool/check_public_artifact_references.py`, and direct bash
-`run_public_router_hosted_mcp_client_live_smoke` passed after the change.
-Post-change `bin/test-fast` and full local `bin/verify` passed on 2026-07-06,
-including formatting, Rust/FFI tests, Python boundary tests, MCP package tests,
-client/auth tests, consumer package smokes, live WAMP benchmark integration,
-router-hosted MCP live/example smokes, the router CLI consumer package smoke,
-full router tests, HTTP/2 and HTTP/3 router integration, and the
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
-local checkpoint; the latest fully clean hosted checkpoint remains `e394793`.
-Latest fully clean hosted checkpoint: Commit `e394793` on GitHub `master` and
+Last reviewed branch checkpoint: `connectanum_client` web WebSocket opening no
+longer catches `package:web` `Event` by type, removing the analyzer
+`invalid_runtime_check_with_js_interop_types` warning while preserving existing
+open-error logging. Baseline `bin/test-fast` passed before the change on
+2026-07-06 with the known analyzer info. Focused package analyzer checks,
+targeted WebSocket/client transport tests, and `git diff --check` passed after
+the change; post-change `bin/test-fast` and full local `bin/verify` also
+passed on 2026-07-06, with the root analyzer now clean. Hosted evidence
+remains the clean `3b5ed7c` checkpoint until this local analyzer cleanup is
+pushed and hosted CI completes.
+Latest fully clean hosted checkpoint: Commit `3b5ed7c` on GitHub `master` and
 GitHub `add-router` passed hosted CI after the public router-hosted active
-direct JSON pub/sub smoke hardening. GitHub `master` CI `28804950572` and
-GitHub `add-router` CI `28804941553` both passed with Fast Checks and Full
-Verify green at `e394793`. Dart Package Publish Dry Run passed on GitHub
-`master` `28804948834` and GitHub `add-router` `28804941463`. WAMP Profile
-Benchmarks remain clean and relevant from GitHub `master` `28794348780` and
-GitHub `add-router` `28794342199` at `a1ebb68` because no WAMP profile
-benchmark-sensitive paths changed. Router Image dry-run evidence remains clean
-and relevant from GitHub `master` `28787623457` at `3996f6b` because no
-router-image-sensitive paths changed. Native artifact dry-run evidence remains
-clean and relevant from `d64d220` because no native-release-sensitive paths
-changed. The strict deployment-chain audit passed for GitHub `master` at
-`e394793` with CI log scan clean and clean/relevant Dart package, native
-release, router image, and WAMP profile evidence.
+direct JSON tool/catalog/resource/prompt/WAMP metadata/batch smoke hardening.
+GitHub `master` CI `28810579660` and GitHub `add-router` CI `28810574716`
+both passed with Fast Checks and Full Verify green at `3b5ed7c`. Dart Package
+Publish Dry Run passed on GitHub `master` `28810579671` and GitHub
+`add-router` `28810574699`. WAMP Profile Benchmarks remain clean and relevant
+from GitHub `master` `28794348780` and GitHub `add-router` `28794342199` at
+`a1ebb68` because no WAMP profile benchmark-sensitive paths changed. Router
+Image dry-run evidence remains clean and relevant from GitHub `master`
+`28787623457` at `3996f6b` because no router-image-sensitive paths changed.
+Native artifact dry-run evidence remains clean and relevant from `d64d220`
+because no native-release-sensitive paths changed. The strict deployment-chain
+audit passed for GitHub `master` at `3b5ed7c` with CI log scan clean and
+clean/relevant Dart package, native release, router image, and WAMP profile
+evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `e394793` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `3b5ed7c` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+`connectanum_client` web WebSocket opening now uses an untyped catch for the
+open-completer error path instead of a Dart `on Event` runtime type check
+against the JS interop `package:web` event type. This keeps the browser
+transport behavior unchanged for failed opens while removing the analyzer
+warning that made root `dart analyze` noisy.
+
+Baseline `bin/test-fast` passed before the change on 2026-07-06 with the known
+analyzer info. Focused package analyzer checks, targeted WebSocket/client
+transport tests, and `git diff --check` passed after the change. Post-change
+`bin/test-fast` and full local `bin/verify` passed on 2026-07-06, including
+formatting, Rust/FFI tests, Python boundary tests, MCP package tests,
+client/auth tests,
+consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+live/example smokes, the router CLI consumer package smoke, full router tests,
+HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+WebSocket smoke.
+
+Previous implementation checkpoint:
 The public router-hosted `connectanum_mcp` client example now covers active
 direct JSON tool/catalog, resource, prompt, WAMP metadata, and batch access
 while a Streamable HTTP session is active. The active probe establishes that
@@ -70,8 +76,14 @@ including formatting, Rust/FFI tests, Python boundary tests, MCP package tests,
 client/auth tests, consumer package smokes, live WAMP benchmark integration,
 router-hosted MCP live/example smokes, the router CLI consumer package smoke,
 full router tests, HTTP/2 and HTTP/3 router integration, and the
-Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for this
-local checkpoint; the latest fully clean hosted checkpoint remains `e394793`.
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence after push: commit
+`3b5ed7c` was pushed to GitLab `origin` `add-router`, GitHub `add-router`, and
+GitHub `master`; GitHub `master` CI `28810579660` and GitHub `add-router` CI
+`28810574716` passed with Fast Checks and Full Verify green; Dart Package
+Publish Dry Run passed on GitHub `master` `28810579671` and GitHub
+`add-router` `28810574699`; and the strict deployment-chain audit passed for
+GitHub `master` at `3b5ed7c` with CI log scan clean and clean/relevant Dart
+package, native release, router image, and WAMP profile evidence.
 
 Previous implementation checkpoint:
 The public router-hosted `connectanum_mcp` client example now covers direct JSON

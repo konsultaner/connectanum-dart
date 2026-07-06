@@ -133,7 +133,7 @@ class WebSocketTransport extends AbstractTransport {
     try {
       await openCompleter.future;
       _onReady.complete();
-    } on Event {
+    } catch (_) {
       _logger.info('Error while opening the channel');
     }
   }

@@ -79,6 +79,17 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Removed the web WebSocket transport's typed `Event` catch in
+  `connectanum_client` so Dart analyzer no longer reports
+  `invalid_runtime_check_with_js_interop_types` on the JS interop event path.
+  The failed-open behavior remains a logged open failure; the change avoids an
+  invalid runtime check against `package:web` `Event`. Baseline `bin/test-fast`
+  passed before the change with the known analyzer info. Focused package
+  analyzer checks, targeted WebSocket/client transport tests, diff whitespace
+  checks, post-change `bin/test-fast`, and full local `bin/verify` passed on
+  2026-07-06, with the root analyzer now clean. Hosted evidence remains the
+  clean `3b5ed7c` checkpoint until this local cleanup is pushed and hosted CI
+  completes.
 - 2026-07-06: Hardened the public router-hosted `connectanum_mcp` client
   example so consumer applications prove active direct JSON tool/catalog,
   resource, prompt, WAMP metadata, and batch access while a Streamable HTTP
@@ -103,8 +114,16 @@ decision because `connectanum_client` still depends on private
   benchmark integration, router-hosted MCP live/example smokes, the router CLI
   consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
   integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence is pending for this local checkpoint; the latest fully clean hosted
-  checkpoint remains `e394793`.
+  evidence after push: commit `3b5ed7c` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub `master` CI
+  `28810579660` and GitHub `add-router` CI `28810574716` passed with Fast
+  Checks and Full Verify green; Dart Package Publish Dry Run passed on GitHub
+  `master` `28810579671` and GitHub `add-router` `28810574699`; and the
+  strict deployment-chain audit passed for GitHub `master` at `3b5ed7c` with
+  CI log scan clean and clean/relevant Dart package, native release, router
+  image, and WAMP profile evidence. RC readiness remains blocked only on
+  selecting/approving the numeric RC tag/prerelease/router image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-06: Hardened the public router-hosted `connectanum_mcp` client
   example so consumer applications prove direct JSON notification-only WAMP
   pub/sub while a Streamable HTTP session is active. The example establishes a
