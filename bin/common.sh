@@ -25588,6 +25588,12 @@ Future<void> main() async {
       ).contains('connectanum.api.list'),
       'Dart consumer missed public Streamable meta tool.',
     );
+    await _expectRawDirectJsonStaleSessionIgnored(
+      publicEndpoint,
+      publicClient,
+      id: 'dart-consumer-public-direct-json-stale-session',
+      label: 'Dart consumer public direct JSON stale MCP-Session-Id',
+    );
     await publicClient.deleteSession();
     _expect(
       publicClient.sessionId == null && publicClient.lastEventId == null,
@@ -28028,6 +28034,13 @@ Future<void> main() async {
       ).contains('connectanum.pubsub.publish'),
       'Dart consumer missed protected Streamable pubsub tool.',
     );
+    await _expectRawDirectJsonStaleSessionIgnored(
+      secureEndpoint,
+      secureClient,
+      id: 'dart-consumer-secure-direct-json-stale-session',
+      label: 'Dart consumer protected direct JSON stale MCP-Session-Id',
+      bearerToken: grant.accessToken,
+    );
 
     final secureStreamableMetaLastEventId = secureClient.lastEventId;
     final secureStreamableProcedureCatalog = await secureClient.listWampApi(
@@ -28283,6 +28296,7 @@ Future<void> main() async {
         'public': <String, Object?>{
           'directJson': true,
           'streamable': true,
+          'directJsonStaleSessionId': true,
           'streamableSessionDelete': true,
           'resourcesPrompts': true,
           'wampMeta': true,
@@ -28293,6 +28307,7 @@ Future<void> main() async {
           'ticketGrant': true,
           'directJson': true,
           'streamable': true,
+          'directJsonStaleSessionId': true,
           'streamableSessionDelete': true,
           'deletedSessionRejected': true,
           'deletedSessionMatrix': true,
@@ -28861,6 +28876,70 @@ Future<void> _expectMcpHttpRejected(
   throw StateError('$label was accepted.');
 }
 
+Future<void> _expectRawDirectJsonStaleSessionIgnored(
+  Uri endpoint,
+  McpStreamableHttpClient streamableClient, {
+  required String id,
+  required String label,
+  String? bearerToken,
+}) async {
+  final previousSessionId = streamableClient.sessionId;
+  final previousEventId = streamableClient.lastEventId;
+  _expect(
+    previousSessionId != null && previousSessionId.isNotEmpty,
+    '$label requires an active Streamable session.',
+  );
+
+  final payload = utf8.encode(
+    jsonEncode(<String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'method': 'tools/list',
+      'params': <String, Object?>{},
+    }),
+  );
+  final httpClient = HttpClient();
+  try {
+    final request = await httpClient.postUrl(endpoint);
+    request.headers.contentType = ContentType.json;
+    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    request.headers.set('MCP-Protocol-Version', _protocolVersion);
+    request.headers.set('MCP-Session-Id', '$id-stale');
+    request.headers.set('x-consumer-trace', id);
+    if (bearerToken != null) {
+      request.headers.set(
+        HttpHeaders.authorizationHeader,
+        'Bearer $bearerToken',
+      );
+    }
+    request.contentLength = payload.length;
+    request.add(payload);
+
+    final response = await request.close();
+    final body = await utf8.decoder.bind(response).join();
+    _expect(
+      response.statusCode == HttpStatus.ok,
+      '$label returned ${response.statusCode}: $body',
+    );
+    _expect(
+      response.headers.value('MCP-Session-Id') == null,
+      '$label echoed a Streamable session id.',
+    );
+    final responsePayload = _jsonObjectFrom(jsonDecode(body), label);
+    _expect(
+      responsePayload['id'] == id && responsePayload['result'] is Map,
+      '$label missed a direct JSON result: $body',
+    );
+    _expect(
+      streamableClient.sessionId == previousSessionId &&
+          streamableClient.lastEventId == previousEventId,
+      '$label changed typed Streamable client state.',
+    );
+  } finally {
+    httpClient.close(force: true);
+  }
+}
+
 Future<void> _assertDeletedStreamableSessionRejectedAcrossMethods(
   Uri endpoint,
   ConnectanumHttpAuthGrant grant, {
@@ -29239,12 +29318,12 @@ DART
   printf '%s\n' "$dart_consumer_summary"
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
-    '"public":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"public":{"directJson":true,"streamable":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
+    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
+  printf 'Router CLI consumer package smoke served /healthz, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches plus Streamable procedure catalog/describe/topic describe/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
   printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay across the method matrix.\n'
   _cleanup_router_cli_smoke 0
 )

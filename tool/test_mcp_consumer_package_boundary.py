@@ -1214,6 +1214,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("routerCliConsumerSummary", body)
         self.assertIn(
             '"public":{"directJson":true,"streamable":true,'
+            '"directJsonStaleSessionId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"pubsub":true,"batch":true}',
@@ -1221,7 +1222,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"secure":{"ticketGrant":true,"directJson":true,'
-            '"streamable":true,"streamableSessionDelete":true,'
+            '"streamable":true,"directJsonStaleSessionId":true,'
+            '"streamableSessionDelete":true,'
             '"deletedSessionRejected":true,'
             '"deletedSessionMatrix":true,'
             '"resourcesPrompts":true,'
@@ -1260,6 +1262,20 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("streamableSessionDelete", body)
+        self.assertIn("directJsonStaleSessionId", body)
+        self.assertIn("Future<void> _expectRawDirectJsonStaleSessionIgnored", body)
+        self.assertIn("HttpHeaders.acceptHeader", body)
+        self.assertIn("'MCP-Session-Id'", body)
+        self.assertIn("dart-consumer-public-direct-json-stale-session", body)
+        self.assertIn("dart-consumer-secure-direct-json-stale-session", body)
+        self.assertIn(
+            "Dart consumer public direct JSON stale MCP-Session-Id",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected direct JSON stale MCP-Session-Id",
+            body,
+        )
         self.assertIn("pubsubNotifications", body)
         self.assertIn("Dart consumer public Streamable delete leaked state.", body)
         self.assertIn(
