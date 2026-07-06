@@ -1997,6 +1997,104 @@ Future<void> _runDirectPubSubExample(
   );
 }
 
+Future<McpJsonMap> _runActiveDirectPubSubExample(
+  McpStreamableHttpClient client,
+  _Options options, {
+  required String topic,
+  required int queueLimit,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  if (previousSessionId == null) {
+    throw StateError(
+      'Active direct JSON pub/sub requires an active Streamable session.',
+    );
+  }
+
+  final subscription = await client.subscribeWampTopicDirect(
+    topic,
+    id: 'streamable-active-direct-pubsub-subscribe',
+    queueLimit: queueLimit,
+  );
+  _expectWampSubscription(
+    subscription,
+    topic: topic,
+    queueLimit: queueLimit,
+    label: 'Streamable active direct JSON pub/sub',
+  );
+
+  try {
+    final notificationEvent = <String, Object?>{
+      'activeDirectNotificationEvent': options.pubsubEvent,
+    };
+    await client.notifyWampEventDirect(
+      topic,
+      argumentsKeywords: notificationEvent,
+    );
+    final notificationEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'streamable-active-direct-pubsub-notification-poll',
+      limit: queueLimit,
+    );
+    _expectWampEventBatch(
+      notificationEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: notificationEvent,
+      label: 'Streamable active direct JSON pub/sub notification poll',
+    );
+
+    final methodNotificationEvent = <String, Object?>{
+      'activeDirectMethodNotificationEvent': options.pubsubEvent,
+    };
+    await client.notifyConnectanumMethodDirect(
+      'connectanum.pubsub.publish',
+      params: <String, Object?>{
+        'topic': topic,
+        'argumentsKeywords': methodNotificationEvent,
+      },
+    );
+    final methodNotificationEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'streamable-active-direct-pubsub-method-notification-poll',
+      limit: queueLimit,
+    );
+    _expectWampEventBatch(
+      methodNotificationEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: methodNotificationEvent,
+      label: 'Streamable active direct JSON pub/sub method notification poll',
+    );
+
+    return <String, Object?>{
+      'sessionUnchanged': true,
+      'subscription': <String, Object?>{
+        'handle': subscription.handle,
+        'topic': subscription.topic,
+        'queueLimit': subscription.queueLimit,
+        if (subscription.subscriptionId != null)
+          'subscriptionId': subscription.subscriptionId,
+      },
+      'notificationEvents': notificationEvents.events,
+      'methodNotificationEvents': methodNotificationEvents.events,
+      'dropped': notificationEvents.dropped,
+      'remaining': notificationEvents.remaining,
+    };
+  } finally {
+    await client.unsubscribeWampTopicDirect(
+      subscription.handle,
+      id: 'streamable-active-direct-pubsub-unsubscribe',
+    );
+    _expectStreamableStateUnchanged(
+      client,
+      sessionId: previousSessionId,
+      lastEventId: previousEventId,
+      label: 'Streamable active direct JSON pub/sub',
+    );
+  }
+}
+
 Future<void> _runStreamableSessionExample(
   McpStreamableHttpClient client,
   _Options options, {
@@ -2472,6 +2570,12 @@ Future<void> _runStreamableSessionExample(
   final pubsubTopic = options.pubsubTopic;
   if (pubsubTopic != null) {
     const queueLimit = 10;
+    final activeDirectJsonPubSub = await _runActiveDirectPubSubExample(
+      client,
+      options,
+      topic: pubsubTopic,
+      queueLimit: queueLimit,
+    );
     final subscription = await client.subscribeWampTopic(
       pubsubTopic,
       id: 'streamable-pubsub-subscribe',
@@ -2678,6 +2782,7 @@ Future<void> _runStreamableSessionExample(
         'methodEvents': methodEvents.events,
         'notificationEvents': notificationEvents.events,
         'methodNotificationEvents': methodNotificationEvents.events,
+        'activeDirectJson': activeDirectJsonPubSub,
         if (toolNotificationEvents != null)
           'toolNotificationEvents': toolNotificationEvents.events,
         if (toolMethodNotificationEvents != null)

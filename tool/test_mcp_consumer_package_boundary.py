@@ -1811,8 +1811,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "label: 'Streamable pub/sub method poll'",
             "label: 'Streamable pub/sub notification poll'",
             "label: 'Streamable pub/sub method notification poll'",
+            "label: 'Streamable active direct JSON pub/sub'",
+            "label: 'Streamable active direct JSON pub/sub notification poll'",
+            "label: 'Streamable active direct JSON pub/sub method notification poll'",
             "label: 'Streamable standard tool notification poll'",
             "label: 'Streamable tool method notification poll'",
+            "_runActiveDirectPubSubExample",
             "describeWampApiDirect",
             "matchWampRegistrationDirect",
             "matchWampSubscriptionDirect",
@@ -1925,6 +1929,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-pubsub-publish",
             "pollWampEvents",
             "streamable-pubsub-poll",
+            "streamable-active-direct-pubsub-subscribe",
+            "streamable-active-direct-pubsub-notification-poll",
+            "streamable-active-direct-pubsub-method-notification-poll",
+            "streamable-active-direct-pubsub-unsubscribe",
+            "activeDirectJson",
+            "Active direct JSON pub/sub requires an active Streamable session.",
             "unsubscribeWampTopic",
             "streamable-pubsub-unsubscribe",
             "deleteSession",
@@ -2453,6 +2463,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"wampMetadata"', script)
         self.assertIn('"configuredRegistrationMetadata"', script)
         self.assertIn('"configuredSubscriptionMetadata"', script)
+        self.assertIn('"activeDirectJson":{"sessionUnchanged":true', script)
         self.assertIn('"toolNotificationEvents"', script)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
         self.assertIn("--bearer-token \"$bearer_token\"", live_body)

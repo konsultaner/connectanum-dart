@@ -79,6 +79,36 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Hardened the public router-hosted `connectanum_mcp` client
+  example so consumer applications prove direct JSON notification-only WAMP
+  pub/sub while a Streamable HTTP session is active. The example establishes a
+  Streamable session, runs the direct JSON pub/sub probe before creating a
+  same-topic Streamable subscription, subscribes through public direct helpers,
+  sends notification-only events through both direct event and direct method
+  helpers, polls through direct helpers, unsubscribes, and asserts the active
+  Streamable `sessionId` and `lastEventId` did not change. The ordering is
+  intentional because WAMP same-session same-topic subscribe/unsubscribe
+  semantics can share and then remove the active subscription. The public live
+  smoke now requires `activeDirectJson.sessionUnchanged` for public,
+  pub/sub-only, authenticated, bearer-token, authenticated JSON-response, and
+  bearer-token JSON-response runs, and the package-boundary test pins the
+  public example labels, helper IDs, source gate, and summary fragment.
+  Baseline `bin/test-fast` passed before the change on 2026-07-06. Focused
+  `bash -n bin/common.sh`, `git diff --check`, `dart analyze
+  packages/connectanum_mcp`, full `python3 -m unittest
+  tool.test_mcp_consumer_package_boundary -v`,
+  `python3 tool/check_public_artifact_references.py`, and direct
+  `run_public_router_hosted_mcp_client_live_smoke` passed after the change.
+  Full local `bin/verify` passed on 2026-07-06, including formatting,
+  Rust/FFI tests, Python boundary tests, MCP package tests, client/auth tests,
+  consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+  live/example smokes, the router CLI consumer package smoke, full router
+  tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Latest hosted evidence remains the clean `b7275e2`
+  checkpoint until this code change is pushed and hosted CI completes. RC
+  readiness remains blocked only on selecting/approving the numeric RC
+  tag/prerelease/router image tag plus the deferred pub.dev package
+  ownership/order track.
 - 2026-07-06: Hardened the router CLI consumer package smoke so consumer
   applications prove direct JSON notification-only WAMP pub/sub through public
   package helpers while active Streamable sessions are open. The generated
@@ -101,7 +131,20 @@ decision because `connectanum_client` still depends on private
   benchmark integration, router-hosted MCP live/example smokes, the updated
   router CLI consumer package smoke with active direct JSON notification
   pub/sub coverage, full router tests, HTTP/2 and HTTP/3 router integration,
-  and the Chrome/Dart2Wasm browser WebSocket smoke.
+  and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence after
+  push: commit `b7275e2` was pushed to GitLab `origin` `add-router`, GitHub
+  `add-router`, and GitHub `master`; GitHub `master` CI `28800435799` and
+  GitHub `add-router` CI `28800429286` passed with Fast Checks and Full Verify
+  green; Dart Package Publish Dry Run remains clean and relevant from
+  `a1ebb68`; WAMP Profile Benchmarks remain clean and relevant from
+  `a1ebb68`; Router Image dry-run `28787623457` remains clean and relevant
+  from `3996f6b`; Native Artifacts dry-run `28748296297` remains clean and
+  relevant from `d64d220`; and the strict deployment-chain audit passed for
+  GitHub `master` at `b7275e2` with CI log scan clean and clean/relevant Dart
+  package, native release, router image, and WAMP profile evidence. RC
+  readiness remains blocked only on selecting/approving the numeric RC
+  tag/prerelease/router image tag plus the deferred pub.dev package
+  ownership/order track.
 - 2026-07-06: Hardened the router CLI consumer package smoke so consumer
   applications prove a configured HTTP `session_proxy` route through public
   package code, not only through router runtime unit tests. The generated
