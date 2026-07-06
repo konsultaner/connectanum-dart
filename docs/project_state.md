@@ -2,29 +2,27 @@
 
 Last updated: 2026-07-06
 Current branch: `add-router`
-Last reviewed branch checkpoint: the router CLI consumer package smoke now
-proves installed `connectanum_router` exposes router-native OpenMetrics health
-routes through the internal metrics realm, not a sidecar HTTP server. The
-generated consumer smoke starts the globally activated `connectanum_router`
-command, parses the generated OpenMetrics listener, checks GET and HEAD on
-`/healthz`, `/health`, and `/metrics`, and verifies the metrics payload
-contains the router drain gauge before running the existing MCP/auth/session
-matrix. The
-package-boundary test now pins the metrics internal realm config, listener log
-parsing, all three GET probes, all three HEAD probes, and the human-readable
-smoke evidence. Baseline `bin/test-fast`, focused boundary checks, and direct
-`run_router_cli_consumer_package_smoke` passed on 2026-07-06 after this
-consumer readiness smoke hardening. Full local `bin/verify` also passed after
-the change on 2026-07-06, including the updated router CLI consumer smoke,
-router-hosted MCP examples, full router tests, HTTP/2 and HTTP/3 router
-integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
-for this new checkpoint is pending push/CI; the latest fully clean hosted
-checkpoint remains `44b0f75`.
-Latest fully clean hosted checkpoint: Commit `44b0f75` on GitHub `master` and
+Last reviewed branch checkpoint: HTTP bridge publish routes are now wired as
+router-hosted internal-session WAMP publishers instead of unsupported native
+route actions. `HttpRouteActionType.publish` validates topic/realm during
+native route config generation, maps to the internal `router.http.publish`
+translation procedure, then the Dart router binding handles the request before
+generic RPC dispatch. The binding resolves the route/session-profile realm,
+reuses the same bearer-authenticated or internal-session auth semantics as the
+existing HTTP bridge, publishes an acknowledged WAMP event to the configured
+topic with `_http` request snapshot and `_connection` metadata, and responds
+with `202 Accepted` JSON containing topic/request/publication evidence. Local
+`bin/test-fast` and full local `bin/verify` passed on 2026-07-06 after the
+change, including focused router runtime coverage, consumer package smokes,
+router-hosted MCP examples, live WAMP benchmark integration, full router tests,
+HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this new checkpoint is pending push/CI;
+the latest fully clean hosted checkpoint remains `aaa1c41`.
+Latest fully clean hosted checkpoint: Commit `aaa1c41` on GitHub `master` and
 GitHub `add-router` passed hosted CI after the generated router CLI consumer
-OpenMetrics health alias smoke coverage change. GitHub `master` CI
-`28770280988` and GitHub `add-router` CI `28770278154` both passed with Fast
-Checks and Full Verify green at `44b0f75`. Dart Package Publish Dry Run
+OpenMetrics GET/HEAD health smoke coverage change. GitHub `master` CI
+`28778544415` and GitHub `add-router` CI `28778539371` both passed with Fast
+Checks and Full Verify green at `aaa1c41`. Dart Package Publish Dry Run
 remains clean and relevant from GitHub `master` (`28759102889`) and GitHub
 `add-router` (`28759102339`) at `ab1c02c` because no publish-sensitive paths
 changed. WAMP Profile Benchmarks remain clean and relevant from GitHub
@@ -33,14 +31,44 @@ Router Image dry-run evidence remains clean and relevant from GitHub `master`
 `28757835462` at `50b2458`, and native artifact dry-run evidence remains clean
 and relevant from `d64d220` because no benchmark-, image-, or
 native-release-sensitive paths changed. The strict deployment-chain audit
-passed for GitHub `master` at `44b0f75` with CI log scan clean and
+passed for GitHub `master` at `aaa1c41` with CI log scan clean and
 clean/relevant Dart package, native release, router image, and WAMP profile
 evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `44b0f75` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `aaa1c41` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+HTTP bridge publish routes now dispatch through router-managed internal
+sessions and WAMP pub/sub. Native route wiring accepts
+`HttpRouteActionType.publish`, requires a configured topic and resolvable realm,
+and maps the route to the internal `router.http.publish` translation endpoint.
+The Dart binding intercepts that route before generic RPC dispatch, applies the
+same protected-route bearer/internal-session rules as the rest of the HTTP
+bridge, materializes the request into an `_http` payload, adds `_connection`
+metadata, publishes with acknowledgement to the configured topic, emits
+`http_publish_dispatched` observability, and returns a structured `202
+Accepted` response.
+
+Baseline `bin/test-fast` passed before the HTTP publish route implementation on
+2026-07-06. Focused `dart test
+packages/connectanum_router/test/router_runtime_test.dart`, `dart analyze
+packages/connectanum_router`, `dart test
+packages/connectanum_router/test/router_json_test.dart`, and `dart test
+packages/connectanum_router/test/router_config_loader_test.dart` passed after
+the change on 2026-07-06. Post-change `bin/test-fast` and full local
+`bin/verify` also passed on 2026-07-06, including formatting, Rust/FFI tests,
+Python boundary tests, MCP package tests, client/auth tests, consumer package
+smokes, live WAMP benchmark integration, router-hosted MCP example smokes, the
+router CLI consumer package smoke, full router tests with the new
+`publishes HTTP route requests through internal sessions` runtime test, HTTP/2
+and HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket
+smoke. Hosted evidence for this checkpoint is pending push/CI; the latest fully
+clean hosted checkpoint remains `aaa1c41`, and RC readiness is blocked only on
+selecting/approving the numeric RC tag/prerelease/router-image tag plus the
+deferred pub.dev package ownership/order track.
+
+Previous implementation checkpoint:
 The router CLI consumer package smoke now checks GET and HEAD on the generated
 OpenMetrics listener's `/healthz`, `/health`, and `/metrics` routes while
 proving the endpoint is served by the installed router command and metrics
@@ -61,10 +89,15 @@ package tests, client/auth tests, consumer package smokes, live WAMP benchmark
 integration, router-hosted MCP example smokes, the updated router CLI consumer
 package smoke with GET/HEAD OpenMetrics health coverage, full router tests,
 HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this checkpoint is pending push/CI; the
-latest fully clean hosted checkpoint remains `44b0f75`, and RC readiness is
-blocked only on selecting/approving the numeric RC tag/prerelease/router-image
-tag plus the deferred pub.dev package ownership/order track.
+WebSocket smoke. Hosted evidence after push: commit `aaa1c41` was pushed to
+GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`; GitHub
+`master` CI `28778544415` and GitHub `add-router` CI `28778539371` passed with
+Fast Checks and Full Verify green; and the strict deployment-chain audit
+passed for GitHub `master` at `aaa1c41` with CI log scan clean and
+clean/relevant Dart package, native release, router image, and WAMP profile
+evidence. RC readiness is blocked only on selecting/approving the numeric RC
+tag/prerelease/router-image tag plus the deferred pub.dev package
+ownership/order track.
 
 Previous implementation checkpoint:
 The router CLI consumer package smoke now covers invalid `Last-Event-ID`

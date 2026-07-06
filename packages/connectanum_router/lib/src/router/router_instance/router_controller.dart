@@ -292,6 +292,24 @@ class Router {
           'realm': 'router.http',
           'procedure': 'router.http.handler',
         };
+      case HttpRouteActionType.publish:
+        final topic = _httpRoutePublishTopic(action);
+        if (topic == null || topic.isEmpty) {
+          throw StateError(
+            'HTTP publish routes require a topic; set action.topic or action.options.topic.',
+          );
+        }
+        final realm = _resolveRouteRealm(action, listener, settings);
+        if (realm == null || realm.isEmpty) {
+          throw StateError(
+            'HTTP publish routes require a realm; specify action.realm, action.options.realm, or configure a listener/default realm.',
+          );
+        }
+        return <String, Object?>{
+          'type': 'translation',
+          'realm': realm,
+          'procedure': _httpPublishProcedure,
+        };
       default:
         throw StateError(
           'HTTP route action ${action.type} is not yet supported for native wiring.',

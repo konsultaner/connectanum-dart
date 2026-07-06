@@ -15,6 +15,7 @@ import 'package:connectanum_core/connectanum_core.dart'
     show
         CallOptions,
         Details,
+        Event,
         Extra,
         LazyMessagePayload,
         LazyPayloadEncoding,
@@ -1937,6 +1938,11 @@ void main() {
                           namespace: 'tasks',
                           appendMethodSuffix: false,
                         ),
+                        'PUT': HttpRouteAction(
+                          type: HttpRouteActionType.publish,
+                          realm: 'realm1',
+                          topic: 'com.example.tasks.changed',
+                        ),
                       },
                     ),
                   ],
@@ -1981,7 +1987,10 @@ void main() {
       expect(route.containsKey('default'), isFalse);
 
       final methods = route['methods'] as Map<String, Object?>;
-      expect(methods.keys, containsAll(<String>['GET', 'POST', 'DELETE']));
+      expect(
+        methods.keys,
+        containsAll(<String>['GET', 'POST', 'DELETE', 'PUT']),
+      );
 
       final get = methods['GET'] as Map<String, Object?>;
       expect(get['type'], 'translation');
@@ -1997,6 +2006,11 @@ void main() {
       expect(delete['type'], 'reserved_realm');
       expect(delete['namespace'], 'tasks');
       expect(delete['append_method_suffix'], isFalse);
+
+      final put = methods['PUT'] as Map<String, Object?>;
+      expect(put['type'], 'translation');
+      expect(put['realm'], 'realm1');
+      expect(put['procedure'], 'router.http.publish');
     });
 
     test('pollNativeMessages drains pending connections and messages', () {
@@ -3066,6 +3080,155 @@ void main() {
     final body = nativeResponse.body;
     expect(body, isA<NativeHttpResponseText>());
     expect((body as NativeHttpResponseText).text, 'OK');
+  });
+
+  test('publishes HTTP route requests through internal sessions', () async {
+    final runtime = _HandleRuntime();
+    final settings =
+        (RouterSettingsBuilder()
+              ..addRealmFromBuilder(
+                RealmSettingsBuilder('realm1')
+                  ..addAuthMethod('anonymous')
+                  ..addRoleFromBuilder(
+                    RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+                      PermissionSettingsBuilder('')
+                        ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                        ..allowOperations(const [
+                          'subscribe',
+                          'publish',
+                          'call',
+                          'register',
+                          'unregister',
+                        ]),
+                    ),
+                  ),
+              )
+              ..addListenerFromBuilder(
+                (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+                    ..addAuthMethod('anonymous')
+                    ..addProtocol(ListenerProtocol.rawsocket)
+                    ..addProtocol(ListenerProtocol.http)
+                    ..setOptions(const {'max_rawsocket_size_exponent': 16})
+                    ..setHttpOptions(
+                      const HttpListenerSettings(
+                        routes: [
+                          HttpRouteSettings(
+                            match: HttpRouteMatch(path: '/webhook/tasks'),
+                            action: HttpRouteAction(
+                              type: HttpRouteActionType.publish,
+                              realm: 'realm1',
+                              topic: 'com.example.webhooks.tasks',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ))
+                  ..setRawSocketOptions(
+                    const RawSocketListenerSettings(maxFrameExponent: 16),
+                  ),
+              )
+              ..addAuthenticator(
+                'anonymous',
+                const AuthenticatorDefinition(type: 'anonymous'),
+              ))
+            .build();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings,
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 55;
+
+    final subscriber = await binding.createInternalSession(realmUri: 'realm1');
+    addTearDown(subscriber.close);
+    final subscription = await subscriber.subscribe(
+      'com.example.webhooks.tasks',
+    );
+    final eventCompleter = Completer<Event>();
+    subscription.onEvent((event) {
+      if (!eventCompleter.isCompleted) {
+        eventCompleter.complete(event);
+      }
+    });
+
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 55,
+        method: 'POST',
+        target: '/webhook/tasks?source=consumer',
+        path: '/webhook/tasks',
+        query: 'source=consumer',
+        protocol: 'http/1.1',
+        headers: const {'content-type': 'application/json'},
+        body: Uint8List.fromList(utf8.encode('{"taskId":"42"}')),
+        realm: 'realm1',
+        procedure: 'router.http.publish',
+      ),
+    );
+
+    final published = await eventCompleter.future.timeout(
+      const Duration(seconds: 2),
+    );
+    final kwargs = published.argumentsKeywords!;
+    final http = Map<String, Object?>.from(kwargs['_http'] as Map);
+    expect(http['method'], 'POST');
+    expect(http['path'], '/webhook/tasks');
+    expect(http['query'], 'source=consumer');
+    expect(http['headers'], containsPair('content-type', 'application/json'));
+    expect(utf8.decode(http['body'] as Uint8List), '{"taskId":"42"}');
+
+    final connection = Map<String, Object?>.from(kwargs['_connection'] as Map);
+    expect(connection['listenerId'], listenerId);
+    expect(connection['connectionId'], connectionId);
+
+    await _waitUntil(
+      () => events.any((event) => event['type'] == 'http_publish_dispatched'),
+      timeout: const Duration(seconds: 2),
+    );
+    final dispatchEvent = events.firstWhere(
+      (event) => event['type'] == 'http_publish_dispatched',
+    );
+    expect(dispatchEvent['realm'], 'realm1');
+    expect(dispatchEvent['topic'], 'com.example.webhooks.tasks');
+    expect(dispatchEvent['listenerId'], listenerId);
+    expect(dispatchEvent['connectionId'], connectionId);
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.accepted);
+    final body = _jsonResponseBody(response);
+    expect(body['status'], 'accepted');
+    expect(body['topic'], 'com.example.webhooks.tasks');
+    expect(body['publicationId'], isA<int>());
   });
 
   test(

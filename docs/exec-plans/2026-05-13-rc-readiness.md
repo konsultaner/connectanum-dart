@@ -79,6 +79,32 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Implemented HTTP bridge publish route support so downstream
+  applications can configure REST-style HTTP endpoints that publish WAMP
+  events through router-managed internal sessions. `HttpRouteActionType.publish`
+  now validates topic/realm during native route config generation and maps to
+  the internal `router.http.publish` translation endpoint. The Dart binding
+  intercepts that route before generic RPC dispatch, applies the same
+  bearer-authenticated or internal-session auth semantics as existing HTTP
+  bridge routes, materializes the request snapshot into `_http`, adds
+  `_connection` metadata, publishes with acknowledgement to the configured
+  topic, emits `http_publish_dispatched`, and returns structured `202 Accepted`
+  response evidence. Runtime tests now cover per-method publish route encoding
+  plus an HTTP POST route that publishes to an internal subscriber without
+  private consumer assumptions. Baseline `bin/test-fast` passed before the
+  change on 2026-07-06. Focused `dart test
+  packages/connectanum_router/test/router_runtime_test.dart`, `dart analyze
+  packages/connectanum_router`, `dart test
+  packages/connectanum_router/test/router_json_test.dart`, and `dart test
+  packages/connectanum_router/test/router_config_loader_test.dart` passed after
+  the change. Post-change `bin/test-fast` and full local `bin/verify` also
+  passed on 2026-07-06, including formatting, Rust/FFI tests, Python boundary
+  tests, MCP package tests, client/auth tests, consumer package smokes, live
+  WAMP benchmark integration, router-hosted MCP example smokes, the router CLI
+  consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this checkpoint is pending push/CI; the latest fully clean
+  hosted checkpoint remains `aaa1c41`.
 - 2026-07-06: Hardened the generated router CLI consumer package smoke so
   downstream consumer harnesses prove the installed `connectanum_router`
   exposes OpenMetrics health routes through the router-native metrics listener
@@ -100,13 +126,15 @@ decision because `connectanum_client` still depends on private
   router-hosted MCP example smokes, the updated router CLI consumer package
   smoke with GET/HEAD OpenMetrics health coverage, full router tests, HTTP/2
   and HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket
-  smoke. Hosted evidence is pending push/CI for this new checkpoint; the
-  latest fully clean hosted checkpoint remains `44b0f75`, where GitHub
-  `master` CI `28770280988`, GitHub `add-router` CI `28770278154`, and the
-  strict deployment-chain audit passed with clean/relevant Dart package,
-  native release, router image, and WAMP profile evidence. RC readiness is
-  blocked only on selecting/approving the numeric RC tag/prerelease/router
-  image tag plus the deferred pub.dev package ownership/order track.
+  smoke. Hosted evidence after push: commit `aaa1c41` was pushed to GitLab
+  `origin` `add-router`, GitHub `add-router`, and GitHub `master`; GitHub
+  `master` CI `28778544415` and GitHub `add-router` CI `28778539371` passed
+  with Fast Checks and Full Verify green; and the strict deployment-chain audit
+  passed for GitHub `master` at `aaa1c41` with CI log scan clean and
+  clean/relevant Dart package, native release, router image, and WAMP profile
+  evidence. RC readiness is blocked only on selecting/approving the numeric RC
+  tag/prerelease/router image tag plus the deferred pub.dev package
+  ownership/order track.
 - 2026-07-06: Extended the generated router CLI consumer package smoke so
   consumer applications prove invalid `Last-Event-ID` handling on
   router-hosted MCP JSON-response Streamable routes, not only SSE-backed

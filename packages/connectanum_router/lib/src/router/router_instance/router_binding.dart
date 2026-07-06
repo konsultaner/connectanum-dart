@@ -4,6 +4,8 @@ part of '../router_instance.dart';
 typedef RouterHttpRouteHandler =
     FutureOr<NativeHttpResponse> Function(RouterHttpRequest request);
 
+const String _httpPublishProcedure = 'router.http.publish';
+
 String? _httpRouteHandlerId(HttpRouteAction action) {
   final delegate = action.delegate?.trim();
   if (delegate != null && delegate.isNotEmpty) {
@@ -27,6 +29,15 @@ String? _httpRouteHandlerId(HttpRouteAction action) {
     }
   }
   return null;
+}
+
+String? _httpRoutePublishTopic(HttpRouteAction action) {
+  final direct = action.topic?.trim();
+  if (direct != null && direct.isNotEmpty) {
+    return direct;
+  }
+  const optionKeys = ['topic', 'uri', 'eventTopic', 'event_topic'];
+  return _firstNonEmptyRouteOption(action, optionKeys);
 }
 
 String? _httpFileRouteDirectory(HttpRouteAction action) {
@@ -1335,6 +1346,20 @@ class RouterBinding {
       }
       return;
     }
+    if (matchedRoute?.action.type == HttpRouteActionType.publish) {
+      try {
+        await _handleHttpPublishRequest(
+          request: request,
+          handshake: retainedHandshake,
+          listenerSettings: listenerSettings,
+          route: matchedRoute!,
+          sessionProfile: sessionProfile,
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
+      return;
+    }
 
     final realmUri = request.realm;
     final procedure = request.procedure;
@@ -1643,6 +1668,216 @@ class RouterBinding {
     });
 
     retainedHandshake?.release();
+  }
+
+  Future<void> _handleHttpPublishRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required ListenerSettings? listenerSettings,
+    required HttpRouteSettings route,
+    required SessionProfileSettings? sessionProfile,
+  }) async {
+    final topic = _httpRoutePublishTopic(route.action);
+    if (topic == null || topic.isEmpty) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'publish_topic_missing',
+            'message': 'HTTP publish route is missing a topic',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final realmUri = request.realm;
+    if (realmUri == null || realmUri.isEmpty) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_unmapped_realm',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'topic': topic,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'publish_realm_missing',
+            'message': 'HTTP publish route is missing a realm',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final profileRealm = sessionProfile?.realm?.trim();
+    final resolvedRealmUri = (profileRealm != null && profileRealm.isNotEmpty)
+        ? profileRealm
+        : realmUri;
+    RouterSession session;
+    try {
+      final bearer = _extractBearerToken(request.headers);
+      if (bearer != null) {
+        session = await _authenticatedHttpSessionForToken(
+          token: bearer,
+          request: request,
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile,
+        );
+      } else {
+        final allowsAnonymous = httpSessionProfileAllowsAnonymous(
+          sessionProfile,
+        );
+        final requiresBridgeAuth =
+            sessionProfile != null &&
+            sessionProfile.auth.methods.isNotEmpty &&
+            !allowsAnonymous;
+        if (requiresBridgeAuth) {
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: handshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.unauthorized,
+              headers: _httpUnauthorizedHeaders(
+                realm: resolvedRealmUri,
+                authPath: _httpAuthPathFor(listenerSettings?.http),
+              ),
+              body: NativeHttpResponseJson(<String, Object?>{
+                'status': 'error',
+                'reason': 'unauthorized',
+                'message': 'Bearer token required',
+              }),
+            ),
+          );
+          return;
+        }
+        session = await _ensureInternalSession(
+          realmUri: resolvedRealmUri,
+          sessionProfile: sessionProfile?.name,
+        );
+      }
+    } on _HttpUnauthorized catch (error) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.unauthorized,
+          headers: _httpUnauthorizedHeaders(
+            realm: resolvedRealmUri,
+            authPath: _httpAuthPathFor(listenerSettings?.http),
+          ),
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': error.reason,
+            if (error.message != null) 'message': error.message,
+          }),
+        ),
+      );
+      return;
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_session_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'publish_session_failed',
+            'message': 'Failed to create HTTP publish session',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final httpRequestId = _nextHttpRequestId++;
+    final snapshot = request.toSnapshot(httpRequestId);
+    final requestPayload = snapshot.toInvocationPayload();
+    final connectionDetails = <String, Object?>{
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+    };
+    final keywords = <String, Object?>{
+      '_http': requestPayload,
+      '_connection': connectionDetails,
+    };
+
+    try {
+      final published = await session.publish(
+        topic,
+        argumentsKeywords: Map<String, dynamic>.from(keywords),
+        options: publish_msg.PublishOptions(acknowledge: true),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_dispatched',
+        'httpRequestId': httpRequestId,
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        if (published != null) 'publicationId': published.publicationId,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.accepted,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'accepted',
+            'topic': topic,
+            'requestId': httpRequestId,
+            if (published != null) 'publicationId': published.publicationId,
+          }),
+        ),
+      );
+    } catch (error, stackTrace) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_publish_error',
+        'httpRequestId': httpRequestId,
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'realm': resolvedRealmUri,
+        'topic': topic,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.internalServerError,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'publish_failed',
+            'message': 'Failed to publish HTTP route event',
+          }),
+        ),
+      );
+    }
   }
 
   Future<RouterSession> _ensureInternalSession({
