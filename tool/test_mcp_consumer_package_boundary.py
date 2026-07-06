@@ -1259,7 +1259,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"jsonResponse":{"active":{"directJson":true,'
             '"directJsonStaleSessionId":true,'
-            '"streamable":true,"streamableSessionDelete":true,'
+            '"streamable":true,'
+            '"streamableInvalidLastEventId":true,'
+            '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
             '"sessionMeta":true,'
@@ -1269,7 +1271,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"refreshAndRevoke":true},'
             '"tokenOnly":{"directJson":true,'
             '"directJsonStaleSessionId":true,'
-            '"streamable":true,"streamableSessionDelete":true,'
+            '"streamable":true,'
+            '"streamableInvalidLastEventId":true,'
+            '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
             '"sessionMeta":true,'
@@ -1304,6 +1308,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "Dart consumer token-only secure Streamable invalid Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable invalid Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only JSON-response Streamable invalid Last-Event-ID",
             body,
         )
         self.assertIn("directJsonStaleSessionId", body)
@@ -1436,7 +1448,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Streamable resource list pagination/read/resource template "
             "pagination/prompt pagination plus procedure/topic/registration/"
             "configured registration/session/subscription/configured "
-            "subscription metadata/pub-sub/batch/session delete",
+            "subscription metadata/pub-sub/batch/invalid Last-Event-ID/"
+            "session delete",
             body,
         )
         self.assertIn(
@@ -1446,7 +1459,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "registration/session/subscription/configured subscription "
             "meta/pubsub/notification pubsub/batches/direct JSON stale "
             "session-id isolation plus Streamable procedure catalog/describe/"
-            "topic describe/session delete",
+            "topic describe/invalid Last-Event-ID/session delete",
             body,
         )
         self.assertIn(
