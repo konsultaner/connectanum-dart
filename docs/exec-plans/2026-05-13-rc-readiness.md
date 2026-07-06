@@ -83,11 +83,11 @@ decision because `connectanum_client` still depends on private
   downstream consumer harnesses prove the installed `connectanum_router`
   exposes OpenMetrics health routes through the router-native metrics listener
   and internal metrics realm. The smoke now parses the generated OpenMetrics
-  listener, checks `/healthz` and the `/health` alias both return `ok`, and
-  verifies `/metrics` includes the `connectanum_router_drain_in_progress`
-  metric before running the existing MCP/auth/session matrix. The
-  package-boundary test pins the metrics internal realm config, listener log
-  parsing, `/healthz`, `/health`, and `/metrics` probes, and the updated
+  listener, checks GET and HEAD on `/healthz`, `/health`, and `/metrics`, and
+  verifies the metrics payload includes the
+  `connectanum_router_drain_in_progress` metric before running the existing
+  MCP/auth/session matrix. The package-boundary test pins the metrics internal
+  realm config, listener log parsing, all GET and HEAD probes, and the updated
   human-readable smoke evidence so the readiness smoke cannot silently regress
   to a sidecar/private-project health check. Baseline `bin/test-fast` passed
   before the change on 2026-07-06. Focused `bash -n bin/common.sh`,
@@ -95,15 +95,18 @@ decision because `connectanum_client` still depends on private
   full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and
   direct `run_router_cli_consumer_package_smoke` passed after the change. Full
   local `bin/verify` also passed after the change on 2026-07-06, including
-  formatting, Rust/FFI tests, Python boundary tests, MCP/client/auth/router
-  package tests, consumer package smokes, live WAMP benchmark integration,
+  formatting, Rust/FFI tests, Python boundary tests, MCP package tests,
+  client/auth tests, consumer package smokes, live WAMP benchmark integration,
   router-hosted MCP example smokes, the updated router CLI consumer package
-  smoke with `/health` alias coverage, HTTP/2 and HTTP/3 router integration,
-  and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this
-  checkpoint is pending after push; the latest fully clean hosted checkpoint
-  remains `52f1ae3`, and RC readiness is blocked only on selecting/approving
-  the numeric RC tag/prerelease/router-image tag plus the deferred pub.dev
-  package ownership/order track.
+  smoke with GET/HEAD OpenMetrics health coverage, full router tests, HTTP/2
+  and HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket
+  smoke. Hosted evidence is pending push/CI for this new checkpoint; the
+  latest fully clean hosted checkpoint remains `44b0f75`, where GitHub
+  `master` CI `28770280988`, GitHub `add-router` CI `28770278154`, and the
+  strict deployment-chain audit passed with clean/relevant Dart package,
+  native release, router image, and WAMP profile evidence. RC readiness is
+  blocked only on selecting/approving the numeric RC tag/prerelease/router
+  image tag plus the deferred pub.dev package ownership/order track.
 - 2026-07-06: Extended the generated router CLI consumer package smoke so
   consumer applications prove invalid `Last-Event-ID` handling on
   router-hosted MCP JSON-response Streamable routes, not only SSE-backed

@@ -521,8 +521,17 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             'curl -fsS "http://127.0.0.1:$metrics_port/metrics"',
             body,
         )
+        self.assertIn("health_head_status", body)
+        self.assertIn("health_alias_head_status", body)
+        self.assertIn("metrics_head_status", body)
+        self.assertIn("Router CLI healthz HEAD returned unexpected status", body)
+        self.assertIn(
+            "Router CLI health alias HEAD returned unexpected status",
+            body,
+        )
+        self.assertIn("Router CLI metrics HEAD returned unexpected status", body)
         self.assertIn("Router CLI health alias returned unexpected body", body)
-        self.assertIn("served /healthz, /health, /metrics", body)
+        self.assertIn("served GET/HEAD /healthz, /health, /metrics", body)
 
     def test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface(
         self,

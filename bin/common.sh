@@ -23759,9 +23759,12 @@ PY
 
 run_router_cli_consumer_package_smoke() (
   local health_body
+  local health_head_status
   local health_alias_body
+  local health_alias_head_status
   local mcp_port
   local metrics_body
+  local metrics_head_status
   local metrics_line
   local metrics_port
   local native_lib
@@ -24310,6 +24313,14 @@ YAML
     cat "$router_log" >&2
     _cleanup_router_cli_smoke 1
   fi
+  health_head_status="$(curl -fsS -I -o /dev/null -w '%{http_code}' \
+    "http://127.0.0.1:$metrics_port/healthz")"
+  if [[ "$health_head_status" != "200" ]]; then
+    printf 'Router CLI healthz HEAD returned unexpected status: %s\n' \
+      "$health_head_status" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
 
   health_alias_body="$(curl -fsS "http://127.0.0.1:$metrics_port/health")"
   if [[ "$health_alias_body" != "ok" ]]; then
@@ -24318,9 +24329,25 @@ YAML
     cat "$router_log" >&2
     _cleanup_router_cli_smoke 1
   fi
+  health_alias_head_status="$(curl -fsS -I -o /dev/null -w '%{http_code}' \
+    "http://127.0.0.1:$metrics_port/health")"
+  if [[ "$health_alias_head_status" != "200" ]]; then
+    printf 'Router CLI health alias HEAD returned unexpected status: %s\n' \
+      "$health_alias_head_status" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
 
   metrics_body="$(curl -fsS "http://127.0.0.1:$metrics_port/metrics")"
   grep -F 'connectanum_router_drain_in_progress' <<<"$metrics_body" >/dev/null
+  metrics_head_status="$(curl -fsS -I -o /dev/null -w '%{http_code}' \
+    "http://127.0.0.1:$metrics_port/metrics")"
+  if [[ "$metrics_head_status" != "200" ]]; then
+    printf 'Router CLI metrics HEAD returned unexpected status: %s\n' \
+      "$metrics_head_status" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
 
   asset_headers_file="$smoke_dir/asset.headers"
   asset_body_file="$smoke_dir/asset.body"
@@ -29424,7 +29451,7 @@ DART
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
+  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
   printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay across the method matrix.\n'
   _cleanup_router_cli_smoke 0
 )
