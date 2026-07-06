@@ -2,23 +2,25 @@
 
 Last updated: 2026-07-06
 Current branch: `add-router`
-Last reviewed branch checkpoint: the bench CLI consumer package smoke now
-proves source-checkout consumer applications can install both benchmark and
-router package executables into the same isolated Pub cache before running
-local WAMP probes. The smoke globally activates `connectanum_bench` and
-`connectanum_router` from copied source packages, asserts `router_bench`,
-`bench_router_service`, `wamp_client_worker`, and `connectanum_router` all
-resolve from that isolated cache, checks their help surfaces, then starts the
-installed bench router service and runs native RawSocket RPC plus Dart
-WebSocket pub/sub WAMP scenarios through the package executables. Full local
-`bin/verify` passed on 2026-07-06 after this package-readiness smoke
-hardening; hosted evidence remains at `cdd2875` until the next code checkpoint
-is pushed and CI passes.
-Latest fully clean hosted checkpoint: Commit `cdd2875` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the generated router CLI consumer
-JSON-response direct JSON stale-session smoke coverage change. GitHub
-`master` CI `28762455254` and GitHub `add-router` CI `28762455269` both passed
-with Fast Checks and Full Verify green at `cdd2875`. Dart Package Publish Dry Run
+Last reviewed branch checkpoint: the router CLI consumer package smoke now
+proves consumer applications see correct Streamable HTTP `Last-Event-ID`
+handling on router-hosted MCP routes. The generated consumer keeps active
+public, protected bearer/ticket, and token-only protected SSE-backed
+Streamable sessions, sends an unknown but syntactically session-scoped
+`Last-Event-ID`, and asserts a `400` rejection that names `Last-Event-ID`
+without losing the active session id or SSE cursor. The machine-readable smoke
+summary exports `streamableInvalidLastEventId: true` for public, protected,
+and token-only Streamable routes, and the package-boundary test pins the
+helper, route labels, summary keys, and human-readable smoke evidence. Full
+local `bin/verify` passed on 2026-07-06 after this package-readiness smoke
+hardening. Hosted CI for this new checkpoint is pending after push; the latest
+clean hosted checkpoint remains `cbae40d`.
+Latest fully clean hosted checkpoint: Commit `cbae40d` on GitHub `master` and
+GitHub `add-router` passed hosted CI after the bench CLI consumer package
+smoke began verifying isolated `connectanum_router` executable availability
+alongside benchmark executables. GitHub `master` CI `28763944019` and GitHub
+`add-router` CI `28763943941` both passed with Fast Checks and Full Verify
+green at `cbae40d`. Dart Package Publish Dry Run
 remains clean and relevant from GitHub `master` (`28759102889`) and GitHub
 `add-router` (`28759102339`) at `ab1c02c` because no publish-sensitive paths
 changed. WAMP Profile Benchmarks remain clean and relevant from GitHub
@@ -27,14 +29,43 @@ Router Image dry-run evidence remains clean and relevant from GitHub `master`
 `28757835462` at `50b2458`, and native artifact dry-run evidence remains clean
 and relevant from `d64d220` because no benchmark-, image-, or
 native-release-sensitive paths changed. The strict deployment-chain audit
-passed for GitHub `master` at `cdd2875` with CI log scan clean and
+passed for GitHub `master` at `cbae40d` with CI log scan clean and
 clean/relevant Dart package, native release, router image, and WAMP profile
 evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `cdd2875` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `cbae40d` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+The router CLI consumer package smoke now covers invalid `Last-Event-ID`
+rejection through generated consumer-package code for public, protected, and
+token-only protected Streamable MCP routes. The generated Dart consumer keeps
+each active Streamable session, polls with an unknown event id scoped to the
+current session, expects `McpStreamableHttpException` with HTTP 400 and an
+error body that names `Last-Event-ID`, then verifies the client session id and
+last event id are unchanged. The smoke summary exports
+`streamableInvalidLastEventId: true` for public, protected, and token-only
+routes; the shell summary gate requires those keys; and the package-boundary
+test pins the helper, route labels, summary keys, and human-readable smoke
+evidence so consumer-app Streamable compatibility cannot silently regress.
+
+Baseline `bin/test-fast` passed before the generated consumer invalid
+`Last-Event-ID` coverage change on 2026-07-06. Focused
+`bash -n bin/common.sh`,
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and direct
+`run_router_cli_consumer_package_smoke` passed after the change on
+2026-07-06. Full local `bin/verify` also passed after the change on
+2026-07-06, including formatting, Rust/FFI tests, Python boundary tests, MCP
+package tests, client/auth tests, consumer package smokes, live WAMP benchmark
+integration, router-hosted MCP example smokes, the updated router CLI consumer
+package smoke with invalid `Last-Event-ID` coverage, full router tests,
+HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this checkpoint is pending after push;
+the latest fully clean hosted checkpoint remains `cbae40d`, and RC readiness
+is blocked only on selecting/approving the numeric RC tag/prerelease/router
+image tag plus the deferred pub.dev package ownership/order track.
+
+Previous implementation checkpoint:
 The bench CLI consumer package smoke now activates and verifies the
 `connectanum_router` executable from the same isolated source-checkout
 workspace used for the `connectanum_bench` executables. This closes the
@@ -55,11 +86,16 @@ formatting, Rust/FFI tests, MCP/client/router package tests, consumer package
 smokes, live WAMP benchmark integration, the hardened bench consumer smoke
 with isolated `connectanum_router` executable activation, router-hosted MCP
 example smokes, full router tests, HTTP/2 and HTTP/3 router integration, and
-the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is pending for
-this new package-readiness checkpoint; the latest fully clean hosted
-checkpoint remains `cdd2875` until the new branch CI passes. RC readiness is
-blocked only on selecting/approving the numeric RC tag/prerelease/router-image
-tag plus the deferred pub.dev package ownership/order track.
+the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence after push:
+commit `cbae40d` was pushed to GitLab `origin` `add-router`, GitHub
+`add-router`, and GitHub `master`. GitHub `master` CI `28763944019` and
+GitHub `add-router` CI `28763943941` passed with Fast Checks and Full Verify
+green. The strict
+deployment-chain audit passed for GitHub `master` at `cbae40d` with CI log
+scan clean and clean/relevant Dart package, native release, router image, and
+WAMP profile evidence. RC readiness is blocked only on selecting/approving the
+numeric RC tag/prerelease/router-image tag plus the deferred pub.dev package
+ownership/order track.
 
 Previous implementation checkpoint:
 The router CLI consumer package smoke now covers direct JSON stale-session

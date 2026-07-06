@@ -79,6 +79,31 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Extended the generated router CLI consumer package smoke so
+  consumer applications prove invalid `Last-Event-ID` handling on router-hosted
+  MCP Streamable routes. The generated Dart consumer keeps active public,
+  protected bearer/ticket, and token-only protected SSE-backed Streamable
+  sessions, polls with an unknown event id scoped to the current session,
+  expects `McpStreamableHttpException` with HTTP 400 and an error body that
+  names `Last-Event-ID`, then verifies the session id and last event id remain
+  unchanged. The smoke summary now reports `streamableInvalidLastEventId: true`
+  for public, protected, and token-only routes, the shell summary gate requires
+  those keys, and `tool/test_mcp_consumer_package_boundary.py` pins the helper,
+  route labels, summary keys, and human-readable smoke evidence. Baseline
+  `bin/test-fast` passed before the change on 2026-07-06. Focused
+  `bash -n bin/common.sh`,
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and direct
+  `run_router_cli_consumer_package_smoke` passed after the change. Full local
+  `bin/verify` also passed after the change on 2026-07-06, including
+  formatting, Rust/FFI tests, Python boundary tests, MCP/client/auth/router
+  package tests, consumer package smokes, live WAMP benchmark integration,
+  router-hosted MCP example smokes, the updated router CLI consumer package
+  smoke with invalid `Last-Event-ID` coverage, HTTP/2 and HTTP/3 router
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this checkpoint is pending after push; the latest clean hosted
+  checkpoint remains `cbae40d`, and RC readiness is blocked only on
+  selecting/approving the numeric RC tag/prerelease/router-image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-06: Hardened the bench CLI consumer package smoke so local WAMP
   benchmark harnesses prove router command availability from source-checkout
   packages before relying on a router process. `run_bench_cli_consumer_package_smoke`
@@ -98,7 +123,15 @@ decision because `connectanum_client` still depends on private
   smoke with isolated `connectanum_router` executable activation,
   router-hosted MCP example smokes, full router tests, HTTP/2 and HTTP/3
   router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence is pending for this package-readiness checkpoint.
+  evidence after push: commit `cbae40d` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`. GitHub `master` CI
+  `28763944019` and GitHub `add-router` CI `28763943941` passed with Fast
+  Checks and Full Verify green. The strict deployment-chain audit passed for
+  GitHub `master` at `cbae40d` with CI log scan clean and clean/relevant Dart
+  package, native release, router image, and WAMP profile evidence; RC
+  readiness is blocked only on selecting/approving the numeric RC
+  tag/prerelease/router-image tag plus the deferred pub.dev package
+  ownership/order track.
 - 2026-07-06: Extended the generated router CLI consumer package smoke so
   direct JSON stale-session isolation also covers protected JSON-response MCP
   routes. The neutral Dart consumer now keeps active Streamable sessions for

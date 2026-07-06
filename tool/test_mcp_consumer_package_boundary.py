@@ -1235,6 +1235,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("routerCliConsumerSummary", body)
         self.assertIn(
             '"public":{"directJson":true,"streamable":true,'
+            '"streamableInvalidLastEventId":true,'
             '"directJsonStaleSessionId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
@@ -1243,7 +1244,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"secure":{"ticketGrant":true,"directJson":true,'
-            '"streamable":true,"directJsonStaleSessionId":true,'
+            '"streamable":true,'
+            '"streamableInvalidLastEventId":true,'
+            '"directJsonStaleSessionId":true,'
             '"streamableSessionDelete":true,'
             '"deletedSessionRejected":true,'
             '"deletedSessionMatrix":true,'
@@ -1276,6 +1279,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"tokenOnly":{"directJson":true,"streamable":true,'
+            '"streamableInvalidLastEventId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
@@ -1285,6 +1289,23 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("streamableSessionDelete", body)
+        self.assertIn("streamableInvalidLastEventId", body)
+        self.assertIn(
+            "Future<void> _expectInvalidLastEventIdRejectedWithoutSessionLoss",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer public Streamable invalid Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable invalid Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only secure Streamable invalid Last-Event-ID",
+            body,
+        )
         self.assertIn("directJsonStaleSessionId", body)
         self.assertIn("Future<void> _expectRawDirectJsonStaleSessionIgnored", body)
         self.assertIn("HttpHeaders.acceptHeader", body)
@@ -1368,7 +1389,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "public raw JSON resources/resource templates/prompts/WAMP "
             "procedure and topic catalog/describe/pub-sub plus Streamable "
-            "procedure and topic describe/pub-sub/session delete",
+            "procedure and topic describe/pub-sub/invalid Last-Event-ID/"
+            "session delete",
             body,
         )
         self.assertIn("configured subscription meta", body)
@@ -1431,7 +1453,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "token-only protected tool calls/resources/resource "
             "templates/prompts/WAMP registration/configured "
             "registration/session/subscription/configured subscription "
-            "meta/notification pubsub/batches plus Streamable session delete",
+            "meta/notification pubsub/batches plus Streamable invalid "
+            "Last-Event-ID/session delete",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)
@@ -1443,7 +1466,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "protected raw JSON resources/resource templates/prompts/WAMP "
             "procedure and topic describe/pub-sub/batches plus Streamable "
             "resources/resource templates/prompts/procedure and topic "
-            "describe/pub-sub/batches/session delete",
+            "describe/pub-sub/batches/invalid Last-Event-ID/session delete",
             body,
         )
         self.assertIn(
