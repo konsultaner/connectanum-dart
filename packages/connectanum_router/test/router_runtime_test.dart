@@ -3082,6 +3082,159 @@ void main() {
     expect((body as NativeHttpResponseText).text, 'OK');
   });
 
+  test(
+    'dispatches session_proxy HTTP routes through internal sessions',
+    () async {
+      final runtime = _HandleRuntime();
+      final settings =
+          (RouterSettingsBuilder()
+                ..addRealmFromBuilder(
+                  RealmSettingsBuilder('router.http.bridge')
+                    ..addAuthMethod('anonymous')
+                    ..addRoleFromBuilder(
+                      RoleSettingsBuilder('anonymous')
+                        ..addPermissionFromBuilder(
+                          PermissionSettingsBuilder('')
+                            ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                            ..allowOperations(const [
+                              'call',
+                              'register',
+                              'unregister',
+                            ]),
+                        ),
+                    ),
+                )
+                ..addInternalRealmFromBuilder(
+                  InternalRealmSettingsBuilder('router.http.bridge')
+                    ..addService('consumer-proxy'),
+                )
+                ..addListenerFromBuilder(
+                  (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+                      ..addAuthMethod('anonymous')
+                      ..addProtocol(ListenerProtocol.rawsocket)
+                      ..addProtocol(ListenerProtocol.http)
+                      ..setOptions(const {'max_rawsocket_size_exponent': 16})
+                      ..setHttpOptions(
+                        const HttpListenerSettings(
+                          routes: [
+                            HttpRouteSettings(
+                              match: HttpRouteMatch(path: '/proxy/tasks'),
+                              action: HttpRouteAction(
+                                type: HttpRouteActionType.sessionProxy,
+                                delegate: 'consumer-proxy',
+                                procedure: 'consumer.http.handle',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ))
+                    ..setRawSocketOptions(
+                      const RawSocketListenerSettings(maxFrameExponent: 16),
+                    ),
+                )
+                ..addAuthenticator(
+                  'anonymous',
+                  const AuthenticatorDefinition(type: 'anonymous'),
+                ))
+              .build();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: settings,
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 54;
+
+      final handlerSession = await binding.createInternalSession(
+        realmUri: 'router.http.bridge',
+      );
+      addTearDown(handlerSession.close);
+      final registered = await handlerSession.register('consumer.http.handle');
+      registered.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        expect(context, isNotNull);
+        final request = context!.request;
+        expect(request.method, 'POST');
+        expect(request.path, '/proxy/tasks');
+        expect(request.query, 'source=consumer');
+        context.sendJson(
+          body: <String, Object?>{
+            'accepted': true,
+            'body': utf8.decode(request.body!),
+          },
+          status: HttpStatus.accepted,
+          headers: const {'x-proxy': 'consumer'},
+        );
+      });
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 54,
+          method: 'POST',
+          target: '/proxy/tasks?source=consumer',
+          path: '/proxy/tasks',
+          query: 'source=consumer',
+          protocol: 'http/1.1',
+          headers: const {'content-type': 'application/json'},
+          body: Uint8List.fromList(utf8.encode('{"taskId":"42"}')),
+          realm: 'router.http.bridge',
+          procedure: 'consumer.http.handle',
+        ),
+      );
+
+      await _waitUntil(
+        () => events.any((event) => event['type'] == 'http_request_dispatched'),
+        timeout: const Duration(seconds: 2),
+      );
+      final dispatchEvent = events.firstWhere(
+        (event) => event['type'] == 'http_request_dispatched',
+      );
+      expect(dispatchEvent['realm'], 'router.http.bridge');
+      expect(dispatchEvent['procedure'], 'consumer.http.handle');
+      expect(dispatchEvent['listenerId'], listenerId);
+      expect(dispatchEvent['connectionId'], connectionId);
+
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+      final response = runtime.httpResponses[connectionId]!.single;
+      expect(response.status, HttpStatus.accepted);
+      expect(response.headers['x-proxy'], 'consumer');
+      final body = _jsonResponseBody(response);
+      expect(body['accepted'], isTrue);
+      expect(body['body'], '{"taskId":"42"}');
+    },
+  );
+
   test('publishes HTTP route requests through internal sessions', () async {
     final runtime = _HandleRuntime();
     final settings =

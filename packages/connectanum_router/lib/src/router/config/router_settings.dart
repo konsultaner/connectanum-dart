@@ -807,6 +807,8 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
     case 'file':
       return HttpRouteActionType.file;
     case 'session_proxy':
+    case 'sessionProxy':
+    case 'session-proxy':
       return HttpRouteActionType.sessionProxy;
     case 'publish':
       return HttpRouteActionType.publish;

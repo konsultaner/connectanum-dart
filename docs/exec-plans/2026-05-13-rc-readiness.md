@@ -79,6 +79,34 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Implemented HTTP bridge `session_proxy` route support so
+  consumer applications can route REST-style HTTP requests through configured
+  router-managed internal realms instead of carrying parsed-only route actions.
+  `HttpRouteActionType.sessionProxy` now accepts `session_proxy`,
+  `sessionProxy`, and `session-proxy`; validates the configured target against
+  `internal_realms` during native route generation; resolves `delegate` or
+  neutral option aliases to an internal realm name or declared service;
+  supports explicit `action.realm` disambiguation for duplicate service names;
+  and maps the HTTP route to the resolved WAMP procedure. Runtime dispatch
+  reuses the existing HTTP bridge internal-session path, so route/session
+  profile auth, `_http` request metadata, `_connection` metadata, response
+  helpers, and native response streaming remain aligned with RPC/internal-call
+  routes. Config, native JSON, and runtime tests now cover alias parsing,
+  service resolution, duplicate-service disambiguation, unknown-target failure,
+  and an HTTP POST route through an internal handler without private consumer
+  assumptions. Baseline `bin/test-fast` passed before the change on
+  2026-07-06. Focused `dart analyze packages/connectanum_router`, `dart test
+  packages/connectanum_router/test/router_json_test.dart`, `dart test
+  packages/connectanum_router/test/router_config_loader_test.dart`, and full
+  `dart test packages/connectanum_router/test/router_runtime_test.dart` passed
+  after the change. Post-change `bin/test-fast` and full local `bin/verify`
+  also passed on 2026-07-06, including formatting, Rust/FFI tests, Python
+  boundary tests, MCP package tests, client/auth tests, consumer package
+  smokes, live WAMP benchmark integration, router-hosted MCP live/example
+  smokes, the router CLI consumer package smoke, full router tests, HTTP/2 and
+  HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  Hosted evidence for this checkpoint is pending push/CI; the latest fully
+  clean hosted checkpoint remains `f8168f3`.
 - 2026-07-06: Implemented HTTP bridge publish route support so downstream
   applications can configure REST-style HTTP endpoints that publish WAMP
   events through router-managed internal sessions. `HttpRouteActionType.publish`
@@ -103,8 +131,19 @@ decision because `connectanum_client` still depends on private
   WAMP benchmark integration, router-hosted MCP example smokes, the router CLI
   consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
   integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence for this checkpoint is pending push/CI; the latest fully clean
-  hosted checkpoint remains `aaa1c41`.
+  evidence after push: commit `f8168f3` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub `master` CI
+  `28782826586` and GitHub `add-router` CI `28782825578` passed with Fast
+  Checks and Full Verify green; Dart Package Publish Dry Run passed on GitHub
+  `master` `28782826553` and GitHub `add-router` `28782825577`; WAMP Profile
+  Benchmarks passed on GitHub `master` `28782826533` and GitHub `add-router`
+  `28782825609`; Router Image dry-run `28783746701` passed for `f8168f3` with
+  preview metadata `sha-f8168f3c5eb5`, GHCR login skipped, and multi-arch build
+  green; and the strict deployment-chain audit passed for GitHub `master` at
+  `f8168f3` with CI log scan clean and clean/relevant Dart package, native
+  release, router image, and WAMP profile evidence. RC readiness remains
+  blocked only on selecting/approving the numeric RC tag/prerelease/router
+  image tag plus the deferred pub.dev package ownership/order track.
 - 2026-07-06: Hardened the generated router CLI consumer package smoke so
   downstream consumer harnesses prove the installed `connectanum_router`
   exposes OpenMetrics health routes through the router-native metrics listener

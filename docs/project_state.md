@@ -2,43 +2,87 @@
 
 Last updated: 2026-07-06
 Current branch: `add-router`
-Last reviewed branch checkpoint: HTTP bridge publish routes are now wired as
-router-hosted internal-session WAMP publishers instead of unsupported native
-route actions. `HttpRouteActionType.publish` validates topic/realm during
-native route config generation, maps to the internal `router.http.publish`
-translation procedure, then the Dart router binding handles the request before
-generic RPC dispatch. The binding resolves the route/session-profile realm,
-reuses the same bearer-authenticated or internal-session auth semantics as the
-existing HTTP bridge, publishes an acknowledged WAMP event to the configured
-topic with `_http` request snapshot and `_connection` metadata, and responds
-with `202 Accepted` JSON containing topic/request/publication evidence. Local
-`bin/test-fast` and full local `bin/verify` passed on 2026-07-06 after the
-change, including focused router runtime coverage, consumer package smokes,
-router-hosted MCP examples, live WAMP benchmark integration, full router tests,
-HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this new checkpoint is pending push/CI;
-the latest fully clean hosted checkpoint remains `aaa1c41`.
-Latest fully clean hosted checkpoint: Commit `aaa1c41` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the generated router CLI consumer
-OpenMetrics GET/HEAD health smoke coverage change. GitHub `master` CI
-`28778544415` and GitHub `add-router` CI `28778539371` both passed with Fast
-Checks and Full Verify green at `aaa1c41`. Dart Package Publish Dry Run
-remains clean and relevant from GitHub `master` (`28759102889`) and GitHub
-`add-router` (`28759102339`) at `ab1c02c` because no publish-sensitive paths
-changed. WAMP Profile Benchmarks remain clean and relevant from GitHub
-`master` `28757352728` and GitHub `add-router` `28757352711` at `50b2458`,
-Router Image dry-run evidence remains clean and relevant from GitHub `master`
-`28757835462` at `50b2458`, and native artifact dry-run evidence remains clean
-and relevant from `d64d220` because no benchmark-, image-, or
-native-release-sensitive paths changed. The strict deployment-chain audit
-passed for GitHub `master` at `aaa1c41` with CI log scan clean and
-clean/relevant Dart package, native release, router image, and WAMP profile
-evidence.
+Last reviewed branch checkpoint: HTTP bridge `session_proxy` routes are now
+wired as internal-session-backed WAMP translations instead of parsed-only
+configuration. `HttpRouteActionType.sessionProxy` validates the configured
+target against `internal_realms` during native route config generation, resolves
+`delegate` or neutral option aliases to an internal realm name or declared
+service, supports explicit realm disambiguation, and maps the route to a WAMP
+procedure. The existing Dart HTTP bridge dispatch path then reuses the same
+bearer-authenticated or internal-session auth semantics, `_http` request
+snapshot, `_connection` metadata, structured response handling, and native
+response streaming path as RPC/internal-call HTTP routes. Baseline
+`bin/test-fast` passed before the change on 2026-07-06. Focused
+`dart analyze packages/connectanum_router`, `dart test
+packages/connectanum_router/test/router_json_test.dart`, `dart test
+packages/connectanum_router/test/router_config_loader_test.dart`, and full
+`dart test packages/connectanum_router/test/router_runtime_test.dart` passed
+after the change. Post-change `bin/test-fast` also passed on 2026-07-06,
+including consumer package smokes, router-hosted MCP examples, live WAMP
+benchmark integration, the router CLI consumer package smoke, and focused
+router coverage with the new `dispatches session_proxy HTTP routes through
+internal sessions` runtime test. Full local `bin/verify` passed on 2026-07-06,
+including formatting, Rust/FFI tests, Python boundary tests, MCP package tests,
+client/auth tests, consumer package smokes, live WAMP benchmark integration,
+router-hosted MCP live/example smokes, the router CLI consumer package smoke,
+full router tests, HTTP/2 and HTTP/3 router integration, and the
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is still the last
+pushed clean checkpoint: commit `f8168f3` was pushed to GitLab `origin`
+`add-router`, GitHub `add-router`, and GitHub `master`, and the strict
+deployment-chain audit passed for GitHub `master` at `f8168f3` with CI log
+scan clean and clean/relevant Dart package, native release, router image, and
+WAMP profile evidence.
+Latest fully clean hosted checkpoint: Commit `f8168f3` on GitHub `master` and
+GitHub `add-router` passed hosted CI after the HTTP bridge publish route
+implementation. GitHub `master` CI `28782826586` and GitHub `add-router` CI
+`28782825578` both passed with Fast Checks and Full Verify green at `f8168f3`.
+Dart Package Publish Dry Run passed on GitHub `master` `28782826553` and
+GitHub `add-router` `28782825577`. WAMP Profile Benchmarks passed on GitHub
+`master` `28782826533` and GitHub `add-router` `28782825609`. Router Image
+dry-run evidence is clean and relevant from GitHub `master` `28783746701` at
+`f8168f3`. Native artifact dry-run evidence remains clean and relevant from
+`d64d220` because no native-release-sensitive paths changed. The strict
+deployment-chain audit passed for GitHub `master` at `f8168f3` with CI log
+scan clean and clean/relevant Dart package, native release, router image, and
+WAMP profile evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `aaa1c41` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `f8168f3` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+HTTP bridge `session_proxy` routes now dispatch through configured internal
+realms instead of failing native route wiring. Native route generation accepts
+`session_proxy`, `sessionProxy`, and `session-proxy`; resolves
+`action.delegate` or neutral option aliases such as `internalRealm`,
+`targetRealm`, `service`, `targetService`, and `target`; validates that the
+target matches exactly one configured `internal_realms` name or declared
+service unless `action.realm` disambiguates; and maps the HTTP route to the
+resolved internal realm plus configured WAMP procedure. If no procedure is set,
+the target name is used as the deterministic procedure. Runtime dispatch reuses
+the existing HTTP bridge internal-session path, so route/session-profile auth,
+request metadata, response helpers, and native response streaming remain
+aligned with RPC/internal-call routes.
+
+Baseline `bin/test-fast` passed before the HTTP `session_proxy` route
+implementation on 2026-07-06. Focused `dart analyze
+packages/connectanum_router`, `dart test
+packages/connectanum_router/test/router_json_test.dart`, `dart test
+packages/connectanum_router/test/router_config_loader_test.dart`, and full
+`dart test packages/connectanum_router/test/router_runtime_test.dart` passed
+after the change on 2026-07-06. Post-change `bin/test-fast` also passed on
+2026-07-06, including consumer package smokes, router-hosted MCP live/example
+coverage, live WAMP benchmark integration, the router CLI consumer package
+smoke, and the new `dispatches session_proxy HTTP routes through internal
+sessions` runtime test. Full local `bin/verify` also passed on 2026-07-06,
+including formatting, Rust/FFI tests, Python boundary tests, MCP package tests,
+client/auth tests, consumer package smokes, live WAMP benchmark integration,
+router-hosted MCP live/example smokes, the router CLI consumer package smoke,
+full router tests, HTTP/2 and HTTP/3 router integration, and the
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence is still at the
+previously pushed clean `f8168f3` checkpoint until this implementation is
+committed and pushed.
+
+Previous implementation checkpoint:
 HTTP bridge publish routes now dispatch through router-managed internal
 sessions and WAMP pub/sub. Native route wiring accepts
 `HttpRouteActionType.publish`, requires a configured topic and resolvable realm,
@@ -63,10 +107,17 @@ smokes, live WAMP benchmark integration, router-hosted MCP example smokes, the
 router CLI consumer package smoke, full router tests with the new
 `publishes HTTP route requests through internal sessions` runtime test, HTTP/2
 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket
-smoke. Hosted evidence for this checkpoint is pending push/CI; the latest fully
-clean hosted checkpoint remains `aaa1c41`, and RC readiness is blocked only on
-selecting/approving the numeric RC tag/prerelease/router-image tag plus the
-deferred pub.dev package ownership/order track.
+smoke. Hosted evidence after push: commit `f8168f3` was pushed to GitLab
+`origin` `add-router`, GitHub `add-router`, and GitHub `master`; GitHub
+`master` CI `28782826586` and GitHub `add-router` CI `28782825578` passed with
+Fast Checks and Full Verify green; Dart Package Publish Dry Run passed on both
+branches; WAMP Profile Benchmarks passed on both branches; Router Image dry-run
+`28783746701` passed for `f8168f3`; and the strict deployment-chain audit
+passed for GitHub `master` at `f8168f3` with CI log scan clean and
+clean/relevant Dart package, native release, router image, and WAMP profile
+evidence. RC readiness is blocked only on selecting/approving the numeric RC
+tag/prerelease/router-image tag plus the deferred pub.dev package
+ownership/order track.
 
 Previous implementation checkpoint:
 The router CLI consumer package smoke now checks GET and HEAD on the generated

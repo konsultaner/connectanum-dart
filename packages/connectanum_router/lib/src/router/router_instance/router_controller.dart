@@ -292,6 +292,31 @@ class Router {
           'realm': 'router.http',
           'procedure': 'router.http.handler',
         };
+      case HttpRouteActionType.sessionProxy:
+        final target = _httpRouteSessionProxyTarget(action);
+        final procedure = _httpRouteSessionProxyProcedure(action) ?? target;
+        if (procedure == null || procedure.isEmpty) {
+          throw StateError(
+            'HTTP session_proxy routes require a procedure or delegate/service target.',
+          );
+        }
+        final realm = _resolveSessionProxyRealm(
+          action,
+          listener,
+          settings,
+          target: target,
+          procedure: procedure,
+        );
+        if (realm == null || realm.isEmpty) {
+          throw StateError(
+            'HTTP session_proxy routes require a target internal realm; set action.delegate, action.realm, or action.options.internalRealm.',
+          );
+        }
+        return <String, Object?>{
+          'type': 'translation',
+          'realm': realm,
+          'procedure': procedure,
+        };
       case HttpRouteActionType.publish:
         final topic = _httpRoutePublishTopic(action);
         if (topic == null || topic.isEmpty) {
@@ -310,11 +335,94 @@ class Router {
           'realm': realm,
           'procedure': _httpPublishProcedure,
         };
-      default:
-        throw StateError(
-          'HTTP route action ${action.type} is not yet supported for native wiring.',
-        );
     }
+  }
+
+  String? _resolveSessionProxyRealm(
+    HttpRouteAction action,
+    ListenerSettings? listener,
+    RouterSettings? settings, {
+    required String? target,
+    required String procedure,
+  }) {
+    final explicitRealm = _explicitRouteRealm(action);
+    final routeRealm = _resolveRouteRealm(
+      action,
+      listener,
+      settings,
+      fallbackFromProcedure: procedure,
+    );
+    if (settings == null) {
+      return explicitRealm ?? routeRealm ?? target;
+    }
+
+    final internalRealms = settings.internalRealms;
+    if (internalRealms.isEmpty) {
+      throw StateError(
+        'HTTP session_proxy routes require a configured internal_realm; add internal_realms with the target realm or service.',
+      );
+    }
+
+    if (target != null && target.isNotEmpty) {
+      final matches = internalRealms
+          .where(
+            (internal) =>
+                internal.name == target || internal.services.contains(target),
+          )
+          .toList(growable: false);
+      if (matches.length > 1) {
+        final explicitMatches = explicitRealm == null
+            ? const <InternalRealmSettings>[]
+            : matches
+                  .where((internal) => internal.name == explicitRealm)
+                  .toList(growable: false);
+        if (explicitMatches.length == 1) {
+          return explicitMatches.single.name;
+        }
+        final exactNameMatches = matches
+            .where((internal) => internal.name == target)
+            .toList(growable: false);
+        if (explicitRealm == null && exactNameMatches.length == 1) {
+          return exactNameMatches.single.name;
+        }
+        throw StateError(
+          'HTTP session_proxy target "$target" matches multiple internal realms; set action.realm to disambiguate.',
+        );
+      }
+      if (matches.length == 1) {
+        final targetRealm = matches.single.name;
+        if (explicitRealm != null && explicitRealm != targetRealm) {
+          throw StateError(
+            'HTTP session_proxy target "$target" resolves to internal realm "$targetRealm" but action.realm is "$explicitRealm".',
+          );
+        }
+        return targetRealm;
+      }
+      throw StateError(
+        'HTTP session_proxy target "$target" must match an internal_realms name or declared service.',
+      );
+    }
+
+    if (routeRealm != null &&
+        internalRealms.any((internal) => internal.name == routeRealm)) {
+      return routeRealm;
+    }
+    return null;
+  }
+
+  String? _explicitRouteRealm(HttpRouteAction action) {
+    final directRealm = action.realm?.trim();
+    if (directRealm != null && directRealm.isNotEmpty) {
+      return directRealm;
+    }
+    const optionKeys = [
+      'realm',
+      'target_realm',
+      'targetRealm',
+      'internal_realm',
+      'internalRealm',
+    ];
+    return _firstNonEmptyRouteOption(action, optionKeys);
   }
 
   String? _httpFileRouteDirectory(HttpRouteAction action) {

@@ -262,6 +262,159 @@ void main() {
       );
     });
 
+    test('encodes session_proxy HTTP routes through internal realms', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        internalRealms: [
+          InternalRealmSettings(
+            name: 'router.http.bridge',
+            services: {'consumer-proxy'},
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/bridge'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.sessionProxy,
+                    delegate: 'consumer-proxy',
+                    procedure: 'consumer.http.handle',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      final action = route['default'] as Map;
+      expect(action['type'], 'translation');
+      expect(action['realm'], 'router.http.bridge');
+      expect(action['procedure'], 'consumer.http.handle');
+    });
+
+    test('disambiguates session_proxy services with explicit realm', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        internalRealms: [
+          InternalRealmSettings(
+            name: 'router.http.bridge.a',
+            services: {'consumer-proxy'},
+          ),
+          InternalRealmSettings(
+            name: 'router.http.bridge.b',
+            services: {'consumer-proxy'},
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/bridge'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.sessionProxy,
+                    realm: 'router.http.bridge.b',
+                    delegate: 'consumer-proxy',
+                    procedure: 'consumer.http.handle',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final route = (endpointJson['http_routes'] as List).single as Map;
+      final action = route['default'] as Map;
+      expect(action['realm'], 'router.http.bridge.b');
+      expect(action['procedure'], 'consumer.http.handle');
+    });
+
+    test('rejects session_proxy HTTP routes with unknown targets', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        internalRealms: [
+          InternalRealmSettings(
+            name: 'router.http.bridge',
+            services: {'known-proxy'},
+          ),
+        ],
+        listeners: const [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/bridge'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.sessionProxy,
+                    delegate: 'missing-proxy',
+                    procedure: 'consumer.http.handle',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('must match an internal_realms name or declared service'),
+          ),
+        ),
+      );
+    });
+
     test('encodes pathless HTTP routes as native catch-all prefix routes', () {
       final endpoint = Endpoint(
         host: '127.0.0.1',

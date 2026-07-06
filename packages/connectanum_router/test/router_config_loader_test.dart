@@ -233,6 +233,44 @@ void main() {
       );
     });
 
+    test('parses session_proxy HTTP route action aliases', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'listeners': [
+            <String, Object?>{
+              'type': 'rawsocket',
+              'endpoint': '127.0.0.1:0',
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/bridge'},
+                    'action': <String, Object?>{
+                      'type': 'sessionProxy',
+                      'delegate': 'consumer-proxy',
+                      'procedure': 'consumer.http.handle',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final action = settings.listeners.single.http!.routes.single.action;
+      expect(action.type, HttpRouteActionType.sessionProxy);
+      expect(action.delegate, 'consumer-proxy');
+      expect(action.procedure, 'consumer.http.handle');
+
+      final decoded = RouterSettingsCodec.fromMap(
+        RouterSettingsCodec.toMap(settings),
+      );
+      final decodedAction = decoded.listeners.single.http!.routes.single.action;
+      expect(decodedAction.type, HttpRouteActionType.sessionProxy);
+      expect(decodedAction.delegate, 'consumer-proxy');
+      expect(decodedAction.procedure, 'consumer.http.handle');
+    });
+
     test('parses internal realms and open metrics settings', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{

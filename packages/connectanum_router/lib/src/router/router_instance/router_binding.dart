@@ -40,6 +40,41 @@ String? _httpRoutePublishTopic(HttpRouteAction action) {
   return _firstNonEmptyRouteOption(action, optionKeys);
 }
 
+String? _httpRouteSessionProxyTarget(HttpRouteAction action) {
+  final delegate = action.delegate?.trim();
+  if (delegate != null && delegate.isNotEmpty) {
+    return delegate;
+  }
+  const optionKeys = [
+    'internal_realm',
+    'internalRealm',
+    'target_realm',
+    'targetRealm',
+    'service',
+    'service_name',
+    'serviceName',
+    'target_service',
+    'targetService',
+    'target',
+  ];
+  return _firstNonEmptyRouteOption(action, optionKeys);
+}
+
+String? _httpRouteSessionProxyProcedure(HttpRouteAction action) {
+  final direct = action.procedure?.trim();
+  if (direct != null && direct.isNotEmpty) {
+    return direct;
+  }
+  const optionKeys = [
+    'procedure',
+    'target_procedure',
+    'targetProcedure',
+    'uri',
+    'method',
+  ];
+  return _firstNonEmptyRouteOption(action, optionKeys);
+}
+
 String? _httpFileRouteDirectory(HttpRouteAction action) {
   final direct = action.directory?.trim();
   if (direct != null && direct.isNotEmpty) {
