@@ -1302,6 +1302,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"public":{"directJson":true,"streamable":true,'
             '"streamableInvalidLastEventId":true,'
+            '"streamableEmptyLastEventId":true,'
             '"directJsonStaleSessionId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
@@ -1313,6 +1314,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"secure":{"ticketGrant":true,"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
+            '"streamableEmptyLastEventId":true,'
             '"directJsonStaleSessionId":true,'
             '"streamableSessionDelete":true,'
             '"deletedSessionRejected":true,'
@@ -1329,6 +1331,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"directJsonStaleSessionId":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
+            '"streamableEmptyLastEventId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
@@ -1341,6 +1344,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"directJsonStaleSessionId":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
+            '"streamableEmptyLastEventId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
@@ -1352,6 +1356,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"tokenOnly":{"directJson":true,"streamable":true,'
             '"streamableInvalidLastEventId":true,'
+            '"streamableEmptyLastEventId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
@@ -1362,8 +1367,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("streamableSessionDelete", body)
         self.assertIn("streamableInvalidLastEventId", body)
+        self.assertIn("streamableEmptyLastEventId", body)
         self.assertIn(
             "Future<void> _expectInvalidLastEventIdRejectedWithoutSessionLoss",
+            body,
+        )
+        self.assertIn(
+            "Future<void> _expectEmptyLastEventIdStartsFreshPoll",
             body,
         )
         self.assertIn(
@@ -1384,6 +1394,26 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "Dart consumer token-only JSON-response Streamable invalid Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer public Streamable empty Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected Streamable empty Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only secure Streamable empty Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response Streamable empty Last-Event-ID",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only JSON-response Streamable empty Last-Event-ID",
             body,
         )
         self.assertIn("directJsonStaleSessionId", body)
@@ -1493,7 +1523,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "procedure and topic catalog/describe/pub-sub/notification "
             "pub-sub plus Streamable "
             "procedure and topic describe/pub-sub/invalid Last-Event-ID/"
-            "session delete",
+            "empty Last-Event-ID/session delete",
             body,
         )
         self.assertIn("configured subscription meta", body)
@@ -1541,7 +1571,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "pagination/prompt pagination plus procedure/topic/registration/"
             "configured registration/session/subscription/configured "
             "subscription metadata/pub-sub/batch/invalid Last-Event-ID/"
-            "session delete",
+            "empty Last-Event-ID/session delete",
             body,
         )
         self.assertIn(
@@ -1551,7 +1581,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "registration/session/subscription/configured subscription "
             "meta/pubsub/notification pubsub/batches/direct JSON stale "
             "session-id isolation plus Streamable procedure catalog/describe/"
-            "topic describe/invalid Last-Event-ID/session delete",
+            "topic describe/invalid Last-Event-ID/empty Last-Event-ID/"
+            "session delete",
             body,
         )
         self.assertIn(
@@ -1559,7 +1590,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "templates/prompts/WAMP registration/configured "
             "registration/session/subscription/configured subscription "
             "meta/notification pubsub/batches plus Streamable invalid "
-            "Last-Event-ID/session delete",
+            "Last-Event-ID/empty Last-Event-ID/session delete",
             body,
         )
         self.assertIn("active protected auth rejection isolation", body)
@@ -1573,7 +1604,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "procedure and topic describe/pub-sub/notification pub-sub/"
             "batches plus Streamable "
             "resources/resource templates/prompts/procedure and topic "
-            "describe/pub-sub/batches/invalid Last-Event-ID/session delete",
+            "describe/pub-sub/batches/invalid Last-Event-ID/"
+            "empty Last-Event-ID/session delete",
             body,
         )
         self.assertIn(
@@ -1733,6 +1765,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "_catalogContainsValue",
             "_expectStreamableStateUnchanged",
             "_expectInvalidLastEventIdRejected",
+            "_expectEmptyLastEventIdStartsFreshPoll",
             "_expectMalformedSessionIdRejected",
             "_expectDirectJsonStaleSessionIdIgnored",
             "_ClientContext",
@@ -1748,6 +1781,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Streamable invalid Last-Event-ID rejection did not name the header.",
             "label: 'Streamable invalid Last-Event-ID'",
             "invalidLastEventId",
+            "router-hosted-client-streamable-empty-last-event-id",
+            "Streamable empty Last-Event-ID returned no SSE events.",
+            "Streamable empty Last-Event-ID lost session state.",
+            "Streamable empty Last-Event-ID reused the previous SSE cursor.",
+            "emptyLastEventId",
             "router-hosted-client-streamable-malformed-session-id",
             "Streamable malformed MCP-Session-Id returned",
             "Streamable malformed MCP-Session-Id rejection echoed a session id.",
@@ -2491,6 +2529,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("bearer_json_summary=\"$(", live_body)
         self.assertIn(
             '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}',
+            script,
+        )
+        self.assertIn(
+            '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}',
             script,
         )
         self.assertIn(

@@ -399,6 +399,33 @@ Future<void> _expectInvalidLastEventIdRejected(
   );
 }
 
+Future<void> _expectEmptyLastEventIdStartsFreshPoll(
+  McpStreamableHttpClient client, {
+  required String sessionId,
+  required String? lastEventId,
+}) async {
+  final events = await client.poll(
+    lastEventId: '',
+    headers: const <String, String>{
+      'x-consumer-trace': 'router-hosted-client-streamable-empty-last-event-id',
+    },
+  );
+  if (events.isEmpty) {
+    throw StateError('Streamable empty Last-Event-ID returned no SSE events.');
+  }
+  final nextLastEventId = client.lastEventId;
+  if (client.sessionId != sessionId ||
+      nextLastEventId == null ||
+      nextLastEventId.isEmpty) {
+    throw StateError('Streamable empty Last-Event-ID lost session state.');
+  }
+  if (lastEventId != null && nextLastEventId == lastEventId) {
+    throw StateError(
+      'Streamable empty Last-Event-ID reused the previous SSE cursor.',
+    );
+  }
+}
+
 Future<void> _expectMalformedSessionIdRejected(
   McpStreamableHttpClient client,
   String? authorizationHeader, {
@@ -2382,6 +2409,12 @@ Future<void> _runStreamableSessionExample(
     sessionId: streamableSessionId,
     lastEventId: eventIdBeforeInvalidPoll,
   );
+  final eventIdBeforeEmptyLastEventIdPoll = client.lastEventId;
+  await _expectEmptyLastEventIdStartsFreshPoll(
+    client,
+    sessionId: streamableSessionId,
+    lastEventId: eventIdBeforeEmptyLastEventIdPoll,
+  );
   final eventIdBeforeMalformedSession = client.lastEventId;
   await _expectMalformedSessionIdRejected(
     client,
@@ -2405,6 +2438,7 @@ Future<void> _runStreamableSessionExample(
     'initializedNotification': {'accepted': true},
     'ping': ping,
     'invalidLastEventId': {'rejected': true, 'sessionUnchanged': true},
+    'emptyLastEventId': {'accepted': true, 'sessionUnchanged': true},
     'malformedSessionId': {'rejected': true, 'sessionUnchanged': true},
     'directJsonStaleSessionId': {'ignored': true, 'sessionUnchanged': true},
     'tools': [for (final tool in tools.tools) tool['name']],

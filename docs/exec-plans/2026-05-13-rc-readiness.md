@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-07-06
+Last updated: 2026-07-07
 
 ## Problem
 
@@ -79,6 +79,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-07: Extended router-hosted MCP empty `Last-Event-ID` coverage to
+  consumer-facing package smokes. The public router-hosted `connectanum_mcp`
+  client example and generated router CLI consumer package smoke now call
+  `McpStreamableHttpClient.poll(lastEventId: '')`, require fresh SSE events,
+  keep the active MCP session id, produce a new non-empty cursor, and continue
+  to reject invalid non-empty cursors separately. The example summary now
+  reports `emptyLastEventId.accepted/sessionUnchanged`, and the generated
+  consumer summary now reports `streamableEmptyLastEventId` for public,
+  protected, token-only, and JSON-response routes. Baseline `bin/test-fast`
+  passed before the change on 2026-07-07. Focused `dart format
+  packages/connectanum_mcp/example/router_hosted_client.dart`, `bash -n
+  bin/common.sh`, `python3 -m unittest tool.test_mcp_consumer_package_boundary
+  -v`, `dart analyze packages/connectanum_mcp`, `python3
+  tool/check_public_artifact_references.py`, `git diff --check`, direct bash
+  `run_public_router_hosted_mcp_client_live_smoke`, and direct bash
+  `run_router_cli_consumer_package_smoke` passed after the change. Full local
+  `bin/verify` passed on 2026-07-07. Hosted evidence for this checkpoint is
+  pending until it is pushed and GitHub workflows complete; the latest fully
+  clean hosted checkpoint remains `dd77fc2`.
 - 2026-07-07: Fixed router-hosted MCP Streamable HTTP SSE polling so an empty
   `Last-Event-ID` header is treated as no resume cursor instead of an unknown
   event id. This preserves invalid non-empty cursor rejection while matching
@@ -96,7 +115,15 @@ decision because `connectanum_client` still depends on private
   package tests, consumer package smokes, live WAMP benchmark integration,
   router-hosted MCP live/example smokes, the installed `router_bench` smoke,
   the router CLI consumer package smoke, full router tests, HTTP/2 and HTTP/3
-  router integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence after push: commit `dd77fc2` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub CI
+  `28827758138` passed with Fast Checks and Full Verify green; Dart Package
+  Publish Dry Run `28827758104`, WAMP Profile Benchmarks `28827758125`, and
+  Router Image dry-run `28827792507` all passed at `dd77fc2`; and the strict
+  deployment-chain audit passed for GitHub `master` at `dd77fc2` with CI log
+  scan clean and clean/relevant Dart package, native release, router image, and
+  WAMP profile evidence.
 - 2026-07-06: Hardened public-artifact reference guard regression coverage so
   configured private-reference literals are tested through
   `scan_public_artifacts`, not only direct `scan_text`. The new test uses
