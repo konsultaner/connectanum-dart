@@ -79,6 +79,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Hardened public-artifact reference guard regression coverage so
+  configured private-reference literals are tested through
+  `scan_public_artifacts`, not only direct `scan_text`. The new test uses
+  neutral synthetic content to prove public docs are scanned while private
+  package tests and tooling paths remain outside the public artifact set. This
+  protects checked-in docs, release notes, examples, package metadata, and
+  project-state updates from downstream application names or local paths without
+  over-blocking private tests. Baseline `bin/test-fast` passed before the
+  change on 2026-07-06. Focused `python3
+  tool/test_public_artifact_references.py`, `python3
+  tool/check_public_artifact_references.py`, and `git diff --check` passed
+  after the change. Full local `bin/verify` also passed on 2026-07-06,
+  including formatting, Rust/FFI tests, Python boundary tests, package tests,
+  consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+  live/example smokes, the installed `router_bench` smoke, the router CLI
+  consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-06: Hardened the `connectanum_bench` package executable path so
   consumer applications can run a real local WAMP benchmark through installed
   public package commands. `BenchmarkConfig.fromYaml` now unwraps YAML scalar
@@ -104,8 +121,16 @@ decision because `connectanum_client` still depends on private
   live/example smokes, the strengthened installed `router_bench` smoke, the
   router CLI consumer package smoke, full router tests, HTTP/2 and HTTP/3
   router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-  evidence for this checkpoint is pending until it is pushed and GitHub
-  workflows complete.
+  evidence after push: commit `ed32860` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub CI
+  `28820829168` passed with Fast Checks and Full Verify green; Dart Package
+  Publish Dry Run `28820829171`, WAMP Profile Benchmarks `28820829221`, and
+  Router Image dry-run `28821970175` passed; and the strict deployment-chain
+  audit passed for GitHub `master` at `ed32860` with CI log scan clean and
+  clean/relevant Dart package, native release, router image, and WAMP profile
+  evidence. RC readiness remains blocked only on selecting/approving the numeric
+  RC tag/prerelease/router image tag plus the deferred pub.dev package
+  ownership/order track.
 - 2026-07-06: Removed the web WebSocket transport's typed `Event` catch in
   `connectanum_client` so Dart analyzer no longer reports
   `invalid_runtime_check_with_js_interop_types` on the JS interop event path.

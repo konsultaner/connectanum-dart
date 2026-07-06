@@ -2,49 +2,56 @@
 
 Last updated: 2026-07-06
 Current branch: `add-router`
-Last reviewed branch checkpoint: `connectanum_bench` `router_bench` YAML
-scenarios now execute real WAMP workloads instead of only sleeping. YAML scalar
-nodes are unwrapped before `BenchmarkScenario` validation, WAMP benchmark
-scenario aliases such as `type: wamp_rawsocket_rpc`, `path`, and
-`request_bytes` map into the existing `WampScenario` contract, and same-realm
-RPC scenarios register the internal `bench.rpc.echo` handler through the router
-binding before opening package client sessions. The isolated bench CLI consumer
-package smoke now globally activates the installed `router_bench` executable,
-runs a one-iteration RawSocket RPC scenario against an installed
-`connectanum_router` runtime, and requires `WAMP samples: 1` plus
-`WAMP request bytes: 16`, so consumer applications do not silently fall back to
-a parsed-only or private-project benchmark path. Focused `bash -n
-bin/common.sh`, `git diff --check`, `dart analyze packages/connectanum_bench`,
-full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
-`python3 tool/check_public_artifact_references.py`, native-backed
-`dart test packages/connectanum_bench -r expanded`, and post-change
-`bin/test-fast` passed on 2026-07-06. Full local `bin/verify` also passed on
-2026-07-06, including formatting, Rust/FFI tests, Python boundary tests, MCP
-package tests, client/auth tests, consumer package smokes, live WAMP benchmark
-integration, router-hosted MCP live/example smokes, the strengthened installed
-`router_bench` smoke, the router CLI consumer package smoke, full router tests,
-HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this checkpoint is pending until it is
-pushed and GitHub workflows complete.
-Latest fully clean hosted checkpoint: Commit `1276bee` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the web WebSocket JS interop
-analyzer cleanup. GitHub `master` CI `28814858519` and GitHub `add-router` CI
-`28814854186` both passed with Fast Checks and Full Verify green at `1276bee`.
-Dart Package Publish Dry Run passed on GitHub `master` `28814858511` and
-GitHub `add-router` `28814854434`. WAMP Profile Benchmarks passed on GitHub
-`master` `28814858435` and GitHub `add-router` `28814854306` at `1276bee`.
-Router Image dry-run evidence is clean and relevant from GitHub `master`
-`28815815324` at `1276bee`.
-Native artifact dry-run evidence remains clean and relevant from `d64d220`
-because no native-release-sensitive paths changed. The strict deployment-chain
-audit passed for GitHub `master` at `1276bee` with CI log scan clean and
-clean/relevant Dart package, native release, router image, and WAMP profile
-evidence.
+Last reviewed branch checkpoint: the public artifact reference guard now has
+regression coverage for the configured literal denylist at the
+`scan_public_artifacts` boundary. The test proves public docs are scanned for
+configured private-reference literals while private package tests and tooling
+paths remain outside the public-artifact set, which keeps downstream
+application names and local paths out of checked-in docs, release notes,
+examples, package metadata, and project-state updates without over-blocking
+private tests. Baseline `bin/test-fast` passed before the change on 2026-07-06,
+including live router-hosted MCP smokes, MCP consumer package smokes, real
+WAMP benchmark integration, the router CLI consumer package smoke, and the
+router worker smoke. Focused `python3 tool/test_public_artifact_references.py`,
+`python3 tool/check_public_artifact_references.py`, and `git diff --check`
+passed after the change. Full local `bin/verify` passed on 2026-07-06,
+including formatting, Rust/FFI tests, Python boundary tests, package tests,
+consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+live/example smokes, the installed `router_bench` smoke, the router CLI
+consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
+integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
+for this checkpoint is pending until it is pushed and GitHub workflows complete.
+Latest fully clean hosted checkpoint: Commit `ed32860` on GitHub `master` and
+GitHub `add-router` passed hosted CI after the installed `router_bench` WAMP
+workload smoke. GitHub CI `28820829168` passed with Fast Checks and Full Verify
+green at `ed32860`. Dart Package Publish Dry Run `28820829171`, WAMP Profile
+Benchmarks `28820829221`, and Router Image dry-run `28821970175` all passed at
+`ed32860`. Native artifact dry-run evidence remains clean and relevant from
+`d64d220` because no native-release-sensitive paths changed. The strict
+deployment-chain audit passed for GitHub `master` at `ed32860` with CI log scan
+clean and clean/relevant Dart package, native release, router image, and WAMP
+profile evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `1276bee` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `ed32860` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+The public artifact reference guard test suite now covers configured literal
+denylist scanning through `scan_public_artifacts`, not only direct `scan_text`.
+The regression uses neutral synthetic content to assert that a public doc is
+reported while private test/tool paths with the same literal are ignored.
+
+Baseline `bin/test-fast` passed before the change on 2026-07-06. Focused
+`python3 tool/test_public_artifact_references.py`, `python3
+tool/check_public_artifact_references.py`, and `git diff --check` passed after
+the change. Full local `bin/verify` also passed on 2026-07-06, including
+formatting, Rust/FFI tests, Python boundary tests, package tests, consumer
+package smokes, live WAMP benchmark integration, router-hosted MCP live/example
+smokes, the installed `router_bench` smoke, the router CLI consumer package
+smoke, full router tests, HTTP/2 and HTTP/3 router integration, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 The installed `connectanum_bench` CLI path now proves package-level WAMP
 benchmark usability for downstream applications. `router_bench` can load normal
 YAML scalar scenario files, adapt protocol-style WAMP benchmark names into
