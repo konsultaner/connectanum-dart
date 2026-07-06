@@ -1831,7 +1831,7 @@ class _RouterMcpEndpoint {
   }) {
     var streamId = 's${++_nextSseStream}';
     final replay = <_RouterMcpSseEvent>[];
-    if (lastEventId != null) {
+    if (lastEventId != null && lastEventId.isNotEmpty) {
       final lastEvent = _sseHistory
           .where((event) => event.id == lastEventId)
           .firstOrNull;

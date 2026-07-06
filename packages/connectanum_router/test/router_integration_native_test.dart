@@ -2208,6 +2208,26 @@ void main() {
       );
       expect(_firstSseEventId(resumedSse.body), startsWith('$mcpSessionId:'));
 
+      final resetResumeSse = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'Last-Event-ID': '',
+        },
+      );
+      expect(resetResumeSse.statusCode, equals(HttpStatus.ok));
+      expect(
+        resetResumeSse.headers[HttpHeaders.contentTypeHeader],
+        contains('text/event-stream'),
+      );
+      expect(
+        _firstSseEventId(resetResumeSse.body),
+        startsWith('$mcpSessionId:'),
+      );
+
       final unknownEvent = await _getHttp(
         client,
         listener.port,

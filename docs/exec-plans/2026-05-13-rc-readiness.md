@@ -79,6 +79,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-07: Fixed router-hosted MCP Streamable HTTP SSE polling so an empty
+  `Last-Event-ID` header is treated as no resume cursor instead of an unknown
+  event id. This preserves invalid non-empty cursor rejection while matching
+  client behavior that clears resume state on empty SSE event ids. The router
+  native integration test now exercises an empty `Last-Event-ID` GET against
+  the router-hosted MCP endpoint, and the JSON test records that empty
+  `Last-Event-ID` is syntactically valid. Baseline `bin/test-fast` passed
+  before the change on 2026-07-07. Focused `dart test
+  packages/connectanum_router/test/router_json_test.dart --name "validates MCP
+  Last-Event-ID header values" -r expanded`, focused `dart test
+  packages/connectanum_router/test/router_integration_native_test.dart --name
+  "guards MCP Streamable HTTP ingress and sessions" -r expanded`, and `git
+  diff --check` passed after the change. Full local `bin/verify` passed on
+  2026-07-07, including formatting, Rust/FFI tests, Python boundary tests,
+  package tests, consumer package smokes, live WAMP benchmark integration,
+  router-hosted MCP live/example smokes, the installed `router_bench` smoke,
+  the router CLI consumer package smoke, full router tests, HTTP/2 and HTTP/3
+  router integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
 - 2026-07-06: Hardened public-artifact reference guard regression coverage so
   configured private-reference literals are tested through
   `scan_public_artifacts`, not only direct `scan_text`. The new test uses
@@ -95,7 +113,17 @@ decision because `connectanum_client` still depends on private
   consumer package smokes, live WAMP benchmark integration, router-hosted MCP
   live/example smokes, the installed `router_bench` smoke, the router CLI
   consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
-  integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
+  integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence after push: commit `4ec8957` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub CI
+  `28824520560` passed with Fast Checks and Full Verify green; and the strict
+  deployment-chain audit passed for GitHub `master` at `4ec8957` with CI log
+  scan clean and clean/relevant Dart package, native release, router image, and
+  WAMP profile evidence. Dart Package Publish Dry Run `28820829171`, WAMP
+  Profile Benchmarks `28820829221`, and Router Image dry-run `28821970175`
+  remain clean and relevant from `ed32860` because this guard-only change did
+  not touch publish-sensitive, WAMP-profile-sensitive, or
+  router-image-sensitive paths.
 - 2026-07-06: Hardened the `connectanum_bench` package executable path so
   consumer applications can run a real local WAMP benchmark through installed
   public package commands. `BenchmarkConfig.fromYaml` now unwraps YAML scalar

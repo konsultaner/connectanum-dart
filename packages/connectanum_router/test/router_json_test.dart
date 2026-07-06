@@ -863,6 +863,7 @@ void main() {
     });
 
     test('validates MCP Last-Event-ID header values', () {
+      expect(mcpLastEventIdHeaderValueValidForTest(''), isTrue);
       expect(mcpLastEventIdHeaderValueValidForTest('session:post:1'), isTrue);
       expect(mcpLastEventIdHeaderValueValidForTest('session post 1'), isTrue);
       expect(mcpLastEventIdHeaderValueValidForTest('bad\u0000cursor'), isFalse);

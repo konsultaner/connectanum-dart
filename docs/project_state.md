@@ -1,41 +1,60 @@
 # Project State
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: the public artifact reference guard now has
-regression coverage for the configured literal denylist at the
-`scan_public_artifacts` boundary. The test proves public docs are scanned for
-configured private-reference literals while private package tests and tooling
-paths remain outside the public-artifact set, which keeps downstream
-application names and local paths out of checked-in docs, release notes,
-examples, package metadata, and project-state updates without over-blocking
-private tests. Baseline `bin/test-fast` passed before the change on 2026-07-06,
-including live router-hosted MCP smokes, MCP consumer package smokes, real
-WAMP benchmark integration, the router CLI consumer package smoke, and the
-router worker smoke. Focused `python3 tool/test_public_artifact_references.py`,
-`python3 tool/check_public_artifact_references.py`, and `git diff --check`
-passed after the change. Full local `bin/verify` passed on 2026-07-06,
-including formatting, Rust/FFI tests, Python boundary tests, package tests,
-consumer package smokes, live WAMP benchmark integration, router-hosted MCP
-live/example smokes, the installed `router_bench` smoke, the router CLI
-consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
+Last reviewed branch checkpoint: router-hosted MCP Streamable HTTP SSE polling
+now treats an empty `Last-Event-ID` header as no resume cursor instead of
+rejecting it as an unknown event id. This matches the client-side behavior that
+clears the resume cursor when an SSE event sends an empty id, and lets
+consumer applications reset Streamable HTTP polling state without starting a
+new MCP session. The router integration regression now exercises an empty
+`Last-Event-ID` GET against the router-hosted MCP endpoint, and the JSON
+configuration test records that an empty header value is syntactically valid.
+Baseline `bin/test-fast` passed before the change on 2026-07-07,
+including live router-hosted MCP smokes, MCP consumer package smokes, real WAMP
+benchmark integration, the router CLI consumer package smoke, and the router
+worker smoke. Focused `dart test
+packages/connectanum_router/test/router_json_test.dart --name "validates MCP
+Last-Event-ID header values" -r expanded`, focused `dart test
+packages/connectanum_router/test/router_integration_native_test.dart --name
+"guards MCP Streamable HTTP ingress and sessions" -r expanded`, and `git diff
+--check` passed after the change. Full local `bin/verify` passed on
+2026-07-07, including formatting, Rust/FFI tests, Python boundary tests,
+package tests, consumer package smokes, live WAMP benchmark integration,
+router-hosted MCP live/example smokes, the installed `router_bench` smoke, the
+router CLI consumer package smoke, full router tests, HTTP/2 and HTTP/3 router
 integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
 for this checkpoint is pending until it is pushed and GitHub workflows complete.
-Latest fully clean hosted checkpoint: Commit `ed32860` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the installed `router_bench` WAMP
-workload smoke. GitHub CI `28820829168` passed with Fast Checks and Full Verify
-green at `ed32860`. Dart Package Publish Dry Run `28820829171`, WAMP Profile
-Benchmarks `28820829221`, and Router Image dry-run `28821970175` all passed at
-`ed32860`. Native artifact dry-run evidence remains clean and relevant from
-`d64d220` because no native-release-sensitive paths changed. The strict
-deployment-chain audit passed for GitHub `master` at `ed32860` with CI log scan
-clean and clean/relevant Dart package, native release, router image, and WAMP
-profile evidence.
+Latest fully clean hosted checkpoint: Commit `4ec8957` on GitHub `master` and
+GitHub `add-router` passed hosted CI after the public artifact guard coverage
+change. The strict deployment-chain audit passed for GitHub `master` at
+`4ec8957` with CI log scan clean and clean/relevant Dart package, native
+release, router image, and WAMP profile evidence. Dart Package Publish Dry Run
+`28820829171`, WAMP Profile Benchmarks `28820829221`, and Router Image dry-run
+`28821970175` remain clean and relevant from `ed32860` because no
+publish-sensitive, WAMP-profile-sensitive, or router-image-sensitive paths
+changed. Native artifact dry-run evidence remains clean and relevant from
+`d64d220` because no native-release-sensitive paths changed.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `ed32860` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `4ec8957` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+Router-hosted MCP Streamable HTTP SSE polling now normalizes an empty
+`Last-Event-ID` header to a fresh poll instead of attempting replay from an
+empty event id. This preserves invalid non-empty cursor rejection while letting
+clients explicitly clear the resume cursor.
+
+Baseline `bin/test-fast` passed before the change on 2026-07-07. Focused
+router JSON and native MCP integration tests, plus `git diff --check`, passed
+after the change. Full local `bin/verify` also passed on 2026-07-07, including
+formatting, Rust/FFI tests, Python boundary tests, package tests, consumer
+package smokes, live WAMP benchmark integration, router-hosted MCP live/example
+smokes, the installed `router_bench` smoke, the router CLI consumer package
+smoke, full router tests, HTTP/2 and HTTP/3 router integration, and the
+Chrome/Dart2Wasm browser WebSocket smoke.
+
+Previous implementation checkpoint:
 The public artifact reference guard test suite now covers configured literal
 denylist scanning through `scan_public_artifacts`, not only direct `scan_text`.
 The regression uses neutral synthetic content to assert that a public doc is
@@ -49,7 +68,10 @@ formatting, Rust/FFI tests, Python boundary tests, package tests, consumer
 package smokes, live WAMP benchmark integration, router-hosted MCP live/example
 smokes, the installed `router_bench` smoke, the router CLI consumer package
 smoke, full router tests, HTTP/2 and HTTP/3 router integration, and the
-Chrome/Dart2Wasm browser WebSocket smoke.
+Chrome/Dart2Wasm browser WebSocket smoke. Hosted GitHub CI `28824520560`
+passed at `4ec8957`, and the strict deployment-chain audit passed with clean
+latest CI logs plus relevant Dart package, native release, router image, and
+WAMP profile evidence.
 
 Previous implementation checkpoint:
 The installed `connectanum_bench` CLI path now proves package-level WAMP
