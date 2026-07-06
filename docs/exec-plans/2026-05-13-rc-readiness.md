@@ -79,6 +79,35 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Hardened the router CLI consumer package smoke so consumer
+  applications prove a configured HTTP `session_proxy` route through public
+  package code, not only through router runtime unit tests. The generated
+  smoke config now exposes `/proxy/healthz` on the router HTTP listener,
+  dispatches GET and HEAD through `delegate: metrics` to
+  `connectanum.metrics.healthz`, and grants the metrics realm anonymous call
+  permission for that internal HTTP-side dispatch while keeping the service on
+  the `metrics` role. The generated Dart consumer probes the route with
+  `HttpClient`, verifies HTTP 200, `text/plain`, `ok` for GET, and an empty
+  HEAD body, then reports `sessionProxy: true` in the public smoke summary.
+  The package-boundary test pins the route config, public listener protocol,
+  generated GET/HEAD probes, summary field, and smoke text so the evidence
+  cannot regress to private consumer assumptions. The router native HTTP/3
+  integration fixture also requests `Http3Settings(enabled: true, port: 0)` for
+  HTTP/3-enabled tests so explicit ephemeral UDP ports avoid unrelated local
+  listener collisions while the TCP endpoint is OS-assigned. Baseline
+  `bin/test-fast` passed before the change on 2026-07-06. Focused
+  `bash -n bin/common.sh`, full `python3 -m unittest
+  tool.test_mcp_consumer_package_boundary -v`, direct
+  `run_router_cli_consumer_package_smoke`, and focused HTTP/3 router
+  integration tests passed after the change. Post-change `bin/test-fast` and
+  full local `bin/verify` also passed on 2026-07-06, including formatting,
+  Rust/FFI tests, Python boundary tests, MCP package tests, client/auth tests,
+  consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+  live/example smokes, the updated router CLI consumer package smoke with
+  configured `session_proxy` coverage, full router tests, HTTP/2 and HTTP/3
+  router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this checkpoint is pending push/CI; the latest fully clean
+  hosted checkpoint remains `3996f6b`.
 - 2026-07-06: Implemented HTTP bridge `session_proxy` route support so
   consumer applications can route REST-style HTTP requests through configured
   router-managed internal realms instead of carrying parsed-only route actions.
@@ -105,8 +134,19 @@ decision because `connectanum_client` still depends on private
   smokes, live WAMP benchmark integration, router-hosted MCP live/example
   smokes, the router CLI consumer package smoke, full router tests, HTTP/2 and
   HTTP/3 router integration, and the Chrome/Dart2Wasm browser WebSocket smoke.
-  Hosted evidence for this checkpoint is pending push/CI; the latest fully
-  clean hosted checkpoint remains `f8168f3`.
+  Hosted evidence after push: commit `3996f6b` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub `master` CI
+  `28787608447` and GitHub `add-router` CI `28787603768` passed with Fast
+  Checks and Full Verify green; Dart Package Publish Dry Run passed on GitHub
+  `master` `28787608400` and GitHub `add-router` `28787603733`; WAMP Profile
+  Benchmarks passed on GitHub `master` `28787608328` and GitHub `add-router`
+  `28787603778`; Router Image dry-run `28787623457` passed for `3996f6b` with
+  preview metadata `sha-3996f6be6379`, GHCR login skipped, and multi-arch build
+  green; and the strict deployment-chain audit passed for GitHub `master` at
+  `3996f6b` with CI log scan clean and clean/relevant Dart package, native
+  release, router image, and WAMP profile evidence. RC readiness remains
+  blocked only on selecting/approving the numeric RC tag/prerelease/router
+  image tag plus the deferred pub.dev package ownership/order track.
 - 2026-07-06: Implemented HTTP bridge publish route support so downstream
   applications can configure REST-style HTTP endpoints that publish WAMP
   events through router-managed internal sessions. `HttpRouteActionType.publish`

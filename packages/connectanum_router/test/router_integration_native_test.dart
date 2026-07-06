@@ -7097,7 +7097,7 @@ RouterSettings _buildRouterSettings({
         alpn: enableHttp3
             ? const ['http/1.1', 'h2', 'h3']
             : const ['http/1.1', 'h2'],
-        http3: enableHttp3 ? const Http3Settings(enabled: true) : null,
+        http3: enableHttp3 ? const Http3Settings(enabled: true, port: 0) : null,
         routes: routes,
       ),
     )

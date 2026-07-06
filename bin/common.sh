@@ -24063,6 +24063,11 @@ router:
       auth:
         authmethods: [anonymous]
       roles:
+        - name: anonymous
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [call]
         - name: metrics
           permissions:
             - uri: ""
@@ -24092,6 +24097,13 @@ router:
               type: file
               directory: "$smoke_dir/static"
               cache_control: max-age=60
+          - match:
+              path: /proxy/healthz
+              methods: [GET, HEAD]
+            action:
+              type: session_proxy
+              delegate: metrics
+              procedure: connectanum.metrics.healthz
           - match:
               path: /auth
               methods: [POST]
@@ -25345,20 +25357,23 @@ const _configuredOnlySecureTopic = 'cli.smoke.secure.metadata';
 const _secureProcedure = 'cli.smoke.secure.lookup';
 
 Future<void> main() async {
-  final port = Platform.environment['MCP_PORT'];
-  _expect(port != null && port.isNotEmpty, 'MCP_PORT must be set.');
+  final port = Platform.environment['MCP_PORT'] ?? '';
+  _expect(port.isNotEmpty, 'MCP_PORT must be set.');
 
   final baseUri = Uri.parse('http://127.0.0.1:$port');
   final publicEndpoint = baseUri.resolve('/mcp');
   final secureEndpoint = baseUri.resolve('/mcp/secure');
   final secureJsonEndpoint = baseUri.resolve('/mcp/secure-json-post');
   final authEndpoint = baseUri.resolve('/auth');
+  final proxyEndpoint = baseUri.resolve('/proxy/healthz');
   final publicClient = McpStreamableHttpClient(publicEndpoint);
   final authClient = ConnectanumHttpAuthClient(authEndpoint);
   McpStreamableHttpClient? secureClient;
   McpStreamableHttpClient? secureJsonClient;
 
   try {
+    await _expectSessionProxyRoute(endpoint: proxyEndpoint);
+
     final publicTools = await publicClient.listToolsDirect(
       id: 'dart-consumer-public-tools',
     );
@@ -28398,6 +28413,7 @@ Future<void> main() async {
           'resourcesPrompts': true,
           'wampMeta': true,
           'pubsub': true,
+          'sessionProxy': true,
           'batch': true,
         },
         'secure': <String, Object?>{
@@ -28476,6 +28492,64 @@ Future<void> main() async {
     secureClient?.close(force: true);
     authClient.close(force: true);
     publicClient.close(force: true);
+  }
+}
+
+Future<void> _expectSessionProxyRoute({
+  required Uri endpoint,
+}) async {
+  final httpClient = HttpClient();
+  try {
+    final uri = endpoint.replace(queryParameters: const <String, String>{
+      'source': 'dart-consumer',
+    });
+    final getRequest = await httpClient.getUrl(uri);
+    getRequest.headers.set(HttpHeaders.acceptHeader, 'text/plain');
+    getRequest.headers.set('x-consumer-trace', 'dart-session-proxy');
+    final getResponse = await getRequest.close().timeout(
+      const Duration(seconds: 5),
+    );
+    final getBody = await utf8.decoder
+        .bind(getResponse)
+        .join()
+        .timeout(const Duration(seconds: 5));
+    _expect(
+      getResponse.statusCode == HttpStatus.ok,
+      'Dart consumer session_proxy GET returned '
+      '${getResponse.statusCode}: $getBody',
+    );
+    _expect(
+      getBody == 'ok',
+      'Dart consumer session_proxy GET returned unexpected body $getBody.',
+    );
+    final contentType =
+        getResponse.headers.value(HttpHeaders.contentTypeHeader) ?? '';
+    _expect(
+      contentType.startsWith('text/plain'),
+      'Dart consumer session_proxy GET missed text/plain content type.',
+    );
+
+    final headRequest = await httpClient.headUrl(uri);
+    headRequest.headers.set(HttpHeaders.acceptHeader, 'text/plain');
+    headRequest.headers.set('x-consumer-trace', 'dart-session-proxy-head');
+    final headResponse = await headRequest.close().timeout(
+      const Duration(seconds: 5),
+    );
+    final headBody = await utf8.decoder
+        .bind(headResponse)
+        .join()
+        .timeout(const Duration(seconds: 5));
+    _expect(
+      headResponse.statusCode == HttpStatus.ok,
+      'Dart consumer session_proxy HEAD returned '
+      '${headResponse.statusCode}: $headBody',
+    );
+    _expect(
+      headBody.isEmpty,
+      'Dart consumer session_proxy HEAD returned a response body.',
+    );
+  } finally {
+    httpClient.close(force: true);
   }
 }
 
@@ -29435,23 +29509,27 @@ void _expect(bool condition, String message) {
 DART
 
   printf 'Running router CLI Dart MCP consumer package smoke from %s.\n' "$smoke_dir/dart-consumer"
-  dart_consumer_summary="$(
+  if ! dart_consumer_summary="$(
     set -e
     cd "$smoke_dir/dart-consumer"
     PUB_CACHE="$pub_cache" dart pub get >&2
     PUB_CACHE="$pub_cache" dart analyze >&2
     CONNECTANUM_NATIVE_LIB="$native_lib" MCP_PORT="$mcp_port" PUB_CACHE="$pub_cache" \
       dart run bin/main.dart
-  )"
+  )"; then
+    printf 'Router CLI Dart consumer smoke failed. Router log follows.\n' >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
   printf '%s\n' "$dart_consumer_summary"
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
-    '"public":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"batch":true}' \
+    '"public":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"sessionProxy":true,"batch":true}' \
     '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
+  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta and resource/prompt isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
   printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay across the method matrix.\n'
   _cleanup_router_cli_smoke 0
 )

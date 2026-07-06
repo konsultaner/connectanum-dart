@@ -496,6 +496,27 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("file_not_found", body)
         self.assertIn("configured /assets file route", body)
 
+    def test_router_cli_consumer_smoke_exercises_session_proxy_route(
+        self,
+    ) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+
+        self.assertIn("path: /proxy/healthz", body)
+        self.assertIn("type: session_proxy", body)
+        self.assertIn("delegate: metrics", body)
+        self.assertIn("procedure: connectanum.metrics.healthz", body)
+        self.assertIn("endpoint: 127.0.0.1:$mcp_port", body)
+        self.assertIn("protocols: [http]", body)
+        self.assertIn("_expectSessionProxyRoute", body)
+        self.assertIn("httpClient.getUrl(uri)", body)
+        self.assertIn("httpClient.headUrl(uri)", body)
+        self.assertIn("Dart consumer session_proxy GET returned", body)
+        self.assertIn("Dart consumer session_proxy HEAD returned", body)
+        self.assertIn("'sessionProxy': true", body)
+        self.assertIn('"sessionProxy":true', body)
+        self.assertIn("configured /proxy/healthz session_proxy route", body)
+
     def test_router_cli_consumer_smoke_exercises_native_metrics_routes(
         self,
     ) -> None:
@@ -1276,7 +1297,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"directJsonStaleSessionId":true,'
             '"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
-            '"pubsub":true,"batch":true}',
+            '"pubsub":true,"sessionProxy":true,"batch":true}',
             body,
         )
         self.assertIn(
