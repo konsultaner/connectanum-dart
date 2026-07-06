@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:connectanum_bench/connectanum_bench.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
@@ -706,7 +707,103 @@ void main() {
       timeout: const Timeout(Duration(seconds: 45)),
     );
   });
+
+  group('BenchmarkRunner WAMP scenarios', () {
+    test(
+      'runs RawSocket RPC workload from YAML benchmark scenario',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'connectanum-benchmark-runner-',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+
+        final rawSocketPort = await _reservePort();
+        final routerConfig = File('${tempDir.path}/router.yaml');
+        await routerConfig.writeAsString(
+          _benchmarkRunnerRouterConfig(rawSocketPort),
+        );
+        final scenarioFile = File('${tempDir.path}/benchmarks.yaml');
+        await scenarioFile.writeAsString(_benchmarkRunnerScenario());
+
+        final records = <LogRecord>[];
+        final previousRootLevel = Logger.root.level;
+        Logger.root.level = Level.ALL;
+        final subscription = Logger(
+          'BenchmarkRunner',
+        ).onRecord.listen(records.add);
+        addTearDown(() async {
+          await subscription.cancel();
+          Logger.root.level = previousRootLevel;
+        });
+
+        await BenchmarkRunner(
+          nativeLibraryPath: nativeLib!,
+          routerConfigPath: routerConfig.path,
+          config: BenchmarkConfig.fromYaml(await scenarioFile.readAsString()),
+        ).run();
+
+        expect(
+          records.any((record) => record.message.contains('WAMP samples: 1')),
+          isTrue,
+        );
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+  });
 }
+
+String _benchmarkRunnerRouterConfig(int rawSocketPort) =>
+    '''
+router:
+  realms:
+    - name: bench.control
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: anonymous
+          permissions:
+            - uri: bench.
+              match: prefix
+              allow: [register, unregister, subscribe, unsubscribe, publish, call]
+        - name: bench
+          permissions:
+            - uri: bench.
+              match: prefix
+              allow: [register, unregister, subscribe, unsubscribe, publish, call]
+
+  listeners:
+    - endpoint: 127.0.0.1:$rawSocketPort
+      authmethods: [anonymous]
+      protocols: [rawsocket]
+      tls:
+        mode: disabled
+      rawsocket:
+        max_rawsocket_size_exponent: 16
+
+  worker_pool:
+    min_workers: 1
+
+  authenticators:
+    anonymous:
+      type: anonymous
+''';
+
+String _benchmarkRunnerScenario() => '''
+benchmarks:
+  - name: rawsocket_rpc_package_runner
+    type: wamp_rawsocket_rpc
+    duration: 1ms
+    extra:
+      serializer: json
+      path: bench.rpc.echo
+      iterations: 1
+      request_bytes: 16
+''';
 
 class _WampTransportHarness {
   _WampTransportHarness._({

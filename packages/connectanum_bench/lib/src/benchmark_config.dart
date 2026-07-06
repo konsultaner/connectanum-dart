@@ -162,13 +162,20 @@ Map<String, Object?>? _asMap(Object? value) {
 Object? _convertYaml(Object? node) {
   if (node is YamlMap) {
     return Map<String, Object?>.fromEntries(
-      node.nodes.entries.map(
-        (entry) => MapEntry(entry.key.toString(), _convertYaml(entry.value)),
-      ),
+      node.nodes.entries.map((entry) {
+        final key = _convertYaml(entry.key);
+        if (key is! String || key.isEmpty) {
+          throw FormatException('YAML map keys must be non-empty strings');
+        }
+        return MapEntry(key, _convertYaml(entry.value));
+      }),
     );
   }
   if (node is YamlList) {
     return node.nodes.map(_convertYaml).toList(growable: false);
+  }
+  if (node is YamlScalar) {
+    return node.value;
   }
   return node;
 }

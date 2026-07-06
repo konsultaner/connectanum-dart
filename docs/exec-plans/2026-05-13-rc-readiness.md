@@ -79,6 +79,33 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Hardened the `connectanum_bench` package executable path so
+  consumer applications can run a real local WAMP benchmark through installed
+  public package commands. `BenchmarkConfig.fromYaml` now unwraps YAML scalar
+  nodes before scenario validation, `router_bench` adapts protocol-style WAMP
+  scenario aliases such as `type: wamp_rawsocket_rpc`, `path`, and
+  `request_bytes` into the existing `WampScenario` contract, resolves
+  router-provided WAMP endpoints, registers an internal `bench.rpc.echo` callee
+  for same-serializer RPC scenarios, runs `WampWorkloadRunner`, and reports
+  WAMP sample/byte summaries instead of only sleeping for the configured
+  duration. The isolated bench CLI consumer package smoke now globally
+  activates the installed `router_bench` and `connectanum_router` commands,
+  runs a one-sample RawSocket RPC scenario, and requires `WAMP samples: 1` plus
+  `WAMP request bytes: 16` so the smoke cannot silently pass on a parsed-only
+  or private-project benchmark path. Baseline `bin/test-fast` passed before
+  the change on 2026-07-06. Focused `bash -n bin/common.sh`, `git diff
+  --check`, `dart analyze packages/connectanum_bench`, full `python3 -m
+  unittest tool.test_mcp_consumer_package_boundary -v`, `python3
+  tool/check_public_artifact_references.py`, native-backed `dart test
+  packages/connectanum_bench -r expanded`, and post-change `bin/test-fast`
+  passed on 2026-07-06. Full local `bin/verify` also passed on 2026-07-06,
+  including formatting, Rust/FFI tests, Python boundary tests, package tests,
+  consumer package smokes, live WAMP benchmark integration, router-hosted MCP
+  live/example smokes, the strengthened installed `router_bench` smoke, the
+  router CLI consumer package smoke, full router tests, HTTP/2 and HTTP/3
+  router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence for this checkpoint is pending until it is pushed and GitHub
+  workflows complete.
 - 2026-07-06: Removed the web WebSocket transport's typed `Event` catch in
   `connectanum_client` so Dart analyzer no longer reports
   `invalid_runtime_check_with_js_interop_types` on the JS interop event path.
@@ -87,9 +114,19 @@ decision because `connectanum_client` still depends on private
   passed before the change with the known analyzer info. Focused package
   analyzer checks, targeted WebSocket/client transport tests, diff whitespace
   checks, post-change `bin/test-fast`, and full local `bin/verify` passed on
-  2026-07-06, with the root analyzer now clean. Hosted evidence remains the
-  clean `3b5ed7c` checkpoint until this local cleanup is pushed and hosted CI
-  completes.
+  2026-07-06, with the root analyzer now clean. Hosted evidence after push:
+  commit `1276bee` was pushed to GitLab `origin` `add-router`, GitHub
+  `add-router`, and GitHub `master`; GitHub `master` CI `28814858519` and
+  GitHub `add-router` CI `28814854186` passed with Fast Checks and Full Verify
+  green; Dart Package Publish Dry Run passed on GitHub `master` `28814858511`
+  and GitHub `add-router` `28814854434`; WAMP Profile Benchmarks passed on
+  GitHub `master` `28814858435` and GitHub `add-router` `28814854306`; Router
+  Image dry-run passed on GitHub `master` `28815815324`; and the strict
+  deployment-chain audit passed for GitHub `master` at `1276bee` with CI log
+  scan clean and clean/relevant Dart package, native release, router image, and
+  WAMP profile evidence. RC readiness remains blocked only on
+  selecting/approving the numeric RC tag/prerelease/router image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-06: Hardened the public router-hosted `connectanum_mcp` client
   example so consumer applications prove active direct JSON tool/catalog,
   resource, prompt, WAMP metadata, and batch access while a Streamable HTTP

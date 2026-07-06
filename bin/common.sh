@@ -23342,6 +23342,8 @@ run_bench_cli_consumer_package_smoke() (
   local rawsocket_port
   local bench_service_log
   local bench_service_pid
+  local router_bench_output
+  local router_bench_port
   local router_help_output
   local smoke_dir
   local websocket_port
@@ -23549,20 +23551,79 @@ EOF
 import socket
 
 ports = []
-for _ in range(3):
+for _ in range(4):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         ports.append(sock.getsockname()[1])
 print(*ports)
 PY
   )"
-  read -r http_port rawsocket_port websocket_port <<<"$ports"
+  read -r http_port rawsocket_port websocket_port router_bench_port <<<"$ports"
   if [[ ! "$http_port" =~ ^[0-9]+$ ||
         ! "$rawsocket_port" =~ ^[0-9]+$ ||
-        ! "$websocket_port" =~ ^[0-9]+$ ]]; then
+        ! "$websocket_port" =~ ^[0-9]+$ ||
+        ! "$router_bench_port" =~ ^[0-9]+$ ]]; then
     printf 'Failed to reserve bench CLI smoke ports: %s\n' "$ports" >&2
     return 1
   fi
+
+  cat >"$smoke_dir/router-bench.yaml" <<YAML
+router:
+  realms:
+    - name: bench.control
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: anonymous
+          permissions:
+            - uri: bench.
+              match: prefix
+              allow: [register, unregister, subscribe, unsubscribe, publish, call]
+        - name: bench
+          permissions:
+            - uri: bench.
+              match: prefix
+              allow: [register, unregister, subscribe, unsubscribe, publish, call]
+
+  listeners:
+    - endpoint: 127.0.0.1:$router_bench_port
+      authmethods: [anonymous]
+      protocols: [rawsocket]
+      tls:
+        mode: disabled
+      rawsocket:
+        max_rawsocket_size_exponent: 16
+
+  worker_pool:
+    min_workers: 1
+
+  authenticators:
+    anonymous:
+      type: anonymous
+YAML
+
+  cat >"$smoke_dir/router-bench-scenario.yaml" <<YAML
+benchmarks:
+  - name: installed_router_bench_rawsocket_rpc
+    type: wamp_rawsocket_rpc
+    duration: 1ms
+    extra:
+      serializer: json
+      path: bench.rpc.echo
+      iterations: 1
+      request_bytes: 16
+YAML
+
+  router_bench_output="$(
+    cd "$global_smoke_workspace"
+    CONNECTANUM_SKIP_NATIVE_BUILD=true \
+      PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_bench \
+      --scenario "$smoke_dir/router-bench-scenario.yaml" \
+      --config "$smoke_dir/router-bench.yaml" \
+      --native-lib "$native_lib"
+  )"
+  grep -F -- 'WAMP samples: 1' <<<"$router_bench_output" >/dev/null
+  grep -F -- 'WAMP request bytes: 16' <<<"$router_bench_output" >/dev/null
 
   cat >"$smoke_dir/bench-router.yaml" <<YAML
 router:
