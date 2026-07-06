@@ -1234,6 +1234,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"jsonResponse":{"active":{"directJson":true,'
+            '"directJsonStaleSessionId":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
@@ -1243,6 +1244,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"authRejectionIsolation":true,'
             '"refreshAndRevoke":true},'
             '"tokenOnly":{"directJson":true,'
+            '"directJsonStaleSessionId":true,'
             '"streamable":true,"streamableSessionDelete":true,'
             '"resourcesPrompts":true,"wampMeta":true,'
             '"registrationMeta":true,"configuredRegistrationMeta":true,'
@@ -1269,11 +1271,27 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dart-consumer-public-direct-json-stale-session", body)
         self.assertIn("dart-consumer-secure-direct-json-stale-session", body)
         self.assertIn(
+            "dart-consumer-secure-json-active-direct-json-stale-session",
+            body,
+        )
+        self.assertIn(
+            "dart-consumer-secure-json-token-only-direct-json-stale-session",
+            body,
+        )
+        self.assertIn(
             "Dart consumer public direct JSON stale MCP-Session-Id",
             body,
         )
         self.assertIn(
             "Dart consumer protected direct JSON stale MCP-Session-Id",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer protected JSON-response direct JSON stale MCP-Session-Id",
+            body,
+        )
+        self.assertIn(
+            "Dart consumer token-only JSON-response direct JSON stale MCP-Session-Id",
             body,
         )
         self.assertIn("pubsubNotifications", body)
@@ -1366,7 +1384,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("$idPrefix-wamp-subscription-lookup", body)
         self.assertIn(
-            "active protected JSON-response auth rejection/refresh-revoke, "
+            "active protected JSON-response auth rejection/refresh-revoke/"
+            "direct JSON stale session-id isolation, "
             "direct JSON procedure catalog/describe/topic/registration/"
             "configured registration/session/subscription/configured "
             "subscription/resource list pagination/read/resource template "
@@ -1382,8 +1401,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "tool calls/resources/resource templates/prompts/WAMP "
             "procedure catalog/describe/registration/configured "
             "registration/session/subscription/configured subscription "
-            "meta/pubsub/notification pubsub/batches plus Streamable "
-            "procedure catalog/describe/topic describe/session delete",
+            "meta/pubsub/notification pubsub/batches/direct JSON stale "
+            "session-id isolation plus Streamable procedure catalog/describe/"
+            "topic describe/session delete",
             body,
         )
         self.assertIn(

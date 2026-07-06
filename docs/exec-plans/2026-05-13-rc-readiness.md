@@ -79,6 +79,33 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-06: Extended the generated router CLI consumer package smoke so
+  direct JSON stale-session isolation also covers protected JSON-response MCP
+  routes. The neutral Dart consumer now keeps active Streamable sessions for
+  both auth-grant and token-only bearer clients on `/mcp/secure-json-post`,
+  then sends separate fixed-length raw `tools/list` POSTs with
+  `Accept: application/json`, the current `MCP-Protocol-Version`, a
+  syntactically valid but unknown `MCP-Session-Id`, a consumer trace header,
+  and bearer auth. It asserts a `200` JSON-RPC result, no response
+  `MCP-Session-Id`, and unchanged typed Streamable session id/SSE cursor. The
+  smoke summary now reports `directJsonStaleSessionId: true` for
+  `jsonResponse.active` and `jsonResponse.tokenOnly` in addition to the public
+  and protected route keys, `assert_router_cli_consumer_package_summary`
+  requires those keys, and `tool/test_mcp_consumer_package_boundary.py` pins
+  the helper, headers, request ids, failure messages, summary keys, and
+  human-readable smoke evidence. Baseline `bin/test-fast` passed before the
+  change on 2026-07-06. Focused `bash -n bin/common.sh`,
+  `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and direct
+  `run_router_cli_consumer_package_smoke` passed after the change. Full local
+  `bin/verify` passed after the change on 2026-07-06, including formatting,
+  Rust/FFI tests, MCP package tests, consumer package smokes, live WAMP
+  benchmark integration, router-hosted MCP example smokes with malformed and
+  stale `MCP-Session-Id` coverage, the updated router CLI consumer package
+  smoke with public/protected and JSON-response direct JSON stale-session
+  isolation, full router tests, HTTP/2 and HTTP/3 router integration, and the
+  Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence for this new
+  JSON-response generated-consumer coverage is pending push; the latest fully
+  clean hosted checkpoint remains `ddc082d` until branch CI passes.
 - 2026-07-06: Extended the router CLI consumer package smoke for direct JSON
   stale-session isolation from generated consumer-package code. The neutral
   Dart consumer now keeps active public and protected Streamable MCP sessions,
@@ -102,8 +129,15 @@ decision because `connectanum_client` still depends on private
   stale `MCP-Session-Id` coverage, the updated router CLI consumer package
   smoke with public/protected direct JSON stale-session isolation, full router
   tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. Hosted evidence for this generated consumer stale-session
-  checkpoint is pending push/CI.
+  WebSocket smoke. Hosted evidence after push: commit `ddc082d` was pushed to
+  GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`.
+  GitHub `master` CI `28760681502` and GitHub `add-router` CI `28760681515`
+  passed with Fast Checks and Full Verify green. The strict deployment-chain
+  audit passed for GitHub `master` at `ddc082d` with CI log scan clean and
+  clean/relevant Dart package, native release, router image, and WAMP profile
+  evidence; RC readiness is blocked only on selecting/approving the numeric RC
+  tag/prerelease/router-image tag plus the deferred pub.dev package
+  ownership/order track.
 - 2026-07-06: Extended public router-hosted MCP live smoke coverage for direct
   JSON stale-session isolation. The public
   `connectanum_mcp/io.dart` example now sends a fixed-length raw JSON

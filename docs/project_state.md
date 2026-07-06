@@ -4,46 +4,53 @@ Last updated: 2026-07-06
 Current branch: `add-router`
 Last reviewed branch checkpoint: the generated router CLI consumer package
 smoke now proves raw direct JSON MCP requests ignore a syntactically valid but
-unknown `MCP-Session-Id` while public and protected Streamable sessions are
-active. The neutral Dart consumer sends fixed-length raw `tools/list` POSTs to
-`/mcp` and `/mcp/secure` with `Accept: application/json`, the current MCP
+unknown `MCP-Session-Id` while public, protected, and protected JSON-response
+Streamable sessions are active. The neutral Dart consumer sends fixed-length
+raw `tools/list` POSTs with `Accept: application/json`, the current MCP
 protocol version, a bogus session header, a trace header, and bearer auth for
-the protected route. It asserts `200`, a JSON-RPC result, no response
-`MCP-Session-Id`, and unchanged typed Streamable session id/SSE cursor. Full
-local `bin/verify` passed on 2026-07-06 after the generated-consumer smoke
-coverage change.
-Latest fully clean hosted checkpoint: Commit `ab1c02c` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the public direct JSON stale-session
-MCP smoke coverage change. GitHub `master` CI `28759102875` and GitHub
-`add-router` CI `28759102341` both passed with Fast Checks and Full Verify
-green at `ab1c02c`. Dart Package Publish Dry Run passed on GitHub `master`
-(`28759102889`) and GitHub `add-router` (`28759102339`). WAMP Profile
-Benchmarks remain clean and relevant from GitHub `master` `28757352728` and
-GitHub `add-router` `28757352711` at `50b2458`, Router Image dry-run evidence
-remains clean and relevant from GitHub `master` `28757835462` at `50b2458`,
-and native artifact dry-run evidence remains clean and relevant from
-`d64d220` because no benchmark-, image-, or native-release-sensitive paths
-changed. The strict deployment-chain audit passed for GitHub `master` at
-`ab1c02c` with CI log scan clean and clean/relevant Dart package, native
-release, router image, and WAMP profile evidence.
+protected routes. It covers `/mcp`, `/mcp/secure`, and `/mcp/secure-json-post`
+for active auth-grant and token-only JSON-response sessions, asserting `200`,
+a JSON-RPC result, no response `MCP-Session-Id`, and unchanged typed
+Streamable session id/SSE cursor. Full local `bin/verify` passed on
+2026-07-06 after the JSON-response generated-consumer smoke coverage change.
+Latest fully clean hosted checkpoint: Commit `ddc082d` on GitHub `master` and
+GitHub `add-router` passed hosted CI after the generated router CLI consumer
+direct JSON stale-session smoke coverage change. GitHub `master` CI
+`28760681502` and GitHub `add-router` CI `28760681515` both passed with Fast
+Checks and Full Verify green at `ddc082d`. Dart Package Publish Dry Run
+remains clean and relevant from GitHub `master` (`28759102889`) and GitHub
+`add-router` (`28759102339`) at `ab1c02c` because no publish-sensitive paths
+changed. WAMP Profile Benchmarks remain clean and relevant from GitHub
+`master` `28757352728` and GitHub `add-router` `28757352711` at `50b2458`,
+Router Image dry-run evidence remains clean and relevant from GitHub `master`
+`28757835462` at `50b2458`, and native artifact dry-run evidence remains clean
+and relevant from `d64d220` because no benchmark-, image-, or
+native-release-sensitive paths changed. The strict deployment-chain audit
+passed for GitHub `master` at `ddc082d` with CI log scan clean and
+clean/relevant Dart package, native release, router image, and WAMP profile
+evidence.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `ab1c02c` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `ddc082d` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
 The router CLI consumer package smoke now covers direct JSON stale-session
-isolation through generated consumer-package code, not only through the public
-example executable. The generated Dart consumer keeps an active Streamable
-session, sends a separate raw direct JSON request with a syntactically valid
-but unknown `MCP-Session-Id`, and verifies the router handles it as direct JSON
-without echoing or binding the stale session header. The smoke summary exports
-`directJsonStaleSessionId: true` for both public and protected routes, the
-shell summary gate requires those keys, and the package-boundary test pins the
-helper, headers, public/protected request ids, failure messages, and summary
-keys so consumer-app evidence cannot silently regress.
+isolation through generated consumer-package code for public, protected, and
+protected JSON-response MCP routes, not only through the public example
+executable. The generated Dart consumer keeps active Streamable sessions,
+sends separate raw direct JSON requests with syntactically valid but unknown
+`MCP-Session-Id` values, and verifies the router handles them as direct JSON
+without echoing or binding stale session headers. The JSON-response coverage
+now includes both active auth-grant and token-only bearer clients on
+`/mcp/secure-json-post`. The smoke summary exports
+`directJsonStaleSessionId: true` for public, protected, JSON-response active,
+and JSON-response token-only routes; the shell summary gate requires those
+keys; and the package-boundary test pins the helper, headers, request ids,
+failure messages, summary keys, and human-readable smoke evidence so
+consumer-app evidence cannot silently regress.
 
 Baseline `bin/test-fast` passed before the generated consumer stale-session
-coverage change on 2026-07-06. Focused
+JSON-response coverage change on 2026-07-06. Focused
 `bash -n bin/common.sh`,
 `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, and
 direct `run_router_cli_consumer_package_smoke`
@@ -52,10 +59,13 @@ after the change on 2026-07-06, including formatting, Rust/FFI tests, MCP
 package tests, consumer package smokes, live WAMP benchmark integration,
 router-hosted MCP example smokes with malformed and stale `MCP-Session-Id`
 coverage, the updated router CLI consumer package smoke with public/protected
-direct JSON stale-session isolation, full router tests, HTTP/2 and HTTP/3
-router integration, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-evidence for this generated consumer stale-session checkpoint is pending
-push/CI.
+and JSON-response direct JSON stale-session isolation, full router tests,
+HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+WebSocket smoke. Hosted evidence for this new JSON-response generated-consumer
+coverage is pending push; the latest fully clean hosted checkpoint remains
+`ddc082d` until the new branch CI passes. RC readiness is blocked only on
+selecting/approving the numeric RC tag/prerelease/router-image tag plus the
+deferred pub.dev package ownership/order track.
 
 Previous implementation checkpoint:
 The public router-hosted MCP client example now sends a fixed-length raw JSON
