@@ -79,6 +79,20 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-07: Extended native HTTP/3 router-hosted MCP coverage from session
+  initialization to Streamable HTTP POST SSE delivery and resume replay. The
+  HTTP/3 integration regression now initializes an MCP session, requests
+  `tools/list` as `text/event-stream`, asserts the SSE body carries the tool
+  catalog plus session-scoped event ids, then replays the response through an
+  HTTP/3 `GET` with `Last-Event-ID`. Baseline `bin/test-fast` passed before
+  the change on 2026-07-07. Focused `dart test
+  packages/connectanum_router/test/router_integration_native_test.dart --name
+  "serves router-hosted MCP over native HTTP/3" -r expanded`, focused `dart
+  test packages/connectanum_router/test/router_integration_native_test.dart
+  --name "native HTTP/3" -r expanded`, `dart analyze
+  packages/connectanum_router`, `git diff --check`, and full local
+  `bin/verify` passed after the change on 2026-07-07. Hosted evidence is
+  pending push.
 - 2026-07-07: Extended router-hosted MCP CORS preflight coverage to the native
   HTTP/3 route path. The new native router regression starts a TLS-backed
   HTTP/3 MCP route with `POST` mapped through
@@ -95,8 +109,15 @@ decision because `connectanum_client` still depends on private
   package smokes, live WAMP benchmark integration, router-hosted MCP
   live/example smokes, the installed `router_bench` smoke, the router CLI
   consumer package smoke, full router tests with the new HTTP/3 preflight
-  regression, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
-  for this local change is pending push.
+  regression, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
+  evidence after push: commit `0aed6b9` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub `master` CI
+  `28839415265`, Dart Package Publish Dry Run `28839415253`, WAMP Profile
+  Benchmarks `28839415264`, and the strict deployment-chain audit passed.
+  GitHub `add-router` CI `28839415105`, Dart Package Publish Dry Run
+  `28839415136`, and WAMP Profile Benchmarks `28839415101` also passed. Router
+  Image dry-run evidence remained clean and relevant from `d096ee1`, and
+  native artifact dry-run evidence remained clean and relevant from `d64d220`.
 - 2026-07-07: Fixed router-hosted MCP CORS preflight handling for
   `HttpRouteSettings.methodActions`. Per-method MCP route actions now add
   implicit `OPTIONS` to Dart route matching and native route targets when the

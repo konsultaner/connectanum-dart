@@ -2709,9 +2709,6 @@ void main() {
             path: '/mcp',
             protocols: ['http3'],
           ),
-          mcpOptions: const <String, Object?>{
-            'post_response_transport': 'json',
-          },
         ),
         connectionSequence: const [],
       );
@@ -2806,11 +2803,39 @@ void main() {
       );
 
       expect(tools.statusCode, equals(HttpStatus.ok));
+      expect(
+        tools.headers[HttpHeaders.contentTypeHeader],
+        contains('text/event-stream'),
+      );
       expect(tools.headers['mcp-session-id'], equals(mcpSessionId));
-      final toolList =
-          ((tools.json?['result'] as Map<String, Object?>)['tools'] as List)
-              .cast<Map>();
-      expect(toolList.map((tool) => tool['name']), contains('app.echo'));
+      expect(tools.json, isNull);
+      expect(tools.body, contains('"id":"h3-tools-list"'));
+      expect(tools.body, contains('"tools"'));
+      expect(tools.body, contains('"app.echo"'));
+      final postSseEventIds = _sseEventIds(tools.body);
+      expect(postSseEventIds, hasLength(2));
+      expect(postSseEventIds.first, startsWith('$mcpSessionId:'));
+      expect(postSseEventIds.last, startsWith('$mcpSessionId:'));
+
+      final replayPostSse = await _requestHttp3(
+        nativeLibPath,
+        listener.http3Port,
+        '/mcp',
+        method: 'GET',
+        headers: <String, String>{
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'Last-Event-ID': postSseEventIds.first,
+        },
+      );
+      expect(replayPostSse.statusCode, equals(HttpStatus.ok));
+      expect(
+        replayPostSse.headers[HttpHeaders.contentTypeHeader],
+        contains('text/event-stream'),
+      );
+      expect(replayPostSse.headers['mcp-session-id'], equals(mcpSessionId));
+      expect(replayPostSse.body, contains(postSseEventIds.last));
+      expect(replayPostSse.body, contains('"id":"h3-tools-list"'));
     }, skip: skipReason);
 
     test('allows MCP CORS preflight over native HTTP/3', () async {

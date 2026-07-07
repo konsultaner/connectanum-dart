@@ -2,48 +2,69 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: router-hosted MCP CORS preflight coverage now
-includes the native HTTP/3 route path for per-method MCP actions. The native
-router regression starts an HTTP/3-only MCP route that maps `POST` through
-`HttpRouteSettings.methodActions`, omits explicit `OPTIONS`, sends an
-`OPTIONS` request over the native HTTP/3 test client, and asserts a 204
-preflight response with MCP CORS headers and no `mcp-session-id`. Baseline
-`bin/test-fast` passed before the change on 2026-07-07. Focused `dart test
+Last reviewed branch checkpoint: router-hosted MCP Streamable HTTP
+compatibility now includes POST-initiated SSE responses and `Last-Event-ID`
+replay over native HTTP/3. The native integration regression initializes an
+HTTP/3 Streamable MCP session, requests `tools/list` as SSE, verifies the
+session-owned `text/event-stream` body contains the tool catalog and session
+event ids, then replays the response through an HTTP/3 `GET` with
+`Last-Event-ID`. Baseline `bin/test-fast` passed before the change on
+2026-07-07. Focused `dart test
 packages/connectanum_router/test/router_integration_native_test.dart --name
-"allows MCP CORS preflight over native HTTP/3" -r expanded`, focused `dart test
+"serves router-hosted MCP over native HTTP/3" -r expanded`, focused `dart test
 packages/connectanum_router/test/router_integration_native_test.dart --name
-"MCP CORS preflight" -r expanded`, `dart analyze packages/connectanum_router`,
-`python3 tool/check_public_artifact_references.py`, `git diff --check`, and
-full local `bin/verify` passed after the change on 2026-07-07. Hosted evidence
-for this local change is pending push.
-Latest fully clean hosted checkpoint: Commit `d096ee1` on GitHub `master`
-passed the strict deployment-chain audit after the MCP per-method preflight
-route-matching fix. Native artifact dry-run evidence remains clean and
-relevant from `d64d220` because no native-release-sensitive paths changed.
-The remaining RC-ready audit blockers are release decisions: selecting the
-numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `d096ee1` checkpoint after stale `v0.1.0-rc.1`, and deferring
-pub.dev package ownership/order for the private core dependency.
+"native HTTP/3" -r expanded`, `dart analyze packages/connectanum_router`, and
+`git diff --check`, and full local `bin/verify` passed after the change on
+2026-07-07. Hosted evidence for this local change is pending push.
+Latest fully clean hosted checkpoint: Commit `0aed6b9` on GitHub `master`
+passed the strict deployment-chain audit after the native HTTP/3 MCP CORS
+preflight regression. GitHub `master` CI `28839415265`, Dart Package Publish
+Dry Run `28839415253`, and WAMP Profile Benchmarks `28839415264` passed at
+`0aed6b9`; GitHub `add-router` CI `28839415105`, Dart Package Publish Dry Run
+`28839415136`, and WAMP Profile Benchmarks `28839415101` also passed.
+Non-mutating Router Image dry-run evidence remains clean and relevant from
+`d096ee1`; native artifact dry-run evidence remains clean and relevant from
+`d64d220`. The remaining RC-ready audit blockers are release decisions:
+selecting the numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2`
+suggested for the clean hosted `0aed6b9` checkpoint after stale
+`v0.1.0-rc.1`, and deferring pub.dev package ownership/order for the private
+core dependency.
 Current implementation checkpoint:
+The native HTTP/3 router-hosted MCP test now covers Streamable HTTP POST SSE
+delivery and resume replay, not only session initialization and JSON requests.
+The fixture uses the default Streamable-capable MCP route instead of the
+JSON-only post-response override, asserts `tools/list` returns SSE with the
+active `mcp-session-id`, validates tool catalog content in the SSE payload, and
+then replays the same response via HTTP/3 `GET` using the first event id.
+
+Baseline `bin/test-fast` passed before the change on 2026-07-07. Focused
+native HTTP/3 MCP regressions, package analysis, `git diff --check`, and full
+local `bin/verify` passed after the change on 2026-07-07. Hosted evidence is
+pending push.
+RC readiness remains blocked only on selecting/approving the numeric RC
+tag/prerelease/router image tag plus the deferred pub.dev package
+ownership/order track.
+
+Previous implementation checkpoint:
 Router-hosted MCP CORS preflight compatibility now covers the native HTTP/3
-route path as well as HTTP/1.1 route matching. The new native router
-integration regression uses TLS-backed HTTP/3, a per-method MCP `POST` action,
-and no explicit `OPTIONS` route action; the MCP handler owns the preflight and
-returns CORS headers without allocating a Streamable HTTP session. A small
-test helper now lets router integration tests issue native HTTP/3 requests with
-non-POST methods while keeping `_postHttp3Json` as the JSON convenience path.
+route path as well as HTTP/1.1 route matching. The native router integration
+regression uses TLS-backed HTTP/3, a per-method MCP `POST` action, and no
+explicit `OPTIONS` route action; the MCP handler owns the preflight and returns
+CORS headers without allocating a Streamable HTTP session. A small test helper
+now lets router integration tests issue native HTTP/3 requests with non-POST
+methods while keeping `_postHttp3Json` as the JSON convenience path.
 
 Baseline `bin/test-fast` passed before the change on 2026-07-07. Focused HTTP/3
 and full MCP preflight regressions, package analysis, public-reference guard,
 `git diff --check`, and full local `bin/verify` passed after the change on
-2026-07-07, including formatting, Rust/FFI tests, Python boundary tests,
-package tests, consumer package smokes, live WAMP benchmark integration,
-router-hosted MCP live/example smokes, the installed `router_bench` smoke, the
-router CLI consumer package smoke, full router tests including the HTTP/3 MCP
-preflight regression, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted
-evidence for this local change is pending push. RC readiness remains blocked
-only on selecting/approving the numeric RC tag/prerelease/router image tag plus
-the deferred pub.dev package ownership/order track.
+2026-07-07. Hosted evidence after push: commit `0aed6b9` was pushed to GitLab
+`origin` `add-router`, GitHub `add-router`, and GitHub `master`; GitHub
+`master` CI `28839415265`, Dart Package Publish Dry Run `28839415253`, WAMP
+Profile Benchmarks `28839415264`, and the strict deployment-chain audit passed.
+GitHub `add-router` CI `28839415105`, Dart Package Publish Dry Run
+`28839415136`, and WAMP Profile Benchmarks `28839415101` also passed. Router
+Image dry-run evidence remained clean and relevant from `d096ee1`, and native
+artifact dry-run evidence remained clean and relevant from `d64d220`.
 
 Previous implementation checkpoint:
 Router-hosted MCP CORS preflights now reach the MCP route handler when a
