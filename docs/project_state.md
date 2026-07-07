@@ -2,7 +2,29 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: `connectanum_bench` package archive
+Last reviewed branch checkpoint: Dart package release-plan tooling now exposes
+the full workspace dependency edge graph, including private packages that are
+not currently publishable. `bin/dart-package-publish-dry-run --show-release-plan`
+therefore shows the modular order needed before public publishing across
+`connectanum_core`, `connectanum_client`, `connectanum_mcp`,
+`connectanum_router`, `connectanum_auth_server`, and `connectanum_bench`
+without changing `publish_to: none` or dependency sources. The strict release
+gate still fails only for the expected strategy-bound private
+`connectanum_core` dependency.
+
+Baseline `bin/test-fast` passed before the release-plan inventory change on
+2026-07-07. Focused `bash -n bin/dart-package-publish-dry-run` and
+`python3 -m unittest tool.test_dart_package_publish_dry_run` passed after the
+change. Real dry-run verification passed for
+`bin/dart-package-publish-dry-run --include-private --show-release-plan connectanum_mcp`
+with zero package warnings and the expected `connectanum_core` strategy blocker.
+The expected-failing strict client gate
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan connectanum_client`
+still exits non-zero only because `connectanum_client` depends on private
+workspace package `connectanum_core`; it also reports zero package warnings and
+prints the expanded workspace dependency order.
+
+Previous branch checkpoint: `connectanum_bench` package archive
 readiness now clears the concrete non-strategy pub dry-run blockers found while
 checking the benchmark package path. The bench package now has a package
 changelog and a scoped `false_secrets` entry for the inline private-key test
@@ -21,6 +43,15 @@ now reports no missing-changelog or false-secret errors. It still exits
 non-zero for the unresolved path dependency release-strategy blockers. Full
 local `bin/verify` passed after the bench archive-readiness metadata change on
 2026-07-07.
+
+Hosted evidence after push: commit `13af852` on branch `add-router` passed
+GitHub CI `28895964175` (Fast Checks and Full Verify), Dart Package Publish
+Dry Run `28895963910`, and WAMP Profile Benchmarks `28895963701` on
+2026-07-07. The clean deployment-chain audit passed with CI/log, Dart package
+dry-run, and WAMP benchmark requirements at `13af852`. The same audit with
+`--strict` still reports the known operator-owned `add-router`
+branch-protection gap: the branch is unprotected and does not require Fast
+Checks and Full Verify.
 
 Previous branch checkpoint: `connectanum_auth_server` package archive
 readiness now clears the concrete non-strategy pub dry-run blocker found while

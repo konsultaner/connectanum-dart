@@ -26,6 +26,8 @@ pub.dev. The current strict release gate fails because the publishable
   path when found, while keeping package publishing disabled.
 - Remove concrete non-strategy archive blockers from the benchmark package path
   when found, while keeping package publishing disabled.
+- Make the release-plan evidence show the full modular workspace dependency
+  edge graph, including private packages that are not currently publishable.
 - Preserve current RC semantics: GitHub prerelease/router-image readiness can
   stay green while pub.dev release readiness remains blocked.
 
@@ -53,6 +55,8 @@ pub.dev. The current strict release gate fails because the publishable
   changelog blocker while keeping it private.
 - [x] Make the private `connectanum_bench` archive clear its concrete changelog
   and false-secret fixture blockers while keeping it private.
+- [x] Make `--show-release-plan` expose the full workspace dependency order for
+  modular package publishing without changing package publishability.
 - [x] Re-run local verification and clean package-copy package dry-runs.
 - [ ] Decide the package release strategy: publish modular packages in dependency
   order, keep using the legacy `connectanum` name for client compatibility, or
@@ -66,6 +70,7 @@ pub.dev. The current strict release gate fails because the publishable
 - `bin/dart-package-publish-dry-run --include-private connectanum_router`
 - `bin/dart-package-publish-dry-run --include-private connectanum_auth_server`
 - `bin/dart-package-publish-dry-run --include-private connectanum_bench`
+- `bin/dart-package-publish-dry-run --include-private --show-release-plan connectanum_mcp`
 - `bin/verify`
 - Clean package-copy simulation: `git archive` the repo, overlay the new
   `connectanum_core` package metadata, then run
@@ -73,6 +78,20 @@ pub.dev. The current strict release gate fails because the publishable
 
 ## Decision Log
 
+- 2026-07-07: Hardened release-plan evidence without changing package
+  publishability. `bin/dart-package-publish-dry-run --show-release-plan` now
+  inventories dependency edges for private workspace packages as well as
+  currently publishable packages, so the modular publishing order is visible
+  across `connectanum_core`, `connectanum_client`, `connectanum_mcp`,
+  `connectanum_router`, `connectanum_auth_server`, and `connectanum_bench`.
+  `publish_to: none` and dependency sources remain unchanged. Baseline
+  `bin/test-fast`, focused `bash -n bin/dart-package-publish-dry-run`,
+  focused `python3 -m unittest tool.test_dart_package_publish_dry_run`,
+  `bin/dart-package-publish-dry-run --include-private --show-release-plan
+  connectanum_mcp`, and the expected-failing strict
+  `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan
+  connectanum_client` passed with zero package warnings; the strict command
+  still exits non-zero only for the explicit package strategy decision.
 - 2026-07-07: Removed concrete benchmark package archive blockers without
   changing package publishing strategy. `connectanum_bench` now has a package
   changelog and a scoped `false_secrets` entry for the inline private-key test
@@ -84,8 +103,11 @@ pub.dev. The current strict release gate fails because the publishable
   `connectanum_auth_server`. Baseline `bin/test-fast`, focused
   `python3 -m unittest tool.test_dart_package_publish_dry_run`,
   `python3 tool/check_public_artifact_references.py`, `git diff --check`, and
-  full local `bin/verify` passed. The package release strategy milestone
-  remains open.
+  full local `bin/verify` passed. Hosted CI `28895964175`, Dart Package
+  Publish Dry Run `28895963910`, and WAMP Profile Benchmarks `28895963701`
+  passed at `13af852`; the clean deployment-chain audit passed, and the strict
+  audit still fails only for the known unprotected `add-router` branch policy
+  gap. The package release strategy milestone remains open.
 - 2026-07-07: Removed the concrete auth-server package archive blocker without
   changing package publishing strategy. `connectanum_auth_server` now has a
   package changelog. `bin/dart-package-publish-dry-run --include-private

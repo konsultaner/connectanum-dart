@@ -19,8 +19,8 @@ Options:
   --show-release-plan
                       Print the current package release-order plan, including
                       the full private workspace package inventory and any
-                      private packages that block publishable packages. This
-                      does not change publishability.
+                      workspace dependency order that must be satisfied before
+                      package publishing. This does not change publishability.
   --strict-release-ready
                       Exit non-zero when a publishable package still depends on
                       a private workspace package. The default reports those
@@ -262,6 +262,7 @@ collect_release_plan_inventory() {
   local pubspec
   local package_name
   local package_version
+  local package_private
   local rel_root
   local dependency
   local dependency_root
@@ -274,13 +275,14 @@ collect_release_plan_inventory() {
     package_name="$(pubspec_name "$pubspec")"
     package_version="$(pubspec_version "$pubspec")"
     rel_root="${root#"$(repo_root)/"}"
+    package_private=0
 
     if publish_to_none "$pubspec"; then
+      package_private=1
       append_unique_private_package "${package_name} ${package_version:-unknown-version} (${rel_root})"
-      continue
+    else
+      append_unique_release_target "${package_name} ${package_version:-unknown-version} (${rel_root})"
     fi
-
-    append_unique_release_target "${package_name} ${package_version:-unknown-version} (${rel_root})"
 
     while IFS= read -r dependency; do
       [[ -n "$dependency" ]] || continue
@@ -290,7 +292,7 @@ collect_release_plan_inventory() {
       dependency_rel_root="${dependency_root#"$(repo_root)/"}"
 
       append_unique_dependency_edge "${dependency} -> ${package_name}"
-      if publish_to_none "$dependency_pubspec"; then
+      if [[ "$package_private" -eq 0 ]] && publish_to_none "$dependency_pubspec"; then
         dependency_version="$(pubspec_version "$dependency_pubspec")"
         append_unique_private_dependency "${dependency} ${dependency_version:-unknown-version} (${dependency_rel_root})"
       fi

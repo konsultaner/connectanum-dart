@@ -105,6 +105,11 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             r"(?:- .+\n)*- connectanum_core [^ ]+ \(packages/connectanum_core\)",
         )
         self.assertIn("- connectanum_core -> connectanum_client", result.stdout)
+        self.assertIn("- connectanum_core -> connectanum_mcp", result.stdout)
+        self.assertIn("- connectanum_client -> connectanum_mcp", result.stdout)
+        self.assertIn("- connectanum_mcp -> connectanum_router", result.stdout)
+        self.assertIn("- connectanum_router -> connectanum_auth_server", result.stdout)
+        self.assertIn("- connectanum_auth_server -> connectanum_bench", result.stdout)
         self.assertIn(
             "- Choose the package strategy: publish the modular dependency "
             "graph in order, keep the legacy public package name, or ship a "
