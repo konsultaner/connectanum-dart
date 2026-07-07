@@ -159,6 +159,32 @@ int _httpRouteIntOption(
   return defaultValue;
 }
 
+int _httpFastCgiIntOption(
+  HttpRouteAction action,
+  List<String> optionKeys, {
+  required int defaultValue,
+  required int min,
+}) {
+  for (final key in optionKeys) {
+    final value = action.options[key];
+    final parsed = value is int
+        ? value
+        : value is num
+        ? value.toInt()
+        : value is String
+        ? int.tryParse(value.trim())
+        : null;
+    if (parsed == null) {
+      continue;
+    }
+    if (parsed < min) {
+      throw _HttpFastCgiConfigException('invalid_option');
+    }
+    return parsed;
+  }
+  return defaultValue;
+}
+
 Uri _httpReverseProxyTargetUri(HttpRouteAction action) {
   final target = _httpRouteAdapterEndpoint(action);
   if (target == null) {
@@ -333,6 +359,483 @@ class _HttpReverseProxyConfigException implements Exception {
 
 class _HttpReverseProxyResponseTooLarge implements Exception {
   const _HttpReverseProxyResponseTooLarge();
+}
+
+const int _fastCgiVersion = 1;
+const int _fastCgiBeginRequest = 1;
+const int _fastCgiEndRequest = 3;
+const int _fastCgiParams = 4;
+const int _fastCgiStdIn = 5;
+const int _fastCgiStdOut = 6;
+const int _fastCgiStdErr = 7;
+const int _fastCgiResponder = 1;
+const int _fastCgiRequestComplete = 0;
+const int _fastCgiRequestId = 1;
+const int _fastCgiMaxContentLength = 65535;
+
+_HttpFastCgiTarget _httpFastCgiTarget(HttpRouteAction action) {
+  final target = _httpRouteAdapterEndpoint(action);
+  if (target == null) {
+    throw _HttpFastCgiConfigException('missing_target');
+  }
+  if (target.startsWith('/')) {
+    return _HttpFastCgiTarget.unix(target);
+  }
+  final uri = Uri.tryParse(target);
+  if (uri != null && uri.hasScheme) {
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme == 'unix' || scheme == 'socket') {
+      final path = uri.path.trim();
+      if (path.isEmpty) {
+        throw _HttpFastCgiConfigException('invalid_target');
+      }
+      return _HttpFastCgiTarget.unix(path);
+    }
+    if (scheme == 'fastcgi' || scheme == 'fcgi' || scheme == 'tcp') {
+      return _httpFastCgiTcpTarget(uri);
+    }
+    throw _HttpFastCgiConfigException('invalid_target');
+  }
+  return _httpFastCgiTcpTarget(Uri.tryParse('tcp://$target'));
+}
+
+_HttpFastCgiTarget _httpFastCgiTcpTarget(Uri? uri) {
+  if (uri == null || !uri.hasAuthority || uri.host.trim().isEmpty) {
+    throw _HttpFastCgiConfigException('invalid_target');
+  }
+  final port = uri.hasPort ? uri.port : 0;
+  if (port <= 0 || port > 65535) {
+    throw _HttpFastCgiConfigException('invalid_target');
+  }
+  return _HttpFastCgiTarget.tcp(uri.host, port);
+}
+
+Map<String, String> _httpFastCgiParams(
+  HttpRouteAction action,
+  RouterHttpRequest request,
+  HttpRouteSettings route, {
+  required bool stripPrefix,
+}) {
+  final forwardedPath = _httpReverseProxyForwardedPath(
+    request.path,
+    route.match,
+    stripPrefix: stripPrefix,
+  );
+  final scriptName =
+      _firstNonEmptyRouteOption(action, const ['script_name', 'scriptName']) ??
+      forwardedPath;
+  final scriptFilename =
+      _firstNonEmptyRouteOption(action, const [
+        'script_filename',
+        'scriptFilename',
+      ]) ??
+      _httpFastCgiDocumentRootScriptFilename(action, forwardedPath);
+  if (scriptFilename == null) {
+    throw _HttpFastCgiConfigException('missing_script_mapping');
+  }
+
+  final hostHeader = _httpHeaderValue(request.headers, HttpHeaders.hostHeader);
+  final serverName =
+      _firstNonEmptyRouteOption(action, const ['server_name', 'serverName']) ??
+      _httpFastCgiHostName(hostHeader) ??
+      request.listener.endpoint.host;
+  final serverPort =
+      _firstNonEmptyRouteOption(action, const ['server_port', 'serverPort']) ??
+      _httpFastCgiHostPort(hostHeader) ??
+      request.listener.endpoint.port.toString();
+  final contentType = _httpHeaderValue(
+    request.headers,
+    HttpHeaders.contentTypeHeader,
+  );
+  final query = request.query ?? Uri.parse(request.target).query;
+  final params = <String, String>{
+    'GATEWAY_INTERFACE': 'CGI/1.1',
+    'REQUEST_METHOD': request.method,
+    'REQUEST_URI': request.target,
+    'SCRIPT_NAME': scriptName.isEmpty ? '/' : scriptName,
+    'SCRIPT_FILENAME': scriptFilename,
+    'QUERY_STRING': query,
+    'SERVER_NAME': serverName,
+    'SERVER_PORT': serverPort,
+    'SERVER_PROTOCOL': request.protocol.toUpperCase(),
+    'SERVER_SOFTWARE': 'connectanum-router',
+    'CONTENT_LENGTH': request.body.length.toString(),
+    'HTTPS': request.listener.endpoint.tlsMode == TlsMode.disabled ? '' : 'on',
+  };
+  if (contentType != null && contentType.isNotEmpty) {
+    params['CONTENT_TYPE'] = contentType;
+  }
+
+  final blocked = _httpHopByHopHeaderNames(request.headers);
+  blocked.addAll(const {'content-length', 'content-type'});
+  for (final entry in request.headers.entries) {
+    final name = entry.key.trim();
+    if (name.isEmpty || blocked.contains(name.toLowerCase())) {
+      continue;
+    }
+    params[_httpFastCgiHeaderParamName(name)] = entry.value;
+  }
+  return params;
+}
+
+String? _httpFastCgiDocumentRootScriptFilename(
+  HttpRouteAction action,
+  String requestPath,
+) {
+  final documentRoot = _firstNonEmptyRouteOption(action, const [
+    'document_root',
+    'documentRoot',
+    'root',
+  ]);
+  if (documentRoot == null) {
+    return null;
+  }
+  return _joinFastCgiFilesystemPath(documentRoot, requestPath);
+}
+
+String _joinFastCgiFilesystemPath(String root, String requestPath) {
+  final normalizedRoot = root.endsWith('/')
+      ? root.substring(0, root.length - 1)
+      : root;
+  final segments = <String>[];
+  for (final rawSegment in requestPath.split('/')) {
+    if (rawSegment.isEmpty || rawSegment == '.') {
+      continue;
+    }
+    final segment = Uri.decodeComponent(rawSegment);
+    if (segment == '..' || segment.contains('/')) {
+      throw _HttpFastCgiConfigException('invalid_script_path');
+    }
+    segments.add(segment);
+  }
+  if (segments.isEmpty) {
+    return normalizedRoot;
+  }
+  return '$normalizedRoot/${segments.join('/')}';
+}
+
+String? _httpFastCgiHostName(String? hostHeader) {
+  if (hostHeader == null || hostHeader.trim().isEmpty) {
+    return null;
+  }
+  final host = hostHeader.trim();
+  if (host.startsWith('[')) {
+    final end = host.indexOf(']');
+    return end > 1 ? host.substring(1, end) : host;
+  }
+  final colon = host.lastIndexOf(':');
+  if (colon > 0 && int.tryParse(host.substring(colon + 1)) != null) {
+    return host.substring(0, colon);
+  }
+  return host;
+}
+
+String? _httpFastCgiHostPort(String? hostHeader) {
+  if (hostHeader == null || hostHeader.trim().isEmpty) {
+    return null;
+  }
+  final host = hostHeader.trim();
+  if (host.startsWith('[')) {
+    final end = host.indexOf(']');
+    if (end >= 0 && end + 2 < host.length && host[end + 1] == ':') {
+      final port = host.substring(end + 2);
+      return int.tryParse(port) == null ? null : port;
+    }
+    return null;
+  }
+  final colon = host.lastIndexOf(':');
+  if (colon <= 0) {
+    return null;
+  }
+  final port = host.substring(colon + 1);
+  return int.tryParse(port) == null ? null : port;
+}
+
+String _httpFastCgiHeaderParamName(String headerName) {
+  final buffer = StringBuffer('HTTP_');
+  for (final codeUnit in headerName.codeUnits) {
+    final isDigit = codeUnit >= 0x30 && codeUnit <= 0x39;
+    final isUpper = codeUnit >= 0x41 && codeUnit <= 0x5a;
+    final isLower = codeUnit >= 0x61 && codeUnit <= 0x7a;
+    if (isDigit || isUpper) {
+      buffer.writeCharCode(codeUnit);
+    } else if (isLower) {
+      buffer.writeCharCode(codeUnit - 0x20);
+    } else {
+      buffer.write('_');
+    }
+  }
+  return buffer.toString();
+}
+
+Future<void> _writeFastCgiRequest(
+  Socket socket,
+  Map<String, String> params,
+  Uint8List body,
+) async {
+  socket.add(
+    _fastCgiRecord(
+      _fastCgiBeginRequest,
+      Uint8List.fromList(const [0, _fastCgiResponder, 0, 0, 0, 0, 0, 0]),
+    ),
+  );
+  final encodedParams = _fastCgiNameValueBytes(params);
+  for (var offset = 0; offset < encodedParams.length;) {
+    final remaining = encodedParams.length - offset;
+    final size = remaining > _fastCgiMaxContentLength
+        ? _fastCgiMaxContentLength
+        : remaining;
+    socket.add(
+      _fastCgiRecord(
+        _fastCgiParams,
+        Uint8List.sublistView(encodedParams, offset, offset + size),
+      ),
+    );
+    offset += size;
+  }
+  socket.add(_fastCgiRecord(_fastCgiParams, Uint8List(0)));
+  for (var offset = 0; offset < body.length;) {
+    final remaining = body.length - offset;
+    final size = remaining > _fastCgiMaxContentLength
+        ? _fastCgiMaxContentLength
+        : remaining;
+    socket.add(
+      _fastCgiRecord(
+        _fastCgiStdIn,
+        Uint8List.sublistView(body, offset, offset + size),
+      ),
+    );
+    offset += size;
+  }
+  socket.add(_fastCgiRecord(_fastCgiStdIn, Uint8List(0)));
+  await socket.flush();
+}
+
+Uint8List _fastCgiRecord(int type, Uint8List content) {
+  if (content.length > _fastCgiMaxContentLength) {
+    throw ArgumentError.value(content.length, 'content.length');
+  }
+  final header = ByteData(8)
+    ..setUint8(0, _fastCgiVersion)
+    ..setUint8(1, type)
+    ..setUint16(2, _fastCgiRequestId)
+    ..setUint16(4, content.length)
+    ..setUint8(6, 0)
+    ..setUint8(7, 0);
+  final builder = BytesBuilder(copy: false)
+    ..add(Uint8List.view(header.buffer))
+    ..add(content);
+  return builder.takeBytes();
+}
+
+Uint8List _fastCgiNameValueBytes(Map<String, String> values) {
+  final builder = BytesBuilder(copy: false);
+  for (final entry in values.entries) {
+    final name = utf8.encode(entry.key);
+    final value = utf8.encode(entry.value);
+    _writeFastCgiLength(builder, name.length);
+    _writeFastCgiLength(builder, value.length);
+    builder
+      ..add(name)
+      ..add(value);
+  }
+  return builder.takeBytes();
+}
+
+void _writeFastCgiLength(BytesBuilder builder, int length) {
+  if (length < 128) {
+    builder.addByte(length);
+    return;
+  }
+  final data = ByteData(4)..setUint32(0, length | 0x80000000);
+  builder.add(Uint8List.view(data.buffer));
+}
+
+Future<_HttpFastCgiResponse> _readFastCgiResponse(
+  Socket socket, {
+  required int maxBytes,
+}) async {
+  final reader = _HttpFastCgiRecordReader(socket);
+  final stdout = BytesBuilder(copy: false);
+  var total = 0;
+  while (true) {
+    final header = await reader.readExactly(8);
+    final version = header[0];
+    final type = header[1];
+    final requestId = (header[2] << 8) | header[3];
+    final contentLength = (header[4] << 8) | header[5];
+    final paddingLength = header[6];
+    if (version != _fastCgiVersion || requestId != _fastCgiRequestId) {
+      throw _HttpFastCgiProtocolException('invalid_record');
+    }
+    final content = await reader.readExactly(contentLength);
+    if (paddingLength > 0) {
+      await reader.readExactly(paddingLength);
+    }
+    if (type == _fastCgiStdOut) {
+      total += content.length;
+      if (total > maxBytes) {
+        throw _HttpFastCgiResponseTooLarge();
+      }
+      stdout.add(content);
+    } else if (type == _fastCgiStdErr) {
+      continue;
+    } else if (type == _fastCgiEndRequest) {
+      if (content.length < 8 || content[4] != _fastCgiRequestComplete) {
+        throw _HttpFastCgiProtocolException('request_failed');
+      }
+      return _parseFastCgiStdoutResponse(stdout.takeBytes());
+    }
+  }
+}
+
+_HttpFastCgiResponse _parseFastCgiStdoutResponse(Uint8List bytes) {
+  final separator = _httpFastCgiHeaderSeparator(bytes);
+  if (separator == null) {
+    throw _HttpFastCgiProtocolException('missing_headers');
+  }
+  final headerText = utf8.decode(Uint8List.sublistView(bytes, 0, separator.$1));
+  final body = Uint8List.sublistView(bytes, separator.$2);
+  var status = HttpStatus.ok;
+  final headerValues = <String, List<String>>{};
+  for (final line in const LineSplitter().convert(headerText)) {
+    if (line.trim().isEmpty) {
+      continue;
+    }
+    final colon = line.indexOf(':');
+    if (colon <= 0) {
+      throw _HttpFastCgiProtocolException('invalid_header');
+    }
+    final name = line.substring(0, colon).trim();
+    final value = line.substring(colon + 1).trimLeft();
+    if (name.isEmpty) {
+      throw _HttpFastCgiProtocolException('invalid_header');
+    }
+    if (name.toLowerCase() == 'status') {
+      final code = int.tryParse(value.split(' ').first);
+      if (code == null || code < 100 || code > 999) {
+        throw _HttpFastCgiProtocolException('invalid_status');
+      }
+      status = code;
+      continue;
+    }
+    headerValues.putIfAbsent(name, () => <String>[]).add(value);
+  }
+  final blocked = _httpHopByHopHeaderNames(
+    headerValues.map((key, value) => MapEntry(key, value.join(','))),
+  );
+  blocked.addAll(const {'content-length'});
+  final headers = <String, String>{};
+  for (final entry in headerValues.entries) {
+    final name = entry.key.trim();
+    if (name.isEmpty || blocked.contains(name.toLowerCase())) {
+      continue;
+    }
+    headers[name] = entry.value.join(',');
+  }
+  return _HttpFastCgiResponse(status: status, headers: headers, body: body);
+}
+
+(int, int)? _httpFastCgiHeaderSeparator(Uint8List bytes) {
+  for (var index = 0; index + 3 < bytes.length; index++) {
+    if (bytes[index] == 13 &&
+        bytes[index + 1] == 10 &&
+        bytes[index + 2] == 13 &&
+        bytes[index + 3] == 10) {
+      return (index, index + 4);
+    }
+  }
+  for (var index = 0; index + 1 < bytes.length; index++) {
+    if (bytes[index] == 10 && bytes[index + 1] == 10) {
+      return (index, index + 2);
+    }
+  }
+  return null;
+}
+
+class _HttpFastCgiTarget {
+  const _HttpFastCgiTarget.tcp(this.host, this.port) : unixPath = null;
+
+  const _HttpFastCgiTarget.unix(this.unixPath) : host = null, port = null;
+
+  final String? host;
+  final int? port;
+  final String? unixPath;
+
+  Future<Socket> connect(Duration timeout) {
+    final path = unixPath;
+    if (path != null) {
+      return Socket.connect(
+        InternetAddress(path, type: InternetAddressType.unix),
+        0,
+        timeout: timeout,
+      );
+    }
+    return Socket.connect(host!, port!, timeout: timeout);
+  }
+}
+
+class _HttpFastCgiRecordReader {
+  _HttpFastCgiRecordReader(Stream<List<int>> stream)
+    : _iterator = StreamIterator<List<int>>(stream);
+
+  final StreamIterator<List<int>> _iterator;
+  Uint8List _buffer = Uint8List(0);
+  int _offset = 0;
+
+  Future<Uint8List> readExactly(int length) async {
+    if (length == 0) {
+      return Uint8List(0);
+    }
+    final builder = BytesBuilder(copy: false);
+    var remaining = length;
+    while (remaining > 0) {
+      if (_offset >= _buffer.length) {
+        if (!await _iterator.moveNext()) {
+          throw _HttpFastCgiProtocolException('unexpected_eof');
+        }
+        _buffer = Uint8List.fromList(_iterator.current);
+        _offset = 0;
+        if (_buffer.isEmpty) {
+          continue;
+        }
+      }
+      final available = _buffer.length - _offset;
+      final take = available < remaining ? available : remaining;
+      builder.add(Uint8List.sublistView(_buffer, _offset, _offset + take));
+      _offset += take;
+      remaining -= take;
+    }
+    return builder.takeBytes();
+  }
+}
+
+class _HttpFastCgiResponse {
+  const _HttpFastCgiResponse({
+    required this.status,
+    required this.headers,
+    required this.body,
+  });
+
+  final int status;
+  final Map<String, String> headers;
+  final Uint8List body;
+}
+
+class _HttpFastCgiConfigException implements Exception {
+  const _HttpFastCgiConfigException(this.reason);
+
+  final String reason;
+}
+
+class _HttpFastCgiResponseTooLarge implements Exception {
+  const _HttpFastCgiResponseTooLarge();
+}
+
+class _HttpFastCgiProtocolException implements Exception {
+  const _HttpFastCgiProtocolException(this.reason);
+
+  final String reason;
 }
 
 String? _httpFileRouteDirectory(HttpRouteAction action) {
@@ -1665,28 +2168,11 @@ class RouterBinding {
       return;
     }
     if (matchedRoute?.action.type == HttpRouteActionType.fastCgi) {
-      final adapter = httpRouteActionTypeToString(matchedRoute!.action.type);
-      onEvent?.call({
-        'source': 'binding',
-        'type': 'http_adapter_not_implemented',
-        'listenerId': request.listenerId,
-        'connectionId': request.connectionId,
-        'endpoint': request.endpoint,
-        'adapter': adapter,
-      });
       try {
-        await _sendImmediateHttpResponse(
+        await _handleFastCgiRouteRequest(
           request: request,
           handshake: retainedHandshake,
-          response: NativeHttpResponse(
-            status: HttpStatus.notImplemented,
-            body: NativeHttpResponseJson(<String, Object?>{
-              'status': 'error',
-              'reason': 'http_adapter_not_implemented',
-              'message': 'HTTP route adapter is not implemented',
-              'adapter': adapter,
-            }),
-          ),
+          route: matchedRoute!,
         );
       } finally {
         retainedHandshake?.release();
@@ -2187,6 +2673,187 @@ class RouterBinding {
       );
     } finally {
       client.close(force: true);
+    }
+  }
+
+  Future<void> _handleFastCgiRouteRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+  }) async {
+    Duration timeout;
+    int maxResponseBytes;
+    _HttpFastCgiTarget target;
+    Map<String, String> params;
+    try {
+      target = _httpFastCgiTarget(route.action);
+      timeout = Duration(
+        milliseconds: _httpFastCgiIntOption(
+          route.action,
+          const ['timeout_ms', 'timeoutMs'],
+          defaultValue: 30000,
+          min: 1,
+        ),
+      );
+      maxResponseBytes = _httpFastCgiIntOption(
+        route.action,
+        const ['max_response_bytes', 'maxResponseBytes'],
+        defaultValue: 16 * 1024 * 1024,
+        min: 1,
+      );
+      final stripPrefix = _httpRouteBoolOption(route.action, const [
+        'strip_prefix',
+        'stripPrefix',
+      ], defaultValue: false);
+      params = _httpFastCgiParams(
+        route.action,
+        request,
+        route,
+        stripPrefix: stripPrefix,
+      );
+    } on _HttpFastCgiConfigException catch (error) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_config_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': error.reason,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badGateway,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'fastcgi_${error.reason}',
+            'message': 'FastCGI route is not configured correctly',
+          }),
+        ),
+      );
+      return;
+    }
+
+    Socket? socket;
+    try {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_request',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'method': request.method,
+      });
+      socket = await target.connect(timeout).timeout(timeout);
+      await _writeFastCgiRequest(socket, params, request.body).timeout(timeout);
+      final fastCgiResponse = await _readFastCgiResponse(
+        socket,
+        maxBytes: maxResponseBytes,
+      ).timeout(timeout);
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: fastCgiResponse.status,
+          headers: fastCgiResponse.headers,
+          body: NativeHttpResponseBytes(fastCgiResponse.body),
+        ),
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'status': fastCgiResponse.status,
+      });
+    } on TimeoutException {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': 'timeout',
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.gatewayTimeout,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'fastcgi_timeout',
+            'message': 'FastCGI upstream request timed out',
+          }),
+        ),
+      );
+    } on _HttpFastCgiResponseTooLarge {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': 'response_too_large',
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badGateway,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'fastcgi_response_too_large',
+            'message': 'FastCGI upstream response exceeded limit',
+          }),
+        ),
+      );
+    } on _HttpFastCgiProtocolException catch (error) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': error.reason,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badGateway,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'fastcgi_protocol_error',
+            'message': 'FastCGI upstream response was invalid',
+          }),
+        ),
+      );
+    } catch (_) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_fastcgi_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': 'upstream_failed',
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badGateway,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'fastcgi_failed',
+            'message': 'FastCGI upstream request failed',
+          }),
+        ),
+      );
+    } finally {
+      socket?.destroy();
     }
   }
 

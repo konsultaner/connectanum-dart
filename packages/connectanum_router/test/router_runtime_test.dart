@@ -45,6 +45,141 @@ SniCertificate _cert(String host) => SniCertificate(
   privateKeyPem: _privateKeyPem,
 );
 
+const int _testFastCgiVersion = 1;
+const int _testFastCgiBeginRequest = 1;
+const int _testFastCgiEndRequest = 3;
+const int _testFastCgiParams = 4;
+const int _testFastCgiStdIn = 5;
+const int _testFastCgiStdOut = 6;
+const int _testFastCgiRequestId = 1;
+
+class _TestFastCgiRequest {
+  const _TestFastCgiRequest({required this.params, required this.body});
+
+  final Map<String, String> params;
+  final Uint8List body;
+}
+
+class _TestFastCgiRecordReader {
+  _TestFastCgiRecordReader(Stream<List<int>> stream)
+    : _iterator = StreamIterator<List<int>>(stream);
+
+  final StreamIterator<List<int>> _iterator;
+  Uint8List _buffer = Uint8List(0);
+  int _offset = 0;
+
+  Future<Uint8List> readExactly(int length) async {
+    if (length == 0) {
+      return Uint8List(0);
+    }
+    final builder = BytesBuilder(copy: false);
+    var remaining = length;
+    while (remaining > 0) {
+      if (_offset >= _buffer.length) {
+        if (!await _iterator.moveNext()) {
+          throw StateError('Unexpected FastCGI EOF');
+        }
+        _buffer = Uint8List.fromList(_iterator.current);
+        _offset = 0;
+      }
+      final available = _buffer.length - _offset;
+      final take = available < remaining ? available : remaining;
+      builder.add(Uint8List.sublistView(_buffer, _offset, _offset + take));
+      _offset += take;
+      remaining -= take;
+    }
+    return builder.takeBytes();
+  }
+}
+
+Future<_TestFastCgiRequest> _readTestFastCgiRequest(Socket socket) async {
+  final reader = _TestFastCgiRecordReader(socket);
+  final paramsBytes = BytesBuilder(copy: false);
+  final bodyBytes = BytesBuilder(copy: false);
+  var paramsComplete = false;
+  while (true) {
+    final header = await reader.readExactly(8);
+    expect(header[0], _testFastCgiVersion);
+    expect((header[2] << 8) | header[3], _testFastCgiRequestId);
+    final type = header[1];
+    final contentLength = (header[4] << 8) | header[5];
+    final paddingLength = header[6];
+    final content = await reader.readExactly(contentLength);
+    if (paddingLength > 0) {
+      await reader.readExactly(paddingLength);
+    }
+    if (type == _testFastCgiBeginRequest) {
+      continue;
+    }
+    if (type == _testFastCgiParams) {
+      if (content.isEmpty) {
+        paramsComplete = true;
+      } else {
+        paramsBytes.add(content);
+      }
+      continue;
+    }
+    if (type == _testFastCgiStdIn) {
+      expect(paramsComplete, isTrue);
+      if (content.isEmpty) {
+        return _TestFastCgiRequest(
+          params: _decodeTestFastCgiParams(paramsBytes.takeBytes()),
+          body: bodyBytes.takeBytes(),
+        );
+      }
+      bodyBytes.add(content);
+    }
+  }
+}
+
+Map<String, String> _decodeTestFastCgiParams(Uint8List bytes) {
+  final params = <String, String>{};
+  var offset = 0;
+  while (offset < bytes.length) {
+    final nameLength = _readTestFastCgiLength(bytes, offset);
+    offset = nameLength.$2;
+    final valueLength = _readTestFastCgiLength(bytes, offset);
+    offset = valueLength.$2;
+    final name = utf8.decode(
+      Uint8List.sublistView(bytes, offset, offset + nameLength.$1),
+    );
+    offset += nameLength.$1;
+    final value = utf8.decode(
+      Uint8List.sublistView(bytes, offset, offset + valueLength.$1),
+    );
+    offset += valueLength.$1;
+    params[name] = value;
+  }
+  return params;
+}
+
+(int, int) _readTestFastCgiLength(Uint8List bytes, int offset) {
+  final first = bytes[offset];
+  if ((first & 0x80) == 0) {
+    return (first, offset + 1);
+  }
+  final length =
+      ((first & 0x7f) << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3];
+  return (length, offset + 4);
+}
+
+Uint8List _testFastCgiRecord(int type, Uint8List content) {
+  final header = ByteData(8)
+    ..setUint8(0, _testFastCgiVersion)
+    ..setUint8(1, type)
+    ..setUint16(2, _testFastCgiRequestId)
+    ..setUint16(4, content.length)
+    ..setUint8(6, 0)
+    ..setUint8(7, 0);
+  final builder = BytesBuilder(copy: false)
+    ..add(Uint8List.view(header.buffer))
+    ..add(content);
+  return builder.takeBytes();
+}
+
 class _FakeRuntime implements NativeRuntime {
   final List<String> listenCalls = [];
   Uint8List? appliedConfig;
@@ -3930,108 +4065,296 @@ void main() {
     );
   });
 
-  test(
-    'returns structured 501 for unsupported FastCGI adapter routes',
-    () async {
-      final runtime = _HandleRuntime();
-      final settings = RouterSettingsBuilder()
-        ..addListenerFromBuilder(
-          ListenerSettingsBuilder('http', '127.0.0.1:0')
-            ..addProtocol(ListenerProtocol.http)
-            ..setHttpOptions(
-              const HttpListenerSettings(
-                routes: [
-                  HttpRouteSettings(
-                    match: HttpRouteMatch(path: '/php'),
-                    action: HttpRouteAction(
-                      type: HttpRouteActionType.fastCgi,
-                      delegate: 'tcp://127.0.0.1:9000',
-                    ),
-                  ),
-                ],
+  test('forwards configured FastCGI adapter routes', () async {
+    final upstreamRequests = <_TestFastCgiRequest>[];
+    final upstreamDone = Completer<void>();
+    final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final upstreamSubscription = upstream.listen((socket) async {
+      final request = await _readTestFastCgiRequest(socket);
+      upstreamRequests.add(request);
+      final responseBody = utf8.encode(
+        'fastcgi:${utf8.decode(request.body)}:${request.params['REQUEST_METHOD']}:${request.params['SCRIPT_FILENAME']}:${request.params['QUERY_STRING']}',
+      );
+      socket
+        ..add(
+          _testFastCgiRecord(
+            _testFastCgiStdOut,
+            Uint8List.fromList([
+              ...utf8.encode(
+                'Status: 201 Created\r\n'
+                'Content-Type: text/plain\r\n'
+                'X-FastCGI: ok\r\n'
+                'Connection: close\r\n'
+                '\r\n',
               ),
-            ),
+              ...responseBody,
+            ]),
+          ),
+        )
+        ..add(_testFastCgiRecord(_testFastCgiStdOut, Uint8List(0)))
+        ..add(
+          _testFastCgiRecord(
+            _testFastCgiEndRequest,
+            Uint8List.fromList(const [0, 0, 0, 0, 0, 0, 0, 0]),
+          ),
         );
-      final router = Router(
-        RouterConfig(
-          endpoints: [
-            Endpoint(
-              host: '127.0.0.1',
-              port: 0,
-              tlsMode: TlsMode.native,
-              maxRawSocketSizeExponent: 16,
-              sniCertificates: [_cert('localhost')],
+      await socket.flush();
+      await socket.close();
+      if (!upstreamDone.isCompleted) {
+        upstreamDone.complete();
+      }
+    });
+    addTearDown(() async {
+      await upstreamSubscription.cancel();
+      await upstream.close();
+    });
+
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: const HttpRouteMatch(prefix: '/php'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.fastCgi,
+                    delegate: 'tcp://${upstream.address.host}:${upstream.port}',
+                    options: const <String, Object?>{
+                      'document_root': '/srv/app/public',
+                      'strip_prefix': true,
+                      'timeout_ms': 5000,
+                      'max_response_bytes': 1024 * 1024,
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        settings: settings.build(),
+          ),
       );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
 
-      final events = <Map<String, Object?>>[];
-      final binding = router.start(
-        runtime,
-        onEvent: (event) {
-          if (event is Map<String, Object?>) {
-            events.add(event);
-          }
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 46;
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 5,
+        method: 'POST',
+        target: '/php/index.php?active=true',
+        path: '/php/index.php',
+        query: 'active=true',
+        protocol: 'http/1.1',
+        headers: const {
+          'host': 'consumer.example:8443',
+          'content-type': 'text/plain',
+          'connection': 'x-remove',
+          'x-remove': 'secret',
+          'x-test': 'yes',
         },
-      );
-      addTearDown(binding.dispose);
+        body: Uint8List.fromList(utf8.encode('ping')),
+        realm: 'router.http',
+        procedure: 'router.http.fastcgi',
+      ),
+    );
 
-      await Future<void>.delayed(Duration.zero);
-      final listenerId = binding.listeners.single.listenerId;
-      const connectionId = 46;
-      runtime.setConnectionProtocol(
-        connectionId,
-        NativeConnectionProtocol.http,
-      );
-      runtime.enqueueHttpHandshake(
-        listenerId,
-        connectionId,
-        NativeHttpHandshake.synthetic(
-          handle: 5,
-          method: 'GET',
-          target: '/php',
-          path: '/php',
-          protocol: 'http/1.1',
-          headers: const {},
-          body: Uint8List(0),
-          realm: 'router.http',
-          procedure: 'router.http.fastcgi',
-        ),
-      );
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 5),
+    );
+    await upstreamDone.future.timeout(const Duration(seconds: 2));
 
-      await _waitUntil(
-        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
-        timeout: const Duration(seconds: 2),
-      );
+    expect(upstreamRequests, hasLength(1));
+    final upstreamRequest = upstreamRequests.single;
+    expect(utf8.decode(upstreamRequest.body), 'ping');
+    expect(upstreamRequest.params, containsPair('REQUEST_METHOD', 'POST'));
+    expect(
+      upstreamRequest.params,
+      containsPair('REQUEST_URI', '/php/index.php?active=true'),
+    );
+    expect(upstreamRequest.params, containsPair('SCRIPT_NAME', '/index.php'));
+    expect(
+      upstreamRequest.params,
+      containsPair('SCRIPT_FILENAME', '/srv/app/public/index.php'),
+    );
+    expect(upstreamRequest.params, containsPair('QUERY_STRING', 'active=true'));
+    expect(upstreamRequest.params, containsPair('CONTENT_LENGTH', '4'));
+    expect(upstreamRequest.params, containsPair('CONTENT_TYPE', 'text/plain'));
+    expect(
+      upstreamRequest.params,
+      containsPair('SERVER_NAME', 'consumer.example'),
+    );
+    expect(upstreamRequest.params, containsPair('SERVER_PORT', '8443'));
+    expect(upstreamRequest.params, containsPair('HTTPS', 'on'));
+    expect(
+      upstreamRequest.params,
+      containsPair('HTTP_HOST', 'consumer.example:8443'),
+    );
+    expect(upstreamRequest.params, containsPair('HTTP_X_TEST', 'yes'));
+    expect(upstreamRequest.params.containsKey('HTTP_X_REMOVE'), isFalse);
 
-      final response = runtime.httpResponses[connectionId]!.single;
-      expect(response.status, HttpStatus.notImplemented);
-      final body = response.body;
-      expect(body, isA<NativeHttpResponseJson>());
-      final value =
-          (body as NativeHttpResponseJson).value as Map<String, Object?>;
-      expect(value, containsPair('reason', 'http_adapter_not_implemented'));
-      expect(value, containsPair('adapter', 'fastcgi'));
-      expect(value.containsKey('target'), isFalse);
-      expect(value.containsKey('upstream'), isFalse);
-      expect(value.containsKey('socket'), isFalse);
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.created);
+    expect(response.headers, containsPair('Content-Type', 'text/plain'));
+    expect(response.headers, containsPair('X-FastCGI', 'ok'));
+    expect(response.headers.containsKey(HttpHeaders.connectionHeader), isFalse);
+    final responseBody = response.body;
+    expect(responseBody, isA<NativeHttpResponseBytes>());
+    expect(
+      utf8.decode((responseBody as NativeHttpResponseBytes).bytes),
+      'fastcgi:ping:POST:/srv/app/public/index.php:active=true',
+    );
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+    expect(
+      events.any(
+        (event) =>
+            event['type'] == 'http_fastcgi_response_sent' &&
+            event['status'] == HttpStatus.created,
+      ),
+      isTrue,
+    );
+  });
 
-      expect(
-        events.any((event) => event['type'] == 'http_request_dispatched'),
-        isFalse,
+  test('does not leak FastCGI target details when upstream fails', () async {
+    final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final upstreamAccepted = Completer<void>();
+    final upstreamSubscription = upstream.listen((socket) {
+      if (!upstreamAccepted.isCompleted) {
+        upstreamAccepted.complete();
+      }
+      socket.destroy();
+    });
+    addTearDown(() async {
+      await upstreamSubscription.cancel();
+      await upstream.close();
+    });
+
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: const HttpRouteMatch(prefix: '/php'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.fastCgi,
+                    delegate:
+                        'fastcgi://user:secret@${upstream.address.host}:${upstream.port}/private-secret',
+                    options: const <String, Object?>{
+                      'script_filename': '/srv/private-secret/index.php',
+                      'timeout_ms': 1000,
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
       );
-      expect(
-        events.any(
-          (event) =>
-              event['type'] == 'http_adapter_not_implemented' &&
-              event['adapter'] == 'fastcgi',
-        ),
-        isTrue,
-      );
-    },
-  );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const connectionId = 47;
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
+        handle: 6,
+        method: 'GET',
+        target: '/php/secret-check',
+        path: '/php/secret-check',
+        protocol: 'http/1.1',
+        headers: const {},
+        body: Uint8List(0),
+        realm: 'router.http',
+        procedure: 'router.http.fastcgi',
+      ),
+    );
+
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 5),
+    );
+    await upstreamAccepted.future.timeout(const Duration(seconds: 2));
+
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, HttpStatus.badGateway);
+    final body = response.body;
+    expect(body, isA<NativeHttpResponseJson>());
+    final value =
+        (body as NativeHttpResponseJson).value as Map<String, Object?>;
+    expect(value['reason'], anyOf('fastcgi_failed', 'fastcgi_protocol_error'));
+
+    final errorEvent = events.singleWhere(
+      (event) => event['type'] == 'http_fastcgi_error',
+    );
+    expect(errorEvent.containsKey('error'), isFalse);
+    expect(errorEvent.containsKey('stackTrace'), isFalse);
+
+    final serialized = jsonEncode(<Object?>[value, errorEvent]);
+    expect(serialized, isNot(contains('secret')));
+    expect(serialized, isNot(contains('private-secret')));
+  });
 
   test('forwards configured reverse proxy adapter routes', () async {
     final upstreamRequests = <Map<String, Object?>>[];

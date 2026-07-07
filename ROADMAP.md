@@ -123,7 +123,7 @@
   - [x] Add first route-level rate-limit guard for HTTP route actions (`rate_limit` / `rateLimit`), enforced before auth, MCP, handler, publish, or RPC dispatch with structured 429 responses and Streamable HTTP CORS headers preserved on MCP preflight paths.
   - [ ] Introduce adapter pipeline support (static file handler, PHP-FPM/FastCGI bridge, reverse proxy) configurable per route; document adapter contracts and lifecycle.
     - [x] Accept explicit `fastcgi`/`reverse_proxy` route action stubs with endpoint validation, deterministic native route projection, and structured `501 http_adapter_not_implemented` responses without WAMP fallback.
-    - [ ] Implement buffered FastCGI/PHP-FPM forwarding.
+    - [x] Implement buffered FastCGI/PHP-FPM forwarding.
     - [x] Implement buffered reverse-proxy forwarding.
   - [ ] Add tests/doc coverage for the new HTTP call contract (Dart unit tests, router integration test asserting response round-trip, native tests validating file/stream paths).
 - [ ] HTTP authentication & session tokens

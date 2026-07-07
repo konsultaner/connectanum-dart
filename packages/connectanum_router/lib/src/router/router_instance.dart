@@ -18,8 +18,11 @@ import 'dart:io'
         HttpDate,
         HttpHeaders,
         HttpStatus,
+        InternetAddress,
+        InternetAddressType,
         Platform,
         ProcessInfo,
+        Socket,
         pid;
 
 import 'package:cbor/cbor.dart';

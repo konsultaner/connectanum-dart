@@ -2,23 +2,24 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: router HTTP `reverse_proxy` route actions now
-perform buffered upstream HTTP forwarding instead of returning the prior adapter
-stub response. The route resolves the existing adapter endpoint aliases, accepts
-only `http`/`https` upstreams, preserves method/path/query/body, supports
-optional `strip_prefix`, forwards `Host`, `X-Forwarded-Host`, and
-`X-Forwarded-Proto`, strips hop-by-hop and content-length headers on both sides,
-returns upstream status/headers/body as a native byte response, and maps
-misconfiguration, timeout, oversized upstream response, and upstream failures to
-structured JSON gateway responses without echoing configured endpoint values.
-FastCGI/PHP-FPM remains intentionally fail-closed with the existing structured
-`501 http_adapter_not_implemented` behavior.
+Last reviewed branch checkpoint: router HTTP `fastcgi` route actions now perform
+buffered FastCGI/PHP-FPM forwarding instead of returning the prior structured
+adapter stub response. The route resolves the existing adapter endpoint aliases,
+supports `fastcgi://`, `fcgi://`, `tcp://`, `host:port`, `unix:/path`, and
+absolute Unix socket targets, builds CGI params from the native HTTP request,
+supports `script_filename`/`scriptFilename`, `document_root`/`documentRoot`, and
+`root`, optional `strip_prefix`, `timeout_ms`/`timeoutMs`, and
+`max_response_bytes`/`maxResponseBytes`, parses CGI-style FastCGI stdout headers
+and status into native HTTP responses, strips hop-by-hop/content-length response
+headers, and maps misconfiguration, timeout, oversized response, protocol
+errors, and upstream failures to structured JSON gateway responses without
+echoing configured endpoint values or socket paths. The existing buffered
+`reverse_proxy` route action remains operational.
 
-Baseline `bin/test-fast` passed before the reverse-proxy change on 2026-07-07.
-Focused
+Baseline `bin/test-fast` passed before the FastCGI forwarding change on
+2026-07-07. Focused
 `dart test packages/connectanum_router/test/router_runtime_test.dart
---plain-name "returns structured 501 for unsupported FastCGI adapter routes" -r
-expanded`, focused
+--plain-name "FastCGI" -r expanded`, focused
 `dart test packages/connectanum_router/test/router_runtime_test.dart
 --plain-name "forwards configured reverse proxy adapter routes" -r expanded`,
 full `dart test packages/connectanum_router/test/router_runtime_test.dart -r
@@ -42,11 +43,14 @@ gate still fails as expected because `connectanum_client` depends on private
 `bin/dart-package-publish-dry-run --include-private connectanum_core` with zero
 warnings.
 
-Latest fully clean hosted checkpoint: commit `041bc61` on branch `add-router`
-passed GitHub CI `28863803636`, Dart Package Publish Dry Run `28863803674`, and
-WAMP Profile Benchmarks `28863803648` after the `connectanum_core` package
-archive-readiness slice. Hosted evidence for the local reverse-proxy checkpoint
-is pending until it is pushed and audited.
+Latest fully clean hosted checkpoint: commit `bd2bb0d` on branch `add-router`
+passed GitHub CI `28869619605` (Fast Checks and Full Verify), Dart Package
+Publish Dry Run `28869619697`, and WAMP Profile Benchmarks `28869619713` after
+the buffered reverse-proxy forwarding slice. The clean deployment-chain evidence
+audit passed with latest CI/logs, Dart package dry-run, and WAMP benchmark
+requirements. The same audit with `--strict` still reports the known
+operator-owned `add-router` branch-protection gap: the branch is unprotected and
+does not require Fast Checks and Full Verify.
 Release candidate checkpoint: `v0.1.0-rc.2` now points at `a4bbd04` on GitHub
 and GitLab. GitHub tag-triggered Native Artifacts `28855014117` published the
 non-draft prerelease with 30 native bundle/checksum/Sigstore assets, Router
@@ -82,7 +86,8 @@ unknown config values or accidental WAMP bridge fallthroughs. At that
 checkpoint, both adapter actions intentionally returned structured 501
 responses and avoided including configured endpoint values because those URLs
 can contain credentials. The `reverse_proxy` adapter has since gained buffered
-forwarding; FastCGI/PHP-FPM remains a structured 501 stub.
+forwarding, and the `fastcgi` adapter has since gained buffered FastCGI/PHP-FPM
+forwarding.
 
 Baseline `bin/test-fast` passed before the change on 2026-07-07. Focused
 config/native/runtime adapter tests, package analysis, `git diff --check`, and
