@@ -16,6 +16,10 @@ PUBLISH_DRY_RUN = REPO_ROOT / "bin" / "dart-package-publish-dry-run"
 AUTH_SERVER_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_auth_server" / "CHANGELOG.md"
 )
+BENCH_PUBSPEC = REPO_ROOT / "packages" / "connectanum_bench" / "pubspec.yaml"
+BENCH_CHANGELOG = (
+    REPO_ROOT / "packages" / "connectanum_bench" / "CHANGELOG.md"
+)
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
 
@@ -26,6 +30,17 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
 
         self.assertIn("## 0.1.0", changelog)
         self.assertIn("remote-authentication service", changelog)
+
+    def test_bench_package_archive_metadata_allows_known_test_fixtures(
+        self,
+    ) -> None:
+        pubspec = BENCH_PUBSPEC.read_text(encoding="utf-8")
+        changelog = BENCH_CHANGELOG.read_text(encoding="utf-8")
+
+        self.assertIn("## 0.1.0", changelog)
+        self.assertIn("benchmark package", changelog)
+        self.assertIn("false_secrets:", pubspec)
+        self.assertIn("  - /test/wamp_transport_targets_test.dart", pubspec)
 
     def test_router_package_archive_metadata_allows_known_test_fixtures(
         self,
