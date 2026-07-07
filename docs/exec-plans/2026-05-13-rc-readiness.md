@@ -79,6 +79,18 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-07: Fixed route-level MCP CORS preflight handling for consumer
+  configurations that explicitly list `GET`, `POST`, and `DELETE` but omit
+  `OPTIONS`. Single-action MCP routes now add `OPTIONS` to the Dart-side route
+  matcher so preflight requests reach the MCP handler, return MCP CORS headers,
+  and do not allocate an MCP session; non-MCP routes and per-method MCP action
+  routes keep their existing method filters. Baseline `bin/test-fast` passed
+  before the change on 2026-07-07. Focused router native MCP preflight and
+  route-level envelope regressions, `dart analyze packages/connectanum_router`,
+  `python3 tool/check_public_artifact_references.py`, and `git diff --check`
+  passed after the change. Full local `bin/verify` passed on 2026-07-07.
+  Latest hosted release-chain evidence remains the clean `1f1b5ad` checkpoint
+  until this implementation checkpoint is pushed and hosted checks complete.
 - 2026-07-07: Extended router-hosted MCP empty `Last-Event-ID` coverage to
   consumer-facing package smokes. The public router-hosted `connectanum_mcp`
   client example and generated router CLI consumer package smoke now call
@@ -95,9 +107,17 @@ decision because `connectanum_client` still depends on private
   tool/check_public_artifact_references.py`, `git diff --check`, direct bash
   `run_public_router_hosted_mcp_client_live_smoke`, and direct bash
   `run_router_cli_consumer_package_smoke` passed after the change. Full local
-  `bin/verify` passed on 2026-07-07. Hosted evidence for this checkpoint is
-  pending until it is pushed and GitHub workflows complete; the latest fully
-  clean hosted checkpoint remains `dd77fc2`.
+  `bin/verify` passed on 2026-07-07. Hosted evidence after push: commit
+  `1f1b5ad` was pushed to GitLab `origin` `add-router`, GitHub `add-router`,
+  and GitHub `master`; GitHub `master` CI `28830708692` and GitHub
+  `add-router` CI `28830708144` passed with Fast Checks and Full Verify green;
+  Dart Package Publish Dry Run passed on GitHub `master` `28830708683` and
+  GitHub `add-router` `28830708153`; and the strict deployment-chain audit
+  passed for GitHub `master` at `1f1b5ad` with CI log scan clean, Dart package
+  dry-run clean/relevant at `1f1b5ad`, and clean/relevant native release,
+  router image, and WAMP profile evidence. RC readiness remains blocked only on
+  selecting/approving the numeric RC tag/prerelease/router image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-07: Fixed router-hosted MCP Streamable HTTP SSE polling so an empty
   `Last-Event-ID` header is treated as no resume cursor instead of an unknown
   event id. This preserves invalid non-empty cursor rejection while matching

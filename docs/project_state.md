@@ -2,41 +2,55 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: the public router-hosted `connectanum_mcp`
-client example and generated router CLI consumer package smoke now prove that
-consumer applications can clear Streamable HTTP polling state through public
-APIs by calling `McpStreamableHttpClient.poll(lastEventId: '')`. Both smokes
-assert that an empty cursor starts a fresh SSE poll, keeps the same MCP session,
-produces a new non-empty event cursor, and still rejects invalid non-empty
-cursors. The example reports `emptyLastEventId.accepted/sessionUnchanged`; the
-generated consumer summary reports `streamableEmptyLastEventId` for public,
-protected, token-only, and JSON-response routes. Baseline `bin/test-fast`
-passed before the change on 2026-07-07. Focused `dart format
-packages/connectanum_mcp/example/router_hosted_client.dart`, `bash -n
-bin/common.sh`, `python3 -m unittest tool.test_mcp_consumer_package_boundary
--v`, `dart analyze packages/connectanum_mcp`, `python3
-tool/check_public_artifact_references.py`, `git diff --check`, direct bash
-`run_public_router_hosted_mcp_client_live_smoke`, and direct bash
-`run_router_cli_consumer_package_smoke` passed after the change. Full local
-`bin/verify` passed on 2026-07-07, including formatting, Rust/FFI tests,
-Python boundary tests, package tests, consumer package smokes, live WAMP
-benchmark integration, router-hosted MCP live/example smokes, the installed
-`router_bench` smoke, the router CLI consumer package smoke, full router tests,
-HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-WebSocket smoke. Hosted evidence for this checkpoint is pending until it is
-pushed and GitHub workflows complete.
-Latest fully clean hosted checkpoint: Commit `dd77fc2` on GitHub `master` and
-GitHub `add-router` passed hosted CI after the Streamable HTTP empty cursor
-fix. The strict deployment-chain audit passed for GitHub `master` at `dd77fc2`
-with CI log scan clean and clean/relevant Dart package, native release, router
-image, and WAMP profile evidence. Native artifact dry-run evidence remains
-clean and relevant from `d64d220` because no native-release-sensitive paths
-changed.
+Last reviewed branch checkpoint: router-hosted MCP routes using a single MCP
+action now admit `OPTIONS` even when an explicit route method list only names
+`GET`, `POST`, and `DELETE`. This keeps browser and agent CORS preflights on
+the MCP handler path so the response carries MCP CORS headers and does not
+create MCP session state, while non-MCP routes and method-action MCP routes
+keep their existing method filtering. Baseline `bin/test-fast` passed before
+the change on 2026-07-07. Focused `dart test
+packages/connectanum_router/test/router_integration_native_test.dart --name
+"allows MCP CORS preflight when explicit methods omit OPTIONS" -r expanded`,
+focused `dart test
+packages/connectanum_router/test/router_integration_native_test.dart --name
+"keeps MCP response envelope on route-level" -r expanded`, `dart analyze
+packages/connectanum_router`, `python3
+tool/check_public_artifact_references.py`, and `git diff --check` passed after
+the change. Full local `bin/verify` passed on 2026-07-07, including formatting,
+Rust/FFI tests, Python boundary tests, package tests, consumer package smokes,
+live WAMP benchmark integration, router-hosted MCP live/example smokes, the
+installed `router_bench` smoke, the router CLI consumer package smoke, full
+router tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm
+browser WebSocket smoke.
+Latest fully clean hosted checkpoint: Commit `1f1b5ad` on GitHub `master` and
+GitHub `add-router` passed hosted CI after consumer empty `Last-Event-ID` smoke
+coverage. The strict deployment-chain audit passed for GitHub `master` at
+`1f1b5ad` with CI log scan clean, Dart package dry-run clean/relevant at
+`1f1b5ad`, and clean/relevant native release, router image, and WAMP profile
+evidence. Native artifact dry-run evidence remains clean and relevant from
+`d64d220`, and Router Image plus WAMP Profile evidence remains clean and
+relevant from `dd77fc2`, because no native-release-sensitive,
+router-image-sensitive, or WAMP-profile-sensitive paths changed.
 The remaining RC-ready audit blockers are release decisions: selecting the
 numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2` suggested for
-the clean hosted `dd77fc2` checkpoint after stale `v0.1.0-rc.1`, and deferring
+the clean hosted `1f1b5ad` checkpoint after stale `v0.1.0-rc.1`, and deferring
 pub.dev package ownership/order for the private core dependency.
 Current implementation checkpoint:
+Router-hosted MCP CORS preflights now reach the MCP route handler even when a
+consumer application configures the route with explicit `GET`, `POST`, and
+`DELETE` methods but omits `OPTIONS`. The route matcher automatically includes
+`OPTIONS` only for single-action MCP routes, preserving existing method checks
+for non-MCP routes and per-method MCP route actions. The native router
+integration regression asserts a 204 preflight response with MCP CORS headers
+and no `mcp-session-id`.
+
+Baseline `bin/test-fast` passed before the change on 2026-07-07. Focused MCP
+native integration tests, package analysis, public-reference guard, and `git
+diff --check` passed after the change. Full local `bin/verify` also passed on
+2026-07-07. Latest hosted evidence remains the clean `1f1b5ad` checkpoint until
+this implementation checkpoint is pushed and hosted checks complete.
+
+Previous implementation checkpoint:
 Public package smoke coverage now proves the router-hosted MCP empty
 `Last-Event-ID` behavior from consumer-facing APIs, not only router internals.
 The public example and generated router CLI consumer call
@@ -49,8 +63,12 @@ Baseline `bin/test-fast` passed before the change on 2026-07-07. Focused
 formatting, shell syntax, package-boundary, MCP analyzer, public-reference,
 public router-hosted live smoke, router CLI consumer package smoke, and `git
 diff --check` checks passed after the change. Full local `bin/verify` also
-passed on 2026-07-07. Hosted evidence for this checkpoint is pending until it
-is pushed and GitHub workflows complete.
+passed on 2026-07-07. Hosted GitHub `master` CI `28830708692`, GitHub
+`add-router` CI `28830708144`, GitHub `master` Dart Package Publish Dry Run
+`28830708683`, and GitHub `add-router` Dart Package Publish Dry Run
+`28830708153` passed at `1f1b5ad`; the strict deployment-chain audit passed
+with clean latest CI logs plus relevant Dart package, native release, router
+image, and WAMP profile evidence.
 
 Previous implementation checkpoint:
 Router-hosted MCP Streamable HTTP SSE polling now normalizes an empty

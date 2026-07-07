@@ -2097,6 +2097,13 @@ class RouterBinding {
         allowed.add(normalized);
       }
     }
+    if (route.action.type == HttpRouteActionType.mcp &&
+        route.methodActions.isEmpty &&
+        (allowed.contains('GET') ||
+            allowed.contains('POST') ||
+            allowed.contains('DELETE'))) {
+      allowed.add('OPTIONS');
+    }
     if (allowed.contains('GET') &&
         (route.action.type == HttpRouteActionType.file ||
             route.methodActions.entries.any(
