@@ -5,6 +5,12 @@ homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
 publish_to: none
+false_secrets:
+  - /test/certs/http3_key.pem
+  - /test/certs/remote_auth_client_key.pem
+  - /test/certs/remote_auth_server_key.pem
+  - /test/router_json_test.dart
+  - /test/router_runtime_test.dart
 executables:
   connectanum_router:
 environment:

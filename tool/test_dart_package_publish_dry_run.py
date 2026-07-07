@@ -13,9 +13,30 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLISH_DRY_RUN = REPO_ROOT / "bin" / "dart-package-publish-dry-run"
+ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
+ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
+    def test_router_package_archive_metadata_allows_known_test_fixtures(
+        self,
+    ) -> None:
+        pubspec = ROUTER_PUBSPEC.read_text(encoding="utf-8")
+        changelog = ROUTER_CHANGELOG.read_text(encoding="utf-8")
+
+        self.assertIn("## 0.1.0", changelog)
+        self.assertIn("router-hosted MCP", changelog)
+        self.assertIn("false_secrets:", pubspec)
+        for fixture in (
+            "/test/certs/http3_key.pem",
+            "/test/certs/remote_auth_client_key.pem",
+            "/test/certs/remote_auth_server_key.pem",
+            "/test/router_json_test.dart",
+            "/test/router_runtime_test.dart",
+        ):
+            with self.subTest(fixture=fixture):
+                self.assertIn(f"  - {fixture}", pubspec)
+
     def test_hosted_publish_workflow_prints_release_plan(self) -> None:
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "dart-package-publish.yml"

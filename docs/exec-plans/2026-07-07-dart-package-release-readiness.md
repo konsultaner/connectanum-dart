@@ -20,6 +20,8 @@ pub.dev. The current strict release gate fails because the publishable
   public versions, and package naming are explicitly approved.
 - Make `connectanum_core` ready for a future public package slice by fixing
   concrete `dart pub publish --dry-run` findings.
+- Remove concrete non-strategy archive blockers from the router-hosted MCP
+  package path when found, while keeping package publishing disabled.
 - Preserve current RC semantics: GitHub prerelease/router-image readiness can
   stay green while pub.dev release readiness remains blocked.
 
@@ -30,6 +32,8 @@ pub.dev. The current strict release gate fails because the publishable
 - Renaming packages or replacing the legacy public `connectanum` package
   without an explicit package migration decision.
 - Making router, MCP, auth-server, or benchmark packages public in this slice.
+- Rewriting local router package dependencies to hosted package constraints
+  before the package release strategy is approved.
 
 ## Milestones
 
@@ -39,6 +43,8 @@ pub.dev. The current strict release gate fails because the publishable
   names.
 - [x] Make the private `connectanum_core` archive clear its concrete pre-publish
   blockers while keeping it private.
+- [x] Make the private `connectanum_router` archive clear its concrete
+  changelog and false-secret fixture blockers while keeping it private.
 - [x] Re-run local verification and clean package-copy package dry-runs.
 - [ ] Decide the package release strategy: publish modular packages in dependency
   order, keep using the legacy `connectanum` name for client compatibility, or
@@ -49,6 +55,7 @@ pub.dev. The current strict release gate fails because the publishable
 - `bin/test-fast`
 - `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
 - `bin/dart-package-publish-dry-run --include-private connectanum_core`
+- `bin/dart-package-publish-dry-run --include-private connectanum_router`
 - `bin/verify`
 - Clean package-copy simulation: `git archive` the repo, overlay the new
   `connectanum_core` package metadata, then run
@@ -56,6 +63,16 @@ pub.dev. The current strict release gate fails because the publishable
 
 ## Decision Log
 
+- 2026-07-07: Removed concrete router package archive blockers without changing
+  package publishing strategy. `connectanum_router` now has a package changelog
+  and scoped `false_secrets` entries for checked-in test TLS key fixtures and
+  inline test key snippets. `bin/dart-package-publish-dry-run --include-private
+  connectanum_router` no longer reports missing-changelog or false-secret
+  errors; it still exits non-zero for the strategy-bound local workspace
+  dependencies on `connectanum_core`, `connectanum_client`, and
+  `connectanum_mcp`. Baseline `bin/test-fast` and focused
+  `python3 -m unittest tool.test_dart_package_publish_dry_run` passed. Full
+  local `bin/verify` passed after the change.
 - 2026-07-07: Hardened the release gate wording without changing package
   publishability. `bin/dart-package-publish-dry-run --strict-release-ready
   --show-release-plan` now prints a `Dart package release strategy decision
