@@ -35,6 +35,12 @@ and version-sequencing decisions.
   for any package archive-input change under `packages/**`, the dry-run tool,
   this readiness document, and the workflow itself. It can also be started
   manually with `workflow_dispatch`.
+- As of 2026-07-07, pub.dev exposes the legacy public `connectanum` package at
+  `2.2.7`. The modular package names `connectanum_client`, `connectanum_core`,
+  `connectanum_router`, `connectanum_mcp`, and `connectanum_auth_server`
+  returned `404` from the pub.dev package API. That makes package naming and
+  publisher ownership an explicit migration decision, not just a metadata
+  cleanup task.
 
 ## Latest Evidence
 
@@ -54,6 +60,14 @@ As of 2026-05-02:
 - `bin/dart-package-publish-dry-run --show-release-plan` reports the current
   public-release chain as `connectanum_core 0.1.0` before
   `connectanum_client 2.2.6`.
+- On 2026-07-07, a direct private dry-run for `connectanum_core` exposed two
+  concrete archive blockers before the package can be approved for publication:
+  missing `CHANGELOG.md` and a false-positive private-key finding in the
+  checked-in cryptosign fixture. The package now includes a changelog and a
+  scoped `false_secrets` allowlist for that fixture while remaining private. A
+  clean package-copy dry-run passed
+  `bin/dart-package-publish-dry-run --include-private connectanum_core` with
+  `Package has 0 warnings`.
 - The same release-plan output now lists every private workspace package
   separately from blocker packages, so non-blocking private packages such as
   `connectanum_mcp`, `connectanum_router`, `connectanum_auth_server`, and
@@ -98,3 +112,7 @@ When that decision exists, use this sequence:
 - The canonical Dart package release versions have not been chosen for the
   modular workspace packages.
 - Package ownership on pub.dev has not been confirmed in checked-in evidence.
+- The legacy package name `connectanum` is already public, while the modular
+  package names are not currently published. A release decision must choose
+  whether to publish modular packages, continue through a compatibility package,
+  or provide another migration path.

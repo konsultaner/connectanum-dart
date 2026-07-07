@@ -2,7 +2,28 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: router HTTP route config now accepts explicit
+Last reviewed branch checkpoint: `connectanum_core` package archive readiness
+now clears the concrete pub.dev preflight blockers found while promoting Dart
+package publishability from RC deferral to Java-core replacement readiness. The
+core package has a package changelog and allowlists the known cryptosign test
+fixture through Dart pub's `false_secrets` mechanism. This does not remove
+`publish_to: none`; package-name ownership, canonical public versions, and the
+choice between the legacy public `connectanum` package and the new modular
+package names remain explicit release/product decisions. Current pub.dev API
+checks on 2026-07-07 returned `200` for `connectanum` at `2.2.7` and `404` for
+`connectanum_client`, `connectanum_core`, `connectanum_router`,
+`connectanum_mcp`, and `connectanum_auth_server`. Baseline `bin/test-fast`
+passed before the package-readiness change. `bin/dart-package-publish-dry-run
+--strict-release-ready --show-release-plan` still fails as expected because
+`connectanum_client` depends on private `connectanum_core`. A clean
+`git archive` package-copy simulation with the new core metadata passed
+`bin/dart-package-publish-dry-run --include-private connectanum_core` with
+`Package has 0 warnings`, proving the prior missing changelog and
+fixture-secret findings are cleared. Full local `bin/verify` also passed after
+the change on 2026-07-07. Hosted evidence for this local checkpoint is pending;
+latest clean hosted evidence remains commit `a4bbd04`.
+
+Previous implementation checkpoint: router HTTP route config now accepts explicit
 `fastcgi` and `reverse_proxy` adapter actions for Java-core replacement
 readiness, but keeps them fail-closed until the adapter implementations land.
 Both actions require an adapter endpoint through `action.delegate` or
@@ -40,6 +61,20 @@ gate passed on 2026-07-07. Local `bin/test-fast` and post-release
 deferred pending package ownership, public version, and private
 `connectanum_core` dependency release-order decisions.
 Current implementation checkpoint:
+`connectanum_core` is now archive-ready for the next explicit package-release
+slice: the package changelog exists and the known fixture key is scoped through
+`false_secrets` instead of triggering pub's secret scanner. This turns the core
+package blocker from an archive-quality failure into the intended release
+decision: whether to publish `connectanum_core` publicly, under which version
+and publisher, before publishing any package that depends on it.
+
+Baseline `bin/test-fast` passed before the change on 2026-07-07. The strict
+package release gate still fails for the expected private dependency blocker,
+while a clean `git archive` package-copy simulation passed
+`bin/dart-package-publish-dry-run --include-private connectanum_core` with zero
+warnings. Full post-change `bin/verify` passed on 2026-07-07.
+
+Previous implementation checkpoint:
 Router HTTP route configuration now has explicit adapter placeholders for
 FastCGI/PHP-FPM and reverse-proxy migration configs. This prevents consumer
 applications from discovering unsupported Java-core replacement routes only as
