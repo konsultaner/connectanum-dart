@@ -2813,6 +2813,75 @@ void main() {
       expect(toolList.map((tool) => tool['name']), contains('app.echo'));
     }, skip: skipReason);
 
+    test('allows MCP CORS preflight over native HTTP/3', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9136,
+        nativeLib: nativeLib,
+        config: _buildTlsConfig(),
+        settings: _buildRouterSettings(
+          enableHttp3: true,
+          enableMcp: true,
+          mcpRouteMatch: const HttpRouteMatch(
+            path: '/mcp',
+            methods: ['GET'],
+            protocols: ['http3'],
+          ),
+          mcpMethodActions: const <String, HttpRouteAction>{
+            'POST': HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: 'realm1',
+            ),
+          },
+        ),
+        connectionSequence: const [],
+      );
+      addTearDown(harness.dispose);
+
+      if (!harness.runtime.supportsHttp3TestClient) {
+        // Skip without failing the suite when ffi-test helpers are unavailable.
+        // ignore: avoid_print
+        print(
+          'Skipping HTTP/3 MCP preflight test: '
+          'native runtime lacks test client',
+        );
+        return;
+      }
+
+      final listener = harness.binding.listeners.single;
+      expect(
+        listener.http3Port,
+        greaterThan(0),
+        reason: 'Router did not expose an HTTP/3 port',
+      );
+      final nativeLibPath = nativeLib!;
+      final origin = 'https://127.0.0.1:${listener.http3Port}';
+      final preflight = await _requestHttp3(
+        nativeLibPath,
+        listener.http3Port,
+        '/mcp',
+        method: 'OPTIONS',
+        headers: <String, String>{
+          'origin': origin,
+          'access-control-request-method': 'POST',
+          'access-control-request-headers':
+              'Content-Type, MCP-Protocol-Version',
+        },
+      );
+
+      expect(preflight.statusCode, equals(HttpStatus.noContent));
+      expect(preflight.body, isEmpty);
+      expect(preflight.headers['access-control-allow-origin'], equals(origin));
+      expect(
+        preflight.headers['access-control-allow-methods'],
+        allOf(contains('POST'), contains('OPTIONS')),
+      );
+      expect(
+        preflight.headers['access-control-allow-headers']?.toLowerCase(),
+        allOf(contains('content-type'), contains('mcp-protocol-version')),
+      );
+      expect(preflight.headers, isNot(contains('mcp-session-id')));
+    }, skip: skipReason);
+
     test('serves direct JSON WAMP helpers over native HTTP/3', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9128,
@@ -7971,11 +8040,10 @@ _postHttp3Json(
 }) async {
   final bodyText = jsonEncode(payload);
   final bodyBytes = Uint8List.fromList(utf8.encode(bodyText));
-  final response = await _runHttp3StreamRequestInIsolate(
+  final response = await _requestHttp3(
     nativeLibPath,
-    host: '127.0.0.1',
-    port: port,
-    path: path,
+    port,
+    path,
     method: 'POST',
     headers: <String, String>{
       'content-type': ContentType.json.mimeType,
@@ -7983,9 +8051,8 @@ _postHttp3Json(
       ...headers,
     },
     body: bodyBytes,
-    certificatePem: _http3CaCertificatePem,
   );
-  final body = utf8.decode(response.body);
+  final body = response.body;
   Object? decoded;
   if (body.isNotEmpty) {
     try {
@@ -7995,9 +8062,35 @@ _postHttp3Json(
     }
   }
   return (
-    statusCode: response.status,
+    statusCode: response.statusCode,
     json: decoded is Map ? decoded.cast<String, Object?>() : null,
     body: body,
+    headers: response.headers,
+  );
+}
+
+Future<({int statusCode, String body, Map<String, String> headers})>
+_requestHttp3(
+  String nativeLibPath,
+  int port,
+  String path, {
+  required String method,
+  Map<String, String> headers = const <String, String>{},
+  Uint8List? body,
+}) async {
+  final response = await _runHttp3StreamRequestInIsolate(
+    nativeLibPath,
+    host: '127.0.0.1',
+    port: port,
+    path: path,
+    method: method,
+    headers: headers,
+    body: body ?? Uint8List(0),
+    certificatePem: _http3CaCertificatePem,
+  );
+  return (
+    statusCode: response.status,
+    body: utf8.decode(response.body),
     headers: response.headers,
   );
 }

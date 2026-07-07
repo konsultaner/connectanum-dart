@@ -79,6 +79,24 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-07: Extended router-hosted MCP CORS preflight coverage to the native
+  HTTP/3 route path. The new native router regression starts a TLS-backed
+  HTTP/3 MCP route with `POST` mapped through
+  `HttpRouteSettings.methodActions`, omits explicit `OPTIONS`, sends an
+  `OPTIONS` request through the native HTTP/3 test client, and asserts a 204
+  MCP CORS preflight response without `mcp-session-id`. A small generic HTTP/3
+  request helper now supports non-POST methods while `_postHttp3Json` remains
+  the JSON convenience helper. Baseline `bin/test-fast` passed before the
+  change on 2026-07-07. Focused HTTP/3 and full MCP preflight regressions,
+  `dart analyze packages/connectanum_router`, `python3
+  tool/check_public_artifact_references.py`, `git diff --check`, and full
+  local `bin/verify` passed after the change on 2026-07-07, including
+  formatting, Rust/FFI tests, Python boundary tests, package tests, consumer
+  package smokes, live WAMP benchmark integration, router-hosted MCP
+  live/example smokes, the installed `router_bench` smoke, the router CLI
+  consumer package smoke, full router tests with the new HTTP/3 preflight
+  regression, and the Chrome/Dart2Wasm browser WebSocket smoke. Hosted evidence
+  for this local change is pending push.
 - 2026-07-07: Fixed router-hosted MCP CORS preflight handling for
   `HttpRouteSettings.methodActions`. Per-method MCP route actions now add
   implicit `OPTIONS` to Dart route matching and native route targets when the
@@ -96,8 +114,18 @@ decision because `connectanum_client` still depends on private
   integration, router-hosted MCP live/example smokes, the installed
   `router_bench` smoke, the router CLI consumer package smoke, full router
   tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
-  WebSocket smoke. Hosted evidence for this new checkpoint is pending after
-  push.
+  WebSocket smoke. Hosted evidence after push: commit `d096ee1` was pushed to
+  GitLab `origin` `add-router`, GitHub `add-router`, and GitHub `master`;
+  GitHub `master` CI `28837063791`, Dart Package Publish Dry Run
+  `28837063793`, WAMP Profile Benchmarks `28837063812`, and non-mutating
+  Router Image dry-run `28837077341` passed. GitHub `add-router` Dart Package
+  Publish Dry Run `28837063790` and WAMP Profile Benchmarks `28837063874` also
+  passed; GitHub `add-router` CI `28837063814` also passed. The strict
+  deployment-chain audit passed for GitHub `master` at `d096ee1` with clean
+  latest CI logs plus relevant Dart package, native release, router image, and
+  WAMP profile evidence. RC readiness remains blocked only on
+  selecting/approving the numeric RC tag/prerelease/router image tag plus the
+  deferred pub.dev package ownership/order track.
 - 2026-07-07: Fixed route-level MCP CORS preflight handling for consumer
   configurations that explicitly list `GET`, `POST`, and `DELETE` but omit
   `OPTIONS`. Single-action MCP routes now add `OPTIONS` to the Dart-side route
