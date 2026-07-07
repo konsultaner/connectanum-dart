@@ -150,11 +150,18 @@ class Router {
     }
 
     final methodTargets = <String, HttpRouteAction>{};
+    HttpRouteAction? mcpPreflightTarget;
     if (!dartHandledMcpRoute) {
       for (final method in match.methods) {
         final normalized = method.trim().toUpperCase();
         if (normalized.isNotEmpty) {
           methodTargets[normalized] = route.action;
+          if (route.action.type == HttpRouteActionType.mcp &&
+              (normalized == 'GET' ||
+                  normalized == 'POST' ||
+                  normalized == 'DELETE')) {
+            mcpPreflightTarget ??= route.action;
+          }
         }
       }
       if (route.action.type == HttpRouteActionType.file &&
@@ -166,7 +173,16 @@ class Router {
       final normalized = entry.key.trim().toUpperCase();
       if (normalized.isNotEmpty) {
         methodTargets[normalized] = entry.value;
+        if (entry.value.type == HttpRouteActionType.mcp &&
+            (normalized == 'GET' ||
+                normalized == 'POST' ||
+                normalized == 'DELETE')) {
+          mcpPreflightTarget ??= entry.value;
+        }
       }
+    }
+    if (mcpPreflightTarget != null) {
+      methodTargets.putIfAbsent('OPTIONS', () => mcpPreflightTarget!);
     }
     final getMethodAction = methodTargets['GET'];
     if (getMethodAction != null &&

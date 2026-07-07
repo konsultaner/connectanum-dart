@@ -1039,13 +1039,24 @@ class RouterBinding {
     final listenerSettings = _listenerConfigById[request.listenerId];
     final routeMatch = _matchHttpRoute(listenerSettings?.http, request);
     final httpMethod = request.method.trim().toUpperCase();
+    final corsPreflightMethod = _isCorsPreflight(request)
+        ? _headerValue(
+            request.headers,
+            'access-control-request-method',
+          )?.trim().toUpperCase()
+        : null;
     final matchedRoute = _withEffectiveHttpRouteAction(
       routeMatch.route,
       httpMethod,
+      preflightMethod: corsPreflightMethod,
     );
     final responseRoute =
         matchedRoute ??
-        _withEffectiveHttpRouteAction(routeMatch.errorRoute, httpMethod);
+        _withEffectiveHttpRouteAction(
+          routeMatch.errorRoute,
+          httpMethod,
+          preflightMethod: corsPreflightMethod,
+        );
     final sessionProfile = _resolveHttpSessionProfile(
       listenerSettings: listenerSettings,
       route: responseRoute,
@@ -1993,12 +2004,17 @@ class RouterBinding {
 
   HttpRouteSettings? _withEffectiveHttpRouteAction(
     HttpRouteSettings? route,
-    String method,
-  ) {
+    String method, {
+    String? preflightMethod,
+  }) {
     if (route == null) {
       return null;
     }
-    final action = _effectiveHttpRouteAction(route, method);
+    final action = _effectiveHttpRouteAction(
+      route,
+      method,
+      preflightMethod: preflightMethod,
+    );
     if (identical(action, route.action) || action == route.action) {
       return route;
     }
@@ -2011,9 +2027,26 @@ class RouterBinding {
 
   HttpRouteAction _effectiveHttpRouteAction(
     HttpRouteSettings route,
-    String method,
-  ) {
+    String method, {
+    String? preflightMethod,
+  }) {
     final normalized = method.trim().toUpperCase();
+    final requestedPreflightMethod = preflightMethod?.trim().toUpperCase();
+    if (normalized == 'OPTIONS' &&
+        requestedPreflightMethod != null &&
+        requestedPreflightMethod.isNotEmpty) {
+      for (final entry in route.methodActions.entries) {
+        if (entry.key.trim().toUpperCase() == requestedPreflightMethod) {
+          return entry.value;
+        }
+      }
+      if (route.action.type == HttpRouteActionType.mcp &&
+          route.match.methods
+              .map((method) => method.trim().toUpperCase())
+              .contains(requestedPreflightMethod)) {
+        return route.action;
+      }
+    }
     for (final entry in route.methodActions.entries) {
       if (entry.key.trim().toUpperCase() == normalized) {
         return entry.value;
@@ -2085,23 +2118,30 @@ class RouterBinding {
 
   List<String> _httpRouteAllowedMethods(HttpRouteSettings route) {
     final allowed = <String>{};
+    var hasMcpPreflightTarget = false;
     for (final method in route.match.methods) {
       final normalized = method.trim().toUpperCase();
       if (normalized.isNotEmpty) {
         allowed.add(normalized);
+        hasMcpPreflightTarget |=
+            route.action.type == HttpRouteActionType.mcp &&
+            (normalized == 'GET' ||
+                normalized == 'POST' ||
+                normalized == 'DELETE');
       }
     }
-    for (final method in route.methodActions.keys) {
-      final normalized = method.trim().toUpperCase();
+    for (final entry in route.methodActions.entries) {
+      final normalized = entry.key.trim().toUpperCase();
       if (normalized.isNotEmpty) {
         allowed.add(normalized);
+        hasMcpPreflightTarget |=
+            entry.value.type == HttpRouteActionType.mcp &&
+            (normalized == 'GET' ||
+                normalized == 'POST' ||
+                normalized == 'DELETE');
       }
     }
-    if (route.action.type == HttpRouteActionType.mcp &&
-        route.methodActions.isEmpty &&
-        (allowed.contains('GET') ||
-            allowed.contains('POST') ||
-            allowed.contains('DELETE'))) {
+    if (hasMcpPreflightTarget) {
       allowed.add('OPTIONS');
     }
     if (allowed.contains('GET') &&

@@ -2450,6 +2450,68 @@ void main() {
     );
 
     test(
+      'allows MCP CORS preflight for method actions without explicit OPTIONS',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 91231,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(
+            enableHttp3: false,
+            enableMcp: true,
+            mcpRouteMatch: const HttpRouteMatch(path: '/mcp', methods: ['GET']),
+            mcpRouteAction: const HttpRouteAction(
+              type: HttpRouteActionType.rpc,
+              realm: 'realm1',
+              procedure: 'com.example.http.health',
+            ),
+            mcpMethodActions: const <String, HttpRouteAction>{
+              'POST': HttpRouteAction(
+                type: HttpRouteActionType.mcp,
+                realm: 'realm1',
+              ),
+            },
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        final origin = 'http://127.0.0.1:${listener.port}';
+        final request = await client.open(
+          'OPTIONS',
+          '127.0.0.1',
+          listener.port,
+          '/mcp',
+        );
+        request.headers.set('Origin', origin);
+        request.headers.set('Access-Control-Request-Method', 'POST');
+        request.headers.set(
+          'Access-Control-Request-Headers',
+          'Content-Type, MCP-Protocol-Version',
+        );
+
+        final preflight = await _readJsonHttpResponse(await request.close());
+
+        expect(preflight.statusCode, equals(HttpStatus.noContent));
+        expect(
+          preflight.headers['access-control-allow-origin'],
+          equals(origin),
+        );
+        expect(
+          preflight.headers['access-control-allow-methods'],
+          allOf(contains('POST'), contains('OPTIONS')),
+        );
+        expect(
+          preflight.headers['access-control-allow-headers']?.toLowerCase(),
+          allOf(contains('content-type'), contains('mcp-protocol-version')),
+        );
+        expect(preflight.headers, isNot(contains('mcp-session-id')));
+      },
+      skip: skipReason,
+    );
+
+    test(
       'keeps MCP response envelope on route-level method rejection',
       () async {
         final harness = await _RouterHarness.start(
@@ -7006,6 +7068,9 @@ RouterSettings _buildRouterSettings({
   bool enableMetrics = false,
   bool enableMcp = false,
   HttpRouteMatch? mcpRouteMatch,
+  HttpRouteAction? mcpRouteAction,
+  Map<String, HttpRouteAction> mcpMethodActions =
+      const <String, HttpRouteAction>{},
   Map<String, Object?>? mcpOptions,
 }) {
   final realmBuilder = RealmSettingsBuilder('realm1')
@@ -7165,11 +7230,14 @@ RouterSettings _buildRouterSettings({
     routes.add(
       HttpRouteSettings(
         match: mcpRouteMatch ?? const HttpRouteMatch(path: '/mcp'),
-        action: HttpRouteAction(
-          type: HttpRouteActionType.mcp,
-          realm: 'realm1',
-          options: effectiveMcpOptions,
-        ),
+        action:
+            mcpRouteAction ??
+            HttpRouteAction(
+              type: HttpRouteActionType.mcp,
+              realm: 'realm1',
+              options: effectiveMcpOptions,
+            ),
+        methodActions: mcpMethodActions,
       ),
     );
   }

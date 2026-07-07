@@ -79,6 +79,25 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-07: Fixed router-hosted MCP CORS preflight handling for
+  `HttpRouteSettings.methodActions`. Per-method MCP route actions now add
+  implicit `OPTIONS` to Dart route matching and native route targets when the
+  backed method is `GET`, `POST`, or `DELETE`; the HTTP binding resolves
+  `OPTIONS` against `Access-Control-Request-Method` so the MCP handler owns the
+  preflight and returns MCP CORS headers without allocating session state. The
+  native router regression uses a default RPC route with only `POST` mapped to
+  MCP, proving consumer applications do not need a separate `OPTIONS` method
+  action. Baseline `bin/test-fast` passed before the change on 2026-07-07.
+  Focused router native MCP preflight regressions, `dart analyze
+  packages/connectanum_router`, `python3 tool/check_public_artifact_references.py`,
+  and `git diff --check` passed after the change. Full local `bin/verify`
+  passed on 2026-07-07, including formatting, Rust/FFI tests, Python boundary
+  tests, package tests, consumer package smokes, live WAMP benchmark
+  integration, router-hosted MCP live/example smokes, the installed
+  `router_bench` smoke, the router CLI consumer package smoke, full router
+  tests, HTTP/2 and HTTP/3 router integration, and the Chrome/Dart2Wasm browser
+  WebSocket smoke. Hosted evidence for this new checkpoint is pending after
+  push.
 - 2026-07-07: Fixed route-level MCP CORS preflight handling for consumer
   configurations that explicitly list `GET`, `POST`, and `DELETE` but omit
   `OPTIONS`. Single-action MCP routes now add `OPTIONS` to the Dart-side route
@@ -89,8 +108,18 @@ decision because `connectanum_client` still depends on private
   route-level envelope regressions, `dart analyze packages/connectanum_router`,
   `python3 tool/check_public_artifact_references.py`, and `git diff --check`
   passed after the change. Full local `bin/verify` passed on 2026-07-07.
-  Latest hosted release-chain evidence remains the clean `1f1b5ad` checkpoint
-  until this implementation checkpoint is pushed and hosted checks complete.
+  Hosted evidence after push: commit `ec7b11b` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub `master` CI
+  `28833885318` and GitHub `add-router` CI `28833884622` passed with Fast
+  Checks and Full Verify green; Dart Package Publish Dry Run passed on GitHub
+  `master` `28833885315` and GitHub `add-router` `28833884628`; WAMP Profile
+  Benchmarks passed on GitHub `master` `28833885335` and GitHub `add-router`
+  `28833884698`; Router Image dry-run `28834545027` passed for GitHub
+  `master`; and the strict deployment-chain audit passed for GitHub `master`
+  at `ec7b11b` with CI log scan clean and clean/relevant Dart package, native
+  release, router image, and WAMP profile evidence. RC readiness remains
+  blocked only on selecting/approving the numeric RC tag/prerelease/router
+  image tag plus the deferred pub.dev package ownership/order track.
 - 2026-07-07: Extended router-hosted MCP empty `Last-Event-ID` coverage to
   consumer-facing package smokes. The public router-hosted `connectanum_mcp`
   client example and generated router CLI consumer package smoke now call
