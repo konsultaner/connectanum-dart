@@ -2,7 +2,25 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: router HTTP `fastcgi` route actions now perform
+Last reviewed branch checkpoint: the generated router CLI consumer package
+smoke now proves configured FastCGI adapter routes through the public
+`connectanum_router` package executable path. The smoke starts a neutral local
+FastCGI upstream, configures a `/php` HTTP route with `type: fastcgi`,
+`document_root`, and `strip_prefix: true`, then asserts that a real HTTP POST
+through the router returns the upstream status, `X-FastCGI` header, request
+body, stripped `SCRIPT_FILENAME`, and query string. The package-boundary guard
+also now pins this smoke coverage so future consumer-smoke refactors cannot
+drop FastCGI coverage silently.
+
+Baseline `bin/test-fast` passed before the router CLI FastCGI consumer-smoke
+extension on 2026-07-07. Focused `bash -n bin/common.sh`, the focused
+FastCGI package-boundary unittest, full
+`python3 -m unittest tool.test_mcp_consumer_package_boundary`,
+`python3 tool/check_public_artifact_references.py`, `git diff --check`,
+focused `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`,
+and full local `bin/verify` passed after the change on 2026-07-07.
+
+Previous implementation checkpoint: router HTTP `fastcgi` route actions now perform
 buffered FastCGI/PHP-FPM forwarding instead of returning the prior structured
 adapter stub response. The route resolves the existing adapter endpoint aliases,
 supports `fastcgi://`, `fcgi://`, `tcp://`, `host:port`, `unix:/path`, and
@@ -43,12 +61,12 @@ gate still fails as expected because `connectanum_client` depends on private
 `bin/dart-package-publish-dry-run --include-private connectanum_core` with zero
 warnings.
 
-Latest fully clean hosted checkpoint: commit `bd2bb0d` on branch `add-router`
-passed GitHub CI `28869619605` (Fast Checks and Full Verify), Dart Package
-Publish Dry Run `28869619697`, and WAMP Profile Benchmarks `28869619713` after
-the buffered reverse-proxy forwarding slice. The clean deployment-chain evidence
-audit passed with latest CI/logs, Dart package dry-run, and WAMP benchmark
-requirements. The same audit with `--strict` still reports the known
+Latest fully clean hosted checkpoint: commit `ab52acd` on branch `add-router`
+passed GitHub CI `28873669889` (Fast Checks and Full Verify), Dart Package
+Publish Dry Run `28873671898`, and WAMP Profile Benchmarks `28873669921` after
+the buffered FastCGI/PHP-FPM forwarding slice. The clean deployment-chain
+evidence audit passed with latest CI/logs, Dart package dry-run, and WAMP
+benchmark requirements. The same audit with `--strict` still reports the known
 operator-owned `add-router` branch-protection gap: the branch is unprotected and
 does not require Fast Checks and Full Verify.
 Release candidate checkpoint: `v0.1.0-rc.2` now points at `a4bbd04` on GitHub

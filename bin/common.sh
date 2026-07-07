@@ -23852,6 +23852,12 @@ run_router_cli_consumer_package_smoke() (
   local asset_range_body_file
   local asset_range_headers_file
   local asset_traversal_body_file
+  local fastcgi_body
+  local fastcgi_body_file
+  local fastcgi_headers_file
+  local fastcgi_port
+  local fastcgi_server_log
+  local fastcgi_server_pid
   local traversal_status
   local dart_consumer_summary
   local smoke_dir
@@ -23868,6 +23874,7 @@ run_router_cli_consumer_package_smoke() (
   pub_cache="$smoke_dir/pub-cache"
   router_log="$smoke_dir/router.log"
   router_pid=""
+  fastcgi_server_pid=""
   # The executable smoke should prove that consumer harnesses can discover the
   # source-checkout alias without requiring pub global activation first.
   _router_cli_smoke_process_ids() {
@@ -23957,6 +23964,12 @@ run_router_cli_consumer_package_smoke() (
 
     status="${1:-$?}"
     trap - EXIT HUP INT TERM
+    if [[ -n "${fastcgi_server_pid:-}" ]]; then
+      if kill -0 "$fastcgi_server_pid" >/dev/null 2>&1; then
+        kill "$fastcgi_server_pid" >/dev/null 2>&1 || true
+      fi
+      wait "$fastcgi_server_pid" >/dev/null 2>&1 || true
+    fi
     if [[ -n "${router_pid:-}" ]]; then
       if kill -0 "$router_pid" >/dev/null 2>&1; then
         kill "$router_pid" >/dev/null 2>&1 || true
@@ -24096,9 +24109,160 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
     print(sock.getsockname()[1])
 PY
   )"
+  fastcgi_port="$(
+    python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+  )"
 
   mkdir -p "$smoke_dir/static"
   printf 'router file route smoke\n' >"$smoke_dir/static/hello.txt"
+  fastcgi_server_log="$smoke_dir/fastcgi.log"
+  cat >"$smoke_dir/fastcgi_upstream.py" <<'PY'
+import os
+import socket
+import struct
+
+FCGI_VERSION = 1
+FCGI_BEGIN_REQUEST = 1
+FCGI_END_REQUEST = 3
+FCGI_PARAMS = 4
+FCGI_STDIN = 5
+FCGI_STDOUT = 6
+REQUEST_ID = 1
+
+
+def read_exact(stream, length):
+    data = bytearray()
+    while len(data) < length:
+        chunk = stream.recv(length - len(data))
+        if not chunk:
+            raise EOFError("unexpected FastCGI EOF")
+        data.extend(chunk)
+    return bytes(data)
+
+
+def read_length(data, offset):
+    first = data[offset]
+    if first & 0x80:
+        return (
+            ((first & 0x7F) << 24)
+            | (data[offset + 1] << 16)
+            | (data[offset + 2] << 8)
+            | data[offset + 3],
+            offset + 4,
+        )
+    return first, offset + 1
+
+
+def decode_params(data):
+    params = {}
+    offset = 0
+    while offset < len(data):
+        name_length, offset = read_length(data, offset)
+        value_length, offset = read_length(data, offset)
+        name = data[offset : offset + name_length].decode("utf-8")
+        offset += name_length
+        value = data[offset : offset + value_length].decode("utf-8")
+        offset += value_length
+        params[name] = value
+    return params
+
+
+def record(record_type, content):
+    padding_length = (8 - (len(content) % 8)) % 8
+    header = struct.pack(
+        "!BBHHBB",
+        FCGI_VERSION,
+        record_type,
+        REQUEST_ID,
+        len(content),
+        padding_length,
+        0,
+    )
+    return header + content + (b"\x00" * padding_length)
+
+
+def serve(connection):
+    params_bytes = bytearray()
+    stdin_bytes = bytearray()
+    while True:
+        header = read_exact(connection, 8)
+        version, record_type, request_id, content_length, padding_length, _ = (
+            struct.unpack("!BBHHBB", header)
+        )
+        if version != FCGI_VERSION or request_id != REQUEST_ID:
+            raise ValueError("unexpected FastCGI record header")
+        content = read_exact(connection, content_length)
+        if padding_length:
+            read_exact(connection, padding_length)
+        if record_type == FCGI_BEGIN_REQUEST:
+            continue
+        if record_type == FCGI_PARAMS:
+            if content:
+                params_bytes.extend(content)
+            continue
+        if record_type == FCGI_STDIN:
+            if content:
+                stdin_bytes.extend(content)
+                continue
+            break
+
+    params = decode_params(bytes(params_bytes))
+    body = (
+        "fastcgi:"
+        f"{stdin_bytes.decode('utf-8')}:"
+        f"{params.get('REQUEST_METHOD', '')}:"
+        f"{params.get('SCRIPT_FILENAME', '')}:"
+        f"{params.get('QUERY_STRING', '')}"
+    ).encode("utf-8")
+    stdout = (
+        b"Status: 207 Multi-Status\r\n"
+        b"Content-Type: text/plain\r\n"
+        b"X-FastCGI: ok\r\n"
+        b"\r\n"
+        + body
+    )
+    connection.sendall(record(FCGI_STDOUT, stdout))
+    connection.sendall(record(FCGI_STDOUT, b""))
+    connection.sendall(record(FCGI_END_REQUEST, struct.pack("!IB3x", 0, 0)))
+
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", int(os.environ["FASTCGI_PORT"])))
+    server.listen(1)
+    with open(os.environ["FASTCGI_READY"], "w", encoding="utf-8") as ready:
+        ready.write("ready\n")
+    connection, _ = server.accept()
+    with connection:
+        serve(connection)
+PY
+  FASTCGI_PORT="$fastcgi_port" \
+    FASTCGI_READY="$smoke_dir/fastcgi.ready" \
+    python3 "$smoke_dir/fastcgi_upstream.py" \
+      >"$fastcgi_server_log" 2>&1 &
+  fastcgi_server_pid=$!
+  for _ in {1..50}; do
+    if [[ -f "$smoke_dir/fastcgi.ready" ]]; then
+      break
+    fi
+    if ! kill -0 "$fastcgi_server_pid" >/dev/null 2>&1; then
+      printf 'Router CLI FastCGI smoke upstream exited before readiness.\n' >&2
+      cat "$fastcgi_server_log" >&2
+      _cleanup_router_cli_smoke 1
+    fi
+    sleep 0.1
+  done
+  if [[ ! -f "$smoke_dir/fastcgi.ready" ]]; then
+    printf 'Router CLI FastCGI smoke upstream did not become ready.\n' >&2
+    cat "$fastcgi_server_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
 
   cat >"$smoke_dir/router.yaml" <<YAML
 router:
@@ -24177,6 +24341,16 @@ router:
               type: session_proxy
               delegate: metrics
               procedure: connectanum.metrics.healthz
+          - match:
+              prefix: /php
+              methods: [GET, POST]
+            action:
+              type: fastcgi
+              delegate: "127.0.0.1:$fastcgi_port"
+              options:
+                document_root: /srv/app/public
+                strip_prefix: true
+                timeout_ms: 5000
           - match:
               path: /auth
               methods: [POST]
@@ -24440,6 +24614,8 @@ YAML
   asset_range_headers_file="$smoke_dir/asset-range.headers"
   asset_range_body_file="$smoke_dir/asset-range.body"
   asset_traversal_body_file="$smoke_dir/asset-traversal.body"
+  fastcgi_headers_file="$smoke_dir/fastcgi.headers"
+  fastcgi_body_file="$smoke_dir/fastcgi.body"
 
   curl -fsS -D "$asset_headers_file" -o "$asset_body_file" \
     "http://127.0.0.1:$mcp_port/assets/hello.txt"
@@ -24485,6 +24661,20 @@ YAML
     _cleanup_router_cli_smoke 1
   fi
   grep -F 'file_not_found' "$asset_traversal_body_file" >/dev/null
+
+  curl -fsS -D "$fastcgi_headers_file" -o "$fastcgi_body_file" \
+    --data-binary 'ping' \
+    "http://127.0.0.1:$mcp_port/php/index.php?active=true"
+  fastcgi_body="$(<"$fastcgi_body_file")"
+  if [[ "$fastcgi_body" != "fastcgi:ping:POST:/srv/app/public/index.php:active=true" ]]; then
+    printf 'Router CLI configured FastCGI route returned unexpected body: %s\n' \
+      "$fastcgi_body" >&2
+    cat "$fastcgi_server_log" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+  grep -Eq '^HTTP/[0-9.]+ 207' "$fastcgi_headers_file"
+  grep -Eiq '^x-fastcgi: ok\r?$' "$fastcgi_headers_file"
 
   MCP_PORT="$mcp_port" python3 - <<'PY'
 import json
@@ -29753,7 +29943,7 @@ DART
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub/notification pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/notification pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/empty Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta, resource/prompt, and notification pub-sub isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/notification pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
+  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, a configured /php FastCGI route backed by a neutral upstream, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub/notification pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/notification pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/empty Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta, resource/prompt, and notification pub-sub isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/notification pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
   printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay across the method matrix.\n'
   _cleanup_router_cli_smoke 0
 )

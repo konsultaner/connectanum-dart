@@ -525,6 +525,25 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"sessionProxy":true', body)
         self.assertIn("configured /proxy/healthz session_proxy route", body)
 
+    def test_router_cli_consumer_smoke_exercises_fastcgi_route(
+        self,
+    ) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+
+        self.assertIn("fastcgi_upstream.py", body)
+        self.assertIn("FASTCGI_PORT", body)
+        self.assertIn("prefix: /php", body)
+        self.assertIn("type: fastcgi", body)
+        self.assertIn('delegate: "127.0.0.1:$fastcgi_port"', body)
+        self.assertIn("document_root: /srv/app/public", body)
+        self.assertIn("strip_prefix: true", body)
+        self.assertIn("/php/index.php?active=true", body)
+        self.assertIn("Router CLI configured FastCGI route", body)
+        self.assertIn("fastcgi:ping:POST:/srv/app/public/index.php:active=true", body)
+        self.assertIn("x-fastcgi: ok", body)
+        self.assertIn("configured /php FastCGI route", body)
+
     def test_router_cli_consumer_smoke_exercises_native_metrics_routes(
         self,
     ) -> None:
