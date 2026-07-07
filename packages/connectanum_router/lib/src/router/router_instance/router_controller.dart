@@ -308,6 +308,21 @@ class Router {
           'realm': 'router.http',
           'procedure': 'router.http.handler',
         };
+      case HttpRouteActionType.fastCgi:
+      case HttpRouteActionType.reverseProxy:
+        final endpoint = _httpRouteAdapterEndpoint(action);
+        if (endpoint == null || endpoint.isEmpty) {
+          throw StateError(
+            'HTTP ${httpRouteActionTypeToString(action.type)} routes require an adapter endpoint; set action.delegate or action.options.target/upstream/socket.',
+          );
+        }
+        return <String, Object?>{
+          'type': 'translation',
+          'realm': 'router.http',
+          'procedure': action.type == HttpRouteActionType.fastCgi
+              ? 'router.http.fastcgi'
+              : 'router.http.reverse_proxy',
+        };
       case HttpRouteActionType.sessionProxy:
         final target = _httpRouteSessionProxyTarget(action);
         final procedure = _httpRouteSessionProxyProcedure(action) ?? target;

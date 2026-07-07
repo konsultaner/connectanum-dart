@@ -2,41 +2,59 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: protected router-hosted MCP over native
-HTTP/3 now also covers lifecycle-free direct JSON WAMP helper access. The
-native integration regression reuses the protected MCP smoke fixture over
-TLS-backed HTTP/3, issues a ticket bearer grant over HTTP/3, rejects missing and
-invalid bearer direct JSON calls without issuing `mcp-session-id`, then uses a
-valid bearer for direct JSON `POST` requests against `tools/list`,
-`connectanum.api.list`, WAMP session and registration meta helpers, and
-`connectanum.pubsub` subscribe/publish/poll/unsubscribe. The regression asserts
-the direct helper metadata is scoped to the authenticated member principal and
-that direct JSON responses remain Streamable-session-free. Baseline
-`bin/test-fast` passed before the change on 2026-07-07. Focused `dart test
-packages/connectanum_router/test/router_integration_native_test.dart --name
-"serves protected direct JSON WAMP helpers over native HTTP/3" -r expanded`,
-focused `dart test
-packages/connectanum_router/test/router_integration_native_test.dart --name
-"native HTTP/3" -r expanded`, `dart analyze packages/connectanum_router`,
-`python3 tool/check_public_artifact_references.py`, `git diff --check`, and
+Last reviewed branch checkpoint: router HTTP route config now accepts explicit
+`fastcgi` and `reverse_proxy` adapter actions for Java-core replacement
+readiness, but keeps them fail-closed until the adapter implementations land.
+Both actions require an adapter endpoint through `action.delegate` or
+`action.options.target`/`upstream`/`socket` aliases, encode to deterministic
+`router.http.fastcgi` / `router.http.reverse_proxy` native routes, and return a
+structured `501 http_adapter_not_implemented` response without WAMP fallback or
+endpoint-value echo. Baseline `bin/test-fast` passed before the change on
+2026-07-07. Focused
+`dart test packages/connectanum_router/test/router_config_loader_test.dart
+packages/connectanum_router/test/router_json_test.dart -r expanded`, focused
+`dart test packages/connectanum_router/test/router_runtime_test.dart
+--plain-name "returns structured 501 for unsupported HTTP adapter routes" -r
+expanded`, `dart analyze packages/connectanum_router`, `git diff --check`, and
 full local `bin/verify` passed after the change on 2026-07-07. Hosted evidence
 for this local checkpoint is pending; latest clean hosted evidence remains
-commit `c8a2798`.
-Latest fully clean hosted checkpoint: Commit `c8a2798` on GitHub `master`
-passed the strict deployment-chain audit after the protected native HTTP/3 MCP
-auth/session regression. GitHub `master` CI `28843544922`, Dart Package
-Publish Dry Run `28843544936`, and WAMP Profile Benchmarks `28843544935`
-passed at `c8a2798`; GitHub `add-router` CI `28843541469`, Dart Package
-Publish Dry Run `28843541476`, and WAMP Profile Benchmarks `28843541479` also
+commit `a4bbd04`.
+Latest fully clean hosted checkpoint: Commit `a4bbd04` on GitHub `master`
+passed the strict deployment-chain audit after the protected native HTTP/3
+direct JSON MCP regression. GitHub `master` CI `28845995413`, Dart Package
+Publish Dry Run `28845995396`, and WAMP Profile Benchmarks `28845995459`
+passed at `a4bbd04`; GitHub `add-router` CI `28845993869`, Dart Package
+Publish Dry Run `28845993872`, and WAMP Profile Benchmarks `28845993948` also
 passed.
-Non-mutating Router Image dry-run evidence remains clean and relevant from
-`d096ee1`; native artifact dry-run evidence remains clean and relevant from
-`d64d220`. The remaining RC-ready audit blockers are release decisions:
-selecting the numeric RC tag/prerelease/router-image tag, with `v0.1.0-rc.2`
-suggested for the clean hosted `c8a2798` checkpoint after stale
-`v0.1.0-rc.1`, and deferring pub.dev package ownership/order for the private
-core dependency.
+Release candidate checkpoint: `v0.1.0-rc.2` now points at `a4bbd04` on GitHub
+and GitLab. GitHub tag-triggered Native Artifacts `28855014117` published the
+non-draft prerelease with 30 native bundle/checksum/Sigstore assets, Router
+Image `28855014172` published `ghcr.io/konsultaner/connectanum-router:0.1.0-rc.2`,
+and follow-up Native Artifacts `28855450709` passed on `master`. The GitHub
+prerelease target metadata was corrected to `a4bbd04`, then the strict
+`bin/audit-github-deployment-chain --branch master --require-clean-latest-ci
+--require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run
+--require-clean-router-image-dry-run --require-rc-ready --show-rc-readiness`
+gate passed on 2026-07-07. Local `bin/test-fast` and post-release
+`bin/verify` also passed on 2026-07-07. Public pub.dev publishing remains
+deferred pending package ownership, public version, and private
+`connectanum_core` dependency release-order decisions.
 Current implementation checkpoint:
+Router HTTP route configuration now has explicit adapter placeholders for
+FastCGI/PHP-FPM and reverse-proxy migration configs. This prevents consumer
+applications from discovering unsupported Java-core replacement routes only as
+unknown config values or accidental WAMP bridge fallthroughs. Runtime responses
+are intentionally 501 until the adapters are implemented, and they avoid
+including configured endpoint values because those URLs can contain
+credentials.
+
+Baseline `bin/test-fast` passed before the change on 2026-07-07. Focused
+config/native/runtime adapter tests, package analysis, `git diff --check`, and
+full local `bin/verify` passed after the change on 2026-07-07. Hosted evidence
+for this local checkpoint is pending; latest clean hosted evidence remains
+commit `a4bbd04`.
+
+Previous implementation checkpoint:
 Protected router-hosted MCP over native HTTP/3 now covers direct JSON WAMP
 helper access as well as Streamable HTTP. The new native integration regression
 exercises the secure `/mcp/secure` route through raw HTTP/3 JSON calls: ticket
@@ -55,12 +73,17 @@ packages/connectanum_router/test/router_integration_native_test.dart --name
 "native HTTP/3" -r expanded`, `dart analyze packages/connectanum_router`,
 `python3 tool/check_public_artifact_references.py`, `git diff --check`, and
 full local `bin/verify` passed after the change on 2026-07-07. Hosted evidence
-for this local checkpoint is pending. Router Image dry-run evidence remains
-clean and relevant from `d096ee1`, and native artifact dry-run evidence remains
-clean and relevant from `d64d220`.
-RC readiness remains blocked only on selecting/approving the numeric RC
-tag/prerelease/router image tag plus the deferred pub.dev package
-ownership/order track.
+after push: commit `a4bbd04` was pushed to GitLab `origin` `add-router`,
+GitHub `add-router`, and GitHub `master`; GitHub `master` CI `28845995413`,
+Dart Package Publish Dry Run `28845995396`, WAMP Profile Benchmarks
+`28845995459`, and the strict deployment-chain audit passed. GitHub
+`add-router` CI `28845993869`, Dart Package Publish Dry Run `28845993872`,
+and WAMP Profile Benchmarks `28845993948` also passed. Router Image dry-run
+evidence remains clean and relevant from `d096ee1`, and native artifact
+dry-run evidence remains clean and relevant from `d64d220`.
+RC readiness for the GitHub prerelease path is now green at `v0.1.0-rc.2`.
+The remaining release-track work is the explicitly deferred pub.dev ownership,
+versioning, and private dependency order decision.
 
 Previous implementation checkpoint:
 The protected router-hosted MCP smoke fixture can now opt into native HTTP/3

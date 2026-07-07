@@ -786,6 +786,8 @@ enum HttpRouteActionType {
   mcp,
   file,
   sessionProxy,
+  fastCgi,
+  reverseProxy,
   publish,
   handler,
 }
@@ -810,6 +812,19 @@ HttpRouteActionType httpRouteActionTypeFromString(String value) {
     case 'sessionProxy':
     case 'session-proxy':
       return HttpRouteActionType.sessionProxy;
+    case 'fastcgi':
+    case 'fast_cgi':
+    case 'fastCgi':
+    case 'fastCGI':
+    case 'php_fpm':
+    case 'php-fpm':
+    case 'phpFpm':
+      return HttpRouteActionType.fastCgi;
+    case 'reverse_proxy':
+    case 'reverseProxy':
+    case 'reverse-proxy':
+    case 'proxy':
+      return HttpRouteActionType.reverseProxy;
     case 'publish':
       return HttpRouteActionType.publish;
     case 'handler':
@@ -830,6 +845,8 @@ String httpRouteActionTypeToString(HttpRouteActionType type) => switch (type) {
   HttpRouteActionType.mcp => 'mcp',
   HttpRouteActionType.file => 'file',
   HttpRouteActionType.sessionProxy => 'session_proxy',
+  HttpRouteActionType.fastCgi => 'fastcgi',
+  HttpRouteActionType.reverseProxy => 'reverse_proxy',
   HttpRouteActionType.publish => 'publish',
   HttpRouteActionType.handler => 'handler',
 };

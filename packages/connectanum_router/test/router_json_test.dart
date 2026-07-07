@@ -262,6 +262,104 @@ void main() {
       );
     });
 
+    test('encodes explicit HTTP adapter routes as router-hosted endpoints', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      const settings = RouterSettings(
+        realms: [],
+        listeners: [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/php'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.fastCgi,
+                    delegate: 'tcp://127.0.0.1:9000',
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: <String, Object?>{
+                      'upstream': 'https://api.example.invalid',
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      final map =
+          json.decode(utf8.decode(router.buildNativeConfigJson())) as Map;
+      final endpointJson = (map['endpoints'] as List).single as Map;
+      final routes = endpointJson['http_routes'] as List;
+      final fastCgiAction = (routes[0] as Map)['default'] as Map;
+      expect(fastCgiAction['type'], 'translation');
+      expect(fastCgiAction['realm'], 'router.http');
+      expect(fastCgiAction['procedure'], 'router.http.fastcgi');
+      final reverseProxyAction = (routes[1] as Map)['default'] as Map;
+      expect(reverseProxyAction['type'], 'translation');
+      expect(reverseProxyAction['realm'], 'router.http');
+      expect(reverseProxyAction['procedure'], 'router.http.reverse_proxy');
+    });
+
+    test('rejects HTTP adapter routes without endpoint targets', () {
+      final endpoint = Endpoint(
+        host: '127.0.0.1',
+        port: 0,
+        tlsMode: TlsMode.disabled,
+        maxRawSocketSizeExponent: 16,
+      );
+      const settings = RouterSettings(
+        realms: [],
+        listeners: [
+          ListenerSettings(
+            endpoint: '127.0.0.1:0',
+            protocols: [ListenerProtocol.http],
+            http: HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final router = Router(
+        RouterConfig(endpoints: [endpoint]),
+        settings: settings,
+      );
+
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('HTTP reverse_proxy routes require an adapter endpoint'),
+          ),
+        ),
+      );
+    });
+
     test('encodes session_proxy HTTP routes through internal realms', () {
       final endpoint = Endpoint(
         host: '127.0.0.1',

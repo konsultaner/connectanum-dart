@@ -1,6 +1,6 @@
 # Exec Plan: Release Candidate Readiness
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-05-13
 Last updated: 2026-07-07
@@ -50,12 +50,12 @@ decision because `connectanum_client` still depends on private
   pub.dev release-order decisions without hiding package dry-run warnings.
 - GitHub `master` contains the release branch content and checked-in workflows.
 - GitHub branch protection requires `Fast Checks` and `Full Verify`.
-- `v0.1.0-rc.1` exists as a non-draft GitHub prerelease with native bundles,
+- `v0.1.0-rc.2` exists as a non-draft GitHub prerelease with native bundles,
   checksums, and Sigstore metadata.
-- `ghcr.io/konsultaner/connectanum-router:0.1.0-rc.1` is published and the
+- `ghcr.io/konsultaner/connectanum-router:0.1.0-rc.2` is published and the
   router package is visible through the public GHCR registry API or GitHub
   Packages metadata fallback.
-- Final audits pass for GitHub-prerelease RC readiness, with pub.dev release
+- Final audits passed for GitHub-prerelease RC readiness, with pub.dev release
   order explicitly deferred.
 
 ## Verification
@@ -72,13 +72,28 @@ decision because `connectanum_client` still depends on private
 - GitHub `CI`: `Fast Checks` and `Full Verify` green on the release branch.
 - GitHub `Dart Package Publish Dry Run`: green with zero warnings.
 - GitHub `WAMP Profile Benchmarks`: green on the release-sensitive branch/tag.
-- GitHub `Native Artifacts`: prerelease run green for `v0.1.0-rc.1`.
-- GitHub `Router Image`: dry-run green, then publish green for `v0.1.0-rc.1`.
+- GitHub `Native Artifacts`: prerelease run green for `v0.1.0-rc.2`.
+- GitHub `Router Image`: dry-run green, then publish green for `v0.1.0-rc.2`.
 - `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run --require-clean-router-image-dry-run --show-rc-readiness`
 - `bin/audit-github-deployment-chain --branch master --require-rc-ready`
 
 ## Decision Log
 
+- 2026-07-07: Selected and published `v0.1.0-rc.2` for the clean hosted
+  `a4bbd04` checkpoint. The numeric RC tag exists on GitHub and GitLab and
+  points at `a4bbd04`. GitHub tag-triggered Native Artifacts `28855014117`
+  published a non-draft prerelease with 30 native bundle/checksum/Sigstore
+  assets, Router Image `28855014172` published
+  `ghcr.io/konsultaner/connectanum-router:0.1.0-rc.2`, and follow-up Native
+  Artifacts `28855450709` passed on `master`. The GitHub prerelease target
+  metadata was corrected to `a4bbd04`, then the strict
+  `bin/audit-github-deployment-chain --branch master --require-clean-latest-ci
+  --require-clean-latest-ci-logs --require-clean-dart-package-publish-dry-run
+  --require-clean-router-image-dry-run --require-rc-ready
+  --show-rc-readiness` gate passed. Local `bin/test-fast` passed before
+  release tagging, and post-release `bin/verify` passed before handoff. pub.dev
+  publishing remains deferred until package ownership, public versions, and the
+  private `connectanum_core` dependency release order are decided.
 - 2026-07-07: Added protected router-hosted MCP direct JSON WAMP helper
   coverage over native HTTP/3. The regression reuses the protected MCP smoke
   fixture over TLS-backed HTTP/3, issues a ticket bearer grant over `/auth`,
@@ -97,8 +112,14 @@ decision because `connectanum_client` still depends on private
   "native HTTP/3" -r expanded`, `dart analyze packages/connectanum_router`,
   `python3 tool/check_public_artifact_references.py`, `git diff --check`, and
   full local `bin/verify` passed after the change on 2026-07-07. Hosted
-  evidence for this local checkpoint is pending; the latest clean hosted
-  checkpoint remains `c8a2798`.
+  evidence after push: commit `a4bbd04` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub `master` CI
+  `28845995413`, Dart Package Publish Dry Run `28845995396`, WAMP Profile
+  Benchmarks `28845995459`, and the strict deployment-chain audit passed.
+  GitHub `add-router` CI `28845993869`, Dart Package Publish Dry Run
+  `28845993872`, and WAMP Profile Benchmarks `28845993948` also passed. Router
+  Image dry-run evidence remained clean and relevant from `d096ee1`, and
+  native artifact dry-run evidence remained clean and relevant from `d64d220`.
 - 2026-07-07: Added protected router-hosted MCP auth/session isolation
   coverage over native HTTP/3. The regression exposes the existing protected
   MCP smoke fixture over TLS-backed HTTP/3, issues ticket auth grants over

@@ -3930,6 +3930,135 @@ void main() {
     );
   });
 
+  test('returns structured 501 for unsupported HTTP adapter routes', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/php'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.fastCgi,
+                    delegate: 'tcp://127.0.0.1:9000',
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/api'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: <String, Object?>{
+                      'upstream': 'https://api.example.invalid',
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final events = <Map<String, Object?>>[];
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    const requests = [
+      (
+        connectionId: 46,
+        handle: 5,
+        target: '/php',
+        adapter: 'fastcgi',
+        procedure: 'router.http.fastcgi',
+      ),
+      (
+        connectionId: 47,
+        handle: 6,
+        target: '/api',
+        adapter: 'reverse_proxy',
+        procedure: 'router.http.reverse_proxy',
+      ),
+    ];
+
+    for (final request in requests) {
+      runtime.setConnectionProtocol(
+        request.connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        request.connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: request.handle,
+          method: 'GET',
+          target: request.target,
+          path: request.target,
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'router.http',
+          procedure: request.procedure,
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[request.connectionId]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+
+      final response = runtime.httpResponses[request.connectionId]!.single;
+      expect(response.status, HttpStatus.notImplemented);
+      final body = response.body;
+      expect(body, isA<NativeHttpResponseJson>());
+      final value =
+          (body as NativeHttpResponseJson).value as Map<String, Object?>;
+      expect(value, containsPair('reason', 'http_adapter_not_implemented'));
+      expect(value, containsPair('adapter', request.adapter));
+      expect(value.containsKey('target'), isFalse);
+      expect(value.containsKey('upstream'), isFalse);
+      expect(value.containsKey('socket'), isFalse);
+    }
+
+    expect(
+      events.any((event) => event['type'] == 'http_request_dispatched'),
+      isFalse,
+    );
+    for (final request in requests) {
+      expect(
+        events.any(
+          (event) =>
+              event['type'] == 'http_adapter_not_implemented' &&
+              event['adapter'] == request.adapter,
+        ),
+        isTrue,
+      );
+    }
+  });
+
   test('rate limits handler HTTP routes before handler dispatch', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()

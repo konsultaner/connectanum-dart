@@ -75,6 +75,25 @@ String? _httpRouteSessionProxyProcedure(HttpRouteAction action) {
   return _firstNonEmptyRouteOption(action, optionKeys);
 }
 
+String? _httpRouteAdapterEndpoint(HttpRouteAction action) {
+  final delegate = action.delegate?.trim();
+  if (delegate != null && delegate.isNotEmpty) {
+    return delegate;
+  }
+  const optionKeys = [
+    'target',
+    'target_url',
+    'targetUrl',
+    'upstream',
+    'upstream_url',
+    'upstreamUrl',
+    'socket',
+    'socket_path',
+    'socketPath',
+  ];
+  return _firstNonEmptyRouteOption(action, optionKeys);
+}
+
 String? _httpFileRouteDirectory(HttpRouteAction action) {
   final direct = action.directory?.trim();
   if (direct != null && direct.isNotEmpty) {
@@ -1384,6 +1403,36 @@ class RouterBinding {
               'status': 'error',
               'reason': 'handler_failed',
               'message': 'HTTP route handler failed',
+            }),
+          ),
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.fastCgi ||
+        matchedRoute?.action.type == HttpRouteActionType.reverseProxy) {
+      final adapter = httpRouteActionTypeToString(matchedRoute!.action.type);
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_adapter_not_implemented',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'adapter': adapter,
+      });
+      try {
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.notImplemented,
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'error',
+              'reason': 'http_adapter_not_implemented',
+              'message': 'HTTP route adapter is not implemented',
+              'adapter': adapter,
             }),
           ),
         );

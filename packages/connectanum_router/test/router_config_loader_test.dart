@@ -671,6 +671,59 @@ void main() {
       expect(decodedAction.options['timeout_ms'], 250);
     });
 
+    test('parses HTTP adapter route action aliases and endpoints', () {
+      final settings = RouterConfigLoader.fromMap({
+        'router': <String, Object?>{
+          'listeners': [
+            <String, Object?>{
+              'endpoint': '127.0.0.1:0',
+              'protocols': ['http'],
+              'http': <String, Object?>{
+                'routes': [
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/php'},
+                    'action': <String, Object?>{
+                      'type': 'fast_cgi',
+                      'delegate': 'tcp://127.0.0.1:9000',
+                    },
+                  },
+                  <String, Object?>{
+                    'match': <String, Object?>{'path': '/api'},
+                    'action': <String, Object?>{
+                      'type': 'proxy',
+                      'upstream_url': 'https://api.example.invalid',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      final routes = settings.listeners.single.http!.routes;
+      final fastCgiAction = routes[0].action;
+      expect(fastCgiAction.type, HttpRouteActionType.fastCgi);
+      expect(fastCgiAction.delegate, 'tcp://127.0.0.1:9000');
+      final reverseProxyAction = routes[1].action;
+      expect(reverseProxyAction.type, HttpRouteActionType.reverseProxy);
+      expect(
+        reverseProxyAction.options['upstream_url'],
+        'https://api.example.invalid',
+      );
+
+      final encoded = RouterSettingsCodec.toMap(settings);
+      final decoded = RouterSettingsCodec.fromMap(encoded);
+      final decodedRoutes = decoded.listeners.single.http!.routes;
+      expect(decodedRoutes[0].action.type, HttpRouteActionType.fastCgi);
+      expect(decodedRoutes[0].action.delegate, 'tcp://127.0.0.1:9000');
+      expect(decodedRoutes[1].action.type, HttpRouteActionType.reverseProxy);
+      expect(
+        decodedRoutes[1].action.options['upstream_url'],
+        'https://api.example.invalid',
+      );
+    });
+
     test('parses multi-protocol listener with http routes', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
