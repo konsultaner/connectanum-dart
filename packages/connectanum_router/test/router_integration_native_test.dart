@@ -2838,6 +2838,308 @@ void main() {
       expect(replayPostSse.body, contains('"id":"h3-tools-list"'));
     }, skip: skipReason);
 
+    test(
+      'enforces protected router-hosted MCP auth over native HTTP/3',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9137,
+          nativeLib: nativeLib,
+          config: _buildTlsConfig(),
+          settings: _buildMcpSmokeSettings(enableHttp3: true),
+          connectionSequence: const [],
+        );
+        addTearDown(harness.dispose);
+
+        if (!harness.runtime.supportsHttp3TestClient) {
+          // Skip without failing the suite when ffi-test helpers are unavailable.
+          // ignore: avoid_print
+          print(
+            'Skipping protected HTTP/3 MCP test: '
+            'native runtime lacks test client',
+          );
+          return;
+        }
+
+        final listener = harness.binding.listeners.single;
+        expect(
+          listener.http3Port,
+          greaterThan(0),
+          reason: 'Router did not expose an HTTP/3 port',
+        );
+        final nativeLibPath = nativeLib!;
+        final origin = 'https://127.0.0.1:${listener.http3Port}';
+
+        Future<ConnectanumHttpAuthGrant> issueHttp3Grant(String authId) async {
+          final start = await _postHttp3Json(
+            nativeLibPath,
+            listener.http3Port,
+            '/auth',
+            {'realm': 'realm1', 'authmethod': 'ticket', 'authid': authId},
+            headers: {HttpHeaders.acceptHeader: 'application/json'},
+          );
+          expect(
+            start.statusCode,
+            equals(HttpStatus.unauthorized),
+            reason: start.body,
+          );
+          final state = start.json?['state'];
+          expect(state, isA<String>());
+
+          final authenticate = await core.TicketAuthentication(
+            'signed-token',
+          ).challenge(core.Extra());
+          final success = await _postHttp3Json(
+            nativeLibPath,
+            listener.http3Port,
+            '/auth',
+            {
+              'state': state as String,
+              'signature': authenticate.signature,
+              'extra': authenticate.extra,
+            },
+            headers: {HttpHeaders.acceptHeader: 'application/json'},
+          );
+          expect(
+            success.statusCode,
+            equals(HttpStatus.ok),
+            reason: success.body,
+          );
+          final successJson = success.json;
+          expect(successJson, isNotNull);
+          return ConnectanumHttpAuthGrant.fromJson(successJson!);
+        }
+
+        final primaryGrant = await issueHttp3Grant('user-1');
+        final otherGrant = await issueHttp3Grant('user-2');
+
+        final initializePayload = <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-h3-initialize',
+          'method': 'initialize',
+          'params': {'protocolVersion': '2025-11-25'},
+        };
+        Map<String, String> initializeHeaders({String? bearerToken}) {
+          return <String, String>{
+            'origin': origin,
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'Mcp-Method': 'initialize',
+            if (bearerToken != null)
+              HttpHeaders.authorizationHeader: 'Bearer $bearerToken',
+          };
+        }
+
+        final missingBearerInitialize = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          initializePayload,
+          headers: initializeHeaders(),
+        );
+        expect(
+          missingBearerInitialize.statusCode,
+          equals(HttpStatus.unauthorized),
+        );
+        expect(
+          missingBearerInitialize.headers[HttpHeaders.wwwAuthenticateHeader],
+          contains('Bearer'),
+        );
+        expect(
+          missingBearerInitialize.headers,
+          isNot(contains('mcp-session-id')),
+        );
+
+        final invalidBearerInitialize = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          {...initializePayload, 'id': 'secure-h3-invalid-bearer'},
+          headers: initializeHeaders(bearerToken: 'invalid-token'),
+        );
+        expect(
+          invalidBearerInitialize.statusCode,
+          equals(HttpStatus.unauthorized),
+        );
+        expect(
+          invalidBearerInitialize.headers,
+          isNot(contains('mcp-session-id')),
+        );
+
+        final initialize = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          initializePayload,
+          headers: initializeHeaders(bearerToken: primaryGrant.accessToken),
+        );
+        expect(initialize.statusCode, equals(HttpStatus.ok));
+        expect(
+          initialize.headers['mcp-protocol-version'],
+          equals('2025-11-25'),
+        );
+        final mcpSessionId = initialize.headers['mcp-session-id'];
+        expect(mcpSessionId, isNotNull);
+        expect(mcpSessionId, isNotEmpty);
+
+        final sessionHeaders = <String, String>{
+          'origin': origin,
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'MCP-Protocol-Version': '2025-11-25',
+          'MCP-Session-Id': mcpSessionId!,
+        };
+        Map<String, String> streamableHeaders(
+          String method, {
+          String? bearerToken,
+        }) {
+          return <String, String>{
+            ...sessionHeaders,
+            'Mcp-Method': method,
+            if (bearerToken != null)
+              HttpHeaders.authorizationHeader: 'Bearer $bearerToken',
+          };
+        }
+
+        final initialized = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+          headers: streamableHeaders(
+            'notifications/initialized',
+            bearerToken: primaryGrant.accessToken,
+          ),
+        );
+        expect(initialized.statusCode, equals(HttpStatus.accepted));
+
+        final toolsPayload = <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-h3-tools',
+          'method': 'tools/list',
+          'params': {},
+        };
+        final tools = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          toolsPayload,
+          headers: streamableHeaders(
+            'tools/list',
+            bearerToken: primaryGrant.accessToken,
+          ),
+        );
+        expect(tools.statusCode, equals(HttpStatus.ok));
+        expect(
+          tools.headers[HttpHeaders.contentTypeHeader],
+          contains('text/event-stream'),
+        );
+        expect(tools.headers['mcp-session-id'], equals(mcpSessionId));
+        expect(tools.body, contains('"id":"secure-h3-tools"'));
+        expect(tools.body, contains('"connectanum.api.list"'));
+        final postSseEventIds = _sseEventIds(tools.body);
+        expect(postSseEventIds, hasLength(2));
+        expect(postSseEventIds.first, startsWith('$mcpSessionId:'));
+        expect(postSseEventIds.last, startsWith('$mcpSessionId:'));
+
+        final replayWithPrimary = await _requestHttp3(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          method: 'GET',
+          headers: <String, String>{
+            ...sessionHeaders,
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader:
+                'Bearer ${primaryGrant.accessToken}',
+            'Last-Event-ID': postSseEventIds.first,
+          },
+        );
+        expect(replayWithPrimary.statusCode, equals(HttpStatus.ok));
+        expect(
+          replayWithPrimary.headers['mcp-session-id'],
+          equals(mcpSessionId),
+        );
+        expect(replayWithPrimary.body, contains(postSseEventIds.last));
+
+        final streamableMissingBearer = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          {...toolsPayload, 'id': 'secure-h3-missing-bearer'},
+          headers: streamableHeaders('tools/list'),
+        );
+        expect(
+          streamableMissingBearer.statusCode,
+          equals(HttpStatus.unauthorized),
+        );
+        expect(
+          streamableMissingBearer.headers['mcp-session-id'],
+          equals(mcpSessionId),
+        );
+
+        final reuseWithOtherPrincipal = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          {...toolsPayload, 'id': 'secure-h3-other-principal'},
+          headers: streamableHeaders(
+            'tools/list',
+            bearerToken: otherGrant.accessToken,
+          ),
+        );
+        expect(reuseWithOtherPrincipal.statusCode, equals(HttpStatus.notFound));
+        expect(
+          reuseWithOtherPrincipal.body,
+          contains('Unknown MCP HTTP session'),
+        );
+
+        final replayWithOtherPrincipal = await _requestHttp3(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          method: 'GET',
+          headers: <String, String>{
+            ...sessionHeaders,
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${otherGrant.accessToken}',
+            'Last-Event-ID': postSseEventIds.first,
+          },
+        );
+        expect(
+          replayWithOtherPrincipal.statusCode,
+          equals(HttpStatus.notFound),
+        );
+
+        final primaryAfterRejected = await _postHttp3Json(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          {...toolsPayload, 'id': 'secure-h3-primary-after-rejected'},
+          headers: streamableHeaders(
+            'tools/list',
+            bearerToken: primaryGrant.accessToken,
+          ),
+        );
+        expect(primaryAfterRejected.statusCode, equals(HttpStatus.ok));
+        expect(
+          primaryAfterRejected.headers['mcp-session-id'],
+          equals(mcpSessionId),
+        );
+
+        final delete = await _requestHttp3(
+          nativeLibPath,
+          listener.http3Port,
+          '/mcp/secure',
+          method: 'DELETE',
+          headers: <String, String>{
+            ...sessionHeaders,
+            HttpHeaders.authorizationHeader:
+                'Bearer ${primaryGrant.accessToken}',
+          },
+        );
+        expect(delete.statusCode, equals(HttpStatus.accepted));
+      },
+      skip: skipReason,
+    );
+
     test('allows MCP CORS preflight over native HTTP/3', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9136,
@@ -7452,7 +7754,7 @@ RouterSettings _buildMcpAnonymousIsolationSettings() {
       .build();
 }
 
-RouterSettings _buildMcpSmokeSettings() {
+RouterSettings _buildMcpSmokeSettings({bool enableHttp3 = false}) {
   const mcpOptions = <String, Object?>{
     'tool_list_page_size': 100,
     'procedures': [
@@ -7619,9 +7921,11 @@ RouterSettings _buildMcpSmokeSettings() {
     ..addProtocol(ListenerProtocol.http)
     ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
     ..setHttpOptions(
-      const HttpListenerSettings(
+      HttpListenerSettings(
+        alpn: enableHttp3 ? const ['http/1.1', 'h2', 'h3'] : const ['http/1.1'],
+        http3: enableHttp3 ? const Http3Settings(enabled: true, port: 0) : null,
         sessionProfile: 'public-http',
-        routes: [
+        routes: const [
           HttpRouteSettings(
             match: HttpRouteMatch(path: '/auth'),
             action: HttpRouteAction(
@@ -7672,6 +7976,11 @@ RouterSettings _buildMcpSmokeSettings() {
       ),
     )
     ..setOptions(const {'max_rawsocket_size_exponent': 16});
+  if (enableHttp3) {
+    listener
+      ..addProtocol(ListenerProtocol.http2)
+      ..addProtocol(ListenerProtocol.http3);
+  }
 
   return (RouterSettingsBuilder()
         ..addRealmFromBuilder(realmBuilder)
