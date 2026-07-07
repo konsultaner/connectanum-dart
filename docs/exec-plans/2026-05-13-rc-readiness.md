@@ -79,6 +79,26 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-07: Added protected router-hosted MCP direct JSON WAMP helper
+  coverage over native HTTP/3. The regression reuses the protected MCP smoke
+  fixture over TLS-backed HTTP/3, issues a ticket bearer grant over `/auth`,
+  rejects missing and invalid bearer direct JSON calls without issuing
+  `mcp-session-id`, then verifies bearer-backed direct JSON `POST` access to
+  `tools/list`, `connectanum.api.list`, WAMP session and registration meta
+  helpers, and `connectanum.pubsub` subscribe/publish/poll/unsubscribe on the
+  secure route. It asserts direct helper metadata is scoped to the authenticated
+  member principal and that direct JSON responses remain lifecycle-free instead
+  of becoming Streamable HTTP sessions. Baseline `bin/test-fast` passed before
+  the change on 2026-07-07. Focused `dart test
+  packages/connectanum_router/test/router_integration_native_test.dart --name
+  "serves protected direct JSON WAMP helpers over native HTTP/3" -r expanded`,
+  focused `dart test
+  packages/connectanum_router/test/router_integration_native_test.dart --name
+  "native HTTP/3" -r expanded`, `dart analyze packages/connectanum_router`,
+  `python3 tool/check_public_artifact_references.py`, `git diff --check`, and
+  full local `bin/verify` passed after the change on 2026-07-07. Hosted
+  evidence for this local checkpoint is pending; the latest clean hosted
+  checkpoint remains `c8a2798`.
 - 2026-07-07: Added protected router-hosted MCP auth/session isolation
   coverage over native HTTP/3. The regression exposes the existing protected
   MCP smoke fixture over TLS-backed HTTP/3, issues ticket auth grants over
@@ -95,7 +115,14 @@ decision because `connectanum_client` still depends on private
   "native HTTP/3" -r expanded`, `dart analyze packages/connectanum_router`,
   `python3 tool/check_public_artifact_references.py`, `git diff --check`, and
   full local `bin/verify` passed after the change on 2026-07-07. Hosted
-  evidence is pending push.
+  evidence after push: commit `c8a2798` was pushed to GitLab `origin`
+  `add-router`, GitHub `add-router`, and GitHub `master`; GitHub `master` CI
+  `28843544922`, Dart Package Publish Dry Run `28843544936`, WAMP Profile
+  Benchmarks `28843544935`, and the strict deployment-chain audit passed.
+  GitHub `add-router` CI `28843541469`, Dart Package Publish Dry Run
+  `28843541476`, and WAMP Profile Benchmarks `28843541479` also passed. Router
+  Image dry-run evidence remained clean and relevant from `d096ee1`, and
+  native artifact dry-run evidence remained clean and relevant from `d64d220`.
 - 2026-07-07: Extended native HTTP/3 router-hosted MCP coverage from session
   initialization to Streamable HTTP POST SSE delivery and resume replay. The
   HTTP/3 integration regression now initializes an MCP session, requests

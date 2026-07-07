@@ -2869,48 +2869,16 @@ void main() {
         final nativeLibPath = nativeLib!;
         final origin = 'https://127.0.0.1:${listener.http3Port}';
 
-        Future<ConnectanumHttpAuthGrant> issueHttp3Grant(String authId) async {
-          final start = await _postHttp3Json(
-            nativeLibPath,
-            listener.http3Port,
-            '/auth',
-            {'realm': 'realm1', 'authmethod': 'ticket', 'authid': authId},
-            headers: {HttpHeaders.acceptHeader: 'application/json'},
-          );
-          expect(
-            start.statusCode,
-            equals(HttpStatus.unauthorized),
-            reason: start.body,
-          );
-          final state = start.json?['state'];
-          expect(state, isA<String>());
-
-          final authenticate = await core.TicketAuthentication(
-            'signed-token',
-          ).challenge(core.Extra());
-          final success = await _postHttp3Json(
-            nativeLibPath,
-            listener.http3Port,
-            '/auth',
-            {
-              'state': state as String,
-              'signature': authenticate.signature,
-              'extra': authenticate.extra,
-            },
-            headers: {HttpHeaders.acceptHeader: 'application/json'},
-          );
-          expect(
-            success.statusCode,
-            equals(HttpStatus.ok),
-            reason: success.body,
-          );
-          final successJson = success.json;
-          expect(successJson, isNotNull);
-          return ConnectanumHttpAuthGrant.fromJson(successJson!);
-        }
-
-        final primaryGrant = await issueHttp3Grant('user-1');
-        final otherGrant = await issueHttp3Grant('user-2');
+        final primaryGrant = await _issueTicketHttp3Grant(
+          nativeLibPath,
+          listener.http3Port,
+          authId: 'user-1',
+        );
+        final otherGrant = await _issueTicketHttp3Grant(
+          nativeLibPath,
+          listener.http3Port,
+          authId: 'user-2',
+        );
 
         final initializePayload = <String, Object?>{
           'jsonrpc': '2.0',
@@ -3136,6 +3104,300 @@ void main() {
           },
         );
         expect(delete.statusCode, equals(HttpStatus.accepted));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'serves protected direct JSON WAMP helpers over native HTTP/3',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9138,
+          nativeLib: nativeLib,
+          config: _buildTlsConfig(),
+          settings: _buildMcpSmokeSettings(enableHttp3: true),
+          connectionSequence: const [],
+        );
+        addTearDown(harness.dispose);
+
+        if (!harness.runtime.supportsHttp3TestClient) {
+          // Skip without failing the suite when ffi-test helpers are unavailable.
+          // ignore: avoid_print
+          print(
+            'Skipping protected HTTP/3 MCP direct JSON test: '
+            'native runtime lacks test client',
+          );
+          return;
+        }
+
+        final binding = harness.binding;
+        final serviceSession = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-http3-direct-secure-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final registration = await serviceSession.register('app.safe.lookup');
+        registration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: {'received': invocation.argumentsKeywords},
+          );
+        });
+
+        final listener = binding.listeners.single;
+        expect(
+          listener.http3Port,
+          greaterThan(0),
+          reason: 'Router did not expose an HTTP/3 port',
+        );
+        final nativeLibPath = nativeLib!;
+        final origin = 'https://127.0.0.1:${listener.http3Port}';
+        final grant = await _issueTicketHttp3Grant(
+          nativeLibPath,
+          listener.http3Port,
+          authId: 'user-1',
+        );
+
+        Map<String, String> directHeaders(
+          String method, {
+          String? bearerToken,
+        }) {
+          return <String, String>{
+            'origin': origin,
+            HttpHeaders.acceptHeader: ContentType.json.mimeType,
+            'MCP-Protocol-Version': '2025-11-25',
+            'Mcp-Method': method,
+            if (bearerToken != null)
+              HttpHeaders.authorizationHeader: 'Bearer $bearerToken',
+          };
+        }
+
+        Future<
+          ({
+            String body,
+            Map<String, String> headers,
+            Map<String, Object?>? json,
+            int statusCode,
+          })
+        >
+        postDirectJsonResponse(
+          String method,
+          Map<String, Object?> params, {
+          required String id,
+          String? bearerToken,
+        }) {
+          return _postHttp3Json(
+            nativeLibPath,
+            listener.http3Port,
+            '/mcp/secure',
+            {'jsonrpc': '2.0', 'id': id, 'method': method, 'params': params},
+            headers: directHeaders(method, bearerToken: bearerToken),
+          );
+        }
+
+        Future<Map<String, Object?>> postDirectJson(
+          String method,
+          Map<String, Object?> params, {
+          required String id,
+        }) async {
+          final response = await postDirectJsonResponse(
+            method,
+            params,
+            id: id,
+            bearerToken: grant.accessToken,
+          );
+          expect(response.statusCode, equals(HttpStatus.ok));
+          expect(response.headers['mcp-session-id'], isNull);
+          expect(response.json?['id'], equals(id));
+          final error = response.json?['error'];
+          if (error != null) {
+            fail(
+              'Protected HTTP/3 direct JSON method $method returned '
+              'error: ${jsonEncode(error)}',
+            );
+          }
+          return (response.json?['result'] as Map).cast<String, Object?>();
+        }
+
+        Future<Map<String, Object?>> pollUntilEvents(String handle) async {
+          for (var attempt = 0; attempt < 30; attempt += 1) {
+            final result = await postDirectJson(
+              'connectanum.pubsub.poll',
+              {'handle': handle, 'limit': 10},
+              id: 'secure-h3-direct-pubsub-poll-$attempt',
+            );
+            final structured = (result['structuredContent'] as Map)
+                .cast<String, Object?>();
+            final events = structured['events'] as List? ?? const [];
+            if (events.isNotEmpty) {
+              return structured;
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+          }
+          fail(
+            'Timed out waiting for protected HTTP/3 direct JSON pub/sub events',
+          );
+        }
+
+        final missingBearer = await postDirectJsonResponse(
+          'connectanum.api.list',
+          {'kind': 'topic'},
+          id: 'secure-h3-direct-missing-bearer',
+        );
+        expect(missingBearer.statusCode, equals(HttpStatus.unauthorized));
+        expect(
+          missingBearer.headers[HttpHeaders.wwwAuthenticateHeader],
+          contains('Bearer'),
+        );
+        expect(missingBearer.headers, isNot(contains('mcp-session-id')));
+
+        final invalidBearer = await postDirectJsonResponse(
+          'connectanum.api.list',
+          {'kind': 'topic'},
+          id: 'secure-h3-direct-invalid-bearer',
+          bearerToken: 'invalid-token',
+        );
+        expect(invalidBearer.statusCode, equals(HttpStatus.unauthorized));
+        expect(invalidBearer.headers, isNot(contains('mcp-session-id')));
+
+        final tools = await postDirectJson(
+          'tools/list',
+          const <String, Object?>{},
+          id: 'secure-h3-direct-tools-list',
+        );
+        final toolList = (tools['tools'] as List).cast<Map>();
+        expect(
+          toolList.map((tool) => tool['name']),
+          contains('app.safe.lookup'),
+        );
+        expect(
+          toolList.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        expect(
+          toolList.map((tool) => tool['name']),
+          contains('connectanum.pubsub.publish'),
+        );
+
+        final topicCatalog = await postDirectJson('connectanum.api.list', {
+          'kind': 'topic',
+        }, id: 'secure-h3-direct-topic-catalog');
+        final topicCatalogContent = (topicCatalog['structuredContent'] as Map)
+            .cast<String, Object?>();
+        expect(
+          (topicCatalogContent['metadata'] as Map).cast<String, Object?>(),
+          allOf(
+            containsPair('authid', 'user-1'),
+            containsPair('authrole', 'member'),
+          ),
+        );
+        expect(jsonEncode(topicCatalogContent), contains('app.secure.audit'));
+
+        final sessionList = await postDirectJson(
+          'wamp.session.list',
+          const <String, Object?>{},
+          id: 'secure-h3-direct-session-list',
+        );
+        final sessionIds =
+            (((sessionList['structuredContent'] as Map)['argumentsKeywords']
+                            as Map)
+                        .cast<String, Object?>()['session_ids']
+                    as List)
+                .cast<Object?>();
+        expect(sessionIds, hasLength(1));
+        expect(sessionIds, isNot(contains(serviceSession.sessionId)));
+        final visibleSessionId = (sessionIds.single as num).toInt();
+
+        final sessionGet = await postDirectJson('wamp.session.get', {
+          'id': visibleSessionId,
+        }, id: 'secure-h3-direct-session-get');
+        final sessionDetails =
+            ((((sessionGet['structuredContent'] as Map)['argumentsKeywords']
+                            as Map)
+                        .cast<String, Object?>()['details']
+                    as Map)
+                .cast<String, Object?>());
+        expect(sessionDetails['authid'], equals('user-1'));
+        expect(sessionDetails['authrole'], equals('member'));
+
+        final registrationLookup = await postDirectJson(
+          'wamp.registration.lookup',
+          {
+            'arguments': ['app.safe.lookup'],
+            'argumentsKeywords': {'match': 'exact'},
+          },
+          id: 'secure-h3-direct-registration-lookup',
+        );
+        final registrationId =
+            (((registrationLookup['structuredContent'] as Map)['arguments']
+                            as List)
+                        .single
+                    as num)
+                .toInt();
+        expect(registrationId, greaterThan(0));
+
+        final registrationCallees = await postDirectJson(
+          'wamp.registration.list_callees',
+          {'id': registrationId},
+          id: 'secure-h3-direct-registration-callees',
+        );
+        final registrationCalleeIds =
+            ((registrationCallees['structuredContent'] as Map)['arguments']
+                    as List)
+                .cast<Object?>();
+        expect(registrationCalleeIds, isEmpty);
+        expect(
+          registrationCalleeIds,
+          isNot(contains(serviceSession.sessionId)),
+        );
+
+        String? subscriptionHandle;
+        try {
+          final subscribe = await postDirectJson(
+            'connectanum.pubsub.subscribe',
+            {'topic': 'app.secure.audit', 'queueLimit': 5},
+            id: 'secure-h3-direct-pubsub-subscribe',
+          );
+          final subscribeContent = (subscribe['structuredContent'] as Map)
+              .cast<String, Object?>();
+          expect(subscribeContent['topic'], equals('app.secure.audit'));
+          subscriptionHandle = subscribeContent['handle'] as String;
+          expect(subscriptionHandle, isNotEmpty);
+
+          final publish = await postDirectJson('connectanum.pubsub.publish', {
+            'topic': 'app.secure.audit',
+            'argumentsKeywords': {'via': 'secure-h3-direct-json-publish'},
+            'acknowledge': true,
+          }, id: 'secure-h3-direct-pubsub-publish');
+          expect(
+            publish['structuredContent'],
+            containsPair('acknowledged', true),
+          );
+
+          await serviceSession.publish(
+            'app.secure.audit',
+            argumentsKeywords: {'via': 'secure-h3-direct-json-service'},
+            options: core.PublishOptions(acknowledge: true),
+          );
+          final polled = await pollUntilEvents(subscriptionHandle);
+          expect(
+            jsonEncode(polled['events']),
+            contains('secure-h3-direct-json-service'),
+          );
+        } finally {
+          if (subscriptionHandle != null) {
+            final unsubscribe = await postDirectJson(
+              'connectanum.pubsub.unsubscribe',
+              {'handle': subscriptionHandle},
+              id: 'secure-h3-direct-pubsub-unsubscribe',
+            );
+            expect(
+              unsubscribe['structuredContent'],
+              containsPair('unsubscribed', true),
+            );
+          }
+        }
       },
       skip: skipReason,
     );
@@ -9119,6 +9381,44 @@ Future<Map<String, Object?>> _pollStreamableMcpUntilEvents(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   fail('Timed out waiting for Streamable MCP subscription events for $handle');
+}
+
+Future<ConnectanumHttpAuthGrant> _issueTicketHttp3Grant(
+  String nativeLibPath,
+  int port, {
+  String realm = 'realm1',
+  String authId = 'user-1',
+  String ticket = 'signed-token',
+}) async {
+  final start = await _postHttp3Json(
+    nativeLibPath,
+    port,
+    '/auth',
+    {'realm': realm, 'authmethod': 'ticket', 'authid': authId},
+    headers: {HttpHeaders.acceptHeader: 'application/json'},
+  );
+  expect(start.statusCode, equals(HttpStatus.unauthorized), reason: start.body);
+  final state = start.json?['state'];
+  expect(state, isA<String>());
+
+  final authenticate = await core.TicketAuthentication(
+    ticket,
+  ).challenge(core.Extra());
+  final success = await _postHttp3Json(
+    nativeLibPath,
+    port,
+    '/auth',
+    {
+      'state': state as String,
+      'signature': authenticate.signature,
+      'extra': authenticate.extra,
+    },
+    headers: {HttpHeaders.acceptHeader: 'application/json'},
+  );
+  expect(success.statusCode, equals(HttpStatus.ok), reason: success.body);
+  final successJson = success.json;
+  expect(successJson, isNotNull);
+  return ConnectanumHttpAuthGrant.fromJson(successJson!);
 }
 
 Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
