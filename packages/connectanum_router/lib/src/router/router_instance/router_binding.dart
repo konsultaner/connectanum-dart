@@ -94,6 +94,247 @@ String? _httpRouteAdapterEndpoint(HttpRouteAction action) {
   return _firstNonEmptyRouteOption(action, optionKeys);
 }
 
+String? _httpHeaderValue(Map<String, String> headers, String name) {
+  final lower = name.toLowerCase();
+  for (final entry in headers.entries) {
+    if (entry.key.toLowerCase() == lower) {
+      return entry.value;
+    }
+  }
+  return null;
+}
+
+bool _httpRouteBoolOption(
+  HttpRouteAction action,
+  List<String> optionKeys, {
+  required bool defaultValue,
+}) {
+  for (final key in optionKeys) {
+    final value = action.options[key];
+    if (value is bool) {
+      return value;
+    }
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' ||
+          normalized == '1' ||
+          normalized == 'yes' ||
+          normalized == 'on') {
+        return true;
+      }
+      if (normalized == 'false' ||
+          normalized == '0' ||
+          normalized == 'no' ||
+          normalized == 'off') {
+        return false;
+      }
+    }
+  }
+  return defaultValue;
+}
+
+int _httpRouteIntOption(
+  HttpRouteAction action,
+  List<String> optionKeys, {
+  required int defaultValue,
+  required int min,
+}) {
+  for (final key in optionKeys) {
+    final value = action.options[key];
+    final parsed = value is int
+        ? value
+        : value is num
+        ? value.toInt()
+        : value is String
+        ? int.tryParse(value.trim())
+        : null;
+    if (parsed == null) {
+      continue;
+    }
+    if (parsed < min) {
+      throw _HttpReverseProxyConfigException('invalid_option');
+    }
+    return parsed;
+  }
+  return defaultValue;
+}
+
+Uri _httpReverseProxyTargetUri(HttpRouteAction action) {
+  final target = _httpRouteAdapterEndpoint(action);
+  if (target == null) {
+    throw _HttpReverseProxyConfigException('missing_target');
+  }
+  final uri = Uri.tryParse(target);
+  if (uri == null ||
+      !uri.hasScheme ||
+      !uri.hasAuthority ||
+      (uri.scheme != 'http' && uri.scheme != 'https')) {
+    throw _HttpReverseProxyConfigException('invalid_target');
+  }
+  return uri;
+}
+
+Uri _httpReverseProxyRequestUri(
+  Uri upstream,
+  RouterHttpRequest request,
+  HttpRouteSettings route, {
+  required bool stripPrefix,
+}) {
+  final forwardedPath = _httpReverseProxyForwardedPath(
+    request.path,
+    route.match,
+    stripPrefix: stripPrefix,
+  );
+  final basePath = upstream.path.isEmpty ? '/' : upstream.path;
+  final path = _joinHttpProxyPaths(basePath, forwardedPath);
+  final requestQuery = request.query ?? Uri.parse(request.target).query;
+  final query = _joinHttpProxyQueries(upstream.query, requestQuery);
+  return upstream.replace(path: path, query: query.isEmpty ? null : query);
+}
+
+String _httpReverseProxyForwardedPath(
+  String requestPath,
+  HttpRouteMatch match, {
+  required bool stripPrefix,
+}) {
+  if (!stripPrefix) {
+    return requestPath.isEmpty ? '/' : requestPath;
+  }
+  final strip = (match.prefix ?? match.path)?.trim();
+  if (strip == null || strip.isEmpty || strip == '/') {
+    return requestPath.isEmpty ? '/' : requestPath;
+  }
+  if (requestPath == strip) {
+    return '/';
+  }
+  if (requestPath.startsWith('$strip/')) {
+    return requestPath.substring(strip.length);
+  }
+  return requestPath.isEmpty ? '/' : requestPath;
+}
+
+String _joinHttpProxyPaths(String basePath, String forwardedPath) {
+  final base = basePath.isEmpty ? '/' : basePath;
+  final forwarded = forwardedPath.isEmpty ? '/' : forwardedPath;
+  if (base == '/') {
+    return forwarded.startsWith('/') ? forwarded : '/$forwarded';
+  }
+  final baseWithoutTrailingSlash = base.endsWith('/')
+      ? base.substring(0, base.length - 1)
+      : base;
+  final forwardedWithLeadingSlash = forwarded.startsWith('/')
+      ? forwarded
+      : '/$forwarded';
+  return '$baseWithoutTrailingSlash$forwardedWithLeadingSlash';
+}
+
+String _joinHttpProxyQueries(String upstreamQuery, String requestQuery) {
+  if (upstreamQuery.isEmpty) {
+    return requestQuery;
+  }
+  if (requestQuery.isEmpty) {
+    return upstreamQuery;
+  }
+  return '$upstreamQuery&$requestQuery';
+}
+
+String _httpReverseProxyForwardedProto(RouterHttpRequest request) {
+  return request.listener.endpoint.tlsMode == TlsMode.disabled
+      ? 'http'
+      : 'https';
+}
+
+Map<String, String> _httpReverseProxyRequestHeaders(RouterHttpRequest request) {
+  final blocked = _httpHopByHopHeaderNames(request.headers);
+  blocked.addAll(const {'host', 'content-length'});
+  final headers = <String, String>{};
+  for (final entry in request.headers.entries) {
+    final name = entry.key.trim();
+    if (name.isEmpty || blocked.contains(name.toLowerCase())) {
+      continue;
+    }
+    headers[name] = entry.value;
+  }
+  final host = _httpHeaderValue(request.headers, HttpHeaders.hostHeader);
+  if (host != null && host.isNotEmpty) {
+    headers[HttpHeaders.hostHeader] = host;
+    headers['x-forwarded-host'] = host;
+  }
+  headers['x-forwarded-proto'] = _httpReverseProxyForwardedProto(request);
+  return headers;
+}
+
+Map<String, String> _httpReverseProxyResponseHeaders(
+  HttpHeaders upstreamHeaders,
+) {
+  final upstreamHeaderMap = <String, List<String>>{};
+  upstreamHeaders.forEach((name, values) {
+    upstreamHeaderMap[name] = values;
+  });
+  final blocked = _httpHopByHopHeaderNames(
+    upstreamHeaderMap.map((key, value) => MapEntry(key, value.join(','))),
+  );
+  blocked.addAll(const {'content-length'});
+  final headers = <String, String>{};
+  for (final entry in upstreamHeaderMap.entries) {
+    final name = entry.key.trim();
+    if (name.isEmpty || blocked.contains(name.toLowerCase())) {
+      continue;
+    }
+    headers[name] = entry.value.join(',');
+  }
+  return headers;
+}
+
+Set<String> _httpHopByHopHeaderNames(Map<String, String> headers) {
+  final blocked = <String>{
+    'connection',
+    'keep-alive',
+    'proxy-authenticate',
+    'proxy-authorization',
+    'te',
+    'trailer',
+    'transfer-encoding',
+    'upgrade',
+  };
+  final connection = _httpHeaderValue(headers, HttpHeaders.connectionHeader);
+  if (connection != null) {
+    for (final token in connection.split(',')) {
+      final name = token.trim().toLowerCase();
+      if (name.isNotEmpty) {
+        blocked.add(name);
+      }
+    }
+  }
+  return blocked;
+}
+
+Future<Uint8List> _readHttpReverseProxyBody(
+  Stream<List<int>> stream, {
+  required int maxBytes,
+}) async {
+  final builder = BytesBuilder(copy: false);
+  var total = 0;
+  await for (final chunk in stream) {
+    total += chunk.length;
+    if (total > maxBytes) {
+      throw _HttpReverseProxyResponseTooLarge();
+    }
+    builder.add(chunk);
+  }
+  return builder.takeBytes();
+}
+
+class _HttpReverseProxyConfigException implements Exception {
+  const _HttpReverseProxyConfigException(this.reason);
+
+  final String reason;
+}
+
+class _HttpReverseProxyResponseTooLarge implements Exception {
+  const _HttpReverseProxyResponseTooLarge();
+}
+
 String? _httpFileRouteDirectory(HttpRouteAction action) {
   final direct = action.directory?.trim();
   if (direct != null && direct.isNotEmpty) {
@@ -1411,8 +1652,19 @@ class RouterBinding {
       }
       return;
     }
-    if (matchedRoute?.action.type == HttpRouteActionType.fastCgi ||
-        matchedRoute?.action.type == HttpRouteActionType.reverseProxy) {
+    if (matchedRoute?.action.type == HttpRouteActionType.reverseProxy) {
+      try {
+        await _handleReverseProxyRouteRequest(
+          request: request,
+          handshake: retainedHandshake,
+          route: matchedRoute!,
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
+      return;
+    }
+    if (matchedRoute?.action.type == HttpRouteActionType.fastCgi) {
       final adapter = httpRouteActionTypeToString(matchedRoute!.action.type);
       onEvent?.call({
         'source': 'binding',
@@ -1763,6 +2015,179 @@ class RouterBinding {
     });
 
     retainedHandshake?.release();
+  }
+
+  Future<void> _handleReverseProxyRouteRequest({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required HttpRouteSettings route,
+  }) async {
+    Duration timeout;
+    int maxResponseBytes;
+    Uri upstream;
+    try {
+      upstream = _httpReverseProxyTargetUri(route.action);
+      timeout = Duration(
+        milliseconds: _httpRouteIntOption(
+          route.action,
+          const ['timeout_ms', 'timeoutMs'],
+          defaultValue: 30000,
+          min: 1,
+        ),
+      );
+      maxResponseBytes = _httpRouteIntOption(
+        route.action,
+        const ['max_response_bytes', 'maxResponseBytes'],
+        defaultValue: 16 * 1024 * 1024,
+        min: 1,
+      );
+    } on _HttpReverseProxyConfigException catch (error) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_config_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': error.reason,
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badGateway,
+          body: NativeHttpResponseJson(<String, Object?>{
+            'status': 'error',
+            'reason': 'reverse_proxy_${error.reason}',
+            'message': 'Reverse proxy route is not configured correctly',
+          }),
+        ),
+      );
+      return;
+    }
+
+    final stripPrefix = _httpRouteBoolOption(route.action, const [
+      'strip_prefix',
+      'stripPrefix',
+    ], defaultValue: false);
+    final upstreamUri = _httpReverseProxyRequestUri(
+      upstream,
+      request,
+      route,
+      stripPrefix: stripPrefix,
+    );
+    final client = HttpClient()
+      ..autoUncompress = false
+      ..connectionTimeout = timeout;
+
+    try {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_request',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'method': request.method,
+      });
+      final upstreamRequest = await client
+          .openUrl(request.method, upstreamUri)
+          .timeout(timeout);
+      final proxyHeaders = _httpReverseProxyRequestHeaders(request);
+      for (final entry in proxyHeaders.entries) {
+        upstreamRequest.headers.set(entry.key, entry.value);
+      }
+      final body = request.body;
+      if (body.isNotEmpty) {
+        upstreamRequest.add(body);
+      }
+      final upstreamResponse = await upstreamRequest.close().timeout(timeout);
+      final responseBody = await _readHttpReverseProxyBody(
+        upstreamResponse,
+        maxBytes: maxResponseBytes,
+      ).timeout(timeout);
+      final response = NativeHttpResponse(
+        status: upstreamResponse.statusCode,
+        headers: _httpReverseProxyResponseHeaders(upstreamResponse.headers),
+        body: NativeHttpResponseBytes(responseBody),
+      );
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: response,
+      );
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_response_sent',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'status': upstreamResponse.statusCode,
+      });
+    } on TimeoutException {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': 'timeout',
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.gatewayTimeout,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'reverse_proxy_timeout',
+            'message': 'Reverse proxy upstream request timed out',
+          }),
+        ),
+      );
+    } on _HttpReverseProxyResponseTooLarge {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': 'response_too_large',
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badGateway,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'reverse_proxy_response_too_large',
+            'message': 'Reverse proxy upstream response exceeded limit',
+          }),
+        ),
+      );
+    } catch (_) {
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_reverse_proxy_error',
+        'listenerId': request.listenerId,
+        'connectionId': request.connectionId,
+        'endpoint': request.endpoint,
+        'reason': 'upstream_failed',
+      });
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badGateway,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'reverse_proxy_failed',
+            'message': 'Reverse proxy upstream request failed',
+          }),
+        ),
+      );
+    } finally {
+      client.close(force: true);
+    }
   }
 
   Future<void> _handleHttpPublishRequest({

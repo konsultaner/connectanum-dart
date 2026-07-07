@@ -14,6 +14,7 @@ import 'dart:io'
         FileStat,
         FileSystemEntityType,
         FileSystemException,
+        HttpClient,
         HttpDate,
         HttpHeaders,
         HttpStatus,

@@ -2,51 +2,51 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: `connectanum_core` package archive readiness
-now clears the concrete pub.dev preflight blockers found while promoting Dart
-package publishability from RC deferral to Java-core replacement readiness. The
-core package has a package changelog and allowlists the known cryptosign test
-fixture through Dart pub's `false_secrets` mechanism. This does not remove
-`publish_to: none`; package-name ownership, canonical public versions, and the
-choice between the legacy public `connectanum` package and the new modular
-package names remain explicit release/product decisions. Current pub.dev API
-checks on 2026-07-07 returned `200` for `connectanum` at `2.2.7` and `404` for
-`connectanum_client`, `connectanum_core`, `connectanum_router`,
-`connectanum_mcp`, and `connectanum_auth_server`. Baseline `bin/test-fast`
-passed before the package-readiness change. `bin/dart-package-publish-dry-run
---strict-release-ready --show-release-plan` still fails as expected because
-`connectanum_client` depends on private `connectanum_core`. A clean
-`git archive` package-copy simulation with the new core metadata passed
-`bin/dart-package-publish-dry-run --include-private connectanum_core` with
-`Package has 0 warnings`, proving the prior missing changelog and
-fixture-secret findings are cleared. Full local `bin/verify` also passed after
-the change on 2026-07-07. Hosted evidence for this local checkpoint is pending;
-latest clean hosted evidence remains commit `a4bbd04`.
+Last reviewed branch checkpoint: router HTTP `reverse_proxy` route actions now
+perform buffered upstream HTTP forwarding instead of returning the prior adapter
+stub response. The route resolves the existing adapter endpoint aliases, accepts
+only `http`/`https` upstreams, preserves method/path/query/body, supports
+optional `strip_prefix`, forwards `Host`, `X-Forwarded-Host`, and
+`X-Forwarded-Proto`, strips hop-by-hop and content-length headers on both sides,
+returns upstream status/headers/body as a native byte response, and maps
+misconfiguration, timeout, oversized upstream response, and upstream failures to
+structured JSON gateway responses without echoing configured endpoint values.
+FastCGI/PHP-FPM remains intentionally fail-closed with the existing structured
+`501 http_adapter_not_implemented` behavior.
 
-Previous implementation checkpoint: router HTTP route config now accepts explicit
-`fastcgi` and `reverse_proxy` adapter actions for Java-core replacement
-readiness, but keeps them fail-closed until the adapter implementations land.
-Both actions require an adapter endpoint through `action.delegate` or
-`action.options.target`/`upstream`/`socket` aliases, encode to deterministic
-`router.http.fastcgi` / `router.http.reverse_proxy` native routes, and return a
-structured `501 http_adapter_not_implemented` response without WAMP fallback or
-endpoint-value echo. Baseline `bin/test-fast` passed before the change on
-2026-07-07. Focused
-`dart test packages/connectanum_router/test/router_config_loader_test.dart
-packages/connectanum_router/test/router_json_test.dart -r expanded`, focused
+Baseline `bin/test-fast` passed before the reverse-proxy change on 2026-07-07.
+Focused
 `dart test packages/connectanum_router/test/router_runtime_test.dart
---plain-name "returns structured 501 for unsupported HTTP adapter routes" -r
-expanded`, `dart analyze packages/connectanum_router`, `git diff --check`, and
-full local `bin/verify` passed after the change on 2026-07-07. Hosted evidence
-for this local checkpoint is pending; latest clean hosted evidence remains
-commit `a4bbd04`.
-Latest fully clean hosted checkpoint: Commit `a4bbd04` on GitHub `master`
-passed the strict deployment-chain audit after the protected native HTTP/3
-direct JSON MCP regression. GitHub `master` CI `28845995413`, Dart Package
-Publish Dry Run `28845995396`, and WAMP Profile Benchmarks `28845995459`
-passed at `a4bbd04`; GitHub `add-router` CI `28845993869`, Dart Package
-Publish Dry Run `28845993872`, and WAMP Profile Benchmarks `28845993948` also
-passed.
+--plain-name "returns structured 501 for unsupported FastCGI adapter routes" -r
+expanded`, focused
+`dart test packages/connectanum_router/test/router_runtime_test.dart
+--plain-name "forwards configured reverse proxy adapter routes" -r expanded`,
+full `dart test packages/connectanum_router/test/router_runtime_test.dart -r
+expanded`, and `dart analyze packages/connectanum_router` passed after the
+change on 2026-07-07. Full local `bin/verify` also passed after the change on
+2026-07-07.
+
+Current release-readiness checkpoint: `connectanum_core` package archive
+readiness now clears the concrete pub.dev preflight blockers found while
+promoting Dart package publishability from RC deferral to Java-core replacement
+readiness. The core package has a package changelog and allowlists the known
+cryptosign test fixture through Dart pub's `false_secrets` mechanism. This does
+not remove `publish_to: none`; package-name ownership, canonical public
+versions, and the choice between the legacy public `connectanum` package and the
+new modular package names remain explicit release/product decisions. Current
+pub.dev API checks on 2026-07-07 returned `200` for `connectanum` at `2.2.7` and
+`404` for `connectanum_client`, `connectanum_core`, `connectanum_router`,
+`connectanum_mcp`, and `connectanum_auth_server`. The strict package release
+gate still fails as expected because `connectanum_client` depends on private
+`connectanum_core`, while a clean package-copy simulation passed
+`bin/dart-package-publish-dry-run --include-private connectanum_core` with zero
+warnings.
+
+Latest fully clean hosted checkpoint: commit `041bc61` on branch `add-router`
+passed GitHub CI `28863803636`, Dart Package Publish Dry Run `28863803674`, and
+WAMP Profile Benchmarks `28863803648` after the `connectanum_core` package
+archive-readiness slice. Hosted evidence for the local reverse-proxy checkpoint
+is pending until it is pushed and audited.
 Release candidate checkpoint: `v0.1.0-rc.2` now points at `a4bbd04` on GitHub
 and GitLab. GitHub tag-triggered Native Artifacts `28855014117` published the
 non-draft prerelease with 30 native bundle/checksum/Sigstore assets, Router
@@ -60,7 +60,7 @@ gate passed on 2026-07-07. Local `bin/test-fast` and post-release
 `bin/verify` also passed on 2026-07-07. Public pub.dev publishing remains
 deferred pending package ownership, public version, and private
 `connectanum_core` dependency release-order decisions.
-Current implementation checkpoint:
+Previous release-readiness checkpoint:
 `connectanum_core` is now archive-ready for the next explicit package-release
 slice: the package changelog exists and the known fixture key is scoped through
 `false_secrets` instead of triggering pub's secret scanner. This turns the core
@@ -78,16 +78,16 @@ Previous implementation checkpoint:
 Router HTTP route configuration now has explicit adapter placeholders for
 FastCGI/PHP-FPM and reverse-proxy migration configs. This prevents consumer
 applications from discovering unsupported Java-core replacement routes only as
-unknown config values or accidental WAMP bridge fallthroughs. Runtime responses
-are intentionally 501 until the adapters are implemented, and they avoid
-including configured endpoint values because those URLs can contain
-credentials.
+unknown config values or accidental WAMP bridge fallthroughs. At that
+checkpoint, both adapter actions intentionally returned structured 501
+responses and avoided including configured endpoint values because those URLs
+can contain credentials. The `reverse_proxy` adapter has since gained buffered
+forwarding; FastCGI/PHP-FPM remains a structured 501 stub.
 
 Baseline `bin/test-fast` passed before the change on 2026-07-07. Focused
 config/native/runtime adapter tests, package analysis, `git diff --check`, and
 full local `bin/verify` passed after the change on 2026-07-07. Hosted evidence
-for this local checkpoint is pending; latest clean hosted evidence remains
-commit `a4bbd04`.
+for the later package-readiness checkpoint is clean at commit `041bc61`.
 
 Previous implementation checkpoint:
 Protected router-hosted MCP over native HTTP/3 now covers direct JSON WAMP

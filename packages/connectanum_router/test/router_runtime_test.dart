@@ -3930,28 +3930,159 @@ void main() {
     );
   });
 
-  test('returns structured 501 for unsupported HTTP adapter routes', () async {
+  test(
+    'returns structured 501 for unsupported FastCGI adapter routes',
+    () async {
+      final runtime = _HandleRuntime();
+      final settings = RouterSettingsBuilder()
+        ..addListenerFromBuilder(
+          ListenerSettingsBuilder('http', '127.0.0.1:0')
+            ..addProtocol(ListenerProtocol.http)
+            ..setHttpOptions(
+              const HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/php'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.fastCgi,
+                      delegate: 'tcp://127.0.0.1:9000',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        );
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: settings.build(),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 46;
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 5,
+          method: 'GET',
+          target: '/php',
+          path: '/php',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'router.http',
+          procedure: 'router.http.fastcgi',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+
+      final response = runtime.httpResponses[connectionId]!.single;
+      expect(response.status, HttpStatus.notImplemented);
+      final body = response.body;
+      expect(body, isA<NativeHttpResponseJson>());
+      final value =
+          (body as NativeHttpResponseJson).value as Map<String, Object?>;
+      expect(value, containsPair('reason', 'http_adapter_not_implemented'));
+      expect(value, containsPair('adapter', 'fastcgi'));
+      expect(value.containsKey('target'), isFalse);
+      expect(value.containsKey('upstream'), isFalse);
+      expect(value.containsKey('socket'), isFalse);
+
+      expect(
+        events.any((event) => event['type'] == 'http_request_dispatched'),
+        isFalse,
+      );
+      expect(
+        events.any(
+          (event) =>
+              event['type'] == 'http_adapter_not_implemented' &&
+              event['adapter'] == 'fastcgi',
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test('forwards configured reverse proxy adapter routes', () async {
+    final upstreamRequests = <Map<String, Object?>>[];
+    final upstreamDone = Completer<void>();
+    final upstream = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final upstreamSubscription = upstream.listen((request) async {
+      final body = await utf8.decoder.bind(request).join();
+      upstreamRequests.add({
+        'method': request.method,
+        'uri': request.uri.toString(),
+        'host': request.headers.value(HttpHeaders.hostHeader),
+        'connection': request.headers.value(HttpHeaders.connectionHeader),
+        'xRemove': request.headers.value('x-remove'),
+        'xTest': request.headers.value('x-test'),
+        'xForwardedHost': request.headers.value('x-forwarded-host'),
+        'xForwardedProto': request.headers.value('x-forwarded-proto'),
+        'body': body,
+      });
+      request.response
+        ..statusCode = 207
+        ..headers.set('x-upstream', 'ok')
+        ..headers.set(HttpHeaders.connectionHeader, 'close')
+        ..write('proxied:$body');
+      await request.response.close();
+      if (!upstreamDone.isCompleted) {
+        upstreamDone.complete();
+      }
+    });
+    addTearDown(() async {
+      await upstreamSubscription.cancel();
+      await upstream.close(force: true);
+    });
+
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()
       ..addListenerFromBuilder(
         ListenerSettingsBuilder('http', '127.0.0.1:0')
           ..addProtocol(ListenerProtocol.http)
           ..setHttpOptions(
-            const HttpListenerSettings(
+            HttpListenerSettings(
               routes: [
                 HttpRouteSettings(
-                  match: HttpRouteMatch(path: '/php'),
-                  action: HttpRouteAction(
-                    type: HttpRouteActionType.fastCgi,
-                    delegate: 'tcp://127.0.0.1:9000',
-                  ),
-                ),
-                HttpRouteSettings(
-                  match: HttpRouteMatch(path: '/api'),
+                  match: const HttpRouteMatch(prefix: '/api'),
                   action: HttpRouteAction(
                     type: HttpRouteActionType.reverseProxy,
                     options: <String, Object?>{
-                      'upstream': 'https://api.example.invalid',
+                      'upstream':
+                          'http://${upstream.address.host}:${upstream.port}/backend',
+                      'strip_prefix': true,
+                      'timeout_ms': 5000,
+                      'max_response_bytes': 1024 * 1024,
                     },
                   ),
                 ),
@@ -3987,77 +4118,191 @@ void main() {
 
     await Future<void>.delayed(Duration.zero);
     final listenerId = binding.listeners.single.listenerId;
-    const requests = [
-      (
-        connectionId: 46,
-        handle: 5,
-        target: '/php',
-        adapter: 'fastcgi',
-        procedure: 'router.http.fastcgi',
-      ),
-      (
-        connectionId: 47,
+    const connectionId = 47;
+    runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+    runtime.enqueueHttpHandshake(
+      listenerId,
+      connectionId,
+      NativeHttpHandshake.synthetic(
         handle: 6,
-        target: '/api',
-        adapter: 'reverse_proxy',
+        method: 'POST',
+        target: '/api/users?active=true',
+        path: '/api/users',
+        query: 'active=true',
+        protocol: 'http/1.1',
+        headers: const {
+          'host': 'consumer.example',
+          'connection': 'x-remove',
+          'x-remove': 'secret',
+          'x-test': 'yes',
+        },
+        body: Uint8List.fromList(utf8.encode('ping')),
+        realm: 'router.http',
         procedure: 'router.http.reverse_proxy',
       ),
-    ];
+    );
 
-    for (final request in requests) {
-      runtime.setConnectionProtocol(
-        request.connectionId,
-        NativeConnectionProtocol.http,
-      );
-      runtime.enqueueHttpHandshake(
-        listenerId,
-        request.connectionId,
-        NativeHttpHandshake.synthetic(
-          handle: request.handle,
-          method: 'GET',
-          target: request.target,
-          path: request.target,
-          protocol: 'http/1.1',
-          headers: const {},
-          body: Uint8List(0),
-          realm: 'router.http',
-          procedure: request.procedure,
-        ),
-      );
+    await _waitUntil(
+      () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 5),
+    );
+    await upstreamDone.future.timeout(const Duration(seconds: 2));
 
-      await _waitUntil(
-        () => runtime.httpResponses[request.connectionId]?.isNotEmpty ?? false,
-        timeout: const Duration(seconds: 2),
-      );
+    expect(upstreamRequests, hasLength(1));
+    expect(upstreamRequests.single, containsPair('method', 'POST'));
+    expect(
+      upstreamRequests.single,
+      containsPair('uri', '/backend/users?active=true'),
+    );
+    expect(upstreamRequests.single, containsPair('host', 'consumer.example'));
+    expect(upstreamRequests.single, containsPair('connection', isNull));
+    expect(upstreamRequests.single, containsPair('xRemove', isNull));
+    expect(upstreamRequests.single, containsPair('xTest', 'yes'));
+    expect(
+      upstreamRequests.single,
+      containsPair('xForwardedHost', 'consumer.example'),
+    );
+    expect(upstreamRequests.single, containsPair('xForwardedProto', 'https'));
+    expect(upstreamRequests.single, containsPair('body', 'ping'));
 
-      final response = runtime.httpResponses[request.connectionId]!.single;
-      expect(response.status, HttpStatus.notImplemented);
-      final body = response.body;
-      expect(body, isA<NativeHttpResponseJson>());
-      final value =
-          (body as NativeHttpResponseJson).value as Map<String, Object?>;
-      expect(value, containsPair('reason', 'http_adapter_not_implemented'));
-      expect(value, containsPair('adapter', request.adapter));
-      expect(value.containsKey('target'), isFalse);
-      expect(value.containsKey('upstream'), isFalse);
-      expect(value.containsKey('socket'), isFalse);
-    }
-
+    final response = runtime.httpResponses[connectionId]!.single;
+    expect(response.status, 207);
+    expect(response.headers, containsPair('x-upstream', 'ok'));
+    expect(response.headers.containsKey(HttpHeaders.connectionHeader), isFalse);
+    final responseBody = response.body;
+    expect(responseBody, isA<NativeHttpResponseBytes>());
+    expect(
+      utf8.decode((responseBody as NativeHttpResponseBytes).bytes),
+      'proxied:ping',
+    );
     expect(
       events.any((event) => event['type'] == 'http_request_dispatched'),
       isFalse,
     );
-    for (final request in requests) {
-      expect(
-        events.any(
-          (event) =>
-              event['type'] == 'http_adapter_not_implemented' &&
-              event['adapter'] == request.adapter,
-        ),
-        isTrue,
-      );
-    }
+    expect(
+      events.any(
+        (event) =>
+            event['type'] == 'http_reverse_proxy_response_sent' &&
+            event['status'] == 207,
+      ),
+      isTrue,
+    );
   });
+
+  test(
+    'does not leak reverse proxy target details when upstream fails',
+    () async {
+      final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final upstreamAccepted = Completer<void>();
+      final upstreamSubscription = upstream.listen((socket) {
+        if (!upstreamAccepted.isCompleted) {
+          upstreamAccepted.complete();
+        }
+        socket.destroy();
+      });
+      addTearDown(() async {
+        await upstreamSubscription.cancel();
+        await upstream.close();
+      });
+
+      final runtime = _HandleRuntime();
+      final settings = RouterSettingsBuilder()
+        ..addListenerFromBuilder(
+          ListenerSettingsBuilder('http', '127.0.0.1:0')
+            ..addProtocol(ListenerProtocol.http)
+            ..setHttpOptions(
+              HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: const HttpRouteMatch(prefix: '/api'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.reverseProxy,
+                      options: <String, Object?>{
+                        'upstream':
+                            'http://user:secret@${upstream.address.host}:${upstream.port}/private-secret?token=secret',
+                        'timeout_ms': 1000,
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        );
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: settings.build(),
+      );
+
+      final events = <Map<String, Object?>>[];
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 48;
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 7,
+          method: 'GET',
+          target: '/api/secret-check',
+          path: '/api/secret-check',
+          protocol: 'http/1.1',
+          headers: const {},
+          body: Uint8List(0),
+          realm: 'router.http',
+          procedure: 'router.http.reverse_proxy',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 5),
+      );
+      await upstreamAccepted.future.timeout(const Duration(seconds: 2));
+
+      final response = runtime.httpResponses[connectionId]!.single;
+      expect(response.status, HttpStatus.badGateway);
+      final body = response.body;
+      expect(body, isA<NativeHttpResponseJson>());
+      final value =
+          (body as NativeHttpResponseJson).value as Map<String, Object?>;
+      expect(value, containsPair('reason', 'reverse_proxy_failed'));
+
+      final errorEvent = events.singleWhere(
+        (event) => event['type'] == 'http_reverse_proxy_error',
+      );
+      expect(errorEvent, containsPair('reason', 'upstream_failed'));
+      expect(errorEvent.containsKey('error'), isFalse);
+      expect(errorEvent.containsKey('stackTrace'), isFalse);
+
+      final serialized = jsonEncode(<Object?>[value, errorEvent]);
+      expect(serialized, isNot(contains('secret')));
+      expect(serialized, isNot(contains('private-secret')));
+    },
+  );
 
   test('rate limits handler HTTP routes before handler dispatch', () async {
     final runtime = _HandleRuntime();
