@@ -338,9 +338,19 @@ print_release_plan() {
   fi
 
   printf '\nOperator decisions still required before a real publish:\n'
+  printf -- '- Choose the package strategy: publish the modular dependency graph in order, keep the legacy public package name, or ship a compatibility wrapper.\n'
   printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\n'
   printf -- '- Choose canonical public versions for every package that becomes publishable.\n'
   printf -- '- Remove publish_to: none only in an explicit release slice for packages that are approved public API.\n'
+}
+
+print_release_strategy_decision() {
+  printf '\nDart package release strategy decision required:\n'
+  printf -- '- Current strict release-ready mode is intentionally blocked until an explicit pub.dev package strategy is selected.\n'
+  printf -- '- Option: publish the modular package graph in dependency order, making private dependencies public before packages that depend on them.\n'
+  printf -- '- Option: keep the legacy public connectanum package as the client-facing replacement package.\n'
+  printf -- '- Option: ship a compatibility wrapper that maps the legacy package name onto the modular packages.\n'
+  printf -- '- Do not remove publish_to: none or rewrite hosted dependencies outside an approved package-release slice.\n'
 }
 
 cd_repo_root
@@ -444,6 +454,7 @@ if [[ "${#release_blockers[@]}" -gt 0 ]]; then
   for blocker in "${release_blockers[@]}"; do
     printf -- '- %s\n' "$blocker"
   done
+  print_release_strategy_decision
   if [[ "$strict_release_ready" -eq 0 ]]; then
     printf '\nDefault dry-run mode reports release-readiness blockers without failing. Re-run with --strict-release-ready when the package release plan is approved.\n'
   fi
@@ -482,6 +493,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
       for blocker in "${release_blockers[@]}"; do
         printf -- '- %s\n' "$blocker"
       done
+      print_release_strategy_decision
       printf '\nDefault dry-run mode reports these blockers without failing. Use `--strict-release-ready` after the package release plan is approved.\n'
     else
       printf '\nNo private workspace dependency blockers found for publishable packages.\n'
@@ -520,7 +532,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
           printf -- '- %s\n' "$edge"
         done
       fi
-      printf '\nOperator decisions still required: package-name ownership, canonical public versions, and explicit publishability approval.\n'
+      printf '\nOperator decisions still required: package strategy, package-name ownership, canonical public versions, and explicit publishability approval.\n'
     fi
   } >>"$GITHUB_STEP_SUMMARY"
 fi

@@ -192,6 +192,15 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             "Dart package strict publish dry-run: deferred for first GitHub RC",
             result.stdout,
         )
+        self.assertIn(
+            "Dart package release strategy decision required:",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Current strict release-ready mode is intentionally blocked "
+            "until an explicit pub.dev package strategy is selected.",
+            result.stdout,
+        )
         self.assertIn("Dart package release-order plan:", result.stdout)
         self.assertIn("Currently publishable package archives:", result.stdout)
         self.assertIn(
@@ -591,6 +600,9 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 f"{extra_dependency_edge_line}"
                 "                printf '\\nOperator decisions still required "
                 "before a real publish:\\n'\n"
+                "                printf -- '- Choose the package strategy: publish "
+                "the modular dependency graph in order, keep the legacy public "
+                "package name, or ship a compatibility wrapper.\\n'\n"
                 "                printf -- '- Confirm package-name ownership and "
                 "publisher configuration on pub.dev.\\n'\n"
             )
@@ -604,6 +616,12 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 printf '\\nDart package release-readiness blockers:\\n'
                 printf -- '- connectanum_client depends on private workspace package connectanum_core (packages/connectanum_core); publish connectanum_core first or remove the hosted dependency before publishing connectanum_client.\\n'
 {extra_blocker_line}
+                printf '\\nDart package release strategy decision required:\\n'
+                printf -- '- Current strict release-ready mode is intentionally blocked until an explicit pub.dev package strategy is selected.\\n'
+                printf -- '- Option: publish the modular package graph in dependency order, making private dependencies public before packages that depend on them.\\n'
+                printf -- '- Option: keep the legacy public connectanum package as the client-facing replacement package.\\n'
+                printf -- '- Option: ship a compatibility wrapper that maps the legacy package name onto the modular packages.\\n'
+                printf -- '- Do not remove publish_to: none or rewrite hosted dependencies outside an approved package-release slice.\\n'
                 printf '\\nAll Dart package publish dry-runs reported zero warnings.\\n'
 {release_plan_output}
                 exit 1

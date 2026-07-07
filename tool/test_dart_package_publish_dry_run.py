@@ -60,6 +60,12 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             r"(?:- .+\n)*- connectanum_core [^ ]+ \(packages/connectanum_core\)",
         )
         self.assertIn("- connectanum_core -> connectanum_client", result.stdout)
+        self.assertIn(
+            "- Choose the package strategy: publish the modular dependency "
+            "graph in order, keep the legacy public package name, or ship a "
+            "compatibility wrapper.",
+            result.stdout,
+        )
         self.assertEqual(result.stdout.count("## Publish dry-run:"), 1)
         self.assertIn(
             "## Publish dry-run: connectanum_client (packages/connectanum_client)",
@@ -85,6 +91,36 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         )
         self.assertIn(
             "All Dart package publish dry-runs reported zero warnings.",
+            result.stdout,
+        )
+        self.assertIn(
+            "Dart package release strategy decision required:",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Current strict release-ready mode is intentionally blocked "
+            "until an explicit pub.dev package strategy is selected.",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Option: publish the modular package graph in dependency order, "
+            "making private dependencies public before packages that depend on "
+            "them.",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Option: keep the legacy public connectanum package as the "
+            "client-facing replacement package.",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Option: ship a compatibility wrapper that maps the legacy "
+            "package name onto the modular packages.",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Do not remove publish_to: none or rewrite hosted dependencies "
+            "outside an approved package-release slice.",
             result.stdout,
         )
         self.assertIn("Dart package release-order plan:", result.stdout)

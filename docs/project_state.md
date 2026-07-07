@@ -2,7 +2,32 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: the generated router CLI consumer package
+Last reviewed branch checkpoint: Dart package publish-readiness tooling now
+classifies the current strict `connectanum_client` blocker as an explicit
+package strategy decision instead of a generic publish failure. The dry-run
+script prints a `Dart package release strategy decision required` section when
+publishable packages depend on private workspace packages, listing the valid
+strategy choices: publish the modular dependency graph in order, keep the
+legacy public package name, or ship a compatibility wrapper. The GitHub
+deployment-chain audit now requires and surfaces that section before treating
+the strict Dart package gate as the known pub.dev deferral. This keeps
+`publish_to: none` unchanged until package ownership, public versions, and
+strategy are explicitly approved.
+
+Baseline `bin/test-fast` passed before the release-gate wording change on
+2026-07-07. Focused `bash -n bin/dart-package-publish-dry-run`,
+`bash -n bin/audit-github-deployment-chain`,
+`python3 -m unittest tool.test_dart_package_publish_dry_run`,
+`python3 -m unittest tool.test_audit_github_deployment_chain`,
+`python3 tool/check_public_artifact_references.py`, `git diff --check`,
+expected-failing
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan connectanum_client`
+(`strict_status=1` with zero publish warnings and the strategy section), and
+`bin/dart-package-publish-dry-run --include-private connectanum_core` passed
+after the change on 2026-07-07. Full local `bin/verify` also passed after the
+change on 2026-07-07.
+
+Previous implementation checkpoint: the generated router CLI consumer package
 smoke now proves configured reverse-proxy adapter routes through the public
 `connectanum_router` package executable path. The smoke starts a neutral local
 HTTP upstream, configures a `/upstream` HTTP route with `type: reverse_proxy`,
@@ -23,9 +48,9 @@ focused `bash -lc 'source bin/common.sh; run_router_cli_consumer_package_smoke'`
 passed after the change on 2026-07-07. Full local `bin/verify` also passed
 after the change on 2026-07-07.
 
-Hosted evidence after push: commit `e64ec47` on branch `add-router` passed
-GitHub CI `28877639890` (Fast Checks and Full Verify) on 2026-07-07. The clean
-deployment-chain audit passed with CI/log requirements at `e64ec47`, plus the
+Hosted evidence after push: commit `3b40ce1` on branch `add-router` passed
+GitHub CI `28882106632` (Fast Checks and Full Verify) on 2026-07-07. The clean
+deployment-chain audit passed with CI/log requirements at `3b40ce1`, plus the
 latest Dart Package Publish Dry Run `28873671898` and WAMP Profile Benchmarks
 `28873669921` from `ab52acd`; the audit confirmed those prior runs remain
 clean and relevant because no publish-sensitive or WAMP benchmark-sensitive

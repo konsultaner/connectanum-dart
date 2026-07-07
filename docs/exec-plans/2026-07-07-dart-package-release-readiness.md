@@ -56,6 +56,18 @@ pub.dev. The current strict release gate fails because the publishable
 
 ## Decision Log
 
+- 2026-07-07: Hardened the release gate wording without changing package
+  publishability. `bin/dart-package-publish-dry-run --strict-release-ready
+  --show-release-plan` now prints a `Dart package release strategy decision
+  required` section for the known private workspace dependency blocker and
+  lists the explicit strategy choices: publish the modular dependency graph in
+  order, keep the legacy public package name, or ship a compatibility wrapper.
+  `bin/audit-github-deployment-chain` now requires and surfaces that section
+  before classifying the strict Dart package failure as the known pub.dev
+  deferral. Local `bin/test-fast`, focused release-tooling tests, the
+  expected-failing strict dry-run for `connectanum_client`, the private
+  `connectanum_core` dry-run, and full `bin/verify` passed. The package
+  release strategy milestone remains open.
 - 2026-07-07: Treat pub.dev installability as a Java-core replacement blocker,
   not merely an RC deferral. The strict release gate fails because
   `connectanum_client` depends on private `connectanum_core`. Current pub.dev

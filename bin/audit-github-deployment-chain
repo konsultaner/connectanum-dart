@@ -774,6 +774,7 @@ strict_dart_output_is_deferred_pub_dev_only() {
   grep -Fq 'All Dart package publish dry-runs reported zero warnings.' "$output_file" || return 1
   grep -Fq 'Dart package publish dry-run warning gate failed:' "$output_file" && return 1
   grep -Fq 'Dart package release-readiness blockers:' "$output_file" || return 1
+  grep -Fq 'Dart package release strategy decision required:' "$output_file" || return 1
   grep -Fq 'Dart package release-order plan:' "$output_file" || return 1
   grep -Fq 'Currently publishable package archives:' "$output_file" || return 1
   grep -Fq 'Private workspace packages blocking publishable targets:' "$output_file" || return 1
@@ -2240,11 +2241,11 @@ print_rc_readiness() {
       printf 'Dart package strict publish dry-run: ready\n'
     elif strict_dart_output_is_deferred_pub_dev_only "$strict_dart_output"; then
       printf 'Dart package strict publish dry-run: deferred for first GitHub RC\n'
-      grep -E '^(Dart package release-readiness blockers:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
+      grep -E '^(Dart package release-readiness blockers:|Dart package release strategy decision required:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
       printf '  Deferred: pub.dev publishing is intentionally outside this GitHub prerelease RC; keep the archive dry-run zero-warning and resolve package ownership/version/release-order before public publishing.\n'
     else
       printf 'Dart package strict publish dry-run: not ready\n'
-      grep -E '^(Dart package release-readiness blockers:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
+      grep -E '^(Dart package release-readiness blockers:|Dart package release strategy decision required:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
       printf '  Next action: resolve the package ownership/version/release-order decisions in docs/dart_package_publishing.md, then rerun bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan.\n'
       rc_ready_failed=1
     fi
