@@ -23858,6 +23858,12 @@ run_router_cli_consumer_package_smoke() (
   local fastcgi_port
   local fastcgi_server_log
   local fastcgi_server_pid
+  local reverse_proxy_body
+  local reverse_proxy_body_file
+  local reverse_proxy_headers_file
+  local reverse_proxy_port
+  local reverse_proxy_server_log
+  local reverse_proxy_server_pid
   local traversal_status
   local dart_consumer_summary
   local smoke_dir
@@ -23875,6 +23881,7 @@ run_router_cli_consumer_package_smoke() (
   router_log="$smoke_dir/router.log"
   router_pid=""
   fastcgi_server_pid=""
+  reverse_proxy_server_pid=""
   # The executable smoke should prove that consumer harnesses can discover the
   # source-checkout alias without requiring pub global activation first.
   _router_cli_smoke_process_ids() {
@@ -23969,6 +23976,12 @@ run_router_cli_consumer_package_smoke() (
         kill "$fastcgi_server_pid" >/dev/null 2>&1 || true
       fi
       wait "$fastcgi_server_pid" >/dev/null 2>&1 || true
+    fi
+    if [[ -n "${reverse_proxy_server_pid:-}" ]]; then
+      if kill -0 "$reverse_proxy_server_pid" >/dev/null 2>&1; then
+        kill "$reverse_proxy_server_pid" >/dev/null 2>&1 || true
+      fi
+      wait "$reverse_proxy_server_pid" >/dev/null 2>&1 || true
     fi
     if [[ -n "${router_pid:-}" ]]; then
       if kill -0 "$router_pid" >/dev/null 2>&1; then
@@ -24110,6 +24123,15 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 PY
   )"
   fastcgi_port="$(
+    python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+  )"
+  reverse_proxy_port="$(
     python3 - <<'PY'
 import socket
 
@@ -24264,6 +24286,97 @@ PY
     _cleanup_router_cli_smoke 1
   fi
 
+  reverse_proxy_server_log="$smoke_dir/reverse-proxy.log"
+  cat >"$smoke_dir/reverse_proxy_upstream.py" <<'PY'
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self):
+        self._handle()
+
+    def do_POST(self):
+        self._handle()
+
+    def log_message(self, format, *args):
+        return
+
+    def _read_request_body(self):
+        transfer_encoding = self.headers.get("transfer-encoding", "").lower()
+        if "chunked" in transfer_encoding:
+            chunks = []
+            while True:
+                line = self.rfile.readline()
+                if line == b"":
+                    raise EOFError("unexpected chunked request EOF")
+                line = line.strip()
+                if not line:
+                    continue
+                size = int(line.split(b";", 1)[0], 16)
+                if size == 0:
+                    while True:
+                        trailer = self.rfile.readline()
+                        if trailer in (b"\r\n", b"\n", b""):
+                            break
+                    break
+                chunks.append(self.rfile.read(size))
+                self.rfile.read(2)
+            return b"".join(chunks).decode("utf-8")
+        length = int(self.headers.get("content-length", "0") or "0")
+        return self.rfile.read(length).decode("utf-8")
+
+    def _handle(self):
+        body = self._read_request_body()
+        response = (
+            f"reverse_proxy:{body}:{self.command}:{self.path}:"
+            f"{self.headers.get('x-forwarded-proto', '')}:"
+            f"{self.headers.get('x-forwarded-host', '')}"
+        ).encode("utf-8")
+        self.send_response(208)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("X-Reverse-Proxy", "ok")
+        self.send_header("Connection", "close")
+        self.send_header("Content-Length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response)
+
+
+server = ThreadingHTTPServer(
+    ("127.0.0.1", int(os.environ["REVERSE_PROXY_PORT"])),
+    Handler,
+)
+with open(os.environ["REVERSE_PROXY_READY"], "w", encoding="utf-8") as ready:
+    ready.write("ready\n")
+try:
+    server.serve_forever()
+finally:
+    server.server_close()
+PY
+  REVERSE_PROXY_PORT="$reverse_proxy_port" \
+    REVERSE_PROXY_READY="$smoke_dir/reverse-proxy.ready" \
+    python3 "$smoke_dir/reverse_proxy_upstream.py" \
+      >"$reverse_proxy_server_log" 2>&1 &
+  reverse_proxy_server_pid=$!
+  for _ in {1..50}; do
+    if [[ -f "$smoke_dir/reverse-proxy.ready" ]]; then
+      break
+    fi
+    if ! kill -0 "$reverse_proxy_server_pid" >/dev/null 2>&1; then
+      printf 'Router CLI reverse proxy smoke upstream exited before readiness.\n' >&2
+      cat "$reverse_proxy_server_log" >&2
+      _cleanup_router_cli_smoke 1
+    fi
+    sleep 0.1
+  done
+  if [[ ! -f "$smoke_dir/reverse-proxy.ready" ]]; then
+    printf 'Router CLI reverse proxy smoke upstream did not become ready.\n' >&2
+    cat "$reverse_proxy_server_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+
   cat >"$smoke_dir/router.yaml" <<YAML
 router:
   session_profiles:
@@ -24351,6 +24464,16 @@ router:
                 document_root: /srv/app/public
                 strip_prefix: true
                 timeout_ms: 5000
+          - match:
+              prefix: /upstream
+              methods: [GET, POST]
+            action:
+              type: reverse_proxy
+              delegate: "http://127.0.0.1:$reverse_proxy_port/backend"
+              options:
+                strip_prefix: true
+                timeout_ms: 5000
+                max_response_bytes: 1048576
           - match:
               path: /auth
               methods: [POST]
@@ -24616,6 +24739,8 @@ YAML
   asset_traversal_body_file="$smoke_dir/asset-traversal.body"
   fastcgi_headers_file="$smoke_dir/fastcgi.headers"
   fastcgi_body_file="$smoke_dir/fastcgi.body"
+  reverse_proxy_headers_file="$smoke_dir/reverse-proxy.headers"
+  reverse_proxy_body_file="$smoke_dir/reverse-proxy.body"
 
   curl -fsS -D "$asset_headers_file" -o "$asset_body_file" \
     "http://127.0.0.1:$mcp_port/assets/hello.txt"
@@ -24675,6 +24800,22 @@ YAML
   fi
   grep -Eq '^HTTP/[0-9.]+ 207' "$fastcgi_headers_file"
   grep -Eiq '^x-fastcgi: ok\r?$' "$fastcgi_headers_file"
+
+  curl -fsS -D "$reverse_proxy_headers_file" \
+    -H 'X-Consumer-Smoke: yes' \
+    -o "$reverse_proxy_body_file" \
+    --data-binary 'ping' \
+    "http://127.0.0.1:$mcp_port/upstream/echo?active=true"
+  reverse_proxy_body="$(<"$reverse_proxy_body_file")"
+  if [[ "$reverse_proxy_body" != "reverse_proxy:ping:POST:/backend/echo?active=true:http:127.0.0.1:$mcp_port" ]]; then
+    printf 'Router CLI configured reverse_proxy route returned unexpected body: %s\n' \
+      "$reverse_proxy_body" >&2
+    cat "$reverse_proxy_server_log" >&2
+    cat "$router_log" >&2
+    _cleanup_router_cli_smoke 1
+  fi
+  grep -Eq '^HTTP/[0-9.]+ 208' "$reverse_proxy_headers_file"
+  grep -Eiq '^x-reverse-proxy: ok\r?$' "$reverse_proxy_headers_file"
 
   MCP_PORT="$mcp_port" python3 - <<'PY'
 import json
@@ -29943,7 +30084,7 @@ DART
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, a configured /php FastCGI route backed by a neutral upstream, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub/notification pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/notification pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/empty Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta, resource/prompt, and notification pub-sub isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/notification pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
+  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, a configured /php FastCGI route backed by a neutral upstream, a configured /upstream reverse_proxy route backed by a neutral upstream, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub/notification pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/notification pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/empty Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta, resource/prompt, and notification pub-sub isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/notification pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
   printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay across the method matrix.\n'
   _cleanup_router_cli_smoke 0
 )

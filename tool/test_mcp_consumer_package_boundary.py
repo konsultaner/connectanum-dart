@@ -544,6 +544,31 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("x-fastcgi: ok", body)
         self.assertIn("configured /php FastCGI route", body)
 
+    def test_router_cli_consumer_smoke_exercises_reverse_proxy_route(
+        self,
+    ) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_router_cli_consumer_package_smoke")
+
+        self.assertIn("reverse_proxy_upstream.py", body)
+        self.assertIn("REVERSE_PROXY_PORT", body)
+        self.assertIn("prefix: /upstream", body)
+        self.assertIn("type: reverse_proxy", body)
+        self.assertIn(
+            'delegate: "http://127.0.0.1:$reverse_proxy_port/backend"',
+            body,
+        )
+        self.assertIn("strip_prefix: true", body)
+        self.assertIn("max_response_bytes: 1048576", body)
+        self.assertIn("/upstream/echo?active=true", body)
+        self.assertIn("Router CLI configured reverse_proxy route", body)
+        self.assertIn(
+            "reverse_proxy:ping:POST:/backend/echo?active=true:http",
+            body,
+        )
+        self.assertIn("x-reverse-proxy: ok", body)
+        self.assertIn("configured /upstream reverse_proxy route", body)
+
     def test_router_cli_consumer_smoke_exercises_native_metrics_routes(
         self,
     ) -> None:
