@@ -2,7 +2,23 @@
 
 Last updated: 2026-07-07
 Current branch: `add-router`
-Last reviewed branch checkpoint: `connectanum_router` package archive
+Last reviewed branch checkpoint: `connectanum_auth_server` package archive
+readiness now clears the concrete non-strategy pub dry-run blocker found while
+checking the remote-auth package path. The auth-server package now has a
+package changelog, while `publish_to: none` and dependency sources remain
+unchanged. Remaining auth-server publish errors are the strategy-bound local
+workspace dependencies on `connectanum_router` and `connectanum_core`.
+
+Baseline `bin/test-fast` passed before the auth-server archive-readiness
+metadata change on 2026-07-07. Focused
+`python3 -m unittest tool.test_dart_package_publish_dry_run` passed after the
+change, and
+`bin/dart-package-publish-dry-run --include-private connectanum_auth_server`
+now reports no missing-changelog error. It still exits non-zero for the
+unresolved path dependency release-strategy blockers. Full local `bin/verify`
+passed after the auth-server archive-readiness metadata change on 2026-07-07.
+
+Previous branch checkpoint: `connectanum_router` package archive
 readiness now clears the concrete non-strategy pub dry-run blockers found while
 checking the router-hosted MCP package path. The router package now has a
 package changelog and scoped `false_secrets` entries for checked-in test TLS
@@ -20,6 +36,15 @@ change, and `bin/dart-package-publish-dry-run --include-private connectanum_rout
 now reports no missing-changelog or false-secret errors. It still exits
 non-zero for the unresolved path dependency release-strategy blockers. Full
 local `bin/verify` passed after the change on 2026-07-07.
+
+Hosted evidence after push: commit `b226a08` on branch `add-router` passed
+GitHub CI `28890098561` (Fast Checks and Full Verify), Dart Package Publish
+Dry Run `28890098524`, and WAMP Profile Benchmarks `28890098533` on
+2026-07-07. The clean deployment-chain audit passed with CI/log, Dart package
+dry-run, and WAMP benchmark requirements at `b226a08`. The same audit with
+`--strict` still reports the known operator-owned `add-router`
+branch-protection gap: the branch is unprotected and does not require Fast
+Checks and Full Verify.
 
 Previous branch checkpoint: Dart package publish-readiness tooling now
 classifies the current strict `connectanum_client` blocker as an explicit
@@ -46,7 +71,7 @@ expected-failing
 after the change on 2026-07-07. Full local `bin/verify` also passed after the
 change on 2026-07-07.
 
-Hosted evidence after push: commit `9b212da` on branch `add-router` passed
+Previous hosted evidence after push: commit `9b212da` on branch `add-router` passed
 GitHub CI `28886550805` (Fast Checks and Full Verify) and Dart Package Publish
 Dry Run `28886550715` on 2026-07-07. The clean deployment-chain audit passed
 with CI/log and Dart package dry-run requirements at `9b212da`; WAMP Profile

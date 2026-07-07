@@ -22,6 +22,8 @@ pub.dev. The current strict release gate fails because the publishable
   concrete `dart pub publish --dry-run` findings.
 - Remove concrete non-strategy archive blockers from the router-hosted MCP
   package path when found, while keeping package publishing disabled.
+- Remove concrete non-strategy archive blockers from the auth-server package
+  path when found, while keeping package publishing disabled.
 - Preserve current RC semantics: GitHub prerelease/router-image readiness can
   stay green while pub.dev release readiness remains blocked.
 
@@ -45,6 +47,8 @@ pub.dev. The current strict release gate fails because the publishable
   blockers while keeping it private.
 - [x] Make the private `connectanum_router` archive clear its concrete
   changelog and false-secret fixture blockers while keeping it private.
+- [x] Make the private `connectanum_auth_server` archive clear its concrete
+  changelog blocker while keeping it private.
 - [x] Re-run local verification and clean package-copy package dry-runs.
 - [ ] Decide the package release strategy: publish modular packages in dependency
   order, keep using the legacy `connectanum` name for client compatibility, or
@@ -56,6 +60,7 @@ pub.dev. The current strict release gate fails because the publishable
 - `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
 - `bin/dart-package-publish-dry-run --include-private connectanum_core`
 - `bin/dart-package-publish-dry-run --include-private connectanum_router`
+- `bin/dart-package-publish-dry-run --include-private connectanum_auth_server`
 - `bin/verify`
 - Clean package-copy simulation: `git archive` the repo, overlay the new
   `connectanum_core` package metadata, then run
@@ -63,6 +68,14 @@ pub.dev. The current strict release gate fails because the publishable
 
 ## Decision Log
 
+- 2026-07-07: Removed the concrete auth-server package archive blocker without
+  changing package publishing strategy. `connectanum_auth_server` now has a
+  package changelog. `bin/dart-package-publish-dry-run --include-private
+  connectanum_auth_server` no longer reports a missing-changelog error; it
+  still exits non-zero for the strategy-bound local workspace dependencies on
+  `connectanum_router` and `connectanum_core`. Baseline `bin/test-fast`,
+  focused `python3 -m unittest tool.test_dart_package_publish_dry_run`, and
+  full local `bin/verify` passed.
 - 2026-07-07: Removed concrete router package archive blockers without changing
   package publishing strategy. `connectanum_router` now has a package changelog
   and scoped `false_secrets` entries for checked-in test TLS key fixtures and
@@ -72,7 +85,10 @@ pub.dev. The current strict release gate fails because the publishable
   dependencies on `connectanum_core`, `connectanum_client`, and
   `connectanum_mcp`. Baseline `bin/test-fast` and focused
   `python3 -m unittest tool.test_dart_package_publish_dry_run` passed. Full
-  local `bin/verify` passed after the change.
+  local `bin/verify` passed after the change. Hosted CI, Dart Package Publish
+  Dry Run, WAMP Profile Benchmarks, and the clean deployment-chain audit passed
+  at `b226a08`; the strict audit still fails only for the known unprotected
+  `add-router` branch policy gap.
 - 2026-07-07: Hardened the release gate wording without changing package
   publishability. `bin/dart-package-publish-dry-run --strict-release-ready
   --show-release-plan` now prints a `Dart package release strategy decision

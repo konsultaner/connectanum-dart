@@ -13,11 +13,20 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLISH_DRY_RUN = REPO_ROOT / "bin" / "dart-package-publish-dry-run"
+AUTH_SERVER_CHANGELOG = (
+    REPO_ROOT / "packages" / "connectanum_auth_server" / "CHANGELOG.md"
+)
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
+    def test_auth_server_package_archive_metadata_has_changelog(self) -> None:
+        changelog = AUTH_SERVER_CHANGELOG.read_text(encoding="utf-8")
+
+        self.assertIn("## 0.1.0", changelog)
+        self.assertIn("remote-authentication service", changelog)
+
     def test_router_package_archive_metadata_allows_known_test_fixtures(
         self,
     ) -> None:
