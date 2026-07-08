@@ -18,6 +18,9 @@ MCP_PUBSPEC = REPO_ROOT / "packages" / "connectanum_mcp" / "pubspec.yaml"
 AUTH_SERVER_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_auth_server" / "CHANGELOG.md"
 )
+AUTH_SERVER_PUBSPEC = (
+    REPO_ROOT / "packages" / "connectanum_auth_server" / "pubspec.yaml"
+)
 BENCH_PUBSPEC = REPO_ROOT / "packages" / "connectanum_bench" / "pubspec.yaml"
 BENCH_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_bench" / "CHANGELOG.md"
@@ -27,10 +30,15 @@ ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
-    def test_core_mcp_and_router_packages_are_publishable_modular_archives(
+    def test_core_mcp_router_and_auth_server_are_publishable_modular_archives(
         self,
     ) -> None:
-        package_pubspecs = (CORE_PUBSPEC, MCP_PUBSPEC, ROUTER_PUBSPEC)
+        package_pubspecs = (
+            CORE_PUBSPEC,
+            MCP_PUBSPEC,
+            ROUTER_PUBSPEC,
+            AUTH_SERVER_PUBSPEC,
+        )
 
         for package_pubspec in package_pubspecs:
             with self.subTest(package=package_pubspec.parent.name):
@@ -106,10 +114,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             result.stdout,
             r"- connectanum_core [^ ]+ \(packages/connectanum_core\)",
         )
-        for package in (
-            "connectanum_auth_server",
-            "connectanum_bench",
-        ):
+        for package in ("connectanum_bench",):
             with self.subTest(package=package):
                 self.assertRegex(
                     result.stdout,
@@ -248,6 +253,36 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             "- connectanum_client -> connectanum_router",
             "- connectanum_core -> connectanum_router",
             "- connectanum_mcp -> connectanum_router",
+        ):
+            with self.subTest(edge=edge):
+                self.assertIn(edge, result.stdout)
+
+    def test_strict_release_ready_succeeds_for_auth_server_slice(self) -> None:
+        result = self._run_with_fake_dart(
+            "--strict-release-ready",
+            "--show-release-plan",
+            "connectanum_auth_server",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "## Publish dry-run: connectanum_auth_server "
+            "(packages/connectanum_auth_server)",
+            result.stdout,
+        )
+        self.assertNotIn("Dart package release-readiness blockers:", result.stdout)
+        self.assertIn(
+            "No private workspace dependency blockers found for publishable "
+            "packages.",
+            result.stdout,
+        )
+        self.assertIn(
+            "All Dart package publish dry-runs reported zero warnings.",
+            result.stdout,
+        )
+        for edge in (
+            "- connectanum_core -> connectanum_auth_server",
+            "- connectanum_router -> connectanum_auth_server",
         ):
             with self.subTest(edge=edge):
                 self.assertIn(edge, result.stdout)

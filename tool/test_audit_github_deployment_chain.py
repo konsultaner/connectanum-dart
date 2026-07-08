@@ -573,10 +573,10 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 "(packages/connectanum_mcp)\\n'\n"
                 "                printf -- '- connectanum_router 0.1.0 "
                 "(packages/connectanum_router)\\n'\n"
-                "                printf '\\nPrivate workspace packages not "
-                "currently publishable:\\n'\n"
                 "                printf -- '- connectanum_auth_server 0.1.0 "
                 "(packages/connectanum_auth_server)\\n'\n"
+                "                printf '\\nPrivate workspace packages not "
+                "currently publishable:\\n'\n"
                 "                printf -- '- connectanum_bench 0.1.0 "
                 "(packages/connectanum_bench)\\n'\n"
                 "                printf '\\nPrivate workspace packages blocking "
@@ -596,6 +596,12 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 "connectanum_router\\n'\n"
                 "                printf -- '- connectanum_mcp -> "
                 "connectanum_router\\n'\n"
+                "                printf -- '- connectanum_core -> "
+                "connectanum_auth_server\\n'\n"
+                "                printf -- '- connectanum_router -> "
+                "connectanum_auth_server\\n'\n"
+                "                printf -- '- connectanum_auth_server -> "
+                "connectanum_bench\\n'\n"
                 f"{extra_dependency_edge_line}"
                 "                printf '\\nApproved package release strategy:\\n'\n"
                 "                printf -- '- Publish the modular package graph "
@@ -613,7 +619,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 f"""\
                 #!/usr/bin/env bash
                 set -euo pipefail
-                printf 'Dart package publish dry-run completed for 4 package(s).\\n'
+                printf 'Dart package publish dry-run completed for 5 package(s).\\n'
 {blocker_output}
                 if [[ {1 if has_blocker else 0} -eq 0 ]]; then
                   printf '\\nNo private workspace dependency blockers found for publishable packages.\\n'

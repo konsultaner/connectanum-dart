@@ -1,6 +1,6 @@
 # Exec Plan: Router Package Publishability
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-07-08
 Last updated: 2026-07-08
@@ -32,9 +32,9 @@ dependencies on those already publishable packages plus `publish_to: none`.
 - [x] Switch `connectanum_router` runtime dependencies to hosted constraints and
   remove `publish_to: none`.
 - [x] Update release tooling regressions for the new publishable slice.
-- [ ] Commit the package/test/docs bundle, then run clean strict router and
+- [x] Commit the package/test/docs bundle, then run clean strict router and
   current-slice package dry-runs plus full `bin/verify`.
-- [ ] Push code/config/package changes and inspect hosted CI/package dry-run
+- [x] Push code/config/package changes and inspect hosted CI/package dry-run
   evidence needed for handoff.
 
 ## Verification
@@ -60,3 +60,11 @@ dependencies on those already publishable packages plus `publish_to: none`.
   runtime dependencies to hosted constraints matching the current publishable
   modular versions and removes `publish_to: none`, while leaving auth-server and
   benchmark packages private.
+- 2026-07-08: Commit `da55701` promoted `connectanum_router` into the
+  publishable modular package slice. Clean strict router package dry-run, clean
+  strict current publishable-slice dry-run, and full local `bin/verify` passed.
+  Hosted CI `28937100711`, Dart Package Publish Dry Run `28937100685`, and
+  WAMP Profile Benchmarks `28937100701` passed at `da55701`. The clean
+  deployment-chain audit passed with CI/log, Dart package dry-run, WAMP
+  benchmark, workflow visibility, and router-package requirements; strict audit
+  still fails only for the known unprotected `add-router` branch policy gap.
