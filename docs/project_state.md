@@ -2,7 +2,19 @@
 
 Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: root fast/full verification now covers the
+Last reviewed branch checkpoint: Dart package publish dry-run regression now
+checks every package in the canonical publishable package order for archive
+publishability, including the legacy public `connectanum_client` package and
+the `connectanum` compatibility facade. This keeps new publishable workspace
+packages from silently missing the `publish_to: none` guard as the release
+slice changes.
+
+Baseline `bin/test-fast` passed before the publishability-regression change on
+2026-07-08. Focused `python3 tool/test_dart_package_publish_dry_run.py` and
+`git diff --check` passed after the change. Full local `bin/verify` passed
+after the change.
+
+Previous branch checkpoint: root fast/full verification now covers the
 legacy public `connectanum` compatibility facade by running
 `dart test packages/connectanum/test` from both `bin/test-fast` and
 `bin/test-all`. `tool/test_verification_scripts.py` pins that coverage so the

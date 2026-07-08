@@ -14,8 +14,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLISH_DRY_RUN = REPO_ROOT / "bin" / "dart-package-publish-dry-run"
 PUBLISH_TAG_VALIDATOR = REPO_ROOT / "bin" / "validate-dart-package-publish-tag"
-CORE_PUBSPEC = REPO_ROOT / "packages" / "connectanum_core" / "pubspec.yaml"
-MCP_PUBSPEC = REPO_ROOT / "packages" / "connectanum_mcp" / "pubspec.yaml"
 AUTH_SERVER_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_auth_server" / "CHANGELOG.md"
 )
@@ -40,21 +38,14 @@ PUBLISHABLE_PACKAGE_ORDER = (
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
-    def test_modular_packages_are_publishable_archives(
+    def test_publishable_workspace_packages_are_publishable_archives(
         self,
     ) -> None:
-        package_pubspecs = (
-            CORE_PUBSPEC,
-            MCP_PUBSPEC,
-            ROUTER_PUBSPEC,
-            AUTH_SERVER_PUBSPEC,
-            BENCH_PUBSPEC,
-        )
-
-        for package_pubspec in package_pubspecs:
-            with self.subTest(package=package_pubspec.parent.name):
-                pubspec = package_pubspec.read_text(encoding="utf-8")
-                self.assertIn(f"name: {package_pubspec.parent.name}", pubspec)
+        for package_name, package_path in PUBLISHABLE_PACKAGE_ORDER:
+            with self.subTest(package=package_name):
+                pubspec_path = REPO_ROOT / package_path / "pubspec.yaml"
+                pubspec = pubspec_path.read_text(encoding="utf-8")
+                self.assertIn(f"name: {package_name}", pubspec)
                 self.assertNotRegex(
                     pubspec,
                     r"(?m)^\s*publish_to:\s*['\"]?none['\"]?\s*$",

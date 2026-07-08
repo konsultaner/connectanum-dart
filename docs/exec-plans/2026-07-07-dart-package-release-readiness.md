@@ -102,6 +102,14 @@ publishing.
 
 ## Decision Log
 
+- 2026-07-08: Hardened the Dart package publish dry-run regression so archive
+  publishability checks derive from the canonical publishable package order
+  instead of a hand-maintained subset. The guard now covers
+  `connectanum_client` and the `connectanum` compatibility facade alongside
+  the modular packages when asserting package names and rejecting
+  `publish_to: none`. Baseline `bin/test-fast`, focused
+  `python3 tool/test_dart_package_publish_dry_run.py`, and `git diff --check`
+  passed before full local `bin/verify`, which also passed.
 - 2026-07-08: Added the `packages/connectanum/test` suite to both root
   verification gates so the legacy compatibility facade export smoke test runs
   in `bin/test-fast` and `bin/test-all`. `tool/test_verification_scripts.py`
