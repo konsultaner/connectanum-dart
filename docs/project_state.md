@@ -2,7 +2,37 @@
 
 Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: the public-artifact privacy guard now treats
+Last reviewed branch checkpoint: the legacy public `connectanum` package path
+now exists as a thin compatibility facade under `packages/connectanum`. It
+depends only on `connectanum_client`, re-exports the client-facing public
+libraries for existing `package:connectanum/...` imports, carries package-local
+README/CHANGELOG/LICENSE metadata, and adds an export smoke test. The package is
+staged as `2.2.8`, above the currently published legacy `connectanum` `2.2.7`
+version recorded from pub.dev, while real publication remains operator-gated.
+
+The workspace package graph and dormant pub.dev workflow scaffolding now include
+the `connectanum` facade. The release plan reports the
+`connectanum_client -> connectanum` edge and the recommended order
+`connectanum_core`, `connectanum_client`, `connectanum_mcp`,
+`connectanum_router`, `connectanum`, `connectanum_auth_server`, then
+`connectanum_bench`.
+
+Baseline `bin/test-fast` passed before the compatibility facade change on
+2026-07-08. Focused `dart format packages/connectanum/lib
+packages/connectanum/test`, `dart pub get`, `bash -n
+bin/validate-dart-package-publish-tag bin/dart-package-publish-dry-run`,
+`dart analyze packages/connectanum`, `dart test
+packages/connectanum/test/public_exports_test.dart -r expanded`, `python3
+tool/check_public_artifact_references.py`, `bin/validate-dart-package-publish-tag
+connectanum packages/connectanum connectanum-v2.2.8`, workflow YAML parsing,
+`python3 -m unittest tool.test_dart_package_publish_dry_run -v`,
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan
+connectanum`, `git diff --check`, and full local `bin/verify` passed after the
+change. Hosted CI and package dry-run evidence should be checked after push and
+reported in handoff; do not create a docs-only follow-up commit solely to record
+hosted evidence.
+
+Previous branch checkpoint: the public-artifact privacy guard now treats
 published package Dart sources and package executables as public release
 surfaces. In addition to docs, workflows, package metadata, examples, and
 release-template scripts, `tool/check_public_artifact_references.py` now scans

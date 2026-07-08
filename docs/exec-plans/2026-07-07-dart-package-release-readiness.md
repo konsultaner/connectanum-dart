@@ -24,6 +24,8 @@ publishing.
   package strategy decision.
 - Make `connectanum_mcp` publishable after its include-private dry-run has zero
   warnings and its public dependencies are already publishable.
+- Add the thin legacy `connectanum` compatibility facade package once the
+  modular-plus-compatibility release strategy is approved.
 - Make `connectanum_core` ready for the first public package slice by fixing
   concrete `dart pub publish --dry-run` findings.
 - Remove concrete non-strategy archive blockers from the router-hosted MCP
@@ -76,6 +78,8 @@ publishing.
   a startup timing false negative.
 - [x] Make `connectanum_mcp` publishable after confirming its package dry-run
   has zero warnings and no private workspace dependency blockers.
+- [x] Add the thin `connectanum` compatibility facade package for existing
+  client imports.
 
 ## Verification
 
@@ -87,6 +91,9 @@ publishing.
 - `bin/dart-package-publish-dry-run --include-private connectanum_bench`
 - `bin/dart-package-publish-dry-run --include-private --show-release-plan connectanum_mcp`
 - `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan connectanum_mcp`
+- `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan connectanum`
+- `dart analyze packages/connectanum`
+- `dart test packages/connectanum/test/public_exports_test.dart -r expanded`
 - `bin/verify`
 - Clean package-copy simulation: `git archive` the repo, overlay the new
   `connectanum_core` package metadata, then run
@@ -95,6 +102,18 @@ publishing.
 
 ## Decision Log
 
+- 2026-07-08: Added `packages/connectanum` as the thin compatibility facade
+  for existing `package:connectanum/...` client imports. The package re-exports
+  public `connectanum_client` libraries without duplicating implementation code
+  and is staged as `2.2.8`, above the currently published legacy `connectanum`
+  `2.2.7` version recorded from pub.dev. The release plan now includes the
+  `connectanum_client -> connectanum` dependency edge and the compatibility
+  facade's dormant `connectanum-v*` automated-publish workflow. Real pub.dev
+  publication remains operator-gated by package ownership, publisher setup,
+  canonical version approval, and tag publication. Focused facade analysis,
+  export smoke, tag validation, release-tooling tests, scoped strict dry-run,
+  public-artifact scanning, workflow YAML parsing, whitespace checks, and full
+  local `bin/verify` passed for this slice.
 - 2026-07-08: Promoted `connectanum_mcp` into the current publishable modular
   slice after `bin/dart-package-publish-dry-run --include-private
   --show-release-plan connectanum_mcp` reported zero warnings and no private

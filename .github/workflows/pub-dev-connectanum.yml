@@ -1,0 +1,41 @@
+name: Publish connectanum to pub.dev
+
+on:
+  push:
+    tags:
+      - 'connectanum-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate connectanum release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Validate package tag and archive
+        run: |
+          bin/validate-dart-package-publish-tag \
+            connectanum \
+            packages/connectanum
+          bin/dart-package-publish-dry-run \
+            --strict-release-ready \
+            --show-release-plan \
+            connectanum
+
+  publish:
+    name: Publish connectanum
+    needs: validate
+    permissions:
+      contents: read
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      working-directory: packages/connectanum
+      environment: pub.dev

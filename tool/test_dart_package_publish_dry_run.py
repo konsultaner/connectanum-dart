@@ -33,6 +33,7 @@ PUBLISHABLE_PACKAGE_ORDER = (
     ("connectanum_client", "packages/connectanum_client"),
     ("connectanum_mcp", "packages/connectanum_mcp"),
     ("connectanum_router", "packages/connectanum_router"),
+    ("connectanum", "packages/connectanum"),
     ("connectanum_auth_server", "packages/connectanum_auth_server"),
     ("connectanum_bench", "packages/connectanum_bench"),
 )
@@ -172,6 +173,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 "pub-dev-connectanum-client.yml",
                 "pub-dev-connectanum-mcp.yml",
                 "pub-dev-connectanum-router.yml",
+                "pub-dev-connectanum.yml",
                 "pub-dev-connectanum-auth-server.yml",
                 "pub-dev-connectanum-bench.yml",
             ],
@@ -243,6 +245,10 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             result.stdout,
             r"- connectanum_bench [^ ]+ \(packages/connectanum_bench\)",
         )
+        self.assertRegex(
+            result.stdout,
+            r"- connectanum [^ ]+ \(packages/connectanum\)",
+        )
         self.assertIn(
             "Private workspace packages not currently publishable: none.",
             result.stdout,
@@ -266,6 +272,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertIn("- connectanum_mcp -> connectanum_router", result.stdout)
         self.assertIn("- connectanum_router -> connectanum_auth_server", result.stdout)
         self.assertIn("- connectanum_auth_server -> connectanum_bench", result.stdout)
+        self.assertIn("- connectanum_client -> connectanum", result.stdout)
         self.assertIn(
             "Approved package release strategy:",
             result.stdout,
@@ -280,7 +287,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             result.stdout,
         )
         self.assertIn(
-            "- All modular workspace packages are configured for publication; "
+            "- All workspace package archives are configured for publication; "
             "do not run a real dart pub publish without explicit operator "
             "approval.",
             result.stdout,
@@ -291,9 +298,10 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             "2. connectanum_client 2.2.6 (packages/connectanum_client)",
             "3. connectanum_mcp 0.1.0 (packages/connectanum_mcp)",
             "4. connectanum_router 0.1.0 (packages/connectanum_router)",
-            "5. connectanum_auth_server 0.1.0 "
+            "5. connectanum 2.2.8 (packages/connectanum)",
+            "6. connectanum_auth_server 0.1.0 "
             "(packages/connectanum_auth_server)",
-            "6. connectanum_bench 0.1.0 (packages/connectanum_bench)",
+            "7. connectanum_bench 0.1.0 (packages/connectanum_bench)",
         )
         previous_index = -1
         for publish_order_line in expected_order:
@@ -342,6 +350,33 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertNotIn(
             "Default dry-run mode reports release-readiness blockers without "
             "failing.",
+            result.stdout,
+        )
+
+    def test_strict_release_ready_succeeds_for_compatibility_slice(self) -> None:
+        result = self._run_with_fake_dart(
+            "--strict-release-ready",
+            "--show-release-plan",
+            "connectanum",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "## Publish dry-run: connectanum (packages/connectanum)",
+            result.stdout,
+        )
+        self.assertNotIn("Dart package release-readiness blockers:", result.stdout)
+        self.assertIn(
+            "No private workspace dependency blockers found for publishable "
+            "packages.",
+            result.stdout,
+        )
+        self.assertIn(
+            "All Dart package publish dry-runs reported zero warnings.",
+            result.stdout,
+        )
+        self.assertIn(
+            "- connectanum_client -> connectanum",
             result.stdout,
         )
 

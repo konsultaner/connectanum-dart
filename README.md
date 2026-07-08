@@ -7,6 +7,8 @@ This repository is the main source tree for:
 
 - `packages/connectanum_core` - shared protocol types, serializers, and
   conformance coverage
+- `packages/connectanum` - compatibility facade for existing
+  `package:connectanum/...` client imports
 - `packages/connectanum_client` - Dart client package, including native client
   transports
 - `packages/connectanum_router` - router implementation, examples, runner, and

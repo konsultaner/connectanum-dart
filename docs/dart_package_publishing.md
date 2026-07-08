@@ -8,9 +8,9 @@ and version-sequencing decisions.
 ## Current Status
 
 - The approved strategy is to publish the modular package graph in dependency
-  order while keeping the legacy public `connectanum` package as the
+  order while keeping the legacy public `connectanum` package as a thin
   client-facing compatibility wrapper/facade.
-- `connectanum_core`, `connectanum_client`, `connectanum_mcp`,
+- `connectanum`, `connectanum_core`, `connectanum_client`, `connectanum_mcp`,
   `connectanum_router`, `connectanum_auth_server`, and `connectanum_bench` are
   all configured as publishable archives. None of these workspace packages sets
   `publish_to: none`.
@@ -38,33 +38,43 @@ and version-sequencing decisions.
   dry-run tool, this readiness document, and the workflow itself. It can also
   be started manually with `workflow_dispatch`.
 - `.github/workflows/pub-dev-*.yml` contains dormant tag-triggered pub.dev
-  publishing workflows for the six modular packages. Each workflow follows the
-  pub.dev monorepo tag-pattern shape `<package>-v{{version}}`, validates the
-  tag with `bin/validate-dart-package-publish-tag`, runs the strict package
-  dry-run for the selected package, then delegates to Dart's reusable
+  publishing workflows for the six modular packages plus the compatibility
+  `connectanum` facade. Each workflow follows the pub.dev monorepo tag-pattern
+  shape `<package>-v{{version}}`, validates the tag with
+  `bin/validate-dart-package-publish-tag`, runs the strict package dry-run for
+  the selected package, then delegates to Dart's reusable
   `dart-lang/setup-dart/.github/workflows/publish.yml@v1` workflow with OIDC
   authentication and the `pub.dev` environment input.
-- As of 2026-07-07, pub.dev exposes the legacy public `connectanum` package at
-  `2.2.7`. The modular package names `connectanum_client`, `connectanum_core`,
-  `connectanum_router`, `connectanum_mcp`, and `connectanum_auth_server`
-  returned `404` from the pub.dev package API. That makes package naming and
-  publisher ownership an explicit migration decision, not just a metadata
-  cleanup task.
+- As of 2026-07-08, pub.dev exposes the legacy public `connectanum` package at
+  `2.2.7`. The compatibility facade is staged at `2.2.8` so a future
+  `connectanum-v2.2.8` tag is above the currently published legacy package
+  version. The modular package names `connectanum_client`,
+  `connectanum_core`, `connectanum_router`, `connectanum_mcp`, and
+  `connectanum_auth_server` returned `404` from the pub.dev package API at the
+  last checked probe. That makes package naming, publisher ownership, and exact
+  release sequencing explicit migration decisions, not just metadata cleanup.
 
 ## Latest Evidence
 
 As of 2026-07-08:
 
 - `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
-  validates all six publishable workspace packages with `Package has 0
+  validates all seven publishable workspace packages with `Package has 0
   warnings` and reports no private workspace dependency blockers.
-- The release-plan dependency order is
-  `connectanum_core -> connectanum_client -> connectanum_mcp ->
-  connectanum_router -> connectanum_auth_server -> connectanum_bench` where
-  each edge exists in the package graph.
+- The release-plan recommended publish order is `connectanum_core`,
+  `connectanum_client`, `connectanum_mcp`, `connectanum_router`,
+  `connectanum`, `connectanum_auth_server`, then `connectanum_bench`. The
+  compatibility facade's required graph edge is
+  `connectanum_client -> connectanum`.
 - Clean scoped strict dry-runs passed for the `connectanum_mcp`,
   `connectanum_router`, `connectanum_auth_server`, and `connectanum_bench`
   package-release slices after their hosted runtime constraints were applied.
+- The scoped strict dry-run for the compatibility facade passed with
+  `Package has 0 warnings`:
+  `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan
+  connectanum`.
+- Full local `bin/verify` passed after the compatibility facade package and
+  dormant `connectanum-v*` publish workflow were added.
 - Full local `bin/verify` passed after the bench package became publishable at
   commit `4ef668b`.
 - Hosted GitHub evidence for commit `4ef668b` is clean: CI `28944706690`,
@@ -83,7 +93,7 @@ operator/product decision for the package names, versions, and ownership.
 When that decision exists, use this sequence:
 
 1. Confirm the target package names exist or are claimable on pub.dev.
-2. For any modular package name that is not already published, create the
+2. For any package name that is not already published, create the
    first version manually with `dart pub publish`; pub.dev automated publishing
    only supports existing packages. See the official Dart automated publishing
    guide: <https://dart.dev/tools/pub/automated-publishing>.
@@ -92,7 +102,8 @@ When that decision exists, use this sequence:
    relying on CI. Pub.dev accepts GitHub Actions automated publishes only from
    tag-triggered workflows.
 4. Configure each package with the tag pattern `<package>-v{{version}}`; for
-   example, `connectanum_core-v{{version}}` for `connectanum_core`.
+   example, `connectanum_core-v{{version}}` for `connectanum_core` and
+   `connectanum-v{{version}}` for the compatibility facade.
 5. If pub.dev requires a GitHub Actions environment, configure the same
    `pub.dev` environment and protection rules on GitHub before pushing tags.
 6. Run `dart pub publish --dry-run` in each package that will be published.
@@ -108,9 +119,9 @@ When that decision exists, use this sequence:
 ## Current Blockers
 
 - No code-owned archive-readiness or private workspace dependency blockers
-  remain for the modular package graph.
+  remain for the workspace package graph.
 - The canonical Dart package release versions have not been chosen for the
-  modular workspace packages.
+  modular workspace packages or the compatibility facade.
 - Package ownership and publisher configuration on pub.dev have not been
   confirmed in checked-in evidence.
 - First-version publication for any new modular package name still requires an
@@ -118,5 +129,5 @@ When that decision exists, use this sequence:
   before automated publishing can be used for later versions.
 - The legacy package name `connectanum` is already public, while the modular
   package names were not published at the last checked API probe. A release
-  decision must still choose the exact migration sequence for modular packages
-  and the compatibility wrapper/facade.
+  decision must still approve the exact migration sequence for modular packages
+  and the staged compatibility wrapper/facade.

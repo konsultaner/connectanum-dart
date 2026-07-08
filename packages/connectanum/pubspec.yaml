@@ -1,0 +1,14 @@
+name: connectanum
+description: Compatibility facade for the Connectanum Dart WAMP client package.
+version: 2.2.8
+homepage: https://github.com/konsultaner/connectanum-dart
+repository: https://github.com/konsultaner/connectanum-dart
+issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
+environment:
+  sdk: '^3.9.2'
+dependencies:
+  connectanum_client: ^2.2.6
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.2
+resolution: workspace

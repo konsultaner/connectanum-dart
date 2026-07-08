@@ -477,7 +477,7 @@ print_release_plan() {
   if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
     printf -- '- Remove publish_to: none only in an explicit release slice for packages that are approved public API.\n'
   else
-    printf -- '- All modular workspace packages are configured for publication; do not run a real dart pub publish without explicit operator approval.\n'
+    printf -- '- All workspace package archives are configured for publication; do not run a real dart pub publish without explicit operator approval.\n'
   fi
 }
 
@@ -675,7 +675,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
       if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
         printf ', plus explicit publishability approval for each remaining private package.\n'
       else
-        printf '; all modular workspace packages are configured for publication, but real pub.dev publishing still requires explicit operator approval.\n'
+        printf '; all workspace package archives are configured for publication, but real pub.dev publishing still requires explicit operator approval.\n'
       fi
     fi
   } >>"$GITHUB_STEP_SUMMARY"

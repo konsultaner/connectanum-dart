@@ -11,6 +11,7 @@ workspace:
   - packages/connectanum_core
   - packages/connectanum_mcp
   - packages/connectanum_client
+  - packages/connectanum
   - packages/connectanum_router
   - packages/connectanum_auth_server
   - packages/connectanum_bench

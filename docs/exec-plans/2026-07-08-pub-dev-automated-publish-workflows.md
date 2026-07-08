@@ -7,17 +7,17 @@ Last updated: 2026-07-08
 
 ## Problem
 
-The modular Dart package graph is archive-ready, but a real pub.dev release
-still needs an operator-controlled publication path. The default pub.dev path
-for later package versions is tag-triggered GitHub Actions publishing with OIDC,
-not long-lived tokens. The repository needs checked-in workflow scaffolding and
+The Dart package graph is archive-ready, but a real pub.dev release still needs
+an operator-controlled publication path. The default pub.dev path for later
+package versions is tag-triggered GitHub Actions publishing with OIDC, not
+long-lived tokens. The repository needs checked-in workflow scaffolding and
 validation so an operator can enable automated publishing after the manual first
 publication of any new package names.
 
 ## Scope
 
 - Add dormant, per-package GitHub Actions workflows for the publishable modular
-  packages.
+  packages and the legacy `connectanum` compatibility facade.
 - Use package-specific tags shaped as `<package>-v<pubspec-version>`.
 - Validate the package tag and package archive before calling the reusable Dart
   pub.dev publish workflow.
@@ -44,11 +44,12 @@ publication of any new package names.
 
 ## Handoff
 
-Complete. The implementation adds dormant per-package pub.dev publish workflows,
-the package/tag validator, release-readiness documentation, and workflow
-contract tests. `bin/test-fast` passed before edits; focused unit, shell,
-workflow-YAML, public-artifact, diff, validator, and strict dry-run checks
-passed after the change; full local `bin/verify` passed before handoff. Real
-pub.dev publishing remains operator-gated until package ownership, manual
-first-version publication, automated publishing setup, tag pushes, and optional
-GitHub environment approvals are configured.
+Complete. The implementation adds dormant per-package pub.dev publish workflows
+for all publishable workspace packages, the package/tag validator,
+release-readiness documentation, and workflow contract tests. `bin/test-fast`
+passed before edits; focused unit, shell, workflow-YAML, public-artifact, diff,
+validator, and strict dry-run checks passed after the change; full local
+`bin/verify` passed before handoff. Real pub.dev publishing remains
+operator-gated until package ownership, manual first-version publication,
+automated publishing setup, tag pushes, and optional GitHub environment
+approvals are configured.
