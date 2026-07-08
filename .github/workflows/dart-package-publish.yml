@@ -5,14 +5,18 @@ on:
     branches: ['**']
     paths:
       - '.github/workflows/dart-package-publish.yml'
+      - '.github/workflows/pub-dev-*.yml'
       - 'bin/dart-package-publish-dry-run'
+      - 'bin/validate-dart-package-publish-tag'
       - 'docs/dart_package_publishing.md'
       - 'packages/**'
   pull_request:
     branches: [master]
     paths:
       - '.github/workflows/dart-package-publish.yml'
+      - '.github/workflows/pub-dev-*.yml'
       - 'bin/dart-package-publish-dry-run'
+      - 'bin/validate-dart-package-publish-tag'
       - 'docs/dart_package_publishing.md'
       - 'packages/**'
   workflow_dispatch:

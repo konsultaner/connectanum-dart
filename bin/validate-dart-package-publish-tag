@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/validate-dart-package-publish-tag <package-name> <package-path> [tag]
+
+Validates that a pub.dev automated-publish tag targets exactly one workspace
+package and that the tag version matches the package pubspec version.
+
+When [tag] is omitted, GITHUB_REF_NAME is used. Expected tag format:
+
+  <package-name>-v<pubspec-version>
+
+Example:
+
+  connectanum_core-v0.1.0
+USAGE
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+  usage >&2
+  exit 64
+fi
+
+package_name="$1"
+package_path="$2"
+tag="${3:-${GITHUB_REF_NAME:-}}"
+
+if [[ -z "$tag" ]]; then
+  printf 'Missing tag name. Pass it as an argument or set GITHUB_REF_NAME.\n' >&2
+  exit 64
+fi
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd -P)"
+package_root="$repo_root/$package_path"
+pubspec="$package_root/pubspec.yaml"
+
+if [[ ! -f "$pubspec" ]]; then
+  printf 'Package pubspec not found: %s\n' "$package_path/pubspec.yaml" >&2
+  exit 66
+fi
+
+pubspec_value() {
+  local key="$1"
+  local file="$2"
+
+  awk -v key="$key" '
+    $0 ~ "^[[:space:]]*" key ":[[:space:]]*" {
+      value = $0
+      sub("^[[:space:]]*" key ":[[:space:]]*", "", value)
+      sub(/[[:space:]]*#.*$/, "", value)
+      gsub(/^[[:space:]]*["'\'']?/, "", value)
+      gsub(/["'\'']?[[:space:]]*$/, "", value)
+      print value
+      exit
+    }
+  ' "$file"
+}
+
+pubspec_name="$(pubspec_value name "$pubspec")"
+pubspec_version="$(pubspec_value version "$pubspec")"
+
+if [[ "$pubspec_name" != "$package_name" ]]; then
+  printf 'Package name mismatch: expected %s but %s declares %s.\n' \
+    "$package_name" "$package_path/pubspec.yaml" "$pubspec_name" >&2
+  exit 65
+fi
+
+if [[ -z "$pubspec_version" ]]; then
+  printf 'Package %s does not declare a pubspec version.\n' "$package_name" >&2
+  exit 65
+fi
+
+if grep -Eq "^[[:space:]]*publish_to:[[:space:]]*['\"]?none['\"]?[[:space:]]*(#.*)?$" "$pubspec"; then
+  printf 'Package %s is not publishable because publish_to is none.\n' \
+    "$package_name" >&2
+  exit 65
+fi
+
+tag_prefix="$package_name-v"
+if [[ "$tag" != "$tag_prefix"* ]]; then
+  printf 'Tag %s does not match expected prefix %s.\n' "$tag" "$tag_prefix" >&2
+  exit 65
+fi
+
+tag_version="${tag#"$tag_prefix"}"
+if [[ -z "$tag_version" ]]; then
+  printf 'Tag %s does not include a package version after %s.\n' \
+    "$tag" "$tag_prefix" >&2
+  exit 65
+fi
+
+if [[ "$tag_version" != "$pubspec_version" ]]; then
+  printf 'Tag version %s does not match %s version %s.\n' \
+    "$tag_version" "$package_path/pubspec.yaml" "$pubspec_version" >&2
+  exit 65
+fi
+
+printf 'Validated pub.dev publish tag %s for %s (%s).\n' \
+  "$tag" "$package_name" "$package_path"

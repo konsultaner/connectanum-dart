@@ -13,6 +13,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLISH_DRY_RUN = REPO_ROOT / "bin" / "dart-package-publish-dry-run"
+PUBLISH_TAG_VALIDATOR = REPO_ROOT / "bin" / "validate-dart-package-publish-tag"
 CORE_PUBSPEC = REPO_ROOT / "packages" / "connectanum_core" / "pubspec.yaml"
 MCP_PUBSPEC = REPO_ROOT / "packages" / "connectanum_mcp" / "pubspec.yaml"
 AUTH_SERVER_CHANGELOG = (
@@ -27,6 +28,14 @@ BENCH_CHANGELOG = (
 )
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
+PUBLISHABLE_PACKAGE_ORDER = (
+    ("connectanum_core", "packages/connectanum_core"),
+    ("connectanum_client", "packages/connectanum_client"),
+    ("connectanum_mcp", "packages/connectanum_mcp"),
+    ("connectanum_router", "packages/connectanum_router"),
+    ("connectanum_auth_server", "packages/connectanum_auth_server"),
+    ("connectanum_bench", "packages/connectanum_bench"),
+)
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
@@ -90,12 +99,126 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         workflow = (
             REPO_ROOT / ".github" / "workflows" / "dart-package-publish.yml"
         )
+        workflow_text = workflow.read_text(encoding="utf-8")
 
         self.assertRegex(
-            workflow.read_text(encoding="utf-8"),
+            workflow_text,
             r"name: Validate strict Dart package release readiness\n"
             r"\s+run: bin/dart-package-publish-dry-run "
             r"--strict-release-ready --show-release-plan",
+        )
+        for tracked_path in (
+            ".github/workflows/pub-dev-*.yml",
+            "bin/validate-dart-package-publish-tag",
+        ):
+            with self.subTest(tracked_path=tracked_path):
+                self.assertIn(f"      - '{tracked_path}'", workflow_text)
+
+    def test_pub_dev_publish_workflows_are_isolated_per_package(self) -> None:
+        for package_name, package_path in PUBLISHABLE_PACKAGE_ORDER:
+            workflow = self._publish_workflow_path(package_name)
+            workflow_text = workflow.read_text(encoding="utf-8")
+
+            with self.subTest(package=package_name):
+                self.assertIn(
+                    f"name: Publish {package_name} to pub.dev",
+                    workflow_text,
+                )
+                self.assertIn(
+                    "on:\n"
+                    "  push:\n"
+                    "    tags:\n"
+                    f"      - '{package_name}-v*'",
+                    workflow_text,
+                )
+                self.assertIn("permissions:\n  contents: read", workflow_text)
+                self.assertNotIn("workflow_dispatch", workflow_text)
+                self.assertIn(
+                    "bin/validate-dart-package-publish-tag \\\n"
+                    f"            {package_name} \\\n"
+                    f"            {package_path}",
+                    workflow_text,
+                )
+                self.assertIn(
+                    "bin/dart-package-publish-dry-run \\\n"
+                    "            --strict-release-ready \\\n"
+                    "            --show-release-plan \\\n"
+                    f"            {package_name}",
+                    workflow_text,
+                )
+                self.assertIn("needs: validate", workflow_text)
+                self.assertIn("id-token: write", workflow_text)
+                self.assertIn(
+                    "uses: dart-lang/setup-dart/.github/workflows/"
+                    "publish.yml@v1",
+                    workflow_text,
+                )
+                self.assertIn(
+                    f"working-directory: {package_path}",
+                    workflow_text,
+                )
+                self.assertIn("environment: pub.dev", workflow_text)
+
+    def test_pub_dev_publish_workflow_files_follow_release_order(self) -> None:
+        workflow_names = [
+            self._publish_workflow_path(package_name).name
+            for package_name, _ in PUBLISHABLE_PACKAGE_ORDER
+        ]
+
+        self.assertEqual(
+            workflow_names,
+            [
+                "pub-dev-connectanum-core.yml",
+                "pub-dev-connectanum-client.yml",
+                "pub-dev-connectanum-mcp.yml",
+                "pub-dev-connectanum-router.yml",
+                "pub-dev-connectanum-auth-server.yml",
+                "pub-dev-connectanum-bench.yml",
+            ],
+        )
+
+    def test_publish_tag_validator_accepts_current_package_versions(self) -> None:
+        for package_name, package_path in PUBLISHABLE_PACKAGE_ORDER:
+            version = self._pubspec_value(
+                REPO_ROOT / package_path / "pubspec.yaml",
+                "version",
+            )
+            tag = f"{package_name}-v{version}"
+
+            with self.subTest(package=package_name):
+                result = self._run_tag_validator(package_name, package_path, tag)
+
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertIn(
+                    f"Validated pub.dev publish tag {tag} for {package_name}",
+                    result.stdout,
+                )
+
+    def test_publish_tag_validator_rejects_wrong_package_prefix(self) -> None:
+        result = self._run_tag_validator(
+            "connectanum_core",
+            "packages/connectanum_core",
+            "connectanum_client-v2.2.6",
+        )
+
+        self.assertEqual(result.returncode, 65, result.stdout)
+        self.assertIn(
+            "does not match expected prefix connectanum_core-v",
+            result.stdout,
+        )
+
+    def test_publish_tag_validator_rejects_version_mismatch(self) -> None:
+        result = self._run_tag_validator(
+            "connectanum_core",
+            "packages/connectanum_core",
+            "connectanum_core-v999.0.0",
+        )
+
+        self.assertEqual(result.returncode, 65, result.stdout)
+        self.assertIn(
+            "Tag version 999.0.0 does not match "
+            "packages/connectanum_core/pubspec.yaml version",
+            result.stdout,
         )
 
     def test_scoped_release_plan_still_inventories_workspace_packages(
@@ -384,6 +507,38 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 text=True,
                 check=False,
             )
+
+    def _run_tag_validator(
+        self,
+        package_name: str,
+        package_path: str,
+        tag: str,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(PUBLISH_TAG_VALIDATOR), package_name, package_path, tag],
+            cwd=REPO_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+
+    def _publish_workflow_path(self, package_name: str) -> Path:
+        return (
+            REPO_ROOT
+            / ".github"
+            / "workflows"
+            / f"pub-dev-{package_name.replace('_', '-')}.yml"
+        )
+
+    def _pubspec_value(self, pubspec: Path, key: str) -> str:
+        prefix = f"{key}:"
+        for line in pubspec.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith(prefix):
+                value = stripped[len(prefix) :].split("#", maxsplit=1)[0]
+                return value.strip().strip("\"'")
+        self.fail(f"{pubspec} does not declare {key}")
 
 
 if __name__ == "__main__":

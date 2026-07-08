@@ -1,0 +1,41 @@
+name: Publish connectanum_mcp to pub.dev
+
+on:
+  push:
+    tags:
+      - 'connectanum_mcp-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate connectanum_mcp release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Validate package tag and archive
+        run: |
+          bin/validate-dart-package-publish-tag \
+            connectanum_mcp \
+            packages/connectanum_mcp
+          bin/dart-package-publish-dry-run \
+            --strict-release-ready \
+            --show-release-plan \
+            connectanum_mcp
+
+  publish:
+    name: Publish connectanum_mcp
+    needs: validate
+    permissions:
+      contents: read
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      working-directory: packages/connectanum_mcp
+      environment: pub.dev

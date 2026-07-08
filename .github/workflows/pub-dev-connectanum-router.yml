@@ -1,0 +1,41 @@
+name: Publish connectanum_router to pub.dev
+
+on:
+  push:
+    tags:
+      - 'connectanum_router-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate connectanum_router release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Validate package tag and archive
+        run: |
+          bin/validate-dart-package-publish-tag \
+            connectanum_router \
+            packages/connectanum_router
+          bin/dart-package-publish-dry-run \
+            --strict-release-ready \
+            --show-release-plan \
+            connectanum_router
+
+  publish:
+    name: Publish connectanum_router
+    needs: validate
+    permissions:
+      contents: read
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      working-directory: packages/connectanum_router
+      environment: pub.dev

@@ -37,6 +37,13 @@ and version-sequencing decisions.
   on GitHub for any package archive-input change under `packages/**`, the
   dry-run tool, this readiness document, and the workflow itself. It can also
   be started manually with `workflow_dispatch`.
+- `.github/workflows/pub-dev-*.yml` contains dormant tag-triggered pub.dev
+  publishing workflows for the six modular packages. Each workflow follows the
+  pub.dev monorepo tag-pattern shape `<package>-v{{version}}`, validates the
+  tag with `bin/validate-dart-package-publish-tag`, runs the strict package
+  dry-run for the selected package, then delegates to Dart's reusable
+  `dart-lang/setup-dart/.github/workflows/publish.yml@v1` workflow with OIDC
+  authentication and the `pub.dev` environment input.
 - As of 2026-07-07, pub.dev exposes the legacy public `connectanum` package at
   `2.2.7`. The modular package names `connectanum_client`, `connectanum_core`,
   `connectanum_router`, `connectanum_mcp`, and `connectanum_auth_server`
@@ -84,12 +91,18 @@ When that decision exists, use this sequence:
    on pub.dev for the package, repository, tag pattern, and workflow before
    relying on CI. Pub.dev accepts GitHub Actions automated publishes only from
    tag-triggered workflows.
-4. Run `dart pub publish --dry-run` in each package that will be published.
-5. Run `bin/dart-package-publish-dry-run --strict-release-ready
+4. Configure each package with the tag pattern `<package>-v{{version}}`; for
+   example, `connectanum_core-v{{version}}` for `connectanum_core`.
+5. If pub.dev requires a GitHub Actions environment, configure the same
+   `pub.dev` environment and protection rules on GitHub before pushing tags.
+6. Run `dart pub publish --dry-run` in each package that will be published.
+7. Run `bin/dart-package-publish-dry-run --strict-release-ready
    --show-release-plan` to confirm the dependency order, zero-warning archives,
    and remaining operator decisions.
-6. Publish packages in dependency order, starting with `connectanum_core`.
-7. Record exact package versions and pub.dev URLs in `docs/project_state.md`
+8. Publish packages in dependency order, starting with `connectanum_core`.
+   For automated publication, push the exact package tag
+   `<package>-v<pubspec-version>` after the package already exists on pub.dev.
+9. Record exact package versions and pub.dev URLs in `docs/project_state.md`
    and the active execution plan.
 
 ## Current Blockers

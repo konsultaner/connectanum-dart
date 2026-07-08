@@ -2,32 +2,40 @@
 
 Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: the full modular Dart package graph is now
-publishable, and the current implementation slice hardens the hosted Dart
-Package Publish Dry Run workflow to enforce
+Last reviewed branch checkpoint: dormant tag-triggered pub.dev publishing
+workflows now exist for the six publishable modular Dart packages. Each workflow
+is isolated to its package tag pattern `<package>-v*`, validates that the tag
+matches the package name and `pubspec.yaml` version, runs the strict package
+dry-run with release-plan output, and then delegates publication to the official
+Dart reusable pub.dev workflow with OIDC and the GitHub `pub.dev` environment.
+
+This slice keeps real pub.dev publishing operator-gated and non-mutating unless
+an operator has already completed package-name ownership/publisher setup,
+manual first-version publication for any new package names, automated
+publishing configuration on pub.dev, canonical public versions, and the
+migration choice for the legacy public `connectanum` compatibility
+wrapper/facade.
+
+Baseline `bin/test-fast` passed before the pub.dev automation workflow edits on
+2026-07-08. Focused
+`python3 -m unittest tool.test_dart_package_publish_dry_run`,
+`bash -n bin/validate-dart-package-publish-tag bin/dart-package-publish-dry-run`,
+`ruby -e "require 'yaml'; Dir['.github/workflows/*.yml'].sort.each { |path| YAML.load_file(path); puts path }"`,
+`python3 tool/check_public_artifact_references.py`, `git diff --check`,
+`bin/validate-dart-package-publish-tag connectanum_core packages/connectanum_core connectanum_core-v0.1.0`,
+and `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+passed after the change. Full local `bin/verify` passed after the pub.dev
+automation workflow slice. Hosted CI and package dry-run evidence should be
+checked after push and reported in handoff; do not create a docs-only follow-up
+commit solely to record hosted evidence.
+
+Previous branch checkpoint: the full modular Dart package graph is now
+publishable, and the hosted Dart Package Publish Dry Run workflow enforces
 `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
-across all publishable workspace packages. The release-plan output now prints a
+across all publishable workspace packages. The release-plan output prints a
 topological recommended publish order:
 `connectanum_core`, `connectanum_client`, `connectanum_mcp`,
 `connectanum_router`, `connectanum_auth_server`, then `connectanum_bench`.
-
-This slice keeps real pub.dev publishing non-mutating and operator-gated. A
-real publish still requires package-name ownership/publisher configuration,
-canonical public versions, manual first-version publication for new modular
-package names, and an explicit migration choice for the legacy public
-`connectanum` compatibility wrapper/facade.
-
-Baseline `bin/test-fast` passed before the strict workflow/readiness edits on
-2026-07-08. Focused
-`python3 -m unittest tool.test_dart_package_publish_dry_run`,
-`bash -n bin/dart-package-publish-dry-run`,
-`ruby -e "require 'yaml'; YAML.load_file('.github/workflows/dart-package-publish.yml'); puts 'yaml_ok'"`,
-`python3 tool/check_public_artifact_references.py`, `git diff --check`, and
-`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
-passed after the change. Full local `bin/verify` passed after the strict
-workflow/readiness slice. Hosted CI and package dry-run evidence should be
-checked after push and reported in handoff; do not create a docs-only follow-up
-commit solely to record hosted evidence.
 
 For the previous `connectanum_mcp` publishability slice, focused
 `python3 -m unittest tool.test_dart_package_publish_dry_run`,
