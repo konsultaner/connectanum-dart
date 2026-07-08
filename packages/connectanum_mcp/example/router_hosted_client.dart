@@ -1841,6 +1841,12 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       },
       {
         'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-resource-templates',
+        'method': 'resources/templates/list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
         'id': 'streamable-active-direct-batch-resource-read',
         'method': 'resources/read',
         'params': {'uri': resourceUri},
@@ -1855,8 +1861,19 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       value: resourceUri,
       label: 'Streamable active direct JSON resource',
     );
+    final resourceTemplates = await client.listResourceTemplatesDirect(
+      id: 'streamable-active-direct-resource-templates',
+    );
     details['resources'] = <String, Object?>{
       'uris': [for (final resource in resources.resources) resource['uri']],
+      'templates': <String, Object?>{
+        'uriTemplates': [
+          for (final template in resourceTemplates.resourceTemplates)
+            template['uriTemplate'],
+        ],
+        if (resourceTemplates.nextCursor != null)
+          'nextCursor': resourceTemplates.nextCursor,
+      },
       'content': await client.readResourceDirect(
         resourceUri,
         id: 'streamable-active-direct-resource-read',
@@ -1994,6 +2011,20 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       value: resourceUri,
       label: 'Streamable active direct JSON batch resource',
     );
+    final resourceTemplateBatchResult = _batchResult(
+      batchResponses,
+      'streamable-active-direct-batch-resource-templates',
+      label: 'Streamable active direct JSON batch resource templates',
+    );
+    final resourceDetails = details['resources'];
+    if (resourceDetails is Map<String, Object?>) {
+      resourceDetails['batchResourceTemplates'] =
+          resourceTemplateBatchResult['resourceTemplates'];
+      if (resourceTemplateBatchResult['nextCursor'] != null) {
+        resourceDetails['batchResourceTemplateNextCursor'] =
+            resourceTemplateBatchResult['nextCursor'];
+      }
+    }
   }
   if (promptName != null) {
     _expectBatchCatalogContains(

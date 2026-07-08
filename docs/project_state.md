@@ -2,7 +2,26 @@
 
 Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: GitHub deployment-chain audit regression
+Last reviewed branch checkpoint: the public router-hosted MCP client example
+now proves direct JSON resource-template discovery while a Streamable HTTP
+session is active. When a consumer supplies `--resource-uri`, the active direct
+JSON path calls `listResourceTemplatesDirect`, includes
+`resources/templates/list` in its direct JSON batch, surfaces template URI
+patterns in the `activeDirectJson.resources` summary, and keeps the Streamable
+session id and resume cursor unchanged.
+
+Baseline `bin/test-fast` passed before the active direct JSON resource-template
+change on 2026-07-08. Focused `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`,
+`python3 -m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`, focused dry-run/live public router-hosted client boundary guards, live and
+dry-run public router-hosted MCP client smokes, full
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `git diff
+--check`, `python3 tool/check_public_artifact_references.py`, and full local
+`bin/verify` passed after the change.
+
+Previous branch checkpoint: GitHub deployment-chain audit regression
 fixtures now model the seven-package Dart publish graph, including the legacy
 public `connectanum` compatibility facade and its `connectanum_client ->
 connectanum` release-order edge. The strict Dart blocker path asserts those
@@ -14,6 +33,15 @@ Baseline `bin/test-fast` passed before the audit-regression fixture update on
 `python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_unexpected_strict_dart_blocker -v`
 and full `python3 -m unittest tool.test_audit_github_deployment_chain -v`
 passed after the change. Full local `bin/verify` passed after the change.
+After commit `8035748`, hosted GitHub CI `28975212298` passed on
+2026-07-08. The deployment-chain audit with required clean latest CI, Dart
+package publish dry-run, and WAMP profile benchmark evidence also passed at
+`8035748`; Dart Package Publish Dry Run `28964007653` and WAMP Profile
+Benchmarks `28964007707` remain clean and relevant from `b81302a` because no
+publish-sensitive or WAMP benchmark-sensitive paths changed since then. The
+audit still reports the expected operator-owned gaps: `add-router` is
+unprotected, and the checked-in pub.dev OIDC workflows are not Actions
+discoverable until promoted through `master`.
 
 Previous branch checkpoint: Dart package publish dry-run regression now checks
 every package in the canonical publishable package order for archive
