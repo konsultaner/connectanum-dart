@@ -33,6 +33,10 @@ PUBLIC_PACKAGE_SUFFIXES = (
 PUBLIC_PACKAGE_MARKERS = (
     "/example/",
 )
+PUBLIC_PACKAGE_DART_MARKERS = (
+    "/bin/",
+    "/lib/",
+)
 PUBLIC_RELEASE_TEMPLATE_FILES = {
     "bin/audit-github-deployment-chain",
     "bin/common.sh",
@@ -87,8 +91,13 @@ def is_public_artifact(path: str) -> bool:
         return True
     if not path.startswith("packages/"):
         return False
-    return path.endswith(PUBLIC_PACKAGE_SUFFIXES) or any(
-        marker in path for marker in PUBLIC_PACKAGE_MARKERS
+    return (
+        path.endswith(PUBLIC_PACKAGE_SUFFIXES)
+        or any(marker in path for marker in PUBLIC_PACKAGE_MARKERS)
+        or (
+            path.endswith(".dart")
+            and any(marker in path for marker in PUBLIC_PACKAGE_DART_MARKERS)
+        )
     )
 
 

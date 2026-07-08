@@ -31,6 +31,16 @@ class PublicArtifactReferenceGuardTest(unittest.TestCase):
         )
         self.assertTrue(
             guard.is_public_artifact(
+                "packages/connectanum_mcp/lib/connectanum_mcp_io.dart"
+            )
+        )
+        self.assertTrue(
+            guard.is_public_artifact(
+                "packages/connectanum_mcp/bin/router_hosted_client.dart"
+            )
+        )
+        self.assertTrue(
+            guard.is_public_artifact(
                 "packages/connectanum_router/example/router_hosted_mcp.dart"
             )
         )
@@ -40,6 +50,9 @@ class PublicArtifactReferenceGuardTest(unittest.TestCase):
         self.assertTrue(guard.is_public_artifact("bin/common.sh"))
         self.assertFalse(
             guard.is_public_artifact("packages/connectanum_router/test/foo.dart")
+        )
+        self.assertFalse(
+            guard.is_public_artifact("packages/connectanum_router/tool/local.dart")
         )
         self.assertFalse(guard.is_public_artifact("tool/check_private.py"))
 
@@ -68,6 +81,21 @@ class PublicArtifactReferenceGuardTest(unittest.TestCase):
         with TemporaryDirectory() as raw_repo:
             repo_root = Path(raw_repo)
             public_doc = repo_root / "docs" / "example.md"
+            public_lib = (
+                repo_root
+                / "packages"
+                / "connectanum_mcp"
+                / "lib"
+                / "src"
+                / "example.dart"
+            )
+            public_bin = (
+                repo_root
+                / "packages"
+                / "connectanum_mcp"
+                / "bin"
+                / "router_hosted_client.dart"
+            )
             private_test = (
                 repo_root
                 / "packages"
@@ -78,10 +106,20 @@ class PublicArtifactReferenceGuardTest(unittest.TestCase):
             private_tool = repo_root / "tool" / "local_note.txt"
 
             public_doc.parent.mkdir(parents=True)
+            public_lib.parent.mkdir(parents=True)
+            public_bin.parent.mkdir(parents=True)
             private_test.parent.mkdir(parents=True)
             private_tool.parent.mkdir(parents=True)
             public_doc.write_text(
                 "Use internal-consumer-app only in private notes.\n",
+                encoding="utf-8",
+            )
+            public_lib.write_text(
+                "const app = 'internal-consumer-app';\n",
+                encoding="utf-8",
+            )
+            public_bin.write_text(
+                "const app = 'internal-consumer-app';\n",
                 encoding="utf-8",
             )
             private_test.write_text(
@@ -97,15 +135,28 @@ class PublicArtifactReferenceGuardTest(unittest.TestCase):
                 repo_root,
                 paths=(
                     "docs/example.md",
+                    "packages/connectanum_mcp/lib/src/example.dart",
+                    "packages/connectanum_mcp/bin/router_hosted_client.dart",
                     "packages/connectanum_router/test/example_test.dart",
                     "tool/local_note.txt",
                 ),
                 literal_denylist=("internal-consumer-app",),
             )
 
-        self.assertEqual(len(findings), 1)
-        self.assertEqual(findings[0].path, "docs/example.md")
-        self.assertEqual(findings[0].kind, "configured private reference")
+        self.assertEqual(
+            {finding.path for finding in findings},
+            {
+                "docs/example.md",
+                "packages/connectanum_mcp/bin/router_hosted_client.dart",
+                "packages/connectanum_mcp/lib/src/example.dart",
+            },
+        )
+        self.assertTrue(
+            all(
+                finding.kind == "configured private reference"
+                for finding in findings
+            )
+        )
 
 
 if __name__ == "__main__":

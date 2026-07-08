@@ -2,7 +2,22 @@
 
 Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: dormant tag-triggered pub.dev publishing
+Last reviewed branch checkpoint: the public-artifact privacy guard now treats
+published package Dart sources and package executables as public release
+surfaces. In addition to docs, workflows, package metadata, examples, and
+release-template scripts, `tool/check_public_artifact_references.py` now scans
+tracked `packages/*/lib/**/*.dart` and `packages/*/bin/**/*.dart` files for
+local user paths and configured private-reference literals, while keeping
+package tests and local package tools outside this specific public-surface
+guard. The regression suite pins both the new positive `lib`/`bin` coverage
+and the negative `test`/`tool` exclusions.
+
+Baseline `bin/test-fast` passed before the guard-scope change on 2026-07-08.
+Focused `python3 tool/test_public_artifact_references.py`, focused
+`python3 tool/check_public_artifact_references.py`, `git diff --check`, and
+full local `bin/verify` passed after the change.
+
+Previous branch checkpoint: dormant tag-triggered pub.dev publishing
 workflows now exist for the six publishable modular Dart packages. Each workflow
 is isolated to its package tag pattern `<package>-v*`, validates that the tag
 matches the package name and `pubspec.yaml` version, runs the strict package
