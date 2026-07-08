@@ -1,6 +1,6 @@
 # Exec Plan: Bench Package Publishability
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-07-08
 Last updated: 2026-07-08
@@ -30,9 +30,9 @@ packages.
 - [x] Switch `connectanum_bench` runtime dependencies to hosted constraints and
   remove `publish_to: none`.
 - [x] Update release tooling regressions for the full publishable modular graph.
-- [ ] Commit the package/test/docs bundle, then run clean strict bench and full
+- [x] Commit the package/test/docs bundle, then run clean strict bench and full
   package-graph dry-runs plus full `bin/verify`.
-- [ ] Push code/config/package changes and inspect hosted CI/package dry-run
+- [x] Push code/config/package changes and inspect hosted CI/package dry-run
   evidence needed for handoff.
 
 ## Verification
@@ -64,3 +64,13 @@ packages.
   now reports only the expected dirty-package warning for the modified
   `pubspec.yaml`, so clean strict package dry-runs and full `bin/verify` remain
   post-commit gates.
+- 2026-07-08: Commit `4ef668b` made `connectanum_bench` publishable and left
+  no private workspace packages in the modular release plan. Clean strict bench
+  and full package-graph dry-runs passed with zero warnings; full local
+  `bin/verify` passed. The branch was pushed to `origin` and `github`. Hosted
+  CI `28944706690`, Dart Package Publish Dry Run `28944706698`, and WAMP
+  Profile Benchmarks `28944706579` passed at `4ef668b`. The clean
+  deployment-chain audit passed with CI/log, Dart package dry-run, WAMP
+  benchmark, workflow visibility, and router-package requirements. The strict
+  audit still fails only for the known operator-owned `add-router`
+  branch-protection gap.

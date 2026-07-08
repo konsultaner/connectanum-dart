@@ -93,11 +93,12 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
 
         self.assertRegex(
             workflow.read_text(encoding="utf-8"),
-            r"name: Validate publishable Dart packages\n"
-            r"\s+run: bin/dart-package-publish-dry-run --show-release-plan",
+            r"name: Validate strict Dart package release readiness\n"
+            r"\s+run: bin/dart-package-publish-dry-run "
+            r"--strict-release-ready --show-release-plan",
         )
 
-    def test_scoped_release_plan_still_inventories_private_workspace_packages(
+    def test_scoped_release_plan_still_inventories_workspace_packages(
         self,
     ) -> None:
         result = self._run_with_fake_dart(
@@ -155,6 +156,28 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             "client-facing compatibility wrapper/facade.",
             result.stdout,
         )
+        self.assertIn(
+            "- All modular workspace packages are configured for publication; "
+            "do not run a real dart pub publish without explicit operator "
+            "approval.",
+            result.stdout,
+        )
+        self.assertIn("Recommended publish order:", result.stdout)
+        expected_order = (
+            "1. connectanum_core 0.1.0 (packages/connectanum_core)",
+            "2. connectanum_client 2.2.6 (packages/connectanum_client)",
+            "3. connectanum_mcp 0.1.0 (packages/connectanum_mcp)",
+            "4. connectanum_router 0.1.0 (packages/connectanum_router)",
+            "5. connectanum_auth_server 0.1.0 "
+            "(packages/connectanum_auth_server)",
+            "6. connectanum_bench 0.1.0 (packages/connectanum_bench)",
+        )
+        previous_index = -1
+        for publish_order_line in expected_order:
+            with self.subTest(publish_order_line=publish_order_line):
+                current_index = result.stdout.index(publish_order_line)
+                self.assertGreater(current_index, previous_index)
+                previous_index = current_index
         self.assertEqual(result.stdout.count("## Publish dry-run:"), 1)
         self.assertIn(
             "## Publish dry-run: connectanum_client (packages/connectanum_client)",

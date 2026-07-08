@@ -34,8 +34,5 @@ jobs:
 
       - uses: dart-lang/setup-dart@v1
 
-      - name: Validate publishable Dart packages
-        run: bin/dart-package-publish-dry-run --show-release-plan
-
-      - name: Validate MCP package release readiness
-        run: bin/dart-package-publish-dry-run --include-private connectanum_mcp
+      - name: Validate strict Dart package release readiness
+        run: bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan

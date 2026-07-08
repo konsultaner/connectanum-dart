@@ -300,6 +300,132 @@ collect_release_plan_inventory() {
   done
 }
 
+array_contains() {
+  local needle="$1"
+  local value
+
+  shift
+  for value in "$@"; do
+    [[ "$value" == "$needle" ]] && return 0
+  done
+
+  return 1
+}
+
+release_plan_target_description() {
+  local package="$1"
+  local root
+  local pubspec
+  local package_name
+  local package_version
+  local rel_root
+
+  for root in "${workspace_roots[@]}"; do
+    pubspec="$root/pubspec.yaml"
+    package_name="$(pubspec_name "$pubspec")"
+    if [[ "$package_name" == "$package" ]]; then
+      package_version="$(pubspec_version "$pubspec")"
+      rel_root="${root#"$(repo_root)/"}"
+      printf '%s %s (%s)' "$package_name" "${package_version:-unknown-version}" "$rel_root"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+print_recommended_publish_order() {
+  local remaining=()
+  local emitted=()
+  local next_remaining=()
+  local root
+  local pubspec
+  local package_name
+  local dependency
+  local dependency_root
+  local dependency_pubspec
+  local dependency_name
+  local dependency_is_emitted
+  local dependency_is_remaining
+  local ready
+  local progress
+  local index=1
+
+  for root in "${workspace_roots[@]}"; do
+    pubspec="$root/pubspec.yaml"
+    publish_to_none "$pubspec" && continue
+    remaining+=("$(pubspec_name "$pubspec")")
+  done
+
+  if [[ "${#remaining[@]}" -eq 0 ]]; then
+    printf '\nRecommended publish order: no publishable package archives.\n'
+    return 0
+  fi
+
+  printf '\nRecommended publish order:\n'
+
+  while [[ "${#remaining[@]}" -gt 0 ]]; do
+    progress=0
+    next_remaining=()
+
+    for package_name in "${remaining[@]}"; do
+      root="$(workspace_package_root_by_name "$package_name")"
+      pubspec="$root/pubspec.yaml"
+      ready=1
+
+      while IFS= read -r dependency; do
+        [[ -n "$dependency" ]] || continue
+        dependency_root="$(workspace_package_root_by_name "$dependency" || true)"
+        [[ -n "$dependency_root" ]] || continue
+        dependency_pubspec="$dependency_root/pubspec.yaml"
+        publish_to_none "$dependency_pubspec" && continue
+        dependency_name="$(pubspec_name "$dependency_pubspec")"
+
+        dependency_is_remaining=0
+        if [[ "${#remaining[@]}" -gt 0 ]] &&
+          array_contains "$dependency_name" "${remaining[@]}"; then
+          dependency_is_remaining=1
+        fi
+
+        dependency_is_emitted=0
+        if [[ "${#emitted[@]}" -gt 0 ]] &&
+          array_contains "$dependency_name" "${emitted[@]}"; then
+          dependency_is_emitted=1
+        fi
+
+        if [[ "$dependency_is_remaining" -eq 1 &&
+          "$dependency_is_emitted" -eq 0 ]]; then
+          ready=0
+          break
+        fi
+      done < <(pubspec_dependencies "$pubspec")
+
+      if [[ "$ready" -eq 1 ]]; then
+        printf '%d. %s\n' "$index" "$(release_plan_target_description "$package_name")"
+        emitted+=("$package_name")
+        index=$((index + 1))
+        progress=1
+      else
+        next_remaining+=("$package_name")
+      fi
+    done
+
+    if [[ "$progress" -eq 0 ]]; then
+      printf 'Unresolved publish order: dependency cycle or missing workspace metadata among:\n'
+      for package_name in "${next_remaining[@]}"; do
+        printf -- '- %s\n' "$package_name"
+      done
+      return 1
+    fi
+
+    if [[ "${#next_remaining[@]}" -gt 0 ]]; then
+      remaining=("${next_remaining[@]}")
+    else
+      remaining=()
+    fi
+  done
+}
+
 print_release_plan() {
   printf '\nDart package release-order plan:\n'
 
@@ -339,6 +465,8 @@ print_release_plan() {
     printf '\nWorkspace dependency order: no publishable package depends on another workspace package.\n'
   fi
 
+  print_recommended_publish_order
+
   printf '\nApproved package release strategy:\n'
   printf -- '- Publish the modular package graph in dependency order.\n'
   printf -- '- Keep the legacy public connectanum package as the client-facing compatibility wrapper/facade.\n'
@@ -346,7 +474,11 @@ print_release_plan() {
   printf '\nOperator decisions still required before a real publish:\n'
   printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\n'
   printf -- '- Choose canonical public versions for every package that becomes publishable.\n'
-  printf -- '- Remove publish_to: none only in an explicit release slice for packages that are approved public API.\n'
+  if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
+    printf -- '- Remove publish_to: none only in an explicit release slice for packages that are approved public API.\n'
+  else
+    printf -- '- All modular workspace packages are configured for publication; do not run a real dart pub publish without explicit operator approval.\n'
+  fi
 }
 
 print_release_strategy_decision() {
@@ -537,8 +669,14 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
           printf -- '- %s\n' "$edge"
         done
       fi
+      print_recommended_publish_order
       printf '\nApproved package release strategy: publish the modular graph in dependency order while keeping the legacy connectanum package as the compatibility wrapper/facade.\n'
-      printf '\nOperator decisions still required: package-name ownership, canonical public versions, and explicit publishability approval for each remaining private package.\n'
+      printf '\nOperator decisions still required: package-name ownership and canonical public versions'
+      if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
+        printf ', plus explicit publishability approval for each remaining private package.\n'
+      else
+        printf '; all modular workspace packages are configured for publication, but real pub.dev publishing still requires explicit operator approval.\n'
+      fi
     fi
   } >>"$GITHUB_STEP_SUMMARY"
 fi

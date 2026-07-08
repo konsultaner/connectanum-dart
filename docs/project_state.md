@@ -2,36 +2,32 @@
 
 Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: Dart package release strategy is now approved
-as modular pub.dev packages published in dependency order while keeping the
-legacy public `connectanum` package as the client-facing compatibility
-wrapper/facade. `connectanum_core`, `connectanum_mcp`, `connectanum_router`,
-and `connectanum_auth_server` are now publishable modular archives
-(`publish_to: none` removed). The current implementation slice promotes
-`connectanum_bench` into the publishable modular set by replacing its runtime
-path dependencies on `connectanum_router`, `connectanum_core`,
-`connectanum_client`, and `connectanum_auth_server` with hosted constraints and
-removing `publish_to: none`.
+Last reviewed branch checkpoint: the full modular Dart package graph is now
+publishable, and the current implementation slice hardens the hosted Dart
+Package Publish Dry Run workflow to enforce
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+across all publishable workspace packages. The release-plan output now prints a
+topological recommended publish order:
+`connectanum_core`, `connectanum_client`, `connectanum_mcp`,
+`connectanum_router`, `connectanum_auth_server`, then `connectanum_bench`.
 
-The Dart package dry-run release plan now prints the approved strategy, and the
-GitHub deployment-chain audit no longer accepts the old first-RC pub.dev
-deferral once strict Dart package readiness is attainable. The router CLI
-consumer package smoke readiness wait now allows about 30 seconds for startup,
-avoiding false negatives from package build-hook/dependency startup noise before
-the router reports its running state.
+This slice keeps real pub.dev publishing non-mutating and operator-gated. A
+real publish still requires package-name ownership/publisher configuration,
+canonical public versions, manual first-version publication for new modular
+package names, and an explicit migration choice for the legacy public
+`connectanum` compatibility wrapper/facade.
 
-Baseline `bin/test-fast` passed before the package strategy implementation on
-2026-07-08. Focused `bash -n bin/dart-package-publish-dry-run`,
-`bash -n bin/common.sh`, `python3 -m unittest tool.test_dart_package_publish_dry_run`,
-`python3 -m unittest tool.test_audit_github_deployment_chain`,
-`bin/dart-package-publish-dry-run --show-release-plan connectanum_client`, and
-`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan connectanum_client`
-passed after the change. A clean archive simulation for
-`bin/dart-package-publish-dry-run --include-private connectanum_core` also
-passed with zero warnings. The first full `bin/verify` exposed a router CLI
-consumer-smoke startup timing false negative; after the readiness wait hardening,
-the focused router CLI consumer package smoke and full local `bin/verify`
-passed on 2026-07-08.
+Baseline `bin/test-fast` passed before the strict workflow/readiness edits on
+2026-07-08. Focused
+`python3 -m unittest tool.test_dart_package_publish_dry_run`,
+`bash -n bin/dart-package-publish-dry-run`,
+`ruby -e "require 'yaml'; YAML.load_file('.github/workflows/dart-package-publish.yml'); puts 'yaml_ok'"`,
+`python3 tool/check_public_artifact_references.py`, `git diff --check`, and
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
+passed after the change. Full local `bin/verify` passed after the strict
+workflow/readiness slice. Hosted CI and package dry-run evidence should be
+checked after push and reported in handoff; do not create a docs-only follow-up
+commit solely to record hosted evidence.
 
 For the previous `connectanum_mcp` publishability slice, focused
 `python3 -m unittest tool.test_dart_package_publish_dry_run`,
@@ -106,7 +102,14 @@ tool.test_audit_github_deployment_chain`, `dart analyze
 packages/connectanum_bench`, `python3 tool/check_public_artifact_references.py`,
 `bash -n bin/dart-package-publish-dry-run bin/audit-github-deployment-chain`,
 and `git diff --check` passed. The uncommitted bench package dry-run now
-reported only the expected dirty-package warning.
+reported only the expected dirty-package warning. After commit `4ef668b`, the
+clean strict bench package dry-run, clean strict full package-graph dry-run, and
+full local `bin/verify` passed. Hosted CI `28944706690`, Dart Package Publish
+Dry Run `28944706698`, and WAMP Profile Benchmarks `28944706579` passed at
+`4ef668b`. The clean deployment-chain audit passed with CI/log, Dart package
+dry-run, WAMP benchmark, workflow visibility, and router-package requirements.
+The strict audit still fails only for the known unprotected `add-router` branch
+policy gap.
 
 Previous branch checkpoint: `connectanum_bench` package archive
 readiness now clears the concrete non-strategy pub dry-run blockers found while
@@ -11585,21 +11588,14 @@ strict deployment-chain audit passed required gates on `master` at `a9dc2f6`;
 RC readiness still reports not-ready only because no approved numeric RC tag,
 GitHub prerelease, or matching RC router image tag has been selected.
 
-Active exec plan: `docs/exec-plans/2026-05-13-rc-readiness.md`.
-Current milestone: Release-candidate readiness for a GitHub prerelease from the
-promoted default branch. GitHub `master` and `add-router` contain the latest
-validated hosted audit-readiness checkpoint at `a9dc2f6`. The latest
-implementation follow-up applies Accept media-range specificity so exact
-`q=0` JSON/SSE media ranges override less-specific wildcards with hosted
-`master` CI/dry-run/WAMP/Router Image evidence and strict audit evidence.
-Earlier implementation follow-ups honor MCP Accept quality weights, fix
-Streamable HTTP SSE response selection for interleaved notifications and
-batches, normalize manual Router Image project-version tag inputs to the Docker
-tag shape required by RC audit evidence, tighten RC router image tag audit
-evidence, make hosted package dry-run runs print the release plan directly,
-harden Dart package release-plan diagnostics, improve
-deferred-pub.dev audit readability, and add a first-class WAMP Profile
-Benchmarks evidence gate to the deployment-chain audit.
+Latest completed exec plan: `docs/exec-plans/2026-07-08-strict-dart-package-workflow.md`.
+Current milestone: strict Dart package workflow readiness for the full
+publishable modular package graph. The latest implementation follow-up makes
+the hosted Dart Package Publish Dry Run workflow enforce
+`--strict-release-ready --show-release-plan`, refreshes release-plan wording for
+the no-private-packages state, and keeps real pub.dev publishing blocked on
+operator approval, package ownership/publisher setup, first-version
+publication, and version choices.
 MCP remains RC-ready for the first candidate: router-hosted endpoints,
 auth/session correctness, direct JSON/meta API, WAMP pub/sub coverage,
 resources/prompts, Streamable HTTP compatibility, and consumer-package smoke
