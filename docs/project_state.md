@@ -1,28 +1,46 @@
 # Project State
 
-Last updated: 2026-07-07
+Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: Dart package release-plan tooling now exposes
-the full workspace dependency edge graph, including private packages that are
-not currently publishable. `bin/dart-package-publish-dry-run --show-release-plan`
-therefore shows the modular order needed before public publishing across
-`connectanum_core`, `connectanum_client`, `connectanum_mcp`,
-`connectanum_router`, `connectanum_auth_server`, and `connectanum_bench`
-without changing `publish_to: none` or dependency sources. The strict release
-gate still fails only for the expected strategy-bound private
-`connectanum_core` dependency.
+Last reviewed branch checkpoint: Dart package release strategy is now approved
+as modular pub.dev packages published in dependency order while keeping the
+legacy public `connectanum` package as the client-facing compatibility
+wrapper/facade. `connectanum_core` is now the first publishable modular archive
+(`publish_to: none` removed), so the current strict publishable slice
+`connectanum_core` + `connectanum_client` no longer has private workspace
+dependency blockers. The remaining modular packages stay private until their
+own explicit release slices.
 
-Baseline `bin/test-fast` passed before the release-plan inventory change on
-2026-07-07. Focused `bash -n bin/dart-package-publish-dry-run` and
-`python3 -m unittest tool.test_dart_package_publish_dry_run` passed after the
-change. Real dry-run verification passed for
-`bin/dart-package-publish-dry-run --include-private --show-release-plan connectanum_mcp`
-with zero package warnings and the expected `connectanum_core` strategy blocker.
-The expected-failing strict client gate
+The Dart package dry-run release plan now prints the approved strategy, and the
+GitHub deployment-chain audit no longer accepts the old first-RC pub.dev
+deferral once strict Dart package readiness is attainable. The router CLI
+consumer package smoke readiness wait now allows about 30 seconds for startup,
+avoiding false negatives from package build-hook/dependency startup noise before
+the router reports its running state.
+
+Baseline `bin/test-fast` passed before the package strategy implementation on
+2026-07-08. Focused `bash -n bin/dart-package-publish-dry-run`,
+`bash -n bin/common.sh`, `python3 -m unittest tool.test_dart_package_publish_dry_run`,
+`python3 -m unittest tool.test_audit_github_deployment_chain`,
+`bin/dart-package-publish-dry-run --show-release-plan connectanum_client`, and
 `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan connectanum_client`
-still exits non-zero only because `connectanum_client` depends on private
-workspace package `connectanum_core`; it also reports zero package warnings and
-prints the expanded workspace dependency order.
+passed after the change. A clean archive simulation for
+`bin/dart-package-publish-dry-run --include-private connectanum_core` also
+passed with zero warnings. The first full `bin/verify` exposed a router CLI
+consumer-smoke startup timing false negative; after the readiness wait hardening,
+the focused router CLI consumer package smoke and full local `bin/verify`
+passed on 2026-07-08.
+
+Hosted evidence after push is still pending for this checkpoint. Previous hosted
+evidence remains commit `4c9b903` on branch `add-router`: GitHub CI
+`28899161182` (Fast Checks and Full Verify) and Dart Package Publish Dry Run
+`28899161241` passed on 2026-07-07. The clean deployment-chain audit passed
+with CI/log, Dart package dry-run, and WAMP benchmark requirements at
+`4c9b903`; WAMP Profile Benchmarks `28895963701` from `13af852` remain clean
+and relevant because no WAMP profile benchmark-sensitive paths changed. The
+same audit with `--strict` still reports the known operator-owned `add-router`
+branch-protection gap: the branch is unprotected and does not require Fast
+Checks and Full Verify.
 
 Previous branch checkpoint: `connectanum_bench` package archive
 readiness now clears the concrete non-strategy pub dry-run blockers found while

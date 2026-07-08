@@ -339,8 +339,11 @@ print_release_plan() {
     printf '\nWorkspace dependency order: no publishable package depends on another workspace package.\n'
   fi
 
+  printf '\nApproved package release strategy:\n'
+  printf -- '- Publish the modular package graph in dependency order.\n'
+  printf -- '- Keep the legacy public connectanum package as the client-facing compatibility wrapper/facade.\n'
+
   printf '\nOperator decisions still required before a real publish:\n'
-  printf -- '- Choose the package strategy: publish the modular dependency graph in order, keep the legacy public package name, or ship a compatibility wrapper.\n'
   printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\n'
   printf -- '- Choose canonical public versions for every package that becomes publishable.\n'
   printf -- '- Remove publish_to: none only in an explicit release slice for packages that are approved public API.\n'
@@ -534,7 +537,8 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
           printf -- '- %s\n' "$edge"
         done
       fi
-      printf '\nOperator decisions still required: package strategy, package-name ownership, canonical public versions, and explicit publishability approval.\n'
+      printf '\nApproved package release strategy: publish the modular graph in dependency order while keeping the legacy connectanum package as the compatibility wrapper/facade.\n'
+      printf '\nOperator decisions still required: package-name ownership, canonical public versions, and explicit publishability approval for each remaining private package.\n'
     fi
   } >>"$GITHUB_STEP_SUMMARY"
 fi

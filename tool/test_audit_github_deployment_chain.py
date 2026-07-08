@@ -188,23 +188,9 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             "Native GitHub prerelease assets: ready (30 assets).",
             result.stdout,
         )
-        self.assertIn(
+        self.assertIn("Dart package strict publish dry-run: ready", result.stdout)
+        self.assertNotIn(
             "Dart package strict publish dry-run: deferred for first GitHub RC",
-            result.stdout,
-        )
-        self.assertIn(
-            "Dart package release strategy decision required:",
-            result.stdout,
-        )
-        self.assertIn(
-            "- Current strict release-ready mode is intentionally blocked "
-            "until an explicit pub.dev package strategy is selected.",
-            result.stdout,
-        )
-        self.assertIn("Dart package release-order plan:", result.stdout)
-        self.assertIn("Currently publishable package archives:", result.stdout)
-        self.assertIn(
-            "Private workspace packages not currently publishable:",
             result.stdout,
         )
         self.assertIn(
@@ -293,13 +279,6 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("Dart package strict publish dry-run: not ready", result.stdout)
         self.assertIn(
-            "- connectanum_client depends on private workspace package "
-            "connectanum_core (packages/connectanum_core); publish "
-            "connectanum_core first or remove the hosted dependency before "
-            "publishing connectanum_client.",
-            result.stdout,
-        )
-        self.assertIn(
             "- connectanum_router depends on private workspace package "
             "connectanum_internal (packages/connectanum_internal); publish "
             "connectanum_internal first or remove the hosted dependency before "
@@ -312,7 +291,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             result.stdout,
         )
 
-    def test_rc_readiness_rejects_deferred_dart_output_without_release_plan(
+    def test_rc_readiness_rejects_strict_dart_blocker_without_release_plan(
         self,
     ) -> None:
         current_head = self._git("rev-parse", "HEAD")
@@ -326,10 +305,10 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("Dart package strict publish dry-run: not ready", result.stdout)
         self.assertIn(
-            "- connectanum_client depends on private workspace package "
-            "connectanum_core (packages/connectanum_core); publish "
-            "connectanum_core first or remove the hosted dependency before "
-            "publishing connectanum_client.",
+            "- connectanum_router depends on private workspace package "
+            "connectanum_internal (packages/connectanum_internal); publish "
+            "connectanum_internal first or remove the hosted dependency before "
+            "publishing connectanum_router.",
             result.stdout,
         )
         self.assertIn("Release candidate readiness audit failed.", result.stdout)
@@ -551,24 +530,28 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         replacement = "0" if sha[0] != "0" else "1"
         return f"{replacement}{sha[1:]}"
 
-    def _write_deferred_dart_publish_dry_run(
+    def _write_dart_publish_dry_run(
         self,
         path: Path,
         extra_blocker: bool = False,
         omit_release_plan: bool = False,
     ) -> None:
-        extra_blocker_line = ""
-        extra_private_dependency_line = ""
+        has_blocker = extra_blocker or omit_release_plan
+        blocker_output = ""
+        private_dependency_lines = "                printf 'none.\\n'\n"
         extra_dependency_edge_line = ""
-        if extra_blocker:
-            extra_blocker_line = (
+        exit_code = 0
+        if has_blocker:
+            blocker_output = (
+                "                printf '\\nDart package release-readiness blockers:\\n'\n"
                 "                printf -- '- connectanum_router depends on "
                 "private workspace package connectanum_internal "
                 "(packages/connectanum_internal); publish "
                 "connectanum_internal first or remove the hosted dependency "
                 "before publishing connectanum_router.\\n'\n"
             )
-            extra_private_dependency_line = (
+            exit_code = 1
+            private_dependency_lines = (
                 "                printf -- '- connectanum_internal 0.1.0 "
                 "(packages/connectanum_internal)\\n'\n"
             )
@@ -584,25 +567,33 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 "                printf '\\nCurrently publishable package archives:\\n'\n"
                 "                printf -- '- connectanum_client 2.2.6 "
                 "(packages/connectanum_client)\\n'\n"
+                "                printf -- '- connectanum_core 0.1.0 "
+                "(packages/connectanum_core)\\n'\n"
                 "                printf '\\nPrivate workspace packages not "
                 "currently publishable:\\n'\n"
-                "                printf -- '- connectanum_core 0.1.0 "
-                "(packages/connectanum_core)\\n'\n"
+                "                printf -- '- connectanum_auth_server 0.1.0 "
+                "(packages/connectanum_auth_server)\\n'\n"
+                "                printf -- '- connectanum_bench 0.1.0 "
+                "(packages/connectanum_bench)\\n'\n"
+                "                printf -- '- connectanum_mcp 0.1.0 "
+                "(packages/connectanum_mcp)\\n'\n"
+                "                printf -- '- connectanum_router 0.1.0 "
+                "(packages/connectanum_router)\\n'\n"
                 "                printf '\\nPrivate workspace packages blocking "
                 "publishable targets:\\n'\n"
-                "                printf -- '- connectanum_core 0.1.0 "
-                "(packages/connectanum_core)\\n'\n"
-                f"{extra_private_dependency_line}"
+                f"{private_dependency_lines}"
                 "                printf '\\nWorkspace dependency order that must "
                 "be satisfied before public publishing:\\n'\n"
-                "                printf -- '- publish connectanum_core before "
+                "                printf -- '- connectanum_core -> "
                 "connectanum_client\\n'\n"
                 f"{extra_dependency_edge_line}"
+                "                printf '\\nApproved package release strategy:\\n'\n"
+                "                printf -- '- Publish the modular package graph "
+                "in dependency order.\\n'\n"
+                "                printf -- '- Keep the legacy public connectanum "
+                "package as the client-facing compatibility wrapper/facade.\\n'\n"
                 "                printf '\\nOperator decisions still required "
                 "before a real publish:\\n'\n"
-                "                printf -- '- Choose the package strategy: publish "
-                "the modular dependency graph in order, keep the legacy public "
-                "package name, or ship a compatibility wrapper.\\n'\n"
                 "                printf -- '- Confirm package-name ownership and "
                 "publisher configuration on pub.dev.\\n'\n"
             )
@@ -612,19 +603,14 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 f"""\
                 #!/usr/bin/env bash
                 set -euo pipefail
-                printf 'Dart package publish dry-run completed for 1 package(s).\\n'
-                printf '\\nDart package release-readiness blockers:\\n'
-                printf -- '- connectanum_client depends on private workspace package connectanum_core (packages/connectanum_core); publish connectanum_core first or remove the hosted dependency before publishing connectanum_client.\\n'
-{extra_blocker_line}
-                printf '\\nDart package release strategy decision required:\\n'
-                printf -- '- Current strict release-ready mode is intentionally blocked until an explicit pub.dev package strategy is selected.\\n'
-                printf -- '- Option: publish the modular package graph in dependency order, making private dependencies public before packages that depend on them.\\n'
-                printf -- '- Option: keep the legacy public connectanum package as the client-facing replacement package.\\n'
-                printf -- '- Option: ship a compatibility wrapper that maps the legacy package name onto the modular packages.\\n'
-                printf -- '- Do not remove publish_to: none or rewrite hosted dependencies outside an approved package-release slice.\\n'
+                printf 'Dart package publish dry-run completed for 2 package(s).\\n'
+{blocker_output}
+                if [[ {1 if has_blocker else 0} -eq 0 ]]; then
+                  printf '\\nNo private workspace dependency blockers found for publishable packages.\\n'
+                fi
                 printf '\\nAll Dart package publish dry-runs reported zero warnings.\\n'
 {release_plan_output}
-                exit 1
+                exit {exit_code}
                 """
             )
         )
@@ -1635,7 +1621,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 )
             )
             fake_curl.chmod(0o755)
-            self._write_deferred_dart_publish_dry_run(
+            self._write_dart_publish_dry_run(
                 fake_dart_publish,
                 extra_blocker=extra_dart_publish_blocker,
                 omit_release_plan=omit_dart_release_plan,
@@ -1976,7 +1962,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                 )
             )
             fake_curl.chmod(0o755)
-            self._write_deferred_dart_publish_dry_run(fake_dart_publish)
+            self._write_dart_publish_dry_run(fake_dart_publish)
 
             env = os.environ.copy()
             env["GH_BIN"] = str(fake_gh)

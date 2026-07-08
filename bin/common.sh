@@ -24662,7 +24662,7 @@ YAML
   ) >"$router_log" 2>&1 &
   router_pid=$!
 
-  for _ in {1..100}; do
+  for _ in {1..300}; do
     if grep -F 'OpenMetrics exporter listening on ' "$router_log" >/dev/null 2>&1 && \
        grep -F 'Router running. Press Ctrl+C to stop.' "$router_log" >/dev/null 2>&1; then
       break

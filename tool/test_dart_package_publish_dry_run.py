@@ -13,6 +13,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLISH_DRY_RUN = REPO_ROOT / "bin" / "dart-package-publish-dry-run"
+CORE_PUBSPEC = REPO_ROOT / "packages" / "connectanum_core" / "pubspec.yaml"
 AUTH_SERVER_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_auth_server" / "CHANGELOG.md"
 )
@@ -25,6 +26,12 @@ ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
+    def test_core_package_is_first_publishable_modular_archive(self) -> None:
+        pubspec = CORE_PUBSPEC.read_text(encoding="utf-8")
+
+        self.assertIn("name: connectanum_core", pubspec)
+        self.assertNotRegex(pubspec, r"(?m)^\s*publish_to:\s*['\"]?none['\"]?\s*$")
+
     def test_auth_server_package_archive_metadata_has_changelog(self) -> None:
         changelog = AUTH_SERVER_CHANGELOG.read_text(encoding="utf-8")
 
@@ -86,10 +93,13 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             result.stdout,
             r"- connectanum_client [^ ]+ \(packages/connectanum_client\)",
         )
+        self.assertRegex(
+            result.stdout,
+            r"- connectanum_core [^ ]+ \(packages/connectanum_core\)",
+        )
         for package in (
             "connectanum_auth_server",
             "connectanum_bench",
-            "connectanum_core",
             "connectanum_mcp",
             "connectanum_router",
         ):
@@ -99,10 +109,9 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                     rf"- {package} [^ ]+ \(packages/{package}\)",
                 )
 
-        self.assertRegex(
+        self.assertIn(
+            "Private workspace packages blocking publishable targets: none.",
             result.stdout,
-            r"Private workspace packages blocking publishable targets:\n"
-            r"(?:- .+\n)*- connectanum_core [^ ]+ \(packages/connectanum_core\)",
         )
         self.assertIn("- connectanum_core -> connectanum_client", result.stdout)
         self.assertIn("- connectanum_core -> connectanum_mcp", result.stdout)
@@ -111,9 +120,16 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertIn("- connectanum_router -> connectanum_auth_server", result.stdout)
         self.assertIn("- connectanum_auth_server -> connectanum_bench", result.stdout)
         self.assertIn(
-            "- Choose the package strategy: publish the modular dependency "
-            "graph in order, keep the legacy public package name, or ship a "
-            "compatibility wrapper.",
+            "Approved package release strategy:",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Publish the modular package graph in dependency order.",
+            result.stdout,
+        )
+        self.assertIn(
+            "- Keep the legacy public connectanum package as the "
+            "client-facing compatibility wrapper/facade.",
             result.stdout,
         )
         self.assertEqual(result.stdout.count("## Publish dry-run:"), 1)
@@ -123,20 +139,18 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         )
         self.assertNotIn("## Publish dry-run: connectanum_core", result.stdout)
 
-    def test_strict_release_ready_fails_on_known_private_dependency(self) -> None:
+    def test_strict_release_ready_succeeds_for_current_publishable_slice(self) -> None:
         result = self._run_with_fake_dart(
             "--strict-release-ready",
             "--show-release-plan",
             "connectanum_client",
         )
 
-        self.assertNotEqual(result.returncode, 0, result.stdout)
-        self.assertIn("Dart package release-readiness blockers:", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("Dart package release-readiness blockers:", result.stdout)
         self.assertIn(
-            "- connectanum_client depends on private workspace package "
-            "connectanum_core (packages/connectanum_core); publish "
-            "connectanum_core first or remove the hosted dependency before "
-            "publishing connectanum_client.",
+            "No private workspace dependency blockers found for publishable "
+            "packages.",
             result.stdout,
         )
         self.assertIn(
@@ -144,33 +158,15 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             result.stdout,
         )
         self.assertIn(
-            "Dart package release strategy decision required:",
+            "Private workspace packages blocking publishable targets: none.",
             result.stdout,
         )
         self.assertIn(
-            "- Current strict release-ready mode is intentionally blocked "
-            "until an explicit pub.dev package strategy is selected.",
+            "- connectanum_core -> connectanum_client",
             result.stdout,
         )
         self.assertIn(
-            "- Option: publish the modular package graph in dependency order, "
-            "making private dependencies public before packages that depend on "
-            "them.",
-            result.stdout,
-        )
-        self.assertIn(
-            "- Option: keep the legacy public connectanum package as the "
-            "client-facing replacement package.",
-            result.stdout,
-        )
-        self.assertIn(
-            "- Option: ship a compatibility wrapper that maps the legacy "
-            "package name onto the modular packages.",
-            result.stdout,
-        )
-        self.assertIn(
-            "- Do not remove publish_to: none or rewrite hosted dependencies "
-            "outside an approved package-release slice.",
+            "Approved package release strategy:",
             result.stdout,
         )
         self.assertIn("Dart package release-order plan:", result.stdout)

@@ -1,24 +1,27 @@
 # Exec Plan: Dart Package Public Release Readiness
 
-Status: in_progress
+Status: complete
 Owner: Codex
 Created: 2026-07-07
-Last updated: 2026-07-07
+Last updated: 2026-07-08
 
 ## Problem
 
-The Dart stack cannot be called a production-ready replacement for Java-core
-consumer development while the public package graph is not installable from
-pub.dev. The current strict release gate fails because the publishable
-`connectanum_client` archive depends on private workspace package
-`connectanum_core`.
+The Dart stack could not be called a production-ready replacement for Java-core
+consumer development while the public package graph was not installable from
+pub.dev. This plan resolved the concrete first publishable-slice blocker by
+approving the modular-plus-compatibility package strategy and making
+`connectanum_core` publishable before `connectanum_client`.
 
 ## Scope
 
 - Separate archive-quality blockers from operator release decisions.
-- Keep `publish_to: none` unchanged until package-name ownership, publisher,
-  public versions, and package naming are explicitly approved.
-- Make `connectanum_core` ready for a future public package slice by fixing
+- Keep remaining private package `publish_to: none` settings unchanged until
+  package-name ownership, publisher, public versions, and package naming are
+  explicitly approved for those slices.
+- Make `connectanum_core` the first publishable modular package after the
+  package strategy decision.
+- Make `connectanum_core` ready for the first public package slice by fixing
   concrete `dart pub publish --dry-run` findings.
 - Remove concrete non-strategy archive blockers from the router-hosted MCP
   package path when found, while keeping package publishing disabled.
@@ -27,19 +30,20 @@ pub.dev. The current strict release gate fails because the publishable
 - Remove concrete non-strategy archive blockers from the benchmark package path
   when found, while keeping package publishing disabled.
 - Make the release-plan evidence show the full modular workspace dependency
-  edge graph, including private packages that are not currently publishable.
-- Preserve current RC semantics: GitHub prerelease/router-image readiness can
-  stay green while pub.dev release readiness remains blocked.
+  edge graph, including private packages that are not currently publishable and
+  the approved modular-plus-compatibility strategy.
+- Make the deployment-chain audit require strict Dart package readiness once
+  the first publishable slice is unblocked.
 
 ## Non-Goals
 
 - Publishing to pub.dev.
 - Claiming package names or configuring publisher ownership.
-- Renaming packages or replacing the legacy public `connectanum` package
-  without an explicit package migration decision.
+- Renaming packages or replacing the legacy public `connectanum` package beyond
+  the approved compatibility wrapper/facade strategy.
 - Making router, MCP, auth-server, or benchmark packages public in this slice.
 - Rewriting local router package dependencies to hosted package constraints
-  before the package release strategy is approved.
+  before their package release slices are approved.
 
 ## Milestones
 
@@ -47,8 +51,8 @@ pub.dev. The current strict release gate fails because the publishable
   `connectanum_core` dependency as the release blocker.
 - [x] Confirm current pub.dev package-name state for the legacy and modular package
   names.
-- [x] Make the private `connectanum_core` archive clear its concrete pre-publish
-  blockers while keeping it private.
+- [x] Clear concrete pre-publish blockers for `connectanum_core` before
+  enabling publishability.
 - [x] Make the private `connectanum_router` archive clear its concrete
   changelog and false-secret fixture blockers while keeping it private.
 - [x] Make the private `connectanum_auth_server` archive clear its concrete
@@ -58,9 +62,15 @@ pub.dev. The current strict release gate fails because the publishable
 - [x] Make `--show-release-plan` expose the full workspace dependency order for
   modular package publishing without changing package publishability.
 - [x] Re-run local verification and clean package-copy package dry-runs.
-- [ ] Decide the package release strategy: publish modular packages in dependency
+- [x] Decide the package release strategy: publish modular packages in dependency
   order, keep using the legacy `connectanum` name for client compatibility, or
   provide a compatibility wrapper.
+- [x] Make `connectanum_core` the first publishable modular archive after the
+  strategy decision.
+- [x] Make strict Dart package readiness succeed for the current publishable
+  slice.
+- [x] Harden router CLI consumer-smoke readiness after full verification exposed
+  a startup timing false negative.
 
 ## Verification
 
@@ -75,9 +85,22 @@ pub.dev. The current strict release gate fails because the publishable
 - Clean package-copy simulation: `git archive` the repo, overlay the new
   `connectanum_core` package metadata, then run
   `bin/dart-package-publish-dry-run --include-private connectanum_core`.
+- Focused router CLI consumer package smoke after readiness wait hardening.
 
 ## Decision Log
 
+- 2026-07-08: Approved the package strategy as modular packages published in
+  dependency order with the legacy public `connectanum` package kept as the
+  client-facing compatibility wrapper/facade. `connectanum_core` is now the
+  first publishable modular archive, so the current strict publishable slice
+  `connectanum_core` + `connectanum_client` has no private workspace dependency
+  blockers. The release-plan output now prints the approved strategy, and the
+  deployment-chain audit no longer accepts the old first-RC pub.dev deferral
+  once strict Dart package readiness is attainable. Baseline `bin/test-fast`,
+  focused release-tooling/audit tests, strict client dry-run, clean archive
+  simulation for `connectanum_core`, focused router CLI consumer package smoke,
+  and full local `bin/verify` passed on 2026-07-08. Hosted evidence for this
+  checkpoint is pending until the implementation commit is pushed.
 - 2026-07-07: Hardened release-plan evidence without changing package
   publishability. `bin/dart-package-publish-dry-run --show-release-plan` now
   inventories dependency edges for private workspace packages as well as
@@ -91,7 +114,13 @@ pub.dev. The current strict release gate fails because the publishable
   connectanum_mcp`, and the expected-failing strict
   `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan
   connectanum_client` passed with zero package warnings; the strict command
-  still exits non-zero only for the explicit package strategy decision.
+  still exits non-zero only for the explicit package strategy decision. Full
+  local `bin/verify` passed after the change. Hosted CI `28899161182` and Dart
+  Package Publish Dry Run `28899161241` passed at `4c9b903`; the clean
+  deployment-chain audit passed with WAMP Profile Benchmarks `28895963701`
+  from `13af852` still clean and relevant because no WAMP profile
+  benchmark-sensitive paths changed. The strict audit still fails only for the
+  known unprotected `add-router` branch policy gap.
 - 2026-07-07: Removed concrete benchmark package archive blockers without
   changing package publishing strategy. `connectanum_bench` now has a package
   changelog and a scoped `false_secrets` entry for the inline private-key test

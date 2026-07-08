@@ -88,11 +88,8 @@ Options:
                              router image dry-run evidence, hosted WAMP profile
                              benchmark evidence, baseline default-branch
                              protection, visible workflows, visible router
-                             package, an RC GitHub prerelease, and either
-                             strict Dart package dry-run readiness or the
-                             documented first-RC pub.dev deferral where
-                             connectanum_client is blocked only by private
-                             connectanum_core.
+                             package, an RC GitHub prerelease, and strict Dart
+                             package dry-run readiness.
   --strict                  Exit non-zero when the branch lacks the baseline
                              required checks expected for protected releases.
   -h, --help                Show this help text.
@@ -764,37 +761,6 @@ followup_rc_tag_suggestions_from_summaries() {
       }
     }
   ' | sort
-}
-
-strict_dart_output_is_deferred_pub_dev_only() {
-  local output_file="$1"
-  local blocker_lines
-  local unexpected_blockers
-
-  grep -Fq 'All Dart package publish dry-runs reported zero warnings.' "$output_file" || return 1
-  grep -Fq 'Dart package publish dry-run warning gate failed:' "$output_file" && return 1
-  grep -Fq 'Dart package release-readiness blockers:' "$output_file" || return 1
-  grep -Fq 'Dart package release strategy decision required:' "$output_file" || return 1
-  grep -Fq 'Dart package release-order plan:' "$output_file" || return 1
-  grep -Fq 'Currently publishable package archives:' "$output_file" || return 1
-  grep -Fq 'Private workspace packages blocking publishable targets:' "$output_file" || return 1
-  grep -Eq '^- connectanum_core [^ ]+ \(packages/connectanum_core\)$' "$output_file" || return 1
-  grep -Fq 'Workspace dependency order that must be satisfied before public publishing:' "$output_file" || return 1
-  grep -Fq 'Operator decisions still required before a real publish:' "$output_file" || return 1
-
-  blocker_lines="$(
-    grep -E '^- .+ depends on private workspace package .+' "$output_file" || true
-  )"
-
-  [[ -n "$blocker_lines" ]] || return 1
-
-  unexpected_blockers="$(
-    printf '%s\n' "$blocker_lines" \
-      | grep -Ev '^- connectanum_client depends on private workspace package connectanum_core \(packages/connectanum_core\); publish connectanum_core first or remove the hosted dependency before publishing connectanum_client\.$' \
-      || true
-  )"
-
-  [[ -z "$unexpected_blockers" ]]
 }
 
 latest_workflow_run_id() {
@@ -2239,13 +2205,9 @@ print_rc_readiness() {
     strict_dart_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-strict.XXXXXX")"
     if "$dart_package_publish_dry_run_bin" --strict-release-ready --show-release-plan >"$strict_dart_output" 2>&1; then
       printf 'Dart package strict publish dry-run: ready\n'
-    elif strict_dart_output_is_deferred_pub_dev_only "$strict_dart_output"; then
-      printf 'Dart package strict publish dry-run: deferred for first GitHub RC\n'
-      grep -E '^(Dart package release-readiness blockers:|Dart package release strategy decision required:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
-      printf '  Deferred: pub.dev publishing is intentionally outside this GitHub prerelease RC; keep the archive dry-run zero-warning and resolve package ownership/version/release-order before public publishing.\n'
     else
       printf 'Dart package strict publish dry-run: not ready\n'
-      grep -E '^(Dart package release-readiness blockers:|Dart package release strategy decision required:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
+      grep -E '^(Dart package release-readiness blockers:|Dart package release-order plan:|Currently publishable package archives:|Private workspace packages not currently publishable:|Private workspace packages blocking publishable targets:|Workspace dependency order that must be satisfied before public publishing:|Approved package release strategy:|Operator decisions still required before a real publish:|- )' "$strict_dart_output" || true
       printf '  Next action: resolve the package ownership/version/release-order decisions in docs/dart_package_publishing.md, then rerun bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan.\n'
       rc_ready_failed=1
     fi
