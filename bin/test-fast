@@ -57,6 +57,7 @@ python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
+dart test packages/connectanum/test
 run_mcp_server_package_smoke
 run_mcp_client_package_smoke
 run_client_fast_tests

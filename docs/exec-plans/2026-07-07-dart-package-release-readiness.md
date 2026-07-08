@@ -102,6 +102,12 @@ publishing.
 
 ## Decision Log
 
+- 2026-07-08: Added the `packages/connectanum/test` suite to both root
+  verification gates so the legacy compatibility facade export smoke test runs
+  in `bin/test-fast` and `bin/test-all`. `tool/test_verification_scripts.py`
+  now pins that coverage. Baseline `bin/test-fast`, focused shell syntax,
+  verification-script regression, focused facade test, and full local
+  `bin/verify` passed for this gate hardening.
 - 2026-07-08: Added `packages/connectanum` as the thin compatibility facade
   for existing `package:connectanum/...` client imports. The package re-exports
   public `connectanum_client` libraries without duplicating implementation code

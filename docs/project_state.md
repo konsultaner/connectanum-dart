@@ -2,8 +2,21 @@
 
 Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: the legacy public `connectanum` package path
-now exists as a thin compatibility facade under `packages/connectanum`. It
+Last reviewed branch checkpoint: root fast/full verification now covers the
+legacy public `connectanum` compatibility facade by running
+`dart test packages/connectanum/test` from both `bin/test-fast` and
+`bin/test-all`. `tool/test_verification_scripts.py` pins that coverage so the
+facade export smoke test remains part of the standard local gates.
+
+Baseline `bin/test-fast` passed before the root verification-gate change on
+2026-07-08. Focused `bash -n bin/test-fast bin/test-all`, `python3
+tool/test_verification_scripts.py`, `dart test packages/connectanum/test -r
+expanded`, and full local `bin/verify` passed after the change. Hosted CI and
+package dry-run evidence should be checked after push and reported in handoff;
+do not create a docs-only follow-up commit solely to record hosted evidence.
+
+Previous branch checkpoint: the legacy public `connectanum` package path now
+exists as a thin compatibility facade under `packages/connectanum`. It
 depends only on `connectanum_client`, re-exports the client-facing public
 libraries for existing `package:connectanum/...` imports, carries package-local
 README/CHANGELOG/LICENSE metadata, and adds an export smoke test. The package is

@@ -126,6 +126,13 @@ class VerificationScriptsTest(unittest.TestCase):
         self.assertIn("cargo_with_retry build", package_script)
         self.assertIn("cargo_with_retry test --manifest-path", test_all_script)
 
+    def test_root_verification_scripts_cover_compatibility_facade(self) -> None:
+        for script_path in [TEST_FAST, TEST_ALL]:
+            with self.subTest(script=script_path.relative_to(REPO_ROOT)):
+                script = script_path.read_text(encoding="utf-8")
+
+                self.assertIn("dart test packages/connectanum/test", script)
+
     def test_connectanum_router_wrapper_delegates_help_without_native_build(
         self,
     ) -> None:
