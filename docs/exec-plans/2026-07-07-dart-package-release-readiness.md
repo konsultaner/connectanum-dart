@@ -11,7 +11,8 @@ The Dart stack could not be called a production-ready replacement for Java-core
 consumer development while the public package graph was not installable from
 pub.dev. This plan resolved the concrete first publishable-slice blocker by
 approving the modular-plus-compatibility package strategy and making
-`connectanum_core` publishable before `connectanum_client`.
+`connectanum_core` and `connectanum_mcp` publishable before router package
+publishing.
 
 ## Scope
 
@@ -21,6 +22,8 @@ approving the modular-plus-compatibility package strategy and making
   explicitly approved for those slices.
 - Make `connectanum_core` the first publishable modular package after the
   package strategy decision.
+- Make `connectanum_mcp` publishable after its include-private dry-run has zero
+  warnings and its public dependencies are already publishable.
 - Make `connectanum_core` ready for the first public package slice by fixing
   concrete `dart pub publish --dry-run` findings.
 - Remove concrete non-strategy archive blockers from the router-hosted MCP
@@ -41,7 +44,7 @@ approving the modular-plus-compatibility package strategy and making
 - Claiming package names or configuring publisher ownership.
 - Renaming packages or replacing the legacy public `connectanum` package beyond
   the approved compatibility wrapper/facade strategy.
-- Making router, MCP, auth-server, or benchmark packages public in this slice.
+- Making router, auth-server, or benchmark packages public in this slice.
 - Rewriting local router package dependencies to hosted package constraints
   before their package release slices are approved.
 
@@ -71,6 +74,8 @@ approving the modular-plus-compatibility package strategy and making
   slice.
 - [x] Harden router CLI consumer-smoke readiness after full verification exposed
   a startup timing false negative.
+- [x] Make `connectanum_mcp` publishable after confirming its package dry-run
+  has zero warnings and no private workspace dependency blockers.
 
 ## Verification
 
@@ -81,6 +86,7 @@ approving the modular-plus-compatibility package strategy and making
 - `bin/dart-package-publish-dry-run --include-private connectanum_auth_server`
 - `bin/dart-package-publish-dry-run --include-private connectanum_bench`
 - `bin/dart-package-publish-dry-run --include-private --show-release-plan connectanum_mcp`
+- `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan connectanum_mcp`
 - `bin/verify`
 - Clean package-copy simulation: `git archive` the repo, overlay the new
   `connectanum_core` package metadata, then run
@@ -89,6 +95,18 @@ approving the modular-plus-compatibility package strategy and making
 
 ## Decision Log
 
+- 2026-07-08: Promoted `connectanum_mcp` into the current publishable modular
+  slice after `bin/dart-package-publish-dry-run --include-private
+  --show-release-plan connectanum_mcp` reported zero warnings and no private
+  workspace dependency blockers. The package keeps hosted constraints on
+  `connectanum_core` and `connectanum_client`, both already publishable in the
+  approved modular dependency order. Focused release-tooling tests, strict MCP
+  package dry-run, full local verification, and hosted evidence are pending for
+  this slice. Focused release-tooling tests, audit-tool tests, MCP package
+  analysis, public-artifact reference scanning, shell syntax checks, and
+  whitespace checks passed before commit; the clean strict MCP package dry-run
+  and full `bin/verify` are the post-commit handoff gates because pub correctly
+  warns while the package pubspec is modified but uncommitted.
 - 2026-07-08: Approved the package strategy as modular packages published in
   dependency order with the legacy public `connectanum` package kept as the
   client-facing compatibility wrapper/facade. `connectanum_core` is now the
@@ -99,8 +117,12 @@ approving the modular-plus-compatibility package strategy and making
   once strict Dart package readiness is attainable. Baseline `bin/test-fast`,
   focused release-tooling/audit tests, strict client dry-run, clean archive
   simulation for `connectanum_core`, focused router CLI consumer package smoke,
-  and full local `bin/verify` passed on 2026-07-08. Hosted evidence for this
-  checkpoint is pending until the implementation commit is pushed.
+  and full local `bin/verify` passed on 2026-07-08. Hosted CI `28929989284`,
+  Dart Package Publish Dry Run `28929989365`, and WAMP Profile Benchmarks
+  `28929989280` passed at `c363c64`. The clean deployment-chain audit passed
+  with CI/log, Dart package dry-run, WAMP benchmark, workflow visibility, and
+  router-package requirements; the strict audit still fails only for the known
+  unprotected `add-router` branch policy gap.
 - 2026-07-07: Hardened release-plan evidence without changing package
   publishability. `bin/dart-package-publish-dry-run --show-release-plan` now
   inventories dependency edges for private workspace packages as well as
