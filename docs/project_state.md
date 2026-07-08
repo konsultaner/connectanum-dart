@@ -1,8 +1,29 @@
 # Project State
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
+now proves active direct JSON access to configured WAMP registration and
+subscription metadata while a Streamable HTTP session is open. When a consumer
+supplies `--wamp-procedure` and/or `--wamp-topic`, the active direct JSON path
+calls the public direct helper surface for `wamp.registration.lookup`,
+`match`, `list`, `get`, `list_callees`, `count_callees` and
+`wamp.subscription.lookup`, `match`, `list`, `get`, `list_subscribers`,
+`count_subscribers`, surfaces `configuredRegistrationMetadata` and
+`configuredSubscriptionMetadata` under `activeDirectJson.wampMetadata`, and
+keeps the Streamable session id and resume cursor unchanged.
+
+Baseline `bin/test-fast` passed before the active direct JSON configured WAMP
+metadata change on 2026-07-09. Focused `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`,
+`python3 -m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`, public router-hosted MCP client dry-run and live smokes, full
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `git diff
+--check`, `python3 tool/check_public_artifact_references.py`, and full local
+`bin/verify` passed after the change.
+
+Previous branch checkpoint: the public router-hosted MCP client example
 now proves direct JSON resource-template discovery while a Streamable HTTP
 session is active. When a consumer supplies `--resource-uri`, the active direct
 JSON path calls `listResourceTemplatesDirect`, includes
@@ -20,6 +41,15 @@ dry-run public router-hosted MCP client smokes, full
 `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `git diff
 --check`, `python3 tool/check_public_artifact_references.py`, and full local
 `bin/verify` passed after the change.
+After commit `5edcbbb`, hosted GitHub CI `28978819268` and Dart Package
+Publish Dry Run `28978819289` passed on 2026-07-08. The deployment-chain audit
+with required clean latest CI, Dart package publish dry-run, and WAMP profile
+benchmark evidence also passed at `5edcbbb`; WAMP Profile Benchmarks
+`28964007707` remain clean and relevant from `b81302a` because no WAMP
+benchmark-sensitive paths changed since then. The audit still reports the
+expected operator-owned gaps: `add-router` is unprotected, and the checked-in
+pub.dev OIDC workflows are not Actions discoverable until promoted through
+`master`.
 
 Previous branch checkpoint: GitHub deployment-chain audit regression
 fixtures now model the seven-package Dart publish graph, including the legacy

@@ -12482,47 +12482,43 @@ decision because `connectanum_client` still depends on private
 
 ## Handoff
 
-Active. The current implementation checkpoint makes the public router-hosted MCP
-client example prove route-configured topic subscription metadata over direct
-JSON and Streamable HTTP before live pub/sub subscription setup. The example now
-calls `wamp.subscription.lookup`, `match`, `list`, `get`, `list_subscribers`,
-and `count_subscribers` through public client helpers, asserts zero subscribers
-for the configured-only topic, emits `configuredSubscriptionMetadata` in
-dry-run/live summaries, and keeps the existing live pub/sub metadata proof.
-The installed router CLI generated Dart consumer smoke still proves configured
-subscription metadata on token-only JSON-response direct/Streamable and
-protected token-only direct/Streamable paths via public client helpers.
+Active. The current implementation checkpoint strengthens public
+router-hosted MCP readiness for downstream applications. The public
+`connectanum_mcp` router-hosted client example now proves active direct JSON
+access to configured WAMP registration and subscription metadata while a
+Streamable HTTP session is open. With `--wamp-procedure` and/or
+`--wamp-topic`, the active direct JSON path calls the public direct helper
+surface for `wamp.registration.lookup`, `match`, `list`, `get`,
+`list_callees`, `count_callees` and `wamp.subscription.lookup`, `match`,
+`list`, `get`, `list_subscribers`, `count_subscribers`, records the resulting
+`configuredRegistrationMetadata` and `configuredSubscriptionMetadata` under
+`activeDirectJson.wampMetadata`, and still asserts the active Streamable
+session id and resume cursor are unchanged.
 
-Local evidence for this checkpoint: focused
-`dart analyze packages/connectanum_mcp/example/router_hosted_client.dart`,
-focused
-`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_fast_smoke_runs_public_router_hosted_client_example_dry_run tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_fast_smoke_runs_public_router_hosted_client_example_live`,
-focused
-`bash -lc 'source bin/common.sh; run_public_router_hosted_mcp_client_dry_run_smoke'`,
-focused
-`bash -lc 'source bin/common.sh; ensure_native_lib_env; run_public_router_hosted_mcp_client_live_smoke'`,
-post-change `bin/test-fast`, and full local `bin/verify` passed on
-2026-06-19. Previous focused evidence also includes `bash -n bin/common.sh`,
-focused
-`git diff --check`, focused
-`python3 -m unittest tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_router_cli_consumer_smoke_exercises_raw_json_mcp_surface`,
-focused
-`bash -lc 'source bin/common.sh; ensure_native_lib_env || true; cd packages/connectanum_router; dart test test/router_integration_native_test.dart -n "smoke tests MCP router RPC pubsub and route security"'`,
-and focused
-`bash -lc 'source bin/common.sh; ensure_native_lib_env || true; run_router_cli_consumer_package_smoke'`
-passed on 2026-06-19.
+Local evidence for this checkpoint: pre-change `bin/test-fast`; focused
+post-change `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`; focused
+`python3 -m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`; focused `bash -lc 'source bin/common.sh &&
+run_public_router_hosted_mcp_client_dry_run_smoke'`; focused `bash -lc
+'source bin/common.sh && run_public_router_hosted_mcp_client_live_smoke'`;
+full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`;
+`git diff --check`; `python3 tool/check_public_artifact_references.py`; and
+full local `bin/verify` passed on 2026-07-09.
 
-The latest fully clean hosted checkpoint is `a565d46`: GitHub `master` CI
-`27855854493` and GitHub `add-router` CI `27855853922` passed with `Fast
-Checks` and `Full Verify` clean. Dart Package Publish Dry Run runs remain clean
-and relevant at `7202eaf` because no publish-sensitive paths changed. WAMP
-Profile Benchmark runs remain clean and relevant at `7202eaf` because no
-benchmark-sensitive paths changed. The strict deployment-chain audit passed
-with branch protection, workflow visibility, router image package visibility,
-latest `master` CI evidence, and latest relevant `master` Dart package dry-run
-evidence clean.
+The latest fully clean hosted checkpoint is `5edcbbb`: GitHub CI
+`28978819268` and Dart Package Publish Dry Run `28978819289` passed on
+2026-07-08. The deployment-chain audit with required clean latest CI, Dart
+package publish dry-run, and WAMP profile benchmark evidence also passed at
+`5edcbbb`; WAMP Profile Benchmarks `28964007707` remain clean and relevant
+from `b81302a` because no WAMP benchmark-sensitive paths changed since then.
+Expected operator-owned gaps remain: `add-router` is unprotected, and the
+checked-in pub.dev OIDC workflows are not Actions-discoverable until promoted
+through `master`.
 
-RC readiness remains not-ready because no approved numeric RC tag, GitHub
-prerelease, or matching RC router image tag has been selected for `a565d46`.
-Pub.dev publishing remains deferred for release-order and operator
-decisions. No RC tag, GitHub Release, or router image was created or moved.
+RC readiness remains blocked only by explicit operator-owned release decisions:
+branch protection/default-branch promotion, approved numeric RC tag,
+GitHub prerelease/router-image tag selection, and deferred pub.dev
+release-order decisions. No RC tag, GitHub Release, router image, or pub.dev
+publication was created or moved by this checkpoint.

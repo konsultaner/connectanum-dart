@@ -1225,34 +1225,32 @@ typedef _WampMetaByIdCall =
 
 Future<Map<String, Object?>> _expectConfiguredWampRegistrationMetaDirect(
   McpStreamableHttpClient client,
-  String procedure,
-) {
+  String procedure, {
+  String label = 'Direct JSON configured WAMP registration metadata',
+  String lookupId = 'direct-wamp-configured-registration-lookup',
+  String matchId = 'direct-wamp-configured-registration-match',
+  String listId = 'direct-wamp-configured-registration-list',
+  String getId = 'direct-wamp-configured-registration-get',
+  String calleesId = 'direct-wamp-configured-registration-callees',
+  String calleeCountId = 'direct-wamp-configured-registration-callee-count',
+}) {
   return _expectConfiguredWampRegistrationMeta(
     procedure: procedure,
-    label: 'Direct JSON configured WAMP registration metadata',
+    label: label,
     lookup: () => client.lookupWampRegistrationDirect(
       procedure,
-      id: 'direct-wamp-configured-registration-lookup',
+      id: lookupId,
       match: 'exact',
     ),
-    match: () => client.matchWampRegistrationDirect(
-      procedure,
-      id: 'direct-wamp-configured-registration-match',
-    ),
-    list: () => client.listWampRegistrationsDirect(
-      id: 'direct-wamp-configured-registration-list',
-    ),
-    get: (registrationId) => client.getWampRegistrationDirect(
-      registrationId,
-      id: 'direct-wamp-configured-registration-get',
-    ),
-    listCallees: (registrationId) => client.listWampRegistrationCalleesDirect(
-      registrationId,
-      id: 'direct-wamp-configured-registration-callees',
-    ),
+    match: () => client.matchWampRegistrationDirect(procedure, id: matchId),
+    list: () => client.listWampRegistrationsDirect(id: listId),
+    get: (registrationId) =>
+        client.getWampRegistrationDirect(registrationId, id: getId),
+    listCallees: (registrationId) =>
+        client.listWampRegistrationCalleesDirect(registrationId, id: calleesId),
     countCallees: (registrationId) => client.countWampRegistrationCalleesDirect(
       registrationId,
-      id: 'direct-wamp-configured-registration-callee-count',
+      id: calleeCountId,
     ),
   );
 }
@@ -1407,36 +1405,37 @@ Future<Map<String, Object?>> _expectConfiguredWampRegistrationMeta({
 
 Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMetaDirect(
   McpStreamableHttpClient client,
-  String topic,
-) {
+  String topic, {
+  String label = 'Direct JSON configured WAMP subscription metadata',
+  String lookupId = 'direct-wamp-configured-subscription-lookup',
+  String matchId = 'direct-wamp-configured-subscription-match',
+  String listId = 'direct-wamp-configured-subscription-list',
+  String getId = 'direct-wamp-configured-subscription-get',
+  String subscribersId = 'direct-wamp-configured-subscription-subscribers',
+  String subscriberCountId =
+      'direct-wamp-configured-subscription-subscriber-count',
+}) {
   return _expectConfiguredWampSubscriptionMeta(
     topic: topic,
-    label: 'Direct JSON configured WAMP subscription metadata',
+    label: label,
     lookup: () => client.lookupWampSubscriptionDirect(
       topic,
-      id: 'direct-wamp-configured-subscription-lookup',
+      id: lookupId,
       match: 'exact',
     ),
-    match: () => client.matchWampSubscriptionDirect(
-      topic,
-      id: 'direct-wamp-configured-subscription-match',
-    ),
-    list: () => client.listWampSubscriptionsDirect(
-      id: 'direct-wamp-configured-subscription-list',
-    ),
-    get: (subscriptionId) => client.getWampSubscriptionDirect(
-      subscriptionId,
-      id: 'direct-wamp-configured-subscription-get',
-    ),
+    match: () => client.matchWampSubscriptionDirect(topic, id: matchId),
+    list: () => client.listWampSubscriptionsDirect(id: listId),
+    get: (subscriptionId) =>
+        client.getWampSubscriptionDirect(subscriptionId, id: getId),
     listSubscribers: (subscriptionId) =>
         client.listWampSubscriptionSubscribersDirect(
           subscriptionId,
-          id: 'direct-wamp-configured-subscription-subscribers',
+          id: subscribersId,
         ),
     countSubscribers: (subscriptionId) =>
         client.countWampSubscriptionSubscribersDirect(
           subscriptionId,
-          id: 'direct-wamp-configured-subscription-subscriber-count',
+          id: subscriberCountId,
         ),
   );
 }
@@ -1943,6 +1942,24 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         uri: wampProcedure,
         label: 'Streamable active direct JSON WAMP procedure',
       );
+      final configuredRegistrationMetadata =
+          await _expectConfiguredWampRegistrationMetaDirect(
+            client,
+            wampProcedure,
+            label:
+                'Streamable active direct JSON configured WAMP registration metadata',
+            lookupId:
+                'streamable-active-direct-wamp-configured-registration-lookup',
+            matchId:
+                'streamable-active-direct-wamp-configured-registration-match',
+            listId:
+                'streamable-active-direct-wamp-configured-registration-list',
+            getId: 'streamable-active-direct-wamp-configured-registration-get',
+            calleesId:
+                'streamable-active-direct-wamp-configured-registration-callees',
+            calleeCountId:
+                'streamable-active-direct-wamp-configured-registration-callee-count',
+          );
       metadata['procedure'] = <String, Object?>{
         'catalog': procedureCatalog,
         'description': await client.describeWampApiDirect(
@@ -1950,6 +1967,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
           id: 'streamable-active-direct-wamp-procedure-api-describe',
           kind: 'procedure',
         ),
+        'configuredRegistrationMetadata': configuredRegistrationMetadata,
       };
     }
     if (wampTopic != null) {
@@ -1971,6 +1989,24 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         uri: wampTopic,
         label: 'Streamable active direct JSON WAMP topic',
       );
+      final configuredSubscriptionMetadata =
+          await _expectConfiguredWampSubscriptionMetaDirect(
+            client,
+            wampTopic,
+            label:
+                'Streamable active direct JSON configured WAMP subscription metadata',
+            lookupId:
+                'streamable-active-direct-wamp-configured-subscription-lookup',
+            matchId:
+                'streamable-active-direct-wamp-configured-subscription-match',
+            listId:
+                'streamable-active-direct-wamp-configured-subscription-list',
+            getId: 'streamable-active-direct-wamp-configured-subscription-get',
+            subscribersId:
+                'streamable-active-direct-wamp-configured-subscription-subscribers',
+            subscriberCountId:
+                'streamable-active-direct-wamp-configured-subscription-subscriber-count',
+          );
       metadata['topic'] = <String, Object?>{
         'catalog': topicCatalog,
         'description': await client.describeWampApiDirect(
@@ -1978,6 +2014,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
           id: 'streamable-active-direct-wamp-topic-api-describe',
           kind: 'topic',
         ),
+        'configuredSubscriptionMetadata': configuredSubscriptionMetadata,
       };
     }
     details['wampMetadata'] = metadata;
