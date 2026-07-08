@@ -6,10 +6,12 @@ Last reviewed branch checkpoint: Dart package release strategy is now approved
 as modular pub.dev packages published in dependency order while keeping the
 legacy public `connectanum` package as the client-facing compatibility
 wrapper/facade. `connectanum_core` and `connectanum_mcp` are now publishable
-modular archives (`publish_to: none` removed), so the current strict
-publishable slice `connectanum_core` + `connectanum_client` + `connectanum_mcp`
-has no private workspace dependency blockers. The remaining modular packages
-stay private until their own explicit release slices.
+modular archives (`publish_to: none` removed). The current implementation slice
+promotes `connectanum_router` into the publishable modular set by replacing its
+runtime path dependencies on `connectanum_core`, `connectanum_client`, and
+`connectanum_mcp` with hosted constraints and removing `publish_to: none`.
+`connectanum_auth_server` and `connectanum_bench` remain private until their
+own explicit release slices.
 
 The Dart package dry-run release plan now prints the approved strategy, and the
 GitHub deployment-chain audit no longer accepts the old first-RC pub.dev
@@ -31,25 +33,41 @@ consumer-smoke startup timing false negative; after the readiness wait hardening
 the focused router CLI consumer package smoke and full local `bin/verify`
 passed on 2026-07-08.
 
-For the current `connectanum_mcp` publishability slice, focused
+For the previous `connectanum_mcp` publishability slice, focused
 `python3 -m unittest tool.test_dart_package_publish_dry_run`,
 `python3 -m unittest tool.test_audit_github_deployment_chain`,
 `python3 tool/check_public_artifact_references.py`, `dart analyze
 packages/connectanum_mcp`, `bash -n bin/dart-package-publish-dry-run
 bin/audit-github-deployment-chain`, and `git diff --check` passed before
-commit. The clean strict MCP package dry-run and full `bin/verify` should run
-after the metadata change is committed, because `dart pub publish --dry-run`
-correctly reports a dirty-package warning while `packages/connectanum_mcp`
-contains uncommitted package-file edits.
+commit. After commit `9d8104c`, the clean strict MCP package dry-run, the clean
+strict current publishable-slice dry-run, and full local `bin/verify` passed.
 
-Hosted evidence after push: commit `c363c64` on branch `add-router` passed
-GitHub CI `28929989284` (Fast Checks and Full Verify), Dart Package Publish Dry
-Run `28929989365`, and WAMP Profile Benchmarks `28929989280` on 2026-07-08.
-The clean deployment-chain audit passed with CI/log, Dart package dry-run, WAMP
-benchmark, workflow visibility, and router-package requirements at `c363c64`.
+Hosted evidence after push: commit `9d8104c` on branch `add-router` passed
+GitHub CI `28933645957` (Fast Checks and Full Verify) and Dart Package Publish
+Dry Run `28933645953` on 2026-07-08. WAMP Profile Benchmarks `28929989280`
+remain clean and relevant from commit `c363c64` because no WAMP
+profile-sensitive paths changed in the MCP package metadata slice. The clean
+deployment-chain audit passed with CI/log, Dart package dry-run, WAMP
+benchmark, workflow visibility, and router-package requirements at `9d8104c`.
 The same audit with `--strict` still reports the known operator-owned
 `add-router` branch-protection gap: the branch is unprotected and does not
 require Fast Checks and Full Verify.
+
+For the current `connectanum_router` publishability slice, baseline
+`bin/test-fast` passed before the change on 2026-07-08. The pre-change
+`bin/dart-package-publish-dry-run --include-private --show-release-plan
+connectanum_router` failed only for path dependencies on the already
+publishable `connectanum_core`, `connectanum_client`, and `connectanum_mcp`.
+After switching those runtime dependencies to hosted constraints and removing
+`publish_to: none`, focused
+`python3 -m unittest tool.test_dart_package_publish_dry_run`,
+`python3 -m unittest tool.test_audit_github_deployment_chain`, and
+`dart pub get` passed. The uncommitted router package dry-run now reports only the
+expected dirty-package warning. The clean strict router package dry-run, clean
+strict current publishable-slice dry-run, and full `bin/verify` should run after
+the package/test/docs bundle is committed, because `dart pub publish --dry-run`
+correctly warns while `packages/connectanum_router/pubspec.yaml` is modified but
+uncommitted.
 
 Previous branch checkpoint: `connectanum_bench` package archive
 readiness now clears the concrete non-strategy pub dry-run blockers found while

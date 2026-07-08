@@ -27,8 +27,10 @@ ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
-    def test_core_and_mcp_packages_are_publishable_modular_archives(self) -> None:
-        package_pubspecs = (CORE_PUBSPEC, MCP_PUBSPEC)
+    def test_core_mcp_and_router_packages_are_publishable_modular_archives(
+        self,
+    ) -> None:
+        package_pubspecs = (CORE_PUBSPEC, MCP_PUBSPEC, ROUTER_PUBSPEC)
 
         for package_pubspec in package_pubspecs:
             with self.subTest(package=package_pubspec.parent.name):
@@ -107,7 +109,6 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         for package in (
             "connectanum_auth_server",
             "connectanum_bench",
-            "connectanum_router",
         ):
             with self.subTest(package=package):
                 self.assertRegex(
@@ -117,6 +118,10 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertRegex(
             result.stdout,
             r"- connectanum_mcp [^ ]+ \(packages/connectanum_mcp\)",
+        )
+        self.assertRegex(
+            result.stdout,
+            r"- connectanum_router [^ ]+ \(packages/connectanum_router\)",
         )
 
         self.assertIn(
@@ -216,6 +221,36 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             "- connectanum_core -> connectanum_mcp",
             result.stdout,
         )
+
+    def test_strict_release_ready_succeeds_for_router_slice(self) -> None:
+        result = self._run_with_fake_dart(
+            "--strict-release-ready",
+            "--show-release-plan",
+            "connectanum_router",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "## Publish dry-run: connectanum_router (packages/connectanum_router)",
+            result.stdout,
+        )
+        self.assertNotIn("Dart package release-readiness blockers:", result.stdout)
+        self.assertIn(
+            "No private workspace dependency blockers found for publishable "
+            "packages.",
+            result.stdout,
+        )
+        self.assertIn(
+            "All Dart package publish dry-runs reported zero warnings.",
+            result.stdout,
+        )
+        for edge in (
+            "- connectanum_client -> connectanum_router",
+            "- connectanum_core -> connectanum_router",
+            "- connectanum_mcp -> connectanum_router",
+        ):
+            with self.subTest(edge=edge):
+                self.assertIn(edge, result.stdout)
 
     def _run_with_fake_dart(self, *args: str) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
