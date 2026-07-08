@@ -2,8 +2,21 @@
 
 Last updated: 2026-07-08
 Current branch: `add-router`
-Last reviewed branch checkpoint: Dart package publish dry-run regression now
-checks every package in the canonical publishable package order for archive
+Last reviewed branch checkpoint: GitHub deployment-chain audit regression
+fixtures now model the seven-package Dart publish graph, including the legacy
+public `connectanum` compatibility facade and its `connectanum_client ->
+connectanum` release-order edge. The strict Dart blocker path asserts those
+facade lines in surfaced RC audit output, keeping release-candidate evidence
+coverage aligned with the current package strategy.
+
+Baseline `bin/test-fast` passed before the audit-regression fixture update on
+2026-07-08. Focused
+`python3 -m unittest tool.test_audit_github_deployment_chain.AuditGithubDeploymentChainTest.test_rc_readiness_rejects_unexpected_strict_dart_blocker -v`
+and full `python3 -m unittest tool.test_audit_github_deployment_chain -v`
+passed after the change. Full local `bin/verify` passed after the change.
+
+Previous branch checkpoint: Dart package publish dry-run regression now checks
+every package in the canonical publishable package order for archive
 publishability, including the legacy public `connectanum_client` package and
 the `connectanum` compatibility facade. This keeps new publishable workspace
 packages from silently missing the `publish_to: none` guard as the release
