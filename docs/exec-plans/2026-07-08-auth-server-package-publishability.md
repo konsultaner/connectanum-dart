@@ -1,6 +1,6 @@
 # Exec Plan: Auth Server Package Publishability
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-07-08
 Last updated: 2026-07-08
@@ -30,9 +30,9 @@ remote-auth packaging out of the downstream application readiness path.
 - [x] Switch `connectanum_auth_server` runtime dependencies to hosted
   constraints and remove `publish_to: none`.
 - [x] Update release tooling regressions for the new publishable slice.
-- [ ] Commit the package/test/docs bundle, then run clean strict auth-server
+- [x] Commit the package/test/docs bundle, then run clean strict auth-server
   and current-slice package dry-runs plus full `bin/verify`.
-- [ ] Push code/config/package changes and inspect hosted CI/package dry-run
+- [x] Push code/config/package changes and inspect hosted CI/package dry-run
   evidence needed for handoff.
 
 ## Verification
@@ -62,3 +62,11 @@ remote-auth packaging out of the downstream application readiness path.
   and whitespace checks passed before commit. The uncommitted auth-server
   package dry-run reports only the expected dirty-package warning, so clean
   strict package dry-runs and full `bin/verify` remain post-commit gates.
+- 2026-07-08: Commit `4c4555c` made `connectanum_auth_server` publishable.
+  Clean strict auth-server and current-slice package dry-runs passed with zero
+  warnings; full local `bin/verify` passed. The branch was pushed to `origin`
+  and `github`. Hosted CI `28940333025` and Dart Package Publish Dry Run
+  `28940332997` passed at `4c4555c`. The clean deployment-chain audit passed
+  with CI/log, Dart package dry-run, WAMP benchmark, workflow visibility, and
+  router-package requirements. The strict audit still fails only for the known
+  operator-owned `add-router` branch-protection gap.

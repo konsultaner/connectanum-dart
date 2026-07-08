@@ -5,13 +5,13 @@ Current branch: `add-router`
 Last reviewed branch checkpoint: Dart package release strategy is now approved
 as modular pub.dev packages published in dependency order while keeping the
 legacy public `connectanum` package as the client-facing compatibility
-wrapper/facade. `connectanum_core`, `connectanum_mcp`, and
-`connectanum_router` are now publishable modular archives (`publish_to: none`
-removed). The current implementation slice promotes `connectanum_auth_server`
-into the publishable modular set by replacing its runtime path dependencies on
-`connectanum_router` and `connectanum_core` with hosted constraints and
-removing `publish_to: none`. `connectanum_bench` remains private until its own
-explicit release slice.
+wrapper/facade. `connectanum_core`, `connectanum_mcp`, `connectanum_router`,
+and `connectanum_auth_server` are now publishable modular archives
+(`publish_to: none` removed). The current implementation slice promotes
+`connectanum_bench` into the publishable modular set by replacing its runtime
+path dependencies on `connectanum_router`, `connectanum_core`,
+`connectanum_client`, and `connectanum_auth_server` with hosted constraints and
+removing `publish_to: none`.
 
 The Dart package dry-run release plan now prints the approved strategy, and the
 GitHub deployment-chain audit no longer accepts the old first-RC pub.dev
@@ -83,11 +83,30 @@ focused `python3 -m unittest tool.test_dart_package_publish_dry_run`,
 `python3 tool/check_public_artifact_references.py`,
 `bash -n bin/dart-package-publish-dry-run bin/audit-github-deployment-chain`,
 and `git diff --check` passed. The uncommitted auth-server package dry-run now
-reports only the expected dirty-package warning. Clean strict auth-server and
-current publishable-slice dry-runs plus full `bin/verify` should run after the
-package/test/docs bundle is committed, because `dart pub publish --dry-run`
-correctly warns while `packages/connectanum_auth_server/pubspec.yaml` is
-modified but uncommitted.
+reported only the expected dirty-package warning. After commit `4c4555c`, the
+clean strict auth-server package dry-run, clean strict current publishable-slice
+dry-run, and full local `bin/verify` passed. Hosted CI `28940333025` and Dart
+Package Publish Dry Run `28940332997` passed at `4c4555c`; WAMP Profile
+Benchmarks `28937100701` remain clean and relevant from `da55701` because no
+WAMP profile benchmark-sensitive paths changed in the auth-server package slice.
+The clean deployment-chain audit passed with CI/log, Dart package dry-run, WAMP
+benchmark, workflow visibility, and router-package requirements. The strict
+audit still fails only for the known unprotected `add-router` branch policy gap.
+
+For the current `connectanum_bench` publishability slice, baseline
+`bin/test-fast` passed before the change on 2026-07-08. The pre-change
+`bin/dart-package-publish-dry-run --include-private --show-release-plan
+connectanum_bench` failed only for path dependencies on the already publishable
+`connectanum_router`, `connectanum_core`, `connectanum_client`, and
+`connectanum_auth_server`. The implementation switches those runtime
+dependencies to hosted constraints and removes `publish_to: none`.
+Post-change focused `python3 -m unittest
+tool.test_dart_package_publish_dry_run`, `python3 -m unittest
+tool.test_audit_github_deployment_chain`, `dart analyze
+packages/connectanum_bench`, `python3 tool/check_public_artifact_references.py`,
+`bash -n bin/dart-package-publish-dry-run bin/audit-github-deployment-chain`,
+and `git diff --check` passed. The uncommitted bench package dry-run now
+reported only the expected dirty-package warning.
 
 Previous branch checkpoint: `connectanum_bench` package archive
 readiness now clears the concrete non-strategy pub dry-run blockers found while

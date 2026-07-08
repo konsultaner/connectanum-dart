@@ -4,7 +4,6 @@ version: 0.1.0
 homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
-publish_to: none
 false_secrets:
   - /test/wamp_transport_targets_test.dart
 executables:
@@ -19,14 +18,10 @@ dependencies:
   logging: ^1.2.0
   msgpack_dart: ^1.0.1
   yaml: ^3.1.2
-  connectanum_router:
-    path: ../connectanum_router
-  connectanum_core:
-    path: ../connectanum_core
-  connectanum_client:
-    path: ../connectanum_client
-  connectanum_auth_server:
-    path: ../connectanum_auth_server
+  connectanum_router: ^0.1.0
+  connectanum_core: ^0.1.0
+  connectanum_client: ^2.2.6
+  connectanum_auth_server: ^0.1.0
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.2

@@ -30,7 +30,7 @@ ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
-    def test_core_mcp_router_and_auth_server_are_publishable_modular_archives(
+    def test_modular_packages_are_publishable_archives(
         self,
     ) -> None:
         package_pubspecs = (
@@ -38,6 +38,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             MCP_PUBSPEC,
             ROUTER_PUBSPEC,
             AUTH_SERVER_PUBSPEC,
+            BENCH_PUBSPEC,
         )
 
         for package_pubspec in package_pubspecs:
@@ -114,12 +115,14 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             result.stdout,
             r"- connectanum_core [^ ]+ \(packages/connectanum_core\)",
         )
-        for package in ("connectanum_bench",):
-            with self.subTest(package=package):
-                self.assertRegex(
-                    result.stdout,
-                    rf"- {package} [^ ]+ \(packages/{package}\)",
-                )
+        self.assertRegex(
+            result.stdout,
+            r"- connectanum_bench [^ ]+ \(packages/connectanum_bench\)",
+        )
+        self.assertIn(
+            "Private workspace packages not currently publishable: none.",
+            result.stdout,
+        )
         self.assertRegex(
             result.stdout,
             r"- connectanum_mcp [^ ]+ \(packages/connectanum_mcp\)",
@@ -283,6 +286,38 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         for edge in (
             "- connectanum_core -> connectanum_auth_server",
             "- connectanum_router -> connectanum_auth_server",
+        ):
+            with self.subTest(edge=edge):
+                self.assertIn(edge, result.stdout)
+
+    def test_strict_release_ready_succeeds_for_bench_slice(self) -> None:
+        result = self._run_with_fake_dart(
+            "--strict-release-ready",
+            "--show-release-plan",
+            "connectanum_bench",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "## Publish dry-run: connectanum_bench "
+            "(packages/connectanum_bench)",
+            result.stdout,
+        )
+        self.assertNotIn("Dart package release-readiness blockers:", result.stdout)
+        self.assertIn(
+            "No private workspace dependency blockers found for publishable "
+            "packages.",
+            result.stdout,
+        )
+        self.assertIn(
+            "All Dart package publish dry-runs reported zero warnings.",
+            result.stdout,
+        )
+        for edge in (
+            "- connectanum_auth_server -> connectanum_bench",
+            "- connectanum_client -> connectanum_bench",
+            "- connectanum_core -> connectanum_bench",
+            "- connectanum_router -> connectanum_bench",
         ):
             with self.subTest(edge=edge):
                 self.assertIn(edge, result.stdout)
