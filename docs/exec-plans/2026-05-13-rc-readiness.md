@@ -79,6 +79,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-09: Extended the public router-hosted MCP client live smoke to prove
+  an installed command path, not only checkout-local `dart run`, can exercise
+  the live router-hosted MCP endpoint. The smoke now creates an isolated
+  workspace and pub cache, globally activates `connectanum_mcp` from the
+  package path, confirms `router_hosted_client` resolves from that isolated
+  pub cache, runs the installed command against the live public endpoint, and
+  requires the same direct JSON, WAMP metadata, resource/prompt, pub/sub,
+  active direct JSON, notification-only batch, pub/sub notification-batch, tool
+  notification-batch, and unchanged Streamable session/resume-cursor proofs as
+  the checkout command. Baseline `bin/test-fast`, focused shell/Python/static
+  checks, focused public router-hosted MCP client live smoke, and full MCP
+  consumer package boundary tests passed on 2026-07-09. Full local
+  `bin/verify` passed after the change on 2026-07-09.
 - 2026-07-09: Extended the public router-hosted MCP client example's active
   direct pub/sub proof to tool notification-only batch side effects while a
   Streamable HTTP session is open. The active direct path now keeps a direct
@@ -91,7 +104,10 @@ decision because `connectanum_client` still depends on private
   and JSON-response route variants. Baseline `bin/test-fast`, focused
   analyzer/shell/Python/public-artifact checks, focused public router-hosted
   MCP client live smoke, full MCP consumer package boundary tests, and full
-  local `bin/verify` passed on 2026-07-09.
+  local `bin/verify` passed on 2026-07-09. Hosted evidence after push: GitHub
+  CI `29028462348`, Dart Package Publish Dry Run `29028462368`, and the
+  deployment-chain audit with required latest CI plus Dart package dry-run
+  evidence passed for `3ccde90`.
 - 2026-07-09: Extended the public router-hosted MCP client example's active
   direct pub/sub proof to notification-only batch side effects while a
   Streamable HTTP session is open. The active direct pub/sub path now sends a

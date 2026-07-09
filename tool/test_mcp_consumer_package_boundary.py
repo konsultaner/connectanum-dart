@@ -2712,6 +2712,23 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             script,
         )
         self.assertIn("live_summary=\"$(", live_body)
+        self.assertIn("global_live_summary=\"$(", live_body)
+        self.assertIn(
+            "connectanum_mcp_global_live_smoke_workspace",
+            live_body,
+        )
+        self.assertIn(
+            "dart pub global activate --source path",
+            live_body,
+        )
+        self.assertIn(
+            'PUB_CACHE="$global_pub_cache" router_hosted_client \\',
+            live_body,
+        )
+        self.assertIn(
+            "Globally activated router-hosted MCP client live smoke completed.",
+            live_body,
+        )
         self.assertIn("pubsub_only_summary=\"$(", live_body)
         self.assertIn("authenticated_summary=\"$(", live_body)
         self.assertIn("bearer_summary=\"$(", live_body)

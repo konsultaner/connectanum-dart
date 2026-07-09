@@ -1230,7 +1230,14 @@ run_public_router_hosted_mcp_client_live_smoke() (
   local bearer_summary
   local bearer_token
   local endpoint
+  local global_live_summary
+  local global_mcp_command
+  local global_package_source
+  local global_package_target
+  local global_pub_cache
+  local global_smoke_workspace
   local live_summary
+  local package_name
   local pubsub_only_summary
   local secure_endpoint
   local secure_json_endpoint
@@ -1257,6 +1264,12 @@ run_public_router_hosted_mcp_client_live_smoke() (
         kill -KILL "$server_pid" 2>/dev/null || true
         wait "$server_pid" 2>/dev/null || true
       fi
+    fi
+    if [[ -n "${global_smoke_workspace:-}" ]]; then
+      rm -rf "$global_smoke_workspace"
+    fi
+    if [[ -n "${global_pub_cache:-}" ]]; then
+      rm -rf "$global_pub_cache"
     fi
     if [[ -n "${server_log:-}" ]]; then
       rm -f "$server_log"
@@ -1338,6 +1351,98 @@ run_public_router_hosted_mcp_client_live_smoke() (
     "$live_summary" public
 
   printf 'Public router-hosted MCP client live smoke completed.\n'
+
+  global_smoke_workspace="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-global-live-workspace.XXXXXX")"
+  global_pub_cache="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-mcp-global-live-pub-cache.XXXXXX")"
+  mkdir -p "$global_smoke_workspace/packages"
+  cat >"$global_smoke_workspace/pubspec.yaml" <<EOF
+name: connectanum_mcp_global_live_smoke_workspace
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+workspace:
+  - packages/connectanum_core
+  - packages/connectanum_client
+  - packages/connectanum_mcp
+EOF
+  if [[ -f "$ROOT_DIR/pubspec.lock" ]]; then
+    cp "$ROOT_DIR/pubspec.lock" "$global_smoke_workspace/pubspec.lock"
+  fi
+
+  for package_name in \
+    connectanum_core \
+    connectanum_client \
+    connectanum_mcp; do
+    global_package_source="$ROOT_DIR/packages/$package_name"
+    global_package_target="$global_smoke_workspace/packages/$package_name"
+    mkdir -p "$global_package_target"
+    cp "$global_package_source/pubspec.yaml" "$global_package_target/pubspec.yaml"
+    cp -R "$global_package_source/lib" "$global_package_target/lib"
+    if [[ -d "$global_package_source/bin" ]]; then
+      cp -R "$global_package_source/bin" "$global_package_target/bin"
+    fi
+    if [[ -d "$global_package_source/example" ]]; then
+      cp -R "$global_package_source/example" "$global_package_target/example"
+    fi
+    if [[ -d "$global_package_source/hook" ]]; then
+      cp -R "$global_package_source/hook" "$global_package_target/hook"
+    fi
+  done
+
+  CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PATH="$global_pub_cache/bin:$PATH" PUB_CACHE="$global_pub_cache" \
+    dart pub global activate --source path \
+    "$global_smoke_workspace/packages/connectanum_mcp" >&2
+  global_mcp_command="$(
+    PATH="$global_pub_cache/bin:$PATH" PUB_CACHE="$global_pub_cache" \
+      command -v router_hosted_client || true
+  )"
+  if [[ "$global_mcp_command" != "$global_pub_cache/bin/router_hosted_client" ]]; then
+    printf 'Expected isolated global router_hosted_client command, got: %s\n' \
+      "${global_mcp_command:-<missing>}" >&2
+    return 1
+  fi
+
+  global_live_summary="$(PATH="$global_pub_cache/bin:$PATH" \
+    PUB_CACHE="$global_pub_cache" router_hosted_client \
+    --endpoint "$endpoint" \
+    --protocol-version 2025-06-18 \
+    --tool example.task.lookup \
+    --tool-arguments '{"taskId":"T-global-example-live"}' \
+    --resource-uri app://example/context \
+    --prompt summarize-task \
+    --prompt-arguments '{"taskId":"T-global-example-live"}' \
+    --wamp-procedure example.task.configured.lookup \
+    --wamp-topic example.events.task \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-global-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary "$global_live_summary" global-installed \
+    '"directPing"' \
+    '"directWampMetadata"' \
+    '"configuredRegistrationMetadata"' \
+    '"configuredSubscriptionMetadata"' \
+    '"streamable"' \
+    '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
+    '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
+    '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
+    '"batchErrorIsolation":{"responseIds"' \
+    '"batch":{"responseIds"' \
+    '"wampMetadata"' \
+    '"pubsub"' \
+    '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
+    '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
+    '"toolNotificationBatch":{"accepted":true,"sessionUnchanged":true' \
+    '"toolNotificationEvents"'
+  assert_public_router_hosted_mcp_active_direct_session_summary \
+    "$global_live_summary" global-installed
+
+  printf 'Globally activated router-hosted MCP client live smoke completed.\n'
 
   pubsub_only_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$endpoint" \
