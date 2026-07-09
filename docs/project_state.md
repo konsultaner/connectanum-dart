@@ -3,20 +3,23 @@
 Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now proves raw direct JSON batch access to WAMP session metadata in both the
-plain direct JSON path and the active direct JSON path while a Streamable HTTP
-session is open. When a consumer supplies `--wamp-procedure` and/or
-`--wamp-topic`, both batch paths issue raw `wamp.session.count` and
-`wamp.session.list`, validate the returned structured WAMP metadata, then issue
-a follow-up raw `wamp.session.get` batch for the selected visible session. The
-active direct JSON path continues to prove the public direct helper surface for
-`wamp.session.count`, `list`, and `get`, configured WAMP registration and
-subscription metadata, and unchanged Streamable session id/resume cursor, and
-now also surfaces `batchSessionMetadata` under
-`activeDirectJson.wampMetadata`.
+now proves raw direct JSON batch access to configured WAMP registration and
+subscription metadata in both the plain direct JSON path and the active direct
+JSON path while a Streamable HTTP session is open. When a consumer supplies
+`--wamp-procedure` and/or `--wamp-topic`, both batch paths issue raw
+`wamp.registration.lookup`/`match`/`list` and
+`wamp.subscription.lookup`/`match`/`list`, validate the configured IDs and
+URI/topic metadata, then issue follow-up raw batches for
+`wamp.registration.get`, `list_callees`, `count_callees`,
+`wamp.subscription.get`, `list_subscribers`, and `count_subscribers`. The
+smoke asserts configured routes expose zero live callees/subscribers before the
+pub/sub phase, keeps the existing WAMP session metadata batch checks, and keeps
+the active Streamable session id/resume cursor unchanged while surfacing
+`batchConfiguredRegistrationMetadata` and
+`batchConfiguredSubscriptionMetadata` under `activeDirectJson.wampMetadata`.
 
-Baseline `bin/test-fast` passed before the direct JSON batch WAMP session
-metadata change on 2026-07-09. Focused `dart analyze
+Baseline `bin/test-fast` passed before the configured WAMP metadata batch
+change on 2026-07-09. Focused `dart analyze
 packages/connectanum_mcp/example/router_hosted_client.dart`,
 `python3 -m unittest
 tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
@@ -24,17 +27,16 @@ tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_publ
 public router-hosted MCP client dry-run smoke, and public router-hosted MCP
 client live smoke, `git diff --check`,
 `python3 tool/check_public_artifact_references.py`, and full local
-`bin/verify` passed after the change. Hosted evidence has not yet been
-refreshed for this uncommitted checkpoint; after commit `ec55ef8`, hosted
-GitHub CI `28984741345` and Dart Package
-Publish Dry Run `28984741307` passed on 2026-07-09. The deployment-chain audit
-with required clean latest CI, clean CI logs, Dart package publish dry-run,
-and WAMP profile benchmark evidence also passed at `ec55ef8`; WAMP Profile
-Benchmarks `28964007707` remain clean and relevant from `b81302a` because no
-WAMP benchmark-sensitive paths changed since then. The strict audit still
-fails only on expected operator-owned gaps: `add-router` is unprotected, and
-the checked-in pub.dev OIDC workflows are not Actions discoverable until
-promoted through `master`.
+`bin/verify` passed after the change. Hosted evidence for this checkpoint has
+not yet been refreshed; after commit `51a0dfa`, hosted GitHub CI
+`28987420234` and Dart Package Publish Dry Run `28987420215` passed on
+2026-07-09. The deployment-chain audit with required clean latest CI, clean CI
+logs, Dart package publish dry-run, and WAMP profile benchmark evidence also
+passed at `51a0dfa`; WAMP Profile Benchmarks `28964007707` remain clean and
+relevant from `b81302a` because no WAMP benchmark-sensitive paths changed since
+then. The strict audit still fails only on expected operator-owned gaps:
+`add-router` is unprotected, and the checked-in pub.dev OIDC workflows are not
+Actions discoverable until promoted through `master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves direct JSON resource-template discovery while a Streamable HTTP

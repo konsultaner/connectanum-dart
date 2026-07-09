@@ -857,6 +857,29 @@ Future<void> _runDirectBatchExample(
 
   if (wampProcedure != null) {
     messages.addAll([
+      {
+        'jsonrpc': '2.0',
+        'id': 'direct-batch-wamp-configured-registration-lookup',
+        'method': 'wamp.registration.lookup',
+        'params': {
+          'arguments': [wampProcedure],
+          'argumentsKeywords': {'match': 'exact'},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'direct-batch-wamp-configured-registration-match',
+        'method': 'wamp.registration.match',
+        'params': {
+          'arguments': [wampProcedure],
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'direct-batch-wamp-configured-registration-list',
+        'method': 'wamp.registration.list',
+        'params': {},
+      },
       _toolCallBatchRequest(
         id: 'direct-batch-wamp-procedure-api-list',
         name: 'connectanum.api.list',
@@ -874,6 +897,29 @@ Future<void> _runDirectBatchExample(
 
   if (wampTopic != null) {
     messages.addAll([
+      {
+        'jsonrpc': '2.0',
+        'id': 'direct-batch-wamp-configured-subscription-lookup',
+        'method': 'wamp.subscription.lookup',
+        'params': {
+          'arguments': [wampTopic],
+          'argumentsKeywords': {'match': 'exact'},
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'direct-batch-wamp-configured-subscription-match',
+        'method': 'wamp.subscription.match',
+        'params': {
+          'arguments': [wampTopic],
+        },
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'direct-batch-wamp-configured-subscription-list',
+        'method': 'wamp.subscription.list',
+        'params': {},
+      },
       _toolCallBatchRequest(
         id: 'direct-batch-wamp-topic-api-list',
         name: 'connectanum.api.list',
@@ -935,6 +981,8 @@ Future<void> _runDirectBatchExample(
     );
   }
   Map<String, Object?>? batchWampSessionMetadata;
+  Map<String, Object?>? batchConfiguredRegistrationMetadata;
+  Map<String, Object?>? batchConfiguredSubscriptionMetadata;
   if (includeWampMetadata) {
     final sessionDiscovery = _expectWampSessionMetaBatchDiscovery(
       batchResponses,
@@ -943,28 +991,122 @@ Future<void> _runDirectBatchExample(
       label: 'Direct JSON batch WAMP session metadata',
     );
     final selectedSessionId = sessionDiscovery['selectedSessionId']! as int;
+    if (wampProcedure != null) {
+      batchConfiguredRegistrationMetadata =
+          _expectConfiguredWampRegistrationMetaBatchDiscovery(
+            batchResponses,
+            procedure: wampProcedure,
+            lookupId: 'direct-batch-wamp-configured-registration-lookup',
+            matchId: 'direct-batch-wamp-configured-registration-match',
+            listId: 'direct-batch-wamp-configured-registration-list',
+            label: 'Direct JSON batch configured WAMP registration metadata',
+          );
+    }
+    if (wampTopic != null) {
+      batchConfiguredSubscriptionMetadata =
+          _expectConfiguredWampSubscriptionMetaBatchDiscovery(
+            batchResponses,
+            topic: wampTopic,
+            lookupId: 'direct-batch-wamp-configured-subscription-lookup',
+            matchId: 'direct-batch-wamp-configured-subscription-match',
+            listId: 'direct-batch-wamp-configured-subscription-list',
+            label: 'Direct JSON batch configured WAMP subscription metadata',
+          );
+    }
     final sessionGetId = 'direct-batch-wamp-session-get';
-    final sessionGetResponses = await client.postBatchDirect(
-      [
+    final detailMessages = <McpJsonMap>[
+      {
+        'jsonrpc': '2.0',
+        'id': sessionGetId,
+        'method': 'wamp.session.get',
+        'params': {'id': selectedSessionId},
+      },
+    ];
+    final detailExpectedIds = <String>[sessionGetId];
+    final registrationDiscovery = batchConfiguredRegistrationMetadata;
+    if (registrationDiscovery != null) {
+      final registrationId = registrationDiscovery['registrationId']! as int;
+      detailMessages.addAll([
         {
           'jsonrpc': '2.0',
-          'id': sessionGetId,
-          'method': 'wamp.session.get',
-          'params': {'id': selectedSessionId},
+          'id': 'direct-batch-wamp-configured-registration-get',
+          'method': 'wamp.registration.get',
+          'params': {
+            'arguments': [registrationId],
+          },
         },
-      ],
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-batch-wamp-configured-registration-callees',
+          'method': 'wamp.registration.list_callees',
+          'params': {
+            'arguments': [registrationId],
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-batch-wamp-configured-registration-callee-count',
+          'method': 'wamp.registration.count_callees',
+          'params': {
+            'arguments': [registrationId],
+          },
+        },
+      ]);
+      detailExpectedIds.addAll([
+        'direct-batch-wamp-configured-registration-get',
+        'direct-batch-wamp-configured-registration-callees',
+        'direct-batch-wamp-configured-registration-callee-count',
+      ]);
+    }
+    final subscriptionDiscovery = batchConfiguredSubscriptionMetadata;
+    if (subscriptionDiscovery != null) {
+      final subscriptionId = subscriptionDiscovery['subscriptionId']! as int;
+      detailMessages.addAll([
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-batch-wamp-configured-subscription-get',
+          'method': 'wamp.subscription.get',
+          'params': {
+            'arguments': [subscriptionId],
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-batch-wamp-configured-subscription-subscribers',
+          'method': 'wamp.subscription.list_subscribers',
+          'params': {
+            'arguments': [subscriptionId],
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-batch-wamp-configured-subscription-subscriber-count',
+          'method': 'wamp.subscription.count_subscribers',
+          'params': {
+            'arguments': [subscriptionId],
+          },
+        },
+      ]);
+      detailExpectedIds.addAll([
+        'direct-batch-wamp-configured-subscription-get',
+        'direct-batch-wamp-configured-subscription-subscribers',
+        'direct-batch-wamp-configured-subscription-subscriber-count',
+      ]);
+    }
+    final detailResponses = await client.postBatchDirect(
+      detailMessages,
       headers: const {
         'x-consumer-trace':
-            'router-hosted-client-direct-batch-wamp-session-get',
+            'router-hosted-client-direct-batch-wamp-metadata-details',
       },
     );
     final detailResponseIds = _expectBatchResponses(
-      sessionGetResponses,
-      [sessionGetId],
+      detailResponses,
+      detailExpectedIds,
       label: 'Direct JSON batch WAMP session metadata details',
     );
     final sessionDetails = _expectWampSessionMetaBatchDetails(
-      sessionGetResponses,
+      detailResponses,
       getId: sessionGetId,
       selectedSessionId: selectedSessionId,
       label: 'Direct JSON batch WAMP session metadata',
@@ -974,6 +1116,41 @@ Future<void> _runDirectBatchExample(
       ...sessionDetails,
       'detailResponseIds': detailResponseIds,
     };
+    if (wampProcedure != null && registrationDiscovery != null) {
+      final registrationDetails =
+          _expectConfiguredWampRegistrationMetaBatchDetails(
+            detailResponses,
+            procedure: wampProcedure,
+            registrationId: registrationDiscovery['registrationId']! as int,
+            getId: 'direct-batch-wamp-configured-registration-get',
+            calleesId: 'direct-batch-wamp-configured-registration-callees',
+            calleeCountId:
+                'direct-batch-wamp-configured-registration-callee-count',
+            label: 'Direct JSON batch configured WAMP registration metadata',
+          );
+      batchConfiguredRegistrationMetadata = <String, Object?>{
+        ...registrationDiscovery,
+        ...registrationDetails,
+      };
+    }
+    if (wampTopic != null && subscriptionDiscovery != null) {
+      final subscriptionDetails =
+          _expectConfiguredWampSubscriptionMetaBatchDetails(
+            detailResponses,
+            topic: wampTopic,
+            subscriptionId: subscriptionDiscovery['subscriptionId']! as int,
+            getId: 'direct-batch-wamp-configured-subscription-get',
+            subscribersId:
+                'direct-batch-wamp-configured-subscription-subscribers',
+            subscriberCountId:
+                'direct-batch-wamp-configured-subscription-subscriber-count',
+            label: 'Direct JSON batch configured WAMP subscription metadata',
+          );
+      batchConfiguredSubscriptionMetadata = <String, Object?>{
+        ...subscriptionDiscovery,
+        ...subscriptionDetails,
+      };
+    }
   }
   _expectStreamableStateUnchanged(
     client,
@@ -984,6 +1161,14 @@ Future<void> _runDirectBatchExample(
   final directBatch = <String, Object?>{'responseIds': responseIds};
   if (batchWampSessionMetadata != null) {
     directBatch['wampSessionMetadata'] = batchWampSessionMetadata;
+  }
+  if (batchConfiguredRegistrationMetadata != null) {
+    directBatch['configuredRegistrationMetadata'] =
+        batchConfiguredRegistrationMetadata;
+  }
+  if (batchConfiguredSubscriptionMetadata != null) {
+    directBatch['configuredSubscriptionMetadata'] =
+        batchConfiguredSubscriptionMetadata;
   }
   stdout.writeln(jsonEncode({'directBatch': directBatch}));
 }
@@ -1445,6 +1630,327 @@ Map<String, Object?> _expectWampSessionMetaBatchDetails(
 
   return <String, Object?>{
     'selectedSession': _wampMetaBatchResultJson(session),
+  };
+}
+
+List<Object?> _wampMetaBatchArguments(
+  McpJsonMap result, {
+  required String label,
+}) {
+  final arguments = result['arguments'];
+  if (arguments is List) {
+    return arguments.cast<Object?>();
+  }
+  throw StateError('$label returned no arguments list.');
+}
+
+void _expectWampMetaBatchProcedure(
+  McpJsonMap result,
+  String procedure, {
+  required String label,
+}) {
+  final actualProcedure = result['procedure'];
+  if (actualProcedure != null && actualProcedure != procedure) {
+    throw StateError(
+      '$label returned procedure $actualProcedure, expected '
+      '$procedure.',
+    );
+  }
+}
+
+Map<String, Object?> _expectConfiguredWampRegistrationMetaBatchDiscovery(
+  List<McpJsonMap>? responses, {
+  required String procedure,
+  required String lookupId,
+  required String matchId,
+  required String listId,
+  required String label,
+}) {
+  final lookup = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, lookupId, label: '$label lookup'),
+    label: '$label lookup',
+  );
+  _expectWampMetaBatchProcedure(
+    lookup,
+    'wamp.registration.lookup',
+    label: '$label lookup',
+  );
+  final lookupIds = _integerMetaIds(
+    _wampMetaBatchArguments(lookup, label: '$label lookup'),
+    '$label lookup arguments',
+  );
+  if (lookupIds.isEmpty) {
+    throw StateError('$label lookup returned no registration id.');
+  }
+  final registrationId = lookupIds.first;
+
+  final match = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, matchId, label: '$label match'),
+    label: '$label match',
+  );
+  _expectWampMetaBatchProcedure(
+    match,
+    'wamp.registration.match',
+    label: '$label match',
+  );
+  final matchIds = _integerMetaIds(
+    _wampMetaBatchArguments(match, label: '$label match'),
+    '$label match arguments',
+  );
+  if (!matchIds.contains(registrationId)) {
+    throw StateError('$label match did not include lookup id $registrationId.');
+  }
+
+  final list = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, listId, label: '$label list'),
+    label: '$label list',
+  );
+  _expectWampMetaBatchProcedure(
+    list,
+    'wamp.registration.list',
+    label: '$label list',
+  );
+  final exactRegistrationIds = _integerMetaIds(
+    _wampMetaBatchArgumentsKeywords(list, label: '$label list')['exact'],
+    '$label list exact registrations',
+  );
+  if (!exactRegistrationIds.contains(registrationId)) {
+    throw StateError('$label list did not include lookup id $registrationId.');
+  }
+
+  return <String, Object?>{
+    'procedure': procedure,
+    'registrationId': registrationId,
+    'lookup': _wampMetaBatchResultJson(lookup),
+    'match': _wampMetaBatchResultJson(match),
+    'list': _wampMetaBatchResultJson(list),
+  };
+}
+
+Map<String, Object?> _expectConfiguredWampRegistrationMetaBatchDetails(
+  List<McpJsonMap>? responses, {
+  required String procedure,
+  required int registrationId,
+  required String getId,
+  required String calleesId,
+  required String calleeCountId,
+  required String label,
+}) {
+  final details = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, getId, label: '$label get'),
+    label: '$label get',
+  );
+  _expectWampMetaBatchProcedure(
+    details,
+    'wamp.registration.get',
+    label: '$label get',
+  );
+  final detailsKeywords = _wampMetaBatchArgumentsKeywords(
+    details,
+    label: '$label get',
+  );
+  if (detailsKeywords['uri'] != procedure) {
+    throw StateError(
+      '$label details returned ${detailsKeywords['uri']}, expected '
+      '$procedure.',
+    );
+  }
+
+  final callees = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, calleesId, label: '$label callees'),
+    label: '$label callees',
+  );
+  _expectWampMetaBatchProcedure(
+    callees,
+    'wamp.registration.list_callees',
+    label: '$label callees',
+  );
+  final calleeIds = _integerMetaIds(
+    _wampMetaBatchArguments(callees, label: '$label callees'),
+    '$label callee arguments',
+  );
+  if (calleeIds.isNotEmpty) {
+    throw StateError(
+      '$label configured registration $registrationId exposed live callees: '
+      '${jsonEncode(calleeIds)}.',
+    );
+  }
+
+  final calleeCount = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, calleeCountId, label: '$label callee count'),
+    label: '$label callee count',
+  );
+  _expectWampMetaBatchProcedure(
+    calleeCount,
+    'wamp.registration.count_callees',
+    label: '$label callee count',
+  );
+  final calleeCountIds = _integerMetaIds(
+    _wampMetaBatchArguments(calleeCount, label: '$label callee count'),
+    '$label callee count',
+  );
+  final calleeTotal = calleeCountIds.isEmpty ? null : calleeCountIds.first;
+  if (calleeTotal != 0) {
+    throw StateError(
+      '$label configured registration callee count was $calleeTotal, '
+      'expected 0.',
+    );
+  }
+
+  return <String, Object?>{
+    'details': _wampMetaBatchResultJson(details),
+    'callees': _wampMetaBatchResultJson(callees),
+    'calleeCount': _wampMetaBatchResultJson(calleeCount),
+  };
+}
+
+Map<String, Object?> _expectConfiguredWampSubscriptionMetaBatchDiscovery(
+  List<McpJsonMap>? responses, {
+  required String topic,
+  required String lookupId,
+  required String matchId,
+  required String listId,
+  required String label,
+}) {
+  final lookup = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, lookupId, label: '$label lookup'),
+    label: '$label lookup',
+  );
+  _expectWampMetaBatchProcedure(
+    lookup,
+    'wamp.subscription.lookup',
+    label: '$label lookup',
+  );
+  final lookupIds = _integerMetaIds(
+    _wampMetaBatchArguments(lookup, label: '$label lookup'),
+    '$label lookup arguments',
+  );
+  if (lookupIds.isEmpty) {
+    throw StateError('$label lookup returned no subscription id.');
+  }
+  final subscriptionId = lookupIds.first;
+
+  final match = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, matchId, label: '$label match'),
+    label: '$label match',
+  );
+  _expectWampMetaBatchProcedure(
+    match,
+    'wamp.subscription.match',
+    label: '$label match',
+  );
+  final matchIds = _integerMetaIds(
+    _wampMetaBatchArguments(match, label: '$label match'),
+    '$label match arguments',
+  );
+  if (!matchIds.contains(subscriptionId)) {
+    throw StateError('$label match did not include lookup id $subscriptionId.');
+  }
+
+  final list = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, listId, label: '$label list'),
+    label: '$label list',
+  );
+  _expectWampMetaBatchProcedure(
+    list,
+    'wamp.subscription.list',
+    label: '$label list',
+  );
+  final exactSubscriptionIds = _integerMetaIds(
+    _wampMetaBatchArgumentsKeywords(list, label: '$label list')['exact'],
+    '$label list exact subscriptions',
+  );
+  if (!exactSubscriptionIds.contains(subscriptionId)) {
+    throw StateError('$label list did not include lookup id $subscriptionId.');
+  }
+
+  return <String, Object?>{
+    'topic': topic,
+    'subscriptionId': subscriptionId,
+    'lookup': _wampMetaBatchResultJson(lookup),
+    'match': _wampMetaBatchResultJson(match),
+    'list': _wampMetaBatchResultJson(list),
+  };
+}
+
+Map<String, Object?> _expectConfiguredWampSubscriptionMetaBatchDetails(
+  List<McpJsonMap>? responses, {
+  required String topic,
+  required int subscriptionId,
+  required String getId,
+  required String subscribersId,
+  required String subscriberCountId,
+  required String label,
+}) {
+  final details = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, getId, label: '$label get'),
+    label: '$label get',
+  );
+  _expectWampMetaBatchProcedure(
+    details,
+    'wamp.subscription.get',
+    label: '$label get',
+  );
+  final detailsKeywords = _wampMetaBatchArgumentsKeywords(
+    details,
+    label: '$label get',
+  );
+  final detailsTopic = detailsKeywords['uri'] ?? detailsKeywords['topic'];
+  if (detailsTopic != topic) {
+    throw StateError('$label details returned $detailsTopic, expected $topic.');
+  }
+
+  final subscribers = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, subscribersId, label: '$label subscribers'),
+    label: '$label subscribers',
+  );
+  _expectWampMetaBatchProcedure(
+    subscribers,
+    'wamp.subscription.list_subscribers',
+    label: '$label subscribers',
+  );
+  final subscriberIds = _integerMetaIds(
+    _wampMetaBatchArguments(subscribers, label: '$label subscribers'),
+    '$label subscriber arguments',
+  );
+  if (subscriberIds.isNotEmpty) {
+    throw StateError(
+      '$label configured subscription $subscriptionId exposed live '
+      'subscribers: ${jsonEncode(subscriberIds)}.',
+    );
+  }
+
+  final subscriberCount = _structuredContentFromWampMetaBatchResult(
+    _batchResult(
+      responses,
+      subscriberCountId,
+      label: '$label subscriber count',
+    ),
+    label: '$label subscriber count',
+  );
+  _expectWampMetaBatchProcedure(
+    subscriberCount,
+    'wamp.subscription.count_subscribers',
+    label: '$label subscriber count',
+  );
+  final subscriberCountIds = _integerMetaIds(
+    _wampMetaBatchArguments(subscriberCount, label: '$label subscriber count'),
+    '$label subscriber count',
+  );
+  final subscriberTotal = subscriberCountIds.isEmpty
+      ? null
+      : subscriberCountIds.first;
+  if (subscriberTotal != 0) {
+    throw StateError(
+      '$label configured subscription subscriber count was $subscriberTotal, '
+      'expected 0.',
+    );
+  }
+
+  return <String, Object?>{
+    'details': _wampMetaBatchResultJson(details),
+    'subscribers': _wampMetaBatchResultJson(subscribers),
+    'subscriberCount': _wampMetaBatchResultJson(subscriberCount),
   };
 }
 
@@ -2172,14 +2678,40 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       },
     ]);
     if (wampProcedure != null) {
-      batchMessages.add(
+      batchMessages.addAll([
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-registration-lookup',
+          'method': 'wamp.registration.lookup',
+          'params': {
+            'arguments': [wampProcedure],
+            'argumentsKeywords': {'match': 'exact'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-registration-match',
+          'method': 'wamp.registration.match',
+          'params': {
+            'arguments': [wampProcedure],
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-registration-list',
+          'method': 'wamp.registration.list',
+          'params': {},
+        },
         _toolCallBatchRequest(
           id: 'streamable-active-direct-batch-wamp-procedure-api-list',
           name: 'connectanum.api.list',
           arguments: const {'kind': 'procedure'},
           directJson: true,
         ),
-      );
+      ]);
       final procedures = await client.listWampApiDirect(
         id: 'streamable-active-direct-wamp-procedure-api-list',
         kind: 'procedure',
@@ -2219,14 +2751,40 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       };
     }
     if (wampTopic != null) {
-      batchMessages.add(
+      batchMessages.addAll([
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-subscription-lookup',
+          'method': 'wamp.subscription.lookup',
+          'params': {
+            'arguments': [wampTopic],
+            'argumentsKeywords': {'match': 'exact'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-subscription-match',
+          'method': 'wamp.subscription.match',
+          'params': {
+            'arguments': [wampTopic],
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-subscription-list',
+          'method': 'wamp.subscription.list',
+          'params': {},
+        },
         _toolCallBatchRequest(
           id: 'streamable-active-direct-batch-wamp-topic-api-list',
           name: 'connectanum.api.list',
           arguments: const {'kind': 'topic'},
           directJson: true,
         ),
-      );
+      ]);
       final topics = await client.listWampApiDirect(
         id: 'streamable-active-direct-wamp-topic-api-list',
         kind: 'topic',
@@ -2329,29 +2887,135 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       label: 'Streamable active direct JSON batch WAMP session metadata',
     );
     final selectedSessionId = sessionDiscovery['selectedSessionId']! as int;
+    Map<String, Object?>? registrationDiscovery;
+    if (wampProcedure != null) {
+      registrationDiscovery = _expectConfiguredWampRegistrationMetaBatchDiscovery(
+        batchResponses,
+        procedure: wampProcedure,
+        lookupId:
+            'streamable-active-direct-batch-wamp-configured-registration-lookup',
+        matchId:
+            'streamable-active-direct-batch-wamp-configured-registration-match',
+        listId:
+            'streamable-active-direct-batch-wamp-configured-registration-list',
+        label:
+            'Streamable active direct JSON batch configured WAMP registration metadata',
+      );
+    }
+    Map<String, Object?>? subscriptionDiscovery;
+    if (wampTopic != null) {
+      subscriptionDiscovery = _expectConfiguredWampSubscriptionMetaBatchDiscovery(
+        batchResponses,
+        topic: wampTopic,
+        lookupId:
+            'streamable-active-direct-batch-wamp-configured-subscription-lookup',
+        matchId:
+            'streamable-active-direct-batch-wamp-configured-subscription-match',
+        listId:
+            'streamable-active-direct-batch-wamp-configured-subscription-list',
+        label:
+            'Streamable active direct JSON batch configured WAMP subscription metadata',
+      );
+    }
     final sessionGetId = 'streamable-active-direct-batch-wamp-session-get';
-    final sessionGetResponses = await client.postBatchDirect(
-      [
+    final detailMessages = <McpJsonMap>[
+      {
+        'jsonrpc': '2.0',
+        'id': sessionGetId,
+        'method': 'wamp.session.get',
+        'params': {'id': selectedSessionId},
+      },
+    ];
+    final detailExpectedIds = <String>[sessionGetId];
+    if (registrationDiscovery != null) {
+      final registrationId = registrationDiscovery['registrationId']! as int;
+      detailMessages.addAll([
         {
           'jsonrpc': '2.0',
-          'id': sessionGetId,
-          'method': 'wamp.session.get',
-          'params': {'id': selectedSessionId},
+          'id':
+              'streamable-active-direct-batch-wamp-configured-registration-get',
+          'method': 'wamp.registration.get',
+          'params': {
+            'arguments': [registrationId],
+          },
         },
-      ],
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-registration-callees',
+          'method': 'wamp.registration.list_callees',
+          'params': {
+            'arguments': [registrationId],
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-registration-callee-count',
+          'method': 'wamp.registration.count_callees',
+          'params': {
+            'arguments': [registrationId],
+          },
+        },
+      ]);
+      detailExpectedIds.addAll([
+        'streamable-active-direct-batch-wamp-configured-registration-get',
+        'streamable-active-direct-batch-wamp-configured-registration-callees',
+        'streamable-active-direct-batch-wamp-configured-registration-callee-count',
+      ]);
+    }
+    if (subscriptionDiscovery != null) {
+      final subscriptionId = subscriptionDiscovery['subscriptionId']! as int;
+      detailMessages.addAll([
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-subscription-get',
+          'method': 'wamp.subscription.get',
+          'params': {
+            'arguments': [subscriptionId],
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-subscription-subscribers',
+          'method': 'wamp.subscription.list_subscribers',
+          'params': {
+            'arguments': [subscriptionId],
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'id':
+              'streamable-active-direct-batch-wamp-configured-subscription-subscriber-count',
+          'method': 'wamp.subscription.count_subscribers',
+          'params': {
+            'arguments': [subscriptionId],
+          },
+        },
+      ]);
+      detailExpectedIds.addAll([
+        'streamable-active-direct-batch-wamp-configured-subscription-get',
+        'streamable-active-direct-batch-wamp-configured-subscription-subscribers',
+        'streamable-active-direct-batch-wamp-configured-subscription-subscriber-count',
+      ]);
+    }
+    final detailResponses = await client.postBatchDirect(
+      detailMessages,
       headers: const <String, String>{
         'x-consumer-trace':
-            'router-hosted-client-streamable-active-direct-batch-wamp-session-get',
+            'router-hosted-client-streamable-active-direct-batch-wamp-metadata-details',
       },
     );
     final detailResponseIds = _expectBatchResponses(
-      sessionGetResponses,
-      [sessionGetId],
+      detailResponses,
+      detailExpectedIds,
       label:
           'Streamable active direct JSON batch WAMP session metadata details',
     );
     final sessionDetails = _expectWampSessionMetaBatchDetails(
-      sessionGetResponses,
+      detailResponses,
       getId: sessionGetId,
       selectedSessionId: selectedSessionId,
       label: 'Streamable active direct JSON batch WAMP session metadata',
@@ -2363,6 +3027,58 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         ...sessionDetails,
         'detailResponseIds': detailResponseIds,
       };
+    }
+    if (wampProcedure != null && registrationDiscovery != null) {
+      final registrationDetails = _expectConfiguredWampRegistrationMetaBatchDetails(
+        detailResponses,
+        procedure: wampProcedure,
+        registrationId: registrationDiscovery['registrationId']! as int,
+        getId:
+            'streamable-active-direct-batch-wamp-configured-registration-get',
+        calleesId:
+            'streamable-active-direct-batch-wamp-configured-registration-callees',
+        calleeCountId:
+            'streamable-active-direct-batch-wamp-configured-registration-callee-count',
+        label:
+            'Streamable active direct JSON batch configured WAMP registration metadata',
+      );
+      final metadata = details['wampMetadata'];
+      if (metadata is Map<String, Object?>) {
+        final procedureMetadata = metadata['procedure'];
+        if (procedureMetadata is Map<String, Object?>) {
+          procedureMetadata['batchConfiguredRegistrationMetadata'] =
+              <String, Object?>{
+                ...registrationDiscovery,
+                ...registrationDetails,
+              };
+        }
+      }
+    }
+    if (wampTopic != null && subscriptionDiscovery != null) {
+      final subscriptionDetails = _expectConfiguredWampSubscriptionMetaBatchDetails(
+        detailResponses,
+        topic: wampTopic,
+        subscriptionId: subscriptionDiscovery['subscriptionId']! as int,
+        getId:
+            'streamable-active-direct-batch-wamp-configured-subscription-get',
+        subscribersId:
+            'streamable-active-direct-batch-wamp-configured-subscription-subscribers',
+        subscriberCountId:
+            'streamable-active-direct-batch-wamp-configured-subscription-subscriber-count',
+        label:
+            'Streamable active direct JSON batch configured WAMP subscription metadata',
+      );
+      final metadata = details['wampMetadata'];
+      if (metadata is Map<String, Object?>) {
+        final topicMetadata = metadata['topic'];
+        if (topicMetadata is Map<String, Object?>) {
+          topicMetadata['batchConfiguredSubscriptionMetadata'] =
+              <String, Object?>{
+                ...subscriptionDiscovery,
+                ...subscriptionDetails,
+              };
+        }
+      }
     }
   }
   _expectStreamableStateUnchanged(

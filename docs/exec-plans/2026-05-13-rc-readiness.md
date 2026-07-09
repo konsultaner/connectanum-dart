@@ -12485,16 +12485,19 @@ decision because `connectanum_client` still depends on private
 Active. The current implementation checkpoint strengthens public
 router-hosted MCP readiness for downstream applications. The public
 `connectanum_mcp` router-hosted client example now proves raw direct JSON batch
-access to WAMP session metadata in both the plain direct JSON path and the
-active direct JSON path while a Streamable HTTP session is open. With
-`--wamp-procedure` and/or `--wamp-topic`, both batch paths issue raw
-`wamp.session.count` and `wamp.session.list`, validate the structured WAMP
-metadata, then issue a follow-up raw `wamp.session.get` batch for the selected
-visible session. The active direct JSON path still proves the public direct
-helper surface for `wamp.session.count`, `list`, and `get`, configured WAMP
-registration and subscription metadata, and unchanged Streamable session id and
-resume cursor, and now also records `batchSessionMetadata` under
-`activeDirectJson.wampMetadata`.
+access to configured WAMP registration and subscription metadata in both the
+plain direct JSON path and the active direct JSON path while a Streamable HTTP
+session is open. With `--wamp-procedure` and/or `--wamp-topic`, both batch
+paths issue raw `wamp.registration.lookup`/`match`/`list` and
+`wamp.subscription.lookup`/`match`/`list`, validate the configured IDs and
+URI/topic metadata, then issue follow-up raw batches for
+`wamp.registration.get`, `list_callees`, `count_callees`,
+`wamp.subscription.get`, `list_subscribers`, and `count_subscribers`. The smoke
+asserts configured routes expose zero live callees/subscribers before the
+pub/sub phase, keeps the existing WAMP session metadata batch checks, and keeps
+the active Streamable session id/resume cursor unchanged while recording
+`batchConfiguredRegistrationMetadata` and
+`batchConfiguredSubscriptionMetadata` under `activeDirectJson.wampMetadata`.
 
 Local evidence for this checkpoint: pre-change `bin/test-fast`; focused
 post-change `dart analyze
@@ -12508,16 +12511,16 @@ full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`;
 `git diff --check`; `python3 tool/check_public_artifact_references.py`; and
 full local `bin/verify` passed on 2026-07-09.
 
-Hosted evidence has not yet been refreshed for this uncommitted checkpoint.
-The latest fully clean hosted checkpoint remains `ec55ef8`: GitHub CI
-`28984741345` and Dart Package Publish Dry Run `28984741307` passed on
-2026-07-09. The deployment-chain audit with required clean latest CI, clean CI
-logs, Dart package publish dry-run, and WAMP profile benchmark evidence also
-passed at `ec55ef8`; WAMP Profile Benchmarks `28964007707` remain clean and
-relevant from `b81302a` because no WAMP benchmark-sensitive paths changed
-since then. Strict audit still fails only on expected operator-owned gaps:
-`add-router` is unprotected, and the checked-in pub.dev OIDC workflows are not
-Actions-discoverable until promoted through `master`.
+Hosted evidence for this checkpoint has not yet been refreshed. After commit
+`51a0dfa`, hosted GitHub CI `28987420234` and Dart Package Publish Dry Run
+`28987420215` passed on 2026-07-09. The deployment-chain audit with required
+clean latest CI, clean CI logs, Dart package publish dry-run, and WAMP profile
+benchmark evidence also passed at `51a0dfa`; WAMP Profile Benchmarks
+`28964007707` remain clean and relevant from `b81302a` because no WAMP
+benchmark-sensitive paths changed since then. Strict audit still fails only on
+expected operator-owned gaps: `add-router` is unprotected, and the checked-in
+pub.dev OIDC workflows are not Actions-discoverable until promoted through
+`master`.
 
 RC readiness remains blocked only by explicit operator-owned release decisions:
 branch protection/default-branch promotion, approved numeric RC tag,
