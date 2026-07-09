@@ -2035,6 +2035,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "batchConfiguredRegistrationMetadata",
             "batchConfiguredSubscriptionMetadata",
             "router-hosted-client-streamable-active-direct-batch",
+            "details['directJsonStaleSessionId']",
             "Streamable active direct JSON requires an active Streamable session.",
             "describeWampApiDirect",
             "countWampSessionsDirect",

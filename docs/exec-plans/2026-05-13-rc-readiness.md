@@ -12485,6 +12485,28 @@ decision because `connectanum_client` still depends on private
 Active. The current implementation checkpoint strengthens public
 router-hosted MCP readiness for downstream applications. The public
 `connectanum_mcp` router-hosted client example now proves active direct JSON
+stale `MCP-Session-Id` isolation while a Streamable HTTP session is open. The
+active direct path passes the current authorization header into the
+stale-session probe, sends a direct JSON request with an intentionally unknown
+`MCP-Session-Id`, validates that the router does not echo or adopt that
+header, records `activeDirectJson.directJsonStaleSessionId`, and keeps
+asserting the Streamable session id/resume cursor remain unchanged after
+lifecycle-free direct JSON tool/resource/prompt/WAMP/batch operations.
+
+Local evidence for this checkpoint: pre-change `bin/test-fast`; focused
+post-change `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`; focused
+`python3 -m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`; full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`;
+`python3 tool/check_public_artifact_references.py`; focused public
+router-hosted MCP client dry-run/live smoke; and `git diff --check` passed on
+2026-07-09. Full local `bin/verify` passed on 2026-07-09. Hosted evidence is
+pending for this uncommitted checkpoint.
+
+Previous checkpoint. The previous implementation checkpoint strengthens public
+router-hosted MCP readiness for downstream applications. The public
+`connectanum_mcp` router-hosted client example now proves active direct JSON
 WAMP API method list/describe calls while a Streamable HTTP session is open.
 When a consumer supplies `--wamp-procedure` or `--wamp-topic`, the active
 direct path still exercises typed direct WAMP metadata helpers plus raw direct
@@ -12504,7 +12526,16 @@ tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_publ
 `python3 tool/check_public_artifact_references.py`; focused public
 router-hosted MCP client dry-run/live smoke; and `git diff --check` passed on
 2026-07-09. Full local `bin/verify` passed on 2026-07-09. Hosted evidence for
-this checkpoint is pending until the implementation commit is pushed.
+this checkpoint: after commit `7cb0513`, hosted GitHub CI `29000771282` and
+Dart Package Publish Dry Run `29000771225` passed on 2026-07-09. The
+deployment-chain audit with required clean latest CI, clean CI logs, Dart
+package publish dry-run, and WAMP profile benchmark evidence also passed at
+`7cb0513`; WAMP Profile Benchmarks `28964007707` remain clean and relevant
+from `b81302a` because no WAMP benchmark-sensitive paths changed since then.
+The audit noted GitHub Actions degraded performance from delayed starts, but
+still reports only expected operator-owned gaps: `add-router` is unprotected,
+and the checked-in pub.dev OIDC workflows are not Actions discoverable until
+promoted through `master`.
 
 Previous checkpoint. The previous implementation checkpoint strengthened public
 router-hosted MCP readiness for downstream applications. The public

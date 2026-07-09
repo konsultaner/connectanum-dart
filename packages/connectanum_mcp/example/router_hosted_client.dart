@@ -2504,6 +2504,7 @@ bool _catalogContainsValue({
 Future<McpJsonMap> _runActiveDirectJsonExample(
   McpStreamableHttpClient client,
   _Options options,
+  String? authorizationHeader,
 ) async {
   final streamableSessionId = client.sessionId;
   if (streamableSessionId == null) {
@@ -3210,6 +3211,17 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       }
     }
   }
+  final eventIdBeforeStaleSession = client.lastEventId;
+  await _expectDirectJsonStaleSessionIdIgnored(
+    client,
+    authorizationHeader,
+    sessionId: streamableSessionId,
+    lastEventId: eventIdBeforeStaleSession,
+  );
+  details['directJsonStaleSessionId'] = <String, Object?>{
+    'ignored': true,
+    'sessionUnchanged': true,
+  };
   _expectStreamableStateUnchanged(
     client,
     sessionId: streamableSessionId,
@@ -4229,6 +4241,7 @@ Future<void> _runStreamableSessionExample(
   streamable['activeDirectJson'] = await _runActiveDirectJsonExample(
     client,
     options,
+    authorizationHeader,
   );
 
   final pubsubTopic = options.pubsubTopic;
