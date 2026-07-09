@@ -2,7 +2,27 @@
 
 Last updated: 2026-07-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: the public router-hosted MCP client example
+Last reviewed branch checkpoint: the router-hosted MCP client executable is
+now package-native instead of example-backed. The `connectanum_mcp`
+`router_hosted_client` executable and the public checked-in example are thin
+wrappers around `lib/src/cli/router_hosted_client.dart`, so the package archive
+keeps executable behavior under `lib/src` while preserving both consumer-facing
+entrypoints. The MCP package-boundary tests now assert the bin/example wrapper
+shape and continue to enforce that the moved runner uses the public
+`connectanum_mcp_io.dart` entrypoint rather than importing client/router package
+internals.
+
+Baseline `bin/test-fast` passed before the package-structure change on
+2026-07-09. Focused `dart analyze packages/connectanum_mcp`, full `python3 -m
+unittest tool.test_mcp_consumer_package_boundary -v`, package executable help,
+example wrapper help, `python3 tool/check_public_artifact_references.py`, `git
+diff --check`, and full local `bin/verify` passed after the change on
+2026-07-09. A pre-commit `bin/dart-package-publish-dry-run --include-private
+--show-release-plan connectanum_mcp` confirmed the archive shape with the
+runner under `lib/src/cli` and only the expected dirty-git warning for the
+uncommitted package files. Hosted evidence is pending after push.
+
+Previous branch checkpoint: the public router-hosted MCP client example
 now proves the globally activated `connectanum_mcp` package executable can run
 against the live router-hosted MCP endpoint, not only `--dry-run`. The public
 live smoke creates an isolated workspace/pub-cache, activates
@@ -23,6 +43,17 @@ tool.test_mcp_consumer_package_boundary -v`, `python3
 tool/check_public_artifact_references.py`, `git diff --check`, and focused
 public router-hosted MCP client live smoke passed after the change on
 2026-07-09. Full local `bin/verify` passed after the change on 2026-07-09.
+Hosted evidence after push: commit `9b81f12` passed GitHub CI run
+`29032795555` (`Fast Checks` and `Full Verify`) on 2026-07-09. The
+deployment-chain audit
+`bin/audit-github-deployment-chain --branch add-router --run-limit 1
+--require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed at `9b81f12`; the audit
+accepted Dart Package Publish Dry Run `29028462368` from `3ccde90` as clean
+and relevant because no publish-sensitive paths changed since then. The audit
+still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct tool notification-only batch side effects while a

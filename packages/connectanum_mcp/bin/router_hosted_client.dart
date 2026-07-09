@@ -1,3 +1,3 @@
-import '../example/router_hosted_client.dart' as example;
+import 'package:connectanum_mcp/src/cli/router_hosted_client.dart';
 
-Future<void> main(List<String> args) => example.main(args);
+Future<void> main(List<String> args) => runRouterHostedClient(args);

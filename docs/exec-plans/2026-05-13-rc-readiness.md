@@ -79,6 +79,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-09: Moved the router-hosted MCP client command implementation out of
+  `example/` and into `packages/connectanum_mcp/lib/src/cli/`. The published
+  executable and the checked-in public example now remain thin wrappers around
+  the package-native runner, preserving both entrypoints while keeping
+  executable behavior in the library archive. Boundary tests now assert the
+  wrapper shape and continue to enforce that the runner uses
+  `connectanum_mcp_io.dart` instead of private client/router package imports.
+  Baseline `bin/test-fast`, focused analyzer/entrypoint/boundary/public-artifact
+  checks, and full local `bin/verify` passed on 2026-07-09. A pre-commit
+  `bin/dart-package-publish-dry-run --include-private --show-release-plan
+  connectanum_mcp` confirmed the new archive shape and reported only the
+  expected dirty-git warning for uncommitted package files. Hosted evidence is
+  pending after push.
 - 2026-07-09: Extended the public router-hosted MCP client live smoke to prove
   an installed command path, not only checkout-local `dart run`, can exercise
   the live router-hosted MCP endpoint. The smoke now creates an isolated
@@ -91,7 +104,12 @@ decision because `connectanum_client` still depends on private
   the checkout command. Baseline `bin/test-fast`, focused shell/Python/static
   checks, focused public router-hosted MCP client live smoke, and full MCP
   consumer package boundary tests passed on 2026-07-09. Full local
-  `bin/verify` passed after the change on 2026-07-09.
+  `bin/verify` passed after the change on 2026-07-09. Hosted evidence after
+  push: GitHub CI `29032795555` passed at `9b81f12`, and the deployment-chain
+  audit with required latest CI plus Dart package dry-run evidence passed; the
+  audit accepted Dart Package Publish Dry Run `29028462368` from `3ccde90` as
+  clean and relevant because no publish-sensitive paths changed after that
+  run.
 - 2026-07-09: Extended the public router-hosted MCP client example's active
   direct pub/sub proof to tool notification-only batch side effects while a
   Streamable HTTP session is open. The active direct path now keeps a direct

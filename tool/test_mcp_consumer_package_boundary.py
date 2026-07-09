@@ -17,6 +17,9 @@ MCP_ROUTER_HOSTED_CLIENT_BIN = (
 ROUTER_HOSTED_CLIENT_EXAMPLE = (
     REPO_ROOT / "packages" / "connectanum_mcp" / "example" / "router_hosted_client.dart"
 )
+ROUTER_HOSTED_CLIENT_RUNNER = (
+    REPO_ROOT / "packages" / "connectanum_mcp" / "lib" / "src" / "cli" / "router_hosted_client.dart"
+)
 ROUTER_HOSTED_SERVER_EXAMPLE = (
     REPO_ROOT / "packages" / "connectanum_router" / "example" / "router_hosted_mcp.dart"
 )
@@ -67,11 +70,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("executables:", pubspec)
         self.assertIn("  router_hosted_client:", pubspec)
         self.assertIn(
-            "import '../example/router_hosted_client.dart' as example;",
+            "import 'package:connectanum_mcp/src/cli/router_hosted_client.dart';",
             executable,
         )
         self.assertIn(
-            "Future<void> main(List<String> args) => example.main(args);",
+            "Future<void> main(List<String> args) => runRouterHostedClient(args);",
             executable,
         )
         self.assertIn(
@@ -1662,13 +1665,24 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self,
     ) -> None:
         example = ROUTER_HOSTED_CLIENT_EXAMPLE.read_text(encoding="utf-8")
+        runner = ROUTER_HOSTED_CLIENT_RUNNER.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "import 'package:connectanum_mcp/src/cli/router_hosted_client.dart';",
+            example,
+        )
+        self.assertIn(
+            "Future<void> main(List<String> args) => runRouterHostedClient(args);",
+            example,
+        )
+        self.assertNotIn("import '../", example)
 
         self.assertIn(
             "import 'package:connectanum_mcp/connectanum_mcp_io.dart';",
-            example,
+            runner,
         )
-        self.assertNotRegex(example, r"import 'package:connectanum_client/")
-        self.assertNotRegex(example, r"import 'package:connectanum_router/")
+        self.assertNotRegex(runner, r"import 'package:connectanum_client/")
+        self.assertNotRegex(runner, r"import 'package:connectanum_router/")
 
         for public_helper in (
             "McpStreamableHttpClient.withBearerToken",
@@ -2216,10 +2230,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "dart run connectanum_mcp:router_hosted_client",
         ):
             with self.subTest(helper=public_helper):
-                self.assertIn(public_helper, example)
+                self.assertIn(public_helper, runner)
         self.assertNotIn(
             "dart run packages/connectanum_mcp/example/router_hosted_client.dart",
-            example,
+            runner,
         )
 
     def test_public_router_hosted_server_example_publishes_task_lookup_events(
