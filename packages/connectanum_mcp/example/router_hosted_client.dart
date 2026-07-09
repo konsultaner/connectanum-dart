@@ -836,6 +836,25 @@ Future<void> _runDirectBatchExample(
   }
 
   final wampProcedure = options.wampProcedure;
+  final wampTopic = options.wampTopic;
+  final includeWampMetadata = wampProcedure != null || wampTopic != null;
+  if (includeWampMetadata) {
+    messages.addAll([
+      {
+        'jsonrpc': '2.0',
+        'id': 'direct-batch-wamp-session-count',
+        'method': 'wamp.session.count',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'direct-batch-wamp-session-list',
+        'method': 'wamp.session.list',
+        'params': {},
+      },
+    ]);
+  }
+
   if (wampProcedure != null) {
     messages.addAll([
       _toolCallBatchRequest(
@@ -853,7 +872,6 @@ Future<void> _runDirectBatchExample(
     ]);
   }
 
-  final wampTopic = options.wampTopic;
   if (wampTopic != null) {
     messages.addAll([
       _toolCallBatchRequest(
@@ -916,17 +934,58 @@ Future<void> _runDirectBatchExample(
       label: 'Direct JSON batch prompt',
     );
   }
+  Map<String, Object?>? batchWampSessionMetadata;
+  if (includeWampMetadata) {
+    final sessionDiscovery = _expectWampSessionMetaBatchDiscovery(
+      batchResponses,
+      countId: 'direct-batch-wamp-session-count',
+      listId: 'direct-batch-wamp-session-list',
+      label: 'Direct JSON batch WAMP session metadata',
+    );
+    final selectedSessionId = sessionDiscovery['selectedSessionId']! as int;
+    final sessionGetId = 'direct-batch-wamp-session-get';
+    final sessionGetResponses = await client.postBatchDirect(
+      [
+        {
+          'jsonrpc': '2.0',
+          'id': sessionGetId,
+          'method': 'wamp.session.get',
+          'params': {'id': selectedSessionId},
+        },
+      ],
+      headers: const {
+        'x-consumer-trace':
+            'router-hosted-client-direct-batch-wamp-session-get',
+      },
+    );
+    final detailResponseIds = _expectBatchResponses(
+      sessionGetResponses,
+      [sessionGetId],
+      label: 'Direct JSON batch WAMP session metadata details',
+    );
+    final sessionDetails = _expectWampSessionMetaBatchDetails(
+      sessionGetResponses,
+      getId: sessionGetId,
+      selectedSessionId: selectedSessionId,
+      label: 'Direct JSON batch WAMP session metadata',
+    );
+    batchWampSessionMetadata = <String, Object?>{
+      ...sessionDiscovery,
+      ...sessionDetails,
+      'detailResponseIds': detailResponseIds,
+    };
+  }
   _expectStreamableStateUnchanged(
     client,
     sessionId: previousSessionId,
     lastEventId: previousEventId,
     label: 'Direct JSON batch',
   );
-  stdout.writeln(
-    jsonEncode({
-      'directBatch': {'responseIds': responseIds},
-    }),
-  );
+  final directBatch = <String, Object?>{'responseIds': responseIds};
+  if (batchWampSessionMetadata != null) {
+    directBatch['wampSessionMetadata'] = batchWampSessionMetadata;
+  }
+  stdout.writeln(jsonEncode({'directBatch': directBatch}));
 }
 
 McpJsonMap _toolCallBatchRequest({
@@ -1272,6 +1331,120 @@ Future<Map<String, Object?>> _expectWampSessionMetaDirect(
     'list': _wampMetaResultJson(list),
     'selectedSessionId': selectedSessionId,
     'selectedSession': _wampMetaResultJson(session),
+  };
+}
+
+McpJsonMap _structuredContentFromWampMetaBatchResult(
+  McpJsonMap result, {
+  required String label,
+}) {
+  final toolResult = _expectToolResultSucceeded(result, label: label);
+  final structuredContent = toolResult['structuredContent'];
+  if (structuredContent is Map) {
+    return structuredContent.cast<String, Object?>();
+  }
+  if (toolResult['procedure'] is String) {
+    return toolResult;
+  }
+  throw StateError('$label returned no structured content.');
+}
+
+McpJsonMap _wampMetaBatchArgumentsKeywords(
+  McpJsonMap result, {
+  required String label,
+}) {
+  final argumentsKeywords = result['argumentsKeywords'];
+  if (argumentsKeywords is Map) {
+    return argumentsKeywords.cast<String, Object?>();
+  }
+  throw StateError('$label returned no argumentsKeywords map.');
+}
+
+Map<String, Object?> _wampMetaBatchResultJson(McpJsonMap result) {
+  return {
+    'procedure': result['procedure'],
+    'arguments': result['arguments'],
+    'argumentsKeywords': result['argumentsKeywords'],
+  };
+}
+
+Map<String, Object?> _expectWampSessionMetaBatchDiscovery(
+  List<McpJsonMap>? responses, {
+  required String countId,
+  required String listId,
+  required String label,
+}) {
+  final count = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, countId, label: '$label session count'),
+    label: '$label session count',
+  );
+  final countValue = _integerMetaId(
+    _wampMetaBatchArgumentsKeywords(
+      count,
+      label: '$label session count',
+    )['count'],
+  );
+  if (countValue == null || countValue < 1) {
+    throw StateError(
+      '$label batch returned invalid session count: $countValue.',
+    );
+  }
+
+  final list = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, listId, label: '$label session list'),
+    label: '$label session list',
+  );
+  final sessionIds = _integerMetaIds(
+    _wampMetaBatchArgumentsKeywords(
+      list,
+      label: '$label session list',
+    )['session_ids'],
+    '$label session list',
+  );
+  if (sessionIds.isEmpty) {
+    throw StateError('$label batch returned no session ids.');
+  }
+  if (countValue < sessionIds.length) {
+    throw StateError(
+      '$label batch count $countValue was smaller than listed sessions '
+      '$sessionIds.',
+    );
+  }
+
+  return <String, Object?>{
+    'count': _wampMetaBatchResultJson(count),
+    'list': _wampMetaBatchResultJson(list),
+    'selectedSessionId': sessionIds.first,
+  };
+}
+
+Map<String, Object?> _expectWampSessionMetaBatchDetails(
+  List<McpJsonMap>? responses, {
+  required String getId,
+  required int selectedSessionId,
+  required String label,
+}) {
+  final session = _structuredContentFromWampMetaBatchResult(
+    _batchResult(responses, getId, label: '$label session get'),
+    label: '$label session get',
+  );
+  final details = _wampMetaBatchArgumentsKeywords(
+    session,
+    label: '$label session get',
+  )['details'];
+  if (details is! Map) {
+    throw StateError('$label batch session get returned no details map.');
+  }
+  final detailSessionId = _integerMetaId(details['id'] ?? details['session']);
+  if (detailSessionId != selectedSessionId) {
+    throw StateError(
+      '$label batch session get returned session $detailSessionId, expected '
+      '$selectedSessionId.',
+    );
+  }
+
+  return <String, Object?>{
+    'selectedSession': _wampMetaBatchResultJson(session),
   };
 }
 
@@ -1984,6 +2157,20 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
     );
     metadata['sessionCount'] = sessionMetadata['count'];
     metadata['sessionMetadata'] = sessionMetadata;
+    batchMessages.addAll([
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-wamp-session-count',
+        'method': 'wamp.session.count',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-wamp-session-list',
+        'method': 'wamp.session.list',
+        'params': {},
+      },
+    ]);
     if (wampProcedure != null) {
       batchMessages.add(
         _toolCallBatchRequest(
@@ -2133,6 +2320,50 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       value: promptName,
       label: 'Streamable active direct JSON batch prompt',
     );
+  }
+  if (wampProcedure != null || wampTopic != null) {
+    final sessionDiscovery = _expectWampSessionMetaBatchDiscovery(
+      batchResponses,
+      countId: 'streamable-active-direct-batch-wamp-session-count',
+      listId: 'streamable-active-direct-batch-wamp-session-list',
+      label: 'Streamable active direct JSON batch WAMP session metadata',
+    );
+    final selectedSessionId = sessionDiscovery['selectedSessionId']! as int;
+    final sessionGetId = 'streamable-active-direct-batch-wamp-session-get';
+    final sessionGetResponses = await client.postBatchDirect(
+      [
+        {
+          'jsonrpc': '2.0',
+          'id': sessionGetId,
+          'method': 'wamp.session.get',
+          'params': {'id': selectedSessionId},
+        },
+      ],
+      headers: const <String, String>{
+        'x-consumer-trace':
+            'router-hosted-client-streamable-active-direct-batch-wamp-session-get',
+      },
+    );
+    final detailResponseIds = _expectBatchResponses(
+      sessionGetResponses,
+      [sessionGetId],
+      label:
+          'Streamable active direct JSON batch WAMP session metadata details',
+    );
+    final sessionDetails = _expectWampSessionMetaBatchDetails(
+      sessionGetResponses,
+      getId: sessionGetId,
+      selectedSessionId: selectedSessionId,
+      label: 'Streamable active direct JSON batch WAMP session metadata',
+    );
+    final metadata = details['wampMetadata'];
+    if (metadata is Map<String, Object?>) {
+      metadata['batchSessionMetadata'] = <String, Object?>{
+        ...sessionDiscovery,
+        ...sessionDetails,
+        'detailResponseIds': detailResponseIds,
+      };
+    }
   }
   _expectStreamableStateUnchanged(
     client,
