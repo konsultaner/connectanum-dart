@@ -2598,6 +2598,46 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
     final resourceTemplates = await client.listResourceTemplatesDirect(
       id: 'streamable-active-direct-resource-templates',
     );
+    final content = await client.readResourceDirect(
+      resourceUri,
+      id: 'streamable-active-direct-resource-read',
+    );
+    final methodResources = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-resource-list-method',
+        'method': 'resources/list',
+        'params': {},
+      }),
+      'streamable-active-direct-resource-list-method',
+      label: 'Streamable active direct JSON resource method list',
+    );
+    _expectCatalogContainsValue(
+      catalog: methodResources['resources'],
+      field: 'uri',
+      value: resourceUri,
+      label: 'Streamable active direct JSON resource method list',
+    );
+    final methodResourceTemplates = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-resource-templates-method',
+        'method': 'resources/templates/list',
+        'params': {},
+      }),
+      'streamable-active-direct-resource-templates-method',
+      label: 'Streamable active direct JSON resource template method list',
+    );
+    final methodContent = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-resource-read-method',
+        'method': 'resources/read',
+        'params': {'uri': resourceUri},
+      }),
+      'streamable-active-direct-resource-read-method',
+      label: 'Streamable active direct JSON resource method read',
+    );
     details['resources'] = <String, Object?>{
       'uris': [for (final resource in resources.resources) resource['uri']],
       'templates': <String, Object?>{
@@ -2608,10 +2648,10 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         if (resourceTemplates.nextCursor != null)
           'nextCursor': resourceTemplates.nextCursor,
       },
-      'content': await client.readResourceDirect(
-        resourceUri,
-        id: 'streamable-active-direct-resource-read',
-      ),
+      'content': content,
+      'methodResources': methodResources['resources'],
+      'methodResourceTemplates': methodResourceTemplates['resourceTemplates'],
+      'methodContent': methodContent,
     };
   }
 
@@ -2640,13 +2680,42 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       value: promptName,
       label: 'Streamable active direct JSON prompt',
     );
+    final prompt = await client.getPromptDirect(
+      promptName,
+      id: 'streamable-active-direct-prompt-get',
+      arguments: options.promptArguments,
+    );
+    final methodPrompts = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-prompts-method',
+        'method': 'prompts/list',
+        'params': {},
+      }),
+      'streamable-active-direct-prompts-method',
+      label: 'Streamable active direct JSON prompt method list',
+    );
+    _expectCatalogContainsValue(
+      catalog: methodPrompts['prompts'],
+      field: 'name',
+      value: promptName,
+      label: 'Streamable active direct JSON prompt method list',
+    );
+    final methodPrompt = _responseResult(
+      await client.postDirect({
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-prompt-get-method',
+        'method': 'prompts/get',
+        'params': {'name': promptName, 'arguments': options.promptArguments},
+      }),
+      'streamable-active-direct-prompt-get-method',
+      label: 'Streamable active direct JSON prompt method get',
+    );
     details['prompts'] = <String, Object?>{
       'names': [for (final prompt in prompts.prompts) prompt['name']],
-      'prompt': await client.getPromptDirect(
-        promptName,
-        id: 'streamable-active-direct-prompt-get',
-        arguments: options.promptArguments,
-      ),
+      'prompt': prompt,
+      'methodCatalog': methodPrompts['prompts'],
+      'methodPrompt': methodPrompt,
     };
   }
 

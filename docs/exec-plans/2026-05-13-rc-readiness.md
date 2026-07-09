@@ -12485,6 +12485,29 @@ decision because `connectanum_client` still depends on private
 Active. The current implementation checkpoint strengthens public
 router-hosted MCP readiness for downstream applications. The public
 `connectanum_mcp` router-hosted client example now proves active direct JSON
+raw resource and prompt method calls while a Streamable HTTP session is open.
+When a consumer supplies `--resource-uri` or `--prompt-name`, the active direct
+path now issues lifecycle-free raw `postDirect` calls for `resources/list`,
+`resources/templates/list`, `resources/read`, `prompts/list`, and
+`prompts/get`, validates the selected catalog entries, surfaces
+`methodResources`, `methodResourceTemplates`, `methodContent`, `methodCatalog`,
+and `methodPrompt` in the active direct JSON summary, and keeps asserting the
+Streamable session id/resume cursor remain unchanged.
+
+Local evidence for this checkpoint: pre-change `bin/test-fast`; focused
+post-change `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`; focused
+`python3 -m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`; full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`;
+`python3 tool/check_public_artifact_references.py`; and focused public
+router-hosted MCP client dry-run/live smoke; `git diff --check`; and full local
+`bin/verify` passed on 2026-07-09. Hosted evidence for this checkpoint is
+pending until the implementation commit is pushed.
+
+Previous checkpoint. The previous implementation checkpoint strengthened public
+router-hosted MCP readiness for downstream applications. The public
+`connectanum_mcp` router-hosted client example now proves active direct JSON
 tool-notification side effects while a Streamable HTTP session is open. The
 active direct pub/sub path subscribes with lifecycle-free direct JSON, still
 covers acknowledged helper and raw-method pub/sub publishes plus
@@ -12507,7 +12530,15 @@ focused public router-hosted MCP client dry-run smoke; focused public
 router-hosted MCP client live smoke;
 `git diff --check`; `python3 tool/check_public_artifact_references.py`; and
 full local `bin/verify` passed on 2026-07-09. Hosted evidence for this
-checkpoint is pending until the implementation commit is pushed.
+checkpoint: after commit `1ced0ae`, hosted GitHub CI `28994765620` and Dart
+Package Publish Dry Run `28994765585` passed on 2026-07-09. The
+deployment-chain audit with required clean latest CI, clean CI logs, Dart
+package publish dry-run, and WAMP profile benchmark evidence also passed at
+`1ced0ae`; WAMP Profile Benchmarks `28964007707` remain clean and relevant from
+`b81302a` because no WAMP benchmark-sensitive paths changed since then. The
+audit still reports only expected operator-owned gaps: `add-router` is
+unprotected, and the checked-in pub.dev OIDC workflows are not Actions
+discoverable until promoted through `master`.
 
 Previous checkpoint. The previous implementation checkpoint strengthened public
 router-hosted MCP readiness for downstream applications. The public
