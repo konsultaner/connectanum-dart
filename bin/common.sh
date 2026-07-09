@@ -1111,6 +1111,55 @@ if not isinstance(response_ids, list) or set(response_ids) != expected_error_ids
         "Public router-hosted MCP client "
         f"{label} active direct batch error response ids were {response_ids!r}."
     )
+
+pubsub = streamable.get("pubsub")
+if not isinstance(pubsub, dict):
+    raise SystemExit(
+        f"Public router-hosted MCP client {label} summary did not include pubsub."
+    )
+pubsub_active_direct = pubsub.get("activeDirectJson")
+if not isinstance(pubsub_active_direct, dict):
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} summary did not include pubsub.activeDirectJson."
+    )
+if pubsub_active_direct.get("sessionUnchanged") is not True:
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct pub/sub changed Streamable state."
+    )
+notification_batch = pubsub_active_direct.get("notificationBatch")
+if not isinstance(notification_batch, dict):
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct pub/sub missed notification batch proof."
+    )
+if notification_batch.get("accepted") is not True:
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct pub/sub notification batch was not accepted."
+    )
+if notification_batch.get("sessionUnchanged") is not True:
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct pub/sub notification batch changed state."
+    )
+notification_batch_events = notification_batch.get("events")
+if not isinstance(notification_batch_events, list):
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct pub/sub notification batch missed events."
+    )
+notification_batch_json = json.dumps(notification_batch_events, sort_keys=True)
+for marker in (
+    "activeDirectNotificationBatchEvent",
+    "activeDirectMethodNotificationBatchEvent",
+):
+    if marker not in notification_batch_json:
+        raise SystemExit(
+            "Public router-hosted MCP client "
+            f"{label} active direct pub/sub notification batch missed {marker}."
+        )
 PY
   local status=$?
   rm -f "$summary_file"
@@ -1240,6 +1289,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"wampMetadata"' \
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
+    '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$live_summary" public
@@ -1263,6 +1313,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"pubsub"' \
     '"methodEvents"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
+    '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"methodNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$pubsub_only_summary" pub/sub-only
@@ -1370,6 +1421,7 @@ PY
     '"wampMetadata"' \
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
+    '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$authenticated_summary" authenticated
@@ -1405,6 +1457,7 @@ PY
     '"wampMetadata"' \
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
+    '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$bearer_summary" bearer-token
@@ -1445,6 +1498,7 @@ PY
     '"wampMetadata"' \
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
+    '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$authenticated_json_summary" authenticated-json-response
@@ -1481,6 +1535,7 @@ PY
     '"wampMetadata"' \
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
+    '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$bearer_json_summary" bearer-token-json-response

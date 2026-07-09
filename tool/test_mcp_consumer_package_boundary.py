@@ -1743,6 +1743,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-pubsub-method-notification-poll",
             "streamable-tool-notification-poll",
             "streamable-tool-method-notification-poll",
+            "streamable-active-direct-pubsub-notification-batch-poll",
             "streamable-wamp-procedure-api-list-method",
             "streamable-wamp-procedure-api-describe-method",
             "streamable-wamp-topic-api-list-method",
@@ -1760,6 +1761,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "methodEvents",
             "notificationEvents",
             "methodNotificationEvents",
+            "notificationBatch",
             "toolNotificationEvents",
             "connectanumToolNotificationEvents",
             "toolMethodNotificationEvents",
@@ -2044,6 +2046,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "router-hosted-client-streamable-active-direct-notification-only-batch",
             "streamable-active-direct-notification-only-batch",
             "details['notificationOnlyBatch']",
+            "router-hosted-client-active-direct-pubsub-notification-batch",
+            "activeDirectNotificationBatchEvent",
+            "activeDirectMethodNotificationBatchEvent",
             "details['malformedSessionId']",
             "details['directJsonStaleSessionId']",
             "Streamable active direct JSON requires an active Streamable session.",
@@ -2174,12 +2179,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-active-direct-pubsub-method-publish-poll",
             "streamable-active-direct-pubsub-notification-poll",
             "streamable-active-direct-pubsub-method-notification-poll",
+            "streamable-active-direct-pubsub-notification-batch-poll",
             "streamable-active-direct-tool-notification-poll",
             "streamable-active-direct-connectanum-tool-notification-poll",
             "streamable-active-direct-tool-method-notification-poll",
             "streamable-active-direct-pubsub-unsubscribe",
             "activeDirectPublishEvent",
             "activeDirectMethodPublishEvent",
+            "activeDirectNotificationBatchEvent",
+            "activeDirectMethodNotificationBatchEvent",
             "T-active-direct-standard-tool-notification",
             "T-active-direct-connectanum-tool-notification",
             "T-active-direct-tool-method-notification",
@@ -2728,6 +2736,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"batchErrorIsolation":{"responseIds"', script)
         self.assertIn(
             '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}',
+            script,
+        )
+        self.assertIn(
+            '"notificationBatch":{"accepted":true,"sessionUnchanged":true',
             script,
         )
         self.assertIn("streamable.activeDirectJson", script)

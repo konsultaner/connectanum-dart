@@ -3786,6 +3786,68 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
       label: 'Streamable active direct JSON pub/sub method notification poll',
     );
 
+    final notificationBatchEvent = <String, Object?>{
+      'activeDirectNotificationBatchEvent': options.pubsubEvent,
+    };
+    final methodNotificationBatchEvent = <String, Object?>{
+      'activeDirectMethodNotificationBatchEvent': options.pubsubEvent,
+    };
+    final notificationBatchResponse = await client.postBatchDirect(
+      <McpJsonMap>[
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'connectanum.pubsub.publish',
+          'params': <String, Object?>{
+            'topic': topic,
+            'argumentsKeywords': notificationBatchEvent,
+          },
+        },
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'connectanum.pubsub.publish',
+          'params': <String, Object?>{
+            'topic': topic,
+            'argumentsKeywords': methodNotificationBatchEvent,
+          },
+        },
+      ],
+      headers: const <String, String>{
+        'x-consumer-trace':
+            'router-hosted-client-active-direct-pubsub-notification-batch',
+      },
+    );
+    if (notificationBatchResponse != null) {
+      throw StateError(
+        'Streamable active direct JSON pub/sub notification batch returned '
+        'JSON-RPC responses.',
+      );
+    }
+    _expectStreamableStateUnchanged(
+      client,
+      sessionId: previousSessionId,
+      lastEventId: previousEventId,
+      label: 'Streamable active direct JSON pub/sub notification batch',
+    );
+    final notificationBatchEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'streamable-active-direct-pubsub-notification-batch-poll',
+      limit: queueLimit,
+    );
+    _expectWampEventBatch(
+      notificationBatchEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: notificationBatchEvent,
+      label: 'Streamable active direct JSON pub/sub notification batch poll',
+    );
+    _expectWampEventBatch(
+      notificationBatchEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: methodNotificationBatchEvent,
+      label: 'Streamable active direct JSON pub/sub notification batch poll',
+    );
+
     McpStreamableWampEventBatch? standardToolNotificationEvents;
     McpStreamableWampEventBatch? connectanumToolNotificationEvents;
     McpStreamableWampEventBatch? toolMethodNotificationEvents;
@@ -3885,6 +3947,11 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
       'methodPublishEvents': methodPublishEvents.events,
       'notificationEvents': notificationEvents.events,
       'methodNotificationEvents': methodNotificationEvents.events,
+      'notificationBatch': <String, Object?>{
+        'accepted': true,
+        'sessionUnchanged': true,
+        'events': notificationBatchEvents.events,
+      },
       if (standardToolNotificationEvents != null)
         'toolNotificationEvents': standardToolNotificationEvents.events,
       if (connectanumToolNotificationEvents != null)
