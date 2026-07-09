@@ -20,8 +20,17 @@ bin/common.sh`, focused public router-hosted MCP client boundary tests, full
 `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `python3
 tool/check_public_artifact_references.py`, focused public router-hosted MCP
 client dry-run/live smoke, and `git diff --check` passed after the change.
-Full local `bin/verify` passed after the change on 2026-07-09. Hosted
-evidence is pending for this uncommitted checkpoint.
+Full local `bin/verify` passed after the active direct malformed-session
+change on 2026-07-09. After commit `784bbfa`, the first hosted GitHub CI run
+`29007956514` and Dart Package Publish Dry Run `29007956511` were cancelled
+before step logs were available; rerunning them started normally, and the
+publish dry-run passed. The CI fast-check rerun then exposed a Linux runner
+argument/environment-size failure in the new shell summary helper
+(`/usr/bin/python3: Argument list too long`). The helper now writes the
+captured example output to a temporary file before parsing it. A synthetic
+large-output helper repro, the focused public router-hosted MCP client live
+smoke, full local `bin/test-fast`, and full local `bin/verify` passed after
+the temp-file fix. Hosted evidence for the fix is pending push/CI.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct JSON stale `MCP-Session-Id` isolation while a

@@ -1023,15 +1023,19 @@ assert_public_router_hosted_mcp_client_summary() {
 assert_public_router_hosted_mcp_active_direct_session_summary() {
   local summary="$1"
   local label="$2"
+  local summary_file
+  summary_file="$(mktemp)"
+  printf '%s\n' "$summary" >"$summary_file"
 
-  SUMMARY="$summary" LABEL="$label" python3 <<'PY'
+  SUMMARY_FILE="$summary_file" LABEL="$label" python3 <<'PY'
 import json
 import os
 
 label = os.environ["LABEL"]
 
 summary = None
-for line in os.environ["SUMMARY"].splitlines():
+with open(os.environ["SUMMARY_FILE"], encoding="utf-8") as lines:
+  for line in lines:
     candidate = line.strip()
     if not candidate.startswith("{"):
         continue
@@ -1079,6 +1083,9 @@ for key, value in expected.items():
             f"{label} active direct JSON {key} was {active_direct.get(key)!r}."
         )
 PY
+  local status=$?
+  rm -f "$summary_file"
+  return "$status"
 }
 
 assert_router_cli_consumer_package_summary() {
