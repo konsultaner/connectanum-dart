@@ -1160,6 +1160,48 @@ for marker in (
             "Public router-hosted MCP client "
             f"{label} active direct pub/sub notification batch missed {marker}."
         )
+
+tool_notification_batch = pubsub_active_direct.get("toolNotificationBatch")
+if tool_notification_batch is not None:
+    if not isinstance(tool_notification_batch, dict):
+        raise SystemExit(
+            "Public router-hosted MCP client "
+            f"{label} active direct pub/sub tool notification batch was "
+            f"{tool_notification_batch!r}."
+        )
+    if tool_notification_batch.get("accepted") is not True:
+        raise SystemExit(
+            "Public router-hosted MCP client "
+            f"{label} active direct pub/sub tool notification batch was not "
+            "accepted."
+        )
+    if tool_notification_batch.get("sessionUnchanged") is not True:
+        raise SystemExit(
+            "Public router-hosted MCP client "
+            f"{label} active direct pub/sub tool notification batch changed "
+            "state."
+        )
+    tool_notification_batch_events = tool_notification_batch.get("events")
+    if not isinstance(tool_notification_batch_events, list):
+        raise SystemExit(
+            "Public router-hosted MCP client "
+            f"{label} active direct pub/sub tool notification batch missed "
+            "events."
+        )
+    tool_notification_batch_json = json.dumps(
+        tool_notification_batch_events,
+        sort_keys=True,
+    )
+    for marker in (
+        "T-active-direct-standard-tool-notification-batch",
+        "T-active-direct-connectanum-tool-notification-batch",
+    ):
+        if marker not in tool_notification_batch_json:
+            raise SystemExit(
+                "Public router-hosted MCP client "
+                f"{label} active direct pub/sub tool notification batch "
+                f"missed {marker}."
+            )
 PY
   local status=$?
   rm -f "$summary_file"
@@ -1290,6 +1332,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
+    '"toolNotificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$live_summary" public
@@ -1422,6 +1465,7 @@ PY
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
+    '"toolNotificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$authenticated_summary" authenticated
@@ -1458,6 +1502,7 @@ PY
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
+    '"toolNotificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$bearer_summary" bearer-token
@@ -1499,6 +1544,7 @@ PY
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
+    '"toolNotificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$authenticated_json_summary" authenticated-json-response
@@ -1536,6 +1582,7 @@ PY
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"notificationBatch":{"accepted":true,"sessionUnchanged":true' \
+    '"toolNotificationBatch":{"accepted":true,"sessionUnchanged":true' \
     '"toolNotificationEvents"'
   assert_public_router_hosted_mcp_active_direct_session_summary \
     "$bearer_json_summary" bearer-token-json-response

@@ -3851,6 +3851,7 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
     McpStreamableWampEventBatch? standardToolNotificationEvents;
     McpStreamableWampEventBatch? connectanumToolNotificationEvents;
     McpStreamableWampEventBatch? toolMethodNotificationEvents;
+    McpStreamableWampEventBatch? toolNotificationBatchEvents;
     if (_canObserveExampleTaskLookup(options)) {
       final toolName = options.toolName!;
       const standardToolNotificationTaskId =
@@ -3925,6 +3926,72 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
         expectedEvent: _taskLookupEvent(toolMethodNotificationTaskId),
         label: 'Streamable active direct JSON tool method notification poll',
       );
+
+      const standardToolNotificationBatchTaskId =
+          'T-active-direct-standard-tool-notification-batch';
+      const connectanumToolNotificationBatchTaskId =
+          'T-active-direct-connectanum-tool-notification-batch';
+      final toolNotificationBatchResponse = await client.postBatchDirect(
+        <McpJsonMap>[
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'tools/call',
+            'params': <String, Object?>{
+              'name': toolName,
+              'arguments': const <String, Object?>{
+                'taskId': standardToolNotificationBatchTaskId,
+              },
+            },
+          },
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'connectanum.tool.call',
+            'params': <String, Object?>{
+              'name': toolName,
+              'arguments': const <String, Object?>{
+                'taskId': connectanumToolNotificationBatchTaskId,
+              },
+            },
+          },
+        ],
+        headers: const <String, String>{
+          'x-consumer-trace':
+              'router-hosted-client-active-direct-tool-notification-batch',
+        },
+      );
+      if (toolNotificationBatchResponse != null) {
+        throw StateError(
+          'Streamable active direct JSON tool notification batch returned '
+          'JSON-RPC responses.',
+        );
+      }
+      _expectStreamableStateUnchanged(
+        client,
+        sessionId: previousSessionId,
+        lastEventId: previousEventId,
+        label: 'Streamable active direct JSON tool notification batch',
+      );
+      toolNotificationBatchEvents = await client.pollWampEventsDirect(
+        subscription.handle,
+        id: 'streamable-active-direct-tool-notification-batch-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        toolNotificationBatchEvents,
+        handle: subscription.handle,
+        topic: topic,
+        expectedEvent: _taskLookupEvent(standardToolNotificationBatchTaskId),
+        label:
+            'Streamable active direct JSON standard tool notification batch poll',
+      );
+      _expectWampEventBatch(
+        toolNotificationBatchEvents,
+        handle: subscription.handle,
+        topic: topic,
+        expectedEvent: _taskLookupEvent(connectanumToolNotificationBatchTaskId),
+        label:
+            'Streamable active direct JSON Connectanum tool notification batch poll',
+      );
     }
 
     return <String, Object?>{
@@ -3959,6 +4026,12 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
             connectanumToolNotificationEvents.events,
       if (toolMethodNotificationEvents != null)
         'toolMethodNotificationEvents': toolMethodNotificationEvents.events,
+      if (toolNotificationBatchEvents != null)
+        'toolNotificationBatch': <String, Object?>{
+          'accepted': true,
+          'sessionUnchanged': true,
+          'events': toolNotificationBatchEvents.events,
+        },
       'dropped': publishEvents.dropped,
       'remaining': publishEvents.remaining,
     };

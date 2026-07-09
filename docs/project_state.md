@@ -3,6 +3,29 @@
 Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
+now proves active direct tool notification-only batch side effects while a
+Streamable HTTP session is open. The active direct pub/sub path keeps a direct
+subscription open, sends a direct JSON batch with id-less `tools/call` and
+`connectanum.tool.call` notifications, expects no JSON-RPC response, polls the
+direct subscription, records
+`streamable.pubsub.activeDirectJson.toolNotificationBatch`, and requires both
+task lookup WAMP events plus unchanged Streamable session id/resume cursor.
+The public live smoke now requires the tool notification-batch side-effect
+proof across tool-enabled public, bearer-protected, and JSON-response route
+variants.
+
+Baseline `bin/test-fast` passed before the active direct tool
+notification-batch change on 2026-07-09. Focused `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`, `bash -n
+bin/common.sh`, `python3 -m py_compile
+tool/test_mcp_consumer_package_boundary.py`, focused public router-hosted MCP
+client boundary test, full `python3 -m unittest
+tool.test_mcp_consumer_package_boundary -v`, `python3
+tool/check_public_artifact_references.py`, `git diff --check`, focused public
+router-hosted MCP client live smoke, and full local `bin/verify` passed after
+the change on 2026-07-09.
+
+Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct pub/sub notification-only batch side effects while a
 Streamable HTTP session is open. The active direct pub/sub path sends a
 direct JSON batch with two id-less `connectanum.pubsub.publish`
@@ -21,6 +44,15 @@ bin/common.sh`, focused public router-hosted MCP client boundary test, full
 tool/check_public_artifact_references.py`, `git diff --check`, and focused
 public router-hosted MCP client live smoke passed after the change on
 2026-07-09. Full local `bin/verify` passed after the change on 2026-07-09.
+Hosted evidence after push: commit `262822b` passed GitHub CI run
+`29024000863` (`Fast Checks` and `Full Verify`) and Dart Package Publish Dry
+Run `29024000202` on 2026-07-09. The deployment-chain audit
+`bin/audit-github-deployment-chain --branch add-router --run-limit 1
+--require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` also passed at `262822b`; the
+audit still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct JSON notification-only batch acceptance while a

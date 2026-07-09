@@ -1744,6 +1744,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-tool-notification-poll",
             "streamable-tool-method-notification-poll",
             "streamable-active-direct-pubsub-notification-batch-poll",
+            "streamable-active-direct-tool-notification-batch-poll",
             "streamable-wamp-procedure-api-list-method",
             "streamable-wamp-procedure-api-describe-method",
             "streamable-wamp-topic-api-list-method",
@@ -1765,6 +1766,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "toolNotificationEvents",
             "connectanumToolNotificationEvents",
             "toolMethodNotificationEvents",
+            "toolNotificationBatch",
             "methodCatalog",
             "methodDescription",
             "listResourcesDirect",
@@ -2047,8 +2049,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-active-direct-notification-only-batch",
             "details['notificationOnlyBatch']",
             "router-hosted-client-active-direct-pubsub-notification-batch",
+            "router-hosted-client-active-direct-tool-notification-batch",
             "activeDirectNotificationBatchEvent",
             "activeDirectMethodNotificationBatchEvent",
+            "T-active-direct-standard-tool-notification-batch",
+            "T-active-direct-connectanum-tool-notification-batch",
             "details['malformedSessionId']",
             "details['directJsonStaleSessionId']",
             "Streamable active direct JSON requires an active Streamable session.",
@@ -2740,6 +2745,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"notificationBatch":{"accepted":true,"sessionUnchanged":true',
+            script,
+        )
+        self.assertIn(
+            '"toolNotificationBatch":{"accepted":true,"sessionUnchanged":true',
             script,
         )
         self.assertIn("streamable.activeDirectJson", script)

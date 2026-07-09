@@ -80,6 +80,19 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-07-09: Extended the public router-hosted MCP client example's active
+  direct pub/sub proof to tool notification-only batch side effects while a
+  Streamable HTTP session is open. The active direct path now keeps a direct
+  WAMP subscription open, sends a direct JSON batch with id-less `tools/call`
+  and `connectanum.tool.call` notifications, expects no JSON-RPC response,
+  polls the direct subscription, records
+  `streamable.pubsub.activeDirectJson.toolNotificationBatch`, and the public
+  live smoke requires both task lookup WAMP events plus unchanged active
+  Streamable session id/resume cursor across tool-enabled public, protected,
+  and JSON-response route variants. Baseline `bin/test-fast`, focused
+  analyzer/shell/Python/public-artifact checks, focused public router-hosted
+  MCP client live smoke, full MCP consumer package boundary tests, and full
+  local `bin/verify` passed on 2026-07-09.
+- 2026-07-09: Extended the public router-hosted MCP client example's active
   direct pub/sub proof to notification-only batch side effects while a
   Streamable HTTP session is open. The active direct pub/sub path now sends a
   direct JSON batch with two id-less `connectanum.pubsub.publish`
@@ -90,7 +103,10 @@ decision because `connectanum_client` still depends on private
   JSON-response route variants. Baseline `bin/test-fast`, focused
   analyzer/shell/Python/public-artifact checks, and focused public
   router-hosted MCP client live smoke passed on 2026-07-09. Full local
-  `bin/verify` passed after the change on 2026-07-09.
+  `bin/verify` passed after the change on 2026-07-09. Hosted evidence after
+  push: GitHub CI `29024000863`, Dart Package Publish Dry Run `29024000202`,
+  and the deployment-chain audit with required latest CI plus Dart package
+  dry-run evidence passed for `262822b`.
 - 2026-07-09: Extended the public router-hosted MCP client example's active
   direct JSON proof to notification-only batch acceptance while a Streamable
   HTTP session is open. The example now sends a direct JSON batch containing
