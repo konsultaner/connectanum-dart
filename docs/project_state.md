@@ -3,25 +3,39 @@
 Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now proves active direct JSON access to configured WAMP registration and
-subscription metadata while a Streamable HTTP session is open. When a consumer
-supplies `--wamp-procedure` and/or `--wamp-topic`, the active direct JSON path
-calls the public direct helper surface for `wamp.registration.lookup`,
-`match`, `list`, `get`, `list_callees`, `count_callees` and
-`wamp.subscription.lookup`, `match`, `list`, `get`, `list_subscribers`,
-`count_subscribers`, surfaces `configuredRegistrationMetadata` and
+now proves direct JSON WAMP session metadata and active direct JSON access to
+configured WAMP registration and subscription metadata while a Streamable HTTP
+session is open. When a consumer supplies `--wamp-procedure` and/or
+`--wamp-topic`, the direct and active direct JSON paths call the public direct
+helper surface for `wamp.session.count`, `list`, and `get`; the active direct
+JSON path also calls `wamp.registration.lookup`, `match`, `list`, `get`,
+`list_callees`, `count_callees` and `wamp.subscription.lookup`, `match`,
+`list`, `get`, `list_subscribers`, `count_subscribers`, surfaces
+`sessionMetadata`, `configuredRegistrationMetadata`, and
 `configuredSubscriptionMetadata` under `activeDirectJson.wampMetadata`, and
 keeps the Streamable session id and resume cursor unchanged.
 
-Baseline `bin/test-fast` passed before the active direct JSON configured WAMP
+Baseline `bin/test-fast` passed before the active direct JSON WAMP session
 metadata change on 2026-07-09. Focused `dart analyze
 packages/connectanum_mcp/example/router_hosted_client.dart`,
 `python3 -m unittest
 tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
--v`, public router-hosted MCP client dry-run and live smokes, full
-`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `git diff
---check`, `python3 tool/check_public_artifact_references.py`, and full local
-`bin/verify` passed after the change.
+-v`, full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
+public router-hosted MCP client dry-run smoke, and public router-hosted MCP
+client live smoke, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and full local
+`bin/verify` passed after the change. The live smoke caught the real router
+`wamp.session.get` detail shape (`id` rather than `session`); the example now
+accepts both shapes before asserting the selected session id.
+After commit `12d4010`, hosted GitHub CI `28981980611` and Dart Package
+Publish Dry Run `28981980625` passed on 2026-07-08. The deployment-chain audit
+with required clean latest CI, clean CI logs, Dart package publish dry-run,
+and WAMP profile benchmark evidence also passed at `12d4010`; WAMP Profile
+Benchmarks `28964007707` remain clean and relevant from `b81302a` because no
+WAMP benchmark-sensitive paths changed since then. The strict audit still
+fails only on expected operator-owned gaps: `add-router` is unprotected, and
+the checked-in pub.dev OIDC workflows are not Actions discoverable until
+promoted through `master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves direct JSON resource-template discovery while a Streamable HTTP

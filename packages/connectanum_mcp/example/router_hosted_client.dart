@@ -1057,10 +1057,14 @@ Future<void> _runDirectWampMetadataExample(
   final previousEventId = client.lastEventId;
   final metadata = <String, Object?>{};
 
-  final sessionCount = await client.countWampSessionsDirect(
-    id: 'direct-wamp-session-count',
+  final sessionMetadata = await _expectWampSessionMetaDirect(
+    client,
+    countId: 'direct-wamp-session-count',
+    listId: 'direct-wamp-session-list',
+    getId: 'direct-wamp-session-get',
   );
-  metadata['sessionCount'] = _wampMetaResultJson(sessionCount);
+  metadata['sessionCount'] = sessionMetadata['count'];
+  metadata['sessionMetadata'] = sessionMetadata;
 
   if (procedure != null) {
     final procedures = await client.listWampApiDirect(
@@ -1216,6 +1220,58 @@ Map<String, Object?> _wampMetaResultJson(
     'procedure': result.procedure,
     'arguments': result.arguments,
     'argumentsKeywords': result.argumentsKeywords,
+  };
+}
+
+Future<Map<String, Object?>> _expectWampSessionMetaDirect(
+  McpStreamableHttpClient client, {
+  String label = 'Direct JSON WAMP session metadata',
+  String countId = 'direct-wamp-session-count',
+  String listId = 'direct-wamp-session-list',
+  String getId = 'direct-wamp-session-get',
+}) async {
+  final count = await client.countWampSessionsDirect(id: countId);
+  final countValue = _integerMetaId(count.argumentsKeywords['count']);
+  if (countValue == null || countValue < 1) {
+    throw StateError('$label returned invalid session count: $countValue.');
+  }
+
+  final list = await client.listWampSessionsDirect(id: listId);
+  final sessionIds = _integerMetaIds(
+    list.argumentsKeywords['session_ids'],
+    '$label session list',
+  );
+  if (sessionIds.isEmpty) {
+    throw StateError('$label returned no session ids.');
+  }
+  if (countValue < sessionIds.length) {
+    throw StateError(
+      '$label count $countValue was smaller than listed sessions $sessionIds.',
+    );
+  }
+
+  final selectedSessionId = sessionIds.first;
+  final session = await client.getWampSessionDirect(
+    selectedSessionId,
+    id: getId,
+  );
+  final details = session.argumentsKeywords['details'];
+  if (details is! Map) {
+    throw StateError('$label session get returned no details map.');
+  }
+  final detailSessionId = _integerMetaId(details['id'] ?? details['session']);
+  if (detailSessionId != selectedSessionId) {
+    throw StateError(
+      '$label session get returned session $detailSessionId, expected '
+      '$selectedSessionId.',
+    );
+  }
+
+  return <String, Object?>{
+    'count': _wampMetaResultJson(count),
+    'list': _wampMetaResultJson(list),
+    'selectedSessionId': selectedSessionId,
+    'selectedSession': _wampMetaResultJson(session),
   };
 }
 
@@ -1919,10 +1975,15 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
   final wampTopic = options.wampTopic;
   if (wampProcedure != null || wampTopic != null) {
     final metadata = <String, Object?>{};
-    final sessionCount = await client.countWampSessionsDirect(
-      id: 'streamable-active-direct-wamp-session-count',
+    final sessionMetadata = await _expectWampSessionMetaDirect(
+      client,
+      label: 'Streamable active direct JSON WAMP session metadata',
+      countId: 'streamable-active-direct-wamp-session-count',
+      listId: 'streamable-active-direct-wamp-session-list',
+      getId: 'streamable-active-direct-wamp-session-get',
     );
-    metadata['sessionCount'] = _wampMetaResultJson(sessionCount);
+    metadata['sessionCount'] = sessionMetadata['count'];
+    metadata['sessionMetadata'] = sessionMetadata;
     if (wampProcedure != null) {
       batchMessages.add(
         _toolCallBatchRequest(

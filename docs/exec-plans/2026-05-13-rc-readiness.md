@@ -12484,14 +12484,16 @@ decision because `connectanum_client` still depends on private
 
 Active. The current implementation checkpoint strengthens public
 router-hosted MCP readiness for downstream applications. The public
-`connectanum_mcp` router-hosted client example now proves active direct JSON
-access to configured WAMP registration and subscription metadata while a
-Streamable HTTP session is open. With `--wamp-procedure` and/or
-`--wamp-topic`, the active direct JSON path calls the public direct helper
-surface for `wamp.registration.lookup`, `match`, `list`, `get`,
-`list_callees`, `count_callees` and `wamp.subscription.lookup`, `match`,
-`list`, `get`, `list_subscribers`, `count_subscribers`, records the resulting
-`configuredRegistrationMetadata` and `configuredSubscriptionMetadata` under
+`connectanum_mcp` router-hosted client example now proves direct JSON WAMP
+session metadata and active direct JSON access to configured WAMP registration
+and subscription metadata while a Streamable HTTP session is open. With
+`--wamp-procedure` and/or `--wamp-topic`, the direct and active direct JSON
+paths call the public direct helper surface for `wamp.session.count`, `list`,
+and `get`; the active direct JSON path also calls `wamp.registration.lookup`,
+`match`, `list`, `get`, `list_callees`, `count_callees` and
+`wamp.subscription.lookup`, `match`, `list`, `get`, `list_subscribers`,
+`count_subscribers`, records `sessionMetadata`,
+`configuredRegistrationMetadata`, and `configuredSubscriptionMetadata` under
 `activeDirectJson.wampMetadata`, and still asserts the active Streamable
 session id and resume cursor are unchanged.
 
@@ -12502,20 +12504,21 @@ packages/connectanum_mcp/example/router_hosted_client.dart`; focused
 tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
 -v`; focused `bash -lc 'source bin/common.sh &&
 run_public_router_hosted_mcp_client_dry_run_smoke'`; focused `bash -lc
-'source bin/common.sh && run_public_router_hosted_mcp_client_live_smoke'`;
+'source bin/common.sh && run_public_router_hosted_mcp_client_live_smoke'`
+after fixing the real router `wamp.session.get` details key shape;
 full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`;
 `git diff --check`; `python3 tool/check_public_artifact_references.py`; and
 full local `bin/verify` passed on 2026-07-09.
 
-The latest fully clean hosted checkpoint is `5edcbbb`: GitHub CI
-`28978819268` and Dart Package Publish Dry Run `28978819289` passed on
-2026-07-08. The deployment-chain audit with required clean latest CI, Dart
-package publish dry-run, and WAMP profile benchmark evidence also passed at
-`5edcbbb`; WAMP Profile Benchmarks `28964007707` remain clean and relevant
-from `b81302a` because no WAMP benchmark-sensitive paths changed since then.
-Expected operator-owned gaps remain: `add-router` is unprotected, and the
-checked-in pub.dev OIDC workflows are not Actions-discoverable until promoted
-through `master`.
+The latest fully clean hosted checkpoint is `12d4010`: GitHub CI
+`28981980611` and Dart Package Publish Dry Run `28981980625` passed on
+2026-07-08. The deployment-chain audit with required clean latest CI, clean CI
+logs, Dart package publish dry-run, and WAMP profile benchmark evidence also
+passed at `12d4010`; WAMP Profile Benchmarks `28964007707` remain clean and
+relevant from `b81302a` because no WAMP benchmark-sensitive paths changed
+since then. Strict audit still fails only on expected operator-owned gaps:
+`add-router` is unprotected, and the checked-in pub.dev OIDC workflows are not
+Actions-discoverable until promoted through `master`.
 
 RC readiness remains blocked only by explicit operator-owned release decisions:
 branch protection/default-branch promotion, approved numeric RC tag,
