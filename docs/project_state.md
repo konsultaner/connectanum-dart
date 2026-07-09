@@ -3,6 +3,27 @@
 Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
+now proves active direct JSON malformed `MCP-Session-Id` rejection while a
+Streamable HTTP session is open. The active direct path reruns the raw
+malformed-session probe after lifecycle-free direct JSON
+tool/resource/prompt/WAMP/batch operations, records
+`activeDirectJson.malformedSessionId`, and keeps asserting the Streamable
+session id/resume cursor remain unchanged. The public live smoke now parses
+the `streamable.activeDirectJson` summary and requires both active direct
+malformed-session rejection and stale-session isolation across public,
+bearer-protected, and JSON-response route variants.
+
+Baseline `bin/test-fast` passed before the active direct JSON
+malformed-session summary change on 2026-07-09. Focused `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`, `bash -n
+bin/common.sh`, focused public router-hosted MCP client boundary tests, full
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `python3
+tool/check_public_artifact_references.py`, focused public router-hosted MCP
+client dry-run/live smoke, and `git diff --check` passed after the change.
+Full local `bin/verify` passed after the change on 2026-07-09. Hosted
+evidence is pending for this uncommitted checkpoint.
+
+Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct JSON stale `MCP-Session-Id` isolation while a
 Streamable HTTP session is open. The active direct path passes the current
 authorization header into the stale-session probe, sends a direct JSON request
@@ -21,7 +42,16 @@ tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_publ
 `python3 tool/check_public_artifact_references.py`, focused public
 router-hosted MCP client dry-run/live smoke, and `git diff --check` passed
 after the change. Full local `bin/verify` passed after the change. Hosted
-evidence is pending for this uncommitted checkpoint.
+evidence for commit `6cdd0a7`: GitHub CI `29004177744` and Dart Package
+Publish Dry Run `29004177764` passed on 2026-07-09. The deployment-chain audit
+with required clean latest CI, clean CI logs, Dart package publish dry-run, and
+WAMP profile benchmark evidence also passed at `6cdd0a7`; WAMP Profile
+Benchmarks `28964007707` remain clean and relevant from `b81302a` because no
+WAMP benchmark-sensitive paths changed since then. The audit noted GitHub
+Actions degraded performance from delayed starts, but still reports only
+expected operator-owned gaps: `add-router` is unprotected, and the checked-in
+pub.dev OIDC workflows are not Actions discoverable until promoted through
+`master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct JSON WAMP API method list/describe calls while a

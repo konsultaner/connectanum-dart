@@ -1020,6 +1020,67 @@ assert_public_router_hosted_mcp_client_summary() {
   done
 }
 
+assert_public_router_hosted_mcp_active_direct_session_summary() {
+  local summary="$1"
+  local label="$2"
+
+  SUMMARY="$summary" LABEL="$label" python3 <<'PY'
+import json
+import os
+
+label = os.environ["LABEL"]
+
+summary = None
+for line in os.environ["SUMMARY"].splitlines():
+    candidate = line.strip()
+    if not candidate.startswith("{"):
+        continue
+    try:
+        parsed = json.loads(candidate)
+    except json.JSONDecodeError:
+        continue
+    if isinstance(parsed, dict) and isinstance(parsed.get("streamable"), dict):
+        summary = parsed
+        break
+
+if summary is None:
+    raise SystemExit(
+        f"Public router-hosted MCP client {label} summary did not include JSON."
+    )
+
+streamable = summary.get("streamable")
+if not isinstance(streamable, dict):
+    raise SystemExit(
+        f"Public router-hosted MCP client {label} summary did not include streamable."
+    )
+
+active_direct = streamable.get("activeDirectJson")
+if not isinstance(active_direct, dict):
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} summary did not include streamable.activeDirectJson."
+    )
+
+expected = {
+    "malformedSessionId": {"rejected": True, "sessionUnchanged": True},
+    "directJsonStaleSessionId": {"ignored": True, "sessionUnchanged": True},
+}
+
+if active_direct.get("sessionUnchanged") is not True:
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct JSON changed Streamable state."
+    )
+
+for key, value in expected.items():
+    if active_direct.get(key) != value:
+        raise SystemExit(
+            "Public router-hosted MCP client "
+            f"{label} active direct JSON {key} was {active_direct.get(key)!r}."
+        )
+PY
+}
+
 assert_router_cli_consumer_package_summary() {
   local summary="$1"
   local expected
@@ -1142,6 +1203,8 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
+  assert_public_router_hosted_mcp_active_direct_session_summary \
+    "$live_summary" public
 
   printf 'Public router-hosted MCP client live smoke completed.\n'
 
@@ -1161,6 +1224,8 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"methodEvents"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"methodNotificationEvents"'
+  assert_public_router_hosted_mcp_active_direct_session_summary \
+    "$pubsub_only_summary" pub/sub-only
 
   printf 'Pub/sub-only router-hosted MCP client live smoke completed.\n'
 
@@ -1264,6 +1329,8 @@ PY
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
+  assert_public_router_hosted_mcp_active_direct_session_summary \
+    "$authenticated_summary" authenticated
 
   printf 'Authenticated router-hosted MCP client live smoke completed.\n'
 
@@ -1295,6 +1362,8 @@ PY
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
+  assert_public_router_hosted_mcp_active_direct_session_summary \
+    "$bearer_summary" bearer-token
 
   printf 'Bearer-token router-hosted MCP client live smoke completed.\n'
 
@@ -1331,6 +1400,8 @@ PY
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
+  assert_public_router_hosted_mcp_active_direct_session_summary \
+    "$authenticated_json_summary" authenticated-json-response
 
   printf 'Authenticated router-hosted JSON-response MCP client live smoke completed.\n'
 
@@ -1363,6 +1434,8 @@ PY
     '"pubsub"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
     '"toolNotificationEvents"'
+  assert_public_router_hosted_mcp_active_direct_session_summary \
+    "$bearer_json_summary" bearer-token-json-response
 
   printf 'Bearer-token router-hosted JSON-response MCP client live smoke completed.\n'
 )

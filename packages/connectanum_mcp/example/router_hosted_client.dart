@@ -431,6 +431,7 @@ Future<void> _expectMalformedSessionIdRejected(
   String? authorizationHeader, {
   required String sessionId,
   required String? lastEventId,
+  String trace = 'router-hosted-client-streamable-malformed-session-id',
 }) async {
   final httpClient = _shortLivedHttpClient();
   try {
@@ -438,10 +439,7 @@ Future<void> _expectMalformedSessionIdRejected(
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     request.headers.set('MCP-Protocol-Version', client.protocolVersion);
     request.headers.set('MCP-Session-Id', 'malformed session');
-    request.headers.set(
-      'x-consumer-trace',
-      'router-hosted-client-streamable-malformed-session-id',
-    );
+    request.headers.set('x-consumer-trace', trace);
     if (authorizationHeader != null) {
       request.headers.set(HttpHeaders.authorizationHeader, authorizationHeader);
     }
@@ -3211,6 +3209,18 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       }
     }
   }
+  final eventIdBeforeMalformedSession = client.lastEventId;
+  await _expectMalformedSessionIdRejected(
+    client,
+    authorizationHeader,
+    sessionId: streamableSessionId,
+    lastEventId: eventIdBeforeMalformedSession,
+    trace: 'router-hosted-client-streamable-active-direct-malformed-session-id',
+  );
+  details['malformedSessionId'] = <String, Object?>{
+    'rejected': true,
+    'sessionUnchanged': true,
+  };
   final eventIdBeforeStaleSession = client.lastEventId;
   await _expectDirectJsonStaleSessionIdIgnored(
     client,

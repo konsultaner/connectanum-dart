@@ -1871,6 +1871,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Streamable malformed MCP-Session-Id rejection did not name the header.",
             "label: 'Streamable malformed MCP-Session-Id'",
             "malformedSessionId",
+            "router-hosted-client-streamable-active-direct-malformed-session-id",
             "router-hosted-client-direct-json-stale-session-id",
             "Direct JSON stale MCP-Session-Id returned",
             "Direct JSON stale MCP-Session-Id echoed a session id.",
@@ -2035,6 +2036,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "batchConfiguredRegistrationMetadata",
             "batchConfiguredSubscriptionMetadata",
             "router-hosted-client-streamable-active-direct-batch",
+            "details['malformedSessionId']",
             "details['directJsonStaleSessionId']",
             "Streamable active direct JSON requires an active Streamable session.",
             "describeWampApiDirect",
@@ -2684,6 +2686,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "assert_public_router_hosted_mcp_client_summary",
             script,
         )
+        self.assertIn(
+            "assert_public_router_hosted_mcp_active_direct_session_summary",
+            script,
+        )
         self.assertIn("live_summary=\"$(", live_body)
         self.assertIn("pubsub_only_summary=\"$(", live_body)
         self.assertIn("authenticated_summary=\"$(", live_body)
@@ -2711,6 +2717,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"',
             script,
         )
+        self.assertIn("streamable.activeDirectJson", script)
         self.assertIn('"toolNotificationEvents"', script)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
         self.assertIn("--bearer-token \"$bearer_token\"", live_body)
