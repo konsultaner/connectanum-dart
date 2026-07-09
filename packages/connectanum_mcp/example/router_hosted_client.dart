@@ -1190,6 +1190,27 @@ List<String> _expectBatchResponses(
   List<String> expectedIds, {
   required String label,
 }) {
+  final responseIds = _expectBatchResponseIds(
+    responses,
+    expectedIds,
+    label: label,
+  );
+  for (final response in responses!) {
+    final id = response['id'];
+    if (response.containsKey('error')) {
+      throw StateError(
+        '$label batch response $id errored: ${response['error']}',
+      );
+    }
+  }
+  return responseIds;
+}
+
+List<String> _expectBatchResponseIds(
+  List<McpJsonMap>? responses,
+  List<String> expectedIds, {
+  required String label,
+}) {
   if (responses == null) {
     throw StateError('$label batch returned no responses.');
   }
@@ -1205,11 +1226,6 @@ List<String> _expectBatchResponses(
     final id = response['id'];
     if (id is! String) {
       throw StateError('$label batch response had a non-string id.');
-    }
-    if (response.containsKey('error')) {
-      throw StateError(
-        '$label batch response $id errored: ${response['error']}',
-      );
     }
     responseIds.add(id);
   }
@@ -1258,6 +1274,30 @@ McpJsonMap _batchResult(
       return result.cast<String, Object?>();
     }
     throw StateError('$label batch response $id had a non-object result.');
+  }
+  throw StateError('$label batch missed response $id.');
+}
+
+McpJsonMap _batchError(
+  List<McpJsonMap>? responses,
+  String id, {
+  required String label,
+}) {
+  if (responses == null) {
+    throw StateError('$label batch returned no responses.');
+  }
+  for (final response in responses) {
+    if (response['id'] != id) {
+      continue;
+    }
+    final error = response['error'];
+    if (error is Map) {
+      return error.cast<String, Object?>();
+    }
+    if (response.containsKey('result')) {
+      throw StateError('$label batch response $id succeeded unexpectedly.');
+    }
+    throw StateError('$label batch response $id had a non-object error.');
   }
   throw StateError('$label batch missed response $id.');
 }
@@ -3209,6 +3249,73 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       }
     }
   }
+  final errorBatchResponses = await client.postBatchDirect(
+    const <McpJsonMap>[
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-error-tools',
+        'method': 'tools/list',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-error-missing',
+        'method': 'consumer.unknown.method',
+        'params': {},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'streamable-active-direct-batch-error-ping',
+        'method': 'ping',
+        'params': {},
+      },
+    ],
+    headers: const <String, String>{
+      'x-consumer-trace':
+          'router-hosted-client-streamable-active-direct-batch-error',
+    },
+  );
+  final errorBatchResponseIds = _expectBatchResponseIds(
+    errorBatchResponses,
+    const <String>[
+      'streamable-active-direct-batch-error-tools',
+      'streamable-active-direct-batch-error-missing',
+      'streamable-active-direct-batch-error-ping',
+    ],
+    label: 'Streamable active direct JSON batch error isolation',
+  );
+  final toolsAfterError = _batchResult(
+    errorBatchResponses,
+    'streamable-active-direct-batch-error-tools',
+    label: 'Streamable active direct JSON batch error isolation tools/list',
+  );
+  if (toolsAfterError['tools'] is! List) {
+    throw StateError(
+      'Streamable active direct JSON batch error isolation lost tools result.',
+    );
+  }
+  final isolatedError = _batchError(
+    errorBatchResponses,
+    'streamable-active-direct-batch-error-missing',
+    label: 'Streamable active direct JSON batch error isolation missing method',
+  );
+  final isolatedErrorCode = isolatedError['code'];
+  if (isolatedErrorCode is! int) {
+    throw StateError(
+      'Streamable active direct JSON batch error isolation returned '
+      'a non-integer error code.',
+    );
+  }
+  _batchResult(
+    errorBatchResponses,
+    'streamable-active-direct-batch-error-ping',
+    label: 'Streamable active direct JSON batch error isolation ping',
+  );
+  details['batchErrorIsolation'] = <String, Object?>{
+    'responseIds': errorBatchResponseIds,
+    'errorCode': isolatedErrorCode,
+    'sessionUnchanged': true,
+  };
   final eventIdBeforeMalformedSession = client.lastEventId;
   await _expectMalformedSessionIdRejected(
     client,

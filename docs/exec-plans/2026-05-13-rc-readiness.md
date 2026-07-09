@@ -3,7 +3,7 @@
 Status: complete
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-07-07
+Last updated: 2026-07-09
 
 ## Problem
 
@@ -79,6 +79,17 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-09: Extended the public router-hosted MCP client example's active
+  direct JSON proof to mixed batch error isolation while a Streamable HTTP
+  session is open. The example now sends a direct JSON batch containing a
+  successful `tools/list`, an intentionally unknown method, and a follow-up
+  `ping`, records `streamable.activeDirectJson.batchErrorIsolation`, and the
+  public live smoke requires the error response to stay isolated without
+  changing the active Streamable session id or resume cursor across public,
+  protected, and JSON-response route variants. Baseline `bin/test-fast`,
+  focused analyzer/shell/Python/public-artifact checks, focused public
+  router-hosted MCP client live smoke, and full local `bin/verify` passed on
+  2026-07-09.
 - 2026-07-07: Selected and published `v0.1.0-rc.2` for the clean hosted
   `a4bbd04` checkpoint. The numeric RC tag exists on GitHub and GitLab and
   points at `a4bbd04`. GitHub tag-triggered Native Artifacts `28855014117`
@@ -12511,7 +12522,17 @@ argument/environment-size failure in the new shell summary helper
 captured example output to a temporary file before parsing it. A synthetic
 large-output helper repro, the focused public router-hosted MCP client live
 smoke, full local `bin/test-fast`, and full local `bin/verify` passed after
-the temp-file fix. Hosted evidence for the fix is pending push/CI.
+the temp-file fix. Hosted evidence after push: commit `00353eb` passed GitHub
+CI run `29011361060` (`Fast Checks` and `Full Verify`) on 2026-07-09. The
+non-strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch add-router --run-limit 1
+--require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed, including the relevant
+Dart Package Publish Dry Run `29007956511` from `784bbfa`; no
+publish-sensitive inputs changed after that run. The strict variant still
+fails on existing repository governance state: `add-router` is unprotected
+and the checked-in pub.dev workflows are not visible through GitHub Actions
+until promoted through `master`.
 
 Previous checkpoint. The previous implementation checkpoint strengthens public
 router-hosted MCP readiness for downstream applications. The public

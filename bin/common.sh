@@ -1082,6 +1082,34 @@ for key, value in expected.items():
             "Public router-hosted MCP client "
             f"{label} active direct JSON {key} was {active_direct.get(key)!r}."
         )
+
+batch_error = active_direct.get("batchErrorIsolation")
+if not isinstance(batch_error, dict):
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} summary did not include active direct batch error isolation."
+    )
+if batch_error.get("sessionUnchanged") is not True:
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct batch error changed Streamable state."
+    )
+if not isinstance(batch_error.get("errorCode"), int):
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct batch error did not expose an error code."
+    )
+response_ids = batch_error.get("responseIds")
+expected_error_ids = {
+    "streamable-active-direct-batch-error-tools",
+    "streamable-active-direct-batch-error-missing",
+    "streamable-active-direct-batch-error-ping",
+}
+if not isinstance(response_ids, list) or set(response_ids) != expected_error_ids:
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} active direct batch error response ids were {response_ids!r}."
+    )
 PY
   local status=$?
   rm -f "$summary_file"
@@ -1205,6 +1233,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
@@ -1227,6 +1256,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"batchErrorIsolation":{"responseIds"' \
     '"pubsub"' \
     '"methodEvents"' \
     '"activeDirectJson":{"sessionUnchanged":true,"batch":{"responseIds"' \
@@ -1331,6 +1361,7 @@ PY
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
@@ -1364,6 +1395,7 @@ PY
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
@@ -1402,6 +1434,7 @@ PY
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \
@@ -1436,6 +1469,7 @@ PY
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
     '"pubsub"' \

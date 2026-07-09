@@ -3,6 +3,26 @@
 Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
+now proves active direct JSON batch error isolation while a Streamable HTTP
+session is open. The active direct path sends a mixed direct JSON batch with
+`tools/list`, an intentionally unknown method, and a follow-up `ping`, records
+`activeDirectJson.batchErrorIsolation`, and requires the error response to stay
+isolated while successful sibling responses still return and the Streamable
+session id/resume cursor remain unchanged. The public live smoke now parses
+the `streamable.activeDirectJson` summary and requires the new batch
+error-isolation proof across public, bearer-protected, and JSON-response route
+variants.
+
+Baseline `bin/test-fast` passed before the active direct JSON batch
+error-isolation change on 2026-07-09. Focused `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`, `bash -n
+bin/common.sh`, focused public router-hosted MCP client boundary tests, full
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `python3
+tool/check_public_artifact_references.py`, `git diff --check`, focused public
+router-hosted MCP client live smoke, and full local `bin/verify` passed after
+the change on 2026-07-09.
+
+Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct JSON malformed `MCP-Session-Id` rejection while a
 Streamable HTTP session is open. The active direct path reruns the raw
 malformed-session probe after lifecycle-free direct JSON
@@ -30,7 +50,17 @@ argument/environment-size failure in the new shell summary helper
 captured example output to a temporary file before parsing it. A synthetic
 large-output helper repro, the focused public router-hosted MCP client live
 smoke, full local `bin/test-fast`, and full local `bin/verify` passed after
-the temp-file fix. Hosted evidence for the fix is pending push/CI.
+the temp-file fix. Hosted evidence after push: commit `00353eb` passed GitHub
+CI run `29011361060` (`Fast Checks` and `Full Verify`) on 2026-07-09. The
+non-strict deployment-chain audit
+`bin/audit-github-deployment-chain --branch add-router --run-limit 1
+--require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed, including the relevant
+Dart Package Publish Dry Run `29007956511` from `784bbfa`; no
+publish-sensitive inputs changed after that run. The strict variant still
+fails on existing repository governance state: `add-router` is unprotected
+and the checked-in pub.dev workflows are not visible through GitHub Actions
+until promoted through `master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct JSON stale `MCP-Session-Id` isolation while a
