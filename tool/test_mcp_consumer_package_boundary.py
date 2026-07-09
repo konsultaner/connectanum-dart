@@ -2041,6 +2041,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamable-active-direct-batch-error-ping",
             "router-hosted-client-streamable-active-direct-batch-error",
             "details['batchErrorIsolation']",
+            "router-hosted-client-streamable-active-direct-notification-only-batch",
+            "streamable-active-direct-notification-only-batch",
+            "details['notificationOnlyBatch']",
             "details['malformedSessionId']",
             "details['directJsonStaleSessionId']",
             "Streamable active direct JSON requires an active Streamable session.",
@@ -2723,6 +2726,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             script,
         )
         self.assertIn('"batchErrorIsolation":{"responseIds"', script)
+        self.assertIn(
+            '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}',
+            script,
+        )
         self.assertIn("streamable.activeDirectJson", script)
         self.assertIn('"toolNotificationEvents"', script)
         self.assertIn("--auth-url \"$auth_url\"", live_body)

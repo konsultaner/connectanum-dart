@@ -3316,6 +3316,39 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
     'errorCode': isolatedErrorCode,
     'sessionUnchanged': true,
   };
+  final notificationBatch = await client.postBatchDirect(
+    const <McpJsonMap>[
+      {'jsonrpc': '2.0', 'method': 'notifications/initialized', 'params': {}},
+      {
+        'jsonrpc': '2.0',
+        'method': 'notifications/progress',
+        'params': {
+          'progressToken': 'streamable-active-direct-notification-only-batch',
+          'progress': 1,
+        },
+      },
+    ],
+    headers: const <String, String>{
+      'x-consumer-trace':
+          'router-hosted-client-streamable-active-direct-notification-only-batch',
+    },
+  );
+  if (notificationBatch != null) {
+    throw StateError(
+      'Streamable active direct JSON notification-only batch returned '
+      'a response.',
+    );
+  }
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: streamableSessionId,
+    lastEventId: previousEventId,
+    label: 'Streamable active direct JSON notification-only batch',
+  );
+  details['notificationOnlyBatch'] = <String, Object?>{
+    'accepted': true,
+    'sessionUnchanged': true,
+  };
   final eventIdBeforeMalformedSession = client.lastEventId;
   await _expectMalformedSessionIdRejected(
     client,

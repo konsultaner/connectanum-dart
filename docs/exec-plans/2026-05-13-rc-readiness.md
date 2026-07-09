@@ -80,6 +80,17 @@ decision because `connectanum_client` still depends on private
 ## Decision Log
 
 - 2026-07-09: Extended the public router-hosted MCP client example's active
+  direct JSON proof to notification-only batch acceptance while a Streamable
+  HTTP session is open. The example now sends a direct JSON batch containing
+  `notifications/initialized` and `notifications/progress`, expects no JSON-RPC
+  response, records `streamable.activeDirectJson.notificationOnlyBatch`, and
+  the public live smoke requires the accepted notification-only batch to leave
+  the active Streamable session id and resume cursor unchanged across public,
+  protected, and JSON-response route variants. Baseline `bin/test-fast`,
+  focused analyzer/shell/Python/public-artifact checks, focused public
+  router-hosted MCP client live smoke, full MCP consumer package boundary
+  tests, and full local `bin/verify` passed on 2026-07-09.
+- 2026-07-09: Extended the public router-hosted MCP client example's active
   direct JSON proof to mixed batch error isolation while a Streamable HTTP
   session is open. The example now sends a direct JSON batch containing a
   successful `tools/list`, an intentionally unknown method, and a follow-up
@@ -89,7 +100,9 @@ decision because `connectanum_client` still depends on private
   protected, and JSON-response route variants. Baseline `bin/test-fast`,
   focused analyzer/shell/Python/public-artifact checks, focused public
   router-hosted MCP client live smoke, and full local `bin/verify` passed on
-  2026-07-09.
+  2026-07-09. Hosted evidence after push: GitHub CI `29015246480`, Dart Package
+  Publish Dry Run `29015246512`, and the non-strict deployment-chain audit with
+  required latest CI plus Dart package dry-run evidence passed for `b1e1357`.
 - 2026-07-07: Selected and published `v0.1.0-rc.2` for the clean hosted
   `a4bbd04` checkpoint. The numeric RC tag exists on GitHub and GitLab and
   points at `a4bbd04`. GitHub tag-triggered Native Artifacts `28855014117`

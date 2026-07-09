@@ -3,15 +3,33 @@
 Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
+now proves active direct JSON notification-only batch acceptance while a
+Streamable HTTP session is open. The active direct path sends a notification
+batch with `notifications/initialized` and `notifications/progress`, expects no
+JSON-RPC response, records `activeDirectJson.notificationOnlyBatch`, and
+requires the Streamable session id/resume cursor to remain unchanged. The
+public live smoke now parses the `streamable.activeDirectJson` summary and
+requires the notification-only batch proof across public, bearer-protected, and
+JSON-response route variants.
+
+Baseline `bin/test-fast` passed before the active direct JSON
+notification-only batch change on 2026-07-09. Focused `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`, `bash -n
+bin/common.sh`, focused public router-hosted MCP client boundary tests, full
+`python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `python3
+tool/check_public_artifact_references.py`, `git diff --check`, focused public
+router-hosted MCP client live smoke, and full local `bin/verify` passed after
+the change on 2026-07-09.
+
+Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct JSON batch error isolation while a Streamable HTTP
 session is open. The active direct path sends a mixed direct JSON batch with
 `tools/list`, an intentionally unknown method, and a follow-up `ping`, records
 `activeDirectJson.batchErrorIsolation`, and requires the error response to stay
 isolated while successful sibling responses still return and the Streamable
-session id/resume cursor remain unchanged. The public live smoke now parses
-the `streamable.activeDirectJson` summary and requires the new batch
-error-isolation proof across public, bearer-protected, and JSON-response route
-variants.
+session id/resume cursor remain unchanged. The public live smoke parses the
+`streamable.activeDirectJson` summary and requires the batch error-isolation
+proof across public, bearer-protected, and JSON-response route variants.
 
 Baseline `bin/test-fast` passed before the active direct JSON batch
 error-isolation change on 2026-07-09. Focused `dart analyze
@@ -20,7 +38,16 @@ bin/common.sh`, focused public router-hosted MCP client boundary tests, full
 `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`, `python3
 tool/check_public_artifact_references.py`, `git diff --check`, focused public
 router-hosted MCP client live smoke, and full local `bin/verify` passed after
-the change on 2026-07-09.
+the change on 2026-07-09. Hosted evidence after push: commit `b1e1357` passed
+GitHub CI run `29015246480` (`Fast Checks` and `Full Verify`) and Dart Package
+Publish Dry Run `29015246512` on 2026-07-09. The non-strict deployment-chain
+audit
+`bin/audit-github-deployment-chain --branch add-router --run-limit 1
+--require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` also passed at `b1e1357`; the
+audit still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves active direct JSON malformed `MCP-Session-Id` rejection while a

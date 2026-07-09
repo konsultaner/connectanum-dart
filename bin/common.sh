@@ -1068,6 +1068,7 @@ if not isinstance(active_direct, dict):
 expected = {
     "malformedSessionId": {"rejected": True, "sessionUnchanged": True},
     "directJsonStaleSessionId": {"ignored": True, "sessionUnchanged": True},
+    "notificationOnlyBatch": {"accepted": True, "sessionUnchanged": True},
 }
 
 if active_direct.get("sessionUnchanged") is not True:
@@ -1233,6 +1234,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
@@ -1256,6 +1258,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
     '"pubsub"' \
     '"methodEvents"' \
@@ -1361,6 +1364,7 @@ PY
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
@@ -1395,6 +1399,7 @@ PY
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
@@ -1434,6 +1439,7 @@ PY
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
@@ -1469,6 +1475,7 @@ PY
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
+    '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
     '"batch":{"responseIds"' \
     '"wampMetadata"' \
