@@ -4369,7 +4369,38 @@ void main() {
       );
     });
 
-    test('rejects invalid WAMP helper result counters and ids', () {
+    test('rejects invalid WAMP helper result fields', () {
+      expect(
+        () => McpStreamableWampPublicationResult.fromJson(
+          const <String, Object?>{'topic': 'bad topic', 'acknowledged': true},
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampSubscriptionResult.fromJson(
+          const <String, Object?>{
+            'handle': 'bad\nhandle',
+            'topic': 'app.events.audit',
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': 'bad topic',
+          'events': <Object?>[],
+        }),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () =>
+            McpStreamableWampUnsubscribeResult.fromJson(const <String, Object?>{
+              'handle': 'bad handle',
+              'topic': 'app.events.audit',
+            }),
+        throwsA(isA<FormatException>()),
+      );
       expect(
         () =>
             McpStreamableWampPublicationResult.fromJson(const <String, Object?>{

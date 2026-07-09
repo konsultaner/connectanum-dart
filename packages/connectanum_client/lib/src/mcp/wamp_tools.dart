@@ -1248,6 +1248,11 @@ String _requiredString(McpJsonMap json, String key) {
   if (value is! String || value.isEmpty) {
     throw FormatException('$key must be a non-empty string');
   }
+  if (containsMcpWhitespaceOrControl(value)) {
+    throw FormatException(
+      '$key must not contain whitespace or control characters',
+    );
+  }
   return value;
 }
 
