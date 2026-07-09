@@ -79,6 +79,17 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-09: Hardened typed MCP WAMP helper result parsing in
+  `connectanum_client`. The client now rejects non-positive `publicationId`,
+  `subscriptionId`, and `queueLimit` values plus negative event batch
+  `dropped` and `remaining` counters before exposing router-hosted MCP tool
+  responses to consumer applications. The focused streamable HTTP client
+  regression failed before the parser change, then passed after the
+  implementation; the full streamable HTTP client suite, `dart analyze
+  packages/connectanum_client`, `git diff --check`, and a clean full
+  `bin/verify` rerun passed on 2026-07-09. A first full `bin/verify` attempt
+  hit a transient native HTTP/3 direct JSON WAMP helper timeout; the exact
+  isolated test and the full rerun both passed.
 - 2026-07-09: Added a Dart package archive-shape gate for declared
   `executables:` entries. `bin/dart-package-publish-dry-run` now validates
   that every declared executable maps to a matching `bin/*.dart` file, reports
@@ -92,7 +103,13 @@ decision because `connectanum_client` still depends on private
   --show-release-plan connectanum_mcp` passed on 2026-07-09. After one
   transient HTTP/3 protected direct JSON router timeout in the first full
   verification run, the exact isolated test and full local `bin/verify` rerun
-  both passed on 2026-07-09.
+  both passed on 2026-07-09. Hosted evidence after push: GitHub CI
+  `29043188042`, Dart Package Publish Dry Run `29043187903`, and the
+  deployment-chain audit with required latest CI plus Dart package dry-run
+  evidence passed for `c6b6869`; the audit still reports the expected
+  operator-owned gaps that `add-router` is unprotected and the checked-in
+  pub.dev workflows are not Actions-discoverable until promoted through
+  `master`.
 - 2026-07-09: Moved the router-hosted MCP client command implementation out of
   `example/` and into `packages/connectanum_mcp/lib/src/cli/`. The published
   executable and the checked-in public example now remain thin wrappers around

@@ -2,7 +2,28 @@
 
 Last updated: 2026-07-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: the Dart package publish dry-run gate now
+Last reviewed branch checkpoint: typed MCP WAMP helper result parsing now
+rejects impossible numeric values from router-hosted MCP tool responses before
+consumer applications accept them. `McpStreamableWampPublicationResult` rejects
+non-positive `publicationId`, `McpStreamableWampSubscriptionResult` rejects
+non-positive `subscriptionId` and `queueLimit`, and
+`McpStreamableWampEventBatch` rejects negative `dropped` and `remaining`
+counters. The streamable HTTP client regression covers those malformed response
+shapes alongside the existing direct JSON and Streamable WAMP helper coverage.
+
+Baseline `bin/test-fast` passed before the WAMP helper result parser hardening
+on 2026-07-09. The focused regression `dart test
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart -n
+"rejects invalid WAMP helper result counters and ids" -r expanded` failed
+before the implementation, then passed after the parser change. Focused `dart
+test packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r
+expanded`, `dart analyze packages/connectanum_client`, `git diff --check`, and
+full local `bin/verify` rerun passed after the change on 2026-07-09. The first
+full `bin/verify` attempt hit a transient native HTTP/3 direct JSON WAMP helper
+timeout; the exact isolated test passed immediately, and the clean full rerun
+passed.
+
+Previous branch checkpoint: the Dart package publish dry-run gate now
 validates declared `executables:` entries before treating an archive as
 release-ready. `bin/dart-package-publish-dry-run` reports every validated
 entrypoint, including `connectanum_mcp`'s `router_hosted_client ->
@@ -19,7 +40,15 @@ unittest tool.test_dart_package_publish_dry_run -v`, `git diff --check`,
 `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan
 connectanum_mcp`, isolated rerun of the transient HTTP/3 protected direct JSON
 router test, and full local `bin/verify` rerun passed after the change on
-2026-07-09.
+2026-07-09. Hosted evidence after push: commit `c6b6869` passed GitHub CI run
+`29043188042` (`Fast Checks` and `Full Verify`) and Dart Package Publish Dry
+Run `29043187903` on 2026-07-09. The deployment-chain audit
+`bin/audit-github-deployment-chain --branch add-router --run-limit 1
+--require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed at `c6b6869`; the audit
+still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: the router-hosted MCP client executable is
 now package-native instead of example-backed. The `connectanum_mcp`

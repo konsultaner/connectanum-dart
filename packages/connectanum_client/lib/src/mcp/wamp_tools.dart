@@ -1071,7 +1071,7 @@ final class McpStreamableWampPublicationResult {
     return McpStreamableWampPublicationResult(
       topic: _requiredString(structuredContent, 'topic'),
       acknowledged: _boolFrom(structuredContent, 'acknowledged') ?? false,
-      publicationId: _optionalInt(structuredContent, 'publicationId'),
+      publicationId: _optionalPositiveInt(structuredContent, 'publicationId'),
       structuredContent: structuredContent,
     );
   }
@@ -1097,8 +1097,8 @@ final class McpStreamableWampSubscriptionResult {
     return McpStreamableWampSubscriptionResult(
       handle: _requiredString(structuredContent, 'handle'),
       topic: _requiredString(structuredContent, 'topic'),
-      queueLimit: _optionalInt(structuredContent, 'queueLimit') ?? 100,
-      subscriptionId: _optionalInt(structuredContent, 'subscriptionId'),
+      queueLimit: _optionalPositiveInt(structuredContent, 'queueLimit') ?? 100,
+      subscriptionId: _optionalPositiveInt(structuredContent, 'subscriptionId'),
       structuredContent: structuredContent,
     );
   }
@@ -1125,8 +1125,8 @@ final class McpStreamableWampEventBatch {
       handle: _requiredString(structuredContent, 'handle'),
       topic: _requiredString(structuredContent, 'topic'),
       events: _jsonMapListFrom(structuredContent, 'events'),
-      dropped: _optionalInt(structuredContent, 'dropped') ?? 0,
-      remaining: _optionalInt(structuredContent, 'remaining') ?? 0,
+      dropped: _optionalNonNegativeInt(structuredContent, 'dropped') ?? 0,
+      remaining: _optionalNonNegativeInt(structuredContent, 'remaining') ?? 0,
       structuredContent: structuredContent,
     );
   }
@@ -1258,6 +1258,28 @@ int? _optionalInt(McpJsonMap json, String key) {
   }
   if (value is! int) {
     throw FormatException('$key must be an integer');
+  }
+  return value;
+}
+
+int? _optionalNonNegativeInt(McpJsonMap json, String key) {
+  final value = _optionalInt(json, key);
+  if (value == null) {
+    return null;
+  }
+  if (value < 0) {
+    throw FormatException('$key must be a non-negative integer');
+  }
+  return value;
+}
+
+int? _optionalPositiveInt(McpJsonMap json, String key) {
+  final value = _optionalInt(json, key);
+  if (value == null) {
+    return null;
+  }
+  if (value <= 0) {
+    throw FormatException('$key must be a positive integer');
   }
   return value;
 }

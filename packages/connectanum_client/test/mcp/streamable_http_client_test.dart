@@ -4176,6 +4176,56 @@ void main() {
       );
     });
 
+    test('rejects invalid WAMP helper result counters and ids', () {
+      expect(
+        () =>
+            McpStreamableWampPublicationResult.fromJson(const <String, Object?>{
+              'topic': 'app.events.audit',
+              'acknowledged': true,
+              'publicationId': -1,
+            }),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampSubscriptionResult.fromJson(
+          const <String, Object?>{
+            'handle': 'wamp-sub-1',
+            'topic': 'app.events.audit',
+            'queueLimit': 0,
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampSubscriptionResult.fromJson(
+          const <String, Object?>{
+            'handle': 'wamp-sub-1',
+            'topic': 'app.events.audit',
+            'subscriptionId': -7,
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': 'app.events.audit',
+          'events': <Object?>[],
+          'dropped': -1,
+        }),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': 'app.events.audit',
+          'events': <Object?>[],
+          'remaining': -1,
+        }),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test(
       'uses typed WAMP helpers through direct JSON without lifecycle',
       () async {
