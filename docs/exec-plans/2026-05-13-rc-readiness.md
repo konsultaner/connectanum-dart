@@ -12485,6 +12485,33 @@ decision because `connectanum_client` still depends on private
 Active. The current implementation checkpoint strengthens public
 router-hosted MCP readiness for downstream applications. The public
 `connectanum_mcp` router-hosted client example now proves active direct JSON
+tool-notification side effects while a Streamable HTTP session is open. The
+active direct pub/sub path subscribes with lifecycle-free direct JSON, still
+covers acknowledged helper and raw-method pub/sub publishes plus
+notification-only pub/sub variants, and now also sends standard
+`notifyToolDirect`, Connectanum `notifyConnectanumToolDirect`, and raw
+`connectanum.tool.call` notification variants against the example task lookup
+tool. The smoke polls the resulting WAMP events, validates the emitted task
+lookup payloads, surfaces `toolNotificationEvents`,
+`connectanumToolNotificationEvents`, and `toolMethodNotificationEvents` in the
+active direct JSON pub/sub summary, and keeps asserting the Streamable session
+id/resume cursor remain unchanged.
+
+Local evidence for this checkpoint: pre-change `bin/test-fast`; focused
+post-change `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`; focused
+`python3 -m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`; full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`;
+focused public router-hosted MCP client dry-run smoke; focused public
+router-hosted MCP client live smoke;
+`git diff --check`; `python3 tool/check_public_artifact_references.py`; and
+full local `bin/verify` passed on 2026-07-09. Hosted evidence for this
+checkpoint is pending until the implementation commit is pushed.
+
+Previous checkpoint. The previous implementation checkpoint strengthened public
+router-hosted MCP readiness for downstream applications. The public
+`connectanum_mcp` router-hosted client example now proves active direct JSON
 WAMP pub/sub publish paths while a Streamable HTTP session is open. The active
 direct path subscribes with lifecycle-free direct JSON, performs acknowledged
 `publishWampEventDirect` and raw `connectanum.pubsub.publish` method publishes
@@ -12506,12 +12533,15 @@ router-hosted MCP client live smoke;
 `git diff --check`; `python3 tool/check_public_artifact_references.py`; and
 full local `bin/verify` passed on 2026-07-09.
 
-Hosted evidence is pending for this unpushed checkpoint. The latest hosted
-clean checkpoint remains `d17559e`: GitHub CI `28990134357`, Dart Package
-Publish Dry Run `28990134365`, and the deployment-chain audit passed on
-2026-07-09. Strict audit still fails only on expected operator-owned gaps:
-`add-router` is unprotected, and the checked-in pub.dev OIDC workflows are not
-Actions-discoverable until promoted through `master`.
+After commit `fb4cb6f`, hosted GitHub CI `28992372472` and Dart Package
+Publish Dry Run `28992372478` passed on 2026-07-09. The deployment-chain audit
+with required clean latest CI, clean CI logs, Dart package publish dry-run, and
+WAMP profile benchmark evidence also passed at `fb4cb6f`; WAMP Profile
+Benchmarks `28964007707` remain clean and relevant from `b81302a` because no
+WAMP benchmark-sensitive paths changed since then. Strict audit still reports
+only expected operator-owned gaps: `add-router` is unprotected, and the
+checked-in pub.dev OIDC workflows are not Actions-discoverable until promoted
+through `master`.
 
 Previous checkpoint. The previous implementation checkpoint strengthened public
 router-hosted MCP readiness for downstream applications. The public

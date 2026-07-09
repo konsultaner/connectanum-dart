@@ -3495,6 +3495,85 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
       label: 'Streamable active direct JSON pub/sub method notification poll',
     );
 
+    McpStreamableWampEventBatch? standardToolNotificationEvents;
+    McpStreamableWampEventBatch? connectanumToolNotificationEvents;
+    McpStreamableWampEventBatch? toolMethodNotificationEvents;
+    if (_canObserveExampleTaskLookup(options)) {
+      final toolName = options.toolName!;
+      const standardToolNotificationTaskId =
+          'T-active-direct-standard-tool-notification';
+      await client.notifyToolDirect(
+        toolName,
+        arguments: const {'taskId': standardToolNotificationTaskId},
+        headers: const <String, String>{
+          'x-consumer-trace':
+              'router-hosted-client-active-direct-standard-tool-notification',
+        },
+      );
+      standardToolNotificationEvents = await client.pollWampEventsDirect(
+        subscription.handle,
+        id: 'streamable-active-direct-tool-notification-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        standardToolNotificationEvents,
+        handle: subscription.handle,
+        topic: topic,
+        expectedEvent: _taskLookupEvent(standardToolNotificationTaskId),
+        label: 'Streamable active direct JSON standard tool notification poll',
+      );
+
+      const connectanumToolNotificationTaskId =
+          'T-active-direct-connectanum-tool-notification';
+      await client.notifyConnectanumToolDirect(
+        toolName,
+        arguments: const {'taskId': connectanumToolNotificationTaskId},
+        headers: const <String, String>{
+          'x-consumer-trace':
+              'router-hosted-client-active-direct-connectanum-tool-notification',
+        },
+      );
+      connectanumToolNotificationEvents = await client.pollWampEventsDirect(
+        subscription.handle,
+        id: 'streamable-active-direct-connectanum-tool-notification-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        connectanumToolNotificationEvents,
+        handle: subscription.handle,
+        topic: topic,
+        expectedEvent: _taskLookupEvent(connectanumToolNotificationTaskId),
+        label:
+            'Streamable active direct JSON Connectanum tool notification poll',
+      );
+
+      const toolMethodNotificationTaskId =
+          'T-active-direct-tool-method-notification';
+      await client.notifyConnectanumMethodDirect(
+        'connectanum.tool.call',
+        params: const <String, Object?>{
+          'name': 'example.task.lookup',
+          'arguments': {'taskId': toolMethodNotificationTaskId},
+        },
+        headers: const <String, String>{
+          'x-consumer-trace':
+              'router-hosted-client-active-direct-tool-method-notification',
+        },
+      );
+      toolMethodNotificationEvents = await client.pollWampEventsDirect(
+        subscription.handle,
+        id: 'streamable-active-direct-tool-method-notification-poll',
+        limit: queueLimit,
+      );
+      _expectWampEventBatch(
+        toolMethodNotificationEvents,
+        handle: subscription.handle,
+        topic: topic,
+        expectedEvent: _taskLookupEvent(toolMethodNotificationTaskId),
+        label: 'Streamable active direct JSON tool method notification poll',
+      );
+    }
+
     return <String, Object?>{
       'sessionUnchanged': true,
       'subscription': <String, Object?>{
@@ -3515,6 +3594,13 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
       'methodPublishEvents': methodPublishEvents.events,
       'notificationEvents': notificationEvents.events,
       'methodNotificationEvents': methodNotificationEvents.events,
+      if (standardToolNotificationEvents != null)
+        'toolNotificationEvents': standardToolNotificationEvents.events,
+      if (connectanumToolNotificationEvents != null)
+        'connectanumToolNotificationEvents':
+            connectanumToolNotificationEvents.events,
+      if (toolMethodNotificationEvents != null)
+        'toolMethodNotificationEvents': toolMethodNotificationEvents.events,
       'dropped': publishEvents.dropped,
       'remaining': publishEvents.remaining,
     };
