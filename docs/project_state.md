@@ -2,7 +2,26 @@
 
 Last updated: 2026-07-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: the router-hosted MCP client executable is
+Last reviewed branch checkpoint: the Dart package publish dry-run gate now
+validates declared `executables:` entries before treating an archive as
+release-ready. `bin/dart-package-publish-dry-run` reports every validated
+entrypoint, including `connectanum_mcp`'s `router_hosted_client ->
+bin/router_hosted_client.dart`, and fails if a declared executable does not
+have its matching `bin/*.dart` file. This makes the router-hosted MCP package
+structure visible in package-readiness evidence instead of relying only on
+source-layout tests.
+
+Baseline `bin/test-fast` passed before the executable archive-shape gate on
+2026-07-09. Focused `bash -n bin/dart-package-publish-dry-run`, `python3 -m
+py_compile tool/test_dart_package_publish_dry_run.py`, full `python3 -m
+unittest tool.test_dart_package_publish_dry_run -v`, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and real
+`bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan
+connectanum_mcp`, isolated rerun of the transient HTTP/3 protected direct JSON
+router test, and full local `bin/verify` rerun passed after the change on
+2026-07-09.
+
+Previous branch checkpoint: the router-hosted MCP client executable is
 now package-native instead of example-backed. The `connectanum_mcp`
 `router_hosted_client` executable and the public checked-in example are thin
 wrappers around `lib/src/cli/router_hosted_client.dart`, so the package archive
@@ -17,10 +36,18 @@ Baseline `bin/test-fast` passed before the package-structure change on
 unittest tool.test_mcp_consumer_package_boundary -v`, package executable help,
 example wrapper help, `python3 tool/check_public_artifact_references.py`, `git
 diff --check`, and full local `bin/verify` passed after the change on
-2026-07-09. A pre-commit `bin/dart-package-publish-dry-run --include-private
---show-release-plan connectanum_mcp` confirmed the archive shape with the
-runner under `lib/src/cli` and only the expected dirty-git warning for the
-uncommitted package files. Hosted evidence is pending after push.
+2026-07-09. A post-commit `bin/dart-package-publish-dry-run --include-private
+--show-release-plan connectanum_mcp` passed with zero warnings and confirmed
+the archive shape with the runner under `lib/src/cli`. Hosted evidence after
+push: commit `f4ab997` passed GitHub CI run `29037844720` (`Fast Checks` and
+`Full Verify`) and Dart Package Publish Dry Run `29037844673` on 2026-07-09.
+The deployment-chain audit
+`bin/audit-github-deployment-chain --branch add-router --run-limit 1
+--require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed at `f4ab997`; the audit
+still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example
 now proves the globally activated `connectanum_mcp` package executable can run

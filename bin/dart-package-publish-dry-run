@@ -126,6 +126,32 @@ pubspec_dependencies() {
   ' "$pubspec"
 }
 
+pubspec_executables() {
+  local pubspec="$1"
+
+  awk '
+    /^[^[:space:]][^:]*:/ {
+      in_executables = ($1 == "executables:")
+      next
+    }
+    in_executables && /^[[:space:]]+[A-Za-z0-9_][A-Za-z0-9_-]*:[[:space:]]*/ {
+      value = $0
+      sub(/^[[:space:]]*/, "", value)
+      name = value
+      sub(/:.*/, "", name)
+      sub(/^[^:]*:[[:space:]]*/, "", value)
+      sub(/[[:space:]]*#.*$/, "", value)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      gsub(/^["\047]/, "", value)
+      gsub(/["\047]$/, "", value)
+      if (value == "" || value == "null") {
+        value = name
+      }
+      print name " " value
+    }
+  ' "$pubspec"
+}
+
 resolve_package_root() {
   local package="$1"
   local candidate
@@ -255,6 +281,57 @@ append_unique_dependency_edge() {
   done
 
   release_plan_dependency_edges+=("$value")
+}
+
+append_unique_archive_shape_entry() {
+  local value="$1"
+  local existing
+
+  for existing in "${archive_shape_entries[@]-}"; do
+    [[ -n "$existing" ]] || continue
+    if [[ "$existing" == "$value" ]]; then
+      return 0
+    fi
+  done
+
+  archive_shape_entries+=("$value")
+}
+
+validate_declared_executables() {
+  local root="$1"
+  local package_name="$2"
+  local rel_root="$3"
+  local executable_entry
+  local executable
+  local script
+  local script_path
+
+  while IFS= read -r executable_entry; do
+    [[ -n "$executable_entry" ]] || continue
+    executable="${executable_entry%% *}"
+    script="${executable_entry#* }"
+    if [[ "$script" == "$executable_entry" ]]; then
+      script="$executable"
+    fi
+    script="${script%.dart}.dart"
+    script_path="bin/$script"
+
+    if [[ "$script_path" == *"/../"* || "$script_path" == *"/.." || "$script_path" == "../"* ]]; then
+      archive_shape_failures+=(
+        "${package_name} (${rel_root}): ${executable} maps outside bin/."
+      )
+      continue
+    fi
+
+    if [[ ! -f "$root/$script_path" ]]; then
+      archive_shape_failures+=(
+        "${package_name} (${rel_root}): ${executable} declares missing ${script_path}."
+      )
+      continue
+    fi
+
+    append_unique_archive_shape_entry "${package_name} (${rel_root}): ${executable} -> ${script_path}"
+  done < <(pubspec_executables "$root/pubspec.yaml")
 }
 
 collect_release_plan_inventory() {
@@ -500,6 +577,8 @@ release_plan_targets=()
 release_plan_private_packages=()
 release_plan_private_dependencies=()
 release_plan_dependency_edges=()
+archive_shape_entries=()
+archive_shape_failures=()
 
 for pubspec in packages/*/pubspec.yaml; do
   [[ -f "$pubspec" ]] || continue
@@ -547,6 +626,7 @@ for root in "${package_roots[@]}"; do
 
   dry_run_packages+=("${package_name} (${rel_root})")
   package_version="$(pubspec_version "$pubspec")"
+  validate_declared_executables "$root" "$package_name" "$rel_root"
   printf '\n## Publish dry-run: %s (%s)\n\n' "$package_name" "$rel_root"
   dry_run_output="$(mktemp "${TMPDIR:-/tmp}/connectanum-dart-pub-dry-run.XXXXXX")"
   if ! (
@@ -608,6 +688,20 @@ else
   printf '\nAll Dart package publish dry-runs reported zero warnings.\n'
 fi
 
+if [[ "${#archive_shape_entries[@]}" -gt 0 ]]; then
+  printf '\nValidated Dart package executable entrypoints:\n'
+  for entry in "${archive_shape_entries[@]}"; do
+    printf -- '- %s\n' "$entry"
+  done
+fi
+
+if [[ "${#archive_shape_failures[@]}" -gt 0 ]]; then
+  printf '\nDart package archive shape gate failed:\n'
+  for failure in "${archive_shape_failures[@]}"; do
+    printf -- '- %s\n' "$failure"
+  done
+fi
+
 if [[ "$show_release_plan" -ne 0 ]]; then
   print_release_plan
 fi
@@ -642,6 +736,18 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
       done
     else
       printf '\nAll package publish dry-runs reported zero warnings.\n'
+    fi
+    if [[ "${#archive_shape_entries[@]}" -gt 0 ]]; then
+      printf '\nValidated Dart package executable entrypoints:\n'
+      for entry in "${archive_shape_entries[@]}"; do
+        printf -- '- %s\n' "$entry"
+      done
+    fi
+    if [[ "${#archive_shape_failures[@]}" -gt 0 ]]; then
+      printf '\nDart package archive shape gate failures:\n'
+      for failure in "${archive_shape_failures[@]}"; do
+        printf -- '- %s\n' "$failure"
+      done
     fi
     if [[ "$show_release_plan" -ne 0 ]]; then
       printf '\nRelease-order plan:\n'
@@ -682,6 +788,10 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
 fi
 
 if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
+  exit 1
+fi
+
+if [[ "${#archive_shape_failures[@]}" -gt 0 ]]; then
   exit 1
 fi
 

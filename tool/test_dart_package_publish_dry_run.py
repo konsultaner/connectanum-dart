@@ -394,6 +394,15 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             result.stdout,
         )
         self.assertIn(
+            "Validated Dart package executable entrypoints:",
+            result.stdout,
+        )
+        self.assertIn(
+            "- connectanum_mcp (packages/connectanum_mcp): "
+            "router_hosted_client -> bin/router_hosted_client.dart",
+            result.stdout,
+        )
+        self.assertIn(
             "- connectanum_client -> connectanum_mcp",
             result.stdout,
         )
@@ -493,6 +502,37 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         ):
             with self.subTest(edge=edge):
                 self.assertIn(edge, result.stdout)
+
+    def test_missing_declared_executable_fails_archive_shape_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            package_root = Path(temp_dir) / "missing_executable_package"
+            package_root.mkdir()
+            (package_root / "pubspec.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    name: missing_executable_package
+                    version: 0.1.0
+                    environment:
+                      sdk: '^3.9.2'
+                    executables:
+                      missing_tool:
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            result = self._run_with_fake_dart(str(package_root))
+
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("Dart package archive shape gate failed:", result.stdout)
+        self.assertIn(
+            "missing_executable_package",
+            result.stdout,
+        )
+        self.assertIn(
+            "missing_tool declares missing bin/missing_tool.dart.",
+            result.stdout,
+        )
 
     def _run_with_fake_dart(self, *args: str) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
