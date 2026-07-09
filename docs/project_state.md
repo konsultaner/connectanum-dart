@@ -2,9 +2,26 @@
 
 Last updated: 2026-07-09
 Current branch: `add-router`
-Last reviewed branch checkpoint: typed MCP WAMP helper result parsing now
-rejects impossible numeric values from router-hosted MCP tool responses before
-consumer applications accept them. `McpStreamableWampPublicationResult` rejects
+Last reviewed branch checkpoint: typed MCP catalog helpers now reject malformed
+server-provided identifiers before returning tool, resource, resource-template,
+or prompt list pages to consumer applications. `McpStreamableHttpClient`
+validates tool names, resource URIs, resource-template URI templates, and
+prompt names from `tools/list`, `connectanum.tools.list`, `resources/list`,
+`resources/templates/list`, and `prompts/list` responses while preserving the
+direct JSON and Streamable HTTP typed helper APIs.
+
+Baseline `bin/test-fast` passed before the typed MCP catalog response
+validation on 2026-07-09. The focused regression `dart test
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart -n
+"rejects malformed typed catalog identifiers from responses" -r expanded`
+failed before the implementation, then passed after the parser change. Focused
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
+-r expanded`, `dart analyze packages/connectanum_client`, `git diff --check`,
+and full local `bin/verify` passed after the change on 2026-07-09.
+
+Previous branch checkpoint: typed MCP WAMP helper result parsing now rejects
+impossible numeric values from router-hosted MCP tool responses before consumer
+applications accept them. `McpStreamableWampPublicationResult` rejects
 non-positive `publicationId`, `McpStreamableWampSubscriptionResult` rejects
 non-positive `subscriptionId` and `queueLimit`, and
 `McpStreamableWampEventBatch` rejects negative `dropped` and `remaining`
@@ -21,7 +38,15 @@ expanded`, `dart analyze packages/connectanum_client`, `git diff --check`, and
 full local `bin/verify` rerun passed after the change on 2026-07-09. The first
 full `bin/verify` attempt hit a transient native HTTP/3 direct JSON WAMP helper
 timeout; the exact isolated test passed immediately, and the clean full rerun
-passed.
+passed. Hosted evidence after push: commit `eeacd42` passed GitHub CI run
+`29048240033` (`Fast Checks` and `Full Verify`), Dart Package Publish Dry Run
+`29048240072`, and WAMP Profile Benchmarks `29048240035` on 2026-07-09. The
+deployment-chain audit `bin/audit-github-deployment-chain --branch add-router
+--run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed at `eeacd42`; the audit
+still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: the Dart package publish dry-run gate now
 validates declared `executables:` entries before treating an archive as

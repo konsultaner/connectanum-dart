@@ -3981,6 +3981,71 @@ void main() {
       },
     );
 
+    test(
+      'rejects malformed typed catalog identifiers from responses',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(client.close);
+
+        Future<void> expectCatalogFormatError(
+          Future<Object?> Function() action,
+          String message,
+        ) async {
+          await expectLater(
+            action(),
+            throwsA(
+              isA<FormatException>().having(
+                (error) => error.message,
+                'message',
+                contains(message),
+              ),
+            ),
+          );
+        }
+
+        await expectCatalogFormatError(
+          () => client.listTools(
+            id: 'invalid-tool-catalog',
+            streamable: false,
+            headers: const <String, String>{'x-test-invalid-tool-catalog': '1'},
+          ),
+          'tools/list result tool.name',
+        );
+        await expectCatalogFormatError(
+          () => client.listResources(
+            id: 'invalid-resource-catalog',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-invalid-resource-catalog': '1',
+            },
+          ),
+          'resources/list result resource.uri',
+        );
+        await expectCatalogFormatError(
+          () => client.listResourceTemplates(
+            id: 'invalid-template-catalog',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-invalid-template-catalog': '1',
+            },
+          ),
+          'resources/templates/list result resource template.uriTemplate',
+        );
+        await expectCatalogFormatError(
+          () => client.listPrompts(
+            id: 'invalid-prompt-catalog',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-invalid-prompt-catalog': '1',
+            },
+          ),
+          'prompts/list result prompt.name',
+        );
+      },
+    );
+
     test('uses Connectanum WAMP tool helpers for API and pubsub', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -6172,6 +6237,18 @@ final class _FakeMcpEndpoint {
     }
 
     if (method == 'resources/list') {
+      if (request.headers.value('x-test-invalid-resource-catalog') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'resources': <Object?>[
+              <String, Object?>{'uri': 'relative/readme', 'name': 'readme'},
+            ],
+          },
+        });
+        return;
+      }
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
         'id': requestBody['id'],
@@ -6210,6 +6287,18 @@ final class _FakeMcpEndpoint {
     }
 
     if (method == 'resources/templates/list') {
+      if (request.headers.value('x-test-invalid-template-catalog') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'resourceTemplates': <Object?>[
+              <String, Object?>{'uriTemplate': '', 'name': 'app-resource'},
+            ],
+          },
+        });
+        return;
+      }
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
         'id': requestBody['id'],
@@ -6226,6 +6315,21 @@ final class _FakeMcpEndpoint {
     }
 
     if (method == 'prompts/list') {
+      if (request.headers.value('x-test-invalid-prompt-catalog') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'prompts': <Object?>[
+              <String, Object?>{
+                'name': '',
+                'description': 'Missing a usable prompt name.',
+              },
+            ],
+          },
+        });
+        return;
+      }
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
         'id': requestBody['id'],
@@ -6401,6 +6505,23 @@ final class _FakeMcpEndpoint {
         'id: session-1:post:2\n'
         'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
       );
+      return;
+    }
+
+    if (method == 'tools/list' &&
+        request.headers.value('x-test-invalid-tool-catalog') == '1') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'tools': <Object?>[
+            <String, Object?>{
+              'name': 'bad/tool',
+              'description': 'Invalid tool name.',
+            },
+          ],
+        },
+      });
       return;
     }
 

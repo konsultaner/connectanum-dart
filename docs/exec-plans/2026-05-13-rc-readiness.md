@@ -79,6 +79,16 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-09: Hardened typed MCP catalog response parsing in
+  `connectanum_client`. The Streamable HTTP client now rejects malformed
+  server-provided tool names, resource URIs, resource-template URI templates,
+  and prompt names before returning typed catalog list pages to consumer
+  applications through `tools/list`, `connectanum.tools.list`,
+  `resources/list`, `resources/templates/list`, and `prompts/list`. The
+  focused streamable HTTP client regression failed before the parser change,
+  then passed after the implementation; the full streamable HTTP client suite,
+  `dart analyze packages/connectanum_client`, `git diff --check`, and full
+  local `bin/verify` passed on 2026-07-09.
 - 2026-07-09: Hardened typed MCP WAMP helper result parsing in
   `connectanum_client`. The client now rejects non-positive `publicationId`,
   `subscriptionId`, and `queueLimit` values plus negative event batch
@@ -89,7 +99,13 @@ decision because `connectanum_client` still depends on private
   packages/connectanum_client`, `git diff --check`, and a clean full
   `bin/verify` rerun passed on 2026-07-09. A first full `bin/verify` attempt
   hit a transient native HTTP/3 direct JSON WAMP helper timeout; the exact
-  isolated test and the full rerun both passed.
+  isolated test and the full rerun both passed. Hosted evidence after push:
+  GitHub CI `29048240033`, Dart Package Publish Dry Run `29048240072`, WAMP
+  Profile Benchmarks `29048240035`, and the deployment-chain audit with
+  required latest CI plus Dart package dry-run evidence passed for `eeacd42`;
+  the audit still reports the expected operator-owned gaps that `add-router`
+  is unprotected and the checked-in pub.dev workflows are not
+  Actions-discoverable until promoted through `master`.
 - 2026-07-09: Added a Dart package archive-shape gate for declared
   `executables:` entries. `bin/dart-package-publish-dry-run` now validates
   that every declared executable maps to a matching `bin/*.dart` file, reports

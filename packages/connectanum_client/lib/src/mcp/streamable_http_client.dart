@@ -505,10 +505,13 @@ final class McpStreamableHttpClient {
     );
     final result = _jsonRpcResultFrom(response, method: 'tools/list');
     final tools = _rememberToolHeaderParameters(
-      _jsonMapListFrom(
-        result,
-        key: 'tools',
-        method: 'tools/list',
+      _validatedToolCatalogEntries(
+        _jsonMapListFrom(
+          result,
+          key: 'tools',
+          method: 'tools/list',
+          label: 'tools/list result tool',
+        ),
         label: 'tools/list result tool',
       ),
     );
@@ -534,10 +537,13 @@ final class McpStreamableHttpClient {
     );
     final result = _jsonRpcResultFrom(response, method: method);
     final tools = _rememberToolHeaderParameters(
-      _jsonMapListFrom(
-        result,
-        key: 'tools',
-        method: method,
+      _validatedToolCatalogEntries(
+        _jsonMapListFrom(
+          result,
+          key: 'tools',
+          method: method,
+          label: '$method result tool',
+        ),
         label: '$method result tool',
       ),
     );
@@ -635,10 +641,13 @@ final class McpStreamableHttpClient {
     );
     final result = _jsonRpcResultFrom(response, method: method);
     final tools = _rememberToolHeaderParameters(
-      _jsonMapListFrom(
-        result,
-        key: 'tools',
-        method: method,
+      _validatedToolCatalogEntries(
+        _jsonMapListFrom(
+          result,
+          key: 'tools',
+          method: method,
+          label: '$method result tool',
+        ),
         label: '$method result tool',
       ),
     );
@@ -787,10 +796,13 @@ final class McpStreamableHttpClient {
     );
     final result = _jsonRpcResultFrom(response, method: 'resources/list');
     return McpStreamableResourceListPage(
-      resources: _jsonMapListFrom(
-        result,
-        key: 'resources',
-        method: 'resources/list',
+      resources: _validatedResourceCatalogEntries(
+        _jsonMapListFrom(
+          result,
+          key: 'resources',
+          method: 'resources/list',
+          label: 'resources/list result resource',
+        ),
         label: 'resources/list result resource',
       ),
       nextCursor: _nextCursorFrom(result, method: 'resources/list'),
@@ -846,10 +858,13 @@ final class McpStreamableHttpClient {
       method: 'resources/templates/list',
     );
     return McpStreamableResourceTemplateListPage(
-      resourceTemplates: _jsonMapListFrom(
-        result,
-        key: 'resourceTemplates',
-        method: 'resources/templates/list',
+      resourceTemplates: _validatedResourceTemplateCatalogEntries(
+        _jsonMapListFrom(
+          result,
+          key: 'resourceTemplates',
+          method: 'resources/templates/list',
+          label: 'resources/templates/list result resource template',
+        ),
         label: 'resources/templates/list result resource template',
       ),
       nextCursor: _nextCursorFrom(result, method: 'resources/templates/list'),
@@ -875,10 +890,13 @@ final class McpStreamableHttpClient {
     );
     final result = _jsonRpcResultFrom(response, method: 'prompts/list');
     return McpStreamablePromptListPage(
-      prompts: _jsonMapListFrom(
-        result,
-        key: 'prompts',
-        method: 'prompts/list',
+      prompts: _validatedPromptCatalogEntries(
+        _jsonMapListFrom(
+          result,
+          key: 'prompts',
+          method: 'prompts/list',
+          label: 'prompts/list result prompt',
+        ),
         label: 'prompts/list result prompt',
       ),
       nextCursor: _nextCursorFrom(result, method: 'prompts/list'),
@@ -2086,6 +2104,70 @@ List<McpJsonMap> _jsonMapListFrom(
     throw FormatException('$method result.$key must be an array');
   }
   return [for (final item in value) _jsonMapFrom(item, label: label)];
+}
+
+List<McpJsonMap> _validatedToolCatalogEntries(
+  List<McpJsonMap> entries, {
+  required String label,
+}) {
+  for (final entry in entries) {
+    final name = entry['name'];
+    if (name is! String || !_mcpToolNamePattern.hasMatch(name)) {
+      throw FormatException('$label.name must be a valid MCP tool name');
+    }
+  }
+  return List<McpJsonMap>.unmodifiable(entries);
+}
+
+List<McpJsonMap> _validatedResourceCatalogEntries(
+  List<McpJsonMap> entries, {
+  required String label,
+}) {
+  for (final entry in entries) {
+    final uri = entry['uri'];
+    if (uri is! String ||
+        containsMcpWhitespaceOrControl(uri) ||
+        Uri.tryParse(uri)?.hasScheme != true) {
+      throw FormatException('$label.uri must be an absolute URI with a scheme');
+    }
+  }
+  return List<McpJsonMap>.unmodifiable(entries);
+}
+
+List<McpJsonMap> _validatedResourceTemplateCatalogEntries(
+  List<McpJsonMap> entries, {
+  required String label,
+}) {
+  for (final entry in entries) {
+    _requireCatalogText(entry, 'uriTemplate', label: label);
+  }
+  return List<McpJsonMap>.unmodifiable(entries);
+}
+
+List<McpJsonMap> _validatedPromptCatalogEntries(
+  List<McpJsonMap> entries, {
+  required String label,
+}) {
+  for (final entry in entries) {
+    _requireCatalogText(entry, 'name', label: label);
+  }
+  return List<McpJsonMap>.unmodifiable(entries);
+}
+
+void _requireCatalogText(
+  McpJsonMap entry,
+  String key, {
+  required String label,
+}) {
+  final value = entry[key];
+  if (value is! String ||
+      value.isEmpty ||
+      containsMcpWhitespaceOrControl(value)) {
+    throw FormatException(
+      '$label.$key must be a non-empty string without whitespace or '
+      'control characters',
+    );
+  }
 }
 
 String? _nextCursorFrom(McpJsonMap result, {required String method}) {
