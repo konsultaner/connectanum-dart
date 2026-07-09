@@ -12484,6 +12484,37 @@ decision because `connectanum_client` still depends on private
 
 Active. The current implementation checkpoint strengthens public
 router-hosted MCP readiness for downstream applications. The public
+`connectanum_mcp` router-hosted client example now proves active direct JSON
+WAMP pub/sub publish paths while a Streamable HTTP session is open. The active
+direct path subscribes with lifecycle-free direct JSON, performs acknowledged
+`publishWampEventDirect` and raw `connectanum.pubsub.publish` method publishes
+with `acknowledge: true`, validates returned topic, acknowledgement state, and
+publication IDs, then polls both resulting event batches before still
+exercising notification-only helper and method variants. The smoke surfaces
+`publication`, `publishEvents`, `methodPublication`, and `methodPublishEvents`
+in the active direct JSON summary and keeps asserting the Streamable session
+id/resume cursor remain unchanged.
+
+Local evidence for this checkpoint: pre-change `bin/test-fast`; focused
+post-change `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`; focused
+`python3 -m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`; full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`;
+focused public router-hosted MCP client dry-run smoke; focused public
+router-hosted MCP client live smoke;
+`git diff --check`; `python3 tool/check_public_artifact_references.py`; and
+full local `bin/verify` passed on 2026-07-09.
+
+Hosted evidence is pending for this unpushed checkpoint. The latest hosted
+clean checkpoint remains `d17559e`: GitHub CI `28990134357`, Dart Package
+Publish Dry Run `28990134365`, and the deployment-chain audit passed on
+2026-07-09. Strict audit still fails only on expected operator-owned gaps:
+`add-router` is unprotected, and the checked-in pub.dev OIDC workflows are not
+Actions-discoverable until promoted through `master`.
+
+Previous checkpoint. The previous implementation checkpoint strengthened public
+router-hosted MCP readiness for downstream applications. The public
 `connectanum_mcp` router-hosted client example now proves raw direct JSON batch
 access to configured WAMP registration and subscription metadata in both the
 plain direct JSON path and the active direct JSON path while a Streamable HTTP
@@ -12511,16 +12542,15 @@ full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`;
 `git diff --check`; `python3 tool/check_public_artifact_references.py`; and
 full local `bin/verify` passed on 2026-07-09.
 
-Hosted evidence for this checkpoint has not yet been refreshed. After commit
-`51a0dfa`, hosted GitHub CI `28987420234` and Dart Package Publish Dry Run
-`28987420215` passed on 2026-07-09. The deployment-chain audit with required
-clean latest CI, clean CI logs, Dart package publish dry-run, and WAMP profile
-benchmark evidence also passed at `51a0dfa`; WAMP Profile Benchmarks
-`28964007707` remain clean and relevant from `b81302a` because no WAMP
-benchmark-sensitive paths changed since then. Strict audit still fails only on
-expected operator-owned gaps: `add-router` is unprotected, and the checked-in
-pub.dev OIDC workflows are not Actions-discoverable until promoted through
-`master`.
+After commit `d17559e`, hosted GitHub CI `28990134357` and Dart Package
+Publish Dry Run `28990134365` passed on 2026-07-09. The deployment-chain audit
+with required clean latest CI, clean CI logs, Dart package publish dry-run, and
+WAMP profile benchmark evidence also passed at `d17559e`; WAMP Profile
+Benchmarks `28964007707` remain clean and relevant from `b81302a` because no
+WAMP benchmark-sensitive paths changed since then. Strict audit still fails
+only on expected operator-owned gaps: `add-router` is unprotected, and the
+checked-in pub.dev OIDC workflows are not Actions-discoverable until promoted
+through `master`.
 
 RC readiness remains blocked only by explicit operator-owned release decisions:
 branch protection/default-branch promotion, approved numeric RC tag,

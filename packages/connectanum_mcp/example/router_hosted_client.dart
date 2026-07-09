@@ -3379,6 +3379,79 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
   );
 
   try {
+    final publishEvent = <String, Object?>{
+      'activeDirectPublishEvent': options.pubsubEvent,
+    };
+    final publication = await client.publishWampEventDirect(
+      topic,
+      id: 'streamable-active-direct-pubsub-publish',
+      argumentsKeywords: publishEvent,
+      acknowledge: true,
+    );
+    _expectWampPublication(
+      publication,
+      topic: topic,
+      label: 'Streamable active direct JSON pub/sub publish',
+    );
+    final publishEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'streamable-active-direct-pubsub-publish-poll',
+      limit: queueLimit,
+    );
+    _expectWampEventBatch(
+      publishEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: publishEvent,
+      label: 'Streamable active direct JSON pub/sub publish poll',
+    );
+
+    final methodPublishEvent = <String, Object?>{
+      'activeDirectMethodPublishEvent': options.pubsubEvent,
+    };
+    final methodPublication = _structuredContentFromToolResult(
+      await client.callConnectanumMethodDirect(
+        'connectanum.pubsub.publish',
+        id: 'streamable-active-direct-pubsub-publish-method',
+        params: <String, Object?>{
+          'topic': topic,
+          'argumentsKeywords': methodPublishEvent,
+          'acknowledge': true,
+        },
+      ),
+      label: 'Streamable active direct JSON pub/sub method publish',
+    );
+    if (methodPublication['topic'] != topic) {
+      throw StateError(
+        'Streamable active direct JSON pub/sub method publish returned topic '
+        '${methodPublication['topic']}, expected $topic.',
+      );
+    }
+    if (methodPublication['acknowledged'] != true) {
+      throw StateError(
+        'Streamable active direct JSON pub/sub method publish did not '
+        'acknowledge publication.',
+      );
+    }
+    if (methodPublication['publicationId'] == null) {
+      throw StateError(
+        'Streamable active direct JSON pub/sub method publish acknowledged '
+        'without a publication id.',
+      );
+    }
+    final methodPublishEvents = await client.pollWampEventsDirect(
+      subscription.handle,
+      id: 'streamable-active-direct-pubsub-method-publish-poll',
+      limit: queueLimit,
+    );
+    _expectWampEventBatch(
+      methodPublishEvents,
+      handle: subscription.handle,
+      topic: topic,
+      expectedEvent: methodPublishEvent,
+      label: 'Streamable active direct JSON pub/sub method publish poll',
+    );
+
     final notificationEvent = <String, Object?>{
       'activeDirectNotificationEvent': options.pubsubEvent,
     };
@@ -3431,10 +3504,19 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
         if (subscription.subscriptionId != null)
           'subscriptionId': subscription.subscriptionId,
       },
+      'publication': <String, Object?>{
+        'topic': publication.topic,
+        'acknowledged': publication.acknowledged,
+        if (publication.publicationId != null)
+          'publicationId': publication.publicationId,
+      },
+      'publishEvents': publishEvents.events,
+      'methodPublication': methodPublication,
+      'methodPublishEvents': methodPublishEvents.events,
       'notificationEvents': notificationEvents.events,
       'methodNotificationEvents': methodNotificationEvents.events,
-      'dropped': notificationEvents.dropped,
-      'remaining': notificationEvents.remaining,
+      'dropped': publishEvents.dropped,
+      'remaining': publishEvents.remaining,
     };
   } finally {
     await client.unsubscribeWampTopicDirect(

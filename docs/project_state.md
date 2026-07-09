@@ -3,6 +3,35 @@
 Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
+now proves active direct JSON WAMP pub/sub publish paths while a Streamable
+HTTP session is open. The active direct path subscribes with lifecycle-free
+direct JSON, performs acknowledged `publishWampEventDirect` and raw
+`connectanum.pubsub.publish` method publishes with `acknowledge: true`,
+validates returned topic, acknowledgement state, and publication IDs, then
+polls both resulting event batches before still exercising notification-only
+helper and method variants. The smoke surfaces `publication`, `publishEvents`,
+`methodPublication`, and `methodPublishEvents` in the active direct JSON
+summary and continues asserting the Streamable session id/resume cursor remain
+unchanged.
+
+Baseline `bin/test-fast` passed before the active direct JSON pub/sub publish
+coverage change on 2026-07-09. Focused `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`,
+`python3 -m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`, full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
+public router-hosted MCP client dry-run smoke, public router-hosted MCP client
+live smoke, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and full local
+`bin/verify` passed after the change. Hosted evidence is pending for this
+unpushed checkpoint. The latest hosted clean checkpoint remains `d17559e`:
+GitHub CI `28990134357`, Dart Package Publish Dry Run `28990134365`, and the
+deployment-chain audit passed on 2026-07-09. The strict audit still fails only
+on expected operator-owned gaps: `add-router` is unprotected, and the checked-in
+pub.dev OIDC workflows are not Actions discoverable until promoted through
+`master`.
+
+Previous branch checkpoint: the public router-hosted MCP client example
 now proves raw direct JSON batch access to configured WAMP registration and
 subscription metadata in both the plain direct JSON path and the active direct
 JSON path while a Streamable HTTP session is open. When a consumer supplies
@@ -27,12 +56,11 @@ tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_publ
 public router-hosted MCP client dry-run smoke, and public router-hosted MCP
 client live smoke, `git diff --check`,
 `python3 tool/check_public_artifact_references.py`, and full local
-`bin/verify` passed after the change. Hosted evidence for this checkpoint has
-not yet been refreshed; after commit `51a0dfa`, hosted GitHub CI
-`28987420234` and Dart Package Publish Dry Run `28987420215` passed on
+`bin/verify` passed after the change. After commit `d17559e`, hosted GitHub CI
+`28990134357` and Dart Package Publish Dry Run `28990134365` passed on
 2026-07-09. The deployment-chain audit with required clean latest CI, clean CI
 logs, Dart package publish dry-run, and WAMP profile benchmark evidence also
-passed at `51a0dfa`; WAMP Profile Benchmarks `28964007707` remain clean and
+passed at `d17559e`; WAMP Profile Benchmarks `28964007707` remain clean and
 relevant from `b81302a` because no WAMP benchmark-sensitive paths changed since
 then. The strict audit still fails only on expected operator-owned gaps:
 `add-router` is unprotected, and the checked-in pub.dev OIDC workflows are not
