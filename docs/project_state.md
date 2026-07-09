@@ -1,8 +1,32 @@
 # Project State
 
-Last updated: 2026-07-09
+Last updated: 2026-07-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: typed MCP catalog helpers now reject malformed
+Last reviewed branch checkpoint: typed MCP detail helpers now reject malformed
+server-provided resource, prompt, and tool-call result payloads before
+returning them to consumer applications. `McpStreamableHttpClient` validates
+`resources/read` content URIs, MIME fields, and text/blob payload shape;
+`prompts/get` descriptions, messages, roles, and content blocks; and
+`tools/call` / `connectanum.tool.call` typed result content,
+`structuredContent`, and `isError` fields for `callTool`, `callToolDirect`,
+and `callConnectanumToolDirect`. The generic `callConnectanumMethod` surface
+still returns raw WAMP/meta results.
+
+Baseline `bin/test-fast` passed before the typed MCP detail response
+validation on 2026-07-10. The focused resource/prompt regression `dart test
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart -n
+"rejects malformed typed resource and prompt detail responses" -r expanded`
+failed before the implementation, then passed after the parser change. The
+focused tool-call regression `dart test
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart -n
+"rejects malformed typed tool call responses" -r expanded` also failed before
+the implementation, then passed after the parser change. Focused `dart test
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r
+expanded`, `dart analyze packages/connectanum_client`, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and full local
+`bin/verify` passed after the change on 2026-07-10.
+
+Previous branch checkpoint: typed MCP catalog helpers now reject malformed
 server-provided identifiers before returning tool, resource, resource-template,
 or prompt list pages to consumer applications. `McpStreamableHttpClient`
 validates tool names, resource URIs, resource-template URI templates, and
@@ -17,7 +41,16 @@ packages/connectanum_client/test/mcp/streamable_http_client_test.dart -n
 failed before the implementation, then passed after the parser change. Focused
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
 -r expanded`, `dart analyze packages/connectanum_client`, `git diff --check`,
-and full local `bin/verify` passed after the change on 2026-07-09.
+and full local `bin/verify` passed after the change on 2026-07-09. Hosted
+evidence after push: commit `968ba3f` passed GitHub CI run `29052121395`
+(`Fast Checks` and `Full Verify`), Dart Package Publish Dry Run
+`29052121440`, and WAMP Profile Benchmarks `29052121449` on 2026-07-09. The
+deployment-chain audit `bin/audit-github-deployment-chain --branch add-router
+--run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed at `968ba3f`; the audit
+still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: typed MCP WAMP helper result parsing now rejects
 impossible numeric values from router-hosted MCP tool responses before consumer

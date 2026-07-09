@@ -3,7 +3,7 @@
 Status: complete
 Owner: Codex
 Created: 2026-05-13
-Last updated: 2026-07-09
+Last updated: 2026-07-10
 
 ## Problem
 
@@ -79,6 +79,18 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened typed MCP detail response parsing in
+  `connectanum_client`. The Streamable HTTP client now rejects malformed
+  `resources/read` content entries, `prompts/get` message/content blocks, and
+  typed `tools/call` / `connectanum.tool.call` result shapes before returning
+  them to consumer applications through `readResource`, `getPrompt`,
+  `callTool`, `callToolDirect`, and `callConnectanumToolDirect`; the generic
+  `callConnectanumMethod` path remains a raw WAMP/meta helper. The focused
+  resource/prompt and tool-call regressions each failed before the parser
+  change, then passed after the implementation; the full streamable HTTP
+  client suite, `dart analyze packages/connectanum_client`, `git diff
+  --check`, `python3 tool/check_public_artifact_references.py`, and full local
+  `bin/verify` passed on 2026-07-10.
 - 2026-07-09: Hardened typed MCP catalog response parsing in
   `connectanum_client`. The Streamable HTTP client now rejects malformed
   server-provided tool names, resource URIs, resource-template URI templates,
@@ -88,7 +100,13 @@ decision because `connectanum_client` still depends on private
   focused streamable HTTP client regression failed before the parser change,
   then passed after the implementation; the full streamable HTTP client suite,
   `dart analyze packages/connectanum_client`, `git diff --check`, and full
-  local `bin/verify` passed on 2026-07-09.
+  local `bin/verify` passed on 2026-07-09. Hosted evidence after push: GitHub
+  CI `29052121395`, Dart Package Publish Dry Run `29052121440`, WAMP Profile
+  Benchmarks `29052121449`, and the deployment-chain audit with required
+  latest CI plus Dart package dry-run evidence passed for `968ba3f`; the audit
+  still reports the expected operator-owned gaps that `add-router` is
+  unprotected and the checked-in pub.dev workflows are not
+  Actions-discoverable until promoted through `master`.
 - 2026-07-09: Hardened typed MCP WAMP helper result parsing in
   `connectanum_client`. The client now rejects non-positive `publicationId`,
   `subscriptionId`, and `queueLimit` values plus negative event batch

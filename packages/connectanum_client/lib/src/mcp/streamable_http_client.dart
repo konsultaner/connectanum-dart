@@ -570,7 +570,10 @@ final class McpStreamableHttpClient {
       protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
-    return _jsonRpcResultFrom(response, method: 'tools/call');
+    return _validatedToolCallResult(
+      _jsonRpcResultFrom(response, method: 'tools/call'),
+      label: 'tools/call result',
+    );
   }
 
   Future<void> notifyTool(
@@ -605,7 +608,10 @@ final class McpStreamableHttpClient {
       protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
-    return _jsonRpcResultFrom(response, method: 'tools/call');
+    return _validatedToolCallResult(
+      _jsonRpcResultFrom(response, method: 'tools/call'),
+      label: 'tools/call result',
+    );
   }
 
   Future<void> notifyToolDirect(
@@ -675,7 +681,10 @@ final class McpStreamableHttpClient {
       protocolVersion: protocolVersion,
       headers: _headersWithToolParameterHeaders(toolName, arguments, headers),
     );
-    return _jsonRpcResultFrom(response, method: method);
+    return _validatedToolCallResult(
+      _jsonRpcResultFrom(response, method: method),
+      label: '$method result',
+    );
   }
 
   Future<McpJsonMap> callConnectanumMethod(
@@ -828,10 +837,13 @@ final class McpStreamableHttpClient {
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: 'resources/read');
-    return _jsonMapListFrom(
-      result,
-      key: 'contents',
-      method: 'resources/read',
+    return _validatedResourceReadContents(
+      _jsonMapListFrom(
+        result,
+        key: 'contents',
+        method: 'resources/read',
+        label: 'resources/read result content',
+      ),
       label: 'resources/read result content',
     );
   }
@@ -922,7 +934,10 @@ final class McpStreamableHttpClient {
       protocolVersion: protocolVersion,
       headers: headers,
     );
-    return _jsonRpcResultFrom(response, method: 'prompts/get');
+    return _validatedPromptGetResult(
+      _jsonRpcResultFrom(response, method: 'prompts/get'),
+      label: 'prompts/get result',
+    );
   }
 
   Future<McpStreamableResourceListPage> listResourcesDirect({
@@ -2154,6 +2169,134 @@ List<McpJsonMap> _validatedPromptCatalogEntries(
   return List<McpJsonMap>.unmodifiable(entries);
 }
 
+List<McpJsonMap> _validatedResourceReadContents(
+  List<McpJsonMap> entries, {
+  required String label,
+}) {
+  for (final entry in entries) {
+    _validateResourceContent(entry, label: label);
+  }
+  return entries;
+}
+
+McpJsonMap _validatedToolCallResult(
+  McpJsonMap result, {
+  required String label,
+}) {
+  final contentValue = result['content'];
+  if (contentValue is! List) {
+    throw FormatException('$label.content must be an array');
+  }
+  for (final item in contentValue) {
+    final block = _jsonMapFrom(item, label: '$label.content');
+    _validateContentBlock(block, label: '$label.content');
+  }
+
+  final structuredContent = result['structuredContent'];
+  if (structuredContent != null) {
+    _jsonMapFrom(structuredContent, label: '$label.structuredContent');
+  }
+
+  final isError = result['isError'];
+  if (isError != null && isError is! bool) {
+    throw FormatException('$label.isError must be a boolean');
+  }
+
+  return result;
+}
+
+McpJsonMap _validatedPromptGetResult(
+  McpJsonMap result, {
+  required String label,
+}) {
+  final description = result['description'];
+  if (description != null && description is! String) {
+    throw FormatException('$label.description must be a string');
+  }
+
+  final messagesValue = result['messages'];
+  if (messagesValue is! List) {
+    throw FormatException('$label.messages must be an array');
+  }
+  for (final item in messagesValue) {
+    final message = _jsonMapFrom(item, label: '$label message');
+    _validatePromptMessage(message, label: '$label message');
+  }
+  return result;
+}
+
+void _validatePromptMessage(McpJsonMap message, {required String label}) {
+  final role = message['role'];
+  if (role != 'user' && role != 'assistant') {
+    throw FormatException('$label.role must be user or assistant');
+  }
+  final content = _jsonMapFrom(message['content'], label: '$label.content');
+  _validateContentBlock(content, label: '$label.content');
+}
+
+void _validateContentBlock(McpJsonMap content, {required String label}) {
+  final type = content['type'];
+  if (type is! String || type.isEmpty) {
+    throw FormatException('$label.type must be a non-empty string');
+  }
+
+  switch (type) {
+    case 'text':
+      _requireStringField(content, 'text', label: label);
+      break;
+    case 'image':
+    case 'audio':
+      _requireStringField(content, 'data', label: label);
+      _requireStringField(content, 'mimeType', label: label);
+      _validateBase64Field(content, 'data', label: label);
+      break;
+    case 'resource':
+      final resource = _jsonMapFrom(
+        content['resource'],
+        label: '$label.resource',
+      );
+      _validateResourceContent(resource, label: '$label.resource');
+      break;
+    case 'resource_link':
+      final uri = content['uri'];
+      if (uri is! String ||
+          containsMcpWhitespaceOrControl(uri) ||
+          Uri.tryParse(uri)?.hasScheme != true) {
+        throw FormatException(
+          '$label.uri must be an absolute URI with a scheme',
+        );
+      }
+      _requireNonEmptyStringField(content, 'name', label: label);
+      break;
+  }
+}
+
+void _validateResourceContent(McpJsonMap content, {required String label}) {
+  final uri = content['uri'];
+  if (uri is! String ||
+      containsMcpWhitespaceOrControl(uri) ||
+      Uri.tryParse(uri)?.hasScheme != true) {
+    throw FormatException('$label.uri must be an absolute URI with a scheme');
+  }
+
+  final mimeType = content['mimeType'];
+  if (mimeType != null && mimeType is! String) {
+    throw FormatException('$label.mimeType must be a string');
+  }
+
+  final hasText = content.containsKey('text');
+  final hasBlob = content.containsKey('blob');
+  if (hasText == hasBlob) {
+    throw FormatException('$label must contain exactly one of text or blob');
+  }
+  if (hasText) {
+    _requireStringField(content, 'text', label: label);
+  } else {
+    _requireStringField(content, 'blob', label: label);
+    _validateBase64Field(content, 'blob', label: label);
+  }
+}
+
 void _requireCatalogText(
   McpJsonMap entry,
   String key, {
@@ -2167,6 +2310,40 @@ void _requireCatalogText(
       '$label.$key must be a non-empty string without whitespace or '
       'control characters',
     );
+  }
+}
+
+void _requireStringField(
+  McpJsonMap entry,
+  String key, {
+  required String label,
+}) {
+  if (entry[key] is! String) {
+    throw FormatException('$label.$key must be a string');
+  }
+}
+
+void _requireNonEmptyStringField(
+  McpJsonMap entry,
+  String key, {
+  required String label,
+}) {
+  final value = entry[key];
+  if (value is! String || value.isEmpty) {
+    throw FormatException('$label.$key must be a non-empty string');
+  }
+}
+
+void _validateBase64Field(
+  McpJsonMap entry,
+  String key, {
+  required String label,
+}) {
+  final value = entry[key] as String;
+  try {
+    base64Decode(value);
+  } on FormatException {
+    throw FormatException('$label.$key must be base64 encoded');
   }
 }
 

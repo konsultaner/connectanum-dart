@@ -4046,6 +4046,134 @@ void main() {
       },
     );
 
+    test(
+      'rejects malformed typed resource and prompt detail responses',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(client.close);
+
+        Future<void> expectDetailFormatError(
+          Future<Object?> Function() action,
+          String message,
+        ) async {
+          await expectLater(
+            action(),
+            throwsA(
+              isA<FormatException>().having(
+                (error) => error.message,
+                'message',
+                contains(message),
+              ),
+            ),
+          );
+        }
+
+        await expectDetailFormatError(
+          () => client.readResource(
+            'wamp://app/readme',
+            id: 'invalid-resource-detail-uri',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-invalid-resource-detail-uri': '1',
+            },
+          ),
+          'resources/read result content.uri',
+        );
+        await expectDetailFormatError(
+          () => client.readResource(
+            'wamp://app/readme',
+            id: 'invalid-resource-detail-body',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-invalid-resource-detail-body': '1',
+            },
+          ),
+          'resources/read result content must contain exactly one of text or blob',
+        );
+        await expectDetailFormatError(
+          () => client.getPrompt(
+            'summarize',
+            id: 'invalid-prompt-detail-role',
+            arguments: {'topic': 'mcp'},
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-invalid-prompt-detail-role': '1',
+            },
+          ),
+          'prompts/get result message.role',
+        );
+        await expectDetailFormatError(
+          () => client.getPrompt(
+            'summarize',
+            id: 'invalid-prompt-detail-content',
+            arguments: {'topic': 'mcp'},
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-invalid-prompt-detail-content': '1',
+            },
+          ),
+          'prompts/get result message.content',
+        );
+      },
+    );
+
+    test('rejects malformed typed tool call responses', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(client.close);
+
+      Future<void> expectToolFormatError(
+        Future<Object?> Function() action,
+        String message,
+      ) async {
+        await expectLater(
+          action(),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      }
+
+      await expectToolFormatError(
+        () => client.callTool(
+          'app.echo',
+          id: 'invalid-tool-result-content',
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-invalid-tool-result-content': '1',
+          },
+        ),
+        'tools/call result.content',
+      );
+      await expectToolFormatError(
+        () => client.callToolDirect(
+          'app.echo',
+          id: 'invalid-tool-result-is-error',
+          headers: const <String, String>{
+            'x-test-invalid-tool-result-is-error': '1',
+          },
+        ),
+        'tools/call result.isError',
+      );
+      await expectToolFormatError(
+        () => client.callConnectanumToolDirect(
+          'app.echo',
+          id: 'invalid-connectanum-tool-result-content',
+          headers: const <String, String>{
+            'x-test-invalid-connectanum-tool-result-content': '1',
+          },
+        ),
+        'connectanum.tool.call result.content',
+      );
+    });
+
     test('uses Connectanum WAMP tool helpers for API and pubsub', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -6007,6 +6135,22 @@ final class _FakeMcpEndpoint {
         params['arguments'],
         label: 'connectanum.tool.call arguments',
       );
+      if (request.headers.value(
+            'x-test-invalid-connectanum-tool-result-content',
+          ) ==
+          '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'content': <Object?>[
+              <String, Object?>{'type': 'text'},
+            ],
+            'isError': false,
+          },
+        });
+        return;
+      }
       if (name is String && name.startsWith('wamp.')) {
         _writeWampMetaToolResult(request, requestBody['id'], name, arguments);
         return;
@@ -6110,6 +6254,28 @@ final class _FakeMcpEndpoint {
 
     if (method == 'tools/call') {
       final params = _jsonMapFrom(requestBody['params'], label: 'tools/call');
+      if (request.headers.value('x-test-invalid-tool-result-content') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'content': <Object?>['not a content block'],
+            'isError': false,
+          },
+        });
+        return;
+      }
+      if (request.headers.value('x-test-invalid-tool-result-is-error') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'content': <Object?>[],
+            'isError': 'false',
+          },
+        });
+        return;
+      }
       if (params['name'] == 'app.fail') {
         _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
@@ -6270,6 +6436,34 @@ final class _FakeMcpEndpoint {
         requestBody['params'],
         label: 'resources/read',
       );
+      if (request.headers.value('x-test-invalid-resource-detail-uri') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'contents': <Object?>[
+              <String, Object?>{
+                'uri': 'relative/readme',
+                'mimeType': 'text/plain',
+                'text': 'invalid resource uri',
+              },
+            ],
+          },
+        });
+        return;
+      }
+      if (request.headers.value('x-test-invalid-resource-detail-body') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'contents': <Object?>[
+              <String, Object?>{'uri': params['uri'], 'mimeType': 'text/plain'},
+            ],
+          },
+        });
+        return;
+      }
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
         'id': requestBody['id'],
@@ -6365,6 +6559,42 @@ final class _FakeMcpEndpoint {
         params['arguments'],
         label: 'prompts/get arguments',
       );
+      if (request.headers.value('x-test-invalid-prompt-detail-role') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'description': 'Summarizes a topic.',
+            'messages': <Object?>[
+              <String, Object?>{
+                'role': 'system',
+                'content': <String, Object?>{
+                  'type': 'text',
+                  'text': 'Unsupported prompt role.',
+                },
+              },
+            ],
+          },
+        });
+        return;
+      }
+      if (request.headers.value('x-test-invalid-prompt-detail-content') ==
+          '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'description': 'Summarizes a topic.',
+            'messages': <Object?>[
+              <String, Object?>{
+                'role': 'user',
+                'content': 'Summarize ${arguments['topic']}',
+              },
+            ],
+          },
+        });
+        return;
+      }
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
         'id': requestBody['id'],
