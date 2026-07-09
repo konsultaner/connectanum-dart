@@ -3,7 +3,29 @@
 Last updated: 2026-07-09
 Current branch: `add-router`
 Last reviewed branch checkpoint: the public router-hosted MCP client example
-now proves active direct JSON raw resource and prompt method calls while a
+now proves active direct JSON WAMP API method list/describe calls while a
+Streamable HTTP session is open. When a consumer supplies `--wamp-procedure`
+or `--wamp-topic`, the active direct path still exercises typed direct WAMP
+metadata helpers plus raw direct JSON metadata batches, and now also calls
+`connectanum.api.list` and `connectanum.api.describe` through lifecycle-free
+direct JSON method helpers. The example validates the returned procedure/topic
+catalogs and descriptions, surfaces `methodCatalog` and `methodDescription`
+under `activeDirectJson.wampMetadata.procedure` and `.topic`, and continues
+asserting the Streamable session id/resume cursor remain unchanged.
+
+Baseline `bin/test-fast` passed before the active direct JSON WAMP API method
+coverage change on 2026-07-09. Focused `dart analyze
+packages/connectanum_mcp/example/router_hosted_client.dart`, focused `python3
+-m unittest
+tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_public_router_hosted_client_example_uses_public_io_entrypoint
+-v`, full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
+`python3 tool/check_public_artifact_references.py`, focused public
+router-hosted MCP client dry-run/live smoke, and `git diff --check` passed
+after the change. Full local `bin/verify` passed after the change. Hosted
+evidence is pending until the implementation commit is pushed.
+
+Previous branch checkpoint: the public router-hosted MCP client example now
+proves active direct JSON raw resource and prompt method calls while a
 Streamable HTTP session is open. When a consumer supplies `--resource-uri` or
 `--prompt-name`, the active direct path now issues lifecycle-free raw
 `postDirect` calls for `resources/list`, `resources/templates/list`,
@@ -21,8 +43,16 @@ tool.test_mcp_consumer_package_boundary.McpConsumerPackageBoundaryTest.test_publ
 -v`, full `python3 -m unittest tool.test_mcp_consumer_package_boundary -v`,
 `python3 tool/check_public_artifact_references.py`, and focused public
 router-hosted MCP client dry-run/live smoke, `git diff --check`, and full local
-`bin/verify` passed after the change. Hosted evidence for this checkpoint is
-pending until the implementation commit is pushed.
+`bin/verify` passed after the change. After commit `c792304`, hosted GitHub CI
+`28997186100` and Dart Package Publish Dry Run `28997186077` passed on
+2026-07-09. The deployment-chain audit with required clean latest CI, clean CI
+logs, Dart package publish dry-run, and WAMP profile benchmark evidence also
+passed at `c792304`; WAMP Profile Benchmarks `28964007707` remain clean and
+relevant from `b81302a` because no WAMP benchmark-sensitive paths changed since
+then. The audit noted GitHub Actions degraded performance from delayed starts,
+but still reports only expected operator-owned gaps: `add-router` is
+unprotected, and the checked-in pub.dev OIDC workflows are not Actions
+discoverable until promoted through `master`.
 
 Previous branch checkpoint: the public router-hosted MCP client example now
 proves active direct JSON tool-notification side effects while a

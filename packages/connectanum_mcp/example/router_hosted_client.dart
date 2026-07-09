@@ -2791,6 +2791,38 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         uri: wampProcedure,
         label: 'Streamable active direct JSON WAMP procedure',
       );
+      final methodProcedures = _structuredContentFromToolResult(
+        await client.callConnectanumMethodDirect(
+          'connectanum.api.list',
+          id: 'streamable-active-direct-wamp-procedure-api-list-method',
+          params: const <String, Object?>{'kind': 'procedure'},
+        ),
+        label: 'Streamable active direct JSON WAMP procedure method list',
+      );
+      final methodProcedureCatalog = methodProcedures['procedures'];
+      _expectWampCatalogContains(
+        catalog: methodProcedureCatalog,
+        uri: wampProcedure,
+        label: 'Streamable active direct JSON WAMP procedure method list',
+      );
+      final description = await client.describeWampApiDirect(
+        wampProcedure,
+        id: 'streamable-active-direct-wamp-procedure-api-describe',
+        kind: 'procedure',
+      );
+      final methodDescription = _structuredContentFromToolResult(
+        await client.callConnectanumMethodDirect(
+          'connectanum.api.describe',
+          id: 'streamable-active-direct-wamp-procedure-api-describe-method',
+          params: <String, Object?>{'uri': wampProcedure, 'kind': 'procedure'},
+        ),
+        label: 'Streamable active direct JSON WAMP procedure method describe',
+      );
+      _expectWampCatalogContains(
+        catalog: [methodDescription],
+        uri: wampProcedure,
+        label: 'Streamable active direct JSON WAMP procedure method describe',
+      );
       final configuredRegistrationMetadata =
           await _expectConfiguredWampRegistrationMetaDirect(
             client,
@@ -2811,11 +2843,9 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
           );
       metadata['procedure'] = <String, Object?>{
         'catalog': procedureCatalog,
-        'description': await client.describeWampApiDirect(
-          wampProcedure,
-          id: 'streamable-active-direct-wamp-procedure-api-describe',
-          kind: 'procedure',
-        ),
+        'methodCatalog': methodProcedureCatalog,
+        'description': description,
+        'methodDescription': methodDescription,
         'configuredRegistrationMetadata': configuredRegistrationMetadata,
       };
     }
@@ -2864,6 +2894,38 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         uri: wampTopic,
         label: 'Streamable active direct JSON WAMP topic',
       );
+      final methodTopics = _structuredContentFromToolResult(
+        await client.callConnectanumMethodDirect(
+          'connectanum.api.list',
+          id: 'streamable-active-direct-wamp-topic-api-list-method',
+          params: const <String, Object?>{'kind': 'topic'},
+        ),
+        label: 'Streamable active direct JSON WAMP topic method list',
+      );
+      final methodTopicCatalog = methodTopics['topics'];
+      _expectWampCatalogContains(
+        catalog: methodTopicCatalog,
+        uri: wampTopic,
+        label: 'Streamable active direct JSON WAMP topic method list',
+      );
+      final description = await client.describeWampApiDirect(
+        wampTopic,
+        id: 'streamable-active-direct-wamp-topic-api-describe',
+        kind: 'topic',
+      );
+      final methodDescription = _structuredContentFromToolResult(
+        await client.callConnectanumMethodDirect(
+          'connectanum.api.describe',
+          id: 'streamable-active-direct-wamp-topic-api-describe-method',
+          params: <String, Object?>{'uri': wampTopic, 'kind': 'topic'},
+        ),
+        label: 'Streamable active direct JSON WAMP topic method describe',
+      );
+      _expectWampCatalogContains(
+        catalog: [methodDescription],
+        uri: wampTopic,
+        label: 'Streamable active direct JSON WAMP topic method describe',
+      );
       final configuredSubscriptionMetadata =
           await _expectConfiguredWampSubscriptionMetaDirect(
             client,
@@ -2884,11 +2946,9 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
           );
       metadata['topic'] = <String, Object?>{
         'catalog': topicCatalog,
-        'description': await client.describeWampApiDirect(
-          wampTopic,
-          id: 'streamable-active-direct-wamp-topic-api-describe',
-          kind: 'topic',
-        ),
+        'methodCatalog': methodTopicCatalog,
+        'description': description,
+        'methodDescription': methodDescription,
         'configuredSubscriptionMetadata': configuredSubscriptionMetadata,
       };
     }
