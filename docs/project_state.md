@@ -2,7 +2,30 @@
 
 Last updated: 2026-07-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: typed MCP content block response parsing now
+Last reviewed branch checkpoint: MCP request selector parsing now rejects
+malformed tool names, prompt names, resource URIs, and pagination cursors
+before standard `McpServer` handlers or router-hosted direct JSON endpoints
+reach registry lookup. Standard MCP and router direct JSON callers now receive
+JSON-RPC `invalidParams` responses for empty/whitespace/control cursors,
+invalid tool or prompt selectors, and non-absolute or whitespace-bearing
+resource URIs.
+
+The first `bin/test-fast` run on 2026-07-10 was started before implementation
+and reproduced the newly added selector regressions once the tests were
+present: malformed cursors still surfaced stale-cursor text and malformed tool
+names reached lookup. Focused package regressions
+`dart test packages/connectanum_mcp/test/tools_test.dart
+packages/connectanum_mcp/test/prompts_test.dart
+packages/connectanum_mcp/test/resources_test.dart -r expanded`, the focused
+router regression `dart test
+packages/connectanum_router/test/router_integration_native_test.dart -n
+"guards MCP Streamable HTTP ingress and sessions" -r expanded`, and `dart
+analyze packages/connectanum_mcp packages/connectanum_router` passed after the
+change. `git diff --check`, `python3 tool/check_public_artifact_references.py`,
+full `bin/test-fast`, and full local `bin/verify` passed after the change on
+2026-07-10. Hosted evidence is pending for the implementation commit.
+
+Previous branch checkpoint: typed MCP content block response parsing now
 rejects unsupported server-provided content block types before typed tool and
 prompt results reach consumer applications. `McpStreamableHttpClient` now
 accepts only the package-supported MCP content block shapes (`text`, `image`,
@@ -18,7 +41,13 @@ unknown content block types still returned typed prompt/tool results, then
 passed after the parser change. Full
 `dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
 passed after the change on 2026-07-10. Full local `bin/verify` passed after
-the change on 2026-07-10.
+the change on 2026-07-10. Hosted evidence after push: commit `033bc64` passed
+GitHub CI run `29080360582` (`Fast Checks` and `Full Verify`), Dart Package
+Publish Dry Run `29080360607`, and WAMP Profile Benchmarks `29080360602` on
+2026-07-10. The strict deployment-chain audit passed for `add-router` at
+`033bc64` on 2026-07-10 with the known operator-owned findings that
+`add-router` is unprotected and checked-in pub.dev publish workflows remain
+undiscoverable until promoted through `master`.
 
 Previous branch checkpoint: typed MCP WAMP meta result parsing now
 rejects malformed server-provided WAMP meta procedure identities before

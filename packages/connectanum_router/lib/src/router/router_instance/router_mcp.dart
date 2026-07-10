@@ -37,6 +37,7 @@ const Set<String> _mcpPostResponseTransportModes = <String>{
   'streamable',
   'auto',
 };
+final RegExp _mcpToolNamePattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
 
 Map<String, String> _mcpCorsResponseHeaders(
   RouterBinding binding,
@@ -460,6 +461,83 @@ Set<String> _mcpAllowedOrigins(Map<String, Object?> options) {
 bool _isStandardMetaProcedure(String procedure) {
   return mcp.McpWampStandardMetaApi.procedures.any(
     (metaProcedure) => metaProcedure.procedure == procedure,
+  );
+}
+
+String? _mcpValidatedOptionalCursor(Object? value, String label) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidParams,
+      '$label must be a string',
+    );
+  }
+  if (value.isEmpty || containsMcpWhitespaceOrControl(value)) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidParams,
+      '$label must be a non-empty string without whitespace or control '
+      'characters',
+    );
+  }
+  return value;
+}
+
+String _mcpValidatedToolName(Object? value, String label) {
+  if (value is! String) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidParams,
+      '$label must be a string',
+    );
+  }
+  if (_mcpToolNamePattern.hasMatch(value)) {
+    return value;
+  }
+  throw mcp.McpException(
+    mcp.McpErrorCodes.invalidParams,
+    '$label must be 1-128 ASCII letters, digits, underscores, hyphens, or '
+    'dots',
+  );
+}
+
+String _mcpValidatedPromptName(Object? value, String label) {
+  if (value is! String) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidParams,
+      '$label must be a string',
+    );
+  }
+  if (value.isEmpty || containsMcpWhitespaceOrControl(value)) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidParams,
+      '$label must be a non-empty string without whitespace or control '
+      'characters',
+    );
+  }
+  return value;
+}
+
+String _mcpValidatedResourceUri(Object? value, String label) {
+  if (value is! String) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidParams,
+      '$label must be a string',
+    );
+  }
+  if (containsMcpWhitespaceOrControl(value)) {
+    throw mcp.McpException(
+      mcp.McpErrorCodes.invalidParams,
+      '$label must not contain whitespace or control characters',
+    );
+  }
+  final parsed = Uri.tryParse(value);
+  if (value.isNotEmpty && parsed != null && parsed.hasScheme) {
+    return value;
+  }
+  throw mcp.McpException(
+    mcp.McpErrorCodes.invalidParams,
+    '$label must be an absolute URI with a scheme',
   );
 }
 
@@ -2075,14 +2153,11 @@ class _RouterMcpEndpoint {
   }
 
   mcp.JsonMap _listDirectJsonTools(String method, mcp.JsonMap params) {
-    final cursor = params['cursor'];
-    if (cursor != null && cursor is! String) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.invalidParams,
-        '$method.params.cursor must be a string',
-      );
-    }
-    final page = server.tools.listPage(cursor: cursor as String?);
+    final cursor = _mcpValidatedOptionalCursor(
+      params['cursor'],
+      '$method.params.cursor',
+    );
+    final page = server.tools.listPage(cursor: cursor);
     final result = <String, Object?>{
       'tools': [for (final tool in page.tools) tool.toJson()],
     };
@@ -2097,13 +2172,7 @@ class _RouterMcpEndpoint {
     String method,
     mcp.JsonMap params,
   ) async {
-    final name = params['name'];
-    if (name is! String) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.invalidParams,
-        '$method.params.name must be a string',
-      );
-    }
+    final name = _mcpValidatedToolName(params['name'], '$method.params.name');
     final arguments = mcp.jsonMapFrom(
       params['arguments'],
       label: '$method.params.arguments',
@@ -2112,14 +2181,11 @@ class _RouterMcpEndpoint {
   }
 
   mcp.JsonMap _listDirectJsonResources(mcp.JsonMap params) {
-    final cursor = params['cursor'];
-    if (cursor != null && cursor is! String) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.invalidParams,
-        'resources/list.params.cursor must be a string',
-      );
-    }
-    final page = server.resources.listPage(cursor: cursor as String?);
+    final cursor = _mcpValidatedOptionalCursor(
+      params['cursor'],
+      'resources/list.params.cursor',
+    );
+    final page = server.resources.listPage(cursor: cursor);
     final result = <String, Object?>{
       'resources': [for (final resource in page.resources) resource.toJson()],
     };
@@ -2131,13 +2197,10 @@ class _RouterMcpEndpoint {
   }
 
   Future<mcp.JsonMap> _readDirectJsonResource(mcp.JsonMap params) async {
-    final uri = params['uri'];
-    if (uri is! String) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.invalidParams,
-        'resources/read.params.uri must be a string',
-      );
-    }
+    final uri = _mcpValidatedResourceUri(
+      params['uri'],
+      'resources/read.params.uri',
+    );
     final resource = server.resources[uri];
     if (resource == null) {
       throw mcp.McpException(
@@ -2153,14 +2216,11 @@ class _RouterMcpEndpoint {
   }
 
   mcp.JsonMap _listDirectJsonResourceTemplates(mcp.JsonMap params) {
-    final cursor = params['cursor'];
-    if (cursor != null && cursor is! String) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.invalidParams,
-        'resources/templates/list.params.cursor must be a string',
-      );
-    }
-    final page = server.resources.listTemplatePage(cursor: cursor as String?);
+    final cursor = _mcpValidatedOptionalCursor(
+      params['cursor'],
+      'resources/templates/list.params.cursor',
+    );
+    final page = server.resources.listTemplatePage(cursor: cursor);
     final result = <String, Object?>{
       'resourceTemplates': [
         for (final template in page.templates) template.toJson(),
@@ -2174,14 +2234,11 @@ class _RouterMcpEndpoint {
   }
 
   mcp.JsonMap _listDirectJsonPrompts(mcp.JsonMap params) {
-    final cursor = params['cursor'];
-    if (cursor != null && cursor is! String) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.invalidParams,
-        'prompts/list.params.cursor must be a string',
-      );
-    }
-    final page = server.prompts.listPage(cursor: cursor as String?);
+    final cursor = _mcpValidatedOptionalCursor(
+      params['cursor'],
+      'prompts/list.params.cursor',
+    );
+    final page = server.prompts.listPage(cursor: cursor);
     final result = <String, Object?>{
       'prompts': [for (final prompt in page.prompts) prompt.toJson()],
     };
@@ -2193,13 +2250,10 @@ class _RouterMcpEndpoint {
   }
 
   Future<mcp.JsonMap> _getDirectJsonPrompt(mcp.JsonMap params) async {
-    final name = params['name'];
-    if (name is! String) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.invalidParams,
-        'prompts/get.params.name must be a string',
-      );
-    }
+    final name = _mcpValidatedPromptName(
+      params['name'],
+      'prompts/get.params.name',
+    );
     final arguments = _directJsonPromptArgumentsFrom(params['arguments']);
     final prompt = server.prompts[name];
     if (prompt == null) {

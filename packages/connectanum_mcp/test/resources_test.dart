@@ -160,6 +160,24 @@ void main() {
       expect(error['code'], McpErrorCodes.invalidParams);
     });
 
+    test('resources/list rejects malformed cursor strings', () async {
+      final server = _server();
+      await _initializeAndStart(server);
+
+      for (final cursor in ['', 'cursor with space', 'cursor\nnext']) {
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'cursor-$cursor',
+          'method': 'resources/list',
+          'params': {'cursor': cursor},
+        });
+
+        final error = response?['error'] as Map<String, Object?>;
+        expect(error['code'], McpErrorCodes.invalidParams);
+        expect(error['message'], contains('cursor must be a non-empty string'));
+      }
+    });
+
     test('resources/read returns text and binary content', () async {
       final server = McpServer(
         serverInfo: const McpServerInfo(
@@ -225,6 +243,27 @@ void main() {
         final error = response?['error'] as Map<String, Object?>;
         expect(error['code'], McpErrorCodes.resourceNotFound);
         expect(error['data'], {'uri': 'app://resource/missing'});
+      },
+    );
+
+    test(
+      'resources/read rejects malformed resource URIs before lookup',
+      () async {
+        final server = _server();
+        await _initializeAndStart(server);
+
+        for (final uri in ['', 'relative/context', 'app://tasks/open\n']) {
+          final response = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 'resource-$uri',
+            'method': 'resources/read',
+            'params': {'uri': uri},
+          });
+
+          final error = response?['error'] as Map<String, Object?>;
+          expect(error['code'], McpErrorCodes.invalidParams);
+          expect(error['message'], contains('resources/read.params.uri'));
+        }
       },
     );
 
@@ -318,6 +357,32 @@ void main() {
         expect(_resourceTemplateNames(result), ['alpha', 'beta', 'gamma']);
       },
     );
+
+    test('resources/templates/list rejects malformed cursor strings', () async {
+      final server = McpServer(
+        serverInfo: const McpServerInfo(
+          name: 'connectanum-test',
+          version: '0.1.0',
+        ),
+        resourceTemplates: [
+          McpResourceTemplate(uriTemplate: 'app://tasks/{id}', name: 'task'),
+        ],
+      );
+      await _initializeAndStart(server);
+
+      for (final cursor in ['', 'cursor with space', 'cursor\nnext']) {
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'template-cursor-$cursor',
+          'method': 'resources/templates/list',
+          'params': {'cursor': cursor},
+        });
+
+        final error = response?['error'] as Map<String, Object?>;
+        expect(error['code'], McpErrorCodes.invalidParams);
+        expect(error['message'], contains('cursor must be a non-empty string'));
+      }
+    });
   });
 }
 

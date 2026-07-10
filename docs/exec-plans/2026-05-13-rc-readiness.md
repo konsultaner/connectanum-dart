@@ -79,6 +79,20 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened MCP request selector parsing in `connectanum_mcp` and
+  router-hosted direct JSON ingress. Standard `McpServer` handlers and router
+  `/mcp` direct JSON endpoints now reject malformed tool names, prompt names,
+  resource URIs, and pagination cursors before registry lookup, returning
+  JSON-RPC `invalidParams` for empty/whitespace/control cursors, invalid
+  tool/prompt selectors, and non-absolute or whitespace-bearing resource URIs.
+  The first `bin/test-fast` run was started before implementation and
+  reproduced the new selector regressions once the tests were present. Focused
+  package regressions, focused router regression `guards MCP Streamable HTTP
+  ingress and sessions`, `dart analyze packages/connectanum_mcp
+  packages/connectanum_router`, `git diff --check`, `python3
+  tool/check_public_artifact_references.py`, full `bin/test-fast`, and full
+  local `bin/verify` passed after the change on 2026-07-10. Hosted evidence is
+  pending for the implementation commit.
 - 2026-07-10: Hardened typed MCP content block response parsing in
   `connectanum_client`. `McpStreamableHttpClient` now rejects unsupported
   server-provided content block types before typed tool and prompt results
@@ -88,7 +102,14 @@ decision because `connectanum_client` still depends on private
   resource/prompt/tool regression failed before the implementation because
   unknown content block types still returned typed prompt/tool results, then
   passed after the parser change. The full Streamable HTTP client suite and
-  full local `bin/verify` passed after the change on 2026-07-10.
+  full local `bin/verify` passed after the change on 2026-07-10. Hosted
+  evidence after push: GitHub CI `29080360582`, Dart Package Publish Dry Run
+  `29080360607`, WAMP Profile Benchmarks `29080360602`, and the
+  deployment-chain audit with required latest CI/logs, Dart package dry-run,
+  and WAMP profile benchmark evidence passed for `033bc64`; the audit still
+  reports the expected operator-owned gaps that `add-router` is unprotected
+  and checked-in pub.dev workflows are not Actions-discoverable until promoted
+  through `master`.
 - 2026-07-10: Hardened typed MCP WAMP meta result parsing in
   `connectanum_client`. `McpStreamableWampMetaCallResult.fromJson` now rejects
   malformed server-provided WAMP meta procedure identities before returning

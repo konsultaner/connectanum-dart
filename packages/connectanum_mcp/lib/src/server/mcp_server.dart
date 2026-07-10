@@ -13,6 +13,73 @@ import '../tools/tool.dart';
 
 enum McpServerState { created, initialized, closed }
 
+final RegExp _requestToolNamePattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
+
+String? _validatedOptionalCursor(Object? value, String label) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String) {
+    throw McpException(McpErrorCodes.invalidParams, '$label must be a string');
+  }
+  if (value.isEmpty || containsMcpWhitespaceOrControl(value)) {
+    throw McpException(
+      McpErrorCodes.invalidParams,
+      '$label must be a non-empty string without whitespace or control '
+      'characters',
+    );
+  }
+  return value;
+}
+
+String _validatedToolName(Object? value, String label) {
+  if (value is! String) {
+    throw McpException(McpErrorCodes.invalidParams, '$label must be a string');
+  }
+  if (_requestToolNamePattern.hasMatch(value)) {
+    return value;
+  }
+  throw McpException(
+    McpErrorCodes.invalidParams,
+    '$label must be 1-128 ASCII letters, digits, underscores, hyphens, or '
+    'dots',
+  );
+}
+
+String _validatedPromptName(Object? value, String label) {
+  if (value is! String) {
+    throw McpException(McpErrorCodes.invalidParams, '$label must be a string');
+  }
+  if (value.isEmpty || containsMcpWhitespaceOrControl(value)) {
+    throw McpException(
+      McpErrorCodes.invalidParams,
+      '$label must be a non-empty string without whitespace or control '
+      'characters',
+    );
+  }
+  return value;
+}
+
+String _validatedResourceUri(Object? value, String label) {
+  if (value is! String) {
+    throw McpException(McpErrorCodes.invalidParams, '$label must be a string');
+  }
+  if (containsMcpWhitespaceOrControl(value)) {
+    throw McpException(
+      McpErrorCodes.invalidParams,
+      '$label must not contain whitespace or control characters',
+    );
+  }
+  final parsed = Uri.tryParse(value);
+  if (value.isNotEmpty && parsed != null && parsed.hasScheme) {
+    return value;
+  }
+  throw McpException(
+    McpErrorCodes.invalidParams,
+    '$label must be an absolute URI with a scheme',
+  );
+}
+
 class McpServer {
   McpServer({
     required this.serverInfo,
@@ -203,14 +270,11 @@ class McpServer {
   }
 
   JsonMap _listTools(JsonMap params) {
-    final cursor = params['cursor'];
-    if (cursor != null && cursor is! String) {
-      throw McpException(
-        McpErrorCodes.invalidParams,
-        'tools/list.params.cursor must be a string',
-      );
-    }
-    final page = tools.listPage(cursor: cursor as String?);
+    final cursor = _validatedOptionalCursor(
+      params['cursor'],
+      'tools/list.params.cursor',
+    );
+    final page = tools.listPage(cursor: cursor);
     final result = <String, Object?>{
       'tools': [for (final tool in page.tools) tool.toJson()],
     };
@@ -222,13 +286,7 @@ class McpServer {
   }
 
   Future<JsonMap> _callTool(JsonMap params) async {
-    final name = params['name'];
-    if (name is! String) {
-      throw McpException(
-        McpErrorCodes.invalidParams,
-        'tools/call.params.name must be a string',
-      );
-    }
+    final name = _validatedToolName(params['name'], 'tools/call.params.name');
     final arguments = jsonMapFrom(params['arguments'], label: 'arguments');
     final tool = tools[name];
     if (tool == null) {
@@ -248,14 +306,11 @@ class McpServer {
   }
 
   JsonMap _listPrompts(JsonMap params) {
-    final cursor = params['cursor'];
-    if (cursor != null && cursor is! String) {
-      throw McpException(
-        McpErrorCodes.invalidParams,
-        'prompts/list.params.cursor must be a string',
-      );
-    }
-    final page = prompts.listPage(cursor: cursor as String?);
+    final cursor = _validatedOptionalCursor(
+      params['cursor'],
+      'prompts/list.params.cursor',
+    );
+    final page = prompts.listPage(cursor: cursor);
     final result = <String, Object?>{
       'prompts': [for (final prompt in page.prompts) prompt.toJson()],
     };
@@ -267,13 +322,10 @@ class McpServer {
   }
 
   Future<JsonMap> _getPrompt(JsonMap params) async {
-    final name = params['name'];
-    if (name is! String) {
-      throw McpException(
-        McpErrorCodes.invalidParams,
-        'prompts/get.params.name must be a string',
-      );
-    }
+    final name = _validatedPromptName(
+      params['name'],
+      'prompts/get.params.name',
+    );
     final arguments = _promptArgumentsFrom(params['arguments']);
     final prompt = prompts[name];
     if (prompt == null) {
@@ -290,14 +342,11 @@ class McpServer {
   }
 
   JsonMap _listResources(JsonMap params) {
-    final cursor = params['cursor'];
-    if (cursor != null && cursor is! String) {
-      throw McpException(
-        McpErrorCodes.invalidParams,
-        'resources/list.params.cursor must be a string',
-      );
-    }
-    final page = resources.listPage(cursor: cursor as String?);
+    final cursor = _validatedOptionalCursor(
+      params['cursor'],
+      'resources/list.params.cursor',
+    );
+    final page = resources.listPage(cursor: cursor);
     final result = <String, Object?>{
       'resources': [for (final resource in page.resources) resource.toJson()],
     };
@@ -309,13 +358,10 @@ class McpServer {
   }
 
   Future<JsonMap> _readResource(JsonMap params) async {
-    final uri = params['uri'];
-    if (uri is! String) {
-      throw McpException(
-        McpErrorCodes.invalidParams,
-        'resources/read.params.uri must be a string',
-      );
-    }
+    final uri = _validatedResourceUri(
+      params['uri'],
+      'resources/read.params.uri',
+    );
     final resource = resources[uri];
     if (resource == null) {
       throw McpException(
@@ -331,14 +377,11 @@ class McpServer {
   }
 
   JsonMap _listResourceTemplates(JsonMap params) {
-    final cursor = params['cursor'];
-    if (cursor != null && cursor is! String) {
-      throw McpException(
-        McpErrorCodes.invalidParams,
-        'resources/templates/list.params.cursor must be a string',
-      );
-    }
-    final page = resources.listTemplatePage(cursor: cursor as String?);
+    final cursor = _validatedOptionalCursor(
+      params['cursor'],
+      'resources/templates/list.params.cursor',
+    );
+    final page = resources.listTemplatePage(cursor: cursor);
     final result = <String, Object?>{
       'resourceTemplates': [
         for (final template in page.templates) template.toJson(),

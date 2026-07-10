@@ -111,6 +111,24 @@ void main() {
       expect(error['code'], McpErrorCodes.invalidParams);
     });
 
+    test('tools/list rejects malformed cursor strings', () async {
+      final server = _server();
+      await _initializeAndStart(server);
+
+      for (final cursor in ['', 'cursor with space', 'cursor\nnext']) {
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'cursor-$cursor',
+          'method': 'tools/list',
+          'params': {'cursor': cursor},
+        });
+
+        final error = response?['error'] as Map<String, Object?>;
+        expect(error['code'], McpErrorCodes.invalidParams);
+        expect(error['message'], contains('cursor must be a non-empty string'));
+      }
+    });
+
     test('tools/list rejects cursors from older registry revisions', () async {
       final server = McpServer(
         serverInfo: const McpServerInfo(
@@ -354,6 +372,25 @@ void main() {
 
       final error = response?['error'] as Map<String, Object?>;
       expect(error['code'], McpErrorCodes.invalidParams);
+    });
+
+    test('tools/call rejects malformed tool names before lookup', () async {
+      final server = _server();
+      await _initializeAndStart(server);
+
+      for (final name in ['', 'bad tool', 'bad\ntool']) {
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'tool-$name',
+          'method': 'tools/call',
+          'params': {'name': name, 'arguments': {}},
+        });
+
+        final error = response?['error'] as Map<String, Object?>;
+        expect(error['code'], McpErrorCodes.invalidParams);
+        expect(error['message'], contains('tools/call.params.name'));
+        expect(error['message'], contains('1-128 ASCII'));
+      }
     });
   });
 }

@@ -1680,6 +1680,101 @@ void main() {
         isNot(contains('mcp-session-id')),
       );
 
+      final invalidDirectToolName = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'invalid-direct-tool-name',
+          'method': 'tools/call',
+          'params': {'name': 'bad tool', 'arguments': {}},
+        },
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(invalidDirectToolName.statusCode, equals(HttpStatus.ok));
+      expect(
+        invalidDirectToolName.json?['id'],
+        equals('invalid-direct-tool-name'),
+      );
+      final invalidDirectToolNameError =
+          (invalidDirectToolName.json?['error'] as Map).cast<String, Object?>();
+      expect(
+        invalidDirectToolNameError['code'],
+        equals(McpErrorCodes.invalidParams),
+      );
+      expect(
+        invalidDirectToolNameError['message'],
+        contains('tools/call.params.name'),
+      );
+      expect(invalidDirectToolNameError['message'], contains('1-128 ASCII'));
+
+      final invalidDirectResourceUri = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'invalid-direct-resource-uri',
+          'method': 'resources/read',
+          'params': {'uri': 'relative/context'},
+        },
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(invalidDirectResourceUri.statusCode, equals(HttpStatus.ok));
+      expect(
+        invalidDirectResourceUri.json?['id'],
+        equals('invalid-direct-resource-uri'),
+      );
+      final invalidDirectResourceUriError =
+          (invalidDirectResourceUri.json?['error'] as Map)
+              .cast<String, Object?>();
+      expect(
+        invalidDirectResourceUriError['code'],
+        equals(McpErrorCodes.invalidParams),
+      );
+      expect(
+        invalidDirectResourceUriError['message'],
+        contains('resources/read.params.uri'),
+      );
+      expect(
+        invalidDirectResourceUriError['message'],
+        contains('absolute URI'),
+      );
+
+      final invalidDirectPromptName = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'invalid-direct-prompt-name',
+          'method': 'prompts/get',
+          'params': {'name': ''},
+        },
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(invalidDirectPromptName.statusCode, equals(HttpStatus.ok));
+      expect(
+        invalidDirectPromptName.json?['id'],
+        equals('invalid-direct-prompt-name'),
+      );
+      final invalidDirectPromptNameError =
+          (invalidDirectPromptName.json?['error'] as Map)
+              .cast<String, Object?>();
+      expect(
+        invalidDirectPromptNameError['code'],
+        equals(McpErrorCodes.invalidParams),
+      );
+      expect(
+        invalidDirectPromptNameError['message'],
+        contains('prompts/get.params.name'),
+      );
+      expect(
+        invalidDirectPromptNameError['message'],
+        contains('non-empty string'),
+      );
+
       final olderVersionInitialize = await _postJson(
         client,
         listener.port,
