@@ -4594,6 +4594,58 @@ void main() {
         }),
         throwsA(isA<FormatException>()),
       );
+      expect(
+        () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': 'app.events.audit',
+          'events': <Object?>[
+            <String, Object?>{'publicationId': 42, 'topic': 'app.events.audit'},
+          ],
+        }),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': 'app.events.audit',
+          'events': <Object?>[
+            <String, Object?>{
+              'subscriptionId': 7,
+              'publicationId': 42,
+              'topic': 'bad topic',
+            },
+          ],
+        }),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': 'app.events.audit',
+          'events': <Object?>[
+            <String, Object?>{
+              'subscriptionId': 7,
+              'publicationId': 42,
+              'arguments': 'not an array',
+            },
+          ],
+        }),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': 'app.events.audit',
+          'events': <Object?>[
+            <String, Object?>{
+              'subscriptionId': 7,
+              'publicationId': 42,
+              'details': <Object?>[],
+            },
+          ],
+        }),
+        throwsA(isA<FormatException>()),
+      );
     });
 
     test(

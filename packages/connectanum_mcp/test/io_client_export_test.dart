@@ -2699,6 +2699,9 @@ final class _AuthBackedMcpEndpoint {
         }
         if (params['name'] == 'connectanum.pubsub.publish') {
           _pubsubEvents.add(<String, Object?>{
+            'subscriptionId': 33,
+            'publicationId': 44,
+            'topic': arguments['topic'],
             'argumentsKeywords': arguments['argumentsKeywords'],
           });
           await _writeToolResult(request, jsonBody['id'], <String, Object?>{

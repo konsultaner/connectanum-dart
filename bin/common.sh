@@ -7040,10 +7040,11 @@ final class _AgentMcpEndpoint {
         ? _jsonMapFrom(arguments['options'], label: 'publish options')
         : const <String, Object?>{};
     final event = <String, Object?>{
+      'subscriptionId': _subscriptionId,
+      'publicationId': _publicationId,
       'topic': topic,
       'arguments': arguments['arguments'] ?? <Object?>[],
       'argumentsKeywords': arguments['argumentsKeywords'] ?? <String, Object?>{},
-      'publicationId': _publicationId,
     };
     for (final entry in _subscriptions.entries) {
       if (entry.value == topic) {

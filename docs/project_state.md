@@ -2,7 +2,33 @@
 
 Last updated: 2026-07-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: Typed MCP catalog cursor handling now rejects
+Last reviewed branch checkpoint: typed MCP WAMP event batch parsing now
+rejects malformed nested event payloads before returning pub/sub batches to
+consumer applications. `McpStreamableWampEventBatch` now validates each
+server-provided event map for positive `subscriptionId` and `publicationId`
+values, optional positive `publisher`, optional non-negative `trustlevel`, a
+well-formed optional `topic`, and JSON-shaped `arguments`,
+`argumentsKeywords`, and `details` fields while preserving custom event
+metadata.
+
+Baseline `bin/test-fast` passed before the typed WAMP event batch validation
+on 2026-07-10. The focused regression
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
+-n "rejects invalid WAMP helper result fields" -r expanded` failed before the
+implementation because an event missing `subscriptionId` still returned a
+typed event batch, then passed after the parser change. Full `dart test
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r
+expanded`, `dart test
+packages/connectanum_mcp/test/io_client_export_test.dart -r expanded`, the MCP
+client-only consumer package smoke from `bin/common.sh`, `dart analyze
+packages/connectanum_client packages/connectanum_mcp`, `bash -n
+bin/common.sh`, formatting, `git diff --check`, and `python3
+tool/check_public_artifact_references.py` passed after the change on
+2026-07-10. Two initial full `bin/verify` attempts exposed stale synthetic MCP
+smoke fixtures that emitted pub/sub events without WAMP event IDs; after those
+fixtures were updated, full local `bin/verify` passed on 2026-07-10.
+
+Previous branch checkpoint: Typed MCP catalog cursor handling now rejects
 invalid pagination cursors before they cross the typed client boundary.
 `McpStreamableHttpClient` validates outgoing typed catalog cursor parameters
 for standard tools, Connectanum tool metadata, resources, resource templates,
@@ -24,7 +50,12 @@ packages/connectanum_client/lib/src/mcp/streamable_http_client.dart
 packages/connectanum_client/test/mcp/streamable_http_client_test.dart`, `git
 diff --check`, and `python3 tool/check_public_artifact_references.py` passed
 after the change on 2026-07-10. Full local `bin/verify` passed after the
-change on 2026-07-10.
+change on 2026-07-10. Hosted evidence after push: commit `9b8950c` passed
+GitHub CI run `29070252581`, Dart Package Publish Dry Run `29070252588`, and
+WAMP Profile Benchmarks `29070252580` on 2026-07-10. The strict deployment
+chain audit passed for `add-router` at `9b8950c` on 2026-07-10 with the known
+operator-owned findings that `add-router` is unprotected and checked-in pub.dev
+publish workflows remain undiscoverable until promoted through `master`.
 
 Previous branch checkpoint: HTTP auth challenge response parsing now
 rejects non-positive server-provided structured challenge integers before

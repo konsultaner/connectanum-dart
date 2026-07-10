@@ -1124,7 +1124,7 @@ final class McpStreamableWampEventBatch {
     return McpStreamableWampEventBatch(
       handle: _requiredString(structuredContent, 'handle'),
       topic: _requiredString(structuredContent, 'topic'),
-      events: _jsonMapListFrom(structuredContent, 'events'),
+      events: _wampEventsFrom(structuredContent, 'events'),
       dropped: _optionalNonNegativeInt(structuredContent, 'dropped') ?? 0,
       remaining: _optionalNonNegativeInt(structuredContent, 'remaining') ?? 0,
       structuredContent: structuredContent,
@@ -1256,6 +1256,22 @@ String _requiredString(McpJsonMap json, String key) {
   return value;
 }
 
+String? _optionalWampString(McpJsonMap json, String key) {
+  final value = json[key];
+  if (value == null) {
+    return null;
+  }
+  if (value is! String || value.isEmpty) {
+    throw FormatException('$key must be a non-empty string');
+  }
+  if (containsMcpWhitespaceOrControl(value)) {
+    throw FormatException(
+      '$key must not contain whitespace or control characters',
+    );
+  }
+  return value;
+}
+
 int? _optionalInt(McpJsonMap json, String key) {
   final value = json[key];
   if (value == null) {
@@ -1263,6 +1279,17 @@ int? _optionalInt(McpJsonMap json, String key) {
   }
   if (value is! int) {
     throw FormatException('$key must be an integer');
+  }
+  return value;
+}
+
+int _requiredPositiveInt(McpJsonMap json, String key) {
+  final value = _optionalInt(json, key);
+  if (value == null) {
+    throw FormatException('$key must be an integer');
+  }
+  if (value <= 0) {
+    throw FormatException('$key must be a positive integer');
   }
   return value;
 }
@@ -1325,6 +1352,21 @@ List<McpJsonMap> _jsonMapListFrom(McpJsonMap json, String key) {
     throw FormatException('$key must be an array');
   }
   return [for (final item in value) _jsonMapFrom(item, label: key)];
+}
+
+List<McpJsonMap> _wampEventsFrom(McpJsonMap json, String key) {
+  final events = _jsonMapListFrom(json, key);
+  for (final event in events) {
+    _requiredPositiveInt(event, 'subscriptionId');
+    _requiredPositiveInt(event, 'publicationId');
+    _optionalPositiveInt(event, 'publisher');
+    _optionalNonNegativeInt(event, 'trustlevel');
+    _optionalWampString(event, 'topic');
+    _optionalJsonListFrom(event, 'arguments');
+    _optionalJsonMapFrom(event, 'argumentsKeywords');
+    _optionalJsonMapFrom(event, 'details');
+  }
+  return events;
 }
 
 McpJsonMap _jsonMapFrom(Object? value, {required String label}) {

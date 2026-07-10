@@ -79,6 +79,23 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened typed MCP WAMP event batch parsing in
+  `connectanum_client`. `McpStreamableWampEventBatch` now validates each
+  server-provided event map for positive `subscriptionId` and `publicationId`,
+  optional positive `publisher`, optional non-negative `trustlevel`, a
+  well-formed optional `topic`, and JSON-shaped `arguments`,
+  `argumentsKeywords`, and `details` fields before returning pub/sub batches
+  to consumer applications. Baseline `bin/test-fast` passed before the change;
+  the focused WAMP helper regression failed before the parser change because
+  an event missing `subscriptionId` still returned a typed event batch, then
+  passed after the implementation. The full Streamable HTTP client suite, full
+  MCP IO export test, MCP client-only consumer package smoke from
+  `bin/common.sh`, `dart analyze packages/connectanum_client
+  packages/connectanum_mcp`, `bash -n bin/common.sh`, formatting, `git diff
+  --check`, and `python3 tool/check_public_artifact_references.py` passed on
+  2026-07-10. Two initial full `bin/verify` attempts exposed stale synthetic
+  MCP smoke fixtures that emitted pub/sub events without WAMP event IDs; after
+  updating those fixtures, full local `bin/verify` passed on 2026-07-10.
 - 2026-07-10: Hardened typed MCP catalog cursor handling in
   `connectanum_client`. `McpStreamableHttpClient` now rejects invalid outgoing
   typed catalog cursor parameters before sending standard tools, Connectanum
@@ -92,7 +109,13 @@ decision because `connectanum_client` still depends on private
   implementation. The full Streamable HTTP client suite, `dart analyze
   packages/connectanum_client`, formatting, `git diff --check`, and `python3
   tool/check_public_artifact_references.py` passed on 2026-07-10. Full local
-  `bin/verify` passed after the change on 2026-07-10.
+  `bin/verify` passed after the change on 2026-07-10. Hosted evidence after
+  push: commit `9b8950c` passed GitHub CI run `29070252581`, Dart Package
+  Publish Dry Run `29070252588`, and WAMP Profile Benchmarks `29070252580` on
+  2026-07-10. The strict deployment chain audit passed for `add-router` at
+  `9b8950c` on 2026-07-10 with the known operator-owned findings that
+  `add-router` is unprotected and checked-in pub.dev publish workflows remain
+  undiscoverable until promoted through `master`.
 - 2026-07-10: Hardened HTTP auth challenge numeric response parsing in
   `connectanum_client`. `ConnectanumHttpAuthClient` now rejects present
   server-provided structured challenge `keylen`, `iterations`, and `memory`
