@@ -79,6 +79,18 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened HTTP auth challenge response parsing in
+  `connectanum_client`. `ConnectanumHttpAuthClient` now rejects malformed
+  server-provided structured challenge fields before passing them to
+  authentication handlers: `challenge`, `salt`, `channel_binding`, `kdf`, and
+  `nonce` must be strings when present, and `keylen`, `iterations`, and
+  `memory` must be integers when present. Arbitrary custom challenge extras
+  remain available to consumers. Baseline `bin/test-fast` passed before the
+  change; the focused malformed-challenge regression failed before the parser
+  change, then passed after the implementation. The full HTTP auth client
+  suite, `dart analyze packages/connectanum_client`, `git diff --check`, and
+  `python3 tool/check_public_artifact_references.py` passed on 2026-07-10.
+  Full local `bin/verify` passed after the change on 2026-07-10.
 - 2026-07-10: Hardened HTTP auth grant response metadata parsing in
   `connectanum_client`. `ConnectanumHttpAuthGrant.fromJson` now rejects
   server-provided `realm`, `authid`, `authrole`, `authmethod`, and
@@ -88,7 +100,13 @@ decision because `connectanum_client` still depends on private
   passed after the implementation; the full HTTP auth client suite, `dart
   analyze packages/connectanum_client`, `git diff --check`, `python3
   tool/check_public_artifact_references.py`, and full local `bin/verify`
-  passed on 2026-07-10.
+  passed on 2026-07-10. Hosted evidence after push: GitHub CI `29062773095`,
+  Dart Package Publish Dry Run `29062773127`, WAMP Profile Benchmarks
+  `29062773077`, and the deployment-chain audit with required latest CI plus
+  Dart package dry-run evidence passed for `5ef0362`; the audit still reports
+  the expected operator-owned gaps that `add-router` is unprotected and the
+  checked-in pub.dev workflows are not Actions-discoverable until promoted
+  through `master`.
 - 2026-07-10: Hardened typed MCP WAMP helper result parsing in
   `connectanum_client`. The WAMP result parsers now reject server-provided
   `topic` and `handle` fields that are empty or contain whitespace/control

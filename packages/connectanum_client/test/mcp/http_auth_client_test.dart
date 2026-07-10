@@ -498,6 +498,18 @@ void main() {
             const <String, Object?>{'state': 'state-1', 'challenge': 'bad'},
             contains('HTTP auth challenge must be a JSON object'),
           ),
+          (
+            const <String, Object?>{
+              'challenge': <String, Object?>{'challenge': 123},
+            },
+            contains('"challenge.challenge" must be a string'),
+          ),
+          (
+            const <String, Object?>{
+              'challenge': <String, Object?>{'iterations': '2'},
+            },
+            contains('"challenge.iterations" must be an integer'),
+          ),
         ];
 
         for (final (challengeOverrides, messageMatcher) in cases) {

@@ -232,7 +232,44 @@ final class ConnectanumHttpAuthClient {
     if (value == null) {
       return Extra();
     }
-    return Extra.fromMap(_jsonDynamicObject(value, 'HTTP auth challenge'));
+    final map = _jsonDynamicObject(value, 'HTTP auth challenge');
+    for (final key in [
+      'challenge',
+      'salt',
+      'channel_binding',
+      'kdf',
+      'nonce',
+    ]) {
+      _validateOptionalChallengeString(map, key);
+    }
+    for (final key in ['keylen', 'iterations', 'memory']) {
+      _validateOptionalChallengeInteger(map, key);
+    }
+    return Extra.fromMap(map);
+  }
+
+  static void _validateOptionalChallengeString(
+    Map<String, dynamic> map,
+    String key,
+  ) {
+    final value = map[key];
+    if (value != null && value is! String) {
+      throw FormatException(
+        'HTTP auth challenge "challenge.$key" must be a string.',
+      );
+    }
+  }
+
+  static void _validateOptionalChallengeInteger(
+    Map<String, dynamic> map,
+    String key,
+  ) {
+    final value = map[key];
+    if (value != null && value is! int) {
+      throw FormatException(
+        'HTTP auth challenge "challenge.$key" must be an integer.',
+      );
+    }
   }
 
   static Map<String, Object?> _jsonObject(Object? value, String label) {
