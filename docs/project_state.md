@@ -2,7 +2,31 @@
 
 Last updated: 2026-07-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: HTTP auth challenge response parsing now
+Last reviewed branch checkpoint: Typed MCP catalog cursor handling now rejects
+invalid pagination cursors before they cross the typed client boundary.
+`McpStreamableHttpClient` validates outgoing typed catalog cursor parameters
+for standard tools, Connectanum tool metadata, resources, resource templates,
+and prompts, including their direct JSON variants. It also rejects malformed
+server-provided `nextCursor` values before returning typed catalog pages to
+consumer applications.
+
+Baseline `bin/test-fast` passed before the typed MCP catalog cursor validation
+on 2026-07-10. The focused regression
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
+-n "typed catalog cursors" -r expanded` failed before the implementation
+because invalid outgoing cursors still completed typed catalog requests and
+malformed server `nextCursor` values still returned catalog pages, then passed
+after the parser/request guard change. Full `dart test
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r
+expanded`, `dart analyze packages/connectanum_client`, `dart format
+--output=none --set-exit-if-changed
+packages/connectanum_client/lib/src/mcp/streamable_http_client.dart
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart`, `git
+diff --check`, and `python3 tool/check_public_artifact_references.py` passed
+after the change on 2026-07-10. Full local `bin/verify` passed after the
+change on 2026-07-10.
+
+Previous branch checkpoint: HTTP auth challenge response parsing now
 rejects non-positive server-provided structured challenge integers before
 handing them to authentication handlers. `ConnectanumHttpAuthClient` now
 validates present HTTP auth challenge `keylen`, `iterations`, and `memory`
@@ -24,6 +48,15 @@ packages/connectanum_client/test/mcp/http_auth_client_test.dart`, `git diff
 --check`, and `python3 tool/check_public_artifact_references.py` passed after
 the change on 2026-07-10. Full local `bin/verify` passed after the change on
 2026-07-10.
+Hosted evidence after push: commit `1f3d07f` passed GitHub CI run
+`29067735810` (`Fast Checks` and `Full Verify`), Dart Package Publish Dry Run
+`29067735784`, and WAMP Profile Benchmarks `29067735773` on 2026-07-10. The
+deployment-chain audit `bin/audit-github-deployment-chain --branch add-router
+--run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed at `1f3d07f`; the audit
+still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: HTTP auth challenge response parsing now
 rejects malformed server-provided structured challenge fields before handing

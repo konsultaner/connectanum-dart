@@ -74,6 +74,25 @@ String _validatedMcpPromptName(String value, String name) {
   throw ArgumentError.value(value, name, 'MCP prompt name is required.');
 }
 
+String _validatedMcpCursor(String value, String name) {
+  if (value.isNotEmpty && !containsMcpWhitespaceOrControl(value)) {
+    return value;
+  }
+  throw ArgumentError.value(
+    value,
+    name,
+    'MCP cursor must be a non-empty string without whitespace or control '
+    'characters.',
+  );
+}
+
+McpJsonMap? _cursorParams(String? cursor) {
+  if (cursor == null) {
+    return null;
+  }
+  return <String, Object?>{'cursor': _validatedMcpCursor(cursor, 'cursor')};
+}
+
 bool _mcpProtocolVersionSupported(String value) =>
     _mcpSupportedProtocolVersions.contains(value);
 
@@ -498,7 +517,7 @@ final class McpStreamableHttpClient {
     final response = await request(
       'tools/list',
       id: id,
-      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      params: _cursorParams(cursor),
       streamable: streamable,
       protocolVersion: protocolVersion,
       headers: headers,
@@ -531,7 +550,7 @@ final class McpStreamableHttpClient {
     final response = await requestDirect(
       method,
       id: id,
-      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      params: _cursorParams(cursor),
       protocolVersion: protocolVersion,
       headers: headers,
     );
@@ -639,7 +658,7 @@ final class McpStreamableHttpClient {
     final response = await request(
       method,
       id: id,
-      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      params: _cursorParams(cursor),
       streamable: false,
       includeSession: false,
       protocolVersion: protocolVersion,
@@ -797,7 +816,7 @@ final class McpStreamableHttpClient {
     final response = await request(
       'resources/list',
       id: id,
-      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      params: _cursorParams(cursor),
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
       protocolVersion: protocolVersion,
@@ -859,7 +878,7 @@ final class McpStreamableHttpClient {
     final response = await request(
       'resources/templates/list',
       id: id,
-      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      params: _cursorParams(cursor),
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
       protocolVersion: protocolVersion,
@@ -894,7 +913,7 @@ final class McpStreamableHttpClient {
     final response = await request(
       'prompts/list',
       id: id,
-      params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+      params: _cursorParams(cursor),
       streamable: directJson ? false : streamable,
       includeSession: !directJson,
       protocolVersion: protocolVersion,
@@ -2349,10 +2368,19 @@ void _validateBase64Field(
 
 String? _nextCursorFrom(McpJsonMap result, {required String method}) {
   final nextCursor = result['nextCursor'];
-  if (nextCursor != null && nextCursor is! String) {
+  if (nextCursor == null) {
+    return null;
+  }
+  if (nextCursor is! String) {
     throw FormatException('$method result.nextCursor must be a string');
   }
-  return nextCursor as String?;
+  if (nextCursor.isEmpty || containsMcpWhitespaceOrControl(nextCursor)) {
+    throw FormatException(
+      '$method result.nextCursor must be a non-empty string without '
+      'whitespace or control characters',
+    );
+  }
+  return nextCursor;
 }
 
 McpJsonMap _jsonMapFrom(Object? value, {required String label}) {

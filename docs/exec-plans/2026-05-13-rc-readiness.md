@@ -79,6 +79,20 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened typed MCP catalog cursor handling in
+  `connectanum_client`. `McpStreamableHttpClient` now rejects invalid outgoing
+  typed catalog cursor parameters before sending standard tools, Connectanum
+  tool metadata, resources, resource templates, and prompts requests, including
+  direct JSON variants. It also rejects malformed server-provided `nextCursor`
+  values before returning typed catalog pages to consumer applications.
+  Baseline `bin/test-fast` passed before the change; the focused cursor
+  regression failed before the parser/request guard because invalid outgoing
+  cursors still completed typed catalog requests and malformed server
+  `nextCursor` values still returned pages, then passed after the
+  implementation. The full Streamable HTTP client suite, `dart analyze
+  packages/connectanum_client`, formatting, `git diff --check`, and `python3
+  tool/check_public_artifact_references.py` passed on 2026-07-10. Full local
+  `bin/verify` passed after the change on 2026-07-10.
 - 2026-07-10: Hardened HTTP auth challenge numeric response parsing in
   `connectanum_client`. `ConnectanumHttpAuthClient` now rejects present
   server-provided structured challenge `keylen`, `iterations`, and `memory`
@@ -90,7 +104,13 @@ decision because `connectanum_client` still depends on private
   implementation. The full HTTP auth client suite, `dart analyze
   packages/connectanum_client`, formatting, `git diff --check`, and `python3
   tool/check_public_artifact_references.py` passed on 2026-07-10. Full local
-  `bin/verify` passed after the change on 2026-07-10.
+  `bin/verify` passed after the change on 2026-07-10. Hosted evidence after
+  push: GitHub CI `29067735810`, Dart Package Publish Dry Run `29067735784`,
+  WAMP Profile Benchmarks `29067735773`, and the deployment-chain audit with
+  required latest CI plus Dart package dry-run evidence passed for `1f3d07f`;
+  the audit still reports the expected operator-owned gaps that `add-router`
+  is unprotected and the checked-in pub.dev workflows are not
+  Actions-discoverable until promoted through `master`.
 - 2026-07-10: Hardened HTTP auth challenge response parsing in
   `connectanum_client`. `ConnectanumHttpAuthClient` now rejects malformed
   server-provided structured challenge fields before passing them to

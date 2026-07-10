@@ -3302,6 +3302,79 @@ void main() {
       },
     );
 
+    test('rejects invalid typed catalog cursors before sending', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      for (final cursor in const [
+        '',
+        'bad cursor',
+        'bad\tcursor',
+        'bad\ncursor',
+        'bad\u0085cursor',
+      ]) {
+        await expectLater(
+          client.listTools(cursor: cursor, id: 'invalid-tools-cursor'),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.listToolsDirect(
+            cursor: cursor,
+            id: 'invalid-tools-cursor-direct',
+          ),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.listConnectanumToolsDirect(
+            cursor: cursor,
+            id: 'invalid-connectanum-tools-cursor',
+          ),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.listResources(cursor: cursor, id: 'invalid-resources-cursor'),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.listResourcesDirect(
+            cursor: cursor,
+            id: 'invalid-resources-cursor-direct',
+          ),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.listResourceTemplates(
+            cursor: cursor,
+            id: 'invalid-templates-cursor',
+          ),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.listResourceTemplatesDirect(
+            cursor: cursor,
+            id: 'invalid-templates-cursor-direct',
+          ),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.listPrompts(cursor: cursor, id: 'invalid-prompts-cursor'),
+          throwsArgumentError,
+        );
+        await expectLater(
+          client.listPromptsDirect(
+            cursor: cursor,
+            id: 'invalid-prompts-cursor-direct',
+          ),
+          throwsArgumentError,
+        );
+      }
+
+      expect(endpoint.requests, isEmpty);
+    });
+
     test('lists and calls tools through typed helpers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -4045,6 +4118,79 @@ void main() {
         );
       },
     );
+
+    test('rejects malformed typed catalog cursors from responses', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(client.close);
+
+      Future<void> expectCursorFormatError(
+        Future<Object?> Function() action,
+        String message,
+      ) async {
+        await expectLater(
+          action(),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      }
+
+      await expectCursorFormatError(
+        () => client.listTools(
+          id: 'invalid-tool-next-cursor',
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-invalid-tool-next-cursor': '1',
+          },
+        ),
+        'tools/list result.nextCursor',
+      );
+      await expectCursorFormatError(
+        () => client.listConnectanumToolsDirect(
+          id: 'invalid-connectanum-tool-next-cursor',
+          headers: const <String, String>{
+            'x-test-invalid-connectanum-tool-next-cursor': '1',
+          },
+        ),
+        'connectanum.tools.list result.nextCursor',
+      );
+      await expectCursorFormatError(
+        () => client.listResources(
+          id: 'invalid-resource-next-cursor',
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-invalid-resource-next-cursor': '1',
+          },
+        ),
+        'resources/list result.nextCursor',
+      );
+      await expectCursorFormatError(
+        () => client.listResourceTemplates(
+          id: 'invalid-template-next-cursor',
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-invalid-template-next-cursor': '1',
+          },
+        ),
+        'resources/templates/list result.nextCursor',
+      );
+      await expectCursorFormatError(
+        () => client.listPrompts(
+          id: 'invalid-prompt-next-cursor',
+          streamable: false,
+          headers: const <String, String>{
+            'x-test-invalid-prompt-next-cursor': '1',
+          },
+        ),
+        'prompts/list result.nextCursor',
+      );
+    });
 
     test(
       'rejects malformed typed resource and prompt detail responses',
@@ -6134,6 +6280,20 @@ final class _FakeMcpEndpoint {
     }
 
     if (method == 'connectanum.tools.list') {
+      if (request.headers.value(
+            'x-test-invalid-connectanum-tool-next-cursor',
+          ) ==
+          '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'tools': <Object?>[],
+            'nextCursor': 'bad cursor',
+          },
+        });
+        return;
+      }
       _writeJson(request, <String, Object?>{
         'jsonrpc': '2.0',
         'id': requestBody['id'],
@@ -6434,6 +6594,17 @@ final class _FakeMcpEndpoint {
     }
 
     if (method == 'resources/list') {
+      if (request.headers.value('x-test-invalid-resource-next-cursor') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'resources': <Object?>[],
+            'nextCursor': 'bad cursor',
+          },
+        });
+        return;
+      }
       if (request.headers.value('x-test-invalid-resource-catalog') == '1') {
         _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
@@ -6512,6 +6683,17 @@ final class _FakeMcpEndpoint {
     }
 
     if (method == 'resources/templates/list') {
+      if (request.headers.value('x-test-invalid-template-next-cursor') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'resourceTemplates': <Object?>[],
+            'nextCursor': 'bad cursor',
+          },
+        });
+        return;
+      }
       if (request.headers.value('x-test-invalid-template-catalog') == '1') {
         _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
@@ -6540,6 +6722,17 @@ final class _FakeMcpEndpoint {
     }
 
     if (method == 'prompts/list') {
+      if (request.headers.value('x-test-invalid-prompt-next-cursor') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'prompts': <Object?>[],
+            'nextCursor': 'bad cursor',
+          },
+        });
+        return;
+      }
       if (request.headers.value('x-test-invalid-prompt-catalog') == '1') {
         _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
@@ -6766,6 +6959,19 @@ final class _FakeMcpEndpoint {
         'id: session-1:post:2\n'
         'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
       );
+      return;
+    }
+
+    if (method == 'tools/list' &&
+        request.headers.value('x-test-invalid-tool-next-cursor') == '1') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'tools': <Object?>[],
+          'nextCursor': 'bad cursor',
+        },
+      });
       return;
     }
 
