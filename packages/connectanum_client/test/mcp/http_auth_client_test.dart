@@ -394,6 +394,26 @@ void main() {
             contains('"realm" must be a string'),
           ),
           (
+            const <String, Object?>{'realm': ''},
+            contains('"realm" must not be empty'),
+          ),
+          (
+            const <String, Object?>{'authid': 'bad authid'},
+            contains('"authid" must not contain whitespace'),
+          ),
+          (
+            const <String, Object?>{'authrole': 'role\nadmin'},
+            contains('"authrole" must not contain whitespace'),
+          ),
+          (
+            const <String, Object?>{'authmethod': 'ticket\t'},
+            contains('"authmethod" must not contain whitespace'),
+          ),
+          (
+            const <String, Object?>{'authprovider': 'provider\u0085local'},
+            contains('"authprovider" must not contain whitespace'),
+          ),
+          (
             const <String, Object?>{'access_token': 'bad token'},
             contains('"access_token" must not contain whitespace'),
           ),

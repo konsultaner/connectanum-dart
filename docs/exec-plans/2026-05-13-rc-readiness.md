@@ -79,6 +79,16 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened HTTP auth grant response metadata parsing in
+  `connectanum_client`. `ConnectanumHttpAuthGrant.fromJson` now rejects
+  server-provided `realm`, `authid`, `authrole`, `authmethod`, and
+  `authprovider` fields that are empty or contain whitespace/control
+  characters before returning bearer grants to consumer applications. The
+  focused malformed-grant regression failed before the parser change, then
+  passed after the implementation; the full HTTP auth client suite, `dart
+  analyze packages/connectanum_client`, `git diff --check`, `python3
+  tool/check_public_artifact_references.py`, and full local `bin/verify`
+  passed on 2026-07-10.
 - 2026-07-10: Hardened typed MCP WAMP helper result parsing in
   `connectanum_client`. The WAMP result parsers now reject server-provided
   `topic` and `handle` fields that are empty or contain whitespace/control
@@ -89,7 +99,13 @@ decision because `connectanum_client` still depends on private
   the parser change, then passed after the implementation; the full Streamable
   HTTP client suite, `dart analyze packages/connectanum_client`, `git diff
   --check`, `python3 tool/check_public_artifact_references.py`, and full local
-  `bin/verify` passed on 2026-07-10.
+  `bin/verify` passed on 2026-07-10. Hosted evidence after push: GitHub CI
+  `29058796269`, Dart Package Publish Dry Run `29058796268`, WAMP Profile
+  Benchmarks `29058796315`, and the deployment-chain audit with required
+  latest CI plus Dart package dry-run evidence passed for `713bc90`; the audit
+  still reports the expected operator-owned gaps that `add-router` is
+  unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+  until promoted through `master`.
 - 2026-07-10: Hardened typed MCP detail response parsing in
   `connectanum_client`. The Streamable HTTP client now rejects malformed
   `resources/read` content entries, `prompts/get` message/content blocks, and

@@ -389,10 +389,19 @@ final class ConnectanumHttpAuthGrant {
       return null;
     }
     final value = json[key];
-    if (value is String) {
-      return value;
+    if (value is! String) {
+      throw FormatException('HTTP auth response "$key" must be a string.');
     }
-    throw FormatException('HTTP auth response "$key" must be a string.');
+    if (value.isEmpty) {
+      throw FormatException('HTTP auth response "$key" must not be empty.');
+    }
+    if (containsMcpWhitespaceOrControl(value)) {
+      throw FormatException(
+        'HTTP auth response "$key" must not contain whitespace or control '
+        'characters.',
+      );
+    }
+    return value;
   }
 
   static Map<String, Object?> _detailsFromJson(Map<String, Object?> json) {

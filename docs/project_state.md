@@ -2,7 +2,23 @@
 
 Last updated: 2026-07-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: typed MCP WAMP helper result parsing now
+Last reviewed branch checkpoint: HTTP auth grant response parsing now rejects
+malformed server-provided auth/session identity metadata before returning
+bearer grants to consumer applications. `ConnectanumHttpAuthGrant.fromJson`
+now rejects `realm`, `authid`, `authrole`, `authmethod`, and `authprovider`
+fields that are empty or contain whitespace/control characters, matching the
+outgoing HTTP auth request argument guard.
+
+Baseline `bin/test-fast` passed before the HTTP auth grant metadata validation
+on 2026-07-10. The focused malformed-grant regression in
+`packages/connectanum_client/test/mcp/http_auth_client_test.dart` failed
+before the implementation, then passed after the parser change. Focused `dart
+test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r
+expanded`, `dart analyze packages/connectanum_client`, `git diff --check`,
+`python3 tool/check_public_artifact_references.py`, and full local
+`bin/verify` passed after the change on 2026-07-10.
+
+Previous branch checkpoint: typed MCP WAMP helper result parsing now
 rejects malformed server-provided WAMP identity strings before returning typed
 pub/sub results to consumer applications. `McpStreamableWampPublicationResult`,
 `McpStreamableWampSubscriptionResult`, `McpStreamableWampEventBatch`, and
@@ -19,6 +35,16 @@ packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r
 expanded`, `dart analyze packages/connectanum_client`, `git diff --check`,
 `python3 tool/check_public_artifact_references.py`, and full local
 `bin/verify` passed after the change on 2026-07-10.
+Hosted evidence after push: commit `713bc90` passed GitHub CI run
+`29058796269` (`Fast Checks` and `Full Verify`), Dart Package Publish Dry Run
+`29058796268`, and WAMP Profile Benchmarks `29058796315` on 2026-07-09 UTC /
+2026-07-10 CEST. The deployment-chain audit
+`bin/audit-github-deployment-chain --branch add-router --run-limit 1
+--require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed at `713bc90`; the audit
+still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: typed MCP detail helpers now reject malformed
 server-provided resource, prompt, and tool-call result payloads before
