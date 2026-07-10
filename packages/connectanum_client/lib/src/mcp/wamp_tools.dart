@@ -1041,7 +1041,7 @@ final class McpStreamableWampMetaCallResult {
     McpJsonMap structuredContent,
   ) {
     return McpStreamableWampMetaCallResult(
-      procedure: procedure,
+      procedure: _requiredWampMetaProcedure(procedure),
       arguments: _optionalJsonListFrom(structuredContent, 'arguments'),
       argumentsKeywords: _optionalJsonMapFrom(
         structuredContent,
@@ -1252,6 +1252,21 @@ String _requiredString(McpJsonMap json, String key) {
     throw FormatException(
       '$key must not contain whitespace or control characters',
     );
+  }
+  return value;
+}
+
+String _requiredWampMetaProcedure(String value) {
+  if (value.isEmpty) {
+    throw const FormatException('procedure must be a non-empty string');
+  }
+  if (containsMcpWhitespaceOrControl(value)) {
+    throw const FormatException(
+      'procedure must not contain whitespace or control characters',
+    );
+  }
+  if (!value.startsWith('wamp.') || value.length == 'wamp.'.length) {
+    throw const FormatException('procedure must be a WAMP meta procedure');
   }
   return value;
 }

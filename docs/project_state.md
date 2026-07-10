@@ -2,7 +2,27 @@
 
 Last updated: 2026-07-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: typed MCP WAMP event batch parsing now
+Last reviewed branch checkpoint: typed MCP WAMP meta result parsing now
+rejects malformed server-provided WAMP meta procedure identities before
+returning generic meta results to consumer applications.
+`McpStreamableWampMetaCallResult.fromJson` now validates result procedure
+names as non-empty, whitespace/control-free `wamp.*` identities with a
+non-empty suffix while preserving generic `arguments` and `argumentsKeywords`
+payloads.
+
+Baseline `bin/test-fast` passed before the WAMP meta result procedure
+validation on 2026-07-10. The focused regression
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
+-n "rejects invalid WAMP helper result fields" -r expanded` failed before the
+implementation because malformed and non-meta procedure names still returned
+typed meta results, then passed after the parser change. Full `dart test
+packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r
+expanded`, `dart analyze packages/connectanum_client`, formatting, `git diff
+--check`, and `python3 tool/check_public_artifact_references.py` passed after
+the change on 2026-07-10. Full local `bin/verify` passed after the change on
+2026-07-10.
+
+Previous branch checkpoint: typed MCP WAMP event batch parsing now
 rejects malformed nested event payloads before returning pub/sub batches to
 consumer applications. `McpStreamableWampEventBatch` now validates each
 server-provided event map for positive `subscriptionId` and `publicationId`
@@ -26,7 +46,14 @@ bin/common.sh`, formatting, `git diff --check`, and `python3
 tool/check_public_artifact_references.py` passed after the change on
 2026-07-10. Two initial full `bin/verify` attempts exposed stale synthetic MCP
 smoke fixtures that emitted pub/sub events without WAMP event IDs; after those
-fixtures were updated, full local `bin/verify` passed on 2026-07-10.
+fixtures were updated, full local `bin/verify` passed on 2026-07-10. Hosted
+evidence after push: commit `838f6d1` passed GitHub CI run `29073724035`
+(`Fast Checks` and `Full Verify`), Dart Package Publish Dry Run
+`29073724036`, and WAMP Profile Benchmarks `29073724056` on 2026-07-10. The
+strict deployment-chain audit passed for `add-router` at `838f6d1` on
+2026-07-10 with the known operator-owned findings that `add-router` is
+unprotected and checked-in pub.dev publish workflows remain undiscoverable
+until promoted through `master`.
 
 Previous branch checkpoint: Typed MCP catalog cursor handling now rejects
 invalid pagination cursors before they cross the typed client boundary.

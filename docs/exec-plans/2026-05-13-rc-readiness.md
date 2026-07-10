@@ -79,6 +79,19 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened typed MCP WAMP meta result parsing in
+  `connectanum_client`. `McpStreamableWampMetaCallResult.fromJson` now rejects
+  malformed server-provided WAMP meta procedure identities before returning
+  generic meta results to consumer applications, requiring non-empty,
+  whitespace/control-free `wamp.*` names with a non-empty suffix while
+  preserving generic `arguments` and `argumentsKeywords` payloads. Baseline
+  `bin/test-fast` passed before the change; the focused WAMP helper regression
+  failed before the parser change because malformed and non-meta procedure
+  names still returned typed meta results, then passed after the
+  implementation. The full Streamable HTTP client suite, `dart analyze
+  packages/connectanum_client`, formatting, `git diff --check`, `python3
+  tool/check_public_artifact_references.py`, and full local `bin/verify`
+  passed on 2026-07-10.
 - 2026-07-10: Hardened typed MCP WAMP event batch parsing in
   `connectanum_client`. `McpStreamableWampEventBatch` now validates each
   server-provided event map for positive `subscriptionId` and `publicationId`,
@@ -96,6 +109,13 @@ decision because `connectanum_client` still depends on private
   2026-07-10. Two initial full `bin/verify` attempts exposed stale synthetic
   MCP smoke fixtures that emitted pub/sub events without WAMP event IDs; after
   updating those fixtures, full local `bin/verify` passed on 2026-07-10.
+  Hosted evidence after push: GitHub CI `29073724035`, Dart Package Publish
+  Dry Run `29073724036`, WAMP Profile Benchmarks `29073724056`, and the
+  deployment-chain audit with required latest CI plus Dart package dry-run
+  evidence passed for `838f6d1`; the audit still reports the expected
+  operator-owned gaps that `add-router` is unprotected and the checked-in
+  pub.dev workflows are not Actions-discoverable until promoted through
+  `master`.
 - 2026-07-10: Hardened typed MCP catalog cursor handling in
   `connectanum_client`. `McpStreamableHttpClient` now rejects invalid outgoing
   typed catalog cursor parameters before sending standard tools, Connectanum

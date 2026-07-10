@@ -4517,6 +4517,27 @@ void main() {
 
     test('rejects invalid WAMP helper result fields', () {
       expect(
+        () => McpStreamableWampMetaCallResult.fromJson(
+          'bad procedure',
+          const <String, Object?>{},
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampMetaCallResult.fromJson(
+          'app.session.count',
+          const <String, Object?>{},
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampMetaCallResult.fromJson(
+          'wamp.',
+          const <String, Object?>{},
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
         () => McpStreamableWampPublicationResult.fromJson(
           const <String, Object?>{'topic': 'bad topic', 'acknowledged': true},
         ),
