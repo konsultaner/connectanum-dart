@@ -3,6 +3,29 @@
 Last updated: 2026-07-10
 Current branch: `add-router`
 Last reviewed branch checkpoint: HTTP auth challenge response parsing now
+rejects non-positive server-provided structured challenge integers before
+handing them to authentication handlers. `ConnectanumHttpAuthClient` now
+validates present HTTP auth challenge `keylen`, `iterations`, and `memory`
+fields as positive integers, preserving omitted values for existing
+authenticator defaults and preserving arbitrary custom challenge extras.
+
+Baseline `bin/test-fast` passed before the HTTP auth positive challenge
+integer validation on 2026-07-10. The focused malformed-challenge regression
+in `packages/connectanum_client/test/mcp/http_auth_client_test.dart` failed
+before the implementation because `challenge.keylen: 0` still completed an
+auth grant, then passed after the parser change. Focused `dart test
+packages/connectanum_client/test/mcp/http_auth_client_test.dart -n "throws
+format exceptions for malformed auth challenge responses" -r expanded`, full
+`dart test packages/connectanum_client/test/mcp/http_auth_client_test.dart -r
+expanded`, `dart analyze packages/connectanum_client`, `dart format
+--output=none --set-exit-if-changed
+packages/connectanum_client/lib/src/mcp/http_auth_client.dart
+packages/connectanum_client/test/mcp/http_auth_client_test.dart`, `git diff
+--check`, and `python3 tool/check_public_artifact_references.py` passed after
+the change on 2026-07-10. Full local `bin/verify` passed after the change on
+2026-07-10.
+
+Previous branch checkpoint: HTTP auth challenge response parsing now
 rejects malformed server-provided structured challenge fields before handing
 them to authentication handlers. `ConnectanumHttpAuthClient` now validates
 HTTP auth challenge `challenge`, `salt`, `channel_binding`, `kdf`, and
@@ -22,6 +45,15 @@ packages/connectanum_client/test/mcp/http_auth_client_test.dart -r expanded`,
 `dart analyze packages/connectanum_client`, `git diff --check`, and `python3
 tool/check_public_artifact_references.py` passed after the change on
 2026-07-10. Full local `bin/verify` passed after the change on 2026-07-10.
+Hosted evidence after push: commit `0aba5e5` passed GitHub CI run
+`29065329830` (`Fast Checks` and `Full Verify`), Dart Package Publish Dry Run
+`29065329790`, and WAMP Profile Benchmarks `29065329775` on 2026-07-10. The
+deployment-chain audit `bin/audit-github-deployment-chain --branch add-router
+--run-limit 1 --require-clean-latest-ci --show-dart-package-publish-dry-run
+--require-clean-dart-package-publish-dry-run` passed at `0aba5e5`; the audit
+still reports the expected operator-owned gaps that `add-router` is
+unprotected and the checked-in pub.dev workflows are not Actions-discoverable
+until promoted through `master`.
 
 Previous branch checkpoint: HTTP auth grant response parsing now rejects
 malformed server-provided auth/session identity metadata before returning

@@ -270,6 +270,11 @@ final class ConnectanumHttpAuthClient {
         'HTTP auth challenge "challenge.$key" must be an integer.',
       );
     }
+    if (value is int && value <= 0) {
+      throw FormatException(
+        'HTTP auth challenge "challenge.$key" must be a positive integer.',
+      );
+    }
   }
 
   static Map<String, Object?> _jsonObject(Object? value, String label) {

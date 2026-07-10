@@ -79,6 +79,18 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened HTTP auth challenge numeric response parsing in
+  `connectanum_client`. `ConnectanumHttpAuthClient` now rejects present
+  server-provided structured challenge `keylen`, `iterations`, and `memory`
+  values unless they are positive integers, while preserving omitted values for
+  existing authenticator defaults and preserving arbitrary custom challenge
+  extras. Baseline `bin/test-fast` passed before the change; the focused
+  malformed-challenge regression failed before the parser change because
+  `challenge.keylen: 0` still completed an auth grant, then passed after the
+  implementation. The full HTTP auth client suite, `dart analyze
+  packages/connectanum_client`, formatting, `git diff --check`, and `python3
+  tool/check_public_artifact_references.py` passed on 2026-07-10. Full local
+  `bin/verify` passed after the change on 2026-07-10.
 - 2026-07-10: Hardened HTTP auth challenge response parsing in
   `connectanum_client`. `ConnectanumHttpAuthClient` now rejects malformed
   server-provided structured challenge fields before passing them to
@@ -90,7 +102,14 @@ decision because `connectanum_client` still depends on private
   change, then passed after the implementation. The full HTTP auth client
   suite, `dart analyze packages/connectanum_client`, `git diff --check`, and
   `python3 tool/check_public_artifact_references.py` passed on 2026-07-10.
-  Full local `bin/verify` passed after the change on 2026-07-10.
+  Full local `bin/verify` passed after the change on 2026-07-10. Hosted
+  evidence after push: GitHub CI `29065329830`, Dart Package Publish Dry Run
+  `29065329790`, WAMP Profile Benchmarks `29065329775`, and the
+  deployment-chain audit with required latest CI plus Dart package dry-run
+  evidence passed for `0aba5e5`; the audit still reports the expected
+  operator-owned gaps that `add-router` is unprotected and the checked-in
+  pub.dev workflows are not Actions-discoverable until promoted through
+  `master`.
 - 2026-07-10: Hardened HTTP auth grant response metadata parsing in
   `connectanum_client`. `ConnectanumHttpAuthGrant.fromJson` now rejects
   server-provided `realm`, `authid`, `authrole`, `authmethod`, and

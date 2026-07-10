@@ -510,6 +510,24 @@ void main() {
             },
             contains('"challenge.iterations" must be an integer'),
           ),
+          (
+            const <String, Object?>{
+              'challenge': <String, Object?>{'keylen': 0},
+            },
+            contains('"challenge.keylen" must be a positive integer'),
+          ),
+          (
+            const <String, Object?>{
+              'challenge': <String, Object?>{'iterations': 0},
+            },
+            contains('"challenge.iterations" must be a positive integer'),
+          ),
+          (
+            const <String, Object?>{
+              'challenge': <String, Object?>{'memory': -1},
+            },
+            contains('"challenge.memory" must be a positive integer'),
+          ),
         ];
 
         for (final (challengeOverrides, messageMatcher) in cases) {
