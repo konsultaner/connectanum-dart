@@ -2,7 +2,25 @@
 
 Last updated: 2026-07-10
 Current branch: `add-router`
-Last reviewed branch checkpoint: typed MCP WAMP meta result parsing now
+Last reviewed branch checkpoint: typed MCP content block response parsing now
+rejects unsupported server-provided content block types before typed tool and
+prompt results reach consumer applications. `McpStreamableHttpClient` now
+accepts only the package-supported MCP content block shapes (`text`, `image`,
+`audio`, `resource_link`, and `resource`) when parsing typed `tools/call` and
+`prompts/get` responses.
+
+Baseline `bin/test-fast` passed before the content block response validation
+on 2026-07-10. The focused regression
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart
+-n "rejects malformed typed resource and prompt detail responses|rejects
+malformed typed tool call responses"` failed before the implementation because
+unknown content block types still returned typed prompt/tool results, then
+passed after the parser change. Full
+`dart test packages/connectanum_client/test/mcp/streamable_http_client_test.dart`
+passed after the change on 2026-07-10. Full local `bin/verify` passed after
+the change on 2026-07-10.
+
+Previous branch checkpoint: typed MCP WAMP meta result parsing now
 rejects malformed server-provided WAMP meta procedure identities before
 returning generic meta results to consumer applications.
 `McpStreamableWampMetaCallResult.fromJson` now validates result procedure
@@ -20,7 +38,13 @@ packages/connectanum_client/test/mcp/streamable_http_client_test.dart -r
 expanded`, `dart analyze packages/connectanum_client`, formatting, `git diff
 --check`, and `python3 tool/check_public_artifact_references.py` passed after
 the change on 2026-07-10. Full local `bin/verify` passed after the change on
-2026-07-10.
+2026-07-10. Hosted evidence after push: commit `92b092f` passed GitHub CI run
+`29076833000` (`Fast Checks` and `Full Verify`), Dart Package Publish Dry Run
+`29076832997`, and WAMP Profile Benchmarks `29076832988` on 2026-07-10. The
+strict deployment-chain audit passed for `add-router` at `92b092f` on
+2026-07-10 with the known operator-owned findings that `add-router` is
+unprotected and checked-in pub.dev publish workflows remain undiscoverable
+until promoted through `master`.
 
 Previous branch checkpoint: typed MCP WAMP event batch parsing now
 rejects malformed nested event payloads before returning pub/sub batches to

@@ -79,6 +79,16 @@ decision because `connectanum_client` still depends on private
 
 ## Decision Log
 
+- 2026-07-10: Hardened typed MCP content block response parsing in
+  `connectanum_client`. `McpStreamableHttpClient` now rejects unsupported
+  server-provided content block types before typed tool and prompt results
+  reach consumer applications, accepting only the package-supported `text`,
+  `image`, `audio`, `resource_link`, and `resource` shapes. Baseline
+  `bin/test-fast` passed before the change; the focused typed
+  resource/prompt/tool regression failed before the implementation because
+  unknown content block types still returned typed prompt/tool results, then
+  passed after the parser change. The full Streamable HTTP client suite and
+  full local `bin/verify` passed after the change on 2026-07-10.
 - 2026-07-10: Hardened typed MCP WAMP meta result parsing in
   `connectanum_client`. `McpStreamableWampMetaCallResult.fromJson` now rejects
   malformed server-provided WAMP meta procedure identities before returning
@@ -91,7 +101,13 @@ decision because `connectanum_client` still depends on private
   implementation. The full Streamable HTTP client suite, `dart analyze
   packages/connectanum_client`, formatting, `git diff --check`, `python3
   tool/check_public_artifact_references.py`, and full local `bin/verify`
-  passed on 2026-07-10.
+  passed on 2026-07-10. Hosted evidence after push: GitHub CI `29076833000`,
+  Dart Package Publish Dry Run `29076832997`, WAMP Profile Benchmarks
+  `29076832988`, and the deployment-chain audit with required latest CI plus
+  Dart package dry-run evidence passed for `92b092f`; the audit still reports
+  the expected operator-owned gaps that `add-router` is unprotected and the
+  checked-in pub.dev workflows are not Actions-discoverable until promoted
+  through `master`.
 - 2026-07-10: Hardened typed MCP WAMP event batch parsing in
   `connectanum_client`. `McpStreamableWampEventBatch` now validates each
   server-provided event map for positive `subscriptionId` and `publicationId`,

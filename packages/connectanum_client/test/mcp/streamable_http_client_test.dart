@@ -4262,6 +4262,18 @@ void main() {
           ),
           'prompts/get result message.content',
         );
+        await expectDetailFormatError(
+          () => client.getPrompt(
+            'summarize',
+            id: 'invalid-prompt-content-type',
+            arguments: {'topic': 'mcp'},
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-invalid-prompt-content-type': '1',
+            },
+          ),
+          'prompts/get result message.content.type',
+        );
       },
     );
 
@@ -4297,6 +4309,16 @@ void main() {
           },
         ),
         'tools/call result.content',
+      );
+      await expectToolFormatError(
+        () => client.callTool(
+          'app.echo',
+          id: 'invalid-tool-result-content-type',
+          headers: const <String, String>{
+            'x-test-invalid-tool-result-content-type': '1',
+          },
+        ),
+        'tools/call result.content.type',
       );
       await expectToolFormatError(
         () => client.callToolDirect(
@@ -6529,6 +6551,23 @@ final class _FakeMcpEndpoint {
         });
         return;
       }
+      if (request.headers.value('x-test-invalid-tool-result-content-type') ==
+          '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'content': <Object?>[
+              <String, Object?>{
+                'type': 'unknown',
+                'value': 'not a supported content block',
+              },
+            ],
+            'isError': false,
+          },
+        });
+        return;
+      }
       if (request.headers.value('x-test-invalid-tool-result-is-error') == '1') {
         _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',
@@ -6886,6 +6925,25 @@ final class _FakeMcpEndpoint {
               <String, Object?>{
                 'role': 'user',
                 'content': 'Summarize ${arguments['topic']}',
+              },
+            ],
+          },
+        });
+        return;
+      }
+      if (request.headers.value('x-test-invalid-prompt-content-type') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'description': 'Summarizes a topic.',
+            'messages': <Object?>[
+              <String, Object?>{
+                'role': 'user',
+                'content': <String, Object?>{
+                  'type': 'unknown',
+                  'value': 'not a supported content block',
+                },
               },
             ],
           },

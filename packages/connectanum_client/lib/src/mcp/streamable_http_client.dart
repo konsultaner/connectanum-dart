@@ -2287,6 +2287,10 @@ void _validateContentBlock(McpJsonMap content, {required String label}) {
       }
       _requireNonEmptyStringField(content, 'name', label: label);
       break;
+    default:
+      throw FormatException(
+        '$label.type must be a supported content block type',
+      );
   }
 }
 
