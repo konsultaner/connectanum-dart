@@ -21,9 +21,11 @@ operational statistics, and production-ready payload end-to-end encryption.
   by the current Advanced Profile draft.
 - `REGISTER.Options.forward_timeout` allows a capable callee to own timeout
   handling; Dealer-owned timeout remains the safe default.
-- The router serves and announces the standard Session, Registration, and
-  Subscription Meta API procedures and lifecycle events in the caller's realm,
-  subject to realm authorization and visibility rules.
+- The router serves the standard statistics-oriented Session, Registration,
+  and Subscription Meta API read procedures and Registration/Subscription
+  lifecycle events in the caller's realm, subject to realm authorization and
+  visibility rules. It announces only the Meta API feature groups whose full
+  advertised contract is implemented.
 - Payload E2EE remains router-opaque and uses a versioned Connectanum profile
   over standard WAMP PPT fields. Release support includes CBOR,
   XSalsa20-Poly1305, AES-256-GCM, deterministic key selection/rotation rules,
@@ -129,5 +131,12 @@ operational statistics, and production-ready payload end-to-end encryption.
   payload regressions. The run covered formatting, Rust/FFI, all Dart packages,
   isolated package consumers, live router-hosted MCP and benchmark workloads,
   the complete 374-test router suite, and Chrome/Dart2Wasm WebSocket coverage.
-  Hosted deployment-chain evidence remains pending until this implementation
+  The implementation was committed as `232018a` and pushed to GitHub.
+- 2026-07-15: Hosted WAMP Profile Benchmarks run `29415984452` exposed a native
+  JSON client-binding defect in the mixed MessagePack-to-JSON E2EE pub/sub row:
+  JSON WAMP binary sentinel strings were not restored to byte sequences before
+  E2EE handling. The native binder now normalizes binary sentinels recursively
+  for full and lazy payload fragments. Its focused 31-test suite, the complete
+  canonical WAMP profile validator, and a second full `bin/verify` all pass.
+  Replacement hosted deployment-chain evidence is pending after the correction
   is pushed.

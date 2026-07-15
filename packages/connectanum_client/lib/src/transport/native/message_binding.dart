@@ -7,6 +7,9 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'message_protocol.dart';
 
+const String _jsonBinaryPrefix = '\u0000';
+const String _jsonEscapedBinaryPrefix = '\\u0000';
+
 class NativeSessionMessage extends AbstractMessageWithPayload {
   NativeSessionMessage({
     required this.serializer,
@@ -403,7 +406,7 @@ bool _supportsSessionMetadataMessage(int code) {
 Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {
   switch (serializer) {
     case NativeMessageSerializer.json:
-      return jsonDecode(utf8.decode(bytes));
+      return _normalizeJsonBinaryPayload(jsonDecode(utf8.decode(bytes)));
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
@@ -884,7 +887,7 @@ Map<String, dynamic> _decodeKeywordMap(
 Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
   switch (serializer) {
     case NativeMessageSerializer.json:
-      return jsonDecode(utf8.decode(bytes));
+      return _normalizeJsonBinaryPayload(jsonDecode(utf8.decode(bytes)));
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
@@ -895,6 +898,28 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
         'Serializer ${serializer.name} is not supported for payload decoding',
       );
   }
+}
+
+Object? _normalizeJsonBinaryPayload(Object? value) {
+  if (value is String &&
+      (value.startsWith(_jsonBinaryPrefix) ||
+          value.startsWith(_jsonEscapedBinaryPrefix))) {
+    final prefix = value.startsWith(_jsonBinaryPrefix)
+        ? _jsonBinaryPrefix
+        : _jsonEscapedBinaryPrefix;
+    return Uint8List.fromList(base64.decode(value.substring(prefix.length)));
+  }
+  if (value is List) {
+    return value
+        .map<Object?>((entry) => _normalizeJsonBinaryPayload(entry))
+        .toList(growable: false);
+  }
+  if (value is Map) {
+    return value.map<Object?, Object?>(
+      (key, entry) => MapEntry(key, _normalizeJsonBinaryPayload(entry)),
+    );
+  }
+  return value;
 }
 
 Roles? _mapRoles(Map<String, dynamic>? rolesMap) {

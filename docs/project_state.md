@@ -8,8 +8,13 @@ invocations, Dealer/Callee call timeout lifecycles, routed standard WAMP Meta
 APIs and lifecycle events needed for operational statistics, and a
 production-ready versioned payload E2EE profile. All four capability slices
 are implemented and pass focused unit, integration, native, and benchmark
-verification. Full local `bin/verify` passed on 2026-07-15; hosted
-deployment-chain evidence remains pending until the implementation is pushed.
+verification. The implementation was committed as `232018a` and pushed on
+2026-07-15. Hosted WAMP Profile Benchmarks run `29415984452` then exposed a
+native JSON client-binding defect in one mixed MessagePack-to-JSON E2EE pub/sub
+row: WAMP binary sentinel strings were not restored to byte sequences before
+E2EE handling. The binder correction passes its focused 31-test suite, the
+complete canonical WAMP profile validator, and a second full local
+`bin/verify`; replacement hosted deployment-chain evidence remains pending.
 
 Pre-change `bin/test-fast` passed on 2026-07-15. The routed statistics Meta API
 slice is now implemented and verified: all fifteen standard Session,
@@ -41,7 +46,10 @@ tests including live release-feature workloads, isolated package-consumer and
 router-hosted MCP smokes, the complete 374-test router suite, focused native
 forwarding regressions, and Chrome/Dart2Wasm WebSocket coverage. The run also
 confirmed the final cross-serializer binary payload fixes for generic byte
-lists and MessagePack `Uint8List` preservation.
+lists and MessagePack `Uint8List` preservation. After the first hosted WAMP
+run exposed the native JSON binary-sentinel gap, the complete canonical WAMP
+validator passed all smoke, secure, control, E2EE, throughput, fan-out, and
+final-release-feature gates locally, and the full verifier passed again.
 
 The current Advanced Profile draft specifies progressive invocation and
 timeout wire/state behavior but classifies both as alpha; its payload E2EE

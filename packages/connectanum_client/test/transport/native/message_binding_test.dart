@@ -391,6 +391,35 @@ void main() {
       expect(event.argumentsKeywords, {'flag': true});
     });
 
+    test('normalizes binary JSON arguments on lazy native events', () {
+      final encrypted = Uint8List.fromList([0, 1, 2, 127, 128, 255]);
+      final message = bindSessionMessage(
+        NativeMessageSerializer.json,
+        Uint8List.fromList([0x00]),
+        metadata: _metadata(
+          messageCode: MessageTypes.codeEvent,
+          primaryId: 7,
+          secondaryId: 99,
+          flags:
+              NativeMessageMetadata.flagMetadataBind |
+              NativeMessageMetadata.flagDirectBind,
+          stringB: 'wamp',
+          stringC: 'cbor',
+          stringD: 'xsalsa20poly1305',
+          stringE: 'benchmark-key',
+        ),
+        argsBytes: Uint8List.fromList(
+          utf8.encode(jsonEncode(['\u0000${base64.encode(encrypted)}'])),
+        ),
+      );
+
+      expect(message, isA<NativeSessionMessage>());
+      final event = materializeSessionMessage(message) as Event;
+      expect(event.wireArguments, hasLength(1));
+      expect(event.wireArguments!.single, isA<Uint8List>());
+      expect(event.wireArguments!.single, orderedEquals(encrypted));
+    });
+
     test(
       'metadata binds JSON events with custom details without full frame',
       () {
